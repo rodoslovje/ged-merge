@@ -73,9 +73,97 @@ button {
   color: var(--muted);
 }
 
+/* --- home person selector --- */
+.home-selector {
+  margin-top: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  position: relative;
+}
+.home-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.home-current {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.home-selector input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 10px;
+}
+.home-options {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 5;
+}
+.home-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.home-option:hover { background: var(--panel); }
+.home-option.active { color: var(--accent); }
+.home-empty { padding: 6px 8px; }
+
+/* --- matching indicator --- */
+.matching {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* --- match results --- */
 .results {
   margin-top: 28px;
+}
+
+.dist {
+  flex: none;
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .tabs {

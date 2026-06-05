@@ -12,7 +12,13 @@ export interface ParseRequest {
   buffer: ArrayBuffer;
 }
 
-export type WorkerRequest = ParseRequest;
+/** Choose the home person in the master; triggers a re-ranked match result. */
+export interface SetHomeRequest {
+  type: "setHome";
+  id: string;
+}
+
+export type WorkerRequest = ParseRequest | SetHomeRequest;
 
 export interface ParseSuccess {
   type: "parsed";
@@ -21,6 +27,8 @@ export interface ParseSuccess {
   dataset: Dataset;
   /** Present for the compare slot once it has been normalized to the master. */
   report?: NormalizationReport;
+  /** For the master slot: a default home person (HEAD._ROOT or first INDI). */
+  suggestedHomeId?: string;
 }
 
 export interface ParseFailure {
@@ -30,10 +38,15 @@ export interface ParseFailure {
   message: string;
 }
 
+/** Emitted right before a (re-)match begins, so the UI can show progress. */
+export interface MatchProgress {
+  type: "matching";
+}
+
 /** Emitted once both master and compare are loaded. */
 export interface MatchSuccess {
   type: "matched";
   result: MatchResult;
 }
 
-export type WorkerResponse = ParseSuccess | ParseFailure | MatchSuccess;
+export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess;

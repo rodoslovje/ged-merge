@@ -22,6 +22,8 @@ export interface IndividualCandidate {
   /** Display labels resolved at scoring time. */
   masterLabel: string;
   compareLabel: string;
+  /** Hops from the home person to the master individual (set during ranking). */
+  distance?: number;
 }
 
 export interface FamilyCandidate {
@@ -32,6 +34,8 @@ export interface FamilyCandidate {
   components: ScoreComponent[];
   masterLabel: string;
   compareLabel: string;
+  /** Minimum distance of either spouse to the home person. */
+  distance?: number;
 }
 
 export interface MatchResult {

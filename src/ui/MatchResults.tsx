@@ -50,6 +50,9 @@ function CandidateRow({ candidate }: { candidate: IndividualCandidate | FamilyCa
     <li className={`candidate ${candidate.category}`}>
       <button className="candidate-head" onClick={() => setOpen((o) => !o)}>
         <span className={`badge ${candidate.category}`}>{candidate.score.toFixed(1)}</span>
+        <span className="dist" title="Distance from home person">
+          {candidate.distance === undefined ? "—" : `↺${candidate.distance}`}
+        </span>
         <span className="labels">
           <strong>{candidate.compareLabel}</strong>
           <span className="muted"> ↔ </span>

@@ -6,24 +6,38 @@ import { inferMasterProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
+import { applyDistanceRanking } from "../match/distance";
+import type { MatchResult } from "../match/types";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
 /**
- * Off-main-thread GEDCOM parsing and normalization.
+ * Off-main-thread GEDCOM parsing, normalization, and matching.
  *
- * The worker keeps a little state so the compare file can be normalized to the
- * master regardless of load order:
- *  - load master  -> infer profile; if a compare is already loaded, re-normalize
- *    it and emit an updated result.
+ * The worker keeps state so the compare file normalizes to the master and the
+ * results re-rank against the home person, regardless of action order:
+ *  - load master  -> infer profile + suggest a home person; re-normalize any
+ *    compare already loaded.
  *  - load compare -> normalize against the profile if the master is loaded.
+ *  - setHome       -> re-rank the last match result by distance to that person.
  */
 let profile: MasterProfile | undefined;
 let masterDataset: Dataset | undefined;
 let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
+let homeId: string | undefined;
+let lastResult: MatchResult | undefined;
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+  if (req.type === "setHome") {
+    homeId = req.id;
+    if (lastResult && masterDataset) {
+      post({ type: "matching" });
+      lastResult = applyDistanceRanking(lastResult, masterDataset, homeId);
+      post({ type: "matched", result: lastResult });
+    }
+    return;
+  }
   if (req.type !== "parse") return;
 
   try {
@@ -32,7 +46,14 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (req.role === "master") {
       masterDataset = dataset;
       profile = inferMasterProfile(dataset);
-      post({ type: "parsed", role: "master", fileName: req.fileName, dataset });
+      homeId = suggestHome(dataset);
+      post({
+        type: "parsed",
+        role: "master",
+        fileName: req.fileName,
+        dataset,
+        ...(homeId ? { suggestedHomeId: homeId } : {}),
+      });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
@@ -64,11 +85,23 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   post({ type: "parsed", role: "compare", fileName, dataset, report });
 }
 
-/** Run matching once both sides are available. */
+/** Run matching once both sides are available, ranked if a home person is set. */
 function maybeMatch(): void {
   if (!masterDataset || !compareNormalized) return;
-  const result = matchDatasets(masterDataset, compareNormalized);
+  post({ type: "matching" });
+  let result = matchDatasets(masterDataset, compareNormalized);
+  if (homeId) result = applyDistanceRanking(result, masterDataset, homeId);
+  lastResult = result;
   post({ type: "matched", result });
+}
+
+/** Default home person: HEAD._ROOT pointer if present, else the first INDI. */
+function suggestHome(ds: Dataset): string | undefined {
+  const head = ds.records.find((r) => r.tag === "HEAD");
+  const root = head?.children.find((c) => c.tag === "_ROOT")?.value?.trim();
+  if (root && ds.individuals.has(root)) return root;
+  const first = ds.individuals.keys().next();
+  return first.done ? undefined : first.value;
 }
 
 function post(res: WorkerResponse): void {
