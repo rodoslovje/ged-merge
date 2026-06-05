@@ -45,16 +45,87 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
     case "ANSEL":
       return { text: decodeAnsel(bytes, warnings), charset: "ANSEL", warnings };
+    case "WINDOWS-1250":
+      return { text: decodeWindows1250(bytes), charset: "WINDOWS-1250", warnings };
+    case "WINDOWS-1252":
+      return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
     case "ANSI":
-      return { text: decodeWindows1252(bytes), charset: "ANSI", warnings };
+      // "ANSI" is locale-dependent: it usually means Windows-1252 (Western), but
+      // Central-European exporters (Brother's Keeper etc.) emit Windows-1250.
+      // Detect which from the byte profile.
+      return decodeWindowsAnsi(bytes, warnings, "CHAR ANSI");
     case "ASCII":
+      // ASCII shouldn't carry high bytes; when it does the label is wrong, so
+      // fall back to the same Windows-codepage detection.
+      if (hasHighBytes(bytes)) {
+        return decodeWindowsAnsi(bytes, warnings, "CHAR ASCII with non-ASCII bytes");
+      }
       return { text: decodeAscii(bytes), charset: "ASCII", warnings };
     default:
-      warnings.push({
-        kind: "encoding",
-        message: "Could not determine encoding; defaulting to UTF-8.",
-      });
-      return { text: decodeUtf8(bytes), charset: "UTF-8", warnings };
+      // No usable CHAR: prefer UTF-8 when the bytes are valid UTF-8; otherwise
+      // it's some legacy 8-bit encoding, so detect the Windows codepage.
+      if (!hasHighBytes(bytes) || isValidUtf8(bytes)) {
+        return { text: decodeUtf8(bytes), charset: "UTF-8", warnings };
+      }
+      return decodeWindowsAnsi(bytes, warnings, "no CHAR header; bytes are not valid UTF-8");
+  }
+}
+
+/**
+ * Decode an "ANSI"/legacy 8-bit buffer, choosing between Windows-1250 and
+ * Windows-1252. The two share most code points but differ on the 0xC0-0xFF
+ * Latin letters; the giveaway for Central-European text is the presence of the
+ * caron letters Š/š/Ž/ž (and code points left undefined by Windows-1252).
+ */
+function decodeWindowsAnsi(
+  bytes: Uint8Array,
+  warnings: ParseWarning[],
+  reason: string,
+): DecodeResult {
+  const cp1250 = looksLikeWindows1250(bytes);
+  if (cp1250) {
+    warnings.push({
+      kind: "encoding",
+      message: `${reason}: detected Central-European text, decoding as Windows-1250.`,
+    });
+    return { text: decodeWindows1250(bytes), charset: "WINDOWS-1250", warnings };
+  }
+  if (reason !== "CHAR ANSI") {
+    warnings.push({ kind: "encoding", message: `${reason}: decoding as Windows-1252.` });
+  }
+  return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
+}
+
+/**
+ * Bytes that signal Windows-1250 (Central European). Š/š/Ž/ž are caron letters
+ * that essentially only occur in Central/SE-European text, and 0x81/0x8D/0x8F/
+ * 0x90/0x9D are undefined in Windows-1252 but are valid letters in 1250.
+ */
+const CP1250_MARKERS = new Set<number>([
+  0x8a, 0x9a, 0x8e, 0x9e, // Š š Ž ž
+  0x81, 0x8d, 0x8f, 0x90, 0x9d, // undefined in Windows-1252
+]);
+
+function looksLikeWindows1250(bytes: Uint8Array): boolean {
+  for (const b of bytes) {
+    if (CP1250_MARKERS.has(b)) return true;
+  }
+  return false;
+}
+
+function hasHighBytes(bytes: Uint8Array): boolean {
+  for (const b of bytes) {
+    if (b >= 0x80) return true;
+  }
+  return false;
+}
+
+function isValidUtf8(bytes: Uint8Array): boolean {
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -70,7 +141,9 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   if (v === "UNICODE" || v === "UTF-16") return "UNICODE";
   if (v === "ANSEL") return "ANSEL";
   if (v === "ASCII") return "ASCII";
-  if (v === "ANSI" || v === "WINDOWS-1252" || v === "CP1252") return "ANSI";
+  if (v === "WINDOWS-1250" || v === "CP1250") return "WINDOWS-1250";
+  if (v === "WINDOWS-1252" || v === "CP1252") return "WINDOWS-1252";
+  if (v === "ANSI") return "ANSI";
   return undefined;
 }
 
@@ -84,6 +157,10 @@ function decodeAscii(bytes: Uint8Array): string {
 
 function decodeWindows1252(bytes: Uint8Array): string {
   return new TextDecoder("windows-1252").decode(bytes);
+}
+
+function decodeWindows1250(bytes: Uint8Array): string {
+  return new TextDecoder("windows-1250").decode(bytes);
 }
 
 function decodeUtf16(bytes: Uint8Array, littleEndian: boolean): string {

@@ -19,7 +19,9 @@ export type GedcomCharset =
   | "UNICODE" // UTF-16, per 5.5.1
   | "ANSEL"
   | "ASCII"
-  | "ANSI"; // non-standard but common (Windows-1252)
+  | "ANSI" // non-standard but common; ambiguous, resolved by detection
+  | "WINDOWS-1252" // Western European (the usual meaning of "ANSI")
+  | "WINDOWS-1250"; // Central European (Brother's Keeper etc. on CE locales)
 
 /**
  * A single parsed GEDCOM line and its children.
