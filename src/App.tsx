@@ -84,25 +84,26 @@ export function App() {
       </p>
 
       <div className="loaders">
-        <GedcomLoader
-          title="Master GEDCOM"
-          state={master}
-          onLoad={(f) => loadFile("master", f)}
-        />
+        <div className="loader-col">
+          <GedcomLoader
+            title="Master GEDCOM"
+            state={master}
+            onLoad={(f) => loadFile("master", f)}
+          />
+          {master.status === "loaded" && (
+            <HomePersonSelector
+              individuals={master.file.dataset.individuals}
+              homeId={homeId}
+              onChange={changeHome}
+            />
+          )}
+        </div>
         <GedcomLoader
           title="Compare GEDCOM"
           state={compare}
           onLoad={(f) => loadFile("compare", f)}
         />
       </div>
-
-      {master.status === "loaded" && (
-        <HomePersonSelector
-          individuals={master.file.dataset.individuals}
-          homeId={homeId}
-          onChange={changeHome}
-        />
-      )}
 
       {matching && (
         <div className="matching" role="status" aria-live="polite">

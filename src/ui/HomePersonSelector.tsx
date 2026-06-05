@@ -34,11 +34,18 @@ export function HomePersonSelector({ individuals, homeId, onChange }: Props) {
   return (
     <div className="home-selector">
       <label className="home-label">Home person</label>
-      <div className="home-current">{current ? current.text : "(none selected)"}</div>
+      <p className="home-help">
+        Matches are ranked by closeness to this person. Confirm the auto-selected
+        person below, or search to choose a different one.
+      </p>
+      <div className="home-current">
+        {current ? current.text : "(none selected)"}
+      </div>
       <input
         type="text"
-        placeholder="Search to change…"
+        placeholder="Type a name to choose the home person…"
         value={query}
+        autoFocus
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setOpen(true)}
       />
