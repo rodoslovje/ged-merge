@@ -1,5 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport } from "../normalize/types";
+import type { MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "master" | "compare";
@@ -29,4 +30,10 @@ export interface ParseFailure {
   message: string;
 }
 
-export type WorkerResponse = ParseSuccess | ParseFailure;
+/** Emitted once both master and compare are loaded. */
+export interface MatchSuccess {
+  type: "matched";
+  result: MatchResult;
+}
+
+export type WorkerResponse = ParseSuccess | ParseFailure | MatchSuccess;

@@ -1,0 +1,122 @@
+import { describe, expect, it } from "vitest";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { matchDatasets } from "./engine";
+import { jaroWinkler, soundex, foldToken } from "./text";
+
+function dataset(text: string) {
+  return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+}
+
+describe("text primitives", () => {
+  it("jaroWinkler rewards close strings", () => {
+    expect(jaroWinkler("smith", "smith")).toBe(1);
+    expect(jaroWinkler("smith", "smyth")).toBeGreaterThan(0.8);
+    expect(jaroWinkler("smith", "jones")).toBeLessThan(0.5);
+  });
+
+  it("soundex groups homophones", () => {
+    expect(soundex("Smith")).toBe(soundex("Smyth"));
+    expect(soundex("Robert")).toBe("R163");
+  });
+
+  it("foldToken strips diacritics and case", () => {
+    expect(foldToken("Müller")).toBe("muller");
+    expect(foldToken("  Österreich ")).toBe("osterreich");
+  });
+});
+
+// Master and compare describe the same nuclear family with small variations:
+// surname spelling (Müller/Mueller), an approximate birth year, and a typo.
+const MASTER = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Johann /Müller/
+1 SEX M
+1 BIRT
+2 DATE 12 JAN 1850
+2 PLAC Wien, Österreich
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Maria /Schmidt/
+1 SEX F
+1 BIRT
+2 DATE 1852
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Anna /Müller/
+1 SEX F
+1 BIRT
+2 DATE 1880
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 1875
+0 TRLR
+`;
+
+const COMPARE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @P1@ INDI
+1 NAME Johan /Mueller/
+1 SEX M
+1 BIRT
+2 DATE ABT 1850
+2 PLAC Wien
+1 FAMS @G1@
+0 @P2@ INDI
+1 NAME Maria /Schmidt/
+1 SEX F
+1 FAMS @G1@
+0 @P3@ INDI
+1 NAME Anna /Mueller/
+1 SEX F
+1 BIRT
+2 DATE 1881
+1 FAMC @G1@
+0 @G1@ FAM
+1 HUSB @P1@
+1 WIFE @P2@
+1 CHIL @P3@
+1 MARR
+2 DATE 1875
+0 TRLR
+`;
+
+describe("matchDatasets", () => {
+  const result = matchDatasets(dataset(MASTER), dataset(COMPARE));
+
+  it("matches the husband across spelling/qualifier variation", () => {
+    const johann = result.individuals.find((c) => c.compareId === "@P1@");
+    expect(johann).toBeDefined();
+    expect(johann!.masterId).toBe("@I1@");
+    expect(johann!.score).toBeGreaterThan(70);
+  });
+
+  it("includes a parents component for the child", () => {
+    const anna = result.individuals.find((c) => c.compareId === "@P3@");
+    expect(anna).toBeDefined();
+    expect(anna!.components.some((c) => c.key === "parents")).toBe(true);
+  });
+
+  it("matches the family via spouses and marriage", () => {
+    const fam = result.families.find((c) => c.compareId === "@G1@");
+    expect(fam).toBeDefined();
+    expect(fam!.masterId).toBe("@F1@");
+    expect(fam!.score).toBeGreaterThan(70);
+    expect(fam!.category === "strong" || fam!.category === "probable").toBe(true);
+  });
+
+  it("sorts individuals by score descending", () => {
+    const scores = result.individuals.map((c) => c.score);
+    const sorted = [...scores].sort((a, b) => b - a);
+    expect(scores).toEqual(sorted);
+  });
+});

@@ -68,3 +68,99 @@ button {
 .error {
   color: #ff6b6b;
 }
+
+.muted {
+  color: var(--muted);
+}
+
+/* --- match results --- */
+.results {
+  margin-top: 28px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.tab.active {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.candidate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.candidate {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.candidate.strong { border-left-color: #3ecf8e; }
+.candidate.probable { border-left-color: #e2b341; }
+.candidate.weak { border-left-color: #6b7280; }
+
+.candidate-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 10px 12px;
+}
+
+.badge {
+  flex: none;
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #2b313a;
+}
+.badge.strong { background: #14492f; color: #6ee7b7; }
+.badge.probable { background: #4a3b12; color: #fcd34d; }
+
+.labels { flex: 1; }
+.chev { color: var(--muted); }
+
+.breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.breakdown td {
+  padding: 4px 12px;
+  vertical-align: middle;
+}
+.comp-key { width: 110px; color: var(--muted); }
+.comp-bar { width: 140px; }
+.comp-score { width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+.bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+}

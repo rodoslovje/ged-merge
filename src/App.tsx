@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Dataset } from "./gedcom/types";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
+import type { MatchResult } from "./match/types";
 import { GedcomLoader } from "./ui/GedcomLoader";
+import { MatchResults } from "./ui/MatchResults";
 
 interface LoadedFile {
   fileName: string;
@@ -20,6 +22,7 @@ export function App() {
   const workerRef = useRef<Worker | null>(null);
   const [master, setMaster] = useState<SlotState>({ status: "empty" });
   const [compare, setCompare] = useState<SlotState>({ status: "empty" });
+  const [matches, setMatches] = useState<MatchResult | null>(null);
 
   useEffect(() => {
     const worker = new Worker(new URL("./worker/gedcom.worker.ts", import.meta.url), {
@@ -29,6 +32,10 @@ export function App() {
 
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       const msg = e.data;
+      if (msg.type === "matched") {
+        setMatches(msg.result);
+        return;
+      }
       const setter = msg.role === "master" ? setMaster : setCompare;
       if (msg.type === "parsed") {
         const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
@@ -71,6 +78,8 @@ export function App() {
           onLoad={(f) => loadFile("compare", f)}
         />
       </div>
+
+      {matches && <MatchResults result={matches} />}
     </div>
   );
 }
