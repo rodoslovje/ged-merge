@@ -6,7 +6,6 @@ import {
   type IndividualCandidate,
   type MatchCategory,
   type MatchResult,
-  type ScoreComponent,
 } from "../match/types";
 import {
   decisionKey,
