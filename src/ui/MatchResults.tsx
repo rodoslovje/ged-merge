@@ -133,28 +133,28 @@ export function MatchResults({
             </button>
             <button
               className={cls("distance", "dist")}
-              title="Distance from home person"
+              title={t("list.distanceTooltip")}
               onClick={() => onToggleSort("distance")}
             >
               ↺{arrow("distance")}
             </button>
             <button
               className={cls("newCount", "nd")}
-              title="New fields the compare file adds"
+              title={t("list.newTooltip")}
               onClick={() => onToggleSort("newCount")}
             >
               N{arrow("newCount")}
             </button>
             <button
               className={cls("diffCount", "nd")}
-              title="Fields present in both but differing"
+              title={t("list.diffTooltip")}
               onClick={() => onToggleSort("diffCount")}
             >
               D{arrow("diffCount")}
             </button>
             <button
               className={cls("linkCount", "nd")}
-              title="Attached links the compare adds or that differ"
+              title={t("list.linkTooltip")}
               onClick={() => onToggleSort("linkCount")}
             >
               🔗{arrow("linkCount")}
@@ -196,7 +196,7 @@ function CandidateRow({
       ? undefined
       : candidate.components
           .map((c) => {
-            const label = formatFieldLabel(c.key);
+            const label = formatFieldLabel(t, c.key);
             const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
             const missing = c.missing ? " missing" : "";
             return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
@@ -210,24 +210,24 @@ function CandidateRow({
           <span className={`badge ${candidate.category}`} title={scoreTooltip}>
             {formatScore(candidate.score)}
           </span>
-          <span className="dist" title="Distance from home person">
+          <span className="dist" title={t("list.distanceTooltip")}>
             {candidate.distance === undefined ? "" : candidate.distance}
           </span>
           <span
             className={`nd new ${candidate.newCount ? "" : "zero"}`}
-            title="New fields the compare file adds"
+            title={t("list.newTooltip")}
           >
             {candidate.newCount ?? 0}
           </span>
           <span
             className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
-            title="Fields present in both but differing"
+            title={t("list.diffTooltip")}
           >
             {candidate.diffCount ?? 0}
           </span>
           <span
             className={`nd link ${candidate.linkCount ? "" : "zero"}`}
-            title="Attached links the compare adds or that differ"
+            title={t("list.linkTooltip")}
           >
             {candidate.linkCount ?? 0}
           </span>

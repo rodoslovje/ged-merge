@@ -40,6 +40,7 @@ export function ComparePanel({
   const rows = useMemo<FieldRow[]>(() => {
     if (kind === "individual") {
       return individualFieldRows(
+        t,
         masterDs.individuals.get(candidate.masterId),
         compareDs.individuals.get(candidate.compareId),
         masterDs,
@@ -47,12 +48,13 @@ export function ComparePanel({
       );
     }
     return familyFieldRows(
+      t,
       masterDs.families.get(candidate.masterId),
       compareDs.families.get(candidate.compareId),
       masterDs,
       compareDs,
     );
-  }, [kind, candidate, masterDs, compareDs]);
+  }, [kind, candidate, masterDs, compareDs, t]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
@@ -100,9 +102,9 @@ export function ComparePanel({
         </div>
 
         <div className="compare-meta muted">
-          Score {formatScore(candidate.score)}
-          {candidate.distance !== undefined && ` · distance ${candidate.distance}`}
-          {conflicts > 0 && ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"}`}
+          {t("compare.score")} {formatScore(candidate.score)}
+          {candidate.distance !== undefined && ` · ${t("compare.distance")} ${candidate.distance}`}
+          {conflicts > 0 && ` · ${conflicts} ${conflicts === 1 ? t("compare.conflict") : t("compare.conflicts")}`}
         </div>
 
         {onOpenTree && (
@@ -131,14 +133,14 @@ export function ComparePanel({
                       <button
                         key={c}
                         className={choice === c ? "choice active" : "choice"}
-                        title={choiceTitle(c)}
+                        title={choiceTitle(t, c)}
                         onClick={() => setField(row.key, c)}
                       >
-                        {choiceLabel(c)}
+                        {choiceLabel(t, c)}
                       </button>
                     ))
                   ) : (
-                    <span className="muted">{row.state === "agree" ? "=" : "master"}</span>
+                    <span className="muted">{row.state === "agree" ? "=" : t("compare.keepMaster")}</span>
                   )}
                 </td>
               </tr>
@@ -176,9 +178,9 @@ function linkHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
-function choiceLabel(c: FieldChoice): string {
-  return c === "master" ? "M" : c === "incoming" ? "I" : "B";
+function choiceLabel(t: any, c: FieldChoice): string {
+  return t(`choice.${c}.label`);
 }
-function choiceTitle(c: FieldChoice): string {
-  return c === "master" ? "Keep master" : c === "incoming" ? "Take incoming" : "Keep both";
+function choiceTitle(t: any, c: FieldChoice): string {
+  return t(`choice.${c}.title`);
 }

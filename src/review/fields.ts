@@ -19,25 +19,25 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 /** Translate internal matching keys to friendly field labels. */
-export function formatFieldLabel(key: string): string {
-  if (key === "given") return "Given name";
-  if (key === "surname") return "Surname";
-  if (key === "sex") return "Sex";
-  if (key === "father") return "Father";
-  if (key === "mother") return "Mother";
-  if (key === "partners") return "Partner(s)";
-  if (key === "children") return "Children";
-  if (key === "husband") return "Husband";
-  if (key === "wife") return "Wife";
-  if (key === "links") return "Links";
+export function formatFieldLabel(t: any, key: string): string {
+  if (key === "given") return t("field.given");
+  if (key === "surname") return t("field.surname");
+  if (key === "sex") return t("field.sex");
+  if (key === "father") return t("field.father");
+  if (key === "mother") return t("field.mother");
+  if (key === "partners") return t("field.partners");
+  if (key === "children") return t("field.children");
+  if (key === "husband") return t("field.husband");
+  if (key === "wife") return t("field.wife");
+  if (key === "links") return t("field.links");
 
   const [tag, sub] = key.split(".");
-  const name = EVENT_LABELS[tag] ?? tag;
+  const name = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
   if (!sub) return name;
-  if (sub === "date") return `${name} date`;
-  if (sub === "place") return `${name} place`;
-  if (sub === "addr") return `${name} address`;
-  if (sub === "links") return `${name} link`;
+  if (sub === "date") return t("event.date", { event: name });
+  if (sub === "place") return t("event.place", { event: name });
+  if (sub === "addr") return t("event.addr", { event: name });
+  if (sub === "links") return t("event.link", { event: name });
   return key;
 }
 
@@ -50,6 +50,7 @@ const EVENT_ORDER = ["BIRT", "BAPM", "CHR", "RESI", "MARR", "DIV", "DEAT", "BURI
  * as their own rows.
  */
 export function individualFieldRows(
+  t: any,
   master: Individual | undefined,
   compare: Individual | undefined,
   masterDs?: Dataset,
@@ -59,27 +60,26 @@ export function individualFieldRows(
   const mn = master?.names[0];
   const cn = compare?.names[0];
 
-  pushRow(rows, "given", "Given name", mn?.given, cn?.given);
-  pushRow(rows, "surname", "Surname", mn?.surname, cn?.surname);
-  pushRow(rows, "sex", "Sex", sexText(master?.sex), sexText(compare?.sex));
+  pushRow(rows, "given", formatFieldLabel(t, "given"), mn?.given, cn?.given);
+  pushRow(rows, "surname", formatFieldLabel(t, "surname"), mn?.surname, cn?.surname);
+  pushRow(rows, "sex", formatFieldLabel(t, "sex"), sexText(t, master?.sex), sexText(t, compare?.sex));
 
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
     const ce = compare?.events.find((e) => e.tag === tag);
-    const name = EVENT_LABELS[tag] ?? tag;
-    pushRow(rows, `${tag}.date`, `${name} date`, me?.date?.raw, ce?.date?.raw);
-    pushRow(rows, `${tag}.place`, `${name} place`, me?.place?.raw, ce?.place?.raw);
-    pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
+    pushRow(rows, `${tag}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw);
+    pushRow(rows, `${tag}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw);
+    pushRow(rows, `${tag}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw);
   }
 
   // Links (record-level and from any event, collapsed) come after the events.
-  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
+  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
 
   // Relatives last: parents, then partners.
   if (masterDs && compareDs) {
-    pushRow(rows, "father", "Father", parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
-    pushRow(rows, "mother", "Mother", parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
-    pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
+    pushRow(rows, "father", formatFieldLabel(t, "father"), parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
+    pushRow(rows, "mother", formatFieldLabel(t, "mother"), parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
+    pushRow(rows, "partners", formatFieldLabel(t, "partners"), partnerList(master, masterDs), partnerList(compare, compareDs));
   }
   return rows;
 }
@@ -111,6 +111,7 @@ function partnerList(indi: Individual | undefined, ds: Dataset): string {
 
 /** Build the comparable field rows for a family candidate. */
 export function familyFieldRows(
+  t: any,
   master: Family | undefined,
   compare: Family | undefined,
   masterDs: Dataset,
@@ -118,19 +119,19 @@ export function familyFieldRows(
 ): FieldRow[] {
   const rows: FieldRow[] = [];
 
-  pushRow(rows, "husband", "Husband", spouse(master?.husband, masterDs), spouse(compare?.husband, compareDs));
-  pushRow(rows, "wife", "Wife", spouse(master?.wife, masterDs), spouse(compare?.wife, compareDs));
+  pushRow(rows, "husband", formatFieldLabel(t, "husband"), spouse(master?.husband, masterDs), spouse(compare?.husband, compareDs));
+  pushRow(rows, "wife", formatFieldLabel(t, "wife"), spouse(master?.wife, masterDs), spouse(compare?.wife, compareDs));
 
   // All links (family-level and from any family event) collapse into one field.
-  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
+  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
 
   const mm = master?.events.find((e) => e.tag === "MARR");
   const cm = compare?.events.find((e) => e.tag === "MARR");
-  pushRow(rows, "MARR.date", "Marriage date", mm?.date?.raw, cm?.date?.raw);
-  pushRow(rows, "MARR.place", "Marriage place", mm?.place?.raw, cm?.place?.raw);
-  pushRow(rows, "MARR.addr", "Marriage address", mm?.address?.raw, cm?.address?.raw);
+  pushRow(rows, "MARR.date", formatFieldLabel(t, "MARR.date"), mm?.date?.raw, cm?.date?.raw);
+  pushRow(rows, "MARR.place", formatFieldLabel(t, "MARR.place"), mm?.place?.raw, cm?.place?.raw);
+  pushRow(rows, "MARR.addr", formatFieldLabel(t, "MARR.addr"), mm?.address?.raw, cm?.address?.raw);
 
-  pushRow(rows, "children", "Children", childList(master, masterDs), childList(compare, compareDs));
+  pushRow(rows, "children", formatFieldLabel(t, "children"), childList(master, masterDs), childList(compare, compareDs));
   return rows;
 }
 
@@ -294,9 +295,9 @@ function orderedEventTags(master?: Individual, compare?: Individual): string[] {
   return [...known, ...extra];
 }
 
-function sexText(sex: string | undefined): string {
-  if (sex === "M") return "Male";
-  if (sex === "F") return "Female";
+function sexText(t: any, sex: string | undefined): string {
+  if (sex === "M") return t("sex.M");
+  if (sex === "F") return t("sex.F");
   return "";
 }
 
