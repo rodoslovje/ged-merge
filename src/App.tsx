@@ -309,75 +309,77 @@ export function App() {
         </div>
       </Section>
 
-      <Section
-        title={t("section.compare")}
-        subtitle={compareSubtitle}
-        open={openCompare}
-        onToggle={() => setOpenCompare((o) => !o)}
-        disabled={!current}
-        fill="cap"
-      >
-        {current && masterDataset && compareDataset ? (
-          <ComparePanel
-            kind={tab}
-            candidate={current}
-            masterDs={masterDataset}
-            compareDs={compareDataset}
-            decision={decisions.get(decisionKey(tab, current.masterId, current.compareId))}
-            onChange={updateDecision}
-            onOpenTree={
-              tab === "individual"
-                ? () => openTree(current.masterId, current.compareId)
-                : undefined
-            }
-          />
-        ) : (
-          <p className="muted">
-            {matches
-              ? t("compare.empty")
-              : t("matches.empty")}
-          </p>
-        )}
-      </Section>
+      <div className="main-split">
+        <div className="split-pane split-matches">
+          <Section
+            title={t("section.matches")}
+            subtitle={matchesSubtitle}
+            open={openMatches}
+            onToggle={() => setOpenMatches((o) => !o)}
+            disabled={!matches && !matching}
+          >
+            {matches ? (
+              <MatchResults
+                result={matches}
+                tab={tab}
+                sort={sort}
+                onToggleSort={toggleSort}
+                filters={filters}
+                onFilters={(f) => {
+                  setFilters(f);
+                  setSelectedIndex(0);
+                }}
+                list={visible}
+                selectedIndex={safeIndex}
+                onSelect={select}
+                decisions={decisions}
+                homeControl={
+                  masterDataset && (
+                    <HomePersonSelector
+                      individuals={masterDataset.individuals}
+                      homeId={homeId}
+                      onChange={changeHome}
+                      onClear={() => changeHome(undefined)}
+                    />
+                  )
+                }
+              />
+            ) : !matching ? (
+              <p className="muted">{t("matches.empty")}</p>
+            ) : null}
+          </Section>
+        </div>
 
-      <Section
-        title={t("section.matches")}
-        subtitle={matchesSubtitle}
-        open={openMatches}
-        onToggle={() => setOpenMatches((o) => !o)}
-        disabled={!matches && !matching}
-        fill="grow"
-      >
-        {matches ? (
-          <MatchResults
-            result={matches}
-            tab={tab}
-            sort={sort}
-            onToggleSort={toggleSort}
-            filters={filters}
-            onFilters={(f) => {
-              setFilters(f);
-              setSelectedIndex(0);
-            }}
-            list={visible}
-            selectedIndex={safeIndex}
-            onSelect={select}
-            decisions={decisions}
-            homeControl={
-              masterDataset && (
-                <HomePersonSelector
-                  individuals={masterDataset.individuals}
-                  homeId={homeId}
-                  onChange={changeHome}
-                  onClear={() => changeHome(undefined)}
-                />
-              )
-            }
-          />
-        ) : !matching ? (
-          <p className="muted">{t("matches.empty")}</p>
-        ) : null}
-      </Section>
+        <div className="split-pane split-compare">
+          <Section
+            title={t("section.compare")}
+            subtitle={compareSubtitle}
+            open={openCompare}
+            onToggle={() => setOpenCompare((o) => !o)}
+            disabled={!current}
+          >
+            {current && masterDataset && compareDataset ? (
+              <ComparePanel
+                kind={tab}
+                candidate={current}
+                masterDs={masterDataset}
+                compareDs={compareDataset}
+                decision={decisions.get(decisionKey(tab, current.masterId, current.compareId))}
+                onChange={updateDecision}
+                onOpenTree={
+                  tab === "individual"
+                    ? () => openTree(current.masterId, current.compareId)
+                    : undefined
+                }
+              />
+            ) : (
+              <p className="muted">
+                {matches ? t("compare.empty") : t("matches.empty")}
+              </p>
+            )}
+          </Section>
+        </div>
+      </div>
     </div>
   );
 }
