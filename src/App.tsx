@@ -202,6 +202,7 @@ export function App() {
         open={openCompare}
         onToggle={() => setOpenCompare((o) => !o)}
         disabled={!current}
+        fill="cap"
       >
         {current && masterDataset && compareDataset ? (
           <ComparePanel
@@ -231,6 +232,7 @@ export function App() {
         open={openMatches}
         onToggle={() => setOpenMatches((o) => !o)}
         disabled={!matches && !matching}
+        fill="grow"
       >
         {matching ? (
           <div className="matching" role="status" aria-live="polite">

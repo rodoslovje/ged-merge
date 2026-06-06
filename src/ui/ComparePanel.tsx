@@ -117,7 +117,7 @@ export function ComparePanel({
       <table className="compare">
         <thead>
           <tr>
-            <th>Field</th>
+            <th></th>
             <th>Master · {candidate.masterLabel}</th>
             <th>Incoming · {candidate.compareLabel}</th>
             <th>Use</th>

@@ -8,13 +8,20 @@ interface Props {
   onToggle: () => void;
   /** Disables the header toggle (e.g. nothing to show yet). */
   disabled?: boolean;
+  /**
+   * When open, make the body a scroll container within a full-height layout:
+   *  - "grow" takes the remaining vertical space,
+   *  - "cap" takes its natural height up to a limit, then scrolls.
+   */
+  fill?: "grow" | "cap";
   children: ReactNode;
 }
 
 /** A collapsible panel used for the three main sections of the app. */
-export function Section({ title, subtitle, open, onToggle, disabled, children }: Props) {
+export function Section({ title, subtitle, open, onToggle, disabled, fill, children }: Props) {
+  const fillClass = open && fill ? ` fill ${fill}` : "";
   return (
-    <section className={`section${open ? " open" : ""}`}>
+    <section className={`section${open ? " open" : ""}${fillClass}`}>
       <button
         className="section-head"
         onClick={onToggle}

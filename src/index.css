@@ -13,6 +13,12 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -26,8 +32,16 @@ button {
 
 .app {
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* sections manage their own scrolling */
+}
+.app-head {
+  flex: 0 0 auto;
 }
 
 .app h1 {
@@ -88,6 +102,32 @@ button {
   padding: 0 16px 16px;
   border-top: 1px solid var(--border);
   padding-top: 16px;
+}
+
+/* Full-height sections: body becomes a scroll/flex container. */
+.section.fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.section.fill.grow {
+  flex: 1 1 0; /* take the remaining vertical space */
+}
+.section.fill.cap {
+  flex: 0 1 auto; /* natural height, capped */
+  max-height: 55%;
+}
+.section.fill .section-body {
+  flex: 1;
+  min-height: 0;
+}
+.section.cap .section-body {
+  overflow: auto; /* the whole compare panel scrolls */
+}
+.section.grow .section-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* only the inner list scrolls */
 }
 
 .loaders {
@@ -230,6 +270,14 @@ button {
 /* --- match results --- */
 .results {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.matches-head,
+.filters {
+  flex: 0 0 auto;
 }
 
 /* --- match filters --- */
@@ -297,17 +345,25 @@ button {
 .candidate-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 4px 0 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .candidate-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  background: var(--panel);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 2px 12px 6px 15px;
+  padding: 4px 12px 6px 15px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -354,11 +410,13 @@ button {
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
 .candidate {
+  flex: 0 0 auto; /* don't shrink to fit the scroll container — let it scroll */
   background: var(--panel);
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+  scroll-margin-top: 40px; /* clear the sticky header on auto-scroll */
 }
 .candidate.strong { border-left-color: #3ecf8e; }
 .candidate.probable { border-left-color: #e2b341; }
@@ -502,7 +560,7 @@ button {
 }
 .field.conflict { background: rgba(226, 179, 65, 0.08); }
 .field.incoming-only { background: rgba(62, 207, 142, 0.07); }
-.f-label { color: var(--muted); width: 120px; }
+.f-label { color: var(--muted); width: 120px; text-align: right; }
 .f-val { white-space: pre-wrap; overflow-wrap: anywhere; }
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
