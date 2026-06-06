@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
-import { placeSimilarity } from "./similarity";
+import { parseDate } from "../gedcom/date";
+import { dateSimilarity, placeSimilarity } from "./similarity";
+
+describe("dateSimilarity", () => {
+  const d = (s: string) => parseDate(s);
+
+  it("scores identical dates 1.0 at every precision", () => {
+    expect(dateSimilarity(d("12 JAN 1900"), d("12 JAN 1900"))).toBe(1);
+    expect(dateSimilarity(d("JAN 1900"), d("JAN 1900"))).toBe(1);
+    expect(dateSimilarity(d("1900"), d("1900"))).toBe(1);
+    expect(dateSimilarity(d("ABT 1900"), d("ABT 1900"))).toBe(1);
+  });
+
+  it("treats dates that agree at the common precision as full matches", () => {
+    expect(dateSimilarity(d("12 JAN 1900"), d("1900"))).toBe(1);
+  });
+
+  it("downweights real discrepancies", () => {
+    expect(dateSimilarity(d("12 JAN 1900"), d("12 FEB 1900"))).toBeLessThan(0.7);
+    expect(dateSimilarity(d("1900"), d("1905"))!).toBeLessThan(1);
+    expect(dateSimilarity(d("1900"), d("1990"))).toBe(0);
+  });
+});
 
 describe("parsePlace place detail", () => {
   it("extracts a trailing house number from the leading part", () => {

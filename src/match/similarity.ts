@@ -47,17 +47,17 @@ export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): 
   const tolerance = approx ? 10 : 4;
   const diff = Math.abs(a.year - b.year);
   if (diff > tolerance) return 0;
+  if (diff !== 0) return 1 - diff / (tolerance + 1);
 
-  const yearScore = 1 - diff / (tolerance + 1);
-  if (diff !== 0) return yearScore;
-
-  // Same year: refine by month/day precision when both provide it.
+  // Same year: judge by the finest precision the two dates have in common, so
+  // dates that agree as far as they are specified score 1.0 (identical year-only
+  // dates are a perfect match, not a partial one).
   if (a.month && b.month) {
-    if (a.month !== b.month) return 0.9;
-    if (a.day && b.day) return a.day === b.day ? 1 : 0.95;
-    return 0.97;
+    if (a.month !== b.month) return 0.55; // different month, same year
+    if (a.day && b.day) return a.day === b.day ? 1 : 0.9; // day differs
+    return 1; // same month, day missing on a side
   }
-  return 0.92;
+  return 1; // only the year is known in common, and it matches
 }
 
 function isApprox(d: GedDate): boolean {
@@ -105,11 +105,18 @@ export function nameSetSimilarity(
   a: PersonName[],
   b: PersonName[],
 ): number | undefined {
-  if (a.length === 0 || b.length === 0) return undefined;
+  // Ignore blank/placeholder names so they neither match nor penalize.
+  const av = a.filter(hasNameContent);
+  const bv = b.filter(hasNameContent);
+  if (av.length === 0 || bv.length === 0) return undefined;
   const oneWay = (xs: PersonName[], ys: PersonName[]) =>
     xs.reduce((s, x) => {
       const best = Math.max(...ys.map((y) => nameSimilarity(x, y) ?? 0));
       return s + best;
     }, 0) / xs.length;
-  return (oneWay(a, b) + oneWay(b, a)) / 2;
+  return (oneWay(av, bv) + oneWay(bv, av)) / 2;
+}
+
+function hasNameContent(n: PersonName): boolean {
+  return Boolean(n.surname || n.given || n.full);
 }

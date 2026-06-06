@@ -136,3 +136,44 @@ describe("matchDatasets", () => {
     expect(scores).toEqual(sorted);
   });
 });
+
+describe("self-match (same file as master and compare)", () => {
+  const ds = dataset(MASTER);
+  const r = matchDatasets(ds, ds);
+
+  it("yields only identical pairs, each scoring 100", () => {
+    expect(r.individuals.length).toBe(ds.individuals.size);
+    for (const c of r.individuals) {
+      expect(c.masterId).toBe(c.compareId);
+      expect(c.score).toBe(100);
+    }
+  });
+
+  it("produces no cross matches between different people", () => {
+    const cross = r.individuals.filter((c) => c.masterId !== c.compareId);
+    expect(cross).toHaveLength(0);
+  });
+
+  it("matches families to themselves at 100", () => {
+    for (const c of r.families) {
+      expect(c.masterId).toBe(c.compareId);
+      expect(c.score).toBe(100);
+    }
+  });
+});
+
+describe("one-to-one assignment", () => {
+  it("does not reuse a master record for two compare records", () => {
+    // Two compare people with the same name/birth; only one master twin.
+    const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @M1@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
+0 TRLR\n`;
+    const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @C1@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
+0 @C2@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
+0 TRLR\n`;
+    const r = matchDatasets(dataset(master), dataset(compare));
+    expect(r.individuals).toHaveLength(1); // @M1@ used once
+    expect(r.individuals[0].masterId).toBe("@M1@");
+  });
+});

@@ -38,12 +38,9 @@ function matchIndividuals(
     individualBlockKeys(i, soundex),
   );
 
-  const out: IndividualCandidate[] = [];
+  const scored: IndividualCandidate[] = [];
   for (const compare of compareDs.individuals.values()) {
-    const keys = individualBlockKeys(compare, soundex);
-    const masterIds = collectCandidates(index, keys);
-
-    const scored: IndividualCandidate[] = [];
+    const masterIds = collectCandidates(index, individualBlockKeys(compare, soundex));
     for (const mid of masterIds) {
       const master = masterDs.individuals.get(mid)!;
       // Different recorded sex => never the same person; skip before scoring.
@@ -51,9 +48,8 @@ function matchIndividuals(
       const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
-    pushTop(out, scored, config.maxPerRecord);
   }
-  return out.sort(byScoreDesc);
+  return assignOneToOne(scored);
 }
 
 function matchFamilies(
@@ -65,20 +61,38 @@ function matchFamilies(
     familyBlockKeys(f, masterDs),
   );
 
-  const out: FamilyCandidate[] = [];
+  const scored: FamilyCandidate[] = [];
   for (const compare of compareDs.families.values()) {
-    const keys = familyBlockKeys(compare, compareDs);
-    const masterIds = collectCandidates(index, keys);
-
-    const scored: FamilyCandidate[] = [];
+    const masterIds = collectCandidates(index, familyBlockKeys(compare, compareDs));
     for (const mid of masterIds) {
       const master = masterDs.families.get(mid)!;
       const cand = scoreFamilyPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
-    pushTop(out, scored, config.maxPerRecord);
   }
-  return out.sort(byScoreDesc);
+  return assignOneToOne(scored);
+}
+
+/**
+ * Greedy one-to-one assignment: take pairs in descending score order, keeping a
+ * pair only if neither its master nor its compare record is already spoken for.
+ * This is the right model for a merge (a record maps to at most one counterpart)
+ * and removes the many-to-one noise of similarly-named people.
+ */
+function assignOneToOne<T extends { masterId: string; compareId: string; score: number }>(
+  candidates: T[],
+): T[] {
+  const sorted = [...candidates].sort(byScoreDesc);
+  const usedMaster = new Set<string>();
+  const usedCompare = new Set<string>();
+  const out: T[] = [];
+  for (const c of sorted) {
+    if (usedMaster.has(c.masterId) || usedCompare.has(c.compareId)) continue;
+    usedMaster.add(c.masterId);
+    usedCompare.add(c.compareId);
+    out.push(c);
+  }
+  return out;
 }
 
 // --- blocking helpers ------------------------------------------------------
@@ -111,11 +125,6 @@ function collectCandidates<T extends { id: string }>(
     if (bucket) for (const rec of bucket) ids.add(rec.id);
   }
   return ids;
-}
-
-function pushTop<T extends { score: number }>(out: T[], scored: T[], cap: number): void {
-  scored.sort(byScoreDesc);
-  for (const c of scored.slice(0, cap)) out.push(c);
 }
 
 function byScoreDesc(a: { score: number }, b: { score: number }): number {
