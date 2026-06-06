@@ -484,6 +484,9 @@ button {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
+  /* Fixed layout + equal-width outer columns => the Master/Incoming value
+     columns each take exactly half, splitting the panel down the middle. */
+  table-layout: fixed;
 }
 .compare th {
   text-align: left;
@@ -499,11 +502,11 @@ button {
 }
 .field.conflict { background: rgba(226, 179, 65, 0.08); }
 .field.incoming-only { background: rgba(62, 207, 142, 0.07); }
-.f-label { color: var(--muted); width: 130px; }
-.f-val { white-space: pre-wrap; }
+.f-label { color: var(--muted); width: 120px; }
+.f-val { white-space: pre-wrap; overflow-wrap: anywhere; }
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
-.f-choice { width: 110px; white-space: nowrap; }
+.f-choice { width: 120px; white-space: nowrap; }
 .choice {
   background: var(--bg);
   border: 1px solid var(--border);

@@ -125,6 +125,75 @@ describe("individualFieldRows", () => {
   });
 });
 
+describe("individual parents and partners rows", () => {
+  const masterGed = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMC @F1@
+1 FAMS @F2@
+0 @FA@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+0 @MO@ INDI
+1 NAME Marija /Kos/
+1 SEX F
+0 @SP@ INDI
+1 NAME Tone /Horvat/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @FA@
+1 WIFE @MO@
+1 CHIL @C@
+0 @F2@ FAM
+1 HUSB @SP@
+1 WIFE @C@
+0 TRLR
+`;
+  // Same person, but the compare file is missing the mother.
+  const compareGed = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMC @F1@
+1 FAMS @F2@
+0 @FA@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+0 @SP@ INDI
+1 NAME Tone /Horvat/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @FA@
+1 CHIL @C@
+0 @F2@ FAM
+1 HUSB @SP@
+1 WIFE @C@
+0 TRLR
+`;
+
+  it("shows father/mother/partner rows resolved through the family graph", () => {
+    const m = dataset(masterGed);
+    const c = dataset(compareGed);
+    const rows = individualFieldRows(
+      m.individuals.get("@C@"),
+      c.individuals.get("@C@"),
+      m,
+      c,
+    );
+    expect(byKey(rows, "father")).toMatchObject({ master: "Janez Novak", state: "agree" });
+    expect(byKey(rows, "mother")).toMatchObject({ master: "Marija Kos", state: "master-only" });
+    expect(byKey(rows, "partners")).toMatchObject({ master: "Tone Horvat", state: "agree" });
+  });
+
+  it("omits relative rows when datasets are not supplied", () => {
+    const m = dataset(masterGed);
+    const rows = individualFieldRows(m.individuals.get("@C@"), m.individuals.get("@C@"));
+    expect(byKey(rows, "father")).toBeUndefined();
+    expect(byKey(rows, "partners")).toBeUndefined();
+  });
+});
+
 describe("fieldDiffCounts", () => {
   it("counts incoming-only (N) and conflicting (D) fields", () => {
     const m = dataset(

@@ -2,7 +2,7 @@ import type { Dataset, Family, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
-import { label } from "../match/relatives";
+import { label, partnerNames } from "../match/relatives";
 import type { FieldRow, FieldState } from "./types";
 
 /** Friendly labels for the event tags we surface in review. */
@@ -21,10 +21,16 @@ const EVENT_LABELS: Record<string, string> = {
 /** Order events are displayed in; unknown tags follow, in first-seen order. */
 const EVENT_ORDER = ["BIRT", "BAPM", "CHR", "RESI", "MARR", "DIV", "DEAT", "BURI", "CREM"];
 
-/** Build the comparable field rows for an individual candidate. */
+/**
+ * Build the comparable field rows for an individual candidate. When datasets are
+ * supplied, parents and partners (resolved through the family graph) are added
+ * as their own rows.
+ */
 export function individualFieldRows(
   master: Individual | undefined,
   compare: Individual | undefined,
+  masterDs?: Dataset,
+  compareDs?: Dataset,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
   const mn = master?.names[0];
@@ -33,6 +39,12 @@ export function individualFieldRows(
   pushRow(rows, "given", "Given name", mn?.given, cn?.given);
   pushRow(rows, "surname", "Surname", mn?.surname, cn?.surname);
   pushRow(rows, "sex", "Sex", sexText(master?.sex), sexText(compare?.sex));
+
+  if (masterDs && compareDs) {
+    pushRow(rows, "father", "Father", parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
+    pushRow(rows, "mother", "Mother", parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
+    pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
+  }
 
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
@@ -43,6 +55,31 @@ export function individualFieldRows(
     pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
   }
   return rows;
+}
+
+/** Full name of a parent (father via HUSB, mother via WIFE) from the first
+ * family this person is a child in. */
+function parentName(
+  indi: Individual | undefined,
+  ds: Dataset,
+  role: "husband" | "wife",
+): string {
+  if (!indi) return "";
+  for (const famId of indi.childOf) {
+    const id = ds.families.get(famId)?.[role];
+    const n = id ? ds.individuals.get(id)?.names[0]?.full : undefined;
+    if (n) return n;
+  }
+  return "";
+}
+
+/** Semicolon-joined full names of this person's spouses. */
+function partnerList(indi: Individual | undefined, ds: Dataset): string {
+  if (!indi) return "";
+  return partnerNames(indi, ds)
+    .map((n) => n.full)
+    .filter(Boolean)
+    .join("; ");
 }
 
 /** Build the comparable field rows for a family candidate. */

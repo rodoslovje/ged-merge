@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -64,6 +64,13 @@ export function MatchResults({
     return `sortbtn ${extra}${active}`;
   };
 
+  // Keep the selected row visible as the user pages with Prev/Next or arrows.
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(".candidate.selected");
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex, list]);
+
   return (
     <div className="results">
       <div className="matches-head">
@@ -128,7 +135,7 @@ export function MatchResults({
             : "No matches pass the current filters."}
         </p>
       ) : (
-        <ul className="candidate-list">
+        <ul className="candidate-list" ref={listRef}>
           <li className="candidate-list-head">
             <button className={cls("score", "badge-h")} onClick={() => onToggleSort("score")}>
               Score{arrow("score")}

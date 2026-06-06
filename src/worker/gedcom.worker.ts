@@ -98,7 +98,12 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
     individuals: result.individuals.map((c) => ({
       ...c,
       ...fieldDiffCounts(
-        individualFieldRows(master.individuals.get(c.masterId), compare.individuals.get(c.compareId)),
+        individualFieldRows(
+          master.individuals.get(c.masterId),
+          compare.individuals.get(c.compareId),
+          master,
+          compare,
+        ),
       ),
     })),
     families: result.families.map((c) => ({

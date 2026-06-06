@@ -46,6 +46,8 @@ export function ComparePanel({
       return individualFieldRows(
         masterDs.individuals.get(candidate.masterId),
         compareDs.individuals.get(candidate.compareId),
+        masterDs,
+        compareDs,
       );
     }
     return familyFieldRows(
