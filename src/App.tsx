@@ -165,7 +165,34 @@ export function App() {
   const matchesSubtitle = matches
     ? `${matches.individuals.length} individuals · ${matches.families.length} families`
     : undefined;
-  const compareSubtitle = current ? `${safeIndex + 1} of ${visible.length}` : undefined;
+  const compareSubtitle = current ? (
+    <>
+      <div className="compare-header-info">
+        {current.masterLabel} <span className="muted">↔</span> {current.compareLabel}
+      </div>
+      <div className="compare-nav-header">
+        <button
+          className="nav-btn icon-only"
+          onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.max(0, i - 1)); }}
+        disabled={safeIndex <= 0}
+        title="Previous match (Keyboard shortcut: ← or ↑)"
+      >
+        ‹
+      </button>
+      <span className="nav-pos">
+        {safeIndex + 1} of {visible.length}
+      </span>
+      <button
+        className="nav-btn icon-only"
+        onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.min(visible.length - 1, i + 1)); }}
+        disabled={safeIndex >= visible.length - 1}
+        title="Next match (Keyboard shortcut: → or ↓)"
+      >
+        ›
+      </button>
+    </div>
+    </>
+  ) : undefined;
 
   return (
     <div className="app">
@@ -212,10 +239,6 @@ export function App() {
             compareDs={compareDataset}
             decision={decisions.get(decisionKey(tab, current.masterId, current.compareId))}
             onChange={updateDecision}
-            index={safeIndex}
-            total={visible.length}
-            onPrev={() => setSelectedIndex((i) => Math.max(0, i - 1))}
-            onNext={() => setSelectedIndex((i) => Math.min(visible.length - 1, i + 1))}
           />
         ) : (
           <p className="muted">

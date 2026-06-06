@@ -80,6 +80,7 @@ button {
   text-align: left;
   padding: 14px 16px;
   font-size: 1rem;
+  position: relative;
 }
 .section-head:disabled {
   color: var(--muted);
@@ -497,12 +498,34 @@ button {
   gap: 12px;
   margin-bottom: 14px;
 }
+.compare-header-info {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.9rem;
+  color: var(--text);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.compare-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .nav-btn {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 8px;
   padding: 6px 12px;
+}
+.nav-btn.icon-only {
+  padding: 4px 10px;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 .nav-btn:hover:not(:disabled) { border-color: var(--accent); }
 .nav-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
@@ -523,15 +546,14 @@ button {
 .decision-bar {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
 }
 .decision {
-  flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: 8px;
-  padding: 8px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
   text-transform: capitalize;
 }
 .decision.confirmed.active { border-color: #3ecf8e; color: #6ee7b7; }

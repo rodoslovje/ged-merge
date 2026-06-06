@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { FamilyCandidate, IndividualCandidate } from "../match/types";
 import { familyFieldRows, individualFieldRows } from "../review/fields";
@@ -19,11 +19,6 @@ interface Props {
   compareDs: Dataset;
   decision: CandidateDecision | undefined;
   onChange: (next: CandidateDecision) => void;
-  /** 0-based position of this candidate within the filtered list. */
-  index: number;
-  total: number;
-  onPrev: () => void;
-  onNext: () => void;
 }
 
 const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
@@ -36,10 +31,6 @@ export function ComparePanel({
   compareDs,
   decision,
   onChange,
-  index,
-  total,
-  onPrev,
-  onNext,
 }: Props) {
   const rows = useMemo<FieldRow[]>(() => {
     if (kind === "individual") {
@@ -61,68 +52,56 @@ export function ComparePanel({
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
 
-  function setStatus(next: MatchDecisionStatus) {
-    onChange({ status: next, fields });
+  function toggleStatus(next: MatchDecisionStatus) {
+    onChange({ status: status === next ? "undecided" as MatchDecisionStatus : next, fields });
   }
   function setField(key: string, choice: FieldChoice) {
     onChange({ status, fields: { ...fields, [key]: choice } });
   }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "c") toggleStatus("confirmed");
+      else if (key === "r") toggleStatus("rejected");
+      else if (key === "d") toggleStatus("deferred");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onChange, status, fields]);
 
   const conflicts = rows.filter((r) => r.state === "conflict").length;
 
   return (
     <div className="compare-panel">
       <div className="compare-nav">
-        <button
-          className="nav-btn"
-          onClick={onPrev}
-          disabled={index <= 0}
-          title="Previous match (←)"
-        >
-          ‹ Prev
-        </button>
-        <span className="nav-pos">
-          {index + 1} of {total}
-        </span>
-        <button
-          className="nav-btn"
-          onClick={onNext}
-          disabled={index >= total - 1}
-          title="Next match (→)"
-        >
-          Next ›
-        </button>
+        <div className="decision-bar">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              title={`Keyboard shortcut: ${s.charAt(0).toUpperCase()}`}
+              onClick={() => toggleStatus(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
         <div className="compare-meta muted">
           Score {formatScore(candidate.score)}
           {candidate.distance !== undefined && ` · distance ${candidate.distance}`}
           {conflicts > 0 && ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"}`}
-          {status !== "undecided" && (
-            <span className={`status-chip ${status}`}>{status}</span>
-          )}
         </div>
       </div>
 
-      <div className="decision-bar">
-        {STATUSES.map((s) => (
-          <button
-            key={s}
-            className={status === s ? `decision ${s} active` : "decision"}
-            onClick={() => setStatus(s)}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
       <table className="compare">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Master · {candidate.masterLabel}</th>
-            <th>Incoming · {candidate.compareLabel}</th>
-            <th>Use</th>
-          </tr>
-        </thead>
         <tbody>
           {rows.map((row) => {
             const choice = fields[row.key] ?? defaultChoice(row);
