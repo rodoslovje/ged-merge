@@ -214,6 +214,46 @@ describe("plausibility gates", () => {
   });
 });
 
+describe("key-field penalty (name, surname, birth year)", () => {
+  const pair = (masterIndi: string, compareIndi: string) =>
+    matchDatasets(
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${masterIndi}\n0 TRLR\n`),
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${compareIndi}\n0 TRLR\n`),
+    ).individuals;
+
+  it("scores 100 only when all key fields are present and equal", () => {
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+      "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+    );
+    expect(r[0].score).toBe(100);
+  });
+
+  it("penalizes a missing birth year instead of ignoring it", () => {
+    // Identical names, but the compare record has no birth year. The pair is
+    // still offered, yet the missing key keeps it well below a perfect score.
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+      "0 @C@ INDI\n1 NAME Janez /Novak/",
+    );
+    expect(r).toHaveLength(1);
+    const birth = r[0].components.find((c) => c.key === "birthDate");
+    expect(birth?.missing).toBe(true);
+    expect(r[0].score).toBeLessThan(100);
+  });
+
+  it("penalizes a missing given name", () => {
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+      "0 @C@ INDI\n1 NAME /Novak/\n1 BIRT\n2 DATE 1850",
+    );
+    expect(r).toHaveLength(1);
+    const given = r[0].components.find((c) => c.key === "given");
+    expect(given?.missing).toBe(true);
+    expect(r[0].score).toBeLessThan(100);
+  });
+});
+
 describe("one-to-one assignment", () => {
   it("does not reuse a master record for two compare records", () => {
     // Two compare people with the same name/birth; only one master twin.

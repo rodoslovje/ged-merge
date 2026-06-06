@@ -8,6 +8,12 @@ export interface ScoreComponent {
   score: number;
   /** Optional human-readable detail (the compared values). */
   detail?: string;
+  /**
+   * True for a key field (name/surname/birth year) that couldn't be compared
+   * because data was missing on a side: it carries the `missingKeyScore`
+   * penalty rather than a real similarity.
+   */
+  missing?: boolean;
 }
 
 export type MatchCategory = "strong" | "probable" | "weak";
@@ -86,6 +92,13 @@ export interface MatchConfig {
     /** Max years between the two people's representative ("era") years. */
     maxYearGap: number;
   };
+  /**
+   * Similarity (0..1) charged for a *key* field — surname, given name, or birth
+   * year — that is missing on either side. These three are treated as the
+   * identity key: a confident match needs all of them, so a gap is penalized
+   * (counted at this score) rather than ignored. Lower = harsher.
+   */
+  missingKeyScore: number;
   /** Below this 0..1 score a pair is discarded. */
   minScore: number;
   /** Category cut-offs on the 0..1 scale. */
@@ -118,6 +131,7 @@ export const DEFAULT_CONFIG: MatchConfig = {
     minGiven: 0.5,
     maxYearGap: 100,
   },
+  missingKeyScore: 0.3,
   minScore: 0.45,
   strongThreshold: 0.85,
   probableThreshold: 0.65,

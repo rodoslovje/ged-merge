@@ -260,7 +260,9 @@ describe("attached links", () => {
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n0 TRLR\n`,
     );
     const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    expect(byKey(rows, "BIRT.links")?.state).toBe("incoming-only");
+    // Event links roll up into the single aggregated "links" row.
+    expect(byKey(rows, "links")?.state).toBe("incoming-only");
+    expect(byKey(rows, "BIRT.links")).toBeUndefined();
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
   });
 
@@ -296,14 +298,29 @@ describe("attached links", () => {
     ]);
   });
 
-  it("surfaces family and marriage links", () => {
+  it("rolls family-level and marriage-event links into one Links field", () => {
     const m = dataset(`0 HEAD\n0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1875\n0 TRLR\n`);
     const c = dataset(
       `0 HEAD\n0 @G1@ FAM\n1 HUSB @P1@\n1 _LINK https://example.com/fam\n1 MARR\n2 DATE 1875\n2 WWW https://example.com/marr\n0 TRLR\n`,
     );
     const rows = familyFieldRows(m.families.get("@F1@"), c.families.get("@G1@"), m, c);
-    expect(byKey(rows, "links")?.state).toBe("incoming-only");
-    expect(byKey(rows, "MARR.links")?.state).toBe("incoming-only");
+    const links = byKey(rows, "links");
+    expect(links?.state).toBe("incoming-only");
+    expect(links?.incomingLinks).toEqual([
+      "https://example.com/fam",
+      "https://example.com/marr",
+    ]);
+    expect(byKey(rows, "MARR.links")).toBeUndefined();
+  });
+
+  it("de-duplicates a link attached both to the record and to an event", () => {
+    const ds = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/x\n` +
+        `1 BIRT\n2 DATE 1900\n2 WWW https://example.com/x\n0 TRLR\n`,
+    );
+    const empty = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
+    const rows = individualFieldRows(ds.individuals.get("@I1@"), empty.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.masterLinks).toEqual(["https://example.com/x"]);
   });
 });
 

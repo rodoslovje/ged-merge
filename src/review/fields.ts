@@ -69,7 +69,8 @@ export function individualFieldRows(
     pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
   }
 
-  pushLinkRow(rows, "links", "Links", master?.links, compare?.links);
+  // All links (record-level and from any event) collapse into one Links field.
+  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
 
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
@@ -78,7 +79,6 @@ export function individualFieldRows(
     pushRow(rows, `${tag}.date`, `${name} date`, me?.date?.raw, ce?.date?.raw);
     pushRow(rows, `${tag}.place`, `${name} place`, me?.place?.raw, ce?.place?.raw);
     pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
-    pushLinkRow(rows, `${tag}.links`, `${name} link`, me?.links, ce?.links);
   }
   return rows;
 }
@@ -120,14 +120,14 @@ export function familyFieldRows(
   pushRow(rows, "husband", "Husband", spouse(master?.husband, masterDs), spouse(compare?.husband, compareDs));
   pushRow(rows, "wife", "Wife", spouse(master?.wife, masterDs), spouse(compare?.wife, compareDs));
 
-  pushLinkRow(rows, "links", "Links", master?.links, compare?.links);
+  // All links (family-level and from any family event) collapse into one field.
+  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
 
   const mm = master?.events.find((e) => e.tag === "MARR");
   const cm = compare?.events.find((e) => e.tag === "MARR");
   pushRow(rows, "MARR.date", "Marriage date", mm?.date?.raw, cm?.date?.raw);
   pushRow(rows, "MARR.place", "Marriage place", mm?.place?.raw, cm?.place?.raw);
   pushRow(rows, "MARR.addr", "Marriage address", mm?.address?.raw, cm?.address?.raw);
-  pushLinkRow(rows, "MARR.links", "Marriage link", mm?.links, cm?.links);
 
   pushRow(rows, "children", "Children", childList(master, masterDs), childList(compare, compareDs));
   return rows;
@@ -198,6 +198,26 @@ function pushLinkRow(
     masterLinks: m,
     incomingLinks: i,
   });
+}
+
+/**
+ * Every link reachable from a record — attached directly or to any of its
+ * events — gathered into one list, de-duplicated (case- and trailing-slash
+ * insensitive), preserving first-seen order.
+ */
+function gatherLinks(record: Individual | Family | undefined): string[] {
+  if (!record) return [];
+  const all: string[] = [...(record.links ?? [])];
+  for (const e of record.events) if (e.links) all.push(...e.links);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of all) {
+    const key = linkKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
 }
 
 function linkState(master: string[], incoming: string[]): FieldState {

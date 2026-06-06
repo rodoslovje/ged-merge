@@ -31,16 +31,21 @@ export function scoreIndividualPair(
   const mn = primaryName(master);
   const cn = primaryName(compare);
 
-  if (mn?.surname && cn?.surname) {
-    add(components, "surname", w.surname, jaroWinkler(foldToken(mn.surname), foldToken(cn.surname)), `${mn.surname} ~ ${cn.surname}`);
-  }
-  if (mn?.given && cn?.given) {
-    add(components, "given", w.given, givenSimilarity(mn.given, cn.given), `${mn.given} ~ ${cn.given}`);
-  }
+  // Surname, given name and birth year form the identity key: each is always
+  // scored, and a side that's missing the field is charged `missingKeyScore`
+  // (penalized rather than ignored) so an incomplete record can't reach 100%.
+  const surnameSim =
+    mn?.surname && cn?.surname
+      ? jaroWinkler(foldToken(mn.surname), foldToken(cn.surname))
+      : undefined;
+  addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}`);
+
+  const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
+  addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`);
 
   const mb = findEvent(master, "BIRT");
   const cb = findEvent(compare, "BIRT");
-  add(components, "birthDate", w.birthDate, dateSimilarity(mb?.date, cb?.date), `${mb?.date?.raw ?? "?"} ~ ${cb?.date?.raw ?? "?"}`);
+  addKey(components, "birthDate", w.birthDate, dateSimilarity(mb?.date, cb?.date), config.missingKeyScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
   add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
   add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
 
@@ -72,6 +77,23 @@ function add(
 ): void {
   if (score === undefined) return;
   into.push({ key, weight, score, detail });
+}
+
+/**
+ * Add a key (identity) field. Unlike `add`, a missing similarity is not skipped
+ * but recorded with the `missingKeyScore` penalty, so absent key data drags the
+ * overall score down instead of being silently excluded from the average.
+ */
+function addKey(
+  into: ScoreComponent[],
+  key: string,
+  weight: number,
+  similarity: number | undefined,
+  missingScore: number,
+  detail: string,
+): void {
+  const missing = similarity === undefined;
+  into.push({ key, weight, score: missing ? missingScore : similarity, detail, missing });
 }
 
 /**

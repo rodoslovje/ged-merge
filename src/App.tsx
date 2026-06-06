@@ -33,6 +33,8 @@ type SlotState =
   | { status: "loaded"; file: LoadedFile }
   | { status: "error"; fileName: string; message: string };
 
+const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
+
 export function App() {
   const { t, i18n } = useTranslation();
 
@@ -228,10 +230,10 @@ export function App() {
           <h1>{t("app.title")}</h1>
           <div className="lang-switcher">
             <div className="lang-select-wrapper">
-              <span aria-hidden="true">{i18n.language.toUpperCase()} ▾</span>
+              <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
               <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
-                <option value="en">{t("lang.en")} (EN)</option>
-                <option value="sl">{t("lang.sl")} (SL)</option>
+                <option value="en">🇬🇧 English (EN)</option>
+                <option value="sl">🇸🇮 Slovenščina (SL)</option>
               </select>
             </div>
           </div>

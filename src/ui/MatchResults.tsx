@@ -194,7 +194,8 @@ function CandidateRow({
           .map((c) => {
             const label = formatFieldLabel(c.key);
             const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
-            return `${label}: ${Math.round(c.score * 100)}%${detail}`;
+            const missing = c.missing ? " missing" : "";
+            return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
           })
           .join("\n");
 
