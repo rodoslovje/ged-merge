@@ -13,6 +13,7 @@ import {
   type MatchDecisionStatus,
   type MatchKind,
 } from "../review/types";
+import { formatFieldLabel } from "../review/fields";
 import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 
 interface Props {
@@ -190,7 +191,11 @@ function CandidateRow({
     candidate.score === 1
       ? undefined
       : candidate.components
-          .map((c) => `${c.key}: ${Math.round(c.score * 100)}%${c.detail ? ` (${c.detail})` : ""}`)
+          .map((c) => {
+            const label = formatFieldLabel(c.key);
+            const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
+            return `${label}: ${Math.round(c.score * 100)}%${detail}`;
+          })
           .join("\n");
 
   return (

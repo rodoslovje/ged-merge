@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dataset } from "./gedcom/types";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
@@ -33,6 +34,8 @@ type SlotState =
   | { status: "error"; fileName: string; message: string };
 
 export function App() {
+  const { t, i18n } = useTranslation();
+
   const workerRef = useRef<Worker | null>(null);
   const [master, setMaster] = useState<SlotState>({ status: "empty" });
   const [compare, setCompare] = useState<SlotState>({ status: "empty" });
@@ -165,7 +168,7 @@ export function App() {
   const matchesSubtitle = matching ? (
     <div className="matches-tabs-header matching" role="status" aria-live="polite">
       <span className="spinner" aria-hidden="true" />
-      Calculating matches…
+      {t("matches.calculating")}
     </div>
   ) : matches ? (
     <div className="matches-tabs-header">
@@ -174,13 +177,13 @@ export function App() {
           className={tab === "individual" ? "tab active" : "tab"}
           onClick={() => { setTab("individual"); setSelectedIndex(0); }}
         >
-          Individuals ({matches.individuals.length})
+          {t("matches.individuals")} ({matches.individuals.length})
         </button>
         <button
           className={tab === "family" ? "tab active" : "tab"}
           onClick={() => { setTab("family"); setSelectedIndex(0); }}
         >
-          Families ({matches.families.length})
+          {t("matches.families")} ({matches.families.length})
         </button>
       </div>
     </div>
@@ -199,18 +202,18 @@ export function App() {
           className="nav-btn icon-only"
           onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.max(0, i - 1)); }}
         disabled={safeIndex <= 0}
-        title="Previous match (Keyboard shortcut: ← or ↑)"
+        title={t("nav.prev")}
       >
         ‹
       </button>
       <span className="nav-pos">
-        {safeIndex + 1} of {visible.length}
+        {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
       </span>
       <button
         className="nav-btn icon-only"
         onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.min(visible.length - 1, i + 1)); }}
         disabled={safeIndex >= visible.length - 1}
-        title="Next match (Keyboard shortcut: → or ↓)"
+        title={t("nav.next")}
       >
         ›
       </button>
@@ -221,26 +224,37 @@ export function App() {
   return (
     <div className="app">
       <header className="app-head">
-        <h1>GedMerge</h1>
+        <div className="app-head-top">
+          <h1>{t("app.title")}</h1>
+          <div className="lang-switcher">
+            <div className="lang-select-wrapper">
+              <span aria-hidden="true">{i18n.language.toUpperCase()} ▾</span>
+              <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
+                <option value="en">{t("lang.en")} (EN)</option>
+                <option value="sl">{t("lang.sl")} (SL)</option>
+              </select>
+            </div>
+          </div>
+        </div>
         <p className="subtitle">
-          Compare and merge GEDCOM files entirely in your browser. Nothing is uploaded.
+          {t("app.subtitle")}
         </p>
       </header>
 
       <Section
-        title="Load GEDCOM"
+        title={t("section.load")}
         subtitle={loadSubtitle}
         open={openLoad}
         onToggle={() => setOpenLoad((o) => !o)}
       >
         <div className="loaders">
           <GedcomLoader
-            title="Master GEDCOM"
+            title={t("load.master")}
             state={master}
             onLoad={(f) => loadFile("master", f)}
           />
           <GedcomLoader
-            title="Incoming GEDCOM"
+            title={t("load.incoming")}
             state={compare}
             onLoad={(f) => loadFile("compare", f)}
           />
@@ -248,7 +262,7 @@ export function App() {
       </Section>
 
       <Section
-        title="Compare"
+        title={t("section.compare")}
         subtitle={compareSubtitle}
         open={openCompare}
         onToggle={() => setOpenCompare((o) => !o)}
@@ -267,14 +281,14 @@ export function App() {
         ) : (
           <p className="muted">
             {matches
-              ? "No match selected — pick one from the Matches list."
-              : "Load both files to calculate matches."}
+              ? t("compare.empty")
+              : t("matches.empty")}
           </p>
         )}
       </Section>
 
       <Section
-        title="Matches"
+        title={t("section.matches")}
         subtitle={matchesSubtitle}
         open={openMatches}
         onToggle={() => setOpenMatches((o) => !o)}
@@ -308,7 +322,7 @@ export function App() {
             }
           />
         ) : !matching ? (
-          <p className="muted">Load both files to calculate matches.</p>
+          <p className="muted">{t("matches.empty")}</p>
         ) : null}
       </Section>
     </div>

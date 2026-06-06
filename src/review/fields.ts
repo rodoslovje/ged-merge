@@ -18,6 +18,29 @@ const EVENT_LABELS: Record<string, string> = {
   RESI: "Residence",
 };
 
+/** Translate internal matching keys to friendly field labels. */
+export function formatFieldLabel(key: string): string {
+  if (key === "given") return "Given name";
+  if (key === "surname") return "Surname";
+  if (key === "sex") return "Sex";
+  if (key === "father") return "Father";
+  if (key === "mother") return "Mother";
+  if (key === "partners") return "Partner(s)";
+  if (key === "children") return "Children";
+  if (key === "husband") return "Husband";
+  if (key === "wife") return "Wife";
+  if (key === "links") return "Links";
+
+  const [tag, sub] = key.split(".");
+  const name = EVENT_LABELS[tag] ?? tag;
+  if (!sub) return name;
+  if (sub === "date") return `${name} date`;
+  if (sub === "place") return `${name} place`;
+  if (sub === "addr") return `${name} address`;
+  if (sub === "links") return `${name} link`;
+  return key;
+}
+
 /** Order events are displayed in; unknown tags follow, in first-seen order. */
 const EVENT_ORDER = ["BIRT", "BAPM", "CHR", "RESI", "MARR", "DIV", "DEAT", "BURI", "CREM"];
 
