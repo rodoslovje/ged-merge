@@ -71,6 +71,7 @@ interface Placed extends TreeNode {
   x: number;
   y: number;
   children: Placed[];
+  partners: Placed[];
 }
 
 export function CompareTree({
@@ -232,15 +233,28 @@ export function CompareTree({
 
 interface Flat {
   nodes: Placed[];
-  edges: { id: string; d: string }[];
+  edges: { id: string; d: string; partner?: boolean }[];
 }
 
-/** Collect every node and parent→child connector path from the laid-out tree. */
+/** Collect every node plus its child and partner connectors from the laid-out tree. */
 function flatten(root: Placed): Flat {
   const nodes: Placed[] = [];
-  const edges: { id: string; d: string }[] = [];
+  const edges: Flat["edges"] = [];
   (function walk(n: Placed) {
     nodes.push(n);
+    // Spouses sit in the same column, chained directly below the person; each
+    // union's children branch from that spouse.
+    let prev: Placed = n;
+    for (const p of n.partners) {
+      nodes.push(p);
+      edges.push({ id: `${prev.key}~${p.key}`, d: partnerPath(prev, p), partner: true });
+      prev = p;
+      for (const c of p.children) {
+        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c) });
+        walk(c);
+      }
+    }
+    // Children of a spouseless family connect to the person directly.
     for (const c of n.children) {
       edges.push({ id: `${n.key}->${c.key}`, d: edgePath(n, c) });
       walk(c);
@@ -267,7 +281,11 @@ function TreeSvg({
     <svg className="tree-svg" width={width} height={height} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
         {edges.map((e) => (
-          <path key={e.id} className="tree-edge" d={e.d} />
+          <path
+            key={e.id}
+            className={e.partner ? "tree-edge tree-edge-partner" : "tree-edge"}
+            d={e.d}
+          />
         ))}
         {nodes.map((n) => (
           <g
@@ -531,34 +549,88 @@ function edgePath(parent: Placed, child: Placed): string {
   return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
 }
 
+/** A short vertical link between a person and their spouse (same column). */
+function partnerPath(person: Placed, partner: Placed): string {
+  const x = person.x + 18;
+  return `M${x},${person.y + NODE_H} L${x},${partner.y}`;
+}
+
 /**
- * Left-to-right layered layout: depth sets the column (x), and leaves are stacked
- * top-to-bottom (y) while each parent is centred on the span of its children.
+ * Left-to-right layered layout. Depth sets the column (x). A person and their
+ * spouses are stacked in that column as a series of "anchors"; each anchor's own
+ * children occupy the next column, so children sit beside the spouse they belong
+ * to. Every anchor reserves `max(1, Σ child rows)` rows and is centred on its
+ * children, so the whole person group spans the sum of its anchors' rows and no
+ * two subtrees overlap.
  */
 function layout(root: TreeNode): { root: Placed; width: number; height: number } {
-  let leaf = 0;
-  const place = (node: TreeNode, depth: number): Placed => {
-    const children = node.children.map((c) => place(c, depth + 1));
-    const y =
-      children.length === 0
-        ? (leaf++ * ROW_STEP)
-        : (children[0].y + children[children.length - 1].y) / 2;
-    return { ...node, x: depth * COL_STEP, y, children };
+  const groupMemo = new Map<TreeNode, number>();
+  const anchorRows = (children: TreeNode[]): number =>
+    Math.max(1, children.reduce((s, c) => s + groupRows(c), 0));
+  const groupRows = (node: TreeNode): number => {
+    const cached = groupMemo.get(node);
+    if (cached != null) return cached;
+    let total = anchorRows(node.children);
+    for (const p of node.partners) total += anchorRows(p.children);
+    const v = Math.max(1, total);
+    groupMemo.set(node, v);
+    return v;
   };
-  const placed = place(root, 0);
-  const depth = maxDepth(root);
-  const leaves = Math.max(1, leaf);
+
+  // Place one anchor's children (in the next column) and return where the anchor
+  // itself should sit, vertically centred on them.
+  const placeAnchor = (
+    anchorChildren: TreeNode[],
+    depth: number,
+    top: number,
+  ): { y: number; children: Placed[]; band: number } => {
+    const childRows = anchorChildren.reduce((s, c) => s + groupRows(c), 0);
+    const band = Math.max(1, childRows);
+    let cursor = top + ((band - childRows) / 2) * ROW_STEP;
+    const children = anchorChildren.map((c) => {
+      const placed = place(c, depth, cursor);
+      cursor += groupRows(c) * ROW_STEP;
+      return placed;
+    });
+    const y =
+      children.length > 0
+        ? Math.max(
+            top,
+            Math.min(
+              (children[0].y + children[children.length - 1].y) / 2,
+              top + (band - 1) * ROW_STEP,
+            ),
+          )
+        : top;
+    return { y, children, band };
+  };
+
+  const place = (node: TreeNode, depth: number, top: number): Placed => {
+    const x = depth * COL_STEP;
+    let cursor = top;
+    const self = placeAnchor(node.children, depth + 1, cursor);
+    cursor += self.band * ROW_STEP;
+    const partners: Placed[] = node.partners.map((p) => {
+      const a = placeAnchor(p.children, depth + 1, cursor);
+      cursor += a.band * ROW_STEP;
+      return { ...p, x, y: a.y, children: a.children, partners: [] };
+    });
+    return { ...node, x, y: self.y, children: self.children, partners };
+  };
+
+  const placed = place(root, 0, 0);
+  const total = groupRows(root);
   return {
     root: placed,
-    width: depth * COL_STEP + NODE_W + PAD * 2,
-    height: (leaves - 1) * ROW_STEP + NODE_H + PAD * 2,
+    width: maxDepth(root) * COL_STEP + NODE_W + PAD * 2,
+    height: (total - 1) * ROW_STEP + NODE_H + PAD * 2,
   };
 }
 
+/** Generations deep: spouses share the person's column, but their children don't. */
 function maxDepth(node: TreeNode): number {
-  return node.children.length === 0
-    ? 0
-    : 1 + Math.max(...node.children.map(maxDepth));
+  const kids = [...node.children, ...node.partners.flatMap((p) => p.children)];
+  return kids.length === 0 ? 0 : 1 + Math.max(...kids.map(maxDepth));
 }
 
 function truncate(s: string, max: number): string {

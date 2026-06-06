@@ -872,6 +872,10 @@ button {
   stroke: var(--border);
   stroke-width: 1.5;
 }
+.tree-edge-partner {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+}
 .tree-node { cursor: pointer; }
 .tree-node rect {
   stroke: rgba(0, 0, 0, 0.25);

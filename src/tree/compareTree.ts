@@ -29,6 +29,8 @@ export interface TreeNode {
   detail: string;
   /** Graph children: parents in ancestor mode, offspring in descendant mode. */
   children: TreeNode[];
+  /** Spouses, shown beside the person in descendant mode (empty for ancestors). */
+  partners: TreeNode[];
 }
 
 export interface MatchMaps {
@@ -74,10 +76,13 @@ export function buildCompareTree(
     const node = makeNode(t, key, master, incoming, masterDs, compareDs);
     if (seen.has(key)) return node; // already expanded elsewhere: stop here
     seen.add(key);
-    node.children =
-      mode === "ancestors"
-        ? parents(master, incoming, masterDs, compareDs, build)
-        : offspring(master, incoming, masterDs, compareDs, maps, build);
+    if (mode === "ancestors") {
+      node.children = parents(master, incoming, masterDs, compareDs, build);
+    } else {
+      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build);
+      node.partners = partners;
+      node.children = directChildren;
+    }
     return node;
   };
 
@@ -103,19 +108,98 @@ function parents(
   return out;
 }
 
-function offspring(
+/** One marriage/family of a person: the spouse (if any) and that union's children. */
+interface Union {
+  partner?: Individual;
+  children: Individual[];
+}
+
+function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
+  if (!indi) return [];
+  const unions: Union[] = [];
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+    const partner = otherId ? ds.individuals.get(otherId) : undefined;
+    const children = fam.children
+      .map((cid) => ds.individuals.get(cid))
+      .filter((c): c is Individual => c !== undefined);
+    unions.push({ partner, children });
+  }
+  return unions;
+}
+
+/**
+ * Build the descendant generation for a person. Each marriage becomes a partner
+ * node carrying *that union's* children, so children connect to the spouse they
+ * belong to. Children from a family with no recorded spouse hang off the person
+ * directly. Master and incoming families are aligned by their matched partner.
+ */
+function descend(
+  t: Translate,
   master: Individual | undefined,
   incoming: Individual | undefined,
   masterDs: Dataset,
   compareDs: Dataset,
   maps: MatchMaps,
   build: Build,
+): { partners: TreeNode[]; directChildren: TreeNode[] } {
+  const masterUnions = unionsOf(master, masterDs);
+  const incomingUnions = unionsOf(incoming, compareDs);
+  const usedIncoming = new Set<number>();
+
+  const partners: TreeNode[] = [];
+  const directChildren: TreeNode[] = [];
+
+  const emit = (
+    mPartner: Individual | undefined,
+    iPartner: Individual | undefined,
+    children: TreeNode[],
+  ) => {
+    if (mPartner || iPartner) {
+      const node = makeNode(t, nodeKey(mPartner, iPartner), mPartner, iPartner, masterDs, compareDs);
+      node.children = children;
+      partners.push(node);
+    } else {
+      directChildren.push(...children);
+    }
+  };
+
+  for (const mu of masterUnions) {
+    // Align this master family with an incoming one via the matched spouse.
+    let iIndex = -1;
+    if (mu.partner) {
+      const matchedId = maps.masterToCompare.get(mu.partner.id);
+      if (matchedId) {
+        iIndex = incomingUnions.findIndex(
+          (iu, idx) => !usedIncoming.has(idx) && iu.partner?.id === matchedId,
+        );
+      }
+    }
+    const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
+    if (iIndex >= 0) usedIncoming.add(iIndex);
+    emit(mu.partner, iu?.partner, pairChildren(mu.children, iu?.children ?? [], maps, build));
+  }
+
+  incomingUnions.forEach((iu, idx) => {
+    if (usedIncoming.has(idx)) return;
+    emit(undefined, iu.partner, pairChildren([], iu.children, maps, build));
+  });
+
+  return { partners, directChildren };
+}
+
+/** Pair a union's master and incoming children through the match map. */
+function pairChildren(
+  masterKids: Individual[],
+  incomingKids: Individual[],
+  maps: MatchMaps,
+  build: Build,
 ): TreeNode[] {
-  const out: TreeNode[] = [];
-  const masterKids = master ? childrenOf(master, masterDs) : [];
-  const incomingKids = incoming ? childrenOf(incoming, compareDs) : [];
   const incomingById = new Map(incomingKids.map((c) => [c.id, c]));
   const used = new Set<string>();
+  const out: TreeNode[] = [];
 
   for (const child of masterKids) {
     const matchedId = maps.masterToCompare.get(child.id);
@@ -132,6 +216,10 @@ function offspring(
   return out;
 }
 
+function nodeKey(master: Individual | undefined, incoming: Individual | undefined): string {
+  return `${master?.id ?? ""}|${incoming?.id ?? ""}`;
+}
+
 function firstParent(
   indi: Individual,
   ds: Dataset,
@@ -143,24 +231,6 @@ function firstParent(
     if (p) return p;
   }
   return undefined;
-}
-
-function childrenOf(indi: Individual, ds: Dataset): Individual[] {
-  const out: Individual[] = [];
-  const seen = new Set<string>();
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    for (const cid of fam.children) {
-      if (seen.has(cid)) continue;
-      const c = ds.individuals.get(cid);
-      if (c) {
-        seen.add(cid);
-        out.push(c);
-      }
-    }
-  }
-  return out;
 }
 
 function makeNode(
@@ -184,6 +254,7 @@ function makeNode(
     sex,
     detail: describe(t, master, incoming, masterDs, compareDs, status),
     children: [],
+    partners: [],
   };
 }
 

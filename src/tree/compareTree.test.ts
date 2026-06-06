@@ -34,7 +34,9 @@ const COMPARE = wrap(
 
 function find(node: TreeNode, name: string): TreeNode | undefined {
   if (node.name === name) return node;
-  for (const c of node.children) {
+  // Children hang off the person directly (spouseless) or off a partner (union).
+  const descendants = [...node.children, ...node.partners.flatMap((p) => p.children)];
+  for (const c of descendants) {
     const hit = find(c, name);
     if (hit) return hit;
   }
@@ -99,5 +101,47 @@ describe("buildCompareTree (descendants)", () => {
     expect(root.name).toBe("Anton Novak");
     const child = find(root, "Janez Novak")!;
     expect(child.status).toBe("match");
+  });
+
+  it("shows the spouse as a partner node beside the person", () => {
+    const root = buildCompareTree(
+      tr,
+      masterDs.individuals.get("@I2@"),
+      compareDs.individuals.get("@P2@"),
+      masterDs,
+      compareDs,
+      buildMatchMaps(matches),
+      "descendants",
+    )!;
+    expect(root.partners.map((p) => p.name)).toContain("Marija Novak");
+  });
+
+  it("hangs the union's children off the partner, not the main person", () => {
+    const root = buildCompareTree(
+      tr,
+      masterDs.individuals.get("@I2@"),
+      compareDs.individuals.get("@P2@"),
+      masterDs,
+      compareDs,
+      buildMatchMaps(matches),
+      "descendants",
+    )!;
+    // Anton has no spouseless children; Janez belongs to his union with Marija.
+    expect(root.children).toHaveLength(0);
+    const marija = root.partners.find((p) => p.name === "Marija Novak")!;
+    expect(marija.children.map((c) => c.name)).toContain("Janez Novak");
+  });
+
+  it("omits partners in ancestor mode", () => {
+    const root = buildCompareTree(
+      tr,
+      masterDs.individuals.get("@I1@"),
+      compareDs.individuals.get("@P1@"),
+      masterDs,
+      compareDs,
+      buildMatchMaps(matches),
+      "ancestors",
+    )!;
+    expect(root.partners).toHaveLength(0);
   });
 });
