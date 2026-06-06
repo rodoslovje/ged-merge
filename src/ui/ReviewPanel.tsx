@@ -1,0 +1,144 @@
+import { useMemo } from "react";
+import type { Dataset } from "../gedcom/types";
+import type { FamilyCandidate, IndividualCandidate } from "../match/types";
+import { familyFieldRows, individualFieldRows } from "../review/fields";
+import {
+  defaultChoice,
+  type CandidateDecision,
+  type FieldChoice,
+  type FieldRow,
+  type MatchDecisionStatus,
+  type MatchKind,
+} from "../review/types";
+
+interface Props {
+  kind: MatchKind;
+  candidate: IndividualCandidate | FamilyCandidate;
+  masterDs: Dataset;
+  compareDs: Dataset;
+  decision: CandidateDecision | undefined;
+  onChange: (next: CandidateDecision) => void;
+  onClose: () => void;
+}
+
+const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
+const CHOICES: FieldChoice[] = ["master", "incoming", "both"];
+
+export function ReviewPanel({
+  kind,
+  candidate,
+  masterDs,
+  compareDs,
+  decision,
+  onChange,
+  onClose,
+}: Props) {
+  const rows = useMemo<FieldRow[]>(() => {
+    if (kind === "individual") {
+      return individualFieldRows(
+        masterDs.individuals.get(candidate.masterId),
+        compareDs.individuals.get(candidate.compareId),
+      );
+    }
+    return familyFieldRows(
+      masterDs.families.get(candidate.masterId),
+      compareDs.families.get(candidate.compareId),
+      masterDs,
+      compareDs,
+    );
+  }, [kind, candidate, masterDs, compareDs]);
+
+  const status = decision?.status ?? "undecided";
+  const fields = decision?.fields ?? {};
+
+  function setStatus(next: MatchDecisionStatus) {
+    onChange({ status: next, fields });
+  }
+  function setField(key: string, choice: FieldChoice) {
+    onChange({ status, fields: { ...fields, [key]: choice } });
+  }
+
+  const conflicts = rows.filter((r) => r.state === "conflict").length;
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="review" onClick={(e) => e.stopPropagation()}>
+        <header className="review-head">
+          <div>
+            <h2>Review {kind}</h2>
+            <div className="muted">
+              Score {candidate.score.toFixed(1)}
+              {candidate.distance !== undefined && ` · distance ${candidate.distance}`}
+              {conflicts > 0 && ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"}`}
+            </div>
+          </div>
+          <button className="close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </header>
+
+        <div className="decision-bar">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              onClick={() => setStatus(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <table className="compare">
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Master · {candidate.masterLabel}</th>
+              <th>Incoming · {candidate.compareLabel}</th>
+              <th>Use</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const choice = fields[row.key] ?? defaultChoice(row);
+              return (
+                <tr key={row.key} className={`field ${row.state}`}>
+                  <td className="f-label">{row.label}</td>
+                  <td className={choice !== "incoming" ? "f-val chosen" : "f-val"}>
+                    {row.master || <span className="muted">—</span>}
+                  </td>
+                  <td className={choice !== "master" ? "f-val chosen" : "f-val"}>
+                    {row.incoming || <span className="muted">—</span>}
+                  </td>
+                  <td className="f-choice">
+                    {row.state === "agree" ? (
+                      <span className="muted">=</span>
+                    ) : (
+                      CHOICES.map((c) => (
+                        <button
+                          key={c}
+                          className={choice === c ? "choice active" : "choice"}
+                          title={choiceTitle(c)}
+                          onClick={() => setField(row.key, c)}
+                        >
+                          {choiceLabel(c)}
+                        </button>
+                      ))
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function choiceLabel(c: FieldChoice): string {
+  return c === "master" ? "M" : c === "incoming" ? "I" : "B";
+}
+function choiceTitle(c: FieldChoice): string {
+  return c === "master" ? "Keep master" : c === "incoming" ? "Take incoming" : "Keep both";
+}

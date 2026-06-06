@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Dataset } from "./gedcom/types";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
-import type { MatchResult } from "./match/types";
+import type { FamilyCandidate, IndividualCandidate, MatchResult } from "./match/types";
+import { decisionKey, type CandidateDecision, type MatchKind } from "./review/types";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { MatchResults } from "./ui/MatchResults";
+import { ReviewPanel } from "./ui/ReviewPanel";
 
 interface LoadedFile {
   fileName: string;
@@ -26,6 +28,11 @@ export function App() {
   const [matches, setMatches] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
   const [homeId, setHomeId] = useState<string | undefined>(undefined);
+  const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
+  const [reviewing, setReviewing] = useState<{
+    kind: MatchKind;
+    candidate: IndividualCandidate | FamilyCandidate;
+  } | null>(null);
 
   useEffect(() => {
     const worker = new Worker(new URL("./worker/gedcom.worker.ts", import.meta.url), {
@@ -61,9 +68,11 @@ export function App() {
   async function loadFile(role: DatasetRole, file: File) {
     const setter = role === "master" ? setMaster : setCompare;
     setter({ status: "loading", fileName: file.name });
-    // Drop stale results; the worker will emit fresh matches once both sides are
-    // (re)loaded and re-normalized.
+    // Drop stale results + decisions; the worker will emit fresh matches once
+    // both sides are (re)loaded and re-normalized.
     setMatches(null);
+    setDecisions(new Map());
+    setReviewing(null);
     const buffer = await file.arrayBuffer();
     workerRef.current?.postMessage(
       { type: "parse", role, fileName: file.name, buffer },
@@ -75,6 +84,18 @@ export function App() {
     setHomeId(id);
     workerRef.current?.postMessage({ type: "setHome", id });
   }
+
+  function updateDecision(
+    kind: MatchKind,
+    candidate: IndividualCandidate | FamilyCandidate,
+    next: CandidateDecision,
+  ) {
+    const key = decisionKey(kind, candidate.masterId, candidate.compareId);
+    setDecisions((prev) => new Map(prev).set(key, next));
+  }
+
+  const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
+  const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
   return (
     <div className="app">
@@ -112,7 +133,31 @@ export function App() {
         </div>
       )}
 
-      {matches && !matching && <MatchResults result={matches} />}
+      {matches && !matching && (
+        <MatchResults
+          result={matches}
+          decisions={decisions}
+          onReview={(kind, candidate) => setReviewing({ kind, candidate })}
+        />
+      )}
+
+      {reviewing && masterDataset && compareDataset && (
+        <ReviewPanel
+          kind={reviewing.kind}
+          candidate={reviewing.candidate}
+          masterDs={masterDataset}
+          compareDs={compareDataset}
+          decision={decisions.get(
+            decisionKey(
+              reviewing.kind,
+              reviewing.candidate.masterId,
+              reviewing.candidate.compareId,
+            ),
+          )}
+          onChange={(next) => updateDecision(reviewing.kind, reviewing.candidate, next)}
+          onClose={() => setReviewing(null)}
+        />
+      )}
     </div>
   );
 }
