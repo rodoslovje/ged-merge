@@ -1,4 +1,5 @@
 import type { Dataset, Family, PersonName } from "../gedcom/types";
+import { spouseTitle } from "./relatives";
 import { dateSimilarity, nameSetSimilarity, nameSimilarity, placeSimilarity } from "./similarity";
 import { soundex } from "./text";
 import {
@@ -42,8 +43,7 @@ export function scoreFamilyPair(
     score: Math.round(score01 * 1000) / 10,
     category: categorize(score01, config),
     components,
-    masterLabel: familyLabel(master, masterDs),
-    compareLabel: familyLabel(compare, compareDs),
+    title: familyPairTitle(master, compare, masterDs, compareDs),
   };
 }
 
@@ -82,8 +82,9 @@ function childNames(fam: Family, ds: Dataset): PersonName[] {
     .filter((n): n is PersonName => n !== undefined);
 }
 
-function familyLabel(fam: Family, ds: Dataset): string {
-  const h = name(fam.husband, ds)?.full ?? "?";
-  const w = name(fam.wife, ds)?.full ?? "?";
+/** Master-centric family title: each spouse collapsed so identical names aren't repeated. */
+function familyPairTitle(master: Family, compare: Family, masterDs: Dataset, compareDs: Dataset): string {
+  const h = spouseTitle(name(master.husband, masterDs), name(compare.husband, compareDs));
+  const w = spouseTitle(name(master.wife, masterDs), name(compare.wife, compareDs));
   return `${h} + ${w}`;
 }

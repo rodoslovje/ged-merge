@@ -1,3 +1,5 @@
+import type { Sex } from "../gedcom/types";
+
 /** A single weighted contribution to a match score. */
 export interface ScoreComponent {
   /** Stable key, e.g. "surname", "birthDate". */
@@ -25,9 +27,10 @@ export interface IndividualCandidate {
   score: number;
   category: MatchCategory;
   components: ScoreComponent[];
-  /** Display labels resolved at scoring time. */
-  masterLabel: string;
-  compareLabel: string;
+  /** Combined master-centric title: master label plus only the differing compare fields. */
+  title: string;
+  /** Sex of the matched person, used to colour the name label. */
+  sex: Sex;
   /** Hops from the home person to the master individual (set during ranking). */
   distance?: number;
   /** Fields the compare record has that the master lacks (data to add). */
@@ -44,8 +47,8 @@ export interface FamilyCandidate {
   score: number;
   category: MatchCategory;
   components: ScoreComponent[];
-  masterLabel: string;
-  compareLabel: string;
+  /** Combined master-centric title: spouse names with only the differing compare parts. */
+  title: string;
   /** Minimum distance of either spouse to the home person. */
   distance?: number;
   /** Fields the compare record has that the master lacks (data to add). */
@@ -99,6 +102,18 @@ export interface MatchConfig {
    * (counted at this score) rather than ignored. Lower = harsher.
    */
   missingKeyScore: number;
+  /**
+   * Extra score points (0..100 scale) added for each parent — father and
+   * mother — that is a full name match. Corroborating parents nudge confidence
+   * up a little, but the bonus never lifts a pair to 100 unless its identity
+   * key is itself perfect.
+   */
+  parentMatchBonus: number;
+  /**
+   * Extra score points (0..100 scale) added when a partner (spouse) is a full
+   * name match — the same idea as `parentMatchBonus` for a corroborating spouse.
+   */
+  partnerMatchBonus: number;
   /** Below this 0..1 score a pair is discarded. */
   minScore: number;
   /** Category cut-offs on the 0..1 scale. */
@@ -132,6 +147,8 @@ export const DEFAULT_CONFIG: MatchConfig = {
     maxYearGap: 100,
   },
   missingKeyScore: 0.3,
+  parentMatchBonus: 1.5,
+  partnerMatchBonus: 1.5,
   minScore: 0.45,
   strongThreshold: 0.85,
   probableThreshold: 0.65,

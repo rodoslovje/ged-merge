@@ -63,15 +63,6 @@ export function individualFieldRows(
   pushRow(rows, "surname", "Surname", mn?.surname, cn?.surname);
   pushRow(rows, "sex", "Sex", sexText(master?.sex), sexText(compare?.sex));
 
-  if (masterDs && compareDs) {
-    pushRow(rows, "father", "Father", parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
-    pushRow(rows, "mother", "Mother", parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
-    pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
-  }
-
-  // All links (record-level and from any event) collapse into one Links field.
-  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
-
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
     const ce = compare?.events.find((e) => e.tag === tag);
@@ -79,6 +70,16 @@ export function individualFieldRows(
     pushRow(rows, `${tag}.date`, `${name} date`, me?.date?.raw, ce?.date?.raw);
     pushRow(rows, `${tag}.place`, `${name} place`, me?.place?.raw, ce?.place?.raw);
     pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
+  }
+
+  // Links (record-level and from any event, collapsed) come after the events.
+  pushLinkRow(rows, "links", "Links", gatherLinks(master), gatherLinks(compare));
+
+  // Relatives last: parents, then partners.
+  if (masterDs && compareDs) {
+    pushRow(rows, "father", "Father", parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
+    pushRow(rows, "mother", "Mother", parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
+    pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
   }
   return rows;
 }

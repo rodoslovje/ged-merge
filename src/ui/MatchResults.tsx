@@ -14,7 +14,7 @@ import {
   type MatchKind,
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
-import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { formatScore, sexClass, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 
 interface Props {
   result: MatchResult;
@@ -158,7 +158,7 @@ export function MatchResults({
               🔗{arrow("linkCount")}
             </button>
             <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
-              Compare ↔ Master{arrow("label")}
+              Master : Compare{arrow("label")}
             </button>
           </li>
           {list.map((c, i) => (
@@ -227,13 +227,7 @@ function CandidateRow({
           >
             {candidate.linkCount ?? 0}
           </span>
-          <span className="labels">
-          {candidate.score === 1 ? (
-            candidate.compareLabel
-          ) : (
-            <>{candidate.compareLabel} <span className="muted"> ↔ </span> {candidate.masterLabel}</>
-          )}
-          </span>
+          <span className={`labels ${sexClass(candidate)}`}>{candidate.title}</span>
         </button>
         {status && status !== "undecided" && (
           <span className={`status-chip ${status}`}>{status}</span>

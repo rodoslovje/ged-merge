@@ -5,12 +5,63 @@ export function primaryName(indi: Individual): PersonName | undefined {
   return indi.names[0];
 }
 
-/** A short display label for an individual. */
+/** Full display name from a structured name. */
+export function displayName(n: PersonName | undefined): string {
+  return n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || "(unnamed)";
+}
+
+/** Birth date for display: the original date text, falling back to the year. */
+function birthText(indi: Individual): string | undefined {
+  const d = findEvent(indi, "BIRT")?.date;
+  return d?.raw || (d?.year != null ? String(d.year) : undefined);
+}
+
+/** A short display label for an individual: name plus birth date when known. */
 export function label(indi: Individual): string {
-  const n = primaryName(indi);
-  const name = n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || "(unnamed)";
-  const birth = findEvent(indi, "BIRT")?.date?.year;
+  const name = displayName(primaryName(indi));
+  const birth = birthText(indi);
   return birth ? `${name} (b. ${birth})` : name;
+}
+
+/** Case/space-insensitive comparison of two display fields. */
+const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
+
+/**
+ * The compare name parts that differ from the master, for an inline title.
+ * When both sides carry structured parts we diff given and surname separately;
+ * otherwise we fall back to the whole reconstructed name.
+ */
+function nameDiff(m: PersonName | undefined, c: PersonName | undefined): string[] {
+  const diff: string[] = [];
+  if ((m?.given || m?.surname) && (c?.given || c?.surname)) {
+    if (fold(c?.given) !== fold(m?.given)) diff.push(c?.given ?? "—");
+    if (fold(c?.surname) !== fold(m?.surname)) diff.push(c?.surname ?? "—");
+  } else if (fold(c?.full) !== fold(m?.full)) {
+    diff.push(displayName(c));
+  }
+  return diff;
+}
+
+/**
+ * Master-centric title for a candidate pair: the full master label, plus —
+ * when the compare record differs — ": " and only the differing parts (given
+ * name, surname, birth date) taken from the compare side. A pair that agrees on
+ * all three shows the master label alone, never repeating identical data.
+ */
+export function pairTitle(master: Individual, compare: Individual): string {
+  const diff = nameDiff(primaryName(master), primaryName(compare));
+  const mb = birthText(master);
+  const cb = birthText(compare);
+  if (fold(cb) !== fold(mb)) diff.push(`(b. ${cb ?? "—"})`);
+  const head = label(master);
+  return diff.length ? `${head}: ${diff.join(" ")}` : head;
+}
+
+/** A spouse's title within a family pair: name only, collapsed like {@link pairTitle}. */
+export function spouseTitle(m: PersonName | undefined, c: PersonName | undefined): string {
+  const head = m ? displayName(m) : "?";
+  const diff = nameDiff(m, c);
+  return diff.length ? `${head}: ${diff.join(" ")}` : head;
 }
 
 export function findEvent(indi: Individual, tag: string): GedEvent | undefined {
@@ -27,6 +78,29 @@ export function parentNames(indi: Individual, ds: Dataset): PersonName[] {
     pushName(names, fam.wife, ds);
   }
   return names;
+}
+
+/** The father's name (husband of the first family this person is a child of). */
+export function fatherName(indi: Individual, ds: Dataset): PersonName | undefined {
+  return parentByRole(indi, ds, "husband");
+}
+
+/** The mother's name (wife of the first family this person is a child of). */
+export function motherName(indi: Individual, ds: Dataset): PersonName | undefined {
+  return parentByRole(indi, ds, "wife");
+}
+
+function parentByRole(
+  indi: Individual,
+  ds: Dataset,
+  role: "husband" | "wife",
+): PersonName | undefined {
+  for (const famId of indi.childOf) {
+    const id = ds.families.get(famId)?.[role];
+    const n = id ? ds.individuals.get(id)?.names[0] : undefined;
+    if (n) return n;
+  }
+  return undefined;
 }
 
 /** Spouses resolved via the families where this person is a parent. */

@@ -1,9 +1,10 @@
-import type { Dataset, Individual } from "../gedcom/types";
-import { label, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
+import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import { fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
   givenSimilarity,
   nameSetSimilarity,
+  nameSimilarity,
   placeSimilarity,
 } from "./similarity";
 import { foldToken, jaroWinkler } from "./text";
@@ -56,16 +57,81 @@ export function scoreIndividualPair(
   add(components, "parents", w.parents, nameSetSimilarity(parentNames(master, masterDs), parentNames(compare, compareDs)), "parents");
   add(components, "partners", w.partners, nameSetSimilarity(partnerNames(master, masterDs), partnerNames(compare, compareDs)), "partners");
 
-  const score01 = combineComponents(components);
+  let score01 = combineComponents(components);
+
+  // The identity key — surname, given name and birth date — is conclusive: when
+  // all three are present and an exact match the pair is the same person and
+  // scores a flat 100. Conversely 100 is reserved for that case, so secondary
+  // fields can never round an imperfect-key pair up to it.
+  const keyPerfect = KEY_FIELDS.every((k) => {
+    const c = components.find((x) => x.key === k);
+    return c !== undefined && !c.missing && c.score === 1;
+  });
+  if (keyPerfect) score01 = 1;
+
+  let score = Math.round(score01 * 1000) / 10;
+  if (!keyPerfect && score >= 100) score = 99.9;
+
+  // A fully-matching relative is strong corroboration: nudge the score up a
+  // little for each of father/mother/partner that matches exactly. The bonus is
+  // capped just below 100 so it never reaches a perfect score on its own — 100
+  // stays reserved for a perfect identity key.
+  if (!keyPerfect) {
+    const bonus = relativeMatchBonus(master, compare, masterDs, compareDs, config);
+    if (bonus > 0) score = Math.min(99.9, Math.round((score + bonus) * 10) / 10);
+  }
+
   return {
     masterId: master.id,
     compareId: compare.id,
-    score: Math.round(score01 * 1000) / 10,
+    score,
     category: categorize(score01, config),
     components,
-    masterLabel: label(master),
-    compareLabel: label(compare),
+    title: pairTitle(master, compare),
+    sex: master.sex !== "U" ? master.sex : compare.sex,
   };
+}
+
+/** The identity key: a perfect match on all three earns a 100 score. */
+const KEY_FIELDS = ["surname", "given", "birthDate"] as const;
+
+/**
+ * Total bonus for corroborating relatives: father, mother and any partner that
+ * is a confident full name match.
+ */
+function relativeMatchBonus(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig,
+): number {
+  let bonus = 0;
+  if (fullNameMatch(fatherName(master, masterDs), fatherName(compare, compareDs))) {
+    bonus += config.parentMatchBonus;
+  }
+  if (fullNameMatch(motherName(master, masterDs), motherName(compare, compareDs))) {
+    bonus += config.parentMatchBonus;
+  }
+  if (anyFullNameMatch(partnerNames(master, masterDs), partnerNames(compare, compareDs))) {
+    bonus += config.partnerMatchBonus;
+  }
+  return bonus;
+}
+
+/** True when some name on each side is a confident full match with the other. */
+function anyFullNameMatch(as: PersonName[], bs: PersonName[]): boolean {
+  return as.some((a) => bs.some((b) => fullNameMatch(a, b)));
+}
+
+/**
+ * A confident full match: both sides have a given name *and* a surname, and the
+ * two names are identical. Requiring both parts avoids treating a shared family
+ * surname (with no given name) as corroboration.
+ */
+function fullNameMatch(a: PersonName | undefined, b: PersonName | undefined): boolean {
+  if (!a?.given || !b?.given || !a?.surname || !b?.surname) return false;
+  return nameSimilarity(a, b) === 1;
 }
 
 function add(

@@ -9,13 +9,16 @@ import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { MatchResults } from "./ui/MatchResults";
 import { ComparePanel } from "./ui/ComparePanel";
+import { CompareTree } from "./ui/CompareTree";
 import { Section } from "./ui/Section";
+import type { TreeMode } from "./tree/compareTree";
 import {
   applyFilters,
   applySort,
   DEFAULT_FILTERS,
   DEFAULT_SORT,
   nextSort,
+  sexClass,
   type Filters,
   type SortKey,
   type SortState,
@@ -32,6 +35,13 @@ type SlotState =
   | { status: "loading"; fileName: string }
   | { status: "loaded"; file: LoadedFile }
   | { status: "error"; fileName: string; message: string };
+
+/** Which candidate pair the full-page compare tree is showing, and how. */
+interface TreeView {
+  masterId: string;
+  compareId: string;
+  mode: TreeMode;
+}
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
 
@@ -56,6 +66,32 @@ export function App() {
   const [openLoad, setOpenLoad] = useState(true);
   const [openCompare, setOpenCompare] = useState(false);
   const [openMatches, setOpenMatches] = useState(false);
+
+  // Full-page "Compare tree" view, kept in sync with browser history so the
+  // back button returns to the main view.
+  const [treeView, setTreeView] = useState<TreeView | null>(null);
+
+  useEffect(() => {
+    function onPop(e: PopStateEvent) {
+      setTreeView((e.state?.gedTree as TreeView | undefined) ?? null);
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function openTree(masterId: string, compareId: string) {
+    const view: TreeView = { masterId, compareId, mode: "ancestors" };
+    window.history.pushState({ gedTree: view }, "");
+    setTreeView(view);
+  }
+  function changeTreeMode(mode: TreeMode) {
+    setTreeView((cur) => {
+      if (!cur) return cur;
+      const next = { ...cur, mode };
+      window.history.replaceState({ gedTree: next }, "");
+      return next;
+    });
+  }
 
   useEffect(() => {
     const worker = new Worker(new URL("./worker/gedcom.worker.ts", import.meta.url), {
@@ -163,6 +199,22 @@ export function App() {
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
+  // Full-page compare tree takes over the whole view when open.
+  if (treeView && masterDataset && compareDataset && matches) {
+    return (
+      <CompareTree
+        masterDs={masterDataset}
+        compareDs={compareDataset}
+        matches={matches}
+        rootMasterId={treeView.masterId}
+        rootCompareId={treeView.compareId}
+        mode={treeView.mode}
+        onModeChange={changeTreeMode}
+        onBack={() => window.history.back()}
+      />
+    );
+  }
+
   const loadSubtitle =
     master.status === "loaded" && compare.status === "loaded"
       ? `${master.file.fileName} ↔ ${compare.file.fileName}`
@@ -192,13 +244,7 @@ export function App() {
   ) : undefined;
   const compareSubtitle = current ? (
     <>
-      <div className="compare-header-info">
-        {current.score === 1 ? (
-          current.masterLabel
-        ) : (
-          <>{current.masterLabel} <span className="muted">↔</span> {current.compareLabel}</>
-        )}
-      </div>
+      <div className={`compare-header-info ${sexClass(current)}`}>{current.title}</div>
       <div className="compare-nav-header">
         <button
           className="nav-btn icon-only"
@@ -279,6 +325,11 @@ export function App() {
             compareDs={compareDataset}
             decision={decisions.get(decisionKey(tab, current.masterId, current.compareId))}
             onChange={updateDecision}
+            onOpenTree={
+              tab === "individual"
+                ? () => openTree(current.masterId, current.compareId)
+                : undefined
+            }
           />
         ) : (
           <p className="muted">

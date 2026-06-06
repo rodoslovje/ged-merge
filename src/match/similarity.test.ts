@@ -31,15 +31,27 @@ describe("parseDate qualifier variants", () => {
 describe("dateSimilarity", () => {
   const d = (s: string) => parseDate(s);
 
-  it("scores identical dates 1.0 at every precision", () => {
+  it("scores identical exact dates 1.0 at every precision", () => {
     expect(dateSimilarity(d("12 JAN 1900"), d("12 JAN 1900"))).toBe(1);
     expect(dateSimilarity(d("JAN 1900"), d("JAN 1900"))).toBe(1);
     expect(dateSimilarity(d("1900"), d("1900"))).toBe(1);
-    expect(dateSimilarity(d("ABT 1900"), d("ABT 1900"))).toBe(1);
   });
 
-  it("treats dates that agree at the common precision as full matches", () => {
-    expect(dateSimilarity(d("12 JAN 1900"), d("1900"))).toBe(1);
+  it("keeps a precision mismatch below a perfect match", () => {
+    // Same year and consistent, but one side is a full date and the other only
+    // the year (or month): a strong match, yet not the same assertion.
+    for (const pair of [["12 JAN 1900", "1900"], ["12 JAN 1900", "JAN 1900"], ["JAN 1900", "1900"]] as const) {
+      const s = dateSimilarity(d(pair[0]), d(pair[1]))!;
+      expect(s).toBeLessThan(1);
+      expect(s).toBeGreaterThan(0.7);
+    }
+  });
+
+  it("keeps an approximate date below a perfect match even on the same year", () => {
+    // The year agrees but "about" doesn't assert it exactly, so it can't be 1.0.
+    expect(dateSimilarity(d("ABT 1900"), d("ABT 1900"))).toBeLessThan(1);
+    expect(dateSimilarity(d("ABT 1845"), d("4 APR 1845"))).toBeLessThan(1);
+    expect(dateSimilarity(d("ABT 1845"), d("4 APR 1845"))!).toBeGreaterThan(0.7);
   });
 
   it("downweights real discrepancies", () => {

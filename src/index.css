@@ -457,6 +457,10 @@ button {
 .nd.link { color: #93c5fd; }
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
+/* Name colouring by sex: cyan male, pink female. */
+.sex-m { color: #38bdf8; }
+.sex-f { color: #f472b6; }
+
 .candidate {
   flex: 0 0 auto; /* don't shrink to fit the scroll container — let it scroll */
   background: var(--panel);
@@ -544,7 +548,7 @@ button {
   top: 50%;
   transform: translate(-50%, -50%);
   font-size: 0.9rem;
-  color: var(--text);
+  /* Colour comes from a .sex-m / .sex-f modifier; defaults to --text. */
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
@@ -649,4 +653,114 @@ button {
   height: 8px;
   border-radius: 4px;
   background: var(--accent);
+}
+
+/* --- compare tree --- */
+.tree-open-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+.tree-open-btn:hover { border-color: var(--accent); }
+
+.tree-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  overflow: hidden;
+}
+.tree-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.tree-title {
+  font-size: 1.2rem;
+  margin: 0;
+  flex: 1 1 auto;
+}
+.tree-back {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+.tree-back:hover { border-color: var(--accent); }
+.tree-mode {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.tree-mode button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+}
+.tree-mode button.active {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tree-legend {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tree-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tree-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.tree-canvas {
+  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.tree-svg { display: block; }
+.tree-edge {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+.tree-node rect {
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 1;
+}
+.tree-node-name {
+  fill: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tree-node-year {
+  fill: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
 }

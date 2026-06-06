@@ -50,15 +50,18 @@ export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): 
   if (diff > tolerance) return 0;
   if (diff !== 0) return 1 - diff / (tolerance + 1);
 
-  // Same year: judge by the finest precision the two dates have in common, so
-  // dates that agree as far as they are specified score 1.0 (identical year-only
-  // dates are a perfect match, not a partial one).
-  if (a.month && b.month) {
-    if (a.month !== b.month) return 0.55; // different month, same year
-    if (a.day && b.day) return a.day === b.day ? 1 : 0.9; // day differs
-    return 1; // same month, day missing on a side
-  }
-  return 1; // only the year is known in common, and it matches
+  // Same year. A perfect 1.0 is reserved for two exact dates of equal precision
+  // that agree in full. Anything less is a strong but imperfect match:
+  //  - a genuine disagreement (different month, or different day same month),
+  //  - a precision mismatch, e.g. a full date vs a bare year ("12 JAN 1900" vs
+  //    "1900") — they're consistent but not the same assertion,
+  //  - an approximate qualifier (ABT/EST/~) — the year isn't asserted exactly.
+  if (a.month && b.month && a.month !== b.month) return 0.55; // different month
+  if (a.day && b.day && a.day !== b.day) return 0.9; // same month, different day
+
+  const precision = (d: GedDate) => (d.day ? 3 : d.month ? 2 : 1);
+  const exact = !approx && precision(a) === precision(b);
+  return exact ? 1 : 0.9;
 }
 
 function isApprox(d: GedDate): boolean {

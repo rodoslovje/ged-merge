@@ -77,8 +77,8 @@ describe("applyDistanceRanking", () => {
       score,
       category: "probable",
       components: [],
-      masterLabel: masterId,
-      compareLabel: masterId,
+      title: masterId,
+      sex: "U",
     });
     // Intentionally unsorted, mixing distances and scores.
     const result: MatchResult = {

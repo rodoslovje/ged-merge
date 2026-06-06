@@ -229,6 +229,26 @@ describe("key-field penalty (name, surname, birth year)", () => {
     expect(r[0].score).toBe(100);
   });
 
+  it("awards 100 for a perfect key even when a secondary field differs", () => {
+    // Same name, surname and birth date, but different birth place. The identity
+    // key is conclusive, so the secondary mismatch does not pull it below 100.
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1850\n2 PLAC Ljubljana",
+      "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1850\n2 PLAC Maribor",
+    );
+    expect(r[0].score).toBe(100);
+  });
+
+  it("keeps an imperfect-key pair below 100 (no rounding up)", () => {
+    // Birth years one apart: the key is strong but not exact, so even a tiny
+    // imperfection must not display as a flat 100.
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1850\n2 PLAC Ljubljana\n1 SEX M",
+      "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1851\n2 PLAC Ljubljana\n1 SEX M",
+    );
+    expect(r[0].score).toBeLessThan(100);
+  });
+
   it("penalizes a missing birth year instead of ignoring it", () => {
     // Identical names, but the compare record has no birth year. The pair is
     // still offered, yet the missing key keeps it well below a perfect score.
@@ -251,6 +271,62 @@ describe("key-field penalty (name, surname, birth year)", () => {
     const given = r[0].components.find((c) => c.key === "given");
     expect(given?.missing).toBe(true);
     expect(r[0].score).toBeLessThan(100);
+  });
+});
+
+describe("parent-match bonus", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  // Same child in master and compare with an imperfect key (birth years one
+  // apart so the score isn't pinned at 100), each with a father whose NAME varies.
+  const master = (fatherName: string) =>
+    "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850\n1 FAMC @MF@\n" +
+    "0 @MF@ FAM\n1 HUSB @MH@\n1 CHIL @M@\n" +
+    `0 @MH@ INDI\n1 NAME ${fatherName}\n`;
+  const compare = (fatherName: string) =>
+    "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1851\n1 FAMC @CF@\n" +
+    "0 @CF@ FAM\n1 HUSB @CH@\n1 CHIL @C@\n" +
+    `0 @CH@ INDI\n1 NAME ${fatherName}\n`;
+
+  const scoreOf = (fatherName: string) =>
+    matchDatasets(doc(master(fatherName)), doc(compare(fatherName))).individuals.find(
+      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    )!.score;
+
+  it("raises the score a little for a full parent match, but not to 100", () => {
+    // Both variants share the same weighted `parents` component (the surnames
+    // match either way), so the difference is purely the full-name bonus.
+    const surnameOnly = scoreOf("/Novak/");
+    const fullName = scoreOf("Anton /Novak/");
+    expect(fullName).toBeGreaterThan(surnameOnly);
+    expect(fullName).toBeLessThan(100);
+  });
+});
+
+describe("partner-match bonus", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  // Same person in master and compare (imperfect key: birth years one apart),
+  // married into a family whose spouse NAME we vary.
+  const master = (spouseName: string) =>
+    "0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @MF@\n" +
+    "0 @MF@ FAM\n1 HUSB @M@\n1 WIFE @MW@\n" +
+    `0 @MW@ INDI\n1 NAME ${spouseName}\n1 SEX F\n`;
+  const compare = (spouseName: string) =>
+    "0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1851\n1 FAMS @CF@\n" +
+    "0 @CF@ FAM\n1 HUSB @C@\n1 WIFE @CW@\n" +
+    `0 @CW@ INDI\n1 NAME ${spouseName}\n1 SEX F\n`;
+
+  const scoreOf = (spouseName: string) =>
+    matchDatasets(doc(master(spouseName)), doc(compare(spouseName))).individuals.find(
+      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    )!.score;
+
+  it("raises the score a little for a full partner match, but not to 100", () => {
+    // The weighted `partners` component is the same either way (surnames match),
+    // so the lift is purely the full-name spouse bonus.
+    const surnameOnly = scoreOf("/Kovač/");
+    const fullName = scoreOf("Marija /Kovač/");
+    expect(fullName).toBeGreaterThan(surnameOnly);
+    expect(fullName).toBeLessThan(100);
   });
 });
 

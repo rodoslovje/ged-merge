@@ -28,4 +28,19 @@ export const sl = {
     next: "Naslednje ujemanje (Bližnjica: → ali ↓)",
     pos: "{{current}} od {{total}}",
   },
+  tree: {
+    button: "Primerjalno drevo",
+    title: "Primerjalno drevo",
+    back: "Nazaj",
+    ancestors: "Predniki",
+    descendants: "Potomci",
+    empty: "Za to osebo ni ničesar za prikaz.",
+    legend: {
+      match: "Popolno ujemanje",
+      minor: "Manjša razlika",
+      major: "Večja razlika",
+      masterOnly: "Samo v Glavni",
+      incomingOnly: "Samo v Vhodni",
+    },
+  },
 } as const;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { FamilyCandidate, IndividualCandidate } from "../match/types";
 import { familyFieldRows, individualFieldRows } from "../review/fields";
@@ -19,6 +20,8 @@ interface Props {
   compareDs: Dataset;
   decision: CandidateDecision | undefined;
   onChange: (next: CandidateDecision) => void;
+  /** When set, shows a "Compare tree" button that opens the full-page tree. */
+  onOpenTree?: () => void;
 }
 
 const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
@@ -31,7 +34,9 @@ export function ComparePanel({
   compareDs,
   decision,
   onChange,
+  onOpenTree,
 }: Props) {
+  const { t } = useTranslation();
   const rows = useMemo<FieldRow[]>(() => {
     if (kind === "individual") {
       return individualFieldRows(
@@ -99,6 +104,12 @@ export function ComparePanel({
           {candidate.distance !== undefined && ` · distance ${candidate.distance}`}
           {conflicts > 0 && ` · ${conflicts} conflict${conflicts === 1 ? "" : "s"}`}
         </div>
+
+        {onOpenTree && (
+          <button className="tree-open-btn" onClick={onOpenTree}>
+            {t("tree.button")}
+          </button>
+        )}
       </div>
 
       <table className="compare">

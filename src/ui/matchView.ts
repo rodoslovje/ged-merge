@@ -7,6 +7,15 @@ export function formatScore(score: number): string {
   return score >= 100 ? "100" : score.toFixed(1);
 }
 
+/**
+ * CSS class colouring a name by sex — cyan for male, pink for female. Family
+ * candidates (two people) carry no single sex, so they get no colour.
+ */
+export function sexClass(candidate: Candidate): string {
+  const sex = "sex" in candidate ? candidate.sex : "U";
+  return sex === "M" ? "sex-m" : sex === "F" ? "sex-f" : "";
+}
+
 export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "linkCount" | "label";
 
 export interface SortState {
@@ -67,7 +76,7 @@ export const DEFAULT_FILTERS: Filters = {
   onlyNew: false,
   onlyDiff: false,
   onlyLinks: false,
-  minScore: 85,
+  minScore: 80,
 };
 
 export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
@@ -107,6 +116,6 @@ function compareBy(a: Candidate, b: Candidate, key: SortKey): number {
     case "linkCount":
       return (a.linkCount ?? 0) - (b.linkCount ?? 0);
     case "label":
-      return a.compareLabel.localeCompare(b.compareLabel);
+      return a.title.localeCompare(b.title);
   }
 }
