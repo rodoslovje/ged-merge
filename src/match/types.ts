@@ -24,6 +24,10 @@ export interface IndividualCandidate {
   compareLabel: string;
   /** Hops from the home person to the master individual (set during ranking). */
   distance?: number;
+  /** Fields the compare record has that the master lacks (data to add). */
+  newCount?: number;
+  /** Fields both records have but that differ (to reconcile). */
+  diffCount?: number;
 }
 
 export interface FamilyCandidate {
@@ -36,6 +40,10 @@ export interface FamilyCandidate {
   compareLabel: string;
   /** Minimum distance of either spouse to the home person. */
   distance?: number;
+  /** Fields the compare record has that the master lacks (data to add). */
+  newCount?: number;
+  /** Fields both records have but that differ (to reconcile). */
+  diffCount?: number;
 }
 
 export interface MatchResult {

@@ -11,13 +11,27 @@ interface SimpleDate {
   day?: number;
 }
 
+/**
+ * Qualifier keyword variants. Genealogy software and hand entry use many
+ * spellings/abbreviations for the same modifier ("ABT", "Abt.", "About",
+ * "Circa"), so each group is matched case-insensitively with an optional
+ * trailing period.
+ */
+const ABOUT = "ABT|ABOUT|CIRCA|CIR|CA|EST|ESTIMATED|CAL|CALCULATED";
+const BEFORE = "BEF|BEFORE";
+const AFTER = "AFT|AFTER";
+const BETWEEN = "BET|BETWEEN";
+const INTERPRETED = "INT|INTERPRETED";
+const AND = "AND|&";
+
+const kw = (alts: string) => `(?:${alts})\\.?`;
+
 /** Parse a `DATE` value into a structured `GedDate`, preserving the raw text. */
 export function parseDate(raw: string): GedDate {
-  const text = raw.trim();
-  const upper = text.toUpperCase();
+  const upper = raw.trim().toUpperCase();
 
-  // Range / period forms.
-  let m = upper.match(/^BET(?:WEEN)?\s+(.+?)\s+AND\s+(.+)$/);
+  // Range / period forms (two endpoints).
+  let m = upper.match(new RegExp(`^${kw(BETWEEN)}\\s+(.+?)\\s+(?:${AND})\\s+(.+)$`));
   if (m) return withSecond("between", m[1], m[2], raw);
 
   m = upper.match(/^FROM\s+(.+?)\s+TO\s+(.+)$/);
@@ -29,16 +43,20 @@ export function parseDate(raw: string): GedDate {
   m = upper.match(/^TO\s+(.+)$/);
   if (m) return withFirst("to", m[1], raw);
 
-  m = upper.match(/^(ABT|EST|CAL)\s+(.+)$/);
-  if (m) return withFirst("about", m[2], raw);
+  // Single-endpoint qualifiers. "~" (with or without a space) also means about.
+  m = upper.match(/^~\s*(.+)$/);
+  if (m) return withFirst("about", m[1], raw);
 
-  m = upper.match(/^BEF\s+(.+)$/);
+  m = upper.match(new RegExp(`^${kw(ABOUT)}\\s+(.+)$`));
+  if (m) return withFirst("about", m[1], raw);
+
+  m = upper.match(new RegExp(`^${kw(BEFORE)}\\s+(.+)$`));
   if (m) return withFirst("before", m[1], raw);
 
-  m = upper.match(/^AFT\s+(.+)$/);
+  m = upper.match(new RegExp(`^${kw(AFTER)}\\s+(.+)$`));
   if (m) return withFirst("after", m[1], raw);
 
-  m = upper.match(/^INT\s+(.+?)(?:\s+\(.*\))?$/);
+  m = upper.match(new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`));
   if (m) return withFirst("interpreted", m[1], raw);
 
   const simple = parseSimple(upper);

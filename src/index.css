@@ -205,6 +205,53 @@ button {
   gap: 6px;
 }
 
+.candidate-list-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 12px 6px 15px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.candidate-list-head .badge-h {
+  flex: none;
+  min-width: 44px;
+  text-align: center;
+}
+.sortbtn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sortbtn.labels {
+  text-align: left;
+}
+.sortbtn:hover {
+  color: var(--text);
+}
+.sortbtn.active {
+  color: var(--accent);
+}
+
+.nd {
+  flex: none;
+  min-width: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.nd.new { color: #6ee7b7; }
+.nd.diff { color: #fcd34d; }
+.nd.zero { color: var(--muted); opacity: 0.45; }
+
 .candidate {
   background: var(--panel);
   border: 1px solid var(--border);

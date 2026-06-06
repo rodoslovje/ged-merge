@@ -8,6 +8,7 @@ import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
 import { applyDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
+import { familyFieldRows, fieldDiffCounts, individualFieldRows } from "../review/fields";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
 /**
@@ -90,9 +91,28 @@ function maybeMatch(): void {
   if (!masterDataset || !compareNormalized) return;
   post({ type: "matching" });
   let result = matchDatasets(masterDataset, compareNormalized);
+  result = annotateCounts(result, masterDataset, compareNormalized);
   if (homeId) result = applyDistanceRanking(result, masterDataset, homeId);
   lastResult = result;
   post({ type: "matched", result });
+}
+
+/** Attach per-candidate "new" and "differing" field counts for the results table. */
+function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset): MatchResult {
+  return {
+    individuals: result.individuals.map((c) => ({
+      ...c,
+      ...fieldDiffCounts(
+        individualFieldRows(master.individuals.get(c.masterId), compare.individuals.get(c.compareId)),
+      ),
+    })),
+    families: result.families.map((c) => ({
+      ...c,
+      ...fieldDiffCounts(
+        familyFieldRows(master.families.get(c.masterId), compare.families.get(c.compareId), master, compare),
+      ),
+    })),
+  };
 }
 
 /** Default home person: HEAD._ROOT pointer if present, else the first INDI. */

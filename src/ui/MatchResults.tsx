@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   FamilyCandidate,
   IndividualCandidate,
@@ -18,9 +18,45 @@ interface Props {
   onReview: (kind: MatchKind, candidate: IndividualCandidate | FamilyCandidate) => void;
 }
 
+type Candidate = IndividualCandidate | FamilyCandidate;
+type SortKey = "score" | "distance" | "newCount" | "diffCount" | "label";
+interface SortState {
+  key: SortKey;
+  dir: "asc" | "desc";
+}
+
+const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
+  score: "desc",
+  distance: "asc",
+  newCount: "desc",
+  diffCount: "desc",
+  label: "asc",
+};
+
 export function MatchResults({ result, decisions, onReview }: Props) {
   const [tab, setTab] = useState<MatchKind>("individual");
+  const [sort, setSort] = useState<SortState | null>(null);
   const list = tab === "individual" ? result.individuals : result.families;
+
+  // When unsorted, keep the worker's order (distance asc, then score desc).
+  const sorted = useMemo(() => {
+    if (!sort) return list;
+    const mul = sort.dir === "asc" ? 1 : -1;
+    return [...list].sort((a, b) => mul * compare(a, b, sort.key));
+  }, [list, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev?.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: DEFAULT_DIR[key] },
+    );
+  }
+
+  const arrow = (key: SortKey) =>
+    sort?.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  const cls = (key: SortKey, extra: string) =>
+    `sortbtn ${extra}${sort?.key === key ? " active" : ""}`;
 
   return (
     <section className="results">
@@ -43,7 +79,36 @@ export function MatchResults({ result, decisions, onReview }: Props) {
         <p className="muted">No candidate matches above threshold.</p>
       ) : (
         <ul className="candidate-list">
-          {list.map((c, i) => (
+          <li className="candidate-list-head">
+            <button className={cls("score", "badge-h")} onClick={() => toggleSort("score")}>
+              Score{arrow("score")}
+            </button>
+            <button
+              className={cls("distance", "dist")}
+              title="Distance from home person"
+              onClick={() => toggleSort("distance")}
+            >
+              ↺{arrow("distance")}
+            </button>
+            <button
+              className={cls("newCount", "nd")}
+              title="New fields the compare file adds"
+              onClick={() => toggleSort("newCount")}
+            >
+              N{arrow("newCount")}
+            </button>
+            <button
+              className={cls("diffCount", "nd")}
+              title="Fields present in both but differing"
+              onClick={() => toggleSort("diffCount")}
+            >
+              D{arrow("diffCount")}
+            </button>
+            <button className={cls("label", "labels")} onClick={() => toggleSort("label")}>
+              Compare ↔ Master{arrow("label")}
+            </button>
+          </li>
+          {sorted.map((c, i) => (
             <CandidateRow
               key={`${c.masterId}-${c.compareId}-${i}`}
               kind={tab}
@@ -56,6 +121,21 @@ export function MatchResults({ result, decisions, onReview }: Props) {
       )}
     </section>
   );
+}
+
+function compare(a: Candidate, b: Candidate, key: SortKey): number {
+  switch (key) {
+    case "score":
+      return a.score - b.score;
+    case "distance":
+      return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+    case "newCount":
+      return (a.newCount ?? 0) - (b.newCount ?? 0);
+    case "diffCount":
+      return (a.diffCount ?? 0) - (b.diffCount ?? 0);
+    case "label":
+      return a.compareLabel.localeCompare(b.compareLabel);
+  }
 }
 
 function CandidateRow({
@@ -76,7 +156,19 @@ function CandidateRow({
         <button className="candidate-main" onClick={() => setOpen((o) => !o)}>
           <span className={`badge ${candidate.category}`}>{candidate.score.toFixed(1)}</span>
           <span className="dist" title="Distance from home person">
-            {candidate.distance === undefined ? "—" : `↺${candidate.distance}`}
+            {candidate.distance === undefined ? "" : candidate.distance}
+          </span>
+          <span
+            className={`nd new ${candidate.newCount ? "" : "zero"}`}
+            title="New fields the compare file adds"
+          >
+            {candidate.newCount ?? 0}
+          </span>
+          <span
+            className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
+            title="Fields present in both but differing"
+          >
+            {candidate.diffCount ?? 0}
           </span>
           <span className="labels">
             <strong>{candidate.compareLabel}</strong>

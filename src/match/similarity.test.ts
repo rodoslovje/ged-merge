@@ -3,6 +3,31 @@ import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
 import { dateSimilarity, placeSimilarity } from "./similarity";
 
+describe("parseDate qualifier variants", () => {
+  const q = (s: string) => parseDate(s).qualifier;
+
+  it("treats Abt./ABT/About/Circa/~ as 'about'", () => {
+    for (const s of ["ABT 1900", "Abt. 1900", "About 1900", "Circa 1900", "ca 1900", "EST 1900", "~1900", "~ 1900"]) {
+      expect(parseDate(s)).toMatchObject({ qualifier: "about", year: 1900 });
+    }
+  });
+
+  it("treats Bef./BEF/Before and Aft./AFT/After", () => {
+    expect(q("Bef. 1900")).toBe("before");
+    expect(q("BEFORE 1900")).toBe("before");
+    expect(q("Aft 1900")).toBe("after");
+    expect(q("After 1900")).toBe("after");
+  });
+
+  it("handles Between … and … variants", () => {
+    expect(parseDate("Between 1900 and 1905")).toMatchObject({
+      qualifier: "between",
+      year: 1900,
+      year2: 1905,
+    });
+  });
+});
+
 describe("dateSimilarity", () => {
   const d = (s: string) => parseDate(s);
 

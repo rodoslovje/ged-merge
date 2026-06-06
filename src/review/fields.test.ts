@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { familyFieldRows, individualFieldRows } from "./fields";
+import { familyFieldRows, fieldDiffCounts, individualFieldRows } from "./fields";
 import type { FieldRow } from "./types";
 
 function dataset(text: string) {
@@ -70,6 +70,20 @@ describe("individualFieldRows", () => {
     expect(byKey(rows, "DEAT.place")).toBeUndefined(); // neither has it
   });
 
+  it("treats date qualifier spelling variants as agreement", () => {
+    const a = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE Abt. 1900\n0 TRLR\n`);
+    const b = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE ABT 1900\n0 TRLR\n`);
+    const r = individualFieldRows(a.individuals.get("@I1@"), b.individuals.get("@P1@"));
+    expect(byKey(r, "BIRT.date")?.state).toBe("agree");
+  });
+
+  it("still distinguishes exact from approximate dates", () => {
+    const a = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
+    const b = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE ABT 1900\n0 TRLR\n`);
+    const r = individualFieldRows(a.individuals.get("@I1@"), b.individuals.get("@P1@"));
+    expect(byKey(r, "BIRT.date")?.state).toBe("conflict");
+  });
+
   it("treats spacing-only differences as agreement", () => {
     const a = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC Wien, Österreich\n0 TRLR\n`,
@@ -98,6 +112,26 @@ describe("individualFieldRows", () => {
     expect(byKey(rows("Maribor, Slovenija", "Ljubljana, Slovenia"), "BIRT.place")?.state).toBe(
       "conflict",
     );
+  });
+});
+
+describe("fieldDiffCounts", () => {
+  it("counts incoming-only (N) and conflicting (D) fields", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 PLAC Kranj\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 PLAC Ljubljana\n1 DEAT\n2 DATE 1950\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // BIRT.place differs (D); DEAT.date is only in compare (N).
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 1 });
+  });
+
+  it("reports zero for identical records", () => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
+    const rows = individualFieldRows(m.individuals.get("@I1@"), m.individuals.get("@I1@"));
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0 });
   });
 });
 

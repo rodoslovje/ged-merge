@@ -1,4 +1,5 @@
 import type { Dataset, Family, Individual } from "../gedcom/types";
+import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { label } from "../match/relatives";
 import type { FieldRow, FieldState } from "./types";
@@ -65,6 +66,21 @@ export function familyFieldRows(
   return rows;
 }
 
+/**
+ * Summary counts over a set of field rows:
+ *  - `newCount`  = fields the compare record has but the master lacks (to add)
+ *  - `diffCount` = fields both have but that differ (to reconcile)
+ */
+export function fieldDiffCounts(rows: FieldRow[]): { newCount: number; diffCount: number } {
+  let newCount = 0;
+  let diffCount = 0;
+  for (const row of rows) {
+    if (row.state === "incoming-only") newCount++;
+    else if (row.state === "conflict") diffCount++;
+  }
+  return { newCount, diffCount };
+}
+
 // --- helpers ---------------------------------------------------------------
 
 function pushRow(
@@ -83,8 +99,23 @@ function pushRow(
 function stateOf(key: string, master: string, incoming: string): FieldState {
   if (master && !incoming) return "master-only";
   if (!master && incoming) return "incoming-only";
-  const keyFn = key.endsWith(".place") ? placeCompareKey : compareKey;
+  const keyFn = key.endsWith(".place")
+    ? placeCompareKey
+    : key.endsWith(".date")
+      ? dateCompareKey
+      : compareKey;
   return keyFn(master) === keyFn(incoming) ? "agree" : "conflict";
+}
+
+/**
+ * Date comparison is semantic: equivalent expressions agree regardless of
+ * spelling ("Abt. 1900" = "ABT 1900" = "About 1900"). Unparseable dates fall
+ * back to a whitespace-insensitive text comparison.
+ */
+function dateCompareKey(value: string): string {
+  const d = parseDate(value);
+  if (d.qualifier === "unknown") return compareKey(value);
+  return [d.qualifier, d.year, d.month, d.day, d.year2, d.month2, d.day2].join("|");
 }
 
 /**
