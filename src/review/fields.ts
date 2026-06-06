@@ -1,6 +1,7 @@
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
+import { canonicalPlaceToken } from "../match/place";
 import { label } from "../match/relatives";
 import type { FieldRow, FieldState } from "./types";
 
@@ -128,42 +129,23 @@ function compareKey(value: string): string {
 }
 
 /**
- * Place comparison additionally maps each jurisdiction part through a
- * country-alias table, so language variants of the country name
- * (Slovenija/Slovenia, Österreich/Austria/Avstrija) are treated as equal.
+ * Place comparison maps each jurisdiction part through the shared country-alias
+ * canonicalization (Slovenija/Slovenia, Österreich/Austria) and drops repeated
+ * parts, so more or less detailed spellings of the same place agree — e.g.
+ * "Kranj, Kranj, Slovenia" (town + like-named municipality) equals "Kranj,
+ * Slovenia".
  */
 function placeCompareKey(value: string): string {
-  return value
-    .split(",")
-    .map((part) => {
-      const folded = foldToken(part).replace(/\s+/g, "");
-      return COUNTRY_CANONICAL.get(folded) ?? folded;
-    })
-    .join(",");
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const part of value.split(",")) {
+    const canon = canonicalPlaceToken(part);
+    if (!canon || seen.has(canon)) continue;
+    seen.add(canon);
+    parts.push(canon);
+  }
+  return parts.join(",");
 }
-
-/**
- * Groups of equivalent country names (folded, diacritic-stripped, no spaces).
- * The first entry is the canonical form. Extend as needed.
- */
-const COUNTRY_GROUPS: string[][] = [
-  ["slovenia", "slovenija"],
-  ["austria", "osterreich", "avstrija"],
-  ["germany", "deutschland", "nemcija"],
-  ["italy", "italia", "italija"],
-  ["croatia", "hrvatska", "hrvaska"],
-  ["hungary", "magyarorszag", "madzarska", "ogrska"],
-  ["serbia", "srbija"],
-  ["france", "francija"],
-  ["switzerland", "schweiz", "svica"],
-  ["unitedstates", "usa", "unitedstatesofamerica", "zda", "amerika"],
-  ["yugoslavia", "jugoslavija"],
-  ["austriahungary", "avstroogrska", "austrohungarianempire"],
-];
-
-const COUNTRY_CANONICAL: Map<string, string> = new Map(
-  COUNTRY_GROUPS.flatMap((group) => group.map((variant) => [variant, group[0]] as const)),
-);
 
 function orderedEventTags(master?: Individual, compare?: Individual): string[] {
   const present = new Set<string>();

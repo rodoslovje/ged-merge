@@ -1,5 +1,6 @@
 import type { GedDate, GedPlace, PersonName } from "../gedcom/types";
 import { localityParts } from "../gedcom/place";
+import { canonicalPlaceToken } from "./place";
 import { foldToken, jaroWinkler } from "./text";
 
 /**
@@ -72,8 +73,10 @@ export function placeSimilarity(
 
   // Compare locality (without the house number) so a fuzzy spelling match
   // doesn't accidentally equate two different houses in the same village.
-  const ap = localityParts(a).map(foldToken).filter(Boolean);
-  const bp = localityParts(b).map(foldToken).filter(Boolean);
+  // canonicalPlaceToken folds case/diacritics and unifies country-name variants
+  // (Slovenia/Slovenija) so those don't count as a difference.
+  const ap = localityParts(a).map(canonicalPlaceToken).filter(Boolean);
+  const bp = localityParts(b).map(canonicalPlaceToken).filter(Boolean);
   if (ap.length === 0 || bp.length === 0) {
     if (a.raw && b.raw) return jaroWinkler(foldToken(a.raw), foldToken(b.raw));
     return undefined;

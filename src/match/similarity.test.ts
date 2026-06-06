@@ -93,4 +93,11 @@ describe("placeSimilarity with house numbers", () => {
   it("keeps different localities low", () => {
     expect(placeSimilarity(p("Maribor 5"), p("Šentvid 5"))!).toBeLessThan(0.75);
   });
+
+  it("ignores country-name spelling and comma spacing in scoring", () => {
+    expect(
+      placeSimilarity(p("Krasinec,Metlika,Slovenia"), p("Krasinec, Metlika, Slovenija")),
+    ).toBe(1);
+    expect(placeSimilarity(p("Wien, Österreich"), p("Wien, Austria"))).toBe(1);
+  });
 });

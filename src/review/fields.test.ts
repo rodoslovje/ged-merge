@@ -113,6 +113,16 @@ describe("individualFieldRows", () => {
       "conflict",
     );
   });
+
+  it("ignores repeated (excessive) place parts", () => {
+    const plac = (p: string, id: string) =>
+      dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC ${p}\n0 TRLR\n`);
+    const rows = individualFieldRows(
+      plac("Kranj, Kranj, Slovenia", "@I1@").individuals.get("@I1@"),
+      plac("Kranj, Slovenia", "@P1@").individuals.get("@P1@"),
+    );
+    expect(byKey(rows, "BIRT.place")?.state).toBe("agree");
+  });
 });
 
 describe("fieldDiffCounts", () => {
