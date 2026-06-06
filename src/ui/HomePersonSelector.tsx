@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
 import { label } from "../match/relatives";
 
@@ -18,6 +19,7 @@ const MAX_RESULTS = 50;
 export function HomePersonSelector({ individuals, homeId, onChange, onClear }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
 
   const options = useMemo(
     () =>
@@ -40,8 +42,8 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
       <div className="home-control">
         <input
           type="text"
-          placeholder={current ? current.text : "Set home person..."}
-          title="Set a home person to rank matches by relationship distance"
+          placeholder={current ? current.text : t("home.set")}
+          title={t("home.tooltip")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
@@ -50,7 +52,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
         {homeId && onClear && (
           <button
             className="home-clear"
-            title="Clear home person"
+            title={t("home.clear")}
             onClick={() => {
               setQuery("");
               onClear();
@@ -75,7 +77,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
                 </button>
               </li>
             ))}
-            {filtered.length === 0 && <li className="muted home-empty">No matches</li>}
+            {filtered.length === 0 && <li className="muted home-empty">{t("home.noMatches")}</li>}
           </ul>
         )}
       </div>

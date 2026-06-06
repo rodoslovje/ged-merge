@@ -94,7 +94,7 @@ export function ComparePanel({
               title={`Keyboard shortcut: ${s.charAt(0).toUpperCase()}`}
               onClick={() => toggleStatus(s)}
             >
-              {s}
+              {t(`status.${s}`)}
             </button>
           ))}
         </div>

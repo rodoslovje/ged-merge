@@ -1,4 +1,5 @@
 import { useRef, type ChangeEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 
 export function GedcomLoader({ title, state, onLoad }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -23,51 +25,51 @@ export function GedcomLoader({ title, state, onLoad }: Props) {
         <h2>{title}</h2>
         {state.status !== "loading" && (
           <>
-            <button className="nav-btn" onClick={() => inputRef.current?.click()}>Load file...</button>
+            <button className="nav-btn" onClick={() => inputRef.current?.click()}>{t("loader.load")}</button>
             <input ref={inputRef} className="file-input" type="file" accept=".ged,.gedcom,text/plain" onChange={onChange} />
           </>
         )}
       </div>
-      <div className="summary">{renderSummary(state)}</div>
+      <div className="summary">{renderSummary(state, t)}</div>
     </section>
   );
 }
 
-function renderSummary(state: SlotState): React.ReactNode {
+function renderSummary(state: SlotState, t: any): React.ReactNode {
   switch (state.status) {
     case "empty":
-      return "No file loaded.";
+      return t("loader.empty");
     case "loading":
       return (
         <div className="parsing-status">
           <span className="spinner" aria-hidden="true" />
-          Parsing {state.fileName}…
+          {t("loader.parsing", { fileName: state.fileName })}
         </div>
       );
     case "error":
-      return <span className="error">Error in {state.fileName}: {state.message}</span>;
+      return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
     case "loaded": {
       const { dataset, fileName, report } = state.file;
       const lines = [
-        `File: ${fileName}`,
-        `GEDCOM version: ${dataset.version}`,
-        `Encoding: ${dataset.charset}`,
-        `Individuals: ${dataset.individuals.size}`,
-        `Families: ${dataset.families.size}`,
-        `Warnings: ${dataset.warnings.length}`,
+        t("loader.file", { fileName }),
+        t("loader.version", { version: dataset.version }),
+        t("loader.encoding", { charset: dataset.charset }),
+        t("loader.individuals", { count: dataset.individuals.size }),
+        t("loader.families", { count: dataset.families.size }),
+        t("loader.warnings", { count: dataset.warnings.length }),
       ];
       if (report) {
         lines.push(
           "",
-          "Normalized to master:",
-          `  Dates changed: ${report.datesChanged}`,
-          `  Places changed: ${report.placesChanged}`,
+          t("loader.normalized"),
+          t("loader.datesChanged", { count: report.datesChanged }),
+          t("loader.placesChanged", { count: report.placesChanged }),
         );
         for (const ex of report.dateExamples.slice(0, 3)) {
-          lines.push(`  date: ${ex.before} → ${ex.after}`);
+          lines.push(t("loader.dateEx", { before: ex.before, after: ex.after }));
         }
         for (const ex of report.placeExamples.slice(0, 3)) {
-          lines.push(`  place: ${ex.before} → ${ex.after}`);
+          lines.push(t("loader.placeEx", { before: ex.before, after: ex.after }));
         }
       }
       return lines.join("\n");

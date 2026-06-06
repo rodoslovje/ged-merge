@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -46,6 +47,7 @@ export function MatchResults({
   decisions,
   homeControl,
 }: Props) {
+  const { t } = useTranslation();
   const total = tab === "individual" ? result.individuals.length : result.families.length;
 
   // Rank 0 = primary (▲/▼), rank 1 = secondary (△/▽).
@@ -79,7 +81,7 @@ export function MatchResults({
             checked={filters.onlyNew}
             onChange={(e) => onFilters({ ...filters, onlyNew: e.target.checked })}
           />
-          New data
+          {t("filter.newData")}
         </label>
         <label className="filter-check">
           <input
@@ -87,7 +89,7 @@ export function MatchResults({
             checked={filters.onlyDiff}
             onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
           />
-          Differences
+          {t("filter.differences")}
         </label>
         <label className="filter-check">
           <input
@@ -95,10 +97,10 @@ export function MatchResults({
             checked={filters.onlyLinks}
             onChange={(e) => onFilters({ ...filters, onlyLinks: e.target.checked })}
           />
-          Links
+          {t("filter.links")}
         </label>
         <label className="filter-score">
-          Min score{" "}
+          {t("filter.minScore")}{" "}
           <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
             {filters.minScore}
           </span>
@@ -120,14 +122,14 @@ export function MatchResults({
       {list.length === 0 ? (
         <p className="muted">
           {total === 0
-            ? "No candidate matches above threshold."
-            : "No matches pass the current filters."}
+            ? t("filter.noAboveThreshold")
+            : t("filter.noPassFilter")}
         </p>
       ) : (
         <ul className="candidate-list" ref={listRef}>
           <li className="candidate-list-head">
             <button className={cls("score", "badge-h")} onClick={() => onToggleSort("score")}>
-              Score{arrow("score")}
+              {t("list.score")}{arrow("score")}
             </button>
             <button
               className={cls("distance", "dist")}
@@ -158,7 +160,7 @@ export function MatchResults({
               🔗{arrow("linkCount")}
             </button>
             <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
-              Master : Compare{arrow("label")}
+              {t("list.masterCompare")}{arrow("label")}
             </button>
           </li>
           {list.map((c, i) => (
@@ -187,6 +189,8 @@ function CandidateRow({
   status: MatchDecisionStatus | undefined;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
+
   const scoreTooltip =
     candidate.score === 1
       ? undefined
@@ -230,7 +234,7 @@ function CandidateRow({
           <span className={`labels ${sexClass(candidate)}`}>{candidate.title}</span>
         </button>
         {status && status !== "undecided" && (
-          <span className={`status-chip ${status}`}>{status}</span>
+          <span className={`status-chip ${status}`}>{t(`status.${status}`)}</span>
         )}
       </div>
     </li>
