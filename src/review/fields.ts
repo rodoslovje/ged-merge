@@ -38,6 +38,7 @@ export function individualFieldRows(
     const name = EVENT_LABELS[tag] ?? tag;
     pushRow(rows, `${tag}.date`, `${name} date`, me?.date?.raw, ce?.date?.raw);
     pushRow(rows, `${tag}.place`, `${name} place`, me?.place?.raw, ce?.place?.raw);
+    pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
   }
   return rows;
 }
@@ -58,6 +59,7 @@ export function familyFieldRows(
   const cm = compare?.events.find((e) => e.tag === "MARR");
   pushRow(rows, "MARR.date", "Marriage date", mm?.date?.raw, cm?.date?.raw);
   pushRow(rows, "MARR.place", "Marriage place", mm?.place?.raw, cm?.place?.raw);
+  pushRow(rows, "MARR.addr", "Marriage address", mm?.address?.raw, cm?.address?.raw);
 
   pushRow(rows, "children", "Children", childList(master, masterDs), childList(compare, compareDs));
   return rows;

@@ -116,6 +116,12 @@ export interface GedPlace {
   raw: string;
   /** Jurisdiction parts, outermost-last as GEDCOM convention (city..country). */
   parts: string[];
+  /**
+   * Most-specific "place detail" extracted from the leading part — typically a
+   * house number (Slovenian hišna številka), e.g. "23" in "Šentvid 23". Two
+   * places with the same locality but different detail are different locations.
+   */
+  detail?: string;
 }
 
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
@@ -123,6 +129,8 @@ export interface GedEvent {
   tag: string;
   date?: GedDate;
   place?: GedPlace;
+  /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
+  address?: GedPlace;
 }
 
 export interface Individual {

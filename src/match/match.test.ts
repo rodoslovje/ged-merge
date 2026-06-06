@@ -114,6 +114,22 @@ describe("matchDatasets", () => {
     expect(fam!.category === "strong" || fam!.category === "probable").toBe(true);
   });
 
+  it("never matches individuals of different recorded sex", () => {
+    // Master has a male and a female with the same name + birth year; the
+    // compare file has a female. Only the female may match.
+    const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @M1@ INDI\n1 NAME Pavle /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1900
+0 @M2@ INDI\n1 NAME Pavla /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1900
+0 TRLR\n`;
+    const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @C1@ INDI\n1 NAME Pavla /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1900
+0 TRLR\n`;
+    const r = matchDatasets(dataset(master), dataset(compare));
+    const forC1 = r.individuals.filter((c) => c.compareId === "@C1@");
+    expect(forC1.every((c) => c.masterId !== "@M1@")).toBe(true); // never the male
+    expect(forC1.some((c) => c.masterId === "@M2@")).toBe(true); // the female matches
+  });
+
   it("sorts individuals by score descending", () => {
     const scores = result.individuals.map((c) => c.score);
     const sorted = [...scores].sort((a, b) => b - a);

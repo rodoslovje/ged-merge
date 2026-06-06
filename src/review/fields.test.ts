@@ -101,6 +101,34 @@ describe("individualFieldRows", () => {
   });
 });
 
+describe("ADDR support", () => {
+  const m = dataset(
+    `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 19 SEP 1917\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Zgornje Bitnje 52 (pd Urbanov Jaka)\n0 TRLR\n`,
+  );
+
+  it("parses ADDR with a house-number detail", () => {
+    const ev = m.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(ev.address?.raw).toBe("Zgornje Bitnje 52 (pd Urbanov Jaka)");
+    expect(ev.address?.detail).toBe("52");
+  });
+
+  it("shows a birth address row and detects differing addresses", () => {
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 ADDR Zgornje Bitnje 54\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "BIRT.addr")?.state).toBe("conflict");
+  });
+
+  it("treats spacing-only address differences as agreement", () => {
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 ADDR Zgornje Bitnje 52  (pd Urbanov Jaka)\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "BIRT.addr")?.state).toBe("agree");
+  });
+});
+
 describe("familyFieldRows", () => {
   const m = dataset(MASTER);
   const c = dataset(COMPARE);

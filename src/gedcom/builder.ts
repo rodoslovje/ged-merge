@@ -101,8 +101,10 @@ function buildEvent(node: GedNode): GedEvent {
   const event: GedEvent = { tag: node.tag };
   const dateNode = node.children.find((c) => c.tag === "DATE");
   const placeNode = node.children.find((c) => c.tag === "PLAC");
+  const addrNode = node.children.find((c) => c.tag === "ADDR");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   if (placeNode?.value) event.place = parsePlace(placeNode.value);
+  if (addrNode?.value) event.address = parsePlace(addrNode.value);
   return event;
 }
 

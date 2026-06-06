@@ -1,4 +1,5 @@
 import type { GedDate, GedPlace, PersonName } from "../gedcom/types";
+import { localityParts } from "../gedcom/place";
 import { foldToken, jaroWinkler } from "./text";
 
 /**
@@ -68,14 +69,29 @@ export function placeSimilarity(
   b: GedPlace | undefined,
 ): number | undefined {
   if (!a || !b) return undefined;
-  const ap = a.parts.map(foldToken).filter(Boolean);
-  const bp = b.parts.map(foldToken).filter(Boolean);
+
+  // Compare locality (without the house number) so a fuzzy spelling match
+  // doesn't accidentally equate two different houses in the same village.
+  const ap = localityParts(a).map(foldToken).filter(Boolean);
+  const bp = localityParts(b).map(foldToken).filter(Boolean);
   if (ap.length === 0 || bp.length === 0) {
     if (a.raw && b.raw) return jaroWinkler(foldToken(a.raw), foldToken(b.raw));
     return undefined;
   }
+  const locality = partsOverlap(ap, bp);
 
-  // Fraction of the smaller hierarchy whose parts find a close match.
+  // House-number detail is decisive when both sides have it: same number makes
+  // the place specific and strong; a different number means a different place.
+  const ad = a.detail?.toLowerCase();
+  const bd = b.detail?.toLowerCase();
+  if (ad && bd) {
+    return ad === bd ? 0.5 + 0.5 * locality : 0.5 * locality;
+  }
+  return locality;
+}
+
+/** Fraction of the smaller hierarchy whose parts find a close match. */
+function partsOverlap(ap: string[], bp: string[]): number {
   const [small, large] = ap.length <= bp.length ? [ap, bp] : [bp, ap];
   const matched = small.reduce(
     (s, x) => s + Math.max(...large.map((y) => jaroWinkler(x, y))),

@@ -50,6 +50,7 @@ export interface MatchConfig {
     given: number;
     birthDate: number;
     birthPlace: number;
+    birthAddress: number;
     sex: number;
     parents: number;
     partners: number;
@@ -76,6 +77,7 @@ export const DEFAULT_CONFIG: MatchConfig = {
     given: 2,
     birthDate: 3,
     birthPlace: 1.5,
+    birthAddress: 1.5,
     sex: 0.5,
     parents: 2,
     partners: 1.5,

@@ -42,6 +42,7 @@ export function scoreIndividualPair(
   const cb = findEvent(compare, "BIRT");
   add(components, "birthDate", w.birthDate, dateSimilarity(mb?.date, cb?.date), `${mb?.date?.raw ?? "?"} ~ ${cb?.date?.raw ?? "?"}`);
   add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
+  add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
 
   if (master.sex !== "U" && compare.sex !== "U") {
     add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
@@ -71,6 +72,14 @@ function add(
 ): void {
   if (score === undefined) return;
   into.push({ key, weight, score, detail });
+}
+
+/**
+ * True when both individuals have a recorded sex and they differ. Such pairs are
+ * never the same person, so the engine drops them before scoring.
+ */
+export function sexConflicts(a: Individual, b: Individual): boolean {
+  return a.sex !== "U" && b.sex !== "U" && a.sex !== b.sex;
 }
 
 /** Stable blocking keys for an individual (recall-oriented, cheap). */

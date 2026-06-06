@@ -105,15 +105,13 @@ export function ReviewPanel({
                 <tr key={row.key} className={`field ${row.state}`}>
                   <td className="f-label">{row.label}</td>
                   <td className={choice !== "incoming" ? "f-val chosen" : "f-val"}>
-                    {row.master || <span className="muted">—</span>}
+                    {row.master}
                   </td>
                   <td className={choice !== "master" ? "f-val chosen" : "f-val"}>
-                    {row.incoming || <span className="muted">—</span>}
+                    {row.incoming}
                   </td>
                   <td className="f-choice">
-                    {row.state === "agree" ? (
-                      <span className="muted">=</span>
-                    ) : (
+                    {row.state === "conflict" || row.state === "incoming-only" ? (
                       CHOICES.map((c) => (
                         <button
                           key={c}
@@ -124,6 +122,8 @@ export function ReviewPanel({
                           {choiceLabel(c)}
                         </button>
                       ))
+                    ) : (
+                      <span className="muted">{row.state === "agree" ? "=" : "master"}</span>
                     )}
                   </td>
                 </tr>

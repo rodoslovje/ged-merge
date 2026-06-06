@@ -1,6 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import { familyBlockKeys, scoreFamilyPair } from "./scoreFamily";
-import { individualBlockKeys, scoreIndividualPair } from "./scoreIndividual";
+import { individualBlockKeys, scoreIndividualPair, sexConflicts } from "./scoreIndividual";
 import { soundex } from "./text";
 import {
   DEFAULT_CONFIG,
@@ -46,6 +46,8 @@ function matchIndividuals(
     const scored: IndividualCandidate[] = [];
     for (const mid of masterIds) {
       const master = masterDs.individuals.get(mid)!;
+      // Different recorded sex => never the same person; skip before scoring.
+      if (sexConflicts(master, compare)) continue;
       const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
