@@ -8,6 +8,9 @@ function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 
+/** Identity translator: tests assert on keys/states, not localized labels. */
+const tr = (key: string) => key;
+
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
 
 // A child with two parents on each side. The father's birth year differs (a
@@ -43,6 +46,7 @@ describe("buildCompareTree (ancestors)", () => {
   const compareDs = dataset(COMPARE);
   const matches = matchDatasets(masterDs, compareDs);
   const root = buildCompareTree(
+    tr,
     masterDs.individuals.get("@I1@"),
     compareDs.individuals.get("@P1@"),
     masterDs,
@@ -84,6 +88,7 @@ describe("buildCompareTree (descendants)", () => {
 
   it("walks children downward from a parent", () => {
     const root = buildCompareTree(
+      tr,
       masterDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
       masterDs,

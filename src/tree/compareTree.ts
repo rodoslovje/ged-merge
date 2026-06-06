@@ -36,6 +36,9 @@ export interface MatchMaps {
   compareToMaster: Map<string, string>;
 }
 
+/** A translator (i18next `t`), used only to label fields in node tooltips. */
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
 /** Index the accepted candidate pairs both ways for quick lookup. */
 export function buildMatchMaps(matches: MatchResult): MatchMaps {
   const masterToCompare = new Map<string, string>();
@@ -55,6 +58,7 @@ export function buildMatchMaps(matches: MatchResult): MatchMaps {
  * and pedigree collapse from expanding forever.
  */
 export function buildCompareTree(
+  t: Translate,
   rootMaster: Individual | undefined,
   rootIncoming: Individual | undefined,
   masterDs: Dataset,
@@ -67,7 +71,7 @@ export function buildCompareTree(
   const build = (master?: Individual, incoming?: Individual): TreeNode | undefined => {
     if (!master && !incoming) return undefined;
     const key = `${master?.id ?? ""}|${incoming?.id ?? ""}`;
-    const node = makeNode(key, master, incoming, masterDs, compareDs);
+    const node = makeNode(t, key, master, incoming, masterDs, compareDs);
     if (seen.has(key)) return node; // already expanded elsewhere: stop here
     seen.add(key);
     node.children =
@@ -160,13 +164,14 @@ function childrenOf(indi: Individual, ds: Dataset): Individual[] {
 }
 
 function makeNode(
+  t: Translate,
   key: string,
   master: Individual | undefined,
   incoming: Individual | undefined,
   masterDs: Dataset,
   compareDs: Dataset,
 ): TreeNode {
-  const status = nodeStatus(master, incoming, masterDs, compareDs);
+  const status = nodeStatus(t, master, incoming, masterDs, compareDs);
   const primary = master ?? incoming!;
   const sex = master && master.sex !== "U" ? master.sex : (incoming?.sex ?? "U");
   return {
@@ -177,12 +182,13 @@ function makeNode(
     name: nameOf(primary),
     years: birthYears(master, incoming),
     sex,
-    detail: describe(master, incoming, masterDs, compareDs, status),
+    detail: describe(t, master, incoming, masterDs, compareDs, status),
     children: [],
   };
 }
 
 function nodeStatus(
+  t: Translate,
   master: Individual | undefined,
   incoming: Individual | undefined,
   masterDs: Dataset,
@@ -191,7 +197,7 @@ function nodeStatus(
   if (master && !incoming) return "master-only";
   if (!master && incoming) return "incoming-only";
 
-  const rows = individualFieldRows(master, incoming, masterDs, compareDs);
+  const rows = individualFieldRows(t, master, incoming, masterDs, compareDs);
   const conflict = (k: string) => rows.find((r) => r.key === k)?.state === "conflict";
   if (conflict("given") || conflict("surname") || birthYearConflict(master, incoming)) {
     return "major";
@@ -200,6 +206,7 @@ function nodeStatus(
 }
 
 function describe(
+  t: Translate,
   master: Individual | undefined,
   incoming: Individual | undefined,
   masterDs: Dataset,
@@ -208,13 +215,13 @@ function describe(
 ): string {
   if (!master || !incoming) {
     const who = (master ?? incoming)!;
-    const side = status === "master-only" ? "Only in Master" : "Only in Incoming";
+    const side = status === "master-only" ? t("tree.legend.masterOnly") : t("tree.legend.incomingOnly");
     return `${side}: ${nameOf(who)}`;
   }
-  const diffs = individualFieldRows(master, incoming, masterDs, compareDs).filter(
+  const diffs = individualFieldRows(t, master, incoming, masterDs, compareDs).filter(
     (r) => r.state !== "agree",
   );
-  if (diffs.length === 0) return "Full match";
+  if (diffs.length === 0) return t("tree.legend.match");
   return diffs.map((r) => `${r.label}: ${r.master || "—"} / ${r.incoming || "—"}`).join("\n");
 }
 

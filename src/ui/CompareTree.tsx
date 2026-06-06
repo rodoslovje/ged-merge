@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
+import { individualFieldRows } from "../review/fields";
 import {
   buildCompareTree,
   buildMatchMaps,
@@ -90,6 +91,7 @@ export function CompareTree({
   const tree = useMemo(
     () =>
       buildCompareTree(
+        t,
         rootMaster,
         rootIncoming,
         masterDs,
@@ -97,15 +99,27 @@ export function CompareTree({
         buildMatchMaps(matches),
         mode,
       ),
-    [rootMaster, rootIncoming, masterDs, compareDs, matches, mode],
+    [t, rootMaster, rootIncoming, masterDs, compareDs, matches, mode],
   );
 
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
   const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
   const rootName = tree?.name ?? "";
 
+  const nodesByKey = useMemo(() => {
+    const map = new Map<string, Placed>();
+    for (const n of flat?.nodes ?? []) if (!map.has(n.key)) map.set(n.key, n);
+    return map;
+  }, [flat]);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  // A new tree (mode switch / different root) invalidates the old selection.
+  useEffect(() => setSelectedKey(null), [laid]);
+
+  const selected = selectedKey ? nodesByKey.get(selectedKey) : undefined;
 
   const syncViewport = useCallback(() => {
     const el = canvasRef.current;
@@ -131,6 +145,21 @@ export function CompareTree({
     el.scrollLeft = left; // browser clamps to range; onScroll re-syncs the rect
     el.scrollTop = top;
   }, []);
+
+  // Select a node and bring it into view, centred in the canvas.
+  const selectNode = useCallback(
+    (key: string) => {
+      setSelectedKey(key);
+      const n = nodesByKey.get(key);
+      const el = canvasRef.current;
+      if (!n || !el) return;
+      scrollTo(
+        n.x + PAD + NODE_W / 2 - el.clientWidth / 2,
+        n.y + PAD + NODE_H / 2 - el.clientHeight / 2,
+      );
+    },
+    [nodesByKey, scrollTo],
+  );
 
   const needsMinimap =
     !!laid &&
@@ -163,19 +192,18 @@ export function CompareTree({
         </div>
       </div>
 
-      <div className="tree-legend">
-        {LEGEND_ORDER.map((s) => (
-          <span key={s} className="tree-legend-item">
-            <span className="tree-swatch" style={{ background: STATUS_COLOR[s] }} />
-            {t(LEGEND_KEY[s])}
-          </span>
-        ))}
-      </div>
+      <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
 
       <div className="tree-canvas-wrap">
         <div className="tree-canvas" ref={canvasRef} onScroll={syncViewport}>
           {laid && flat ? (
-            <TreeSvg flat={flat} width={laid.width} height={laid.height} />
+            <TreeSvg
+              flat={flat}
+              width={laid.width}
+              height={laid.height}
+              selectedKey={selectedKey}
+              onSelect={setSelectedKey}
+            />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
@@ -187,6 +215,14 @@ export function CompareTree({
             contentH={laid.height}
             viewport={viewport}
             onScrollTo={scrollTo}
+          />
+        )}
+        {selected && (
+          <NodeCompare
+            node={selected}
+            masterDs={masterDs}
+            compareDs={compareDs}
+            onClose={() => setSelectedKey(null)}
           />
         )}
       </div>
@@ -213,7 +249,19 @@ function flatten(root: Placed): Flat {
   return { nodes, edges };
 }
 
-function TreeSvg({ flat, width, height }: { flat: Flat; width: number; height: number }) {
+function TreeSvg({
+  flat,
+  width,
+  height,
+  selectedKey,
+  onSelect,
+}: {
+  flat: Flat;
+  width: number;
+  height: number;
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+}) {
   const { nodes, edges } = flat;
   return (
     <svg className="tree-svg" width={width} height={height} role="img">
@@ -222,7 +270,12 @@ function TreeSvg({ flat, width, height }: { flat: Flat; width: number; height: n
           <path key={e.id} className="tree-edge" d={e.d} />
         ))}
         {nodes.map((n) => (
-          <g key={n.key} transform={`translate(${n.x},${n.y})`} className="tree-node">
+          <g
+            key={n.key}
+            transform={`translate(${n.x},${n.y})`}
+            className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
+            onClick={() => onSelect(n.key)}
+          >
             <title>{n.detail}</title>
             <rect
               width={NODE_W}
@@ -310,6 +363,161 @@ function Minimap({
         height={viewport.height * scale}
       />
     </svg>
+  );
+}
+
+/**
+ * Colour legend where each item is also a dropdown: it shows the category's
+ * person count and, when opened, lists those people. Picking one highlights and
+ * scrolls to it on the tree.
+ */
+function TreeLegend({
+  nodes,
+  selectedKey,
+  onPick,
+}: {
+  nodes: Placed[];
+  selectedKey: string | null;
+  onPick: (key: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [openStatus, setOpenStatus] = useState<NodeStatus | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const grouped = useMemo(() => {
+    const g: Record<NodeStatus, Placed[]> = {
+      match: [],
+      minor: [],
+      major: [],
+      "master-only": [],
+      "incoming-only": [],
+    };
+    for (const n of nodes) g[n.status].push(n);
+    for (const s of LEGEND_ORDER) g[s].sort((a, b) => a.name.localeCompare(b.name));
+    return g;
+  }, [nodes]);
+
+  // Close the open dropdown when clicking outside the legend.
+  useEffect(() => {
+    if (!openStatus) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpenStatus(null);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openStatus]);
+
+  return (
+    <div className="tree-legend" ref={ref}>
+      {LEGEND_ORDER.map((s) => {
+        const people = grouped[s];
+        const open = openStatus === s;
+        return (
+          <div key={s} className="tree-legend-item">
+            <button
+              className={`tree-legend-btn${open ? " open" : ""}`}
+              disabled={people.length === 0}
+              onClick={() => setOpenStatus(open ? null : s)}
+            >
+              <span className="tree-swatch" style={{ background: STATUS_COLOR[s] }} />
+              {t(LEGEND_KEY[s])} ({people.length})
+            </button>
+            {open && (
+              <ul className="tree-legend-list">
+                {people.map((n) => (
+                  <li key={n.key}>
+                    <button
+                      className={`tree-person${n.key === selectedKey ? " active" : ""}`}
+                      onClick={() => {
+                        onPick(n.key);
+                        setOpenStatus(null);
+                      }}
+                    >
+                      <span className="tree-swatch" style={{ background: STATUS_COLOR[n.status] }} />
+                      <span className="tree-person-name">{n.name}</span>
+                      {n.years && <span className="muted"> · {n.years}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Floating Master↔Incoming field table for the selected person (top-right). */
+function NodeCompare({
+  node,
+  masterDs,
+  compareDs,
+  onClose,
+}: {
+  node: Placed;
+  masterDs: Dataset;
+  compareDs: Dataset;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const rows = useMemo(
+    () => individualFieldRows(t, node.master, node.incoming, masterDs, compareDs),
+    [t, node, masterDs, compareDs],
+  );
+
+  return (
+    <div className="tree-compare">
+      <div className="tree-compare-head">
+        <span className="tree-swatch" style={{ background: STATUS_COLOR[node.status] }} />
+        <span className="tree-compare-title">
+          {node.name}
+          {node.years && <span className="muted"> · {node.years}</span>}
+        </span>
+        <button className="tree-compare-close" onClick={onClose} title={t("tree.close")}>
+          ×
+        </button>
+      </div>
+      <table className="tree-compare-table">
+        <thead>
+          <tr>
+            <th />
+            <th>{t("tree.master")}</th>
+            <th>{t("tree.incoming")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key} className={`field ${row.state}`}>
+              <td className="f-label">{row.label}</td>
+              <td className="f-val">{cell(row.master, row.masterLinks)}</td>
+              <td className="f-val">{cell(row.incoming, row.incomingLinks)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Render a field value as link icons when it carries attached links, else text. */
+function cell(text: string, links: string[] | undefined) {
+  if (!links || links.length === 0) return text;
+  return (
+    <span className="links">
+      {links.map((url, i) => (
+        <a
+          key={i}
+          href={/^https?:\/\//i.test(url) ? url : `https://${url}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-icon"
+          title={url}
+        >
+          🔗
+        </a>
+      ))}
+    </span>
   );
 }
 

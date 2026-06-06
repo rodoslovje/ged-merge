@@ -92,6 +92,10 @@ function maybeMatch(): void {
   post({ type: "matched", result });
 }
 
+/** Field labels are irrelevant to the counts computed here, so use a no-op
+ * translator (the worker has no i18n context). */
+const rawLabel = (key: string) => key;
+
 /** Attach per-candidate "new" and "differing" field counts for the results table. */
 function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset): MatchResult {
   return {
@@ -99,6 +103,7 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
       ...c,
       ...fieldDiffCounts(
         individualFieldRows(
+          rawLabel,
           master.individuals.get(c.masterId),
           compare.individuals.get(c.compareId),
           master,
@@ -109,7 +114,7 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
     families: result.families.map((c) => ({
       ...c,
       ...fieldDiffCounts(
-        familyFieldRows(master.families.get(c.masterId), compare.families.get(c.compareId), master, compare),
+        familyFieldRows(rawLabel, master.families.get(c.masterId), compare.families.get(c.compareId), master, compare),
       ),
     })),
   };

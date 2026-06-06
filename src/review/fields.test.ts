@@ -12,6 +12,9 @@ function byKey(rows: FieldRow[], key: string): FieldRow | undefined {
   return rows.find((r) => r.key === key);
 }
 
+/** Identity translator: tests assert on keys/states, not localized labels. */
+const tr = (key: string) => key;
+
 const MASTER = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -50,7 +53,7 @@ const COMPARE = `0 HEAD
 describe("individualFieldRows", () => {
   const m = dataset(MASTER);
   const c = dataset(COMPARE);
-  const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+  const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
 
   it("marks agreeing fields", () => {
     expect(byKey(rows, "given")?.state).toBe("agree"); // Johann = Johann
@@ -73,14 +76,14 @@ describe("individualFieldRows", () => {
   it("treats date qualifier spelling variants as agreement", () => {
     const a = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE Abt. 1900\n0 TRLR\n`);
     const b = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE ABT 1900\n0 TRLR\n`);
-    const r = individualFieldRows(a.individuals.get("@I1@"), b.individuals.get("@P1@"));
+    const r = individualFieldRows(tr, a.individuals.get("@I1@"), b.individuals.get("@P1@"));
     expect(byKey(r, "BIRT.date")?.state).toBe("agree");
   });
 
   it("still distinguishes exact from approximate dates", () => {
     const a = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
     const b = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE ABT 1900\n0 TRLR\n`);
-    const r = individualFieldRows(a.individuals.get("@I1@"), b.individuals.get("@P1@"));
+    const r = individualFieldRows(tr, a.individuals.get("@I1@"), b.individuals.get("@P1@"));
     expect(byKey(r, "BIRT.date")?.state).toBe("conflict");
   });
 
@@ -91,7 +94,7 @@ describe("individualFieldRows", () => {
     const b = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC Wien,Österreich\n0 TRLR\n`,
     );
-    const r = individualFieldRows(a.individuals.get("@I1@"), b.individuals.get("@P1@"));
+    const r = individualFieldRows(tr, a.individuals.get("@I1@"), b.individuals.get("@P1@"));
     expect(byKey(r, "BIRT.place")?.state).toBe("agree");
   });
 
@@ -99,7 +102,7 @@ describe("individualFieldRows", () => {
     const plac = (p: string, id: string) =>
       dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC ${p}\n0 TRLR\n`);
     const rows = (pm: string, pi: string) =>
-      individualFieldRows(
+      individualFieldRows(tr, 
         plac(pm, "@I1@").individuals.get("@I1@"),
         plac(pi, "@P1@").individuals.get("@P1@"),
       );
@@ -117,7 +120,7 @@ describe("individualFieldRows", () => {
   it("ignores repeated (excessive) place parts", () => {
     const plac = (p: string, id: string) =>
       dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC ${p}\n0 TRLR\n`);
-    const rows = individualFieldRows(
+    const rows = individualFieldRows(tr, 
       plac("Kranj, Kranj, Slovenia", "@I1@").individuals.get("@I1@"),
       plac("Kranj, Slovenia", "@P1@").individuals.get("@P1@"),
     );
@@ -175,7 +178,7 @@ describe("individual parents and partners rows", () => {
   it("shows father/mother/partner rows resolved through the family graph", () => {
     const m = dataset(masterGed);
     const c = dataset(compareGed);
-    const rows = individualFieldRows(
+    const rows = individualFieldRows(tr, 
       m.individuals.get("@C@"),
       c.individuals.get("@C@"),
       m,
@@ -188,7 +191,7 @@ describe("individual parents and partners rows", () => {
 
   it("omits relative rows when datasets are not supplied", () => {
     const m = dataset(masterGed);
-    const rows = individualFieldRows(m.individuals.get("@C@"), m.individuals.get("@C@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), m.individuals.get("@C@"));
     expect(byKey(rows, "father")).toBeUndefined();
     expect(byKey(rows, "partners")).toBeUndefined();
   });
@@ -202,14 +205,14 @@ describe("fieldDiffCounts", () => {
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 PLAC Ljubljana\n1 DEAT\n2 DATE 1950\n0 TRLR\n`,
     );
-    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     // BIRT.place differs (D); DEAT.date is only in compare (N).
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 1, linkCount: 0 });
   });
 
   it("reports zero for identical records", () => {
     const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
-    const rows = individualFieldRows(m.individuals.get("@I1@"), m.individuals.get("@I1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), m.individuals.get("@I1@"));
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
   });
 });
@@ -229,7 +232,7 @@ describe("ADDR support", () => {
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 ADDR Zgornje Bitnje 54\n0 TRLR\n`,
     );
-    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     expect(byKey(rows, "BIRT.addr")?.state).toBe("conflict");
   });
 
@@ -237,7 +240,7 @@ describe("ADDR support", () => {
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 ADDR Zgornje Bitnje 52  (pd Urbanov Jaka)\n0 TRLR\n`,
     );
-    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     expect(byKey(rows, "BIRT.addr")?.state).toBe("agree");
   });
 });
@@ -259,7 +262,7 @@ describe("attached links", () => {
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n0 TRLR\n`,
     );
-    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     // Event links roll up into the single aggregated "links" row.
     expect(byKey(rows, "links")?.state).toBe("incoming-only");
     expect(byKey(rows, "BIRT.links")).toBeUndefined();
@@ -273,14 +276,14 @@ describe("attached links", () => {
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/new\n0 TRLR\n`,
     );
-    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     expect(byKey(rows, "links")?.state).toBe("conflict");
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
 
     const same = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/old/\n0 TRLR\n`,
     );
-    const rows2 = individualFieldRows(m.individuals.get("@I1@"), same.individuals.get("@P1@"));
+    const rows2 = individualFieldRows(tr, m.individuals.get("@I1@"), same.individuals.get("@P1@"));
     expect(byKey(rows2, "links")?.state).toBe("agree"); // trailing-slash-insensitive
   });
 
@@ -303,7 +306,7 @@ describe("attached links", () => {
     const c = dataset(
       `0 HEAD\n0 @G1@ FAM\n1 HUSB @P1@\n1 _LINK https://example.com/fam\n1 MARR\n2 DATE 1875\n2 WWW https://example.com/marr\n0 TRLR\n`,
     );
-    const rows = familyFieldRows(m.families.get("@F1@"), c.families.get("@G1@"), m, c);
+    const rows = familyFieldRows(tr, m.families.get("@F1@"), c.families.get("@G1@"), m, c);
     const links = byKey(rows, "links");
     expect(links?.state).toBe("incoming-only");
     expect(links?.incomingLinks).toEqual([
@@ -319,7 +322,7 @@ describe("attached links", () => {
         `1 BIRT\n2 DATE 1900\n2 WWW https://example.com/x\n0 TRLR\n`,
     );
     const empty = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
-    const rows = individualFieldRows(ds.individuals.get("@I1@"), empty.individuals.get("@P1@"));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), empty.individuals.get("@P1@"));
     expect(byKey(rows, "links")?.masterLinks).toEqual(["https://example.com/x"]);
   });
 });
@@ -327,7 +330,7 @@ describe("attached links", () => {
 describe("familyFieldRows", () => {
   const m = dataset(MASTER);
   const c = dataset(COMPARE);
-  const rows = familyFieldRows(
+  const rows = familyFieldRows(tr, 
     m.families.get("@F1@"),
     c.families.get("@G1@"),
     m,

@@ -719,21 +719,65 @@ button {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 12px;
   font-size: 0.82rem;
-  color: var(--muted);
 }
 .tree-legend-item {
+  position: relative;
+}
+.tree-legend-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
 }
+.tree-legend-btn:hover:not(:disabled) { border-color: var(--accent); }
+.tree-legend-btn.open { border-color: var(--accent); }
+.tree-legend-btn:disabled { color: var(--muted); cursor: default; opacity: 0.6; }
+.tree-legend-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin: 4px 0 0;
+  padding: 4px;
+  min-width: 240px;
+  max-height: 300px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
+.tree-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.tree-person:hover { background: var(--panel); }
+.tree-person.active { background: var(--panel); color: var(--accent); }
+.tree-person-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-swatch {
   display: inline-block;
   width: 14px;
   height: 14px;
   border-radius: 4px;
+  flex: 0 0 auto;
 }
 
 .tree-canvas-wrap {
@@ -771,9 +815,14 @@ button {
   stroke: var(--border);
   stroke-width: 1.5;
 }
+.tree-node { cursor: pointer; }
 .tree-node rect {
   stroke: rgba(0, 0, 0, 0.25);
   stroke-width: 1;
+}
+.tree-node.selected rect {
+  stroke: #fff;
+  stroke-width: 3;
 }
 .tree-node-name {
   fill: #fff;
@@ -784,3 +833,67 @@ button {
   fill: rgba(255, 255, 255, 0.85);
   font-size: 11px;
 }
+
+/* selected-person compare table (top-right overlay) */
+.tree-compare {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 360px;
+  max-height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 9;
+  overflow: hidden;
+}
+.tree-compare-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tree-compare-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-compare-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+.tree-compare-close:hover { color: var(--text); }
+.tree-compare-table {
+  display: block;
+  overflow: auto;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+}
+.tree-compare-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 10px;
+}
+.tree-compare-table td {
+  padding: 5px 10px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
+.tree-compare-table .f-val { color: var(--text); }
