@@ -88,7 +88,8 @@ button {
 }
 .section-chev {
   color: var(--muted);
-  width: 14px;
+  width: 20px;
+  font-size: 1.25rem;
 }
 .section-title {
   font-weight: 600;
@@ -153,7 +154,25 @@ button {
 
 .loader h2 {
   font-size: 1rem;
-  margin: 0 0 12px;
+  margin: 0;
+}
+
+.loader-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.file-input {
+  display: none;
+}
+
+.parsing-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .loader .summary {
@@ -171,27 +190,20 @@ button {
   color: var(--muted);
 }
 
-/* --- home person selector (compact, in the matches header) --- */
-.matches-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+/* --- matches section --- */
+.matches-tabs-header {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
-.matches-head .tabs {
+.matches-tabs-header .tabs {
   margin-bottom: 0;
 }
 .home-selector {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.home-label {
-  font-size: 0.8rem;
-  color: var(--muted);
-  white-space: nowrap;
 }
 .home-control {
   position: relative;
@@ -254,7 +266,8 @@ button {
   align-items: center;
   gap: 10px;
   padding: 4px 0;
-  color: var(--muted);
+  color: var(--accent);
+  font-weight: 500;
 }
 .spinner {
   width: 16px;
@@ -276,7 +289,6 @@ button {
   min-height: 0;
   flex: 1;
 }
-.matches-head,
 .filters {
   flex: 0 0 auto;
 }
@@ -444,15 +456,8 @@ button {
   color: var(--text);
   text-align: left;
   padding: 6px 0 6px 12px;
+  font-size: 0.9rem;
 }
-.chev-btn {
-  flex: none;
-  background: none;
-  border: none;
-  color: var(--muted);
-  padding: 4px 10px;
-}
-.chev-btn:hover { color: var(--text); }
 .status-chip {
   flex: none;
   font-size: 0.72rem;
@@ -501,7 +506,8 @@ button {
 .compare-header-info {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 0.9rem;
   color: var(--text);
   pointer-events: none;
@@ -568,17 +574,12 @@ button {
      columns each take exactly half, splitting the panel down the middle. */
   table-layout: fixed;
 }
-.compare th {
-  text-align: left;
-  color: var(--muted);
-  font-weight: 500;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
 .compare td {
   padding: 6px 8px;
   vertical-align: top;
-  border-bottom: 1px solid var(--border);
+}
+.compare td:nth-child(2) {
+  border-right: 1px solid var(--border);
 }
 .field.conflict { background: rgba(226, 179, 65, 0.08); }
 .field.incoming-only { background: rgba(62, 207, 142, 0.07); }

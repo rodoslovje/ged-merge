@@ -162,13 +162,37 @@ export function App() {
     master.status === "loaded" && compare.status === "loaded"
       ? `${master.file.fileName} ↔ ${compare.file.fileName}`
       : undefined;
-  const matchesSubtitle = matches
-    ? `${matches.individuals.length} individuals · ${matches.families.length} families`
-    : undefined;
+  const matchesSubtitle = matching ? (
+    <div className="matches-tabs-header matching" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      Calculating matches…
+    </div>
+  ) : matches ? (
+    <div className="matches-tabs-header">
+      <div className="tabs" onClick={(e) => e.stopPropagation()}>
+        <button
+          className={tab === "individual" ? "tab active" : "tab"}
+          onClick={() => { setTab("individual"); setSelectedIndex(0); }}
+        >
+          Individuals ({matches.individuals.length})
+        </button>
+        <button
+          className={tab === "family" ? "tab active" : "tab"}
+          onClick={() => { setTab("family"); setSelectedIndex(0); }}
+        >
+          Families ({matches.families.length})
+        </button>
+      </div>
+    </div>
+  ) : undefined;
   const compareSubtitle = current ? (
     <>
       <div className="compare-header-info">
-        {current.masterLabel} <span className="muted">↔</span> {current.compareLabel}
+        {current.score === 1 ? (
+          current.masterLabel
+        ) : (
+          <>{current.masterLabel} <span className="muted">↔</span> {current.compareLabel}</>
+        )}
       </div>
       <div className="compare-nav-header">
         <button
@@ -204,7 +228,7 @@ export function App() {
       </header>
 
       <Section
-        title="1 · Load GEDCOM"
+        title="Load GEDCOM"
         subtitle={loadSubtitle}
         open={openLoad}
         onToggle={() => setOpenLoad((o) => !o)}
@@ -224,7 +248,7 @@ export function App() {
       </Section>
 
       <Section
-        title="2 · Compare"
+        title="Compare"
         subtitle={compareSubtitle}
         open={openCompare}
         onToggle={() => setOpenCompare((o) => !o)}
@@ -250,26 +274,17 @@ export function App() {
       </Section>
 
       <Section
-        title="3 · Matches"
+        title="Matches"
         subtitle={matchesSubtitle}
         open={openMatches}
         onToggle={() => setOpenMatches((o) => !o)}
         disabled={!matches && !matching}
         fill="grow"
       >
-        {matching ? (
-          <div className="matching" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden="true" />
-            Calculating matches…
-          </div>
-        ) : matches ? (
+        {matches ? (
           <MatchResults
             result={matches}
             tab={tab}
-            onTab={(t) => {
-              setTab(t);
-              setSelectedIndex(0);
-            }}
             sort={sort}
             onToggleSort={toggleSort}
             filters={filters}
@@ -292,9 +307,9 @@ export function App() {
               )
             }
           />
-        ) : (
+        ) : !matching ? (
           <p className="muted">Load both files to calculate matches.</p>
-        )}
+        ) : null}
       </Section>
     </div>
   );
