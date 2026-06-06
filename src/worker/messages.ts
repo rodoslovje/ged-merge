@@ -27,8 +27,6 @@ export interface ParseSuccess {
   dataset: Dataset;
   /** Present for the compare slot once it has been normalized to the master. */
   report?: NormalizationReport;
-  /** For the master slot: a default home person (HEAD._ROOT or first INDI). */
-  suggestedHomeId?: string;
 }
 
 export interface ParseFailure {

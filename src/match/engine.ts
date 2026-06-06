@@ -1,6 +1,11 @@
 import type { Dataset } from "../gedcom/types";
 import { familyBlockKeys, scoreFamilyPair } from "./scoreFamily";
-import { individualBlockKeys, scoreIndividualPair, sexConflicts } from "./scoreIndividual";
+import {
+  individualBlockKeys,
+  plausibleIndividualMatch,
+  scoreIndividualPair,
+  sexConflicts,
+} from "./scoreIndividual";
 import { soundex } from "./text";
 import {
   DEFAULT_CONFIG,
@@ -43,8 +48,10 @@ function matchIndividuals(
     const masterIds = collectCandidates(index, individualBlockKeys(compare, soundex));
     for (const mid of masterIds) {
       const master = masterDs.individuals.get(mid)!;
-      // Different recorded sex => never the same person; skip before scoring.
+      // Hard plausibility gates: different sex, dissimilar names, or
+      // incompatible lifespans => never the same person; skip before scoring.
       if (sexConflicts(master, compare)) continue;
+      if (!plausibleIndividualMatch(master, compare, config.gates)) continue;
       const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }

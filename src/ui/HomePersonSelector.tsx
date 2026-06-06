@@ -6,12 +6,16 @@ interface Props {
   individuals: Map<string, Individual>;
   homeId: string | undefined;
   onChange: (id: string) => void;
+  onClear?: () => void;
 }
 
 const MAX_RESULTS = 50;
 
-/** A filterable picker for the master's home person (scales to large trees). */
-export function HomePersonSelector({ individuals, homeId, onChange }: Props) {
+/**
+ * Optional, filterable picker for the master's home person. Setting one makes
+ * the matcher compute each match's relationship distance and sort by it.
+ */
+export function HomePersonSelector({ individuals, homeId, onChange, onClear }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -33,41 +37,50 @@ export function HomePersonSelector({ individuals, homeId, onChange }: Props) {
 
   return (
     <div className="home-selector">
-      <label className="home-label">Home person</label>
-      <p className="home-help">
-        Matches are ranked by closeness to this person. Confirm the auto-selected
-        person below, or search to choose a different one.
-      </p>
-      <div className="home-current">
-        {current ? current.text : "(none selected)"}
+      <span className="home-label" title="Set a home person to rank matches by relationship distance">
+        Home person
+      </span>
+      <div className="home-control">
+        <input
+          type="text"
+          placeholder={current ? current.text : "none — search to set…"}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        {homeId && onClear && (
+          <button
+            className="home-clear"
+            title="Clear home person"
+            onClick={() => {
+              setQuery("");
+              onClear();
+            }}
+          >
+            ×
+          </button>
+        )}
+        {open && query.trim() !== "" && (
+          <ul className="home-options">
+            {filtered.map((o) => (
+              <li key={o.id}>
+                <button
+                  className={o.id === homeId ? "home-option active" : "home-option"}
+                  onClick={() => {
+                    onChange(o.id);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                >
+                  {o.text}
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && <li className="muted home-empty">No matches</li>}
+          </ul>
+        )}
       </div>
-      <input
-        type="text"
-        placeholder="Type a name to choose the home person…"
-        value={query}
-        autoFocus
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => setOpen(true)}
-      />
-      {open && query.trim() !== "" && (
-        <ul className="home-options">
-          {filtered.map((o) => (
-            <li key={o.id}>
-              <button
-                className={o.id === homeId ? "home-option active" : "home-option"}
-                onClick={() => {
-                  onChange(o.id);
-                  setQuery("");
-                  setOpen(false);
-                }}
-              >
-                {o.text}
-              </button>
-            </li>
-          ))}
-          {filtered.length === 0 && <li className="muted home-empty">No matches</li>}
-        </ul>
-      )}
     </div>
   );
 }

@@ -70,6 +70,18 @@ export interface MatchConfig {
     marriagePlace: number;
     children: number;
   };
+  /**
+   * Hard plausibility gates: a pair failing any of these is never offered as a
+   * match, no matter how other fields score.
+   */
+  gates: {
+    /** Minimum surname similarity (0..1) when both have a surname. */
+    minSurname: number;
+    /** Minimum given-name similarity (0..1) when both have a given name. */
+    minGiven: number;
+    /** Max years between the two people's representative ("era") years. */
+    maxYearGap: number;
+  };
   /** Below this 0..1 score a pair is discarded. */
   minScore: number;
   /** Category cut-offs on the 0..1 scale. */
@@ -96,6 +108,11 @@ export const DEFAULT_CONFIG: MatchConfig = {
     marriageDate: 2,
     marriagePlace: 1,
     children: 2,
+  },
+  gates: {
+    minSurname: 0.8,
+    minGiven: 0.5,
+    maxYearGap: 100,
   },
   minScore: 0.45,
   strongThreshold: 0.85,

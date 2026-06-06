@@ -162,6 +162,58 @@ describe("self-match (same file as master and compare)", () => {
   });
 });
 
+describe("plausibility gates", () => {
+  const pair = (masterIndi: string, compareIndi: string) =>
+    matchDatasets(
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${masterIndi}\n0 TRLR\n`),
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${compareIndi}\n0 TRLR\n`),
+    ).individuals;
+
+  it("rejects pairs whose given names are unrelated", () => {
+    // Same surname (so they block together), totally different given name.
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+        "0 @C@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE 1850",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("rejects pairs more than a century apart", () => {
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+        "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1700",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("rejects when one died before the other was born", () => {
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1850",
+        "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1860",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("keeps plausible pairs (same name, close birth years)", () => {
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+      "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1853",
+    );
+    expect(r).toHaveLength(1);
+  });
+
+  it("allows matches when one side lacks any dates", () => {
+    const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
+      "0 @C@ INDI\n1 NAME Janez /Novak/",
+    );
+    expect(r).toHaveLength(1);
+  });
+});
+
 describe("one-to-one assignment", () => {
   it("does not reuse a master record for two compare records", () => {
     // Two compare people with the same name/birth; only one master twin.

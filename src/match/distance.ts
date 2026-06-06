@@ -79,6 +79,20 @@ function withDistance<T extends { distance?: number }>(c: T, distance: number | 
   return distance === undefined ? c : { ...c, distance };
 }
 
+/** Drop distance annotations and fall back to score-descending order (used when
+ * the home person is cleared). */
+export function clearDistanceRanking(result: MatchResult): MatchResult {
+  const strip = <T extends { distance?: number; score: number }>(c: T): T => {
+    const { distance, ...rest } = c;
+    return rest as T;
+  };
+  const byScore = (a: { score: number }, b: { score: number }) => b.score - a.score;
+  return {
+    individuals: result.individuals.map(strip).sort(byScore),
+    families: result.families.map(strip).sort(byScore),
+  };
+}
+
 function byDistanceThenScore(
   a: { distance?: number; score: number },
   b: { distance?: number; score: number },

@@ -6,7 +6,7 @@ import { inferMasterProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
-import { applyDistanceRanking } from "../match/distance";
+import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
 import { familyFieldRows, fieldDiffCounts, individualFieldRows } from "../review/fields";
 import type { WorkerRequest, WorkerResponse } from "./messages";
@@ -31,10 +31,12 @@ let lastResult: MatchResult | undefined;
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
   if (req.type === "setHome") {
-    homeId = req.id;
+    homeId = req.id || undefined; // empty id clears the home person
     if (lastResult && masterDataset) {
       post({ type: "matching" });
-      lastResult = applyDistanceRanking(lastResult, masterDataset, homeId);
+      lastResult = homeId
+        ? applyDistanceRanking(lastResult, masterDataset, homeId)
+        : clearDistanceRanking(lastResult);
       post({ type: "matched", result: lastResult });
     }
     return;
@@ -47,14 +49,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (req.role === "master") {
       masterDataset = dataset;
       profile = inferMasterProfile(dataset);
-      homeId = suggestHome(dataset);
-      post({
-        type: "parsed",
-        role: "master",
-        fileName: req.fileName,
-        dataset,
-        ...(homeId ? { suggestedHomeId: homeId } : {}),
-      });
+      post({ type: "parsed", role: "master", fileName: req.fileName, dataset });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
@@ -113,15 +108,6 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
       ),
     })),
   };
-}
-
-/** Default home person: HEAD._ROOT pointer if present, else the first INDI. */
-function suggestHome(ds: Dataset): string | undefined {
-  const head = ds.records.find((r) => r.tag === "HEAD");
-  const root = head?.children.find((c) => c.tag === "_ROOT")?.value?.trim();
-  if (root && ds.individuals.has(root)) return root;
-  const first = ds.individuals.keys().next();
-  return first.done ? undefined : first.value;
 }
 
 function post(res: WorkerResponse): void {

@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
-import type {
-  FamilyCandidate,
-  IndividualCandidate,
-  MatchResult,
-  ScoreComponent,
+import { useState, type ReactNode } from "react";
+import {
+  categorize,
+  DEFAULT_CONFIG,
+  type FamilyCandidate,
+  type IndividualCandidate,
+  type MatchCategory,
+  type MatchResult,
+  type ScoreComponent,
 } from "../match/types";
 import {
   decisionKey,
@@ -11,150 +14,182 @@ import {
   type MatchDecisionStatus,
   type MatchKind,
 } from "../review/types";
+import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 
 interface Props {
   result: MatchResult;
+  tab: MatchKind;
+  onTab: (tab: MatchKind) => void;
+  /** Active sort keys, primary first then secondary. */
+  sort: SortState[];
+  onToggleSort: (key: SortKey) => void;
+  filters: Filters;
+  onFilters: (next: Filters) => void;
+  /** Already filtered + sorted list for the active tab. */
+  list: Candidate[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
-  onReview: (kind: MatchKind, candidate: IndividualCandidate | FamilyCandidate) => void;
+  /** Home-person picker, rendered to the right of the tabs. */
+  homeControl?: ReactNode;
 }
 
-type Candidate = IndividualCandidate | FamilyCandidate;
-type SortKey = "score" | "distance" | "newCount" | "diffCount" | "label";
-interface SortState {
-  key: SortKey;
-  dir: "asc" | "desc";
-}
+export function MatchResults({
+  result,
+  tab,
+  onTab,
+  sort,
+  onToggleSort,
+  filters,
+  onFilters,
+  list,
+  selectedIndex,
+  onSelect,
+  decisions,
+  homeControl,
+}: Props) {
+  const total = tab === "individual" ? result.individuals.length : result.families.length;
 
-const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
-  score: "desc",
-  distance: "asc",
-  newCount: "desc",
-  diffCount: "desc",
-  label: "asc",
-};
-
-export function MatchResults({ result, decisions, onReview }: Props) {
-  const [tab, setTab] = useState<MatchKind>("individual");
-  const [sort, setSort] = useState<SortState | null>(null);
-  const list = tab === "individual" ? result.individuals : result.families;
-
-  // When unsorted, keep the worker's order (distance asc, then score desc).
-  const sorted = useMemo(() => {
-    if (!sort) return list;
-    const mul = sort.dir === "asc" ? 1 : -1;
-    return [...list].sort((a, b) => mul * compare(a, b, sort.key));
-  }, [list, sort]);
-
-  function toggleSort(key: SortKey) {
-    setSort((prev) =>
-      prev?.key === key
-        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: DEFAULT_DIR[key] },
-    );
-  }
-
-  const arrow = (key: SortKey) =>
-    sort?.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
-  const cls = (key: SortKey, extra: string) =>
-    `sortbtn ${extra}${sort?.key === key ? " active" : ""}`;
+  // Rank 0 = primary (▲/▼), rank 1 = secondary (▲/▼ with a small "2").
+  const rankOf = (key: SortKey) => sort.findIndex((s) => s.key === key);
+  const arrow = (key: SortKey) => {
+    const r = rankOf(key);
+    if (r < 0) return "";
+    const dir = sort[r].dir === "asc" ? "▲" : "▼";
+    return r === 0 ? ` ${dir}` : ` ${dir}₂`;
+  };
+  const cls = (key: SortKey, extra: string) => {
+    const r = rankOf(key);
+    const active = r === 0 ? " active" : r === 1 ? " active2" : "";
+    return `sortbtn ${extra}${active}`;
+  };
 
   return (
-    <section className="results">
-      <div className="tabs">
-        <button
-          className={tab === "individual" ? "tab active" : "tab"}
-          onClick={() => setTab("individual")}
-        >
-          Individuals ({result.individuals.length})
-        </button>
-        <button
-          className={tab === "family" ? "tab active" : "tab"}
-          onClick={() => setTab("family")}
-        >
-          Families ({result.families.length})
-        </button>
+    <div className="results">
+      <div className="matches-head">
+        <div className="tabs">
+          <button
+            className={tab === "individual" ? "tab active" : "tab"}
+            onClick={() => onTab("individual")}
+          >
+            Individuals ({result.individuals.length})
+          </button>
+          <button
+            className={tab === "family" ? "tab active" : "tab"}
+            onClick={() => onTab("family")}
+          >
+            Families ({result.families.length})
+          </button>
+        </div>
+        {homeControl}
+      </div>
+
+      <div className="filters">
+        <label className="filter-check">
+          <input
+            type="checkbox"
+            checked={filters.onlyNew}
+            onChange={(e) => onFilters({ ...filters, onlyNew: e.target.checked })}
+          />
+          New data
+        </label>
+        <label className="filter-check">
+          <input
+            type="checkbox"
+            checked={filters.onlyDiff}
+            onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
+          />
+          Differences
+        </label>
+        <label className="filter-score">
+          Min score{" "}
+          <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
+            {filters.minScore}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={filters.minScore}
+            style={{ accentColor: scoreColor(filters.minScore) }}
+            onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
+          />
+        </label>
+        <span className="filter-count muted">
+          {list.length} of {total}
+        </span>
       </div>
 
       {list.length === 0 ? (
-        <p className="muted">No candidate matches above threshold.</p>
+        <p className="muted">
+          {total === 0
+            ? "No candidate matches above threshold."
+            : "No matches pass the current filters."}
+        </p>
       ) : (
         <ul className="candidate-list">
           <li className="candidate-list-head">
-            <button className={cls("score", "badge-h")} onClick={() => toggleSort("score")}>
+            <button className={cls("score", "badge-h")} onClick={() => onToggleSort("score")}>
               Score{arrow("score")}
             </button>
             <button
               className={cls("distance", "dist")}
               title="Distance from home person"
-              onClick={() => toggleSort("distance")}
+              onClick={() => onToggleSort("distance")}
             >
               ↺{arrow("distance")}
             </button>
             <button
               className={cls("newCount", "nd")}
               title="New fields the compare file adds"
-              onClick={() => toggleSort("newCount")}
+              onClick={() => onToggleSort("newCount")}
             >
               N{arrow("newCount")}
             </button>
             <button
               className={cls("diffCount", "nd")}
               title="Fields present in both but differing"
-              onClick={() => toggleSort("diffCount")}
+              onClick={() => onToggleSort("diffCount")}
             >
               D{arrow("diffCount")}
             </button>
-            <button className={cls("label", "labels")} onClick={() => toggleSort("label")}>
+            <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
               Compare ↔ Master{arrow("label")}
             </button>
           </li>
-          {sorted.map((c, i) => (
+          {list.map((c, i) => (
             <CandidateRow
               key={`${c.masterId}-${c.compareId}-${i}`}
-              kind={tab}
               candidate={c}
+              selected={i === selectedIndex}
               status={decisions.get(decisionKey(tab, c.masterId, c.compareId))?.status}
-              onReview={onReview}
+              onSelect={() => onSelect(i)}
             />
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
-function compare(a: Candidate, b: Candidate, key: SortKey): number {
-  switch (key) {
-    case "score":
-      return a.score - b.score;
-    case "distance":
-      return (a.distance ?? Infinity) - (b.distance ?? Infinity);
-    case "newCount":
-      return (a.newCount ?? 0) - (b.newCount ?? 0);
-    case "diffCount":
-      return (a.diffCount ?? 0) - (b.diffCount ?? 0);
-    case "label":
-      return a.compareLabel.localeCompare(b.compareLabel);
-  }
-}
-
 function CandidateRow({
-  kind,
   candidate,
+  selected,
   status,
-  onReview,
+  onSelect,
 }: {
-  kind: MatchKind;
   candidate: IndividualCandidate | FamilyCandidate;
+  selected: boolean;
   status: MatchDecisionStatus | undefined;
-  onReview: (kind: MatchKind, candidate: IndividualCandidate | FamilyCandidate) => void;
+  onSelect: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <li className={`candidate ${candidate.category}`}>
+    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
-        <button className="candidate-main" onClick={() => setOpen((o) => !o)}>
-          <span className={`badge ${candidate.category}`}>{candidate.score.toFixed(1)}</span>
+        <button className="candidate-main" onClick={onSelect}>
+          <span className={`badge ${candidate.category}`}>{formatScore(candidate.score)}</span>
           <span className="dist" title="Distance from home person">
             {candidate.distance === undefined ? "" : candidate.distance}
           </span>
@@ -175,13 +210,17 @@ function CandidateRow({
             <span className="muted"> ↔ </span>
             <strong>{candidate.masterLabel}</strong>
           </span>
-          <span className="chev">{open ? "▾" : "▸"}</span>
         </button>
         {status && status !== "undecided" && (
           <span className={`status-chip ${status}`}>{status}</span>
         )}
-        <button className="review-btn" onClick={() => onReview(kind, candidate)}>
-          Review
+        <button
+          className="chev-btn"
+          title="Score breakdown"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? "▾" : "▸"}
         </button>
       </div>
       {open && (
@@ -195,6 +234,17 @@ function CandidateRow({
       )}
     </li>
   );
+}
+
+/** Match the score badge / category color scheme used for candidate rows. */
+const CATEGORY_COLOR: Record<MatchCategory, string> = {
+  strong: "#3ecf8e",
+  probable: "#e2b341",
+  weak: "#6b7280",
+};
+
+function scoreColor(score: number): string {
+  return CATEGORY_COLOR[categorize(score / 100, DEFAULT_CONFIG)];
 }
 
 function ComponentRow({ comp }: { comp: ScoreComponent }) {
