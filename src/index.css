@@ -738,12 +738,34 @@ button {
   border-radius: 4px;
 }
 
-.tree-canvas {
+.tree-canvas-wrap {
+  position: relative;
   flex: 1 1 auto;
+  min-height: 0;
+}
+.tree-canvas {
+  position: absolute;
+  inset: 0;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
+}
+.tree-minimap {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(10, 12, 16, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  touch-action: none;
+}
+.tree-minimap-viewport {
+  fill: rgba(76, 139, 245, 0.18);
+  stroke: var(--accent);
+  stroke-width: 1.5;
 }
 .tree-svg { display: block; }
 .tree-edge {

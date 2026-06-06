@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
@@ -28,6 +28,18 @@ const ROW_GAP = 18;
 const COL_STEP = NODE_W + COL_GAP;
 const ROW_STEP = NODE_H + ROW_GAP;
 const PAD = 24;
+
+/** Maximum minimap extent (px); the tree is scaled to fit within this box. */
+const MINIMAP_MAX_W = 220;
+const MINIMAP_MAX_H = 160;
+
+/** The visible window over the scrolling canvas, in content coordinates. */
+interface Viewport {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 /** Rectangle fill per comparison status (the colours requested in the spec). */
 const STATUS_COLOR: Record<NodeStatus, string> = {
@@ -89,7 +101,41 @@ export function CompareTree({
   );
 
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
+  const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
   const rootName = tree?.name ?? "";
+
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
+
+  const syncViewport = useCallback(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    setViewport({
+      left: el.scrollLeft,
+      top: el.scrollTop,
+      width: el.clientWidth,
+      height: el.clientHeight,
+    });
+  }, []);
+
+  // Re-measure on first paint, whenever the laid-out tree changes, and on resize.
+  useEffect(() => syncViewport(), [laid, syncViewport]);
+  useEffect(() => {
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, [syncViewport]);
+
+  const scrollTo = useCallback((left: number, top: number) => {
+    const el = canvasRef.current;
+    if (!el) return;
+    el.scrollLeft = left; // browser clamps to range; onScroll re-syncs the rect
+    el.scrollTop = top;
+  }, []);
+
+  const needsMinimap =
+    !!laid &&
+    viewport.width > 0 &&
+    (laid.width > viewport.width + 1 || laid.height > viewport.height + 1);
 
   return (
     <div className="tree-page">
@@ -126,19 +172,35 @@ export function CompareTree({
         ))}
       </div>
 
-      <div className="tree-canvas">
-        {laid ? (
-          <TreeSvg laid={laid} />
-        ) : (
-          <p className="muted">{t("tree.empty")}</p>
+      <div className="tree-canvas-wrap">
+        <div className="tree-canvas" ref={canvasRef} onScroll={syncViewport}>
+          {laid && flat ? (
+            <TreeSvg flat={flat} width={laid.width} height={laid.height} />
+          ) : (
+            <p className="muted">{t("tree.empty")}</p>
+          )}
+        </div>
+        {needsMinimap && laid && flat && (
+          <Minimap
+            nodes={flat.nodes}
+            contentW={laid.width}
+            contentH={laid.height}
+            viewport={viewport}
+            onScrollTo={scrollTo}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function TreeSvg({ laid }: { laid: { root: Placed; width: number; height: number } }) {
-  const { root, width, height } = laid;
+interface Flat {
+  nodes: Placed[];
+  edges: { id: string; d: string }[];
+}
+
+/** Collect every node and parent→child connector path from the laid-out tree. */
+function flatten(root: Placed): Flat {
   const nodes: Placed[] = [];
   const edges: { id: string; d: string }[] = [];
   (function walk(n: Placed) {
@@ -148,7 +210,11 @@ function TreeSvg({ laid }: { laid: { root: Placed; width: number; height: number
       walk(c);
     }
   })(root);
+  return { nodes, edges };
+}
 
+function TreeSvg({ flat, width, height }: { flat: Flat; width: number; height: number }) {
+  const { nodes, edges } = flat;
   return (
     <svg className="tree-svg" width={width} height={height} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -176,6 +242,73 @@ function TreeSvg({ laid }: { laid: { root: Placed; width: number; height: number
           </g>
         ))}
       </g>
+    </svg>
+  );
+}
+
+/**
+ * Overview map of the whole tree with a draggable rectangle marking the visible
+ * window. Clicking or dragging on it recentres the main canvas there.
+ */
+function Minimap({
+  nodes,
+  contentW,
+  contentH,
+  viewport,
+  onScrollTo,
+}: {
+  nodes: Placed[];
+  contentW: number;
+  contentH: number;
+  viewport: Viewport;
+  onScrollTo: (left: number, top: number) => void;
+}) {
+  const dragging = useRef(false);
+  const scale = Math.min(MINIMAP_MAX_W / contentW, MINIMAP_MAX_H / contentH);
+  const w = contentW * scale;
+  const h = contentH * scale;
+
+  const recentre = (e: React.PointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+    onScrollTo(x - viewport.width / 2, y - viewport.height / 2);
+  };
+
+  return (
+    <svg
+      className="tree-minimap"
+      width={w}
+      height={h}
+      onPointerDown={(e) => {
+        dragging.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        recentre(e);
+      }}
+      onPointerMove={(e) => dragging.current && recentre(e)}
+      onPointerUp={(e) => {
+        dragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+    >
+      {nodes.map((n) => (
+        <rect
+          key={n.key}
+          x={(n.x + PAD) * scale}
+          y={(n.y + PAD) * scale}
+          width={Math.max(1, NODE_W * scale)}
+          height={Math.max(1, NODE_H * scale)}
+          rx={1}
+          fill={STATUS_COLOR[n.status]}
+        />
+      ))}
+      <rect
+        className="tree-minimap-viewport"
+        x={viewport.left * scale}
+        y={viewport.top * scale}
+        width={viewport.width * scale}
+        height={viewport.height * scale}
+      />
     </svg>
   );
 }
