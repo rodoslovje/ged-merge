@@ -179,14 +179,18 @@ button {
 .split-matches { flex: 1 1 0; min-width: 340px; }
 .split-compare { flex: 1.3 1 0; min-width: 360px; }
 
-/* Each pane's section becomes a full-height flex column. */
+/* Each pane's open section becomes a full-height flex column; a collapsed one
+ * keeps its natural (header-only) height. */
 .split-pane > .section {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-height: 0;
   width: 100%;
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
+}
+.split-pane > .section.open {
+  flex: 1 1 0;
 }
 .split-pane > .section > .section-body {
   flex: 1;
@@ -212,7 +216,7 @@ button {
   .split-pane {
     flex: 0 0 auto;
   }
-  .split-pane > .section {
+  .split-pane > .section.open {
     flex: 0 0 auto;
     min-height: 320px;
   }
