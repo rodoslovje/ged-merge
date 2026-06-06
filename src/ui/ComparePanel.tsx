@@ -109,10 +109,10 @@ export function ComparePanel({
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.label}</td>
                 <td className={choice !== "incoming" ? "f-val chosen" : "f-val"}>
-                  {row.master}
+                  {renderValue(row.master, row.masterLinks)}
                 </td>
                 <td className={choice !== "master" ? "f-val chosen" : "f-val"}>
-                  {row.incoming}
+                  {renderValue(row.incoming, row.incomingLinks)}
                 </td>
                 <td className="f-choice">
                   {row.state === "conflict" || row.state === "incoming-only" ? (
@@ -137,6 +137,32 @@ export function ComparePanel({
       </table>
     </div>
   );
+}
+
+/** Render a cell as link icons when the row carries attached links, else text. */
+function renderValue(text: string, links: string[] | undefined) {
+  if (!links) return text;
+  return (
+    <span className="links">
+      {links.map((url, i) => (
+        <a
+          key={i}
+          href={linkHref(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-icon"
+          title={url}
+        >
+          🔗
+        </a>
+      ))}
+    </span>
+  );
+}
+
+/** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
+function linkHref(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
 function choiceLabel(c: FieldChoice): string {

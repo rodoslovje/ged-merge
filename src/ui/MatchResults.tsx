@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -19,7 +19,6 @@ import { formatScore, type Candidate, type Filters, type SortKey, type SortState
 interface Props {
   result: MatchResult;
   tab: MatchKind;
-  onTab: (tab: MatchKind) => void;
   /** Active sort keys, primary first then secondary. */
   sort: SortState[];
   onToggleSort: (key: SortKey) => void;
@@ -37,7 +36,6 @@ interface Props {
 export function MatchResults({
   result,
   tab,
-  onTab,
   sort,
   onToggleSort,
   filters,
@@ -50,13 +48,13 @@ export function MatchResults({
 }: Props) {
   const total = tab === "individual" ? result.individuals.length : result.families.length;
 
-  // Rank 0 = primary (▲/▼), rank 1 = secondary (▲/▼ with a small "2").
+  // Rank 0 = primary (▲/▼), rank 1 = secondary (△/▽).
   const rankOf = (key: SortKey) => sort.findIndex((s) => s.key === key);
   const arrow = (key: SortKey) => {
     const r = rankOf(key);
     if (r < 0) return "";
-    const dir = sort[r].dir === "asc" ? "▲" : "▼";
-    return r === 0 ? ` ${dir}` : ` ${dir}₂`;
+    if (r === 0) return sort[r].dir === "asc" ? " ▲" : " ▼";
+    return sort[r].dir === "asc" ? " △" : " ▽";
   };
   const cls = (key: SortKey, extra: string) => {
     const r = rankOf(key);
@@ -73,25 +71,8 @@ export function MatchResults({
 
   return (
     <div className="results">
-      <div className="matches-head">
-        <div className="tabs">
-          <button
-            className={tab === "individual" ? "tab active" : "tab"}
-            onClick={() => onTab("individual")}
-          >
-            Individuals ({result.individuals.length})
-          </button>
-          <button
-            className={tab === "family" ? "tab active" : "tab"}
-            onClick={() => onTab("family")}
-          >
-            Families ({result.families.length})
-          </button>
-        </div>
-        {homeControl}
-      </div>
-
       <div className="filters">
+        {homeControl}
         <label className="filter-check">
           <input
             type="checkbox"
@@ -107,6 +88,14 @@ export function MatchResults({
             onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
           />
           Differences
+        </label>
+        <label className="filter-check">
+          <input
+            type="checkbox"
+            checked={filters.onlyLinks}
+            onChange={(e) => onFilters({ ...filters, onlyLinks: e.target.checked })}
+          />
+          Links
         </label>
         <label className="filter-score">
           Min score{" "}
@@ -161,6 +150,13 @@ export function MatchResults({
             >
               D{arrow("diffCount")}
             </button>
+            <button
+              className={cls("linkCount", "nd")}
+              title="Attached links the compare adds or that differ"
+              onClick={() => onToggleSort("linkCount")}
+            >
+              🔗{arrow("linkCount")}
+            </button>
             <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
               Compare ↔ Master{arrow("label")}
             </button>
@@ -191,12 +187,20 @@ function CandidateRow({
   status: MatchDecisionStatus | undefined;
   onSelect: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const scoreTooltip =
+    candidate.score === 1
+      ? undefined
+      : candidate.components
+          .map((c) => `${c.key}: ${Math.round(c.score * 100)}%${c.detail ? ` (${c.detail})` : ""}`)
+          .join("\n");
+
   return (
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={onSelect}>
-          <span className={`badge ${candidate.category}`}>{formatScore(candidate.score)}</span>
+          <span className={`badge ${candidate.category}`} title={scoreTooltip}>
+            {formatScore(candidate.score)}
+          </span>
           <span className="dist" title="Distance from home person">
             {candidate.distance === undefined ? "" : candidate.distance}
           </span>
@@ -212,33 +216,24 @@ function CandidateRow({
           >
             {candidate.diffCount ?? 0}
           </span>
+          <span
+            className={`nd link ${candidate.linkCount ? "" : "zero"}`}
+            title="Attached links the compare adds or that differ"
+          >
+            {candidate.linkCount ?? 0}
+          </span>
           <span className="labels">
-            <strong>{candidate.compareLabel}</strong>
-            <span className="muted"> ↔ </span>
-            <strong>{candidate.masterLabel}</strong>
+          {candidate.score === 1 ? (
+            candidate.compareLabel
+          ) : (
+            <>{candidate.compareLabel} <span className="muted"> ↔ </span> {candidate.masterLabel}</>
+          )}
           </span>
         </button>
         {status && status !== "undecided" && (
           <span className={`status-chip ${status}`}>{status}</span>
         )}
-        <button
-          className="chev-btn"
-          title="Score breakdown"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? "▾" : "▸"}
-        </button>
       </div>
-      {open && (
-        <table className="breakdown">
-          <tbody>
-            {candidate.components.map((comp) => (
-              <ComponentRow key={comp.key} comp={comp} />
-            ))}
-          </tbody>
-        </table>
-      )}
     </li>
   );
 }
@@ -252,17 +247,4 @@ const CATEGORY_COLOR: Record<MatchCategory, string> = {
 
 function scoreColor(score: number): string {
   return CATEGORY_COLOR[categorize(score / 100, DEFAULT_CONFIG)];
-}
-
-function ComponentRow({ comp }: { comp: ScoreComponent }) {
-  return (
-    <tr>
-      <td className="comp-key">{comp.key}</td>
-      <td className="comp-bar">
-        <span className="bar" style={{ width: `${Math.round(comp.score * 100)}%` }} />
-      </td>
-      <td className="comp-score">{Math.round(comp.score * 100)}%</td>
-      <td className="comp-detail muted">{comp.detail ?? ""}</td>
-    </tr>
-  );
 }

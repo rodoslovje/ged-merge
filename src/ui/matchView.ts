@@ -7,7 +7,7 @@ export function formatScore(score: number): string {
   return score >= 100 ? "100" : score.toFixed(1);
 }
 
-export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "label";
+export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "linkCount" | "label";
 
 export interface SortState {
   key: SortKey;
@@ -19,6 +19,7 @@ export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   distance: "asc",
   newCount: "desc",
   diffCount: "desc",
+  linkCount: "desc",
   label: "asc",
 };
 
@@ -48,21 +49,34 @@ export interface Filters {
   onlyNew: boolean;
   /** Keep only matches with conflicting fields (diffCount > 0). */
   onlyDiff: boolean;
+  /** Keep only matches that add or change attached links (linkCount > 0). */
+  onlyLinks: boolean;
   /** Keep only matches scoring at least this much (0..100). */
   minScore: number;
 }
 
-export const NO_FILTERS: Filters = { onlyNew: false, onlyDiff: false, minScore: 0 };
+export const NO_FILTERS: Filters = {
+  onlyNew: false,
+  onlyDiff: false,
+  onlyLinks: false,
+  minScore: 0,
+};
 
 /** Initial filters: hide weak matches by defaulting the score gate to "strong". */
-export const DEFAULT_FILTERS: Filters = { onlyNew: false, onlyDiff: false, minScore: 85 };
+export const DEFAULT_FILTERS: Filters = {
+  onlyNew: false,
+  onlyDiff: false,
+  onlyLinks: false,
+  minScore: 85,
+};
 
 export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
-  if (!f.onlyNew && !f.onlyDiff && f.minScore <= 0) return list;
+  if (!f.onlyNew && !f.onlyDiff && !f.onlyLinks && f.minScore <= 0) return list;
   return list.filter(
     (c) =>
       (!f.onlyNew || (c.newCount ?? 0) > 0) &&
       (!f.onlyDiff || (c.diffCount ?? 0) > 0) &&
+      (!f.onlyLinks || (c.linkCount ?? 0) > 0) &&
       c.score >= f.minScore,
   );
 }
@@ -90,6 +104,8 @@ function compareBy(a: Candidate, b: Candidate, key: SortKey): number {
       return (a.newCount ?? 0) - (b.newCount ?? 0);
     case "diffCount":
       return (a.diffCount ?? 0) - (b.diffCount ?? 0);
+    case "linkCount":
+      return (a.linkCount ?? 0) - (b.linkCount ?? 0);
     case "label":
       return a.compareLabel.localeCompare(b.compareLabel);
   }

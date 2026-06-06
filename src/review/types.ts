@@ -20,6 +20,9 @@ export interface FieldRow {
   master: string; // "" when absent
   incoming: string; // "" when absent
   state: FieldState;
+  /** When set, the row holds attached links rendered as icons (not text). */
+  masterLinks?: string[];
+  incomingLinks?: string[];
 }
 
 /** The user's decision for one master/compare candidate pair. */

@@ -204,13 +204,13 @@ describe("fieldDiffCounts", () => {
     );
     const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     // BIRT.place differs (D); DEAT.date is only in compare (N).
-    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 1 });
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 1, linkCount: 0 });
   });
 
   it("reports zero for identical records", () => {
     const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
     const rows = individualFieldRows(m.individuals.get("@I1@"), m.individuals.get("@I1@"));
-    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0 });
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
   });
 });
 
@@ -239,6 +239,71 @@ describe("ADDR support", () => {
     );
     const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     expect(byKey(rows, "BIRT.addr")?.state).toBe("agree");
+  });
+});
+
+describe("attached links", () => {
+  it("extracts record-level and event links from an individual", () => {
+    const ds = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/a\n1 BIRT\n2 DATE 1900\n2 _LINK https://example.com/birth\n0 TRLR\n`,
+    );
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.com/a"]);
+    expect(indi.events.find((e) => e.tag === "BIRT")?.links).toEqual([
+      "https://example.com/birth",
+    ]);
+  });
+
+  it("tallies an incoming-only link into linkCount, not newCount", () => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "BIRT.links")?.state).toBe("incoming-only");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
+  });
+
+  it("tallies differing links into linkCount; matching links agree", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/old\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/new\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.state).toBe("conflict");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
+
+    const same = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/old/\n0 TRLR\n`,
+    );
+    const rows2 = individualFieldRows(m.individuals.get("@I1@"), same.individuals.get("@P1@"));
+    expect(byKey(rows2, "links")?.state).toBe("agree"); // trailing-slash-insensitive
+  });
+
+  it("resolves shared OBJE multimedia pointers to their FILE url", () => {
+    // Renko.ged stores links as top-level OBJE records referenced by pointer.
+    const ds = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 OBJE @M1@\n1 BURI\n2 OBJE @M2@\n` +
+        `0 @M1@ OBJE\n1 FILE https://example.com/portrait\n2 TITL Portrait\n` +
+        `0 @M2@ OBJE\n1 FILE https://en.geneanet.org/cemetery/view/123/persons/\n0 TRLR\n`,
+    );
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.com/portrait"]);
+    expect(indi.events.find((e) => e.tag === "BURI")?.links).toEqual([
+      "https://en.geneanet.org/cemetery/view/123/persons/",
+    ]);
+  });
+
+  it("surfaces family and marriage links", () => {
+    const m = dataset(`0 HEAD\n0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1875\n0 TRLR\n`);
+    const c = dataset(
+      `0 HEAD\n0 @G1@ FAM\n1 HUSB @P1@\n1 _LINK https://example.com/fam\n1 MARR\n2 DATE 1875\n2 WWW https://example.com/marr\n0 TRLR\n`,
+    );
+    const rows = familyFieldRows(m.families.get("@F1@"), c.families.get("@G1@"), m, c);
+    expect(byKey(rows, "links")?.state).toBe("incoming-only");
+    expect(byKey(rows, "MARR.links")?.state).toBe("incoming-only");
   });
 });
 

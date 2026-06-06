@@ -37,13 +37,11 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
 
   return (
     <div className="home-selector">
-      <span className="home-label" title="Set a home person to rank matches by relationship distance">
-        Home person
-      </span>
       <div className="home-control">
         <input
           type="text"
-          placeholder={current ? current.text : "none — search to set…"}
+          placeholder={current ? current.text : "Set home person..."}
+          title="Set a home person to rank matches by relationship distance"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}

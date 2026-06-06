@@ -28,6 +28,8 @@ export interface IndividualCandidate {
   newCount?: number;
   /** Fields both records have but that differ (to reconcile). */
   diffCount?: number;
+  /** Attached-link rows the compare adds or that differ. */
+  linkCount?: number;
 }
 
 export interface FamilyCandidate {
@@ -44,6 +46,8 @@ export interface FamilyCandidate {
   newCount?: number;
   /** Fields both records have but that differ (to reconcile). */
   diffCount?: number;
+  /** Attached-link rows the compare adds or that differ. */
+  linkCount?: number;
 }
 
 export interface MatchResult {

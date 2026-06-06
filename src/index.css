@@ -420,6 +420,7 @@ button {
 }
 .nd.new { color: #6ee7b7; }
 .nd.diff { color: #fcd34d; }
+.nd.link { color: #93c5fd; }
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
 .candidate {
@@ -588,6 +589,14 @@ button {
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
 .f-choice { width: 120px; white-space: nowrap; }
+.links { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.link-icon {
+  text-decoration: none;
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+.link-icon:hover { opacity: 1; }
 .choice {
   background: var(--bg);
   border: 1px solid var(--border);

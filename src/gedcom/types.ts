@@ -131,6 +131,8 @@ export interface GedEvent {
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;
+  /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
+  links?: string[];
 }
 
 export interface Individual {
@@ -142,6 +144,8 @@ export interface Individual {
   childOf: string[];
   /** Family ids where this person is a spouse/parent (FAMS). */
   spouseOf: string[];
+  /** URLs attached directly to the record (not to a specific event). */
+  links?: string[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -152,6 +156,8 @@ export interface Family {
   wife?: string; // individual xref
   children: string[]; // individual xrefs
   events: GedEvent[]; // MARR, DIV, …
+  /** URLs attached directly to the family record (not to a specific event). */
+  links?: string[];
   raw: GedNode;
 }
 

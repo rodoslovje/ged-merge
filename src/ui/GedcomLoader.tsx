@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import type { SlotState } from "../App";
 
 interface Props {
@@ -8,15 +8,26 @@ interface Props {
 }
 
 export function GedcomLoader({ title, state, onLoad }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) onLoad(file);
+
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
     <section className="loader">
-      <h2>{title}</h2>
-      <input type="file" accept=".ged,.gedcom,text/plain" onChange={onChange} />
+      <div className="loader-head">
+        <h2>{title}</h2>
+        {state.status !== "loading" && (
+          <>
+            <button className="nav-btn" onClick={() => inputRef.current?.click()}>Load file...</button>
+            <input ref={inputRef} className="file-input" type="file" accept=".ged,.gedcom,text/plain" onChange={onChange} />
+          </>
+        )}
+      </div>
       <div className="summary">{renderSummary(state)}</div>
     </section>
   );
@@ -27,7 +38,12 @@ function renderSummary(state: SlotState): React.ReactNode {
     case "empty":
       return "No file loaded.";
     case "loading":
-      return `Parsing ${state.fileName}…`;
+      return (
+        <div className="parsing-status">
+          <span className="spinner" aria-hidden="true" />
+          Parsing {state.fileName}…
+        </div>
+      );
     case "error":
       return <span className="error">Error in {state.fileName}: {state.message}</span>;
     case "loaded": {

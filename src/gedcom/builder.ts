@@ -21,12 +21,15 @@ const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "MARB", "MARL"]);
 export function buildDataset(parsed: ParseResult): Dataset {
   const individuals = new Map<string, Individual>();
   const families = new Map<string, Family>();
+  // Shared multimedia (OBJE) records hold their URL in a FILE line; records
+  // attach them by pointer (`1 OBJE @xref@`), so resolve those up front.
+  const media = buildMediaLinks(parsed.records);
 
   for (const record of parsed.records) {
     if (record.tag === "INDI" && record.xref) {
-      individuals.set(record.xref, buildIndividual(record));
+      individuals.set(record.xref, buildIndividual(record, media));
     } else if (record.tag === "FAM" && record.xref) {
-      families.set(record.xref, buildFamily(record));
+      families.set(record.xref, buildFamily(record, media));
     }
   }
 
@@ -40,11 +43,12 @@ export function buildDataset(parsed: ParseResult): Dataset {
   };
 }
 
-function buildIndividual(record: GedNode): Individual {
+function buildIndividual(record: GedNode, media: MediaLinks): Individual {
   const names: Individual["names"] = [];
   const events: GedEvent[] = [];
   const childOf: string[] = [];
   const spouseOf: string[] = [];
+  const links: string[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -62,16 +66,22 @@ function buildIndividual(record: GedNode): Individual {
         if (child.value) spouseOf.push(child.value.trim());
         break;
       default:
-        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child));
+        // Event-borne links travel with the event; everything else is a
+        // record-level link.
+        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
+        else collectLinks(child, media, links);
     }
   }
 
-  return { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
+  const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
+  if (links.length) indi.links = dedupe(links);
+  return indi;
 }
 
-function buildFamily(record: GedNode): Family {
+function buildFamily(record: GedNode, media: MediaLinks): Family {
   const children: string[] = [];
   const events: GedEvent[] = [];
+  const links: string[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
 
@@ -87,17 +97,19 @@ function buildFamily(record: GedNode): Family {
         if (child.value) children.push(child.value.trim());
         break;
       default:
-        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child));
+        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
+        else collectLinks(child, media, links);
     }
   }
 
   const fam: Family = { id: record.xref!, children, events, raw: record };
   if (husband) fam.husband = husband;
   if (wife) fam.wife = wife;
+  if (links.length) fam.links = dedupe(links);
   return fam;
 }
 
-function buildEvent(node: GedNode): GedEvent {
+function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
   const event: GedEvent = { tag: node.tag };
   const dateNode = node.children.find((c) => c.tag === "DATE");
   const placeNode = node.children.find((c) => c.tag === "PLAC");
@@ -105,7 +117,83 @@ function buildEvent(node: GedNode): GedEvent {
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   if (placeNode?.value) event.place = parsePlace(placeNode.value);
   if (addrNode?.value) event.address = parsePlace(addrNode.value);
+  const links = collectLinks(node, media);
+  if (links.length) event.links = dedupe(links);
   return event;
+}
+
+/** Map of OBJE record xref -> the URLs that record holds. */
+type MediaLinks = Map<string, string[]>;
+
+/** Tags whose value is, by convention, a link/URL even without a scheme. */
+const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
+
+/** Matches one or more http(s) URLs embedded anywhere in a line value. */
+const URL_RE = /https?:\/\/[^\s<>"]+/gi;
+
+/**
+ * Index every top-level multimedia (OBJE) record by its xref, mapping to the
+ * URLs it contains (typically a single FILE line). Records reference these by
+ * pointer, so this lets `collectLinks` resolve `OBJE @xref@` to a real URL.
+ */
+function buildMediaLinks(records: GedNode[]): MediaLinks {
+  const map: MediaLinks = new Map();
+  for (const rec of records) {
+    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    const links = dedupe(collectLinks(rec, map));
+    if (links.length) map.set(rec.xref, links);
+  }
+  return map;
+}
+
+/**
+ * Recursively gather every URL reachable under `node` (its own value plus all
+ * descendants). Link-bearing tags (WWW/URL/_LINK/OBJE.FILE …) contribute their
+ * whole value; an `OBJE @xref@` pointer is resolved through the shared media
+ * index; any other line contributes http(s) URLs found inside its text (e.g. a
+ * URL mentioned in a NOTE).
+ */
+function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): string[] {
+  const v = node.value?.trim();
+  if (v) {
+    if (node.tag === "OBJE" && isPointer(v)) {
+      const resolved = media.get(v);
+      if (resolved) out.push(...resolved);
+    } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(v)) {
+      out.push(v);
+    } else {
+      const found = v.match(URL_RE);
+      if (found) for (const m of found) out.push(stripTrailingPunct(m));
+    }
+  }
+  for (const child of node.children) collectLinks(child, media, out);
+  return out;
+}
+
+function isPointer(v: string): boolean {
+  return /^@[^@]+@$/.test(v);
+}
+
+function looksLikeUrl(v: string): boolean {
+  return /^(https?:\/\/|www\.)/i.test(v);
+}
+
+/** Drop trailing punctuation a URL regex may swallow from surrounding prose. */
+function stripTrailingPunct(url: string): string {
+  return url.replace(/[.,;:)\]}>"']+$/, "");
+}
+
+/** De-duplicate links case-insensitively while preserving first-seen order. */
+function dedupe(links: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const l of links) {
+    const key = l.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(l);
+  }
+  return out;
 }
 
 function subTagMap(node: GedNode): Map<string, string> {

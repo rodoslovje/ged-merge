@@ -46,6 +46,8 @@ export function individualFieldRows(
     pushRow(rows, "partners", "Partner(s)", partnerList(master, masterDs), partnerList(compare, compareDs));
   }
 
+  pushLinkRow(rows, "links", "Links", master?.links, compare?.links);
+
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
     const ce = compare?.events.find((e) => e.tag === tag);
@@ -53,6 +55,7 @@ export function individualFieldRows(
     pushRow(rows, `${tag}.date`, `${name} date`, me?.date?.raw, ce?.date?.raw);
     pushRow(rows, `${tag}.place`, `${name} place`, me?.place?.raw, ce?.place?.raw);
     pushRow(rows, `${tag}.addr`, `${name} address`, me?.address?.raw, ce?.address?.raw);
+    pushLinkRow(rows, `${tag}.links`, `${name} link`, me?.links, ce?.links);
   }
   return rows;
 }
@@ -94,11 +97,14 @@ export function familyFieldRows(
   pushRow(rows, "husband", "Husband", spouse(master?.husband, masterDs), spouse(compare?.husband, compareDs));
   pushRow(rows, "wife", "Wife", spouse(master?.wife, masterDs), spouse(compare?.wife, compareDs));
 
+  pushLinkRow(rows, "links", "Links", master?.links, compare?.links);
+
   const mm = master?.events.find((e) => e.tag === "MARR");
   const cm = compare?.events.find((e) => e.tag === "MARR");
   pushRow(rows, "MARR.date", "Marriage date", mm?.date?.raw, cm?.date?.raw);
   pushRow(rows, "MARR.place", "Marriage place", mm?.place?.raw, cm?.place?.raw);
   pushRow(rows, "MARR.addr", "Marriage address", mm?.address?.raw, cm?.address?.raw);
+  pushLinkRow(rows, "MARR.links", "Marriage link", mm?.links, cm?.links);
 
   pushRow(rows, "children", "Children", childList(master, masterDs), childList(compare, compareDs));
   return rows;
@@ -108,15 +114,25 @@ export function familyFieldRows(
  * Summary counts over a set of field rows:
  *  - `newCount`  = fields the compare record has but the master lacks (to add)
  *  - `diffCount` = fields both have but that differ (to reconcile)
+ *  - `linkCount` = attached-link rows the compare adds or that differ
+ *
+ * Links are tallied separately (not folded into new/diff) so the matches list
+ * can surface and filter on them as their own dimension.
  */
-export function fieldDiffCounts(rows: FieldRow[]): { newCount: number; diffCount: number } {
+export function fieldDiffCounts(
+  rows: FieldRow[],
+): { newCount: number; diffCount: number; linkCount: number } {
   let newCount = 0;
   let diffCount = 0;
+  let linkCount = 0;
   for (const row of rows) {
-    if (row.state === "incoming-only") newCount++;
+    const isLink = row.masterLinks !== undefined || row.incomingLinks !== undefined;
+    if (isLink) {
+      if (row.state === "incoming-only" || row.state === "conflict") linkCount++;
+    } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
   }
-  return { newCount, diffCount };
+  return { newCount, diffCount, linkCount };
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -132,6 +148,47 @@ function pushRow(
   const i = (incoming ?? "").trim();
   if (!m && !i) return; // nothing to show
   rows.push({ key, label, master: m, incoming: i, state: stateOf(key, m, i) });
+}
+
+/**
+ * A row whose values are attached links, rendered as clickable icons. The
+ * state drives the New/Diff counts: incoming has a link the master lacks =
+ * "incoming-only" (New); the two sides' link sets differ = "conflict" (Diff).
+ */
+function pushLinkRow(
+  rows: FieldRow[],
+  key: string,
+  label: string,
+  master: string[] | undefined,
+  incoming: string[] | undefined,
+): void {
+  const m = master ?? [];
+  const i = incoming ?? [];
+  if (m.length === 0 && i.length === 0) return;
+  rows.push({
+    key,
+    label,
+    // Keep a text form so the default merge choice (master-if-present) works.
+    master: m.join("\n"),
+    incoming: i.join("\n"),
+    state: linkState(m, i),
+    masterLinks: m,
+    incomingLinks: i,
+  });
+}
+
+function linkState(master: string[], incoming: string[]): FieldState {
+  const m = new Set(master.map(linkKey));
+  const i = new Set(incoming.map(linkKey));
+  if (m.size && !i.size) return "master-only";
+  if (!m.size && i.size) return "incoming-only";
+  const same = m.size === i.size && [...m].every((x) => i.has(x));
+  return same ? "agree" : "conflict";
+}
+
+/** Normalize a URL for set comparison: case-fold and drop a trailing slash. */
+function linkKey(url: string): string {
+  return url.trim().toLowerCase().replace(/\/+$/, "");
 }
 
 function stateOf(key: string, master: string, incoming: string): FieldState {
