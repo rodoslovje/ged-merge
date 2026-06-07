@@ -165,7 +165,7 @@ export function MatchResults({
               🔗{arrow("linkCount")}
             </button>
             <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
-              {t("list.masterCompare")}{arrow("label")}
+              {t("list.person")}{arrow("label")}
             </button>
           </li>
           {list.map((c, i) => (

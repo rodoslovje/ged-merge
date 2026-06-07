@@ -53,7 +53,7 @@ export const sl = {
   "status.deferred": "Kasneje",
   "list.score": "Rezultat",
   "list.count": "{{visible}} od {{total}}",
-  "list.masterCompare": "Glavni : razlike",
+  "list.person": "Oseba",
   "tree.button": "Primerjalno drevo",
   "tree.back": "Nazaj na ujemanja",
   "tree.title": "Primerjalno drevo",

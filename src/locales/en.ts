@@ -53,7 +53,7 @@ export const en = {
   "status.deferred": "Deferred",
   "list.score": "Score",
   "list.count": "{{visible}} of {{total}}",
-  "list.masterCompare": "Master : differences",
+  "list.person": "Person",
   "tree.button": "Compare tree",
   "tree.back": "Back to matches",
   "tree.title": "Compare Tree",
