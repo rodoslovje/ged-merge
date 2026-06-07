@@ -1,7 +1,8 @@
-import type { Dataset, Family, Individual } from "../gedcom/types";
+import type { Dataset, Family, Individual, PersonName } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
+import { nameSimilarity } from "../match/similarity";
 import { label, partnerNames } from "../match/relatives";
 import type { FieldRow, FieldState } from "./types";
 
@@ -79,7 +80,7 @@ export function individualFieldRows(
   if (masterDs && compareDs) {
     pushRow(rows, "father", formatFieldLabel(t, "father"), parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
     pushRow(rows, "mother", formatFieldLabel(t, "mother"), parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
-    pushRow(rows, "partners", formatFieldLabel(t, "partners"), partnerList(master, masterDs), partnerList(compare, compareDs));
+    pushRelativesRow(rows, "partners", formatFieldLabel(t, "partners"), partnerRelatives(master, masterDs), partnerRelatives(compare, compareDs));
   }
   return rows;
 }
@@ -100,13 +101,21 @@ function parentName(
   return "";
 }
 
-/** Semicolon-joined full names of this person's spouses. */
-function partnerList(indi: Individual | undefined, ds: Dataset): string {
-  if (!indi) return "";
+/**
+ * A relative shown in an aligned list: the structured name used to pair the two
+ * sides, plus the text rendered to the user.
+ */
+interface Relative {
+  name: PersonName | undefined;
+  text: string;
+}
+
+/** This person's spouses as alignable relatives. */
+function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
+  if (!indi) return [];
   return partnerNames(indi, ds)
-    .map((n) => n.full)
-    .filter(Boolean)
-    .join("; ");
+    .filter((n) => n.full)
+    .map((n) => ({ name: n, text: n.full }));
 }
 
 /** Build the comparable field rows for a family candidate. */
@@ -131,7 +140,7 @@ export function familyFieldRows(
   pushRow(rows, "MARR.place", formatFieldLabel(t, "MARR.place"), mm?.place?.raw, cm?.place?.raw);
   pushRow(rows, "MARR.addr", formatFieldLabel(t, "MARR.addr"), mm?.address?.raw, cm?.address?.raw);
 
-  pushRow(rows, "children", formatFieldLabel(t, "children"), childList(master, masterDs), childList(compare, compareDs));
+  pushRelativesRow(rows, "children", formatFieldLabel(t, "children"), childRelatives(master, masterDs), childRelatives(compare, compareDs));
   return rows;
 }
 
@@ -173,6 +182,89 @@ function pushRow(
   const i = (incoming ?? "").trim();
   if (!m && !i) return; // nothing to show
   rows.push({ key, label, master: m, incoming: i, state: stateOf(key, m, i) });
+}
+
+/**
+ * Push a list-of-relatives row (partners, children) whose two sides are *aligned*
+ * by name: a master relative and its closest incoming counterpart share a line,
+ * while relatives with no match on the other side get a line of their own (the
+ * opposite cell left blank). This lines matching people up so differences and
+ * additions are easy to spot. Blank-padding is kept out of the emptiness/state
+ * test so a one-sided list still reads as master-/incoming-only.
+ */
+function pushRelativesRow(
+  rows: FieldRow[],
+  key: string,
+  label: string,
+  master: Relative[],
+  incoming: Relative[],
+): void {
+  if (master.length === 0 && incoming.length === 0) return;
+  const { masterLines, incomingLines } = alignRelatives(master, incoming);
+  const m = master.length ? masterLines.join("\n") : "";
+  const i = incoming.length ? incomingLines.join("\n") : "";
+  const state: FieldState =
+    m && !i ? "master-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
+  rows.push({ key, label, master: m, incoming: i, state });
+}
+
+/**
+ * Minimum name similarity for two relatives to be paired onto the same line.
+ * Set high because relatives typically share a surname (which alone scores ~0.6),
+ * so distinguishing the same person from a same-surname sibling rests on the
+ * given name: this threshold demands a strong given-name agreement too, pairing
+ * spelling variants (Ana/Anna) while keeping distinct siblings (Berta/Doris) apart.
+ */
+const RELATIVE_PAIR_THRESHOLD = 0.85;
+
+/**
+ * Greedily pair master and incoming relatives by name similarity (best pairs
+ * first), then emit aligned line arrays: matched pairs on a shared line in master
+ * order, master-only relatives with a blank incoming line, and any unmatched
+ * incoming relatives appended with a blank master line.
+ */
+function alignRelatives(
+  master: Relative[],
+  incoming: Relative[],
+): { masterLines: string[]; incomingLines: string[] } {
+  const pairs: { mi: number; ii: number; sim: number }[] = [];
+  master.forEach((m, mi) =>
+    incoming.forEach((c, ii) => {
+      const sim = relativeSimilarity(m, c);
+      if (sim >= RELATIVE_PAIR_THRESHOLD) pairs.push({ mi, ii, sim });
+    }),
+  );
+  pairs.sort((a, b) => b.sim - a.sim);
+
+  const matchOf = new Map<number, number>(); // master index -> incoming index
+  const usedIncoming = new Set<number>();
+  const usedMaster = new Set<number>();
+  for (const p of pairs) {
+    if (usedMaster.has(p.mi) || usedIncoming.has(p.ii)) continue;
+    usedMaster.add(p.mi);
+    usedIncoming.add(p.ii);
+    matchOf.set(p.mi, p.ii);
+  }
+
+  const masterLines: string[] = [];
+  const incomingLines: string[] = [];
+  master.forEach((m, mi) => {
+    masterLines.push(m.text);
+    const ii = matchOf.get(mi);
+    incomingLines.push(ii !== undefined ? incoming[ii].text : "");
+  });
+  incoming.forEach((c, ii) => {
+    if (usedIncoming.has(ii)) return;
+    masterLines.push("");
+    incomingLines.push(c.text);
+  });
+  return { masterLines, incomingLines };
+}
+
+/** Similarity of two relatives: structured-name based, with a text fallback. */
+function relativeSimilarity(a: Relative, b: Relative): number {
+  if (a.name && b.name) return nameSimilarity(a.name, b.name) ?? 0;
+  return foldToken(a.text) === foldToken(b.text) ? 1 : 0;
 }
 
 /**
@@ -306,11 +398,11 @@ function spouse(id: string | undefined, ds: Dataset): string {
   return indi ? label(indi) : "";
 }
 
-function childList(fam: Family | undefined, ds: Dataset): string {
-  if (!fam) return "";
+/** This family's children as alignable relatives. */
+function childRelatives(fam: Family | undefined, ds: Dataset): Relative[] {
+  if (!fam) return [];
   return fam.children
     .map((id) => ds.individuals.get(id))
     .filter((i): i is Individual => i !== undefined)
-    .map((i) => label(i))
-    .join("; ");
+    .map((i) => ({ name: i.names[0], text: label(i) }));
 }

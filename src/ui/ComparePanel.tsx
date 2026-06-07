@@ -154,7 +154,7 @@ export function ComparePanel({
 
 /** Render a cell as link icons when the row carries attached links, else text. */
 function renderValue(text: string, links: string[] | undefined) {
-  if (!links) return text;
+  if (!links) return renderLines(text);
   return (
     <span className="links">
       {links.map((url, i) => (
@@ -171,6 +171,20 @@ function renderValue(text: string, links: string[] | undefined) {
       ))}
     </span>
   );
+}
+
+/**
+ * Render a possibly multi-line value (e.g. children/partners) one item per line.
+ * Blank lines are kept at full height (a non-breaking space) so a relative and
+ * its aligned counterpart in the other column stay on the same row.
+ */
+function renderLines(text: string) {
+  if (!text.includes("\n")) return text;
+  return text.split("\n").map((line, i) => (
+    <div key={i} className="val-line">
+      {line || " "}
+    </div>
+  ));
 }
 
 /** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */

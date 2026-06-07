@@ -346,3 +346,38 @@ describe("familyFieldRows", () => {
     expect(byKey(rows, "husband")?.state).toBe("conflict"); // Müller vs Mueller label
   });
 });
+
+describe("aligned relative lists (children/partners)", () => {
+  // Master children: Anna, Berta. Incoming: Anna (match), Doris (new). Berta has
+  // no incoming counterpart, Doris no master counterpart.
+  const fam = (kids: string[]) =>
+    `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+    kids.map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k}\n1 FAMC @F@\n`).join("") +
+    `0 @F@ FAM\n1 HUSB @H@\n` +
+    kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+    `0 TRLR\n`;
+
+  const md = dataset(fam(["Anna /Novak/", "Berta /Novak/"]));
+  const cd = dataset(fam(["Anna /Novak/", "Doris /Novak/"]));
+  const rows = familyFieldRows(tr, md.families.get("@F@"), cd.families.get("@F@"), md, cd);
+  const children = byKey(rows, "children")!;
+
+  it("aligns a matched child on the same line in both columns", () => {
+    const m = children.master.split("\n");
+    const i = children.incoming.split("\n");
+    expect(m.length).toBe(i.length); // both columns have the same number of lines
+    expect(m[0]).toContain("Anna");
+    expect(i[0]).toContain("Anna"); // matched pair shares line 0
+  });
+
+  it("gives an unmatched child its own line with the other column blank", () => {
+    const m = children.master.split("\n");
+    const i = children.incoming.split("\n");
+    // Berta is master-only; Doris is incoming-only — each on a line by itself.
+    const bertaLine = m.findIndex((l) => l.includes("Berta"));
+    const dorisLine = i.findIndex((l) => l.includes("Doris"));
+    expect(i[bertaLine]).toBe(""); // nothing aligned opposite Berta
+    expect(m[dorisLine]).toBe(""); // nothing aligned opposite Doris
+    expect(children.state).toBe("conflict");
+  });
+});
