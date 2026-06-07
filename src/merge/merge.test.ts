@@ -131,6 +131,56 @@ describe("mergeDecisions — family structure", () => {
   });
 });
 
+describe("mergeDecisions — individual relations (parents & partners)", () => {
+  // Master has the people but @I1@ has no parents and no spouse linked.
+  const master = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+        "0 @I2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n" +
+        "0 @I3@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n",
+    ),
+  );
+  // Incoming has @I1@'s father, mother, and a (new) wife via families.
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n1 FAMS @PM@\n" +
+        "0 @P2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P3@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Ana /Horvat/\n1 SEX F\n1 FAMS @PM@\n" +
+        "0 @PF@ FAM\n1 HUSB @P2@\n1 WIFE @P3@\n1 CHIL @P1@\n" +
+        "0 @PM@ FAM\n1 HUSB @P1@\n1 WIFE @P4@\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { masterId: "@I1@", compareId: "@P1@" },
+      { masterId: "@I2@", compareId: "@P2@" },
+      { masterId: "@I3@", compareId: "@P3@" },
+    ],
+    families: [],
+  } as never;
+
+  const decisions = new Map<string, CandidateDecision>([
+    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+  ]);
+
+  const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+  const out = serializeGedcom(records);
+
+  it("creates a child-family linking the matched father and mother", () => {
+    // A new FAM with the child and both parents (existing master people).
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 CHIL @I1@\n1 HUSB @I2@\n1 WIFE @I3@/);
+    expect(out).toContain("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @");
+    expect(out).toContain("0 @I2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @");
+  });
+
+  it("adds a new partner as a couple family with a new person record", () => {
+    expect(out).toContain("0 @I4@ INDI\n1 NAME Ana /Horvat/"); // new spouse added
+    // A couple family pairing @I1@ (husband) with the new wife @I4@.
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I4@/);
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();
