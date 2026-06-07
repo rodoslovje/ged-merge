@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
-import { label } from "../match/relatives";
+import { lifespanOf } from "../gedcom/lifespan";
+import { displayName, primaryName } from "../match/relatives";
 
 interface Props {
   individuals: Map<string, Individual>;
@@ -24,7 +25,11 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
   const options = useMemo(
     () =>
       [...individuals.values()]
-        .map((i) => ({ id: i.id, text: label(i) }))
+        .map((i) => {
+          const span = lifespanOf(i);
+          const name = displayName(primaryName(i));
+          return { id: i.id, text: span ? `${name} ${span}` : name };
+        })
         .sort((a, b) => a.text.localeCompare(b.text)),
     [individuals],
   );
