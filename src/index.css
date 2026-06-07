@@ -666,13 +666,6 @@ button {
   min-width: 64px;
   text-align: center;
 }
-.compare-meta {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-}
 .decision-bar {
   display: flex;
   gap: 8px;
@@ -763,6 +756,7 @@ button {
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 0.85rem;
+  margin-left: auto;
 }
 .tree-open-btn:hover { border-color: var(--accent); }
 

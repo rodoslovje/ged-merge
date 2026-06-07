@@ -11,7 +11,6 @@ import {
   type MatchDecisionStatus,
   type MatchKind,
 } from "../review/types";
-import { formatScore } from "./matchView";
 
 interface Props {
   kind: MatchKind;
@@ -86,8 +85,6 @@ export function ComparePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onChange, status, fields, t]);
 
-  const conflicts = rows.filter((r) => r.state === "conflict").length;
-
   return (
     <div className="compare-panel">
       <div className="compare-nav">
@@ -102,12 +99,6 @@ export function ComparePanel({
               {t(`status.${s}`)}
             </button>
           ))}
-        </div>
-
-        <div className="compare-meta muted">
-          {t("compare.score")} {formatScore(candidate.score)}
-          {candidate.distance !== undefined && ` · ${t("compare.distance")} ${candidate.distance}`}
-          {conflicts > 0 && ` · ${conflicts} ${conflicts === 1 ? t("compare.conflict") : t("compare.conflicts")}`}
         </div>
 
         {onOpenTree && (
