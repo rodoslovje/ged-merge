@@ -23,6 +23,24 @@ function yearOf(indi: Individual | undefined, tags: readonly string[]): number |
   return undefined;
 }
 
+/** The original birth date text (birth, else baptism/christening), if any. */
+export function birthDateText(indi: Individual | undefined): string | undefined {
+  return dateRawOf(indi, BIRTH_TAGS);
+}
+
+/** The original death date text (death, else burial/cremation), if any. */
+export function deathDateText(indi: Individual | undefined): string | undefined {
+  return dateRawOf(indi, DEATH_TAGS);
+}
+
+function dateRawOf(indi: Individual | undefined, tags: readonly string[]): string | undefined {
+  for (const tag of tags) {
+    const raw = indi?.events.find((e) => e.tag === tag)?.date?.raw;
+    if (raw) return raw;
+  }
+  return undefined;
+}
+
 /** True when the record carries any death/burial/cremation event, even undated. */
 export function isDeceased(indi: Individual | undefined): boolean {
   return (indi?.events ?? []).some((e) => (DEATH_TAGS as readonly string[]).includes(e.tag));
@@ -49,4 +67,25 @@ export function formatLifespan(
 /** The lifespan label for a single individual ({@link formatLifespan}). */
 export function lifespanOf(indi: Individual | undefined): string {
   return formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi));
+}
+
+/**
+ * Full-date version of {@link formatLifespan} for hover tooltips — the original
+ * birth/death date text instead of bare years, e.g. "26 Jan 1908 – 3 Mar 1970",
+ * "ABT 1908 –" (living unknown), or "". Locale-neutral (no b./d. abbreviations).
+ */
+export function datesTooltip(
+  birth: string | undefined,
+  death: string | undefined,
+  deceased: boolean,
+): string {
+  if (birth && death) return `${birth} – ${death}`;
+  if (birth) return deceased ? `${birth} –` : birth;
+  if (death) return `– ${death}`;
+  return "";
+}
+
+/** The full-date tooltip for a single individual ({@link datesTooltip}). */
+export function datesTooltipOf(indi: Individual | undefined): string {
+  return datesTooltip(birthDateText(indi), deathDateText(indi), isDeceased(indi));
 }

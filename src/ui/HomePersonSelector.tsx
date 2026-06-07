@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
-import { lifespanOf } from "../gedcom/lifespan";
-import { displayName, primaryName } from "../match/relatives";
+import { datesTooltipOf } from "../gedcom/lifespan";
+import { lifespanLabel } from "../match/relatives";
 
 interface Props {
   individuals: Map<string, Individual>;
@@ -25,11 +25,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
   const options = useMemo(
     () =>
       [...individuals.values()]
-        .map((i) => {
-          const span = lifespanOf(i);
-          const name = displayName(primaryName(i));
-          return { id: i.id, text: span ? `${name} ${span}` : name };
-        })
+        .map((i) => ({ id: i.id, text: lifespanLabel(i), title: datesTooltipOf(i) }))
         .sort((a, b) => a.text.localeCompare(b.text)),
     [individuals],
   );
@@ -72,6 +68,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
               <li key={o.id}>
                 <button
                   className={o.id === homeId ? "home-option active" : "home-option"}
+                  title={o.title || undefined}
                   onClick={() => {
                     onChange(o.id);
                     setQuery("");

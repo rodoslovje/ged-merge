@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "./gedcom/types";
 import { serializeGedcom } from "./gedcom/serialize";
-import { formatLifespan } from "./gedcom/lifespan";
+import { datesTooltip, formatLifespan } from "./gedcom/lifespan";
 import { mergeDecisions, formatReport } from "./merge/merge";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
@@ -375,7 +375,10 @@ export function App() {
         <SexBadge sex={current.sex} />
         <span className="compare-name">{current.name}</span>
         {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
-          <span className="compare-birth gm-data">
+          <span
+            className="compare-birth gm-data"
+            title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
+          >
             {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
           </span>
         )}

@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
-import { label, partnerNames } from "../match/relatives";
+import { fullDatesLabel, lifespanLabel, partnerNames } from "../match/relatives";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState } from "./types";
 
@@ -119,7 +119,7 @@ function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relati
       const child = ds.individuals.get(cid);
       if (!child) continue;
       seen.add(cid);
-      out.push({ name: child.names[0], text: label(child) });
+      out.push({ name: child.names[0], text: lifespanLabel(child), full: fullDatesLabel(child) });
     }
   }
   return out;
@@ -148,6 +148,8 @@ function parentName(
 interface Relative {
   name: PersonName | undefined;
   text: string;
+  /** Full-date variant for the hover tooltip; falls back to text when absent. */
+  full?: string;
 }
 
 /** This person's spouses as alignable relatives. */
@@ -220,7 +222,18 @@ function pushRelativesRow(
   const i = incoming.length ? incomingLines.join("\n") : "";
   const state: FieldState =
     m && !i ? "master-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
-  rows.push({ key, label, master: m, incoming: i, state });
+  // Cell tooltips: the same relatives with their full dates (only when any line
+  // carries extra detail beyond its visible text).
+  const masterTitle = relativeTitle(master);
+  const incomingTitle = relativeTitle(incoming);
+  rows.push({ key, label, master: m, incoming: i, state, masterTitle, incomingTitle });
+}
+
+/** A newline-joined list of relatives with full dates, for a cell hover tooltip.
+ *  Returns undefined when no relative adds detail beyond its visible text. */
+function relativeTitle(relatives: Relative[]): string | undefined {
+  if (!relatives.some((r) => r.full && r.full !== r.text)) return undefined;
+  return relatives.map((r) => r.full ?? r.text).join("\n");
 }
 
 /**

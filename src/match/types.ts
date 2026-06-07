@@ -35,6 +35,9 @@ export interface IndividualCandidate {
   birthYear?: number;
   /** Master death year, when known — completes the "1817–1921" lifespan range. */
   deathYear?: number;
+  /** Original birth/death date text, for the full-date hover tooltip. */
+  birthDate?: string;
+  deathDate?: string;
   /** True when the master has a death/burial event (even undated) — drives the
    *  "1817–" vs living "1817" distinction in the lifespan label. */
   deceased: boolean;

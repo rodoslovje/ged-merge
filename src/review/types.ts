@@ -23,6 +23,10 @@ export interface FieldRow {
   /** When set, the row holds attached links rendered as icons (not text). */
   masterLinks?: string[];
   incomingLinks?: string[];
+  /** Hover tooltip for the value cell (e.g. relatives' full dates behind the
+   *  abbreviated "Name yyyy–yyyy" lines). */
+  masterTitle?: string;
+  incomingTitle?: string;
 }
 
 /** The user's decision for one master/compare candidate pair. */

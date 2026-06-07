@@ -115,10 +115,16 @@ export function ComparePanel({
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.label}</td>
-                <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                <td
+                  className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
+                  title={row.masterTitle}
+                >
                   <FieldValue text={row.master} links={row.masterLinks} />
                 </td>
-                <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                <td
+                  className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                  title={row.incomingTitle}
+                >
                   <FieldValue text={row.incoming} links={row.incomingLinks} />
                 </td>
                 <td className="f-choice">

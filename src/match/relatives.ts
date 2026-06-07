@@ -1,4 +1,5 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 
 /** The individual's primary name (first NAME record), if any. */
 export function primaryName(indi: Individual): PersonName | undefined {
@@ -8,6 +9,20 @@ export function primaryName(indi: Individual): PersonName | undefined {
 /** Full display name from a structured name. */
 export function displayName(n: PersonName | undefined): string {
   return n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || "(unnamed)";
+}
+
+/** Display label "Name 1817–1921" using the shared lifespan format. */
+export function lifespanLabel(indi: Individual): string {
+  const name = displayName(primaryName(indi));
+  const span = lifespanOf(indi);
+  return span ? `${name} ${span}` : name;
+}
+
+/** Tooltip label "Name (26 Jan 1817 – 3 Mar 1921)" with the full dates. */
+export function fullDatesLabel(indi: Individual): string {
+  const name = displayName(primaryName(indi));
+  const dates = datesTooltipOf(indi);
+  return dates ? `${name} (${dates})` : name;
 }
 
 /** Birth date for display: the original date text, falling back to the year. */

@@ -521,8 +521,12 @@ function NodeCompare({
           {rows.map((row) => (
             <tr key={row.key} className={`field ${row.state}`}>
               <td className="f-label">{row.label}</td>
-              <td className="f-val gm-data"><FieldValue text={row.master} links={row.masterLinks} /></td>
-              <td className="f-val gm-data"><FieldValue text={row.incoming} links={row.incomingLinks} /></td>
+              <td className="f-val gm-data" title={row.masterTitle}>
+                <FieldValue text={row.master} links={row.masterLinks} />
+              </td>
+              <td className="f-val gm-data" title={row.incomingTitle}>
+                <FieldValue text={row.incoming} links={row.incomingLinks} />
+              </td>
             </tr>
           ))}
         </tbody>
