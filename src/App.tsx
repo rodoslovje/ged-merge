@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "./gedcom/types";
 import { serializeGedcom } from "./gedcom/serialize";
+import { formatLifespan } from "./gedcom/lifespan";
 import { mergeDecisions, formatReport } from "./merge/merge";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
@@ -365,8 +366,10 @@ export function App() {
       <div className={`compare-header-info ${sexClass(current.sex)}`}>
         <SexBadge sex={current.sex} />
         <span className="compare-name">{current.name}</span>
-        {current.birthYear != null && (
-          <span className="compare-birth gm-data">b. {current.birthYear}</span>
+        {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
+          <span className="compare-birth gm-data">
+            {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
+          </span>
         )}
       </div>
       <div className="compare-nav-header">

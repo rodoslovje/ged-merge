@@ -1,4 +1,5 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
+import { isDeceased } from "../gedcom/lifespan";
 import { displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
@@ -97,6 +98,7 @@ export function scoreIndividualPair(
     name: displayName(primaryName(master)),
     birthYear: birthYear(master),
     deathYear: deathYear(master),
+    deceased: isDeceased(master),
     sex: master.sex !== "U" ? master.sex : compare.sex,
   };
 }

@@ -1,4 +1,5 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
+import { deathYear, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -23,7 +24,7 @@ export interface TreeNode {
   status: NodeStatus;
   /** Primary display name (master's, falling back to incoming's). */
   name: string;
-  /** Lifespan range: "1817–1921", a lone year when only one is known, or "". */
+  /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
   sex: Sex;
   /** Multi-line tooltip describing the differences ("Full match" when clean). */
@@ -303,14 +304,6 @@ function birthYear(indi: Individual | undefined): number | undefined {
   return indi?.events.find((e) => e.tag === "BIRT")?.date?.year;
 }
 
-function deathYear(indi: Individual | undefined): number | undefined {
-  for (const tag of ["DEAT", "BURI", "CREM"]) {
-    const y = indi?.events.find((e) => e.tag === tag)?.date?.year;
-    if (y !== undefined) return y;
-  }
-  return undefined;
-}
-
 function birthYearConflict(
   master: Individual | undefined,
   incoming: Individual | undefined,
@@ -321,9 +314,9 @@ function birthYearConflict(
 }
 
 /**
- * Master-centric lifespan label for a tree node: "1817–1921" when both years are
- * known, the lone birth year ("1817") or death year when only one is, or "" when
- * nothing is dated. Falls back to the incoming side when the master lacks a year.
+ * Master-centric lifespan label for a tree node — see {@link formatLifespan}:
+ * "1817–1921", "1817–" (dead, death year unknown), "1817" (presumed living), or
+ * "". Falls back to the incoming side when the master lacks a year/death event.
  */
 function birthYears(
   master: Individual | undefined,
@@ -331,7 +324,6 @@ function birthYears(
 ): string {
   const b = birthYear(master) ?? birthYear(incoming);
   const d = deathYear(master) ?? deathYear(incoming);
-  if (b !== undefined && d !== undefined) return `${b}–${d}`;
-  if (b !== undefined) return String(b);
-  return d !== undefined ? `–${d}` : "";
+  const dead = isDeceased(master) || isDeceased(incoming);
+  return formatLifespan(b, d, dead);
 }

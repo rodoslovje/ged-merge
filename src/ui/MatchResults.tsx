@@ -13,6 +13,7 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
+import { formatLifespan } from "../gedcom/lifespan";
 import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { sexClass } from "./sex";
 import { SexBadge } from "./SexBadge";
@@ -238,8 +239,10 @@ function CandidateRow({
           <span className={`labels ${sexClass(candidate.sex)}`}>
             <SexBadge sex={candidate.sex} />
             <span className="candidate-name">{candidate.name}</span>
-            {candidate.birthYear != null && (
-              <span className="candidate-year gm-data">{candidate.birthYear}</span>
+            {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased) && (
+              <span className="candidate-year gm-data">
+                {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}
+              </span>
             )}
           </span>
         </button>

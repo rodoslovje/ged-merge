@@ -79,6 +79,7 @@ describe("applyDistanceRanking", () => {
       components: [],
       title: masterId,
       name: masterId,
+      deceased: false,
       sex: "U",
     });
     // Intentionally unsorted, mixing distances and scores.
