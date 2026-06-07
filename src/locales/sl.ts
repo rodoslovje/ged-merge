@@ -1,5 +1,5 @@
 export const sl = {
-  "app.title": "GedMerge",
+  "app.title": "GED Merge",
   "app.subtitle": "Primerjaj in združi GEDCOM datoteke v brskalniku. Nič se ne prenaša v oblak.",
   "section.load": "Naloži GEDCOM",
   "section.compare": "Primerjava",

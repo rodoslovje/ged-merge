@@ -1,5 +1,5 @@
 export const en = {
-  "app.title": "GedMerge",
+  "app.title": "GED Merge",
   "app.subtitle": "Compare and merge GEDCOM files entirely in your browser. Nothing is uploaded.",
   "section.load": "Load GEDCOM",
   "section.compare": "Compare",
