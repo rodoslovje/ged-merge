@@ -334,9 +334,13 @@ export function App() {
         </div>
       )}
       <span>
-        {master.status === "loaded" && master.file.fileName}
+        {master.status === "loaded" && (
+          <span className="gm-file master gm-data">{master.file.fileName}</span>
+        )}
         {" ↔ "}
-        {compare.status === "loaded" && compare.file.fileName}
+        {compare.status === "loaded" && (
+          <span className="gm-file incoming gm-data">{compare.file.fileName}</span>
+        )}
       </span>
     </>
   ) : undefined;
