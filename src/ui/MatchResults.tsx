@@ -32,6 +32,7 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Home-person picker, rendered to the right of the tabs. */
   homeControl?: ReactNode;
+  showFilters: boolean;
 }
 
 export function MatchResults({
@@ -46,6 +47,7 @@ export function MatchResults({
   onSelect,
   decisions,
   homeControl,
+  showFilters,
 }: Props) {
   const { t } = useTranslation();
   const total = tab === "individual" ? result.individuals.length : result.families.length;
@@ -73,51 +75,53 @@ export function MatchResults({
 
   return (
     <div className="results">
-      <div className="filters">
-        {homeControl}
-        <label className="filter-check">
-          <input
-            type="checkbox"
-            checked={filters.onlyNew}
-            onChange={(e) => onFilters({ ...filters, onlyNew: e.target.checked })}
-          />
-          {t("filter.newData")}
-        </label>
-        <label className="filter-check">
-          <input
-            type="checkbox"
-            checked={filters.onlyDiff}
-            onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
-          />
-          {t("filter.differences")}
-        </label>
-        <label className="filter-check">
-          <input
-            type="checkbox"
-            checked={filters.onlyLinks}
-            onChange={(e) => onFilters({ ...filters, onlyLinks: e.target.checked })}
-          />
-          {t("filter.links")}
-        </label>
-        <label className="filter-score">
-          {t("filter.minScore")}{" "}
-          <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
-            {filters.minScore}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={filters.minScore}
-            style={{ accentColor: scoreColor(filters.minScore) }}
-            onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
-          />
-        </label>
-        <span className="filter-count muted">
-          {list.length} of {total}
-        </span>
-      </div>
+      {showFilters && (
+        <div className="filters">
+          <div className="filter-row">
+            {homeControl}
+            <label className="filter-score" title={t("filter.scoreTooltip")}>
+              <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
+                {filters.minScore}
+              </span>
+              <input
+                type="range"
+                min={50}
+                max={100}
+                step={5}
+                value={filters.minScore}
+                style={{ accentColor: scoreColor(filters.minScore) }}
+                onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
+              />
+            </label>
+          </div>
+          <div className="filter-row">
+            <label className="filter-check" title={t("filter.newDataTooltip")}>
+              <input
+                type="checkbox"
+                checked={filters.onlyNew}
+                onChange={(e) => onFilters({ ...filters, onlyNew: e.target.checked })}
+              />
+              {t("filter.newData")}
+            </label>
+            <label className="filter-check" title={t("filter.differencesTooltip")}>
+              <input
+                type="checkbox"
+                checked={filters.onlyDiff}
+                onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
+              />
+              {t("filter.differences")}
+            </label>
+            <label className="filter-check" title={t("filter.linksTooltip")}>
+              <input
+                type="checkbox"
+                checked={filters.onlyLinks}
+                onChange={(e) => onFilters({ ...filters, onlyLinks: e.target.checked })}
+              />
+              {t("filter.links")}
+            </label>
+          </div>
+        </div>
+      )}
 
       {list.length === 0 ? (
         <p className="muted">

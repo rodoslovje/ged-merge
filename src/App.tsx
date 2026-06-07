@@ -81,6 +81,7 @@ export function App() {
   const [sort, setSort] = useState<SortState[]>(DEFAULT_SORT);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showFilters, setShowFilters] = useState(true);
 
   // Collapsible sections.
   const [openLoad, setOpenLoad] = useState(true);
@@ -291,22 +292,36 @@ export function App() {
       {t("matches.calculating")}
     </div>
   ) : matches ? (
-    <div className="matches-tabs-header">
-      <div className="tabs" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="matches-tabs-header">
+        <div className="tabs" onClick={(e) => e.stopPropagation()}>
+          <button
+            className={tab === "individual" ? "tab active" : "tab"}
+            onClick={() => { setTab("individual"); setSelectedIndex(0); }}
+          >
+            {t("matches.individuals")} ({matches.individuals.length})
+          </button>
+          <button
+            className={tab === "family" ? "tab active" : "tab"}
+            onClick={() => { setTab("family"); setSelectedIndex(0); }}
+          >
+            {t("matches.families")} ({matches.families.length})
+          </button>
+        </div>
+      </div>
+      <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
+        <span className="muted">
+          {t("list.count", { visible: visible.length, total: tab === "individual" ? matches.individuals.length : matches.families.length })}
+        </span>
         <button
-          className={tab === "individual" ? "tab active" : "tab"}
-          onClick={() => { setTab("individual"); setSelectedIndex(0); }}
+          className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
+          onClick={() => setShowFilters((s) => !s)}
+          title={t("filter.title")}
         >
-          {t("matches.individuals")} ({matches.individuals.length})
-        </button>
-        <button
-          className={tab === "family" ? "tab active" : "tab"}
-          onClick={() => { setTab("family"); setSelectedIndex(0); }}
-        >
-          {t("matches.families")} ({matches.families.length})
+          <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
         </button>
       </div>
-    </div>
+    </>
   ) : undefined;
   const compareSubtitle = current ? (
     <>
@@ -403,6 +418,7 @@ export function App() {
                 selectedIndex={safeIndex}
                 onSelect={select}
                 decisions={decisions}
+                showFilters={showFilters}
                 homeControl={
                   masterDataset && (
                     <HomePersonSelector

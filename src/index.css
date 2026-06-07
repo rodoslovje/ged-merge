@@ -398,15 +398,21 @@ button {
 /* --- match filters --- */
 .filters {
   display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
   margin-bottom: 12px;
   padding: 10px 12px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.85rem;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 .filter-check {
   display: flex;
@@ -425,8 +431,8 @@ button {
   min-width: 22px;
   text-align: right;
 }
-.filter-count {
-  margin-left: auto;
+.filter-score input[type="range"] {
+  width: 80px;
 }
 .export-btn {
   background: var(--accent);
@@ -657,6 +663,10 @@ button {
 }
 .nav-btn:hover:not(:disabled) { border-color: var(--accent); }
 .nav-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+.nav-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .nav-btn.highlight {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
@@ -742,6 +752,21 @@ button {
   height: 8px;
   border-radius: 4px;
   background: var(--accent);
+}
+
+.matches-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.matches-actions .muted {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.matches-actions .nav-btn {
+  padding: 3px 10px;
+  font-size: 0.8rem;
 }
 
 /* --- compare tree --- */
