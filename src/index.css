@@ -1012,11 +1012,58 @@ button {
 /* --- Responsive adjustments for narrow screens (phones, tablets) --- */
 @media (max-width: 880px) {
   .app {
-    padding: 12px;
+    padding: 0;
+  }
+  .app-head {
+    padding: 16px 16px 0;
+    margin-bottom: 12px;
+  }
+  .section {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-head {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+  .section-title {
+    flex: 1 1 auto;
+  }
+  .section-sub {
+    flex: 1 1 100%;
+    margin-left: 0;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .matches-tabs-header,
+  .header-center,
+  .compare-header-info {
+    position: static;
+    transform: none;
+  }
+  .compare-header-info {
+    max-width: 65%;
+  }
+  .matches-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+  .matches-actions .muted {
+    margin-right: 6px;
+  }
+  .matches-tabs-header .tabs {
+    margin-bottom: 0;
   }
   .main-split {
     flex-direction: column;
     overflow-y: auto;
+    gap: 0;
   }
   .split-pane {
     flex: 0 0 auto;
@@ -1025,14 +1072,28 @@ button {
     flex: 0 0 auto;
     min-height: 60vh;
   }
+  .split-pane > .section {
+    border-top: none;
+  }
   .loaders {
     grid-template-columns: 1fr;
   }
+  .home-selector {
+    flex: 1 1 100%;
+  }
+  .home-selector input {
+    width: 100%;
+  }
   .f-label {
-    width: 85px;
-    font-size: 0.8rem;
+    width: 80px;
+    font-size: 0.75rem;
   }
   .f-choice {
-    width: 100px;
+    width: 90px;
+  }
+  .choice {
+    padding: 2px 4px;
+    margin-right: 2px;
+    font-size: 0.8rem;
   }
 }
