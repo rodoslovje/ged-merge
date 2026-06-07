@@ -84,6 +84,10 @@ export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [showMobileWarning, setShowMobileWarning] = useState(
+    () => window.innerWidth <= 880 && !localStorage.getItem("mobileWarningDismissed")
+  );
+  const compareRef = useRef<HTMLDivElement>(null);
 
   // Collapsible sections.
   const [openLoad, setOpenLoad] = useState(true);
@@ -207,9 +211,19 @@ export function App() {
     return n;
   }, [decisions]);
 
+  function dismissMobileWarning() {
+    localStorage.setItem("mobileWarningDismissed", "true");
+    setShowMobileWarning(false);
+  }
+
   function select(index: number) {
     setSelectedIndex(index);
     setOpenCompare(true);
+    if (window.innerWidth <= 880) {
+      setTimeout(() => {
+        compareRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    }
   }
 
   // Keyboard navigation across the filtered list (ignored while typing).
@@ -354,6 +368,12 @@ export function App() {
 
   return (
     <div className="app">
+      {showMobileWarning && (
+        <div className="mobile-warning">
+          <span>{t("app.mobileWarning")}</span>
+          <button onClick={dismissMobileWarning} title={t("help.close")}>✕</button>
+        </div>
+      )}
       <header className="app-head">
         <div className="app-head-top">
           <h1>{t("app.title")}</h1>
@@ -446,7 +466,7 @@ export function App() {
           </Section>
         </div>
 
-        <div className="split-pane split-compare">
+        <div className="split-pane split-compare" ref={compareRef}>
           <Section
             title={t("section.compare")}
             subtitle={compareSubtitle}

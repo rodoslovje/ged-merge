@@ -69,8 +69,10 @@ export function MatchResults({
   // Keep the selected row visible as the user pages with Prev/Next or arrows.
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(".candidate.selected");
-    el?.scrollIntoView({ block: "nearest" });
+    if (window.innerWidth > 880) {
+      const el = listRef.current?.querySelector<HTMLElement>(".candidate.selected");
+      el?.scrollIntoView({ block: "nearest" });
+    }
   }, [selectedIndex, list]);
 
   return (

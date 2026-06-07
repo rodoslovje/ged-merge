@@ -91,6 +91,23 @@ button {
   margin-bottom: 20px;
 }
 
+.mobile-warning {
+  background: #3a3320;
+  color: #fcd34d;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.mobile-warning button {
+  background: none; border: none; color: inherit; font-size: 1.2rem; padding: 0 4px; opacity: 0.8; cursor: pointer;
+}
+.mobile-warning button:hover { opacity: 1; }
+
 /* --- collapsible sections --- */
 .section {
   background: var(--panel);
@@ -1055,6 +1072,10 @@ button {
 
 /* --- Responsive adjustments for narrow screens (phones, tablets) --- */
 @media (max-width: 880px) {
+  .mobile-warning {
+    border-radius: 0;
+    margin-bottom: 0;
+  }
   .modal-overlay {
     padding: 0;
   }
@@ -1074,6 +1095,7 @@ button {
   }
   .app {
     padding: 0;
+    overflow-y: auto;
   }
   .app-head {
     padding: 16px 16px 0;
@@ -1123,18 +1145,29 @@ button {
   }
   .main-split {
     flex-direction: column;
-    overflow-y: auto;
+    overflow: visible;
     gap: 0;
   }
   .split-pane {
-    flex: 0 0 auto;
+    flex: none;
+    display: block;
   }
   .split-pane > .section.open {
-    flex: 0 0 auto;
-    min-height: 60vh;
+    min-height: 0;
+    display: block;
   }
   .split-pane > .section {
     border-top: none;
+    display: block;
+  }
+  .split-matches > .section > .section-body,
+  .split-compare > .section > .section-body,
+  .results {
+    display: block;
+    overflow: visible;
+  }
+  .candidate-list {
+    overflow-y: visible;
   }
   .loaders {
     grid-template-columns: 1fr;

@@ -1,6 +1,7 @@
 export const en = {
   "app.title": "GED Merge",
   "app.subtitle": "Compare and merge GEDCOM files entirely in your browser. Nothing is uploaded.",
+  "app.mobileWarning": "This application is optimized for larger screens. For the best user experience, please use a tablet or desktop.",
   "section.load": "Load GEDCOM",
   "section.compare": "Compare",
   "section.matches": "Matches",

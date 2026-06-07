@@ -1,6 +1,7 @@
 export const sl = {
   "app.title": "GED Merge",
   "app.subtitle": "Primerjaj in združi GEDCOM datoteke v brskalniku. Nič se ne prenaša v oblak.",
+  "app.mobileWarning": "Ta aplikacija je optimizirana za večje zaslone. Za najboljšo uporabniško izkušnjo uporabite tablico ali računalnik.",
   "section.load": "Naloži GEDCOM",
   "section.compare": "Primerjava",
   "section.matches": "Ujemanja",
