@@ -196,7 +196,11 @@ export function App() {
 
   async function loadFile(role: DatasetRole, file: File) {
     const setter = role === "master" ? setMaster : setCompare;
-    setter({ status: "loading", fileName: file.name });
+    // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
+    // c + combining caron. Our subset fonts don't carry the combining marks, so
+    // the accent mispositions; normalize to NFC (precomposed) for display.
+    const fileName = file.name.normalize("NFC");
+    setter({ status: "loading", fileName });
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
@@ -208,7 +212,7 @@ export function App() {
     setOpenLoad(true);
     const buffer = await file.arrayBuffer();
     workerRef.current?.postMessage(
-      { type: "parse", role, fileName: file.name, buffer },
+      { type: "parse", role, fileName, buffer },
       [buffer], // transfer ownership — avoids copying large files
     );
   }
