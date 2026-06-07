@@ -13,6 +13,7 @@ import { MatchResults } from "./ui/MatchResults";
 import { ComparePanel } from "./ui/ComparePanel";
 import { CompareTree } from "./ui/CompareTree";
 import { Section } from "./ui/Section";
+import { HelpModal } from "./ui/HelpModal";
 import type { TreeMode } from "./tree/compareTree";
 import {
   applyFilters,
@@ -82,6 +83,7 @@ export function App() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Collapsible sections.
   const [openLoad, setOpenLoad] = useState(true);
@@ -356,6 +358,14 @@ export function App() {
         <div className="app-head-top">
           <h1>{t("app.title")}</h1>
           <div className="lang-switcher">
+            <button
+              className="nav-btn icon-only"
+              style={{ marginRight: "8px" }}
+              onClick={() => setShowHelp(true)}
+              title={t("help.button")}
+            >
+              ?
+            </button>
             <div className="lang-select-wrapper">
               <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
               <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
@@ -466,6 +476,7 @@ export function App() {
           </Section>
         </div>
       </div>
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }

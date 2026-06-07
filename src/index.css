@@ -997,6 +997,56 @@ button {
 .tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
 .tree-compare-table .f-val { color: var(--text); }
 
+/* --- modal --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 800px;
+  height: 90vh;
+  max-height: 1000px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.modal-header {
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+.modal-header h2 { margin: 0; font-size: 1.4rem; }
+.modal-close {
+  background: none; border: none; color: var(--muted);
+  font-size: 1.75rem; line-height: 1; padding: 0 4px; cursor: pointer;
+}
+.modal-close:hover { color: var(--text); }
+.modal-body {
+  padding: 0 32px 32px; overflow-y: auto; background: var(--bg);
+  border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+}
+.modal-body h3 { font-size: 1.5rem; margin: 32px 0 16px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.modal-body h3:first-child { margin-top: 24px; }
+.modal-body h4 { font-size: 1.15rem; margin: 24px 0 8px; color: var(--text); }
+.modal-body p { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
+.modal-body strong { color: var(--text); font-weight: 600; }
+
 @keyframes pulse-glow {
   0% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
   50% { box-shadow: 0 0 0 4px rgba(76, 139, 245, 0.6); }
@@ -1005,6 +1055,23 @@ button {
 
 /* --- Responsive adjustments for narrow screens (phones, tablets) --- */
 @media (max-width: 880px) {
+  .modal-overlay {
+    padding: 0;
+  }
+  .modal {
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+  .modal-header {
+    border-radius: 0;
+    padding: 16px 20px;
+  }
+  .modal-body {
+    border-radius: 0;
+    padding: 0 20px 24px;
+  }
   .app {
     padding: 0;
   }
