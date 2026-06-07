@@ -234,7 +234,9 @@ function CandidateRow({
           <span className={`labels ${sexClass(candidate)}`}>{candidate.title}</span>
         </button>
         {status && status !== "undecided" && (
-          <span className={`status-chip ${status}`}>{t(`status.${status}`)}</span>
+          <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
+            {t(`status.${status}`).charAt(0)}
+          </span>
         )}
       </div>
     </li>

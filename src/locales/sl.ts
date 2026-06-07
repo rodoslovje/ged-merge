@@ -67,6 +67,7 @@ export const sl = {
   "compare.conflict": "konflikt",
   "compare.conflicts": "konfliktov",
   "compare.keepMaster": "glavni",
+  "compare.shortcut": "Bližnjica na tipkovnici: {{key}}",
   "choice.master.label": "G",
   "choice.master.title": "Ohrani glavno",
   "choice.incoming.label": "V",

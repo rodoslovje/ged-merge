@@ -66,22 +66,25 @@ export function ComparePanel({
     onChange({ status, fields: { ...fields, [key]: choice } });
   }
 
+  // Each status' shortcut is the first letter of its *localized* label, so the
+  // keys follow the UI language (Confirmed→C / Potrjeno→P, Rejected→R / Zavrnjeno→Z…).
+  const shortcutOf = (s: MatchDecisionStatus) => t(`status.${s}`).charAt(0).toLowerCase();
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const key = e.key.toLowerCase();
-      if (key === "c") toggleStatus("confirmed");
-      else if (key === "r") toggleStatus("rejected");
-      else if (key === "d") toggleStatus("deferred");
+      const hit = STATUSES.find((s) => shortcutOf(s) === key);
+      if (hit) toggleStatus(hit);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onChange, status, fields]);
+  }, [onChange, status, fields, t]);
 
   const conflicts = rows.filter((r) => r.state === "conflict").length;
 
@@ -93,7 +96,7 @@ export function ComparePanel({
             <button
               key={s}
               className={status === s ? `decision ${s} active` : "decision"}
-              title={`Keyboard shortcut: ${s.charAt(0).toUpperCase()}`}
+              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
               onClick={() => toggleStatus(s)}
             >
               {t(`status.${s}`)}

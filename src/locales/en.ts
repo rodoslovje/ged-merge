@@ -67,6 +67,7 @@ export const en = {
   "compare.conflict": "conflict",
   "compare.conflicts": "conflicts",
   "compare.keepMaster": "master",
+  "compare.shortcut": "Keyboard shortcut: {{key}}",
   "choice.master.label": "M",
   "choice.master.title": "Keep master",
   "choice.incoming.label": "I",

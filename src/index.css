@@ -469,7 +469,7 @@ button {
   padding: 0 4px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -539,14 +539,9 @@ button {
   flex: 0 0 auto; /* don't shrink to fit the scroll container — let it scroll */
   background: var(--panel);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  border-radius: 8px;
   overflow: hidden;
   scroll-margin-top: 40px; /* clear the sticky header on auto-scroll */
 }
-.candidate.strong { border-left-color: #3ecf8e; }
-.candidate.probable { border-left-color: #e2b341; }
-.candidate.weak { border-left-color: #6b7280; }
 .candidate.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
@@ -557,7 +552,7 @@ button {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 10px 6px 0;
+  padding: 0 8px 0 0;
 }
 .candidate-main {
   display: flex;
@@ -568,16 +563,19 @@ button {
   border: none;
   color: var(--text);
   text-align: left;
-  padding: 6px 0 6px 12px;
+  padding: 3px 0 3px 10px;
   font-size: 0.9rem;
 }
 .status-chip {
   flex: none;
-  font-size: 0.72rem;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 50%;
 }
 .status-chip.confirmed { background: #14492f; color: #6ee7b7; }
 .status-chip.rejected { background: #4a1d1d; color: #fca5a5; }
