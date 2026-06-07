@@ -101,6 +101,14 @@ export function ComparePanel({
       </div>
 
       <table className="compare">
+        <thead>
+          <tr className="compare-head">
+            <th />
+            <th className="compare-col compare-col-master">{t("tree.master")}</th>
+            <th className="compare-col compare-col-incoming">{t("tree.incoming")}</th>
+            <th />
+          </tr>
+        </thead>
         <tbody>
           {rows.map((row) => {
             const choice = fields[row.key] ?? defaultChoice(row);
@@ -125,8 +133,10 @@ export function ComparePanel({
                         {choiceLabel(t, c)}
                       </button>
                     ))
+                  ) : row.state === "agree" ? (
+                    <span className="muted">=</span>
                   ) : (
-                    <span className="muted">{row.state === "agree" ? "=" : t("compare.keepMaster")}</span>
+                    <span className="gm-master-tag">{t("compare.keepMaster")}</span>
                   )}
                 </td>
               </tr>

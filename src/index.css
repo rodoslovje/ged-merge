@@ -702,6 +702,25 @@ button {
   padding: 6px 8px;
   vertical-align: top;
 }
+/* Master | Incoming column headers: small uppercase mono, source-coloured. */
+.compare-col {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 2px 8px 8px;
+  color: var(--muted);
+}
+.compare-col-master { color: var(--state-master); }
+.compare-col-incoming { color: var(--state-incoming); }
+/* The "keep master" fallback tag in the choice column reads as pine, not muted. */
+.gm-master-tag {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--state-master);
+}
 .compare td:nth-child(2) {
   border-right: 1px solid var(--border);
 }
