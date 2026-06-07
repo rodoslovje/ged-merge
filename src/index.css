@@ -769,7 +769,7 @@ button {
   gap: 10px;
 }
 .matches-actions .muted {
-  font-size: 0.75rem;
+  font-size: 0.85rem; /* match the Compare header's "X of Y" (.nav-pos) */
   line-height: 1;
 }
 .matches-actions .nav-btn {

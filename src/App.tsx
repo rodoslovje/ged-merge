@@ -356,7 +356,7 @@ export function App() {
   ) : matches ? (
     <>
       <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
-        <span className="muted">
+        <span className="muted gm-data">
           {t("list.count", { visible: visible.length, total: matches.individuals.length })}
         </span>
         <button
