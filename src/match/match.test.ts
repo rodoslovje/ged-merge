@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "./engine";
+import { scoreFamilyPair } from "./scoreFamily";
+import { DEFAULT_CONFIG } from "./types";
 import { jaroWinkler, soundex, foldToken } from "./text";
 
 function dataset(text: string) {
@@ -343,5 +345,46 @@ describe("one-to-one assignment", () => {
     const r = matchDatasets(dataset(master), dataset(compare));
     expect(r.individuals).toHaveLength(1); // @M1@ used once
     expect(r.individuals[0].masterId).toBe("@M1@");
+  });
+});
+
+describe("family identity key (spouses + marriage date)", () => {
+  // A family whose two spouses and marriage event are filled from the args, so
+  // each test can drop or alter exactly one part of the identity key. Scored
+  // directly (bypassing the surname-pair blocking) to isolate the scoring rule.
+  const fam = (husb: string, wife: string, marr: string) =>
+    `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n` +
+    `0 @H@ INDI\n1 NAME ${husb}\n1 SEX M\n1 FAMS @F@\n` +
+    (wife ? `0 @W@ INDI\n1 NAME ${wife}\n1 SEX F\n1 FAMS @F@\n` : "") +
+    `0 @F@ FAM\n1 HUSB @H@\n${wife ? `1 WIFE @W@\n` : ""}` +
+    (marr ? `1 MARR\n2 DATE ${marr}\n` : "") +
+    `0 TRLR\n`;
+
+  const familyScore = (m: string, c: string) => {
+    const md = dataset(m);
+    const cd = dataset(c);
+    return scoreFamilyPair(md.families.get("@F@")!, cd.families.get("@F@")!, md, cd, DEFAULT_CONFIG)
+      .score;
+  };
+
+  const PERFECT = fam("Janez /Novak/", "Marija /Kovač/", "1875");
+
+  it("scores a flat 100 only when both spouses and the marriage date match", () => {
+    expect(familyScore(PERFECT, PERFECT)).toBe(100);
+  });
+
+  it("does not reach 100 when one side is missing a spouse", () => {
+    const c = fam("Janez /Novak/", "", "1875"); // no wife on the compare side
+    expect(familyScore(PERFECT, c)).toBeLessThan(100);
+  });
+
+  it("does not reach 100 when a spouse is missing a surname", () => {
+    const c = fam("Janez /Novak/", "Marija", "1875"); // wife has no surname
+    expect(familyScore(PERFECT, c)).toBeLessThan(100);
+  });
+
+  it("does not reach 100 when the marriage date is missing or differs", () => {
+    expect(familyScore(PERFECT, fam("Janez /Novak/", "Marija /Kovač/", ""))).toBeLessThan(100);
+    expect(familyScore(PERFECT, fam("Janez /Novak/", "Marija /Kovač/", "1879"))).toBeLessThan(100);
   });
 });
