@@ -315,6 +315,7 @@ button {
 .home-selector.unset input {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
+  animation: pulse-glow 2s infinite;
 }
 .home-selector.unset input::placeholder {
   color: var(--accent);
@@ -660,6 +661,7 @@ button {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
   color: var(--accent);
+  animation: pulse-glow 2s infinite;
 }
 .nav-pos {
   font-variant-numeric: tabular-nums;
@@ -989,3 +991,9 @@ button {
 }
 .tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
 .tree-compare-table .f-val { color: var(--text); }
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
+  50% { box-shadow: 0 0 0 4px rgba(76, 139, 245, 0.6); }
+  100% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
+}
