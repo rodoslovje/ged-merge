@@ -636,7 +636,9 @@ button {
   max-width: 45%;
 }
 .compare-name { overflow: hidden; text-overflow: ellipsis; }
-.compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; }
+/* Re-enable pointer events on the year so its full-date title shows on hover
+   (the header itself is pointer-events:none so clicks reach the toggle). */
+.compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; pointer-events: auto; }
 .compare-nav-header {
   display: flex;
   align-items: center;
