@@ -207,21 +207,6 @@ button {
   overflow: auto;
 }
 
-/* Narrow screens: stack the two panes and let the row scroll. */
-@media (max-width: 880px) {
-  .main-split {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  .split-pane {
-    flex: 0 0 auto;
-  }
-  .split-pane > .section.open {
-    flex: 0 0 auto;
-    min-height: 320px;
-  }
-}
-
 .loaders {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -630,6 +615,7 @@ button {
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 .compare-header-info {
   position: absolute;
@@ -1021,4 +1007,32 @@ button {
   0% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
   50% { box-shadow: 0 0 0 4px rgba(76, 139, 245, 0.6); }
   100% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
+}
+
+/* --- Responsive adjustments for narrow screens (phones, tablets) --- */
+@media (max-width: 880px) {
+  .app {
+    padding: 12px;
+  }
+  .main-split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .split-pane {
+    flex: 0 0 auto;
+  }
+  .split-pane > .section.open {
+    flex: 0 0 auto;
+    min-height: 60vh;
+  }
+  .loaders {
+    grid-template-columns: 1fr;
+  }
+  .f-label {
+    width: 85px;
+    font-size: 0.8rem;
+  }
+  .f-choice {
+    width: 100px;
+  }
 }
