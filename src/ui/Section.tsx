@@ -8,30 +8,27 @@ interface Props {
   onToggle: () => void;
   /** Disables the header toggle (e.g. nothing to show yet). */
   disabled?: boolean;
-  /**
-   * When open, make the body a scroll container within a full-height layout:
-   *  - "grow" takes the remaining vertical space,
-   *  - "cap" takes its natural height up to a limit, then scrolls.
-   */
-  fill?: "grow" | "cap";
   children: ReactNode;
 }
 
 /** A collapsible panel used for the three main sections of the app. */
-export function Section({ title, subtitle, open, onToggle, disabled, fill, children }: Props) {
-  const fillClass = open && fill ? ` fill ${fill}` : "";
+export function Section({ title, subtitle, open, onToggle, disabled, children }: Props) {
   return (
-    <section className={`section${open ? " open" : ""}${fillClass}`}>
-      <button
-        className="section-head"
-        onClick={onToggle}
-        disabled={disabled}
-        aria-expanded={open}
-      >
-        <span className="section-chev">{open ? "▾" : "▸"}</span>
-        <span className="section-title">{title}</span>
+    <section className={`section${open ? " open" : ""}`}>
+      {/* The toggle is its own button so the subtitle (which carries its own
+          controls) isn't nested inside a button — invalid HTML. */}
+      <div className="section-head">
+        <button
+          className="section-toggle"
+          onClick={onToggle}
+          disabled={disabled}
+          aria-expanded={open}
+        >
+          <span className="section-chev">{open ? "▾" : "▸"}</span>
+          <span className="section-title">{title}</span>
+        </button>
         {subtitle !== undefined && <span className="section-sub">{subtitle}</span>}
-      </button>
+      </div>
       {open && <div className="section-body">{children}</div>}
     </section>
   );

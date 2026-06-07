@@ -29,6 +29,12 @@ export interface IndividualCandidate {
   components: ScoreComponent[];
   /** Combined master-centric title: master label plus only the differing compare fields. */
   title: string;
+  /** Master display name on its own (no birth date), for the redesigned UI. */
+  name: string;
+  /** Master birth year, when known — rendered in mono beside the name. */
+  birthYear?: number;
+  /** Master death year, when known — completes the "1817–1921" lifespan range. */
+  deathYear?: number;
   /** Sex of the matched person, used to colour the name label. */
   sex: Sex;
   /** Hops from the home person to the master individual (set during ranking). */

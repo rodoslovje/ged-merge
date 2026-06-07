@@ -1,13 +1,6 @@
-:root {
-  --bg: #14171c;
-  --panel: #1c2026;
-  --border: #2b313a;
-  --text: #e6e9ee;
-  --muted: #97a0ad;
-  --accent: #4c8bf5;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color-scheme: dark;
-}
+/* Palette, fonts, and color-scheme (dark :root + light [data-theme="light"])
+   live in theme/heritage-pine.css and theme/fonts.css, loaded before this
+   file so they own --bg/--panel/--border/--text/--muted/--accent + font. */
 
 * {
   box-sizing: border-box;
@@ -124,15 +117,26 @@ button {
   align-items: center;
   gap: 10px;
   width: 100%;
-  background: none;
-  border: none;
   color: var(--text);
-  text-align: left;
   padding: 14px 16px;
   font-size: 1rem;
   position: relative;
 }
-.section-head:disabled {
+.section-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.section-toggle:disabled {
   color: var(--muted);
   cursor: default;
 }
@@ -154,32 +158,6 @@ button {
   padding: 0 16px 16px;
   border-top: 1px solid var(--border);
   padding-top: 16px;
-}
-
-/* Full-height sections: body becomes a scroll/flex container. */
-.section.fill {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.section.fill.grow {
-  flex: 1 1 0; /* take the remaining vertical space */
-}
-.section.fill.cap {
-  flex: 0 1 auto; /* natural height, capped */
-  max-height: 55%;
-}
-.section.fill .section-body {
-  flex: 1;
-  min-height: 0;
-}
-.section.cap .section-body {
-  overflow: auto; /* the whole compare panel scrolls */
-}
-.section.grow .section-body {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* only the inner list scrolls */
 }
 
 /* --- two-column main layout: matches (left) + compare (right) --- */
@@ -316,7 +294,7 @@ button {
    the user knows to set one to rank matches by relationship distance. */
 .home-selector.unset input {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
   animation: pulse-glow 2s infinite;
 }
 .home-selector.unset input::placeholder {
@@ -618,7 +596,9 @@ button {
 .badge.strong { background: #14492f; color: #6ee7b7; }
 .badge.probable { background: #4a3b12; color: #fcd34d; }
 
-.labels { flex: 1; }
+.labels { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.candidate-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.candidate-year { color: var(--muted); font-size: 0.82rem; flex: none; }
 .chev { color: var(--muted); }
 
 .breakdown {
@@ -644,6 +624,9 @@ button {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.9rem;
   /* Colour comes from a .sex-m / .sex-f modifier; defaults to --text. */
   pointer-events: none;
@@ -652,6 +635,8 @@ button {
   text-overflow: ellipsis;
   max-width: 45%;
 }
+.compare-name { overflow: hidden; text-overflow: ellipsis; }
+.compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; }
 .compare-nav-header {
   display: flex;
   align-items: center;
@@ -677,7 +662,7 @@ button {
 }
 .nav-btn.highlight {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
   color: var(--accent);
   animation: pulse-glow 2s infinite;
 }
@@ -922,7 +907,7 @@ button {
   touch-action: none;
 }
 .tree-minimap-viewport {
-  fill: rgba(76, 139, 245, 0.18);
+  fill: color-mix(in oklch, var(--accent) 16%, transparent);
   stroke: var(--accent);
   stroke-width: 1.5;
 }
@@ -937,14 +922,8 @@ button {
   stroke-dasharray: 3 3;
 }
 .tree-node { cursor: pointer; }
-.tree-node rect {
-  stroke: rgba(0, 0, 0, 0.25);
-  stroke-width: 1;
-}
-.tree-node.selected rect {
-  stroke: #fff;
-  stroke-width: 3;
-}
+/* Node border colour comes from the per-node `stroke` presentation attribute
+   (the state colour); the selected ring is set in theme/components.css. */
 .tree-node-name {
   fill: #fff;
   font-size: 12px;
@@ -1070,9 +1049,9 @@ button {
 .modal-body strong { color: var(--text); font-weight: 600; }
 
 @keyframes pulse-glow {
-  0% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
-  50% { box-shadow: 0 0 0 4px rgba(76, 139, 245, 0.6); }
-  100% { box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35); }
+  0% { box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 60%, transparent); }
+  100% { box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent); }
 }
 
 /* --- Responsive adjustments for narrow screens (phones, tablets) --- */

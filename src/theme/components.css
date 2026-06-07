@@ -1,0 +1,89 @@
+/* ============================================================
+   GED Merge — Heritage Pine: component mapping
+   ------------------------------------------------------------
+   Re-points the app's existing class names at the new tokens and
+   adds the new treatments. Pure CSS — load this AFTER the app's
+   index.css so it wins the cascade. A few items need a one-line
+   component edit (marked  ⟶ TSX  — all listed in the README).
+   ============================================================ */
+
+/* ---------------- Typography roles ---------------- */
+/* Person names → serif. (.candidate-main is the whole match row in this app, so
+   the serif is scoped to the name span inside it rather than the row itself.) */
+.candidate-name,
+.compare-name,
+.compare-header-info,
+.tree-compare-title         { font-family: var(--font-serif); }
+/* GEDCOM data (dates / IDs / places / "FROM..TO..", "< 1886") → mono.
+   Add the .gm-data class where these values are rendered (⟶ TSX). */
+.gm-data                    { font-family: var(--font-mono); }
+.badge, .nd, .nav-pos,
+.filter-score-val, .dist,
+.comp-score, .gm-data       { font-variant-numeric: tabular-nums; }
+
+/* ---------------- Match list: N / D / link counts ---------------- */
+.nd.new   { color: var(--state-match); }
+.nd.diff  { color: var(--state-minor); }
+.nd.link  { color: var(--sex-male); }
+
+/* ---------------- Score badges ---------------- */
+.badge.strong   { background: color-mix(in oklch, var(--state-match) 18%, transparent); color: var(--state-match); }
+.badge.probable { background: color-mix(in oklch, var(--state-minor) 16%, transparent); color: var(--state-minor); }
+
+/* ---------------- Sex colouring on names ---------------- */
+.sex-m { color: var(--sex-male); }
+.sex-f { color: var(--sex-female); }
+
+/* Optional ♀ / ♂ badge rendered before the name (⟶ TSX adds the element). */
+.sex-badge { display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; font-size: 11px; line-height: 1; flex: none; }
+.sex-badge.m { color: var(--sex-male);   background: color-mix(in oklch, var(--sex-male) 16%, transparent); }
+.sex-badge.f { color: var(--sex-female); background: color-mix(in oklch, var(--sex-female) 16%, transparent); }
+
+/* ---------------- Status chips  (C / D / R, far-right of a row) ---------------- */
+.status-chip.confirmed { background: color-mix(in oklch, var(--state-match) 22%, transparent); color: var(--state-match); }
+.status-chip.deferred  { background: color-mix(in oklch, var(--state-minor) 20%, transparent); color: var(--state-minor); }
+.status-chip.rejected  { background: color-mix(in oklch, var(--state-major) 22%, transparent); color: var(--state-major); }
+
+/* ---------------- Decision bar ---------------- */
+.decision.confirmed.active { border-color: var(--state-match); color: var(--state-match); }
+.decision.deferred.active  { border-color: var(--state-minor); color: var(--state-minor); }
+.decision.rejected.active  { border-color: var(--state-major); color: var(--state-major); }
+
+/* ---------------- Compare field rows ---------------- */
+.field.conflict      { background: color-mix(in oklch, var(--state-minor) 9%, transparent);
+                       box-shadow: inset 2px 0 0 var(--state-minor); }
+.field.incoming-only { background: color-mix(in oklch, var(--state-match) 7%, transparent);
+                       box-shadow: inset 2px 0 0 var(--state-match); }
+.f-val.chosen        { color: var(--text); font-weight: 600; }
+.f-val:not(.chosen)  { color: var(--muted); }
+
+/* M / I / B choice — keep the existing accent active state; OPTIONALLY colour
+   the active pick by source (add .master / .incoming class ⟶ TSX). */
+.choice.active          { border-color: var(--accent); color: var(--text); }
+.choice.active.master   { border-color: var(--state-master);   color: var(--state-master); }
+.choice.active.incoming { border-color: var(--state-incoming); color: var(--state-incoming); }
+
+/* ---------------- Compare Tree (SVG) ---------------- */
+.tree-edge { stroke: var(--border-2); }
+
+/* NEW node style: NEUTRAL card + state-coloured BORDER (much more readable than
+   solid fills). In CompareTree.tsx set the <rect>:
+        fill   = var(--panel)
+        stroke = the state colour  (--node-match | --node-minor | --node-major
+                                    | --node-master | --node-incoming)
+        stroke-width = 2
+   Then these rules finish the look: */
+.tree-node-name        { fill: var(--text); font-family: var(--font-serif); font-weight: 500; }
+.tree-node-year        { fill: var(--muted); }              /* render "1817–1921" range */
+.tree-node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
+
+/* Legend swatches already use .tree-swatch — fill them from the node tokens. */
+.tree-swatch.match    { background: var(--node-match); }
+.tree-swatch.minor    { background: var(--node-minor); }
+.tree-swatch.major    { background: var(--node-major); }
+.tree-swatch.master   { background: var(--node-master); }
+.tree-swatch.incoming { background: var(--node-incoming); }
+
+/* Minimap viewport accent */
+.tree-minimap-viewport { fill: color-mix(in oklch, var(--accent) 16%, transparent); stroke: var(--accent); }

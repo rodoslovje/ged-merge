@@ -114,6 +114,8 @@ export const en = {
   "help.title": "User's Guide",
   "help.button": "Help",
   "help.close": "Close",
+  "theme.light": "Switch to light theme",
+  "theme.dark": "Switch to dark theme",
   "help.concepts.title": "Main Concepts",
   "help.concepts.master.title": "Master & Incoming",
   "help.concepts.master.text": "The <strong>Master</strong> file is your primary family tree. The <strong>Incoming</strong> file is the tree you want to compare and merge into the Master.",

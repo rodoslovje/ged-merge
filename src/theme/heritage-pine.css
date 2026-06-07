@@ -1,0 +1,77 @@
+/* ============================================================
+   GED Merge — Heritage Pine theme  (design tokens)
+   ------------------------------------------------------------
+   Drop-in: this REDEFINES the variables the app already uses
+   (--bg, --panel, --border, --text, --muted, --accent) and adds
+   a few new ones. Dark is the default. Add  data-theme="light"
+   on <html> to switch to light (see README → "Light / dark").
+
+   Load order:  fonts.css  →  heritage-pine.css  →  app index.css
+                →  components.css   (so overrides win — see README)
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+
+  /* ---- surfaces & text (existing vars, reskinned) ---- */
+  --bg:        #151310;   /* app background (warm near-black) */
+  --panel:     #1e1c19;   /* cards, sections, list rows       */
+  --panel-2:   #272420;   /* NEW — selected row / nested fill  */
+  --border:    #363430;   /* hairlines, card borders          */
+  --border-2:  #4b4742;   /* NEW — stronger dividers, segmented controls */
+  --text:      #ebe9e5;   /* primary text                     */
+  --muted:     #95928d;   /* secondary text                   */
+  --faint:     #66635e;   /* NEW — tertiary / empty values     */
+  --accent:    #60c09e;   /* Heritage Pine                    */
+  --accent-ink:#071a13;   /* NEW — text/icon on accent fills   */
+
+  /* ---- diff status — the 5-state language ---- */
+  --state-match:    #5ed99e;  /* records agree            */
+  --state-minor:    #eccb61;  /* small differences        */
+  --state-major:    #f66d67;  /* substantive conflicts    */
+  --state-master:   #60c09e;  /* MASTER = the pine accent  */
+  --state-incoming: #bb8aef;  /* incoming                 */
+
+  /* ---- sex axis (separate from status; never share a surface) ---- */
+  --sex-male:   #55bef0;
+  --sex-female: #f886bb;
+
+  /* ---- Compare-Tree node fills (deeper; white text reads on both themes) ---- */
+  --node-match:    #067d4d;
+  --node-minor:    #a2702b;
+  --node-major:    #b63b39;
+  --node-master:   #286853;
+  --node-incoming: #7846a9;
+
+  /* ---- shape ---- */
+  --radius-sm: 6px;
+  --radius:    8px;
+  --radius-lg: 10px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:        #fcfaf6;   /* warm paper, not stark white */
+  --panel:     #fffefc;
+  --panel-2:   #f3f0ea;
+  --border:    #e2dfda;
+  --border-2:  #cbc7c0;
+  --text:      #27221d;
+  --muted:     #6d6863;
+  --faint:     #95928d;
+  --accent:    #31715b;   /* deeper pine for light bg */
+  --accent-ink:#ffffff;
+
+  --state-match:    #158353;
+  --state-minor:    #aa7323;
+  --state-major:    #c53637;
+  --state-master:   #2e6e58;
+  --state-incoming: #7945ab;
+
+  --sex-male:   #166daf;
+  --sex-female: #b73c7c;
+
+  /* --node-* fills are intentionally shared with dark (they pop on both). */
+}

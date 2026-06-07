@@ -6,6 +6,9 @@ import { sl } from "./sl";
 export const SUPPORTED_LANGUAGES = ["en", "sl"] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
+/** Minimal shape of react-i18next's `t()` shared by helpers that take it. */
+export type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
 const STORAGE_KEY = "gedmerge.lang";
 
 /** Initial language: a saved choice, else the browser's, else English. */

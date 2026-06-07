@@ -3,7 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
     <title>GED Merge — GEDCOM compare &amp; merge</title>
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with React in App.tsx.
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

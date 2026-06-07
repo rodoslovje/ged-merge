@@ -1,4 +1,5 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
+import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
 import { individualFieldRows } from "../review/fields";
@@ -22,7 +23,7 @@ export interface TreeNode {
   status: NodeStatus;
   /** Primary display name (master's, falling back to incoming's). */
   name: string;
-  /** Birth year(s): "1850", or "1850 / 1851" when the two sides differ. */
+  /** Lifespan range: "1817–1921", a lone year when only one is known, or "". */
   years: string;
   sex: Sex;
   /** Multi-line tooltip describing the differences ("Full match" when clean). */
@@ -38,8 +39,6 @@ export interface MatchMaps {
   compareToMaster: Map<string, string>;
 }
 
-/** A translator (i18next `t`), used only to label fields in node tooltips. */
-type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
 /** Index the accepted candidate pairs both ways for quick lookup. */
 export function buildMatchMaps(matches: MatchResult): MatchMaps {
@@ -304,6 +303,14 @@ function birthYear(indi: Individual | undefined): number | undefined {
   return indi?.events.find((e) => e.tag === "BIRT")?.date?.year;
 }
 
+function deathYear(indi: Individual | undefined): number | undefined {
+  for (const tag of ["DEAT", "BURI", "CREM"]) {
+    const y = indi?.events.find((e) => e.tag === tag)?.date?.year;
+    if (y !== undefined) return y;
+  }
+  return undefined;
+}
+
 function birthYearConflict(
   master: Individual | undefined,
   incoming: Individual | undefined,
@@ -313,12 +320,18 @@ function birthYearConflict(
   return my !== undefined && iy !== undefined && my !== iy;
 }
 
+/**
+ * Master-centric lifespan label for a tree node: "1817–1921" when both years are
+ * known, the lone birth year ("1817") or death year when only one is, or "" when
+ * nothing is dated. Falls back to the incoming side when the master lacks a year.
+ */
 function birthYears(
   master: Individual | undefined,
   incoming: Individual | undefined,
 ): string {
-  const my = birthYear(master);
-  const iy = birthYear(incoming);
-  if (my !== undefined && iy !== undefined) return my === iy ? String(my) : `${my} / ${iy}`;
-  return String(my ?? iy ?? "");
+  const b = birthYear(master) ?? birthYear(incoming);
+  const d = deathYear(master) ?? deathYear(incoming);
+  if (b !== undefined && d !== undefined) return `${b}–${d}`;
+  if (b !== undefined) return String(b);
+  return d !== undefined ? `–${d}` : "";
 }

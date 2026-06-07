@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
 import { individualFieldRows } from "../review/fields";
+import { FieldValue } from "./FieldValue";
 import {
   defaultChoice,
   type CandidateDecision,
@@ -49,7 +51,7 @@ export function ComparePanel({
   const fields = decision?.fields ?? {};
 
   function toggleStatus(next: MatchDecisionStatus) {
-    onChange({ status: status === next ? "undecided" as MatchDecisionStatus : next, fields });
+    onChange({ status: status === next ? "undecided" : next, fields });
   }
   function setField(key: string, choice: FieldChoice) {
     onChange({ status, fields: { ...fields, [key]: choice } });
@@ -105,18 +107,18 @@ export function ComparePanel({
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.label}</td>
-                <td className={choice !== "incoming" ? "f-val chosen" : "f-val"}>
-                  {renderValue(row.master, row.masterLinks)}
+                <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                  <FieldValue text={row.master} links={row.masterLinks} />
                 </td>
-                <td className={choice !== "master" ? "f-val chosen" : "f-val"}>
-                  {renderValue(row.incoming, row.incomingLinks)}
+                <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                  <FieldValue text={row.incoming} links={row.incomingLinks} />
                 </td>
                 <td className="f-choice">
                   {row.state === "conflict" || row.state === "incoming-only" ? (
                     CHOICES.map((c) => (
                       <button
                         key={c}
-                        className={choice === c ? "choice active" : "choice"}
+                        className={`choice ${c}${choice === c ? " active" : ""}`}
                         title={choiceTitle(t, c)}
                         onClick={() => setField(row.key, c)}
                       >
@@ -136,49 +138,9 @@ export function ComparePanel({
   );
 }
 
-/** Render a cell as link icons when the row carries attached links, else text. */
-function renderValue(text: string, links: string[] | undefined) {
-  if (!links) return renderLines(text);
-  return (
-    <span className="links">
-      {links.map((url, i) => (
-        <a
-          key={i}
-          href={linkHref(url)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="link-icon"
-          title={url}
-        >
-          🔗
-        </a>
-      ))}
-    </span>
-  );
-}
-
-/**
- * Render a possibly multi-line value (e.g. children/partners) one item per line.
- * Blank lines are kept at full height (a non-breaking space) so a relative and
- * its aligned counterpart in the other column stay on the same row.
- */
-function renderLines(text: string) {
-  if (!text.includes("\n")) return text;
-  return text.split("\n").map((line, i) => (
-    <div key={i} className="val-line">
-      {line || " "}
-    </div>
-  ));
-}
-
-/** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
-function linkHref(url: string): string {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function choiceLabel(t: any, c: FieldChoice): string {
+function choiceLabel(t: Translate, c: FieldChoice): string {
   return t(`choice.${c}.label`);
 }
-function choiceTitle(t: any, c: FieldChoice): string {
+function choiceTitle(t: Translate, c: FieldChoice): string {
   return t(`choice.${c}.title`);
 }

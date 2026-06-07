@@ -67,7 +67,7 @@ describe("buildCompareTree (ancestors)", () => {
     const father = root.children.find((c) => c.sex === "M")!;
     expect(father.name).toBe("Anton Novak");
     expect(father.status).toBe("major");
-    expect(father.years).toBe("1870 / 1871");
+    expect(father.years).toBe("1870");
   });
 
   it("flags a non-key difference (extra birth place) on the mother as minor", () => {

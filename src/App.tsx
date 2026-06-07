@@ -14,6 +14,9 @@ import { ComparePanel } from "./ui/ComparePanel";
 import { CompareTree } from "./ui/CompareTree";
 import { Section } from "./ui/Section";
 import { HelpModal } from "./ui/HelpModal";
+import { Wordmark } from "./ui/icons/LogoMark";
+import { SexBadge } from "./ui/SexBadge";
+import { sexClass } from "./ui/sex";
 import type { TreeMode } from "./tree/compareTree";
 import {
   applyFilters,
@@ -21,7 +24,6 @@ import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
   nextSort,
-  sexClass,
   type Filters,
   type SortKey,
   type SortState,
@@ -47,6 +49,17 @@ interface TreeView {
 }
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
+
+type Theme = "light" | "dark";
+const THEME_KEY = "gedmerge.theme";
+
+/** Current theme from the <html data-theme> the inline boot script set, else
+ * the OS preference. */
+function detectTheme(): Theme {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "light" || attr === "dark") return attr;
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
 
 /** GEDCOM xref of "person 1" — the conventional root individual, used as the
  * default home person when present. */
@@ -92,6 +105,32 @@ export function App() {
   const [openLoad, setOpenLoad] = useState(true);
   const [openCompare, setOpenCompare] = useState(false);
   const [openMatches, setOpenMatches] = useState(false);
+
+  // Light/dark theme: auto-detected from the OS, overridable, and persisted.
+  const [theme, setTheme] = useState<Theme>(detectTheme);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+  useEffect(() => {
+    // Follow OS changes only while the user hasn't made an explicit choice.
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem(THEME_KEY)) setTheme(e.matches ? "light" : "dark");
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next: Theme = prev === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        // ignore storage failures (private mode); the in-memory choice still applies
+      }
+      return next;
+    });
+  }
 
   // Full-page "Compare tree" view, kept in sync with browser history so the
   // back button returns to the main view.
@@ -323,7 +362,13 @@ export function App() {
   ) : undefined;
   const compareSubtitle = current ? (
     <>
-      <div className={`compare-header-info ${sexClass(current)}`}>{current.title}</div>
+      <div className={`compare-header-info ${sexClass(current.sex)}`}>
+        <SexBadge sex={current.sex} />
+        <span className="compare-name">{current.name}</span>
+        {current.birthYear != null && (
+          <span className="compare-birth gm-data">b. {current.birthYear}</span>
+        )}
+      </div>
       <div className="compare-nav-header">
         <button
           className="nav-btn icon-only"
@@ -333,7 +378,7 @@ export function App() {
       >
         ‹
       </button>
-      <span className="nav-pos">
+      <span className="nav-pos gm-data">
         {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
       </span>
       <button
@@ -358,8 +403,17 @@ export function App() {
       )}
       <header className="app-head">
         <div className="app-head-top">
-          <h1>{t("app.title")}</h1>
+          <h1><Wordmark /></h1>
           <div className="lang-switcher">
+            <button
+              className="nav-btn icon-only"
+              style={{ marginRight: "8px" }}
+              onClick={toggleTheme}
+              title={theme === "dark" ? t("theme.light") : t("theme.dark")}
+              aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
             <button
               className="nav-btn icon-only"
               style={{ marginRight: "8px" }}

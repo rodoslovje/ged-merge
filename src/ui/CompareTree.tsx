@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, Sex } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
+import { FieldValue } from "./FieldValue";
+import { sexColorVar, sexGlyph } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
@@ -42,13 +44,14 @@ interface Viewport {
   height: number;
 }
 
-/** Rectangle fill per comparison status (the colours requested in the spec). */
+/** Per-status colour, drawn from the Heritage Pine node tokens so it follows the
+   theme. Used for the node border, legend swatches, and minimap dots. */
 const STATUS_COLOR: Record<NodeStatus, string> = {
-  match: "#2e7d32",
-  minor: "#c8910a",
-  major: "#c0392b",
-  "master-only": "#0097a7",
-  "incoming-only": "#8e44ad",
+  match: "var(--node-match)",
+  minor: "var(--node-minor)",
+  major: "var(--node-major)",
+  "master-only": "var(--node-master)",
+  "incoming-only": "var(--node-incoming)",
 };
 
 const LEGEND_ORDER: NodeStatus[] = [
@@ -106,6 +109,7 @@ export function CompareTree({
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
   const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
   const rootName = tree?.name ?? "";
+  const rootYears = tree?.years ?? "";
 
   const nodesByKey = useMemo(() => {
     const map = new Map<string, Placed>();
@@ -175,7 +179,13 @@ export function CompareTree({
         </button>
         <h2 className="tree-title">
           {t("tree.title")}
-          {rootName && <span className="muted"> · {rootName}</span>}
+          {rootName && (
+            <span className="muted">
+              {" · "}
+              <span className="tree-compare-title">{rootName}</span>
+              {rootYears && <span className="gm-data"> {rootYears}</span>}
+            </span>
+          )}
         </h2>
         <div className="tree-mode">
           <button
@@ -300,14 +310,17 @@ function TreeSvg({
               height={NODE_H}
               rx={10}
               ry={10}
-              fill={STATUS_COLOR[n.status]}
+              fill="var(--panel)"
+              stroke={STATUS_COLOR[n.status]}
+              strokeWidth={2}
             />
-            <text className="tree-node-name" x={NODE_W / 2} y={19} textAnchor="middle">
-              {truncate(n.name, 26)}
+            <SexDot sex={n.sex} x={16} y={NODE_H / 2} />
+            <text className="tree-node-name" x={32} y={19}>
+              {truncate(n.name, 24)}
             </text>
             {n.years && (
-              <text className="tree-node-year" x={NODE_W / 2} y={36} textAnchor="middle">
-                b. {n.years}
+              <text className="tree-node-year gm-data" x={32} y={36}>
+                {n.years}
               </text>
             )}
           </g>
@@ -508,34 +521,13 @@ function NodeCompare({
           {rows.map((row) => (
             <tr key={row.key} className={`field ${row.state}`}>
               <td className="f-label">{row.label}</td>
-              <td className="f-val">{cell(row.master, row.masterLinks)}</td>
-              <td className="f-val">{cell(row.incoming, row.incomingLinks)}</td>
+              <td className="f-val gm-data"><FieldValue text={row.master} links={row.masterLinks} /></td>
+              <td className="f-val gm-data"><FieldValue text={row.incoming} links={row.incomingLinks} /></td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  );
-}
-
-/** Render a field value as link icons when it carries attached links, else text. */
-function cell(text: string, links: string[] | undefined) {
-  if (!links || links.length === 0) return text;
-  return (
-    <span className="links">
-      {links.map((url, i) => (
-        <a
-          key={i}
-          href={/^https?:\/\//i.test(url) ? url : `https://${url}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="link-icon"
-          title={url}
-        >
-          🔗
-        </a>
-      ))}
-    </span>
   );
 }
 
@@ -635,4 +627,18 @@ function maxDepth(node: TreeNode): number {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/** A small sex-coloured ♀/♂ disc shown at the left of a tree node. */
+function SexDot({ sex, x, y }: { sex: Sex; x: number; y: number }) {
+  const color = sexColorVar(sex);
+  if (!color) return null;
+  return (
+    <g className="tree-sex" transform={`translate(${x},${y})`}>
+      <circle r={9} fill={color} fillOpacity={0.16} />
+      <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={color}>
+        {sexGlyph(sex)}
+      </text>
+    </g>
+  );
 }

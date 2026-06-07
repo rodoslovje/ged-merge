@@ -1,5 +1,6 @@
 import { useRef, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
+import type { Translate } from "../locales/i18n";
 import type { SlotState } from "../App";
 
 interface Props {
@@ -43,7 +44,7 @@ export function GedcomLoader({ title, state, onLoad, highlight, tooltip }: Props
   );
 }
 
-function renderSummary(state: SlotState, t: any): React.ReactNode {
+function renderSummary(state: SlotState, t: Translate): React.ReactNode {
   switch (state.status) {
     case "empty":
       return t("loader.empty");

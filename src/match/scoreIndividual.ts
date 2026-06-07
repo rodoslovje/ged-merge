@@ -1,5 +1,5 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
-import { fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
+import { displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
   givenSimilarity,
@@ -94,6 +94,9 @@ export function scoreIndividualPair(
     category: categorize(score01, config),
     components,
     title: pairTitle(master, compare),
+    name: displayName(primaryName(master)),
+    birthYear: birthYear(master),
+    deathYear: deathYear(master),
     sex: master.sex !== "U" ? master.sex : compare.sex,
   };
 }

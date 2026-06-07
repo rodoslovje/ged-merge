@@ -7,11 +7,6 @@ export function formatScore(score: number): string {
   return score >= 100 ? "100" : score.toFixed(1);
 }
 
-/** CSS class colouring a name by sex — cyan for male, pink for female. */
-export function sexClass(candidate: Candidate): string {
-  return candidate.sex === "M" ? "sex-m" : candidate.sex === "F" ? "sex-f" : "";
-}
-
 export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "linkCount" | "label";
 
 export interface SortState {
@@ -112,6 +107,8 @@ function compareBy(a: Candidate, b: Candidate, key: SortKey): number {
     case "linkCount":
       return (a.linkCount ?? 0) - (b.linkCount ?? 0);
     case "label":
-      return a.title.localeCompare(b.title);
+      // Sort by the displayed person name (what the row shows), not the
+      // master-centric diff title.
+      return a.name.localeCompare(b.name);
   }
 }

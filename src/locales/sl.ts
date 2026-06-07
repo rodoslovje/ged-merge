@@ -114,6 +114,8 @@ export const sl = {
   "help.title": "Navodila za uporabo",
   "help.button": "Pomoč",
   "help.close": "Zapri",
+  "theme.light": "Preklopi na svetlo temo",
+  "theme.dark": "Preklopi na temno temo",
   "help.concepts.title": "Glavni koncepti",
   "help.concepts.master.title": "Glavni in vhodni GEDCOM",
   "help.concepts.master.text": "<strong>Glavna</strong> datoteka je vaše osnovno družinsko drevo. <strong>Vhodna</strong> datoteka je drevo, ki ga želite primerjati in združiti z glavnim.",

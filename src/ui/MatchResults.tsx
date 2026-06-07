@@ -13,7 +13,9 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
-import { formatScore, sexClass, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { sexClass } from "./sex";
+import { SexBadge } from "./SexBadge";
 
 interface Props {
   result: MatchResult;
@@ -233,7 +235,13 @@ function CandidateRow({
           >
             {candidate.linkCount ?? 0}
           </span>
-          <span className={`labels ${sexClass(candidate)}`}>{candidate.title}</span>
+          <span className={`labels ${sexClass(candidate.sex)}`}>
+            <SexBadge sex={candidate.sex} />
+            <span className="candidate-name">{candidate.name}</span>
+            {candidate.birthYear != null && (
+              <span className="candidate-year gm-data">{candidate.birthYear}</span>
+            )}
+          </span>
         </button>
         {status && status !== "undecided" && (
           <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
@@ -245,11 +253,12 @@ function CandidateRow({
   );
 }
 
-/** Match the score badge / category color scheme used for candidate rows. */
+/** Score-category colour as a theme token, so the filter slider/value follow
+ *  the Heritage Pine palette (and light mode) like the score badges do. */
 const CATEGORY_COLOR: Record<MatchCategory, string> = {
-  strong: "#3ecf8e",
-  probable: "#e2b341",
-  weak: "#6b7280",
+  strong: "var(--state-match)",
+  probable: "var(--state-minor)",
+  weak: "var(--faint)",
 };
 
 function scoreColor(score: number): string {
