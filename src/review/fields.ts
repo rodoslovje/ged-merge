@@ -4,6 +4,7 @@ import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
 import { label, partnerNames } from "../match/relatives";
+import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState } from "./types";
 
 /** Friendly labels for the event tags we surface in review. */
@@ -20,7 +21,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 /** Translate internal matching keys to friendly field labels. */
-export function formatFieldLabel(t: any, key: string): string {
+export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "given") return t("field.given");
   if (key === "surname") return t("field.surname");
   if (key === "sex") return t("field.sex");
@@ -51,7 +52,7 @@ const EVENT_ORDER = ["BIRT", "BAPM", "CHR", "RESI", "MARR", "DIV", "DEAT", "BURI
  * as their own rows.
  */
 export function individualFieldRows(
-  t: any,
+  t: Translate,
   master: Individual | undefined,
   compare: Individual | undefined,
   masterDs?: Dataset,
@@ -401,7 +402,7 @@ function orderedEventTags(master?: Individual, compare?: Individual): string[] {
   return [...known, ...extra];
 }
 
-function sexText(t: any, sex: string | undefined): string {
+function sexText(t: Translate, sex: string | undefined): string {
   if (sex === "M") return t("sex.M");
   if (sex === "F") return t("sex.F");
   return "";

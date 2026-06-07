@@ -408,19 +408,19 @@ export function App() {
             <button
               className="nav-btn icon-only"
               style={{ marginRight: "8px" }}
+              onClick={() => setShowHelp(true)}
+              title={t("help.button")}
+            >
+              ?
+            </button>
+            <button
+              className="nav-btn icon-only"
+              style={{ marginRight: "8px" }}
               onClick={toggleTheme}
               title={theme === "dark" ? t("theme.light") : t("theme.dark")}
               aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
             >
               {theme === "dark" ? "☀️" : "🌙"}
-            </button>
-            <button
-              className="nav-btn icon-only"
-              style={{ marginRight: "8px" }}
-              onClick={() => setShowHelp(true)}
-              title={t("help.button")}
-            >
-              ?
             </button>
             <div className="lang-select-wrapper">
               <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
