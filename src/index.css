@@ -281,7 +281,8 @@ button {
 }
 
 /* --- matches section --- */
-.matches-tabs-header {
+.matches-tabs-header,
+.header-center {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -415,6 +416,23 @@ button {
 }
 .filter-count {
   margin-left: auto;
+}
+.export-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.export-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.export-btn:disabled {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--muted);
+  font-weight: 400;
+  cursor: default;
 }
 
 .dist {

@@ -13,6 +13,11 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   const { text, charset, warnings: decodeWarnings } = decodeGedcom(buffer);
   const warnings: ParseWarning[] = [...decodeWarnings];
 
+  // Remember the source's line-ending style and whether it ended with a newline
+  // so the serializer can round-trip byte-faithfully (clean before/after diffs).
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const finalNewline = /[\r\n]$/.test(text);
+
   // Normalize line endings; drop a trailing empty line.
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
 
@@ -73,7 +78,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   }
 
   const version = detectVersion(roots, warnings);
-  return { version, charset, records: roots, warnings };
+  return { version, charset, records: roots, warnings, eol, finalNewline };
 }
 
 function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersion {

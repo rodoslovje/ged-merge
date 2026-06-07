@@ -39,6 +39,8 @@ export const sl = {
   "filter.minScore": "Min. rezultat",
   "filter.noAboveThreshold": "Ni ujemanj nad določenim pragom.",
   "filter.noPassFilter": "Nobeno ujemanje ne ustreza trenutnim filtrom.",
+  "export.merged": "Izvozi združeni GEDCOM",
+  "export.tooltip": "Uporabi potrjena ujemanja na kopiji glavne datoteke in jo prenesi (z poročilom o spremembah)",
   "status.confirmed": "Potrjeno",
   "status.rejected": "Zavrnjeno",
   "status.deferred": "Odloženo",

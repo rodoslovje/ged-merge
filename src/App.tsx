@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "./gedcom/types";
+import { serializeGedcom } from "./gedcom/serialize";
+import { mergeDecisions, formatReport } from "./merge/merge";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
@@ -44,6 +46,17 @@ interface TreeView {
 }
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
+
+/** Trigger a client-side download of a text file (no server round-trip). */
+function downloadText(fileName: string, text: string): void {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function App() {
   const { t, i18n } = useTranslation();
@@ -165,6 +178,12 @@ export function App() {
   const safeIndex = visible.length === 0 ? 0 : Math.min(selectedIndex, visible.length - 1);
   const current = visible[safeIndex];
 
+  const confirmedCount = useMemo(() => {
+    let n = 0;
+    for (const d of decisions.values()) if (d.status === "confirmed") n++;
+    return n;
+  }, [decisions]);
+
   function select(index: number) {
     setSelectedIndex(index);
     setOpenCompare(true);
@@ -199,6 +218,19 @@ export function App() {
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
+  function exportMerged() {
+    if (!masterDataset || !compareDataset) return;
+    const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, t);
+    const merged = serializeGedcom(records, {
+      eol: masterDataset.eol,
+      finalNewline: masterDataset.finalNewline,
+    });
+    const base =
+      master.status === "loaded" ? master.file.fileName.replace(/\.ged$/i, "") : "merged";
+    downloadText(`${base}.merged.ged`, merged);
+    downloadText(`${base}.merge-report.txt`, formatReport(report));
+  }
+
   // Full-page compare tree takes over the whole view when open.
   if (treeView && masterDataset && compareDataset && matches) {
     return (
@@ -215,10 +247,23 @@ export function App() {
     );
   }
 
-  const loadSubtitle =
-    master.status === "loaded" && compare.status === "loaded"
-      ? `${master.file.fileName} ↔ ${compare.file.fileName}`
-      : undefined;
+  const bothLoaded = master.status === "loaded" && compare.status === "loaded";
+  const loadSubtitle = bothLoaded ? (
+    <>
+      {confirmedCount > 0 && (
+        <div className="header-center" onClick={(e) => e.stopPropagation()}>
+          <button className="export-btn" onClick={exportMerged} title={t("export.tooltip")}>
+            {t("export.merged")} ({confirmedCount})
+          </button>
+        </div>
+      )}
+      <span>
+        {master.status === "loaded" && master.file.fileName}
+        {" ↔ "}
+        {compare.status === "loaded" && compare.file.fileName}
+      </span>
+    </>
+  ) : undefined;
   const matchesSubtitle = matching ? (
     <div className="matches-tabs-header matching" role="status" aria-live="polite">
       <span className="spinner" aria-hidden="true" />

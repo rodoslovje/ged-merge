@@ -40,6 +40,8 @@ export function buildDataset(parsed: ParseResult): Dataset {
     families,
     records: parsed.records,
     warnings: parsed.warnings,
+    eol: parsed.eol,
+    finalNewline: parsed.finalNewline,
   };
 }
 

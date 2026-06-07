@@ -51,6 +51,8 @@ export function normalizeDataset(
     charset: compare.charset,
     records,
     warnings: compare.warnings,
+    eol: compare.eol,
+    finalNewline: compare.finalNewline,
   };
   return { dataset: buildDataset(parsed), report };
 }

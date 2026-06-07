@@ -48,6 +48,10 @@ export interface ParseResult {
   records: GedNode[];
   /** Non-fatal issues encountered during parse/decode. */
   warnings: ParseWarning[];
+  /** Original line-ending ("\n" or "\r\n"), preserved for faithful round-trip. */
+  eol: string;
+  /** Whether the source ended with a trailing newline. */
+  finalNewline: boolean;
 }
 
 export interface ParseWarning {
@@ -169,4 +173,8 @@ export interface Dataset {
   families: Map<string, Family>;
   records: GedNode[];
   warnings: ParseWarning[];
+  /** Original line-ending ("\n" or "\r\n"), preserved for faithful round-trip. */
+  eol: string;
+  /** Whether the source ended with a trailing newline. */
+  finalNewline: boolean;
 }

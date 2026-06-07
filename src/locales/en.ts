@@ -39,6 +39,8 @@ export const en = {
   "filter.minScore": "Min score",
   "filter.noAboveThreshold": "No candidate matches above threshold.",
   "filter.noPassFilter": "No matches pass the current filters.",
+  "export.merged": "Export merged GEDCOM",
+  "export.tooltip": "Apply confirmed matches to a copy of the master and download it (plus a change report)",
   "status.confirmed": "Confirmed",
   "status.rejected": "Rejected",
   "status.deferred": "Deferred",
