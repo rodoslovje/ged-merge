@@ -47,6 +47,10 @@ interface TreeView {
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
 
+/** GEDCOM xref of "person 1" — the conventional root individual, used as the
+ * default home person when present. */
+const DEFAULT_HOME_ID = "@I1@";
+
 /** Trigger a client-side download of a text file (no server round-trip). */
 function downloadText(fileName: string, text: string): void {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -62,6 +66,9 @@ export function App() {
   const { t, i18n } = useTranslation();
 
   const workerRef = useRef<Worker | null>(null);
+  // Whether we've already attempted the one-time default home person for the
+  // currently loaded master, so a user who clears it isn't re-defaulted.
+  const autoHomeRef = useRef(false);
   const [master, setMaster] = useState<SlotState>({ status: "empty" });
   const [compare, setCompare] = useState<SlotState>({ status: "empty" });
   const [matches, setMatches] = useState<MatchResult | null>(null);
@@ -149,6 +156,7 @@ export function App() {
     setMatches(null);
     setDecisions(new Map());
     setHomeId(undefined); // home person is opt-in; reset on (re)load
+    autoHomeRef.current = false; // allow the default home person for the new file
     setOpenCompare(false);
     setOpenMatches(false);
     setOpenLoad(true);
@@ -163,6 +171,18 @@ export function App() {
     setHomeId(id);
     workerRef.current?.postMessage({ type: "setHome", id: id ?? "" });
   }
+
+  // When the first results for a freshly loaded master arrive, default the home
+  // person to the root individual (@I1@) if present. Attempted once per file
+  // (autoHomeRef), so a user who later clears the home person isn't overridden.
+  useEffect(() => {
+    if (!matches || autoHomeRef.current) return;
+    autoHomeRef.current = true;
+    if (homeId) return; // user already chose before the first result
+    const ds = master.status === "loaded" ? master.file.dataset : undefined;
+    if (ds?.individuals.has(DEFAULT_HOME_ID)) changeHome(DEFAULT_HOME_ID);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) => nextSort(prev, key));
@@ -220,7 +240,8 @@ export function App() {
 
   function exportMerged() {
     if (!masterDataset || !compareDataset) return;
-    const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, t);
+    const matchResult = matches ?? { individuals: [], families: [] };
+    const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, matchResult, t);
     const merged = serializeGedcom(records, {
       eol: masterDataset.eol,
       finalNewline: masterDataset.finalNewline,

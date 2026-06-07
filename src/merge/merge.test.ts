@@ -9,6 +9,7 @@ function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 const tr = (key: string) => key;
+const NO_MATCHES = { individuals: [], families: [] };
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
 
 // Master lacks a birth place and has a differing given name from incoming.
@@ -31,28 +32,28 @@ describe("mergeDecisions", () => {
   const compare = dataset(COMPARE);
 
   it("fills in a field the master is missing (default = incoming)", () => {
-    const { records, report } = mergeDecisions(master, compare, confirmed(), tr);
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 BIRT\n2 DATE 1850\n2 PLAC Kranj");
     expect(report.changes.some((c) => c.to === "Kranj")).toBe(true);
   });
 
   it("leaves a conflicting field on master unless explicitly chosen", () => {
-    const { records } = mergeDecisions(master, compare, confirmed(), tr);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 NAME Janez /Novak/"); // master name kept
     expect(out).not.toContain("Jan;ez");
   });
 
   it("takes a conflicting field when the user chose incoming", () => {
-    const { records } = mergeDecisions(master, compare, confirmed({ given: "incoming" }), tr);
+    const { records } = mergeDecisions(master, compare, confirmed({ given: "incoming" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 NAME Jan;ez /Novak/");
   });
 
   it("changes only the merged record (minimal diff)", () => {
     const before = serializeGedcom(master.records);
-    const { records } = mergeDecisions(master, compare, confirmed(), tr);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const after = serializeGedcom(records);
 
     const diff = lineDiff(before, after);
@@ -65,9 +66,68 @@ describe("mergeDecisions", () => {
   it("ignores non-confirmed decisions", () => {
     const m = new Map<string, CandidateDecision>();
     m.set(decisionKey("individual", "@I1@", "@P1@"), { status: "deferred", fields: {} });
-    const { records, report } = mergeDecisions(master, compare, m, tr);
+    const { records, report } = mergeDecisions(master, compare, m, NO_MATCHES, tr);
     expect(report.changes).toHaveLength(0);
     expect(serializeGedcom(records)).toBe(serializeGedcom(master.records));
+  });
+});
+
+describe("mergeDecisions — family structure", () => {
+  // Master has the people but the family @F1@ only links the husband.
+  const master = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n" +
+        "0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n",
+    ),
+  );
+  // Incoming family adds the wife, the existing child, and a brand-new child.
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n" +
+        "0 @P3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 CHIL @P4@\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { masterId: "@I1@", compareId: "@P1@" },
+      { masterId: "@I2@", compareId: "@P2@" },
+      { masterId: "@I3@", compareId: "@P3@" },
+    ],
+    families: [{ masterId: "@F1@", compareId: "@G1@" }],
+  } as never;
+
+  const decisions = new Map<string, CandidateDecision>([
+    [decisionKey("family", "@F1@", "@G1@"), { status: "confirmed", fields: {} }],
+  ]);
+
+  const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+  const out = serializeGedcom(records);
+
+  it("links the missing spouse to the existing master person", () => {
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@");
+    expect(out).toContain("0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@");
+  });
+
+  it("links an existing matched child without duplicating the person", () => {
+    expect(out).toContain("1 CHIL @I3@");
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMC @F1@");
+    // @I3@ appears once as a record (not duplicated).
+    expect(out.match(/0 @I3@ INDI/g)).toHaveLength(1);
+  });
+
+  it("adds a brand-new child as a fresh record with a back-pointer", () => {
+    expect(out).toContain("0 @I4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 FAMC @F1@");
+    expect(out).toContain("1 CHIL @I4@");
+    expect(report.changes.some((c) => c.field === "New person" && c.to === "Tone Novak")).toBe(true);
+  });
+
+  it("keeps unrelated records and the trailer intact", () => {
+    expect(out.trimEnd().endsWith("0 TRLR")).toBe(true);
   });
 });
 

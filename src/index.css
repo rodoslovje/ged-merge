@@ -310,6 +310,16 @@ button {
   color: var(--text);
   padding: 6px 10px;
 }
+/* Until a home person is picked, draw attention to the (still-empty) field so
+   the user knows to set one to rank matches by relationship distance. */
+.home-selector.unset input {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
+}
+.home-selector.unset input::placeholder {
+  color: var(--accent);
+  opacity: 1;
+}
 .home-clear {
   background: none;
   border: none;

@@ -1,4 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
+import type { MatchResult } from "../match/types";
+import { displayName } from "../match/relatives";
 import { individualFieldRows, familyFieldRows } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 
@@ -34,8 +36,10 @@ export interface MergeResult {
   report: ChangeReport;
 }
 
-/** Relational fields are graph edits ("new relatives") — deferred for now. */
-const RELATIONAL = new Set(["father", "mother", "partners", "children", "husband", "wife"]);
+/** Individual relationship fields — merged via the related family, not directly. */
+const INDI_RELATIONAL = new Set(["father", "mother", "partners"]);
+/** Family relationship fields are handled structurally by `applyFamilyStructure`. */
+const FAMILY_HANDLED = new Set(["husband", "wife", "children"]);
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
 const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "ADDR" };
@@ -46,14 +50,19 @@ const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "AD
  * left as identical clones, so serializing the result yields a minimal diff
  * against the original master.
  *
- * Scalar fields (sex, primary name, and event date/place/address) are applied.
- * Relationship fields and links — the "new relatives" graph stitching — are
- * recorded as deferred so the report is honest about what still needs doing.
+ * Individuals: scalar fields (sex, primary name, event date/place/address).
+ * Families: marriage fields plus structural stitching — missing spouses and
+ * children from the incoming family are linked to their matched master person
+ * (via `matches`) or, when genuinely new, added as fresh records with the right
+ * FAMC/FAMS/HUSB/WIFE/CHIL pointers.
+ *
+ * Individual relationship fields and links are still recorded as deferred.
  */
 export function mergeDecisions(
   master: Dataset,
   compare: Dataset,
   decisions: Map<string, CandidateDecision>,
+  matches: MatchResult,
   t: Translate,
 ): MergeResult {
   const records = master.records.map(cloneNode);
@@ -67,6 +76,7 @@ export function mergeDecisions(
 
   const report: ChangeReport = { changes: [], deferred: [], recordsChanged: 0 };
   const touched = new Set<string>();
+  const ctx = makeContext(master, compare, matches, records, indiNodes, report, touched);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -78,14 +88,15 @@ export function mergeDecisions(
       const incoming = compare.individuals.get(compareId);
       if (!target || !incoming) continue;
       const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-      applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched);
+      applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_RELATIONAL);
     } else {
       const target = famNodes.get(masterId);
       const masterFam = master.families.get(masterId);
       const incoming = compare.families.get(compareId);
-      if (!target || !incoming) continue;
+      if (!target || !masterFam || !incoming) continue;
       const rows = familyFieldRows(t, masterFam, incoming, master, compare);
-      applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched);
+      applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, FAMILY_HANDLED);
+      applyFamilyStructure(target, masterFam, incoming, ctx);
     }
   }
 
@@ -109,17 +120,24 @@ function applyRows(
   fields: Record<string, FieldChoice>,
   report: ChangeReport,
   touched: Set<string>,
+  handled: Set<string>,
 ): void {
   let nameApplied = false;
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "master-only") continue;
+    // Handled elsewhere (family spouses/children go through applyFamilyStructure).
+    if (handled.has(row.key)) continue;
     const choice = fields[row.key] ?? defaultChoice(row as never);
     if (choice === "master") continue;
 
-    // Relationship and link fields need graph stitching — defer with a note.
-    if (RELATIONAL.has(row.key) || row.key === "links" || row.key.endsWith(".links")) {
-      report.deferred.push({ recordId, field: row.label, reason: "relationship/link merge not yet implemented" });
+    const isLink = row.key === "links" || row.key.endsWith(".links");
+    if (INDI_RELATIONAL.has(row.key)) {
+      report.deferred.push({ recordId, field: row.label, reason: "merged via the matching family record" });
+      continue;
+    }
+    if (isLink) {
+      report.deferred.push({ recordId, field: row.label, reason: "link merge not yet implemented" });
       continue;
     }
 
@@ -217,6 +235,180 @@ function cloneNode(n: GedNode): GedNode {
   return c;
 }
 
+// --- family structural merge (spouses & children) --------------------------
+
+interface MergeContext {
+  /** incoming individual id → its matched master individual id (if any). */
+  incToMaster: Map<string, string>;
+  /** Look up a (cloned) master individual record node by xref. */
+  indiNode: (id: string) => GedNode | undefined;
+  /** Resolve an incoming individual to a master id, adding it as a new record
+   *  when it has no match. Returns undefined if it can't be resolved. */
+  resolve: (incomingId: string) => string | undefined;
+  /** Display label for a master id, for the change report. */
+  label: (id: string) => string;
+  report: ChangeReport;
+  touched: Set<string>;
+}
+
+function makeContext(
+  master: Dataset,
+  compare: Dataset,
+  matches: MatchResult,
+  records: GedNode[],
+  indiNodes: Map<string, GedNode>,
+  report: ChangeReport,
+  touched: Set<string>,
+): MergeContext {
+  const incToMaster = new Map<string, string>();
+  for (const c of matches.individuals) incToMaster.set(c.compareId, c.masterId);
+
+  const used = new Set<string>();
+  for (const r of records) if (r.xref) used.add(r.xref);
+  let counter = 1;
+  const allocXref = (): string => {
+    let id: string;
+    do {
+      id = `@I${counter++}@`;
+    } while (used.has(id));
+    used.add(id);
+    return id;
+  };
+
+  const addedLabels = new Map<string, string>();
+  const addedFromIncoming = new Map<string, string>(); // incomingId → new master id
+
+  const addNewIndividual = (incomingId: string): string | undefined => {
+    const cached = addedFromIncoming.get(incomingId);
+    if (cached) return cached;
+    const incIndi = compare.individuals.get(incomingId);
+    if (!incIndi) return undefined;
+    const newId = allocXref();
+    const node = cloneNode(incIndi.raw);
+    node.xref = newId;
+    // Drop incoming family pointers; we re-link only into the family being merged.
+    node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
+    insertRecord(records, node);
+    indiNodes.set(newId, node);
+    addedFromIncoming.set(incomingId, newId);
+    const name = displayName(incIndi.names[0]);
+    addedLabels.set(newId, name);
+    report.changes.push({ recordId: newId, field: "New person", from: "", to: name, action: "incoming" });
+    touched.add(newId);
+    return newId;
+  };
+
+  return {
+    incToMaster,
+    indiNode: (id) => indiNodes.get(id),
+    resolve: (incomingId) => incToMaster.get(incomingId) ?? addNewIndividual(incomingId),
+    label: (id) =>
+      addedLabels.get(id) ?? displayName(master.individuals.get(id)?.names[0]),
+    report,
+    touched,
+  };
+}
+
+/**
+ * Stitch a confirmed family's spouses and children. For each spouse the master
+ * family lacks and each incoming child not already linked, resolve the incoming
+ * person to a master record (matched or newly added) and wire up the pointers.
+ */
+function applyFamilyStructure(
+  famNode: GedNode,
+  masterFam: import("../gedcom/types").Family,
+  incFam: import("../gedcom/types").Family,
+  ctx: MergeContext,
+): void {
+  const famId = famNode.xref;
+  if (!famId) return;
+
+  const spouses: Array<["HUSB" | "WIFE", string | undefined, string | undefined]> = [
+    ["HUSB", masterFam.husband, incFam.husband],
+    ["WIFE", masterFam.wife, incFam.wife],
+  ];
+  for (const [role, masterSlot, incSlot] of spouses) {
+    if (!incSlot) continue;
+    const targetId = ctx.resolve(incSlot);
+    if (!targetId) continue;
+    if (masterSlot) {
+      if (masterSlot !== targetId) {
+        ctx.report.deferred.push({
+          recordId: famId,
+          field: role === "HUSB" ? "Husband" : "Wife",
+          reason: "master already has a different spouse",
+        });
+      }
+      continue;
+    }
+    if (addPointer(famNode, role, targetId, ["HUSB", "WIFE", "CHIL"], "start")) {
+      linkBack(ctx, targetId, "FAMS", famId);
+      ctx.report.changes.push({
+        recordId: famId,
+        field: role === "HUSB" ? "Husband" : "Wife",
+        from: "",
+        to: ctx.label(targetId),
+        action: "incoming",
+      });
+      ctx.touched.add(famId);
+    }
+  }
+
+  const existing = new Set(masterFam.children);
+  for (const incChild of incFam.children) {
+    const known = ctx.incToMaster.get(incChild);
+    if (known && existing.has(known)) continue;
+    const targetId = ctx.resolve(incChild);
+    if (!targetId || existing.has(targetId)) continue;
+    if (addPointer(famNode, "CHIL", targetId, ["HUSB", "WIFE", "CHIL"], "start")) {
+      existing.add(targetId);
+      linkBack(ctx, targetId, "FAMC", famId);
+      ctx.report.changes.push({
+        recordId: famId,
+        field: "Child",
+        from: "",
+        to: ctx.label(targetId),
+        action: "incoming",
+      });
+      ctx.touched.add(famId);
+    }
+  }
+}
+
+/** Add a FAMC/FAMS pointer back on the individual record (if not already there). */
+function linkBack(ctx: MergeContext, indiId: string, tag: string, famId: string): void {
+  const node = ctx.indiNode(indiId);
+  if (node) addPointer(node, tag, famId, ["FAMC", "FAMS"], "end");
+}
+
+/**
+ * Insert a pointer line (`<tag> <id>`) into a record, grouped after the last of
+ * `afterTags`. Skips if an identical pointer already exists. `fallback` controls
+ * placement when no `afterTags` line exists yet.
+ */
+function addPointer(
+  parent: GedNode,
+  tag: string,
+  id: string,
+  afterTags: string[],
+  fallback: "start" | "end",
+): boolean {
+  if (parent.children.some((c) => c.tag === tag && c.value === id)) return false;
+  let lastIdx = -1;
+  for (let i = 0; i < parent.children.length; i++) {
+    if (afterTags.includes(parent.children[i].tag)) lastIdx = i;
+  }
+  const at = lastIdx >= 0 ? lastIdx + 1 : fallback === "start" ? 0 : parent.children.length;
+  insertAt(parent, at, newNode(tag, id));
+  return true;
+}
+
+function insertRecord(records: GedNode[], node: GedNode): void {
+  const i = records.findIndex((r) => r.tag === "TRLR");
+  if (i < 0) records.push(node);
+  else records.splice(i, 0, node);
+}
+
 function parseKey(key: string): { kind: string; masterId: string; compareId: string } {
   const [kind, masterId, compareId] = key.split(":");
   return { kind, masterId, compareId };
@@ -225,8 +417,8 @@ function parseKey(key: string): { kind: string; masterId: string; compareId: str
 /** Human-readable change report (plain text) to download alongside the merge. */
 export function formatReport(report: ChangeReport): string {
   const lines: string[] = [];
-  lines.push("GedMerge change report");
-  lines.push("======================");
+  lines.push("GED Merge change report");
+  lines.push("=======================");
   lines.push("");
   lines.push(`Records changed: ${report.recordsChanged}`);
   lines.push(`Fields applied:  ${report.changes.length}`);

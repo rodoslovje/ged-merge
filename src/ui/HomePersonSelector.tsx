@@ -38,7 +38,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
   const current = options.find((o) => o.id === homeId);
 
   return (
-    <div className="home-selector">
+    <div className={homeId ? "home-selector" : "home-selector unset"}>
       <div className="home-control">
         <input
           type="text"
