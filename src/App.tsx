@@ -366,11 +366,15 @@ export function App() {
             title={t("load.master")}
             state={master}
             onLoad={(f) => loadFile("master", f)}
+            highlight={master.status === "empty"}
+            tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
           />
           <GedcomLoader
             title={t("load.incoming")}
             state={compare}
             onLoad={(f) => loadFile("compare", f)}
+            highlight={master.status === "loaded" && compare.status === "empty"}
+            tooltip={master.status === "loaded" && compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
           />
         </div>
       </Section>

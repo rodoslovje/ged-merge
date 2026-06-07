@@ -6,9 +6,11 @@ interface Props {
   title: string;
   state: SlotState;
   onLoad: (file: File) => void;
+  highlight?: boolean;
+  tooltip?: string;
 }
 
-export function GedcomLoader({ title, state, onLoad }: Props) {
+export function GedcomLoader({ title, state, onLoad, highlight, tooltip }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
@@ -25,7 +27,13 @@ export function GedcomLoader({ title, state, onLoad }: Props) {
         <h2>{title}</h2>
         {state.status !== "loading" && (
           <>
-            <button className="nav-btn" onClick={() => inputRef.current?.click()}>{t("loader.load")}</button>
+            <button
+              className={`nav-btn${highlight ? " highlight" : ""}`}
+              onClick={() => inputRef.current?.click()}
+              title={tooltip}
+            >
+              {t("loader.load")}
+            </button>
             <input ref={inputRef} className="file-input" type="file" accept=".ged,.gedcom,text/plain" onChange={onChange} />
           </>
         )}

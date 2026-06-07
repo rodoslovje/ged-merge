@@ -656,6 +656,11 @@ button {
 }
 .nav-btn:hover:not(:disabled) { border-color: var(--accent); }
 .nav-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+.nav-btn.highlight {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(76, 139, 245, 0.35);
+  color: var(--accent);
+}
 .nav-pos {
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
