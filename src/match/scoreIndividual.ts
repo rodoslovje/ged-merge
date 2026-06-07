@@ -1,4 +1,4 @@
-import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
 import { fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
@@ -57,6 +57,12 @@ export function scoreIndividualPair(
   add(components, "parents", w.parents, nameSetSimilarity(parentNames(master, masterDs), parentNames(compare, compareDs)), "parents");
   add(components, "partners", w.partners, nameSetSimilarity(partnerNames(master, masterDs), partnerNames(compare, compareDs)), "partners");
 
+  // Marriage corroboration, folded in from the person's spouse family: a matching
+  // marriage date/place is strong evidence (and disambiguates same-named people).
+  const mar = bestMarriageSimilarity(master, compare, masterDs, compareDs);
+  add(components, "marriageDate", w.marriageDate, mar.date, "marriage date");
+  add(components, "marriagePlace", w.marriagePlace, mar.place, "marriage place");
+
   let score01 = combineComponents(components);
 
   // The identity key — surname, given name and birth date — is conclusive: when
@@ -94,6 +100,39 @@ export function scoreIndividualPair(
 
 /** The identity key: a perfect match on all three earns a 100 score. */
 const KEY_FIELDS = ["surname", "given", "birthDate"] as const;
+
+/** MARR events across all families where the person is a spouse. */
+function marriageEvents(indi: Individual, ds: Dataset): GedEvent[] {
+  const out: GedEvent[] = [];
+  for (const famId of indi.spouseOf) {
+    const m = ds.families.get(famId)?.events.find((e) => e.tag === "MARR");
+    if (m) out.push(m);
+  }
+  return out;
+}
+
+/** Best marriage date/place similarity over the cross-product of both people's
+ *  marriages (handles re-marriages; undefined when a side lacks the data). */
+function bestMarriageSimilarity(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): { date: number | undefined; place: number | undefined } {
+  const me = marriageEvents(master, masterDs);
+  const ce = marriageEvents(compare, compareDs);
+  let date: number | undefined;
+  let place: number | undefined;
+  for (const a of me) {
+    for (const b of ce) {
+      const d = dateSimilarity(a.date, b.date);
+      if (d !== undefined) date = Math.max(date ?? 0, d);
+      const p = placeSimilarity(a.place, b.place);
+      if (p !== undefined) place = Math.max(place ?? 0, p);
+    }
+  }
+  return { date, place };
+}
 
 /**
  * Total bonus for corroborating relatives: father, mother and any partner that

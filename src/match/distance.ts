@@ -61,18 +61,7 @@ export function applyDistanceRanking(
     .map((c) => withDistance(c, distances.get(c.masterId)))
     .sort(byDistanceThenScore);
 
-  const families = result.families
-    .map((c) => {
-      const fam = masterDs.families.get(c.masterId);
-      const spouseDistances = [fam?.husband, fam?.wife]
-        .map((id) => (id ? distances.get(id) : undefined))
-        .filter((d): d is number => d !== undefined);
-      const distance = spouseDistances.length ? Math.min(...spouseDistances) : undefined;
-      return withDistance(c, distance);
-    })
-    .sort(byDistanceThenScore);
-
-  return { individuals, families };
+  return { individuals };
 }
 
 function withDistance<T extends { distance?: number }>(c: T, distance: number | undefined): T {
@@ -89,7 +78,6 @@ export function clearDistanceRanking(result: MatchResult): MatchResult {
   const byScore = (a: { score: number }, b: { score: number }) => b.score - a.score;
   return {
     individuals: result.individuals.map(strip).sort(byScore),
-    families: result.families.map(strip).sort(byScore),
   };
 }
 

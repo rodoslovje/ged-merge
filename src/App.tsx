@@ -6,7 +6,7 @@ import { mergeDecisions, formatReport } from "./merge/merge";
 import type { NormalizationReport } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
-import { decisionKey, type CandidateDecision, type MatchKind } from "./review/types";
+import { decisionKey, type CandidateDecision } from "./review/types";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { MatchResults } from "./ui/MatchResults";
@@ -78,7 +78,6 @@ export function App() {
   const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
 
   // Matches list view state.
-  const [tab, setTab] = useState<MatchKind>("individual");
   const [sort, setSort] = useState<SortState[]>(DEFAULT_SORT);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -195,12 +194,11 @@ export function App() {
     setSort((prev) => nextSort(prev, key));
   }
 
-  // Filtered + sorted list for the active tab.
+  // Filtered + sorted list of individual matches.
   const visible = useMemo(() => {
     if (!matches) return [];
-    const raw = tab === "individual" ? matches.individuals : matches.families;
-    return applySort(applyFilters(raw, filters), sort);
-  }, [matches, tab, filters, sort]);
+    return applySort(applyFilters(matches.individuals, filters), sort);
+  }, [matches, filters, sort]);
 
   const safeIndex = visible.length === 0 ? 0 : Math.min(selectedIndex, visible.length - 1);
   const current = visible[safeIndex];
@@ -248,7 +246,7 @@ export function App() {
 
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
-    const key = decisionKey(tab, current.masterId, current.compareId);
+    const key = decisionKey("individual", current.masterId, current.compareId);
     setDecisions((prev) => new Map(prev).set(key, next));
   }
 
@@ -257,7 +255,7 @@ export function App() {
 
   function exportMerged() {
     if (!masterDataset || !compareDataset) return;
-    const matchResult = matches ?? { individuals: [], families: [] };
+    const matchResult = matches ?? { individuals: [] };
     const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, matchResult, t);
     const merged = serializeGedcom(records, {
       eol: masterDataset.eol,
@@ -309,25 +307,9 @@ export function App() {
     </div>
   ) : matches ? (
     <>
-      <div className="matches-tabs-header">
-        <div className="tabs" onClick={(e) => e.stopPropagation()}>
-          <button
-            className={tab === "individual" ? "tab active" : "tab"}
-            onClick={() => { setTab("individual"); setSelectedIndex(0); }}
-          >
-            {t("matches.individuals")} ({matches.individuals.length})
-          </button>
-          <button
-            className={tab === "family" ? "tab active" : "tab"}
-            onClick={() => { setTab("family"); setSelectedIndex(0); }}
-          >
-            {t("matches.families")} ({matches.families.length})
-          </button>
-        </div>
-      </div>
       <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
         <span className="muted">
-          {t("list.count", { visible: visible.length, total: tab === "individual" ? matches.individuals.length : matches.families.length })}
+          {t("list.count", { visible: visible.length, total: matches.individuals.length })}
         </span>
         <button
           className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
@@ -436,7 +418,6 @@ export function App() {
             {matches ? (
               <MatchResults
                 result={matches}
-                tab={tab}
                 sort={sort}
                 onToggleSort={toggleSort}
                 filters={filters}
@@ -476,17 +457,12 @@ export function App() {
           >
             {current && masterDataset && compareDataset ? (
               <ComparePanel
-                kind={tab}
                 candidate={current}
                 masterDs={masterDataset}
                 compareDs={compareDataset}
-                decision={decisions.get(decisionKey(tab, current.masterId, current.compareId))}
+                decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
                 onChange={updateDecision}
-                onOpenTree={
-                  tab === "individual"
-                    ? () => openTree(current.masterId, current.compareId)
-                    : undefined
-                }
+                onOpenTree={() => openTree(current.masterId, current.compareId)}
               />
             ) : (
               <p className="muted">

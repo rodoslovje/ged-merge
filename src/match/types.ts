@@ -41,27 +41,8 @@ export interface IndividualCandidate {
   linkCount?: number;
 }
 
-export interface FamilyCandidate {
-  masterId: string;
-  compareId: string;
-  score: number;
-  category: MatchCategory;
-  components: ScoreComponent[];
-  /** Combined master-centric title: spouse names with only the differing compare parts. */
-  title: string;
-  /** Minimum distance of either spouse to the home person. */
-  distance?: number;
-  /** Fields the compare record has that the master lacks (data to add). */
-  newCount?: number;
-  /** Fields both records have but that differ (to reconcile). */
-  diffCount?: number;
-  /** Attached-link rows the compare adds or that differ. */
-  linkCount?: number;
-}
-
 export interface MatchResult {
   individuals: IndividualCandidate[];
-  families: FamilyCandidate[];
 }
 
 /** Per-field weights and acceptance thresholds. All tunable. */
@@ -75,13 +56,9 @@ export interface MatchConfig {
     sex: number;
     parents: number;
     partners: number;
-  };
-  familyWeights: {
-    husband: number;
-    wife: number;
+    /** Marriage corroboration, folded in from the person's spouse family. */
     marriageDate: number;
     marriagePlace: number;
-    children: number;
   };
   /**
    * Hard plausibility gates: a pair failing any of these is never offered as a
@@ -133,13 +110,8 @@ export const DEFAULT_CONFIG: MatchConfig = {
     sex: 0.5,
     parents: 2,
     partners: 1.5,
-  },
-  familyWeights: {
-    husband: 2.5,
-    wife: 2.5,
-    marriageDate: 2,
-    marriagePlace: 1,
-    children: 2,
+    marriageDate: 1.5,
+    marriagePlace: 0.75,
   },
   gates: {
     minSurname: 0.8,

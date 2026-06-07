@@ -310,7 +310,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  padding: 6px 10px;
+  padding: 6px 28px 6px 10px; /* room for the clear button overlaid on the right */
 }
 /* Until a home person is picked, draw attention to the (still-empty) field so
    the user knows to set one to rank matches by relationship distance. */
@@ -324,12 +324,17 @@ button {
   opacity: 1;
 }
 .home-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--muted);
   font-size: 1.2rem;
   line-height: 1;
   padding: 0 4px;
+  z-index: 1;
 }
 .home-clear:hover {
   color: var(--text);
@@ -752,9 +757,9 @@ button {
 
 .matches-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 .matches-actions .muted {
   font-size: 0.75rem;
@@ -1192,5 +1197,54 @@ button {
   }
   .tree-minimap {
     display: none;
+  }
+  .tabs {
+    gap: 4px;
+  }
+  .tab {
+    padding: 4px 8px;
+    font-size: 0.85rem;
+  }
+  .filters {
+    padding: 8px;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .filter-row {
+    gap: 8px;
+  }
+  .tree-page {
+    padding: 12px;
+  }
+  .tree-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .tree-title {
+    flex: 1 1 100%;
+    font-size: 1.1rem;
+  }
+  .tree-back {
+    padding: 4px 10px;
+    font-size: 0.85rem;
+  }
+  .tree-mode button {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+  .tree-legend {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .tree-legend-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+  .tree-compare {
+    width: auto;
+    left: 10px;
+    right: 10px;
+    max-height: 55vh;
   }
 }

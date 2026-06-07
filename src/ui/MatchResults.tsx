@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
   categorize,
   DEFAULT_CONFIG,
-  type FamilyCandidate,
   type IndividualCandidate,
   type MatchCategory,
   type MatchResult,
@@ -12,14 +11,12 @@ import {
   decisionKey,
   type CandidateDecision,
   type MatchDecisionStatus,
-  type MatchKind,
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
 import { formatScore, sexClass, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 
 interface Props {
   result: MatchResult;
-  tab: MatchKind;
   /** Active sort keys, primary first then secondary. */
   sort: SortState[];
   onToggleSort: (key: SortKey) => void;
@@ -37,7 +34,6 @@ interface Props {
 
 export function MatchResults({
   result,
-  tab,
   sort,
   onToggleSort,
   filters,
@@ -50,7 +46,7 @@ export function MatchResults({
   showFilters,
 }: Props) {
   const { t } = useTranslation();
-  const total = tab === "individual" ? result.individuals.length : result.families.length;
+  const total = result.individuals.length;
 
   // Rank 0 = primary (▲/▼), rank 1 = secondary (△/▽).
   const rankOf = (key: SortKey) => sort.findIndex((s) => s.key === key);
@@ -174,7 +170,7 @@ export function MatchResults({
               key={`${c.masterId}-${c.compareId}-${i}`}
               candidate={c}
               selected={i === selectedIndex}
-              status={decisions.get(decisionKey(tab, c.masterId, c.compareId))?.status}
+              status={decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status}
               onSelect={() => onSelect(i)}
             />
           ))}
@@ -190,7 +186,7 @@ function CandidateRow({
   status,
   onSelect,
 }: {
-  candidate: IndividualCandidate | FamilyCandidate;
+  candidate: IndividualCandidate;
   selected: boolean;
   status: MatchDecisionStatus | undefined;
   onSelect: () => void;

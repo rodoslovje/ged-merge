@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { familyFieldRows, fieldDiffCounts, individualFieldRows } from "./fields";
+import { fieldDiffCounts, individualFieldRows } from "./fields";
 import type { FieldRow } from "./types";
 
 function dataset(text: string) {
@@ -301,21 +301,6 @@ describe("attached links", () => {
     ]);
   });
 
-  it("rolls family-level and marriage-event links into one Links field", () => {
-    const m = dataset(`0 HEAD\n0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1875\n0 TRLR\n`);
-    const c = dataset(
-      `0 HEAD\n0 @G1@ FAM\n1 HUSB @P1@\n1 _LINK https://example.com/fam\n1 MARR\n2 DATE 1875\n2 WWW https://example.com/marr\n0 TRLR\n`,
-    );
-    const rows = familyFieldRows(tr, m.families.get("@F1@"), c.families.get("@G1@"), m, c);
-    const links = byKey(rows, "links");
-    expect(links?.state).toBe("incoming-only");
-    expect(links?.incomingLinks).toEqual([
-      "https://example.com/fam",
-      "https://example.com/marr",
-    ]);
-    expect(byKey(rows, "MARR.links")).toBeUndefined();
-  });
-
   it("de-duplicates a link attached both to the record and to an event", () => {
     const ds = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/x\n` +
@@ -327,29 +312,25 @@ describe("attached links", () => {
   });
 });
 
-describe("familyFieldRows", () => {
-  const m = dataset(MASTER);
-  const c = dataset(COMPARE);
-  const rows = familyFieldRows(tr, 
-    m.families.get("@F1@"),
-    c.families.get("@G1@"),
-    m,
-    c,
-  );
+describe("marriage rows on the spouse", () => {
+  // A husband whose family carries the marriage; rows surface on the individual.
+  const doc = (marr: string) =>
+    `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F@\n` +
+    `0 @F@ FAM\n1 HUSB @H@\n1 MARR\n${marr}\n0 TRLR\n`;
 
-  it("agrees on marriage date, fills marriage place", () => {
+  it("surfaces the marriage date/place as rows on the individual", () => {
+    const m = dataset(doc("2 DATE 1875"));
+    const c = dataset(doc("2 DATE 1875\n2 PLAC Graz"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
     expect(byKey(rows, "MARR.date")?.state).toBe("agree");
     expect(byKey(rows, "MARR.place")?.state).toBe("incoming-only");
-  });
-
-  it("includes the husband row", () => {
-    expect(byKey(rows, "husband")?.state).toBe("conflict"); // Müller vs Mueller label
   });
 });
 
 describe("aligned relative lists (children/partners)", () => {
   // Master children: Anna, Berta. Incoming: Anna (match), Doris (new). Berta has
-  // no incoming counterpart, Doris no master counterpart.
+  // no incoming counterpart, Doris no master counterpart. Children surface on the
+  // parent's individual row.
   const fam = (kids: string[]) =>
     `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
     kids.map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k}\n1 FAMC @F@\n`).join("") +
@@ -359,7 +340,7 @@ describe("aligned relative lists (children/partners)", () => {
 
   const md = dataset(fam(["Anna /Novak/", "Berta /Novak/"]));
   const cd = dataset(fam(["Anna /Novak/", "Doris /Novak/"]));
-  const rows = familyFieldRows(tr, md.families.get("@F@"), cd.families.get("@F@"), md, cd);
+  const rows = individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd);
   const children = byKey(rows, "children")!;
 
   it("aligns a matched child on the same line in both columns", () => {

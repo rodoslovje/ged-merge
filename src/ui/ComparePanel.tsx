@@ -1,20 +1,18 @@
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { FamilyCandidate, IndividualCandidate } from "../match/types";
-import { familyFieldRows, individualFieldRows } from "../review/fields";
+import type { IndividualCandidate } from "../match/types";
+import { individualFieldRows } from "../review/fields";
 import {
   defaultChoice,
   type CandidateDecision,
   type FieldChoice,
   type FieldRow,
   type MatchDecisionStatus,
-  type MatchKind,
 } from "../review/types";
 
 interface Props {
-  kind: MatchKind;
-  candidate: IndividualCandidate | FamilyCandidate;
+  candidate: IndividualCandidate;
   masterDs: Dataset;
   compareDs: Dataset;
   decision: CandidateDecision | undefined;
@@ -27,7 +25,6 @@ const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
 const CHOICES: FieldChoice[] = ["master", "incoming", "both"];
 
 export function ComparePanel({
-  kind,
   candidate,
   masterDs,
   compareDs,
@@ -36,24 +33,17 @@ export function ComparePanel({
   onOpenTree,
 }: Props) {
   const { t } = useTranslation();
-  const rows = useMemo<FieldRow[]>(() => {
-    if (kind === "individual") {
-      return individualFieldRows(
+  const rows = useMemo<FieldRow[]>(
+    () =>
+      individualFieldRows(
         t,
         masterDs.individuals.get(candidate.masterId),
         compareDs.individuals.get(candidate.compareId),
         masterDs,
         compareDs,
-      );
-    }
-    return familyFieldRows(
-      t,
-      masterDs.families.get(candidate.masterId),
-      compareDs.families.get(candidate.compareId),
-      masterDs,
-      compareDs,
-    );
-  }, [kind, candidate, masterDs, compareDs, t]);
+      ),
+    [candidate, masterDs, compareDs, t],
+  );
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};

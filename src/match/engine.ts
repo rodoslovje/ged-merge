@@ -1,5 +1,4 @@
 import type { Dataset } from "../gedcom/types";
-import { familyBlockKeys, scoreFamilyPair } from "./scoreFamily";
 import {
   individualBlockKeys,
   plausibleIndividualMatch,
@@ -9,7 +8,6 @@ import {
 import { soundex } from "./text";
 import {
   DEFAULT_CONFIG,
-  type FamilyCandidate,
   type IndividualCandidate,
   type MatchConfig,
   type MatchResult,
@@ -30,7 +28,6 @@ export function matchDatasets(
 ): MatchResult {
   return {
     individuals: matchIndividuals(masterDs, compareDs, config),
-    families: matchFamilies(masterDs, compareDs, config),
   };
 }
 
@@ -53,27 +50,6 @@ function matchIndividuals(
       if (sexConflicts(master, compare)) continue;
       if (!plausibleIndividualMatch(master, compare, config.gates)) continue;
       const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
-      if (cand.score / 100 >= config.minScore) scored.push(cand);
-    }
-  }
-  return assignOneToOne(scored);
-}
-
-function matchFamilies(
-  masterDs: Dataset,
-  compareDs: Dataset,
-  config: MatchConfig,
-): FamilyCandidate[] {
-  const index = buildBlockIndex(masterDs.families.values(), (f) =>
-    familyBlockKeys(f, masterDs),
-  );
-
-  const scored: FamilyCandidate[] = [];
-  for (const compare of compareDs.families.values()) {
-    const masterIds = collectCandidates(index, familyBlockKeys(compare, compareDs));
-    for (const mid of masterIds) {
-      const master = masterDs.families.get(mid)!;
-      const cand = scoreFamilyPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
   }

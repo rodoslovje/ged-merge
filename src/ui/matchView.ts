@@ -1,19 +1,15 @@
-import type { FamilyCandidate, IndividualCandidate } from "../match/types";
+import type { IndividualCandidate } from "../match/types";
 
-export type Candidate = IndividualCandidate | FamilyCandidate;
+export type Candidate = IndividualCandidate;
 
 /** One decimal, except a perfect 100 which reads better (and aligns) as "100". */
 export function formatScore(score: number): string {
   return score >= 100 ? "100" : score.toFixed(1);
 }
 
-/**
- * CSS class colouring a name by sex — cyan for male, pink for female. Family
- * candidates (two people) carry no single sex, so they get no colour.
- */
+/** CSS class colouring a name by sex — cyan for male, pink for female. */
 export function sexClass(candidate: Candidate): string {
-  const sex = "sex" in candidate ? candidate.sex : "U";
-  return sex === "M" ? "sex-m" : sex === "F" ? "sex-f" : "";
+  return candidate.sex === "M" ? "sex-m" : candidate.sex === "F" ? "sex-f" : "";
 }
 
 export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "linkCount" | "label";

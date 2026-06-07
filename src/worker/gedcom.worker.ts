@@ -8,7 +8,7 @@ import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
 import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
-import { familyFieldRows, fieldDiffCounts, individualFieldRows } from "../review/fields";
+import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
 /**
@@ -109,12 +109,6 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
           master,
           compare,
         ),
-      ),
-    })),
-    families: result.families.map((c) => ({
-      ...c,
-      ...fieldDiffCounts(
-        familyFieldRows(rawLabel, master.families.get(c.masterId), compare.families.get(c.compareId), master, compare),
       ),
     })),
   };

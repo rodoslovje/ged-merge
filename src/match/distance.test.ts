@@ -83,7 +83,6 @@ describe("applyDistanceRanking", () => {
     // Intentionally unsorted, mixing distances and scores.
     const result: MatchResult = {
       individuals: [cand("@I4@", 99), cand("@I3@", 50), cand("@I1@", 10), cand("@I2@", 90)],
-      families: [],
     };
 
     const ranked = applyDistanceRanking(result, ds, "@I1@");

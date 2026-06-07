@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "./engine";
-import { scoreFamilyPair } from "./scoreFamily";
-import { DEFAULT_CONFIG } from "./types";
 import { jaroWinkler, soundex, foldToken } from "./text";
 
 function dataset(text: string) {
@@ -108,14 +106,6 @@ describe("matchDatasets", () => {
     expect(anna!.components.some((c) => c.key === "parents")).toBe(true);
   });
 
-  it("matches the family via spouses and marriage", () => {
-    const fam = result.families.find((c) => c.compareId === "@G1@");
-    expect(fam).toBeDefined();
-    expect(fam!.masterId).toBe("@F1@");
-    expect(fam!.score).toBeGreaterThan(70);
-    expect(fam!.category === "strong" || fam!.category === "probable").toBe(true);
-  });
-
   it("never matches individuals of different recorded sex", () => {
     // Master has a male and a female with the same name + birth year; the
     // compare file has a female. Only the female may match.
@@ -154,13 +144,6 @@ describe("self-match (same file as master and compare)", () => {
   it("produces no cross matches between different people", () => {
     const cross = r.individuals.filter((c) => c.masterId !== c.compareId);
     expect(cross).toHaveLength(0);
-  });
-
-  it("matches families to themselves at 100", () => {
-    for (const c of r.families) {
-      expect(c.masterId).toBe(c.compareId);
-      expect(c.score).toBe(100);
-    }
   });
 });
 
@@ -348,43 +331,24 @@ describe("one-to-one assignment", () => {
   });
 });
 
-describe("family identity key (spouses + marriage date)", () => {
-  // A family whose two spouses and marriage event are filled from the args, so
-  // each test can drop or alter exactly one part of the identity key. Scored
-  // directly (bypassing the surname-pair blocking) to isolate the scoring rule.
-  const fam = (husb: string, wife: string, marr: string) =>
+describe("marriage corroboration (folded into individual scoring)", () => {
+  // Two same-named men; only the marriage (date + spouse) tells them apart.
+  // Approximate birth so the identity key isn't a perfect 100 — leaving room for
+  // the marriage components to move the score.
+  const master = (marr: string) =>
     `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n` +
-    `0 @H@ INDI\n1 NAME ${husb}\n1 SEX M\n1 FAMS @F@\n` +
-    (wife ? `0 @W@ INDI\n1 NAME ${wife}\n1 SEX F\n1 FAMS @F@\n` : "") +
-    `0 @F@ FAM\n1 HUSB @H@\n${wife ? `1 WIFE @W@\n` : ""}` +
-    (marr ? `1 MARR\n2 DATE ${marr}\n` : "") +
-    `0 TRLR\n`;
+    `0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1850\n1 FAMS @F@\n` +
+    `0 @W@ INDI\n1 NAME Marija /Kovač/\n1 SEX F\n1 FAMS @F@\n` +
+    `0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n1 MARR\n2 DATE ${marr}\n0 TRLR\n`;
 
-  const familyScore = (m: string, c: string) => {
-    const md = dataset(m);
-    const cd = dataset(c);
-    return scoreFamilyPair(md.families.get("@F@")!, cd.families.get("@F@")!, md, cd, DEFAULT_CONFIG)
-      .score;
-  };
-
-  const PERFECT = fam("Janez /Novak/", "Marija /Kovač/", "1875");
-
-  it("scores a flat 100 only when both spouses and the marriage date match", () => {
-    expect(familyScore(PERFECT, PERFECT)).toBe(100);
-  });
-
-  it("does not reach 100 when one side is missing a spouse", () => {
-    const c = fam("Janez /Novak/", "", "1875"); // no wife on the compare side
-    expect(familyScore(PERFECT, c)).toBeLessThan(100);
-  });
-
-  it("does not reach 100 when a spouse is missing a surname", () => {
-    const c = fam("Janez /Novak/", "Marija", "1875"); // wife has no surname
-    expect(familyScore(PERFECT, c)).toBeLessThan(100);
-  });
-
-  it("does not reach 100 when the marriage date is missing or differs", () => {
-    expect(familyScore(PERFECT, fam("Janez /Novak/", "Marija /Kovač/", ""))).toBeLessThan(100);
-    expect(familyScore(PERFECT, fam("Janez /Novak/", "Marija /Kovač/", "1879"))).toBeLessThan(100);
+  it("scores a same-marriage pair higher than a differing-marriage pair", () => {
+    const same = matchDatasets(dataset(master("1875")), dataset(master("1875")))
+      .individuals.find((c) => c.compareId === "@H@");
+    const diff = matchDatasets(dataset(master("1875")), dataset(master("1899")))
+      .individuals.find((c) => c.compareId === "@H@");
+    expect(same).toBeDefined();
+    expect(diff).toBeDefined();
+    expect(same!.score).toBeGreaterThan(diff!.score);
+    expect(same!.components.some((c) => c.key === "marriageDate")).toBe(true);
   });
 });

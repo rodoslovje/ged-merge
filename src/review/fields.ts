@@ -76,13 +76,52 @@ export function individualFieldRows(
   // Links (record-level and from any event, collapsed) come after the events.
   pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
 
-  // Relatives last: parents, then partners.
+  // Relatives last: parents, partner(s), the marriage facts, then children.
+  // Marriage and children live on the FAM record but are reconciled here on the
+  // spouse so every decision about a person is made in one place.
   if (masterDs && compareDs) {
     pushRow(rows, "father", formatFieldLabel(t, "father"), parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
     pushRow(rows, "mother", formatFieldLabel(t, "mother"), parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
     pushRelativesRow(rows, "partners", formatFieldLabel(t, "partners"), partnerRelatives(master, masterDs), partnerRelatives(compare, compareDs));
+
+    const mMar = primaryMarriage(master, masterDs);
+    const cMar = primaryMarriage(compare, compareDs);
+    pushRow(rows, "MARR.date", formatFieldLabel(t, "MARR.date"), mMar?.date?.raw, cMar?.date?.raw);
+    pushRow(rows, "MARR.place", formatFieldLabel(t, "MARR.place"), mMar?.place?.raw, cMar?.place?.raw);
+    pushRow(rows, "MARR.addr", formatFieldLabel(t, "MARR.addr"), mMar?.address?.raw, cMar?.address?.raw);
+
+    pushRelativesRow(rows, "children", formatFieldLabel(t, "children"), personChildRelatives(master, masterDs), personChildRelatives(compare, compareDs));
   }
   return rows;
+}
+
+/** The MARR event of the first family this person is a spouse in that has one. */
+function primaryMarriage(indi: Individual | undefined, ds: Dataset) {
+  if (!indi) return undefined;
+  for (const famId of indi.spouseOf) {
+    const m = ds.families.get(famId)?.events.find((e) => e.tag === "MARR");
+    if (m) return m;
+  }
+  return undefined;
+}
+
+/** This person's children across all their families, as alignable relatives. */
+function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
+  if (!indi) return [];
+  const seen = new Set<string>();
+  const out: Relative[] = [];
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const cid of fam.children) {
+      if (seen.has(cid)) continue;
+      const child = ds.individuals.get(cid);
+      if (!child) continue;
+      seen.add(cid);
+      out.push({ name: child.names[0], text: label(child) });
+    }
+  }
+  return out;
 }
 
 /** Full name of a parent (father via HUSB, mother via WIFE) from the first
@@ -118,31 +157,6 @@ function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[]
     .map((n) => ({ name: n, text: n.full }));
 }
 
-/** Build the comparable field rows for a family candidate. */
-export function familyFieldRows(
-  t: any,
-  master: Family | undefined,
-  compare: Family | undefined,
-  masterDs: Dataset,
-  compareDs: Dataset,
-): FieldRow[] {
-  const rows: FieldRow[] = [];
-
-  pushRow(rows, "husband", formatFieldLabel(t, "husband"), spouse(master?.husband, masterDs), spouse(compare?.husband, compareDs));
-  pushRow(rows, "wife", formatFieldLabel(t, "wife"), spouse(master?.wife, masterDs), spouse(compare?.wife, compareDs));
-
-  // All links (family-level and from any family event) collapse into one field.
-  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
-
-  const mm = master?.events.find((e) => e.tag === "MARR");
-  const cm = compare?.events.find((e) => e.tag === "MARR");
-  pushRow(rows, "MARR.date", formatFieldLabel(t, "MARR.date"), mm?.date?.raw, cm?.date?.raw);
-  pushRow(rows, "MARR.place", formatFieldLabel(t, "MARR.place"), mm?.place?.raw, cm?.place?.raw);
-  pushRow(rows, "MARR.addr", formatFieldLabel(t, "MARR.addr"), mm?.address?.raw, cm?.address?.raw);
-
-  pushRelativesRow(rows, "children", formatFieldLabel(t, "children"), childRelatives(master, masterDs), childRelatives(compare, compareDs));
-  return rows;
-}
 
 /**
  * Summary counts over a set of field rows:
@@ -393,16 +407,3 @@ function sexText(t: any, sex: string | undefined): string {
   return "";
 }
 
-function spouse(id: string | undefined, ds: Dataset): string {
-  const indi = id ? ds.individuals.get(id) : undefined;
-  return indi ? label(indi) : "";
-}
-
-/** This family's children as alignable relatives. */
-function childRelatives(fam: Family | undefined, ds: Dataset): Relative[] {
-  if (!fam) return [];
-  return fam.children
-    .map((id) => ds.individuals.get(id))
-    .filter((i): i is Individual => i !== undefined)
-    .map((i) => ({ name: i.names[0], text: label(i) }));
-}
