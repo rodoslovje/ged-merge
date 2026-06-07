@@ -19,7 +19,7 @@ export const en = {
   "nav.pos": "{{current}} of {{total}}",
   "loader.load": "Load file...",
   "loader.empty": "No file loaded.",
-  "loader.parsing": "Parsing {{fileName}}…",
+  "loader.parsing": "Parsing and validating {{fileName}}…",
   "loader.error": "Error in {{fileName}}: {{message}}",
   "loader.file": "File: {{fileName}}",
   "loader.version": "GEDCOM version: {{version}}",

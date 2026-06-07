@@ -19,7 +19,7 @@ export const sl = {
   "nav.pos": "{{current}} od {{total}}",
   "loader.load": "Naloži datoteko...",
   "loader.empty": "Nobena datoteka ni naložena.",
-  "loader.parsing": "Razčlenjevanje {{fileName}}…",
+  "loader.parsing": "Razčlenjevanje in preverjanje {{fileName}}…",
   "loader.error": "Napaka v {{fileName}}: {{message}}",
   "loader.file": "Datoteka: {{fileName}}",
   "loader.version": "Različica GEDCOM: {{version}}",
