@@ -43,7 +43,7 @@ export const en = {
   "home.tooltip": "Set a home person to rank matches by relationship distance",
   "filter.search": "Search name…",
   "filter.searchTooltip": "Filter matches by name or surname",
-  "filter.newData": "New data",
+  "filter.newData": "New",
   "filter.newDataTooltip": "Keep only matches that add new data",
   "filter.differences": "Differences",
   "filter.differencesTooltip": "Keep only matches with conflicting fields",

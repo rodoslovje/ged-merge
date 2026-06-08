@@ -37,6 +37,20 @@ interface Props {
   showFilters: boolean;
 }
 
+/** Shared attributes for the small, language-neutral column-header icons. */
+const ICON_PROPS = {
+  className: "col-ico",
+  width: 13,
+  height: 13,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
 export function MatchResults({
   result,
   sort,
@@ -153,18 +167,7 @@ export function MatchResults({
                 title={t("list.distanceTooltip")}
                 onClick={() => onToggleSort("distance")}
               >
-                <svg
-                  className="dist-ico"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
+                <svg {...ICON_PROPS}>
                   <circle cx="18" cy="5" r="3" />
                   <circle cx="6" cy="12" r="3" />
                   <circle cx="18" cy="19" r="3" />
@@ -179,14 +182,25 @@ export function MatchResults({
               title={t("list.newTooltip")}
               onClick={() => onToggleSort("newCount")}
             >
-              N{arrow("newCount")}
+              {/* New data: a plus sign. */}
+              <svg {...ICON_PROPS}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              {arrow("newCount")}
             </button>
             <button
               className={cls("diffCount", "nd")}
               title={t("list.diffTooltip")}
               onClick={() => onToggleSort("diffCount")}
             >
-              D{arrow("diffCount")}
+              {/* Differences: a not-equal sign. */}
+              <svg {...ICON_PROPS}>
+                <line x1="5" y1="9" x2="19" y2="9" />
+                <line x1="5" y1="15" x2="19" y2="15" />
+                <line x1="17" y1="5" x2="7" y2="19" />
+              </svg>
+              {arrow("diffCount")}
             </button>
             <button
               className={cls("linkCount", "nd")}

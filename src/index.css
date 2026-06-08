@@ -542,9 +542,8 @@ button {
   cursor: pointer;
 }
 .name-search {
-  flex: 1 1 160px;
+  flex: 1 1 auto;
   min-width: 120px;
-  max-width: 260px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -662,7 +661,7 @@ button {
   min-width: 0;
   overflow: visible;
 }
-.dist-ico {
+.col-ico {
   vertical-align: -2px;
 }
 .sortbtn {
@@ -1121,10 +1120,10 @@ button {
   position: absolute;
   top: 10px;
   left: 10px;
-  background: rgba(10, 12, 16, 0.85);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   touch-action: none;
 }

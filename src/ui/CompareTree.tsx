@@ -137,8 +137,17 @@ export function CompareTree({
     });
   }, []);
 
-  // Re-measure on first paint, whenever the laid-out tree changes, and on resize.
-  useEffect(() => syncViewport(), [laid, syncViewport]);
+  // On (re)layout — initial load and mode switches — scroll so the starting
+  // person (the tree root) is in view: pinned to the left, vertically centred.
+  // Then re-measure for the minimap.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (el && laid) {
+      el.scrollLeft = Math.max(0, laid.root.x);
+      el.scrollTop = Math.max(0, laid.root.y + PAD + NODE_H / 2 - el.clientHeight / 2);
+    }
+    syncViewport();
+  }, [laid, syncViewport]);
   useEffect(() => {
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);
@@ -310,12 +319,17 @@ function TreeSvg({
               height={NODE_H}
               rx={10}
               ry={10}
-              fill="var(--panel)"
+              fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
               stroke={STATUS_COLOR[n.status]}
-              strokeWidth={2}
+              strokeWidth={2.5}
             />
-            <SexDot sex={n.sex} x={16} y={NODE_H / 2} />
-            <text className="tree-node-name" x={32} y={19}>
+            <SexDot sex={n.sex} x={16} y={15} />
+            <text
+              className="tree-node-name"
+              x={32}
+              y={19}
+              style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
+            >
               {truncate(n.name, 24)}
             </text>
             {n.years && (
