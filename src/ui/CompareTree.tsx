@@ -4,7 +4,7 @@ import type { Dataset, Sex } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { FieldValue } from "./FieldValue";
-import { sexColorVar, sexGlyph } from "./sex";
+import { sexClass, sexColorVar, sexGlyph } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
@@ -177,7 +177,9 @@ export function CompareTree({
 
   // Grab-to-pan with mouse / touchpad. Touch keeps the browser's native
   // one-finger scroll (with momentum), so we ignore touch pointers here.
-  const pan = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
+  // We only capture the pointer *after* movement crosses a threshold — capturing
+  // on pointerdown would retarget the click off the node and break selection.
+  const pan = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null);
   const dragged = useRef(false);
   const [panning, setPanning] = useState(false);
 
@@ -185,9 +187,7 @@ export function CompareTree({
     if (e.pointerType === "touch" || e.button !== 0) return;
     const el = canvasRef.current;
     if (!el) return;
-    pan.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, moved: false };
-    el.setPointerCapture(e.pointerId);
-    setPanning(true);
+    pan.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false };
   }, []);
 
   const onPanMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -196,20 +196,26 @@ export function CompareTree({
     if (!p || !el) return;
     const dx = e.clientX - p.x;
     const dy = e.clientY - p.y;
-    if (!p.moved && Math.hypot(dx, dy) < 4) return; // ignore jitter, keep clicks clickable
-    p.moved = true;
+    if (!p.moved) {
+      if (Math.hypot(dx, dy) < 4) return; // ignore jitter, keep clicks clickable
+      p.moved = true;
+      el.setPointerCapture(p.id);
+      setPanning(true);
+    }
     el.scrollLeft = p.left - dx;
     el.scrollTop = p.top - dy;
   }, []);
 
-  const onPanEnd = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPanEnd = useCallback(() => {
     const p = pan.current;
-    if (!p) return;
-    if (p.moved) dragged.current = true; // swallow the click that the drag would emit
-    pan.current = null;
-    setPanning(false);
     const el = canvasRef.current;
-    if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    if (!p) return;
+    if (p.moved) {
+      dragged.current = true; // swallow the click that the drag would emit
+      if (el?.hasPointerCapture(p.id)) el.releasePointerCapture(p.id);
+      setPanning(false);
+    }
+    pan.current = null;
   }, []);
 
   // After a pan, cancel the trailing click so dragging doesn't select a node.
@@ -234,10 +240,10 @@ export function CompareTree({
         <h2 className="tree-title">
           {t("tree.title")}
           {rootName && (
-            <span className="muted">
-              {" · "}
-              <span className="tree-compare-title">{rootName}</span>
-              {rootYears && <span className="gm-data"> {rootYears}</span>}
+            <span className="tree-title-person">
+              <span className="muted">{" · "}</span>
+              <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
+              {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
             </span>
           )}
         </h2>

@@ -1009,6 +1009,15 @@ button {
   margin: 0;
   flex: 1 1 auto;
 }
+.tree-title-name {
+  font-weight: 600;
+}
+.tree-title-years {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
 .tree-back {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1224,6 +1233,11 @@ button {
 }
 .tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
 .tree-compare-table .f-val { color: var(--text); }
+/* Match the Compare screen's row highlights for new (incoming-only) and
+   conflicting (difference) fields. Applied to cells because the table is
+   display:block, where a <tr> background doesn't paint reliably. */
+.tree-compare-table .field.conflict td { background: rgba(226, 179, 65, 0.08); }
+.tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
 
 /* --- modal --- */
 .modal-overlay {
