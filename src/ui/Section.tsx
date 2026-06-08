@@ -16,11 +16,20 @@ export function Section({ title, subtitle, open, onToggle, disabled, children }:
   return (
     <section className={`section${open ? " open" : ""}`}>
       {/* The toggle is its own button so the subtitle (which carries its own
-          controls) isn't nested inside a button — invalid HTML. */}
-      <div className="section-head">
+          controls) isn't nested inside a button — invalid HTML. The header div
+          also toggles, so clicking the subtitle text (e.g. file names) expands;
+          the button stops propagation to avoid a double toggle, and interactive
+          controls inside the subtitle stop propagation themselves. */}
+      <div
+        className={`section-head${disabled ? "" : " clickable"}`}
+        onClick={disabled ? undefined : onToggle}
+      >
         <button
           className="section-toggle"
-          onClick={onToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           disabled={disabled}
           aria-expanded={open}
         >

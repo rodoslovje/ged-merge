@@ -130,6 +130,9 @@ button {
   font-size: 1rem;
   position: relative;
 }
+.section-head.clickable {
+  cursor: pointer;
+}
 .section-toggle {
   flex: 1;
   min-width: 0;
@@ -213,8 +216,13 @@ button {
 .loaders {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 32px;
   align-items: start;
+}
+/* Divider between the two loaders instead of a box around each. */
+.loaders > .loader + .loader {
+  border-left: 1px solid var(--border);
+  padding-left: 32px;
 }
 
 .loader-col {
@@ -224,10 +232,7 @@ button {
 }
 
 .loader {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
+  padding: 0;
 }
 
 .loader h2 {
@@ -1409,6 +1414,12 @@ button {
   }
   .loaders {
     grid-template-columns: 1fr;
+  }
+  .loaders > .loader + .loader {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
   }
   .home-selector {
     flex: 1 1 100%;
