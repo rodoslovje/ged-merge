@@ -125,7 +125,10 @@ export function describeDateFormat(profile: DateFormatProfile): string {
     return fields.join(separator);
   }
   const d = profile.padDay ? "DD" : "D";
-  const month = profile.monthTokens[1] || "MMM";
+  const token = profile.monthTokens[1] || "JAN";
+  // Conventional month placeholder (MMM abbreviated / MMMM full), cased to match
+  // the file's own month tokens (e.g. "Mmm" for title case, "mmm" for lower).
+  const month = applyCasing(token.length > 3 ? "MMMM" : "MMM", casingOf(token));
   return `${d} ${month} YYYY`;
 }
 

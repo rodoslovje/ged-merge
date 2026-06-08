@@ -64,9 +64,23 @@ function detectTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
-/** GEDCOM xref of "person 1" — the conventional root individual, used as the
- * default home person when present. */
-const DEFAULT_HOME_ID = "@I1@";
+/** Conventional xrefs of "person 1" — the root individual many apps assign to
+ * the home/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
+ * the default home person when no explicit pointer is present, in priority order. */
+const DEFAULT_HOME_XREFS = ["@1@", "@I1@"];
+
+/**
+ * The default home person to pre-select. Prefers the explicit `1 _ROOT @xref@`
+ * pointer written in the HEAD by some apps (e.g. RootsMagic), then falls back to
+ * the conventional root individual (`@1@` / `@I1@`). Returns undefined when the
+ * file gives no usable signal.
+ */
+function defaultHomeId(ds: Dataset): string | undefined {
+  const head = ds.records.find((r) => r.tag === "HEAD");
+  const root = head?.children.find((c) => c.tag === "_ROOT")?.value;
+  if (root && ds.individuals.has(root)) return root;
+  return DEFAULT_HOME_XREFS.find((id) => ds.individuals.has(id));
+}
 
 /** Trigger a client-side download of a text file (no server round-trip). */
 function downloadText(fileName: string, text: string): void {
@@ -231,15 +245,16 @@ export function App() {
   }
 
   // When the first results for a freshly loaded master arrive, default the home
-  // person to the root individual (@I1@) if present. Attempted once per file
+  // person to the master's root individual if present. Attempted once per file
   // (autoHomeRef), so a user who later clears the home person isn't overridden.
   useEffect(() => {
     if (!matches || autoHomeRef.current) return;
     autoHomeRef.current = true;
     if (homeId) return; // user already chose before the first result
     const ds = master.status === "loaded" ? master.file.dataset : undefined;
-    if (ds?.individuals.has(DEFAULT_HOME_ID)) {
-      changeHome(DEFAULT_HOME_ID);
+    const home = ds ? defaultHomeId(ds) : undefined;
+    if (home) {
+      changeHome(home);
     } else {
       // No conventional root person to default to — focus the picker instead.
       setFocusHome(true);

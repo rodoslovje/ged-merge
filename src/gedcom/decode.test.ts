@@ -44,4 +44,36 @@ describe("decodeGedcom charset detection", () => {
     expect(charset).toBe("UTF-8");
     expect(text).toContain("Müller");
   });
+
+  it("recovers a file declared ANSI whose bytes are actually UTF-8", () => {
+    // "Tržič" in UTF-8: ž=C5 BE, č=C4 8D.
+    const { text, charset, warnings } = decodeGedcom(
+      ged("ANSI", [0x54, 0x72, 0xc5, 0xbe, 0x69, 0xc4, 0x8d]),
+    );
+    expect(charset).toBe("UTF-8");
+    expect(text).toContain("Tržič");
+    expect(warnings.some((w) => /valid UTF-8/.test(w.message))).toBe(true);
+  });
+
+  it("recovers a file declared UTF-8 whose bytes are actually Windows-1250", () => {
+    // CP1250 accented letters separated by ASCII: invalid as UTF-8.
+    const { text, charset } = decodeGedcom(ged("UTF-8", [0xc8, 0x2d, 0x9a, 0x2d, 0x9e]));
+    expect(charset).toBe("WINDOWS-1250");
+    expect(text).toContain("Č-š-ž");
+  });
+
+  it("repairs double-encoded (mojibake) UTF-8 text", () => {
+    const bytes = [...new TextEncoder().encode("0 HEAD\n1 CHAR UTF-8\n1 NAME GorĹˇiÄŤ\n")];
+    const { text, charset, warnings } = decodeGedcom(new Uint8Array(bytes).buffer);
+    expect(charset).toBe("UTF-8");
+    expect(text).toContain("Goršič");
+    expect(text).not.toContain("GorĹˇiÄŤ");
+    expect(warnings.some((w) => /mojibake/.test(w.message))).toBe(true);
+  });
+
+  it("leaves correctly-encoded German umlauts untouched", () => {
+    const bytes = [...new TextEncoder().encode("0 HEAD\n1 CHAR UTF-8\n1 NAME Jäger Ärzte\n")];
+    const { text } = decodeGedcom(new Uint8Array(bytes).buffer);
+    expect(text).toContain("Jäger Ärzte");
+  });
 });

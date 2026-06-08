@@ -21,7 +21,7 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
 
   // 1. BOM sniffing.
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return { text: decodeUtf8(bytes.subarray(3)), charset: "UTF-8", warnings };
+    return utf8Result(bytes.subarray(3), warnings);
   }
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
     return { text: decodeUtf16(bytes.subarray(2), true), charset: "UNICODE", warnings };
@@ -33,9 +33,19 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
   // 2. Read the declared charset from the header (ASCII-safe peek).
   const declared = sniffDeclaredCharset(bytes);
 
+  // A file's declared charset is often wrong. Whenever the bytes are actually
+  // valid UTF-8 *and* carry a Latin two-byte sequence (as all real Slovenian /
+  // German UTF-8 does), trust the bytes over an 8-bit label. Requiring the Latin
+  // lead avoids treating a short 8-bit run that is coincidentally valid UTF-8
+  // (e.g. a CJK-range 3-byte sequence) as mislabelled.
+  const reallyUtf8 = isValidUtf8(bytes) && hasLatinMultibyte(bytes);
+
   switch (declared) {
     case "UTF-8":
-      return { text: decodeUtf8(bytes), charset: "UTF-8", warnings };
+      if (isValidUtf8(bytes)) return utf8Result(bytes, warnings);
+      // Declared UTF-8 but not valid: either a real 8-bit file mislabelled, or
+      // UTF-8 with a few corrupt bytes. Decide by how many bytes fail to decode.
+      return recoverInvalidUtf8(bytes, warnings);
     case "UNICODE":
       // No BOM but declared UNICODE: assume little-endian, the common case.
       warnings.push({
@@ -44,20 +54,25 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       });
       return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
     case "ANSEL":
+      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ANSEL");
       return { text: decodeAnsel(bytes, warnings), charset: "ANSEL", warnings };
     case "WINDOWS-1250":
+      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "WINDOWS-1250");
       return { text: decodeWindows1250(bytes), charset: "WINDOWS-1250", warnings };
     case "WINDOWS-1252":
+      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "WINDOWS-1252");
       return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
     case "ANSI":
+      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ANSI");
       // "ANSI" is locale-dependent: it usually means Windows-1252 (Western), but
       // Central-European exporters (Brother's Keeper etc.) emit Windows-1250.
       // Detect which from the byte profile.
       return decodeWindowsAnsi(bytes, warnings, "CHAR ANSI");
     case "ASCII":
       // ASCII shouldn't carry high bytes; when it does the label is wrong, so
-      // fall back to the same Windows-codepage detection.
+      // fall back to UTF-8 (if valid) or Windows-codepage detection.
       if (hasHighBytes(bytes)) {
+        if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ASCII");
         return decodeWindowsAnsi(bytes, warnings, "CHAR ASCII with non-ASCII bytes");
       }
       return { text: decodeAscii(bytes), charset: "ASCII", warnings };
@@ -65,10 +80,93 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       // No usable CHAR: prefer UTF-8 when the bytes are valid UTF-8; otherwise
       // it's some legacy 8-bit encoding, so detect the Windows codepage.
       if (!hasHighBytes(bytes) || isValidUtf8(bytes)) {
-        return { text: decodeUtf8(bytes), charset: "UTF-8", warnings };
+        return utf8Result(bytes, warnings);
       }
       return decodeWindowsAnsi(bytes, warnings, "no CHAR header; bytes are not valid UTF-8");
   }
+}
+
+/** Note a charset that was declared wrong, then decode the bytes as UTF-8. */
+function mislabelledUtf8(
+  bytes: Uint8Array,
+  warnings: ParseWarning[],
+  declared: string,
+): DecodeResult {
+  warnings.push({
+    kind: "encoding",
+    message: `CHAR ${declared} but the bytes are valid UTF-8; decoding as UTF-8.`,
+  });
+  return utf8Result(bytes, warnings);
+}
+
+/**
+ * Bytes declared UTF-8 that don't fully validate. A genuine 8-bit file
+ * mislabelled as UTF-8 yields about one undecodable byte per accented letter, so
+ * roughly as many replacements as high bytes; real UTF-8 with sparse damage
+ * yields only a handful. Use that ratio to pick the recovery path.
+ */
+function recoverInvalidUtf8(bytes: Uint8Array, warnings: ParseWarning[]): DecodeResult {
+  const text = decodeUtf8(bytes);
+  const replacements = countChar(text, "�");
+  const high = countHighBytes(bytes);
+  if (replacements > 0 && replacements * 4 >= high) {
+    warnings.push({
+      kind: "encoding",
+      message: "CHAR UTF-8 but the bytes are not valid UTF-8; decoding as a Windows codepage.",
+    });
+    return decodeWindowsAnsi(bytes, warnings, "CHAR UTF-8 but invalid");
+  }
+  return utf8Result(bytes, warnings);
+}
+
+/**
+ * Decode UTF-8, then repair double-encoding (mojibake) and surface any bytes
+ * that could not be decoded. Double-encoding happens when CP1250 text was read
+ * as UTF-8 once too often, leaving sequences like "GorĹˇiÄŤ" for "Goršič".
+ */
+function utf8Result(bytes: Uint8Array, warnings: ParseWarning[]): DecodeResult {
+  let text = decodeUtf8(bytes);
+  const { text: repaired, count } = repairMojibake(text);
+  if (count > 0) {
+    text = repaired;
+    warnings.push({
+      kind: "encoding",
+      message: `Repaired ${count} double-encoded (mojibake) text run(s).`,
+    });
+  }
+  const bad = countChar(text, "�");
+  if (bad > 0) {
+    warnings.push({
+      kind: "encoding",
+      message: `${bad} byte(s) could not be decoded and were replaced with �; the source file may be corrupted.`,
+    });
+  }
+  return { text, charset: "UTF-8", warnings };
+}
+
+function countChar(text: string, ch: string): number {
+  let n = 0;
+  for (let i = 0; i < text.length; i++) if (text[i] === ch) n++;
+  return n;
+}
+
+function countHighBytes(bytes: Uint8Array): number {
+  let n = 0;
+  for (const b of bytes) if (b >= 0x80) n++;
+  return n;
+}
+
+/**
+ * Whether the bytes contain a UTF-8 two-byte sequence with a lead in 0xC2–0xDF —
+ * the range that encodes Latin-1/Latin-Extended letters (š, č, ž, ä, …). Real
+ * Central-European UTF-8 always has these; a coincidentally-valid 8-bit run
+ * (often a 3-byte CJK sequence) does not.
+ */
+function hasLatinMultibyte(bytes: Uint8Array): boolean {
+  for (let i = 0; i < bytes.length - 1; i++) {
+    if (bytes[i] >= 0xc2 && bytes[i] <= 0xdf && (bytes[i + 1] & 0xc0) === 0x80) return true;
+  }
+  return false;
 }
 
 /**
@@ -149,6 +247,62 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
 
 function decodeUtf8(bytes: Uint8Array): string {
   return new TextDecoder("utf-8").decode(bytes);
+}
+
+/** Char → Windows-1250 byte, built by inverting the decoder (0x80–0xFF). */
+const CP1250_ENCODE: Map<string, number> = (() => {
+  const map = new Map<string, number>();
+  const dec = new TextDecoder("windows-1250");
+  for (let b = 0x80; b <= 0xff; b++) {
+    const ch = dec.decode(Uint8Array.of(b));
+    if (ch && ch !== "�") map.set(ch, b);
+  }
+  return map;
+})();
+
+/** A CP1250-misread UTF-8 lead byte (Â/Ã/Ä/Å/Ĺ/Ă) next to another high char. */
+const MOJIBAKE_SIGNATURE = /[ÂÃÄÅĹĂ][\u0080-\uffff]/;
+
+/**
+ * Repair double-encoded (mojibake) text in place. We scan each run of non-ASCII
+ * characters; if it begins with a tell-tale lead character, we re-encode the run
+ * as Windows-1250 bytes and decode those *strictly* as UTF-8. The strict decode
+ * only succeeds for genuine mojibake, so correctly-encoded text (incl. legitimate
+ * German umlauts) is left untouched.
+ */
+function repairMojibake(text: string): { text: string; count: number } {
+  if (!MOJIBAKE_SIGNATURE.test(text)) return { text, count: 0 };
+  let count = 0;
+  const out = text.replace(/[\u0080-\uffff]+/g, (run) => {
+    if (!/[ÂÃÄÅĹĂ]/.test(run)) return run;
+    const fixed = roundTripCp1250(run);
+    if (fixed !== undefined && fixed !== run) {
+      count++;
+      return fixed;
+    }
+    return run;
+  });
+  return { text: out, count };
+}
+
+/** Re-encode a run as Windows-1250 bytes and strict-decode as UTF-8, or undefined. */
+function roundTripCp1250(run: string): string | undefined {
+  const bytes: number[] = [];
+  for (const ch of run) {
+    const code = ch.codePointAt(0)!;
+    if (code < 0x80) {
+      bytes.push(code);
+      continue;
+    }
+    const b = CP1250_ENCODE.get(ch);
+    if (b === undefined) return undefined; // not representable → not this kind of mojibake
+    bytes.push(b);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bytes));
+  } catch {
+    return undefined;
+  }
 }
 
 function decodeAscii(bytes: Uint8Array): string {
