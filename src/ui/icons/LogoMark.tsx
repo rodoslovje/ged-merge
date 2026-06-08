@@ -40,6 +40,12 @@ export function LogoMark({
   );
 }
 
+// Explicit font stacks (not the --font-* CSS variables): the wordmark must keep
+// its mono-"GED" / sans-"Merge" contrast even if a stylesheet/variable failed to
+// apply or IBM Plex isn't loaded — the generic mono/sans keywords guarantee it.
+const MONO_STACK = '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+const SANS_STACK = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
 /**
  * Wordmark lockup. "GED" is set in IBM Plex Mono (it's the .ged file
  * extension — a deliberate file-tag), "Merge" in IBM Plex Sans. The mark
@@ -52,8 +58,8 @@ export function Wordmark({ size = 22 }: { size?: number }) {
         <LogoMark size={size * 1.5} />
       </span>
       <span style={{ fontSize: size, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, letterSpacing: "0.02em" }}>GED</span>
-        <span style={{ fontFamily: "var(--font-sans)", fontWeight: 600 }}>&nbsp;Merge</span>
+        <span style={{ fontFamily: MONO_STACK, fontWeight: 600, letterSpacing: "0.02em" }}>GED</span>
+        <span style={{ fontFamily: SANS_STACK, fontWeight: 600 }}>&nbsp;Merge</span>
       </span>
     </span>
   );
