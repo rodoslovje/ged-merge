@@ -69,6 +69,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear, aut
     onChange(id);
     setQuery("");
     setOpen(false);
+    inputRef.current?.blur(); // deactivate the field once a person is chosen
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

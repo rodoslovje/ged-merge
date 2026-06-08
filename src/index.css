@@ -405,6 +405,11 @@ button {
   color: var(--text);
   padding: 6px 28px 6px 10px; /* room for the clear button overlaid on the right */
 }
+.home-selector input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
 /* Until a home person is picked, draw attention to the (still-empty) field so
    the user knows to set one to rank matches by relationship distance. */
 .home-selector.unset input {

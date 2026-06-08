@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "./gedcom/types";
 import { serializeGedcom } from "./gedcom/serialize";
@@ -267,7 +267,9 @@ export function App() {
     setShowMobileWarning(false);
   }
 
-  function select(index: number) {
+  // Stable identity so memoized candidate rows don't re-render on every keystroke
+  // or filter toggle (only the rows whose own props change re-render).
+  const select = useCallback((index: number) => {
     setSelectedIndex(index);
     setOpenCompare(true);
     if (window.innerWidth <= 880) {
@@ -275,7 +277,7 @@ export function App() {
         compareRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 50);
     }
-  }
+  }, []);
 
   // Keyboard navigation across the filtered list (ignored while typing).
   useEffect(() => {

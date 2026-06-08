@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   categorize,
@@ -170,11 +170,14 @@ export function MatchResults({
           </li>
           {list.map((c, i) => (
             <CandidateRow
-              key={`${c.masterId}-${c.compareId}-${i}`}
+              // Stable per candidate pair (no index): lets React reuse rows
+              // across filter/sort changes instead of remounting the whole list.
+              key={`${c.masterId}-${c.compareId}`}
               candidate={c}
+              index={i}
               selected={i === selectedIndex}
               status={decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status}
-              onSelect={() => onSelect(i)}
+              onSelect={onSelect}
             />
           ))}
         </ul>
@@ -183,35 +186,42 @@ export function MatchResults({
   );
 }
 
-function CandidateRow({
+const CandidateRow = memo(function CandidateRow({
   candidate,
+  index,
   selected,
   status,
   onSelect,
 }: {
   candidate: IndividualCandidate;
+  index: number;
   selected: boolean;
   status: MatchDecisionStatus | undefined;
-  onSelect: () => void;
+  onSelect: (index: number) => void;
 }) {
   const { t } = useTranslation();
 
-  const scoreTooltip =
-    candidate.score === 1
-      ? undefined
-      : candidate.components
-          .map((c) => {
-            const label = formatFieldLabel(t, c.key);
-            const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
-            const missing = c.missing ? " missing" : "";
-            return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
-          })
-          .join("\n");
+  // Cached per candidate, so re-renders triggered only by an index shift (e.g.
+  // a filter toggle) don't rebuild this string for every row.
+  const scoreTooltip = useMemo(
+    () =>
+      candidate.score === 1
+        ? undefined
+        : candidate.components
+            .map((c) => {
+              const label = formatFieldLabel(t, c.key);
+              const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
+              const missing = c.missing ? " missing" : "";
+              return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
+            })
+            .join("\n"),
+    [candidate, t],
+  );
 
   return (
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
-        <button className="candidate-main" onClick={onSelect}>
+        <button className="candidate-main" onClick={() => onSelect(index)}>
           <span className={`badge ${candidate.category}`} title={scoreTooltip}>
             {formatScore(candidate.score)}
           </span>
@@ -257,7 +267,7 @@ function CandidateRow({
       </div>
     </li>
   );
-}
+});
 
 /** Score-category colour as a theme token, so the filter slider/value follow
  *  the Heritage Pine palette (and light mode) like the score badges do. */
