@@ -121,8 +121,13 @@ function renderSummary(
     t("loader.encoding", { charset: dataset.charset }),
     t("loader.individuals", { count: dataset.individuals.size }),
     t("loader.families", { count: dataset.families.size }),
-    t("loader.warnings", { count: dataset.warnings.length }),
   ];
+
+  const warnings = dataset.warnings;
+  const hasWarnings = warnings.length > 0;
+  const warningTooltip = hasWarnings
+    ? warnings.map((w) => (w.line != null ? `[${w.line}] ${w.message}` : w.message)).join("\n")
+    : undefined;
 
   const reportLines = report
     ? [
@@ -137,7 +142,13 @@ function renderSummary(
     <>
       <div className={`gm-file ${accent} loader-filename`}>{fileName}</div>
       <div className="loader-cols">
-        <div className="loader-info">{info.join("\n")}</div>
+        <div className="loader-info">
+          {info.join("\n")}
+          {"\n"}
+          <span className={hasWarnings ? "loader-warnings alert" : "loader-warnings"} title={warningTooltip}>
+            {t("loader.warnings", { count: warnings.length })}
+          </span>
+        </div>
         {reportLines && (
           <div className="loader-report">
             <div className="loader-report-head">{t("loader.normalized")}</div>

@@ -367,6 +367,12 @@ button {
   margin-bottom: 2px;
 }
 
+.loader-warnings.alert {
+  color: #d9822b;
+  font-weight: 600;
+  cursor: help;
+}
+
 .error {
   color: #ff6b6b;
 }
