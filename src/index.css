@@ -559,8 +559,9 @@ button {
 }
 
 .dist {
-  flex: none;
-  min-width: 34px;
+  flex: 0 0 34px;
+  width: 34px;
+  box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
@@ -596,6 +597,9 @@ button {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Lets rows switch to a two-line layout based on the list's own width
+     (not the viewport), since it lives in a resizable split pane. */
+  container: matches / inline-size;
 }
 
 .candidate-list-head {
@@ -607,16 +611,25 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 12px 6px 15px;
+  padding: 4px 12px 6px 11px; /* left matches the body row's content offset */
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
 }
+/* Header columns share fixed widths with the body (below). min-width:0 lets the
+   sort arrow overflow into the gap instead of widening the column. */
 .candidate-list-head .badge-h {
-  flex: none;
-  min-width: 44px;
+  flex: 0 0 50px;
+  width: 50px;
+  box-sizing: border-box;
   text-align: center;
+}
+.candidate-list-head .sortbtn.badge-h,
+.candidate-list-head .sortbtn.dist,
+.candidate-list-head .sortbtn.nd {
+  min-width: 0;
+  overflow: visible;
 }
 .sortbtn {
   background: none;
@@ -643,8 +656,9 @@ button {
 }
 
 .nd {
-  flex: none;
-  min-width: 26px;
+  flex: 0 0 28px;
+  width: 28px;
+  box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
@@ -689,6 +703,34 @@ button {
   padding: 3px 0 3px 10px;
   font-size: 0.9rem;
 }
+/* On a wide list, the score/numbers flow as direct columns of the row so they
+   line up under the header. On a narrow list they regroup onto their own line. */
+.candidate-metrics {
+  display: contents;
+}
+
+@container matches (max-width: 600px) {
+  .candidate-main {
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 1px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .labels {
+    order: 1;
+  }
+  .status-chip {
+    order: 1;
+  }
+  .candidate-metrics {
+    order: 2;
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
 .status-chip {
   flex: none;
   width: 18px;
@@ -705,8 +747,9 @@ button {
 .status-chip.deferred { background: #3a3320; color: #fcd34d; }
 
 .badge {
-  flex: none;
-  min-width: 44px;
+  flex: 0 0 50px;
+  width: 50px;
+  box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-weight: 600;

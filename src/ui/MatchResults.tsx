@@ -32,6 +32,8 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Home-person picker, rendered to the right of the tabs. */
   homeControl?: ReactNode;
+  /** Show the relationship-distance column (only meaningful with a home person). */
+  showRelation: boolean;
   showFilters: boolean;
 }
 
@@ -46,6 +48,7 @@ export function MatchResults({
   onSelect,
   decisions,
   homeControl,
+  showRelation,
   showFilters,
 }: Props) {
   const { t } = useTranslation();
@@ -136,13 +139,15 @@ export function MatchResults({
             <button className={cls("score", "badge-h")} onClick={() => onToggleSort("score")}>
               {t("list.score")}{arrow("score")}
             </button>
-            <button
-              className={cls("distance", "dist")}
-              title={t("list.distanceTooltip")}
-              onClick={() => onToggleSort("distance")}
-            >
-              ↺{arrow("distance")}
-            </button>
+            {showRelation && (
+              <button
+                className={cls("distance", "dist")}
+                title={t("list.distanceTooltip")}
+                onClick={() => onToggleSort("distance")}
+              >
+                ↺{arrow("distance")}
+              </button>
+            )}
             <button
               className={cls("newCount", "nd")}
               title={t("list.newTooltip")}
@@ -177,6 +182,7 @@ export function MatchResults({
               index={i}
               selected={i === selectedIndex}
               status={decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status}
+              showRelation={showRelation}
               onSelect={onSelect}
             />
           ))}
@@ -191,12 +197,14 @@ const CandidateRow = memo(function CandidateRow({
   index,
   selected,
   status,
+  showRelation,
   onSelect,
 }: {
   candidate: IndividualCandidate;
   index: number;
   selected: boolean;
   status: MatchDecisionStatus | undefined;
+  showRelation: boolean;
   onSelect: (index: number) => void;
 }) {
   const { t } = useTranslation();
@@ -222,29 +230,33 @@ const CandidateRow = memo(function CandidateRow({
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
-          <span className={`badge ${candidate.category}`} title={scoreTooltip}>
-            {formatScore(candidate.score)}
-          </span>
-          <span className="dist" title={t("list.distanceTooltip")}>
-            {candidate.distance === undefined ? "" : candidate.distance}
-          </span>
-          <span
-            className={`nd new ${candidate.newCount ? "" : "zero"}`}
-            title={t("list.newTooltip")}
-          >
-            {candidate.newCount ?? 0}
-          </span>
-          <span
-            className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
-            title={t("list.diffTooltip")}
-          >
-            {candidate.diffCount ?? 0}
-          </span>
-          <span
-            className={`nd link ${candidate.linkCount ? "" : "zero"}`}
-            title={t("list.linkTooltip")}
-          >
-            {candidate.linkCount ?? 0}
+          <span className="candidate-metrics">
+            <span className={`badge ${candidate.category}`} title={scoreTooltip}>
+              {formatScore(candidate.score)}
+            </span>
+            {showRelation && (
+              <span className="dist" title={t("list.distanceTooltip")}>
+                {candidate.distance === undefined ? "" : candidate.distance}
+              </span>
+            )}
+            <span
+              className={`nd new ${candidate.newCount ? "" : "zero"}`}
+              title={t("list.newTooltip")}
+            >
+              {candidate.newCount ?? 0}
+            </span>
+            <span
+              className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
+              title={t("list.diffTooltip")}
+            >
+              {candidate.diffCount ?? 0}
+            </span>
+            <span
+              className={`nd link ${candidate.linkCount ? "" : "zero"}`}
+              title={t("list.linkTooltip")}
+            >
+              {candidate.linkCount ?? 0}
+            </span>
           </span>
           <span className={`labels ${sexClass(candidate.sex)}`}>
             <SexBadge sex={candidate.sex} />
@@ -258,12 +270,12 @@ const CandidateRow = memo(function CandidateRow({
               </span>
             )}
           </span>
+          {status && status !== "undecided" && (
+            <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
+              {t(`status.${status}`).charAt(0)}
+            </span>
+          )}
         </button>
-        {status && status !== "undecided" && (
-          <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
-            {t(`status.${status}`).charAt(0)}
-          </span>
-        )}
       </div>
     </li>
   );

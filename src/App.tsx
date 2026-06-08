@@ -512,6 +512,7 @@ export function App() {
                 onSelect={select}
                 decisions={decisions}
                 showFilters={showFilters}
+                showRelation={!!homeId}
                 homeControl={
                   masterDataset && (
                     <HomePersonSelector
