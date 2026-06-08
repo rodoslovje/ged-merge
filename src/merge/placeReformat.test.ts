@@ -53,10 +53,35 @@ describe("reformatPlace → structured-addr", () => {
   });
 });
 
+const KOVACIC: PlaceTargetFormat = { layout: "packed-plac", separator: "," };
+
+describe("reformatPlace → packed-plac (the reverse direction)", () => {
+  it("packs a structured PLAC + ADDR into one PLAC, dropping the middle level", () => {
+    const r = reformatPlace("Srednje Bitnje,Kranj,Slovenia", "Srednje Bitnje 18 (pd Adam)", KOVACIC);
+    // "Kranj" (municipality) is dropped; country goes in parens; ADDR folds in.
+    expect(r.plac).toBe("Srednje Bitnje (Slovenia), Srednje Bitnje 18 (pd Adam)");
+    expect(r.addr).toBeUndefined();
+    expect(r.note).toBeUndefined();
+  });
+
+  it("packs an address-only place", () => {
+    const r = reformatPlace("Zgornje Bitnje 52", undefined, KOVACIC);
+    expect(r.plac).toBe("Zgornje Bitnje, Zgornje Bitnje 52");
+    expect(r.addr).toBeUndefined();
+  });
+
+  it("is idempotent on an already-packed place (parish + facility)", () => {
+    const raw = "Jesenice (Slovenija), Cesta revolucije 2/b - župnija Jesenice";
+    expect(reformatPlace(raw, undefined, KOVACIC).plac).toBe(raw);
+    const fac = "Kranj (Slovenija), Kidričeva 38/a (porodnišnica)";
+    expect(reformatPlace(fac, undefined, KOVACIC).plac).toBe(fac);
+  });
+});
+
 describe("reformatPlace → other layouts pass through", () => {
-  it("does not reshape when the master is not structured-addr", () => {
+  it("does not reshape when the master layout is plain-structured", () => {
     const r = reformatPlace("Kranj (Slovenija), Kidričeva 38/a", undefined, {
-      layout: "packed-plac",
+      layout: "plain-structured",
       separator: ",",
     });
     expect(r.plac).toBe("Kranj (Slovenija), Kidričeva 38/a");

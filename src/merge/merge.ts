@@ -4,7 +4,7 @@ import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { individualFieldRows } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
-import { reformatPlace, type PlaceTargetFormat } from "./placeReformat";
+import { reformatPlace, reshapesLayout, type PlaceTargetFormat } from "./placeReformat";
 
 /** A translator (i18next `t`); only used for human-readable field labels. */
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -156,9 +156,9 @@ function applyRows(
       applied = setChild(target, "SEX", incomingRecord, choice);
     } else {
       const [tag, sub] = row.key.split(".");
-      if ((sub === "place" || sub === "addr") && placeFmt.layout === "structured-addr") {
-        // Reshape PLAC+ADDR together into the master's structured layout, once
-        // per event. The PLAC row drives it; a later ADDR row is then skipped.
+      if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
+        // Reshape PLAC+ADDR together into the master's layout, once per event.
+        // The PLAC row drives it; a later ADDR row is then skipped.
         if (reshaped.has(tag)) continue;
         applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt);
         reshaped.add(tag);
@@ -405,7 +405,7 @@ function makeContext(
  * jurisdiction to PLAC, address to ADDR, leftovers to a NOTE.
  */
 function reshapeRecordPlaces(record: GedNode, fmt: PlaceTargetFormat): void {
-  if (fmt.layout !== "structured-addr") return;
+  if (!reshapesLayout(fmt.layout)) return;
   const visit = (node: GedNode): void => {
     const placRaw = node.children.find((c) => c.tag === "PLAC")?.value;
     const addrRaw = node.children.find((c) => c.tag === "ADDR")?.value;
@@ -571,7 +571,7 @@ function applyIndividualFamilies(
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, children: takeChildren });
 
-    const reshapeMarr = ctx.placeFmt.layout === "structured-addr";
+    const reshapeMarr = reshapesLayout(ctx.placeFmt.layout);
     let marrReshaped = false;
     for (const sub of ["date", "place", "addr"] as const) {
       const choice = marriageChoice(sub);
