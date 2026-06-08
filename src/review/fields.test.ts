@@ -361,4 +361,44 @@ describe("aligned relative lists (children/partners)", () => {
     expect(m[dorisLine]).toBe(""); // nothing aligned opposite Doris
     expect(children.state).toBe("conflict");
   });
+
+  // Same-named siblings distinguished only by birth year: the incoming child
+  // must align with the master sibling born the same year, not the first match.
+  it("aligns same-named children by birth year", () => {
+    const famB = (kids: { name: string; year: string }[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k.name}\n1 BIRT\n2 DATE ${k.year}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famB([{ name: "Janez /Novak/", year: "1850" }, { name: "Janez /Novak/", year: "1855" }]));
+    const cd = dataset(famB([{ name: "Janez /Novak/", year: "1855" }]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "children",
+    )!;
+    const m = children.master.split("\n");
+    const i = children.incoming.split("\n");
+    const line1855 = m.findIndex((l) => l.includes("1855"));
+    const line1850 = m.findIndex((l) => l.includes("1850"));
+    expect(i[line1855]).toContain("1855"); // incoming child pairs with the 1855 sibling
+    expect(i[line1850]).toBe(""); // the 1850 sibling stays unmatched
+  });
+
+  // Children listed in non-chronological order in the file are shown sorted by birth.
+  it("lists children sorted by birth date", () => {
+    const text =
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      `0 @K0@ INDI\n1 NAME Cilka /Novak/\n1 BIRT\n2 DATE 1860\n1 FAMC @F@\n` +
+      `0 @K1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE 1850\n1 FAMC @F@\n` +
+      `0 @K2@ INDI\n1 NAME Berta /Novak/\n1 BIRT\n2 DATE 5 MAR 1855\n1 FAMC @F@\n` +
+      `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n1 CHIL @K1@\n1 CHIL @K2@\n0 TRLR\n`;
+    const ds = dataset(text);
+    const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "children")!;
+    const lines = children.master.split("\n");
+    expect(lines.map((l) => l.match(/Ana|Berta|Cilka/)?.[0])).toEqual(["Ana", "Berta", "Cilka"]);
+  });
 });

@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
-import { fullDatesLabel, lifespanLabel, partnerNames } from "../match/relatives";
+import { findEvent, fullDatesLabel, lifespanLabel, partnerNames } from "../match/relatives";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState } from "./types";
 
@@ -106,11 +106,15 @@ function primaryMarriage(indi: Individual | undefined, ds: Dataset) {
   return undefined;
 }
 
-/** This person's children across all their families, as alignable relatives. */
+/**
+ * This person's children across all their families, as alignable relatives,
+ * sorted by birth date (children with no known birth sort last, keeping their
+ * original family order).
+ */
 function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
   if (!indi) return [];
   const seen = new Set<string>();
-  const out: Relative[] = [];
+  const children: Individual[] = [];
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
@@ -119,10 +123,25 @@ function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relati
       const child = ds.individuals.get(cid);
       if (!child) continue;
       seen.add(cid);
-      out.push({ name: child.names[0], text: lifespanLabel(child), full: fullDatesLabel(child) });
+      children.push(child);
     }
   }
-  return out;
+  return children
+    .map((child, order) => ({ child, order, sort: birthSortKey(child) }))
+    .sort((a, b) => a.sort - b.sort || a.order - b.order)
+    .map(({ child }) => ({
+      name: child.names[0],
+      text: lifespanLabel(child),
+      full: fullDatesLabel(child),
+      birthYear: findEvent(child, "BIRT")?.date?.year,
+    }));
+}
+
+/** Sortable birth-date value (YYYYMMDD); +Infinity when no birth year is known. */
+function birthSortKey(indi: Individual): number {
+  const d = findEvent(indi, "BIRT")?.date;
+  if (!d || d.year == null) return Number.POSITIVE_INFINITY;
+  return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
 
 /** Full name of a parent (father via HUSB, mother via WIFE) from the first
@@ -150,6 +169,8 @@ interface Relative {
   text: string;
   /** Full-date variant for the hover tooltip; falls back to text when absent. */
   full?: string;
+  /** Birth year, when known — used to align same-named relatives by birth. */
+  birthYear?: number;
 }
 
 /** This person's spouses as alignable relatives. */
@@ -289,10 +310,22 @@ function alignRelatives(
   return { masterLines, incomingLines };
 }
 
-/** Similarity of two relatives: structured-name based, with a text fallback. */
+/**
+ * Similarity of two relatives, used to align children/partners. The name (given
+ * + surname) is the base signal; birth year then nudges the score so the pairing
+ * lines people up by name *and* birth: a shared birth year rescues a borderline
+ * name match (spelling variants of the same child), while diverging birth years
+ * pull same-named siblings apart so they don't collapse onto one line.
+ */
 function relativeSimilarity(a: Relative, b: Relative): number {
-  if (a.name && b.name) return nameSimilarity(a.name, b.name) ?? 0;
-  return foldToken(a.text) === foldToken(b.text) ? 1 : 0;
+  const nameSim = a.name && b.name
+    ? nameSimilarity(a.name, b.name) ?? 0
+    : foldToken(a.text) === foldToken(b.text) ? 1 : 0;
+
+  if (a.birthYear == null || b.birthYear == null) return nameSim;
+  const gap = Math.abs(a.birthYear - b.birthYear);
+  const birthAdjust = gap === 0 ? 0.15 : gap <= 1 ? 0.05 : -0.25;
+  return Math.max(0, Math.min(1, nameSim + birthAdjust));
 }
 
 /**
