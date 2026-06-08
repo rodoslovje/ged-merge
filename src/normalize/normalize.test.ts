@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { inferDateProfile, inferMasterProfile } from "./profile";
+import { detectPlaceLayout, inferDateProfile, inferMasterProfile } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
@@ -72,18 +72,35 @@ describe("formatGedDate", () => {
 });
 
 describe("normalizeDataset", () => {
-  it("converts compare dates and places to master conventions", () => {
+  it("converts compare dates to master conventions but leaves place text as-is", () => {
     const profile = inferMasterProfile(dataset(MASTER));
     const { dataset: out, report } = normalizeDataset(dataset(COMPARE), profile);
 
     const anna = out.individuals.get("@I1@")!;
     const birth = anna.events.find((e) => e.tag === "BIRT")!;
     expect(birth.date?.raw).toBe("05 january 1885");
-    expect(birth.place?.raw).toBe("Wien, Österreich");
+    // Place names keep their original casing/spelling — not recased to master.
+    expect(birth.place?.raw).toBe("wien, österreich");
 
     expect(report.datesChanged).toBe(1);
-    expect(report.placesChanged).toBe(1);
+    expect(report.placesChanged).toBe(0);
     expect(report.dateExamples[0]).toEqual({ before: "5 JAN 1885", after: "05 january 1885" });
+  });
+
+  it("compacts place whitespace silently (not counted or listed)", () => {
+    const profile = inferMasterProfile(dataset(MASTER));
+    const messy = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC zgornje   bitnje  52,  kranj
+0 TRLR
+`;
+    const { dataset: out, report } = normalizeDataset(dataset(messy), profile);
+    const birth = out.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("zgornje bitnje 52, kranj");
+    expect(report.placesChanged).toBe(0);
+    expect(report.placeExamples).toEqual([]);
   });
 
   it("does not mutate the input dataset", () => {
@@ -92,6 +109,47 @@ describe("normalizeDataset", () => {
     normalizeDataset(input, profile);
     const anna = input.individuals.get("@I1@")!;
     expect(anna.events.find((e) => e.tag === "BIRT")?.date?.raw).toBe("5 JAN 1885");
+  });
+});
+
+// --- place-layout detection ------------------------------------------------
+
+describe("detectPlaceLayout", () => {
+  it("detects Renko-style structured PLAC + separate ADDR", () => {
+    const placs = [
+      "Kuželj,Kostel,Slovenia",
+      "Srednje Bitnje,Kranj,Slovenia",
+      "Spodnje Bitnje,Kranj,Slovenia",
+      "Stara Sušica,Primorje-Gorski Kotar,Croatia",
+    ];
+    // ~30% of places carry an ADDR line, as in the Renko file.
+    expect(detectPlaceLayout(placs, 2)).toBe("structured-addr");
+  });
+
+  it("detects Brother's Keeper packed PLAC (country in parens, parish inline)", () => {
+    const placs = [
+      "Kranj (Slovenija), Kidričeva 38/a (porodnišnica)",
+      "Jesenice (Slovenija), Cesta revolucije 2/b - župnija Jesenice",
+      "Jesenice (Slovenija)",
+      "Podčetrtek (Slovenija), Podčetrtek 52 - župnija Šmarje pri Jelšah",
+    ];
+    expect(detectPlaceLayout(placs, 0)).toBe("packed-plac");
+  });
+
+  it("detects address-only single-part places", () => {
+    expect(detectPlaceLayout(["Zgornje Bitnje 52", "Kuželj 22", "Krasinec 16"], 0)).toBe(
+      "address-only",
+    );
+  });
+
+  it("detects a plain comma hierarchy with no embedded addresses", () => {
+    expect(detectPlaceLayout(["Kranj, Slovenia", "Bled, Slovenia"], 0)).toBe(
+      "plain-structured",
+    );
+  });
+
+  it("returns unknown when there are no places", () => {
+    expect(detectPlaceLayout([], 0)).toBe("unknown");
   });
 });
 

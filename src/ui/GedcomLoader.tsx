@@ -115,13 +115,16 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report } = state.file;
+  const { dataset, fileName, report, placeLayout } = state.file;
   const info = [
     t("loader.version", { version: dataset.version }),
     t("loader.encoding", { charset: dataset.charset }),
     t("loader.individuals", { count: dataset.individuals.size }),
     t("loader.families", { count: dataset.families.size }),
   ];
+  if (placeLayout && placeLayout !== "unknown") {
+    info.push(t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }));
+  }
 
   const warnings = dataset.warnings;
   const hasWarnings = warnings.length > 0;

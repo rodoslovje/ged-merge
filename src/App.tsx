@@ -4,7 +4,7 @@ import type { Dataset } from "./gedcom/types";
 import { serializeGedcom } from "./gedcom/serialize";
 import { datesTooltip, formatLifespan } from "./gedcom/lifespan";
 import { mergeDecisions, formatReport } from "./merge/merge";
-import type { NormalizationReport } from "./normalize/types";
+import type { NormalizationReport, PlaceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision } from "./review/types";
@@ -34,6 +34,7 @@ interface LoadedFile {
   fileName: string;
   dataset: Dataset;
   report?: NormalizationReport;
+  placeLayout?: PlaceLayout;
 }
 
 type SlotState =
@@ -188,6 +189,7 @@ export function App() {
       if (msg.type === "parsed") {
         const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
         if (msg.report) file.report = msg.report;
+        if (msg.placeLayout) file.placeLayout = msg.placeLayout;
         setter({ status: "loaded", file });
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });

@@ -5,6 +5,7 @@ import type {
   MasterProfile,
   NumericDateFormat,
   PlaceFormatProfile,
+  PlaceLayout,
 } from "./types";
 import { walkNodes } from "./walk";
 
@@ -40,7 +41,9 @@ const DEFAULT_QUALIFIER_TOKENS: DateFormatProfile["qualifierTokens"] = {
 export function inferMasterProfile(master: Dataset): MasterProfile {
   const dateValues: string[] = [];
   const placeValues: string[] = [];
+  let addrCount = 0;
   walkNodes(master.records, (node) => {
+    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
     if (node.value === undefined) return;
     if (node.tag === "DATE") dateValues.push(node.value);
     else if (node.tag === "PLAC") placeValues.push(node.value);
@@ -48,7 +51,7 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
 
   return {
     date: inferDateProfile(dateValues),
-    place: inferPlaceProfile(placeValues),
+    place: inferPlaceProfile(placeValues, addrCount),
   };
 }
 
@@ -166,7 +169,7 @@ function isYearField(g: string): boolean {
   return g.length >= 3 || +g > 31;
 }
 
-function inferPlaceProfile(values: string[]): PlaceFormatProfile {
+function inferPlaceProfile(values: string[], addrCount: number): PlaceFormatProfile {
   const depthCounts = new Map<number, number>();
   // part -> casing form -> count
   const partForms = new Map<string, Map<string, number>>();
@@ -191,10 +194,58 @@ function inferPlaceProfile(values: string[]): PlaceFormatProfile {
   }
 
   return {
+    layout: detectPlaceLayout(values, addrCount),
     modalDepth: mostFrequentKey(depthCounts) ?? 0,
     partCanonical: pickCanonical(partForms),
     fullCanonical: pickCanonical(fullForms),
   };
+}
+
+/** Parish marker (Slovenian "župnija"/"župnije"). */
+const PARISH_MARK = /\bžupnij[ae]\b/i;
+/** A parenthetical on the first comma part — Brother's Keeper "Locality (Country)". */
+const PAREN_ON_FIRST = /^[^,]*\([^)]+\)/;
+
+/**
+ * Classify a file's place-formatting convention from its PLAC values and how
+ * many ADDR lines accompany them. See {@link PlaceLayout} for the categories.
+ */
+export function detectPlaceLayout(values: string[], addrCount: number): PlaceLayout {
+  const n = values.length;
+  if (n === 0) return "unknown";
+
+  let parenCountry = 0;
+  let parish = 0;
+  let withNumber = 0;
+  let multiPart = 0;
+  for (const v of values) {
+    if (PAREN_ON_FIRST.test(v)) parenCountry++;
+    if (PARISH_MARK.test(v)) parish++;
+    if (/\d/.test(v)) withNumber++;
+    if (v.split(",").filter((p) => p.trim()).length >= 2) multiPart++;
+  }
+  const frac = (x: number) => x / n;
+
+  // Brother's Keeper packed form: country in parentheses and/or parish markers.
+  if (frac(parenCountry) > 0.3 || frac(parish) > 0.15) return "packed-plac";
+  // Structured hierarchy with house numbers kept in separate ADDR lines.
+  if (addrCount / n > 0.15 && frac(multiPart) > 0.4) return "structured-addr";
+  // Mostly single-part "Name 52" values.
+  if (frac(multiPart) < 0.2 && frac(withNumber) > 0.4) return "address-only";
+  // Comma hierarchy with no embedded addresses.
+  if (frac(multiPart) > 0.4) return "plain-structured";
+  return "unknown";
+}
+
+/** Detect a dataset's place layout directly (used for the compare slot). */
+export function inferPlaceLayout(dataset: Dataset): PlaceLayout {
+  const values: string[] = [];
+  let addrCount = 0;
+  walkNodes(dataset.records, (node) => {
+    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    else if (node.tag === "PLAC" && node.value !== undefined) values.push(node.value);
+  });
+  return detectPlaceLayout(values, addrCount);
 }
 
 // --- helpers ---------------------------------------------------------------

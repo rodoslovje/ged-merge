@@ -2,7 +2,7 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
-import { inferMasterProfile } from "../normalize/profile";
+import { inferMasterProfile, inferPlaceLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
@@ -49,7 +49,13 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (req.role === "master") {
       masterDataset = dataset;
       profile = inferMasterProfile(dataset);
-      post({ type: "parsed", role: "master", fileName: req.fileName, dataset });
+      post({
+        type: "parsed",
+        role: "master",
+        fileName: req.fileName,
+        dataset,
+        placeLayout: profile.place.layout,
+      });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
@@ -71,14 +77,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
 /** Emit the compare slot, normalized to the master profile when available. */
 function emitCompare(fileName: string, rawDataset: Dataset): void {
+  const placeLayout = inferPlaceLayout(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset });
+    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile);
   compareNormalized = dataset;
-  post({ type: "parsed", role: "compare", fileName, dataset, report });
+  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout });
 }
 
 /** Run matching once both sides are available, ranked if a home person is set. */

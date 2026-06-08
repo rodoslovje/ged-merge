@@ -1,5 +1,5 @@
 import type { Dataset } from "../gedcom/types";
-import type { NormalizationReport } from "../normalize/types";
+import type { NormalizationReport, PlaceLayout } from "../normalize/types";
 import type { MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
@@ -27,6 +27,8 @@ export interface ParseSuccess {
   dataset: Dataset;
   /** Present for the compare slot once it has been normalized to the master. */
   report?: NormalizationReport;
+  /** Detected place-formatting convention of this file. */
+  placeLayout?: PlaceLayout;
 }
 
 export interface ParseFailure {

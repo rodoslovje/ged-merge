@@ -36,7 +36,28 @@ export interface NumericDateFormat {
   padMonth: boolean;
 }
 
+/**
+ * The major place-formatting conventions we detect, so the incoming file can be
+ * reshaped into the master's during merge:
+ *  - `structured-addr`  : comma jurisdiction in PLAC + house number in a separate
+ *                         ADDR (Renko).
+ *  - `packed-plac`      : everything packed into PLAC — country in parentheses,
+ *                         street/parish/facility inline, no ADDR (Brother's
+ *                         Keeper, e.g. Kovačič).
+ *  - `address-only`     : single "Name 52" in PLAC, no jurisdiction hierarchy.
+ *  - `plain-structured` : comma jurisdiction in PLAC, no embedded addresses.
+ *  - `unknown`          : too little signal to classify.
+ */
+export type PlaceLayout =
+  | "structured-addr"
+  | "packed-plac"
+  | "address-only"
+  | "plain-structured"
+  | "unknown";
+
 export interface PlaceFormatProfile {
+  /** Detected place-formatting convention. */
+  layout: PlaceLayout;
   /** Most common number of jurisdiction levels seen in the master. */
   modalDepth: number;
   /** Per-part canonical casing: lowercased part -> canonical form. */

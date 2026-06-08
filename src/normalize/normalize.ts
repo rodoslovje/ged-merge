@@ -31,7 +31,6 @@ export function normalizeDataset(
   // transformations (padding, reordering, casing…) rather than repeating the
   // same one many times.
   const seenDate = new Set<string>();
-  const seenPlace = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -47,13 +46,10 @@ export function normalizeDataset(
         report.datesChanged++;
         node.value = next;
       }
-    } else if (node.tag === "PLAC") {
-      const next = normalizePlaceString(node.value, profile.place);
-      if (next !== node.value) {
-        record(report.placeExamples, seenPlace, node.value, next);
-        report.placesChanged++;
-        node.value = next;
-      }
+    } else if (node.tag === "PLAC" || node.tag === "ADDR") {
+      // Place text is left as-is; only tidy whitespace, and do so silently
+      // (whitespace fixes are not interesting enough to count or list).
+      node.value = normalizePlaceString(node.value);
     }
   });
 
