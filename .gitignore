@@ -5,3 +5,4 @@ dist-ssr
 .DS_Store
 .vite
 node_modules/.tmp
+/test-data
