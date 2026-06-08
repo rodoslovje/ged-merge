@@ -8,6 +8,7 @@ import { sexClass, sexColorVar, sexGlyph } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
+  type MatchMaps,
   type NodeStatus,
   type TreeMode,
   type TreeNode,
@@ -21,6 +22,8 @@ interface Props {
   rootCompareId?: string;
   mode: TreeMode;
   onModeChange: (mode: TreeMode) => void;
+  /** Re-root the tree on another person (clicked from a node's relative links). */
+  onReroot: (masterId?: string, compareId?: string) => void;
   onBack: () => void;
 }
 
@@ -85,6 +88,7 @@ export function CompareTree({
   rootCompareId,
   mode,
   onModeChange,
+  onReroot,
   onBack,
 }: Props) {
   const { t } = useTranslation();
@@ -92,18 +96,10 @@ export function CompareTree({
   const rootMaster = rootMasterId ? masterDs.individuals.get(rootMasterId) : undefined;
   const rootIncoming = rootCompareId ? compareDs.individuals.get(rootCompareId) : undefined;
 
+  const maps = useMemo(() => buildMatchMaps(matches), [matches]);
   const tree = useMemo(
-    () =>
-      buildCompareTree(
-        t,
-        rootMaster,
-        rootIncoming,
-        masterDs,
-        compareDs,
-        buildMatchMaps(matches),
-        mode,
-      ),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, matches, mode],
+    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode),
+    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode],
   );
 
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
@@ -302,6 +298,8 @@ export function CompareTree({
             node={selected}
             masterDs={masterDs}
             compareDs={compareDs}
+            maps={maps}
+            onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
           />
         )}
@@ -558,11 +556,15 @@ function NodeCompare({
   node,
   masterDs,
   compareDs,
+  maps,
+  onReroot,
   onClose,
 }: {
   node: Placed;
   masterDs: Dataset;
   compareDs: Dataset;
+  maps: MatchMaps;
+  onReroot: (masterId?: string, compareId?: string) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -570,6 +572,17 @@ function NodeCompare({
     () => individualFieldRows(t, node.master, node.incoming, masterDs, compareDs),
     [t, node, masterDs, compareDs],
   );
+
+  // Any displayed relative can be re-rooted on; resolve the matched counterpart
+  // so the new tree shows both sides where a match exists.
+  const masterPerson = {
+    linkable: () => true,
+    onNavigate: (id: string) => onReroot(id, maps.masterToCompare.get(id)),
+  };
+  const incomingPerson = {
+    linkable: () => true,
+    onNavigate: (id: string) => onReroot(maps.compareToMaster.get(id), id),
+  };
 
   return (
     <div className="tree-compare">
@@ -596,10 +609,18 @@ function NodeCompare({
             <tr key={row.key} className={`field ${row.state}`}>
               <td className="f-label">{row.label}</td>
               <td className="f-val gm-data" title={row.masterTitle}>
-                <FieldValue text={row.master} links={row.masterLinks} />
+                <FieldValue
+                  text={row.master}
+                  links={row.masterLinks}
+                  person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                />
               </td>
               <td className="f-val gm-data" title={row.incomingTitle}>
-                <FieldValue text={row.incoming} links={row.incomingLinks} />
+                <FieldValue
+                  text={row.incoming}
+                  links={row.incomingLinks}
+                  person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
+                />
               </td>
             </tr>
           ))}

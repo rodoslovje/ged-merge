@@ -27,6 +27,15 @@ export interface FieldRow {
    *  abbreviated "Name yyyy–yyyy" lines). */
   masterTitle?: string;
   incomingTitle?: string;
+  /**
+   * For relative rows (father, mother, partners, children): the referenced
+   * person's id per line, aligned with the lines of `master` / `incoming`.
+   * `masterRefs` holds master individual ids, `incomingRefs` compare ids; an
+   * entry is undefined for a blank or non-navigable line. Lets the UI turn each
+   * name into a link that jumps to that person.
+   */
+  masterRefs?: (string | undefined)[];
+  incomingRefs?: (string | undefined)[];
 }
 
 /** The user's decision for one master/compare candidate pair. */

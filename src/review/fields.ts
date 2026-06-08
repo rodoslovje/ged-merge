@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
-import { findEvent, fullDatesLabel, lifespanLabel, partnerNames } from "../match/relatives";
+import { findEvent, fullDatesLabel, lifespanLabel } from "../match/relatives";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState } from "./types";
 
@@ -81,8 +81,8 @@ export function individualFieldRows(
   // Marriage and children live on the FAM record but are reconciled here on the
   // spouse so every decision about a person is made in one place.
   if (masterDs && compareDs) {
-    pushRow(rows, "father", formatFieldLabel(t, "father"), parentName(master, masterDs, "husband"), parentName(compare, compareDs, "husband"));
-    pushRow(rows, "mother", formatFieldLabel(t, "mother"), parentName(master, masterDs, "wife"), parentName(compare, compareDs, "wife"));
+    pushParentRow(rows, "father", formatFieldLabel(t, "father"), parentRef(master, masterDs, "husband"), parentRef(compare, compareDs, "husband"));
+    pushParentRow(rows, "mother", formatFieldLabel(t, "mother"), parentRef(master, masterDs, "wife"), parentRef(compare, compareDs, "wife"));
     pushRelativesRow(rows, "partners", formatFieldLabel(t, "partners"), partnerRelatives(master, masterDs), partnerRelatives(compare, compareDs));
 
     const mMar = primaryMarriage(master, masterDs);
@@ -130,6 +130,7 @@ function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relati
     .map((child, order) => ({ child, order, sort: birthSortKey(child) }))
     .sort((a, b) => a.sort - b.sort || a.order - b.order)
     .map(({ child }) => ({
+      id: child.id,
       name: child.names[0],
       text: lifespanLabel(child),
       full: fullDatesLabel(child),
@@ -144,20 +145,27 @@ function birthSortKey(indi: Individual): number {
   return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
 
-/** Full name of a parent (father via HUSB, mother via WIFE) from the first
- * family this person is a child in. */
-function parentName(
+/** A parent's display name plus its individual id, for a navigable parent row. */
+interface ParentRef {
+  text: string;
+  id?: string;
+}
+
+/** The parent (father via HUSB, mother via WIFE) from the first family this
+ * person is a child in, with its name and id. */
+function parentRef(
   indi: Individual | undefined,
   ds: Dataset,
   role: "husband" | "wife",
-): string {
-  if (!indi) return "";
+): ParentRef {
+  if (!indi) return { text: "" };
   for (const famId of indi.childOf) {
     const id = ds.families.get(famId)?.[role];
-    const n = id ? ds.individuals.get(id)?.names[0]?.full : undefined;
-    if (n) return n;
+    const parent = id ? ds.individuals.get(id) : undefined;
+    const name = parent?.names[0]?.full;
+    if (name) return { text: name, id: parent!.id };
   }
-  return "";
+  return { text: "" };
 }
 
 /**
@@ -165,6 +173,8 @@ function parentName(
  * sides, plus the text rendered to the user.
  */
 interface Relative {
+  /** The relative's individual id, used to link/navigate to them. */
+  id?: string;
   name: PersonName | undefined;
   text: string;
   /** Full-date variant for the hover tooltip; falls back to text when absent. */
@@ -176,9 +186,16 @@ interface Relative {
 /** This person's spouses as alignable relatives. */
 function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
   if (!indi) return [];
-  return partnerNames(indi, ds)
-    .filter((n) => n.full)
-    .map((n) => ({ name: n, text: n.full }));
+  const out: Relative[] = [];
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+    const partner = otherId ? ds.individuals.get(otherId) : undefined;
+    const name = partner?.names[0];
+    if (name?.full) out.push({ id: partner!.id, name, text: name.full });
+  }
+  return out;
 }
 
 
@@ -238,7 +255,7 @@ function pushRelativesRow(
   incoming: Relative[],
 ): void {
   if (master.length === 0 && incoming.length === 0) return;
-  const { masterLines, incomingLines } = alignRelatives(master, incoming);
+  const { masterLines, incomingLines, masterIds, incomingIds } = alignRelatives(master, incoming);
   const m = master.length ? masterLines.join("\n") : "";
   const i = incoming.length ? incomingLines.join("\n") : "";
   const state: FieldState =
@@ -247,7 +264,43 @@ function pushRelativesRow(
   // carries extra detail beyond its visible text).
   const masterTitle = relativeTitle(master);
   const incomingTitle = relativeTitle(incoming);
-  rows.push({ key, label, master: m, incoming: i, state, masterTitle, incomingTitle });
+  rows.push({
+    key,
+    label,
+    master: m,
+    incoming: i,
+    state,
+    masterTitle,
+    incomingTitle,
+    masterRefs: master.length ? masterIds : undefined,
+    incomingRefs: incoming.length ? incomingIds : undefined,
+  });
+}
+
+/**
+ * Push a single-person relative row (father, mother) carrying the person's id so
+ * the name can link to them. Mirrors {@link pushRow} but attaches a one-element
+ * ref array per side.
+ */
+function pushParentRow(
+  rows: FieldRow[],
+  key: string,
+  label: string,
+  master: ParentRef,
+  incoming: ParentRef,
+): void {
+  const m = master.text.trim();
+  const i = incoming.text.trim();
+  if (!m && !i) return;
+  rows.push({
+    key,
+    label,
+    master: m,
+    incoming: i,
+    state: stateOf(key, m, i),
+    masterRefs: m ? [master.id] : undefined,
+    incomingRefs: i ? [incoming.id] : undefined,
+  });
 }
 
 /** A newline-joined list of relatives with full dates, for a cell hover tooltip.
@@ -275,7 +328,12 @@ const RELATIVE_PAIR_THRESHOLD = 0.85;
 function alignRelatives(
   master: Relative[],
   incoming: Relative[],
-): { masterLines: string[]; incomingLines: string[] } {
+): {
+  masterLines: string[];
+  incomingLines: string[];
+  masterIds: (string | undefined)[];
+  incomingIds: (string | undefined)[];
+} {
   const pairs: { mi: number; ii: number; sim: number }[] = [];
   master.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
@@ -297,17 +355,23 @@ function alignRelatives(
 
   const masterLines: string[] = [];
   const incomingLines: string[] = [];
+  const masterIds: (string | undefined)[] = [];
+  const incomingIds: (string | undefined)[] = [];
   master.forEach((m, mi) => {
     masterLines.push(m.text);
+    masterIds.push(m.id);
     const ii = matchOf.get(mi);
     incomingLines.push(ii !== undefined ? incoming[ii].text : "");
+    incomingIds.push(ii !== undefined ? incoming[ii].id : undefined);
   });
   incoming.forEach((c, ii) => {
     if (usedIncoming.has(ii)) return;
     masterLines.push("");
+    masterIds.push(undefined);
     incomingLines.push(c.text);
+    incomingIds.push(c.id);
   });
-  return { masterLines, incomingLines };
+  return { masterLines, incomingLines, masterIds, incomingIds };
 }
 
 /**

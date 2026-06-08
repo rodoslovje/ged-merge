@@ -51,6 +51,12 @@ interface TreeView {
   mode: TreeMode;
 }
 
+/** A compare selection remembered in browser history (for the Back button). */
+interface SelRef {
+  masterId: string;
+  compareId: string;
+}
+
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
 
 type Theme = "light" | "dark";
@@ -158,16 +164,43 @@ export function App() {
 
   useEffect(() => {
     function onPop(e: PopStateEvent) {
-      setTreeView((e.state?.gedTree as TreeView | undefined) ?? null);
+      const st = (e.state ?? {}) as { gedTree?: TreeView; gedSel?: SelRef };
+      setTreeView(st.gedTree ?? null);
+      // Restore a remembered compare selection (set when a person link pushed it).
+      if (st.gedSel) {
+        const { masterId, compareId } = st.gedSel;
+        const idx = visibleRef.current.findIndex((c) => c.masterId === masterId && c.compareId === compareId);
+        if (idx >= 0) {
+          setSelectedIndex(idx);
+          setOpenCompare(true);
+        }
+      }
     }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  /** Record the current compare selection in the current history entry so the
+   *  browser Back button returns here after a person-link or tree push. */
+  function rememberSelection() {
+    const cur = visible[safeIndex];
+    if (cur) window.history.replaceState({ gedSel: { masterId: cur.masterId, compareId: cur.compareId } }, "");
+  }
+
   function openTree(masterId: string, compareId: string) {
+    rememberSelection();
     const view: TreeView = { masterId, compareId, mode: "ancestors" };
     window.history.pushState({ gedTree: view }, "");
     setTreeView(view);
+  }
+  /** Re-root the open tree on another person, as a new history entry. */
+  function rerootTree(masterId?: string, compareId?: string) {
+    if (!masterId && !compareId) return;
+    setTreeView((cur) => {
+      const view: TreeView = { masterId: masterId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
+      window.history.pushState({ gedTree: view }, "");
+      return view;
+    });
   }
   function changeTreeMode(mode: TreeMode) {
     setTreeView((cur) => {
@@ -275,6 +308,32 @@ export function App() {
   const safeIndex = visible.length === 0 ? 0 : Math.min(selectedIndex, visible.length - 1);
   const current = visible[safeIndex];
 
+  // Person id -> index in the visible list, so a relative's name can jump to
+  // their own match row. A person with several candidates resolves to the first
+  // (highest-ranked) one present in the list. Built per column: master ids on the
+  // master side, compare ids on the incoming side.
+  const indexByMaster = useMemo(() => {
+    const m = new Map<string, number>();
+    visible.forEach((c, i) => { if (!m.has(c.masterId)) m.set(c.masterId, i); });
+    return m;
+  }, [visible]);
+  const indexByCompare = useMemo(() => {
+    const m = new Map<string, number>();
+    visible.forEach((c, i) => { if (!m.has(c.compareId)) m.set(c.compareId, i); });
+    return m;
+  }, [visible]);
+
+  // popstate reads the live list to resolve a remembered selection; a ref keeps
+  // its handler (registered once) from closing over a stale `visible`.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
+  const canNavigatePerson = useCallback(
+    (side: "master" | "incoming", id: string) =>
+      (side === "master" ? indexByMaster : indexByCompare).has(id),
+    [indexByMaster, indexByCompare],
+  );
+
   const confirmedCount = useMemo(() => {
     let n = 0;
     for (const d of decisions.values()) if (d.status === "confirmed") n++;
@@ -297,6 +356,21 @@ export function App() {
       }, 50);
     }
   }, []);
+
+  // Jump the compare view to a relative's own match row, pushing a history entry
+  // so the browser Back button returns to where we were.
+  const navigatePerson = useCallback(
+    (side: "master" | "incoming", id: string) => {
+      const idx = (side === "master" ? indexByMaster : indexByCompare).get(id);
+      if (idx == null || idx === safeIndex) return; // unknown or already selected
+      const cur = visible[safeIndex];
+      if (cur) window.history.replaceState({ gedSel: { masterId: cur.masterId, compareId: cur.compareId } }, "");
+      const target = visible[idx];
+      window.history.pushState({ gedSel: { masterId: target.masterId, compareId: target.compareId } }, "");
+      select(idx);
+    },
+    [indexByMaster, indexByCompare, visible, safeIndex, select],
+  );
 
   // Keyboard navigation across the filtered list (ignored while typing).
   useEffect(() => {
@@ -352,6 +426,7 @@ export function App() {
         rootCompareId={treeView.compareId}
         mode={treeView.mode}
         onModeChange={changeTreeMode}
+        onReroot={rerootTree}
         onBack={() => window.history.back()}
       />
     );
@@ -567,6 +642,8 @@ export function App() {
                 decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
                 onChange={updateDecision}
                 onOpenTree={() => openTree(current.masterId, current.compareId)}
+                canNavigate={canNavigatePerson}
+                onNavigate={navigatePerson}
               />
             ) : (
               <p className="muted">

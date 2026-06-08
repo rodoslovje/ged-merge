@@ -959,6 +959,24 @@ button {
   opacity: 0.85;
 }
 .link-icon:hover { opacity: 1; }
+/* A relative's name rendered as a jump-to-person link. */
+.person-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.person-link:hover {
+  text-decoration: underline;
+  color: var(--accent, currentColor);
+}
 .choice {
   background: var(--bg);
   border: 1px solid var(--border);

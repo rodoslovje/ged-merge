@@ -13,6 +13,9 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 
+/** Which dataset a relative id belongs to. */
+export type RelativeSide = "master" | "incoming";
+
 interface Props {
   candidate: IndividualCandidate;
   masterDs: Dataset;
@@ -21,6 +24,10 @@ interface Props {
   onChange: (next: CandidateDecision) => void;
   /** When set, shows a "Compare tree" button that opens the full-page tree. */
   onOpenTree?: () => void;
+  /** True when the person on `side` with this id is reachable in the match list. */
+  canNavigate: (side: RelativeSide, id: string) => boolean;
+  /** Jump the compare view to the person on `side` with this id. */
+  onNavigate: (side: RelativeSide, id: string) => void;
 }
 
 const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
@@ -33,8 +40,18 @@ export function ComparePanel({
   decision,
   onChange,
   onOpenTree,
+  canNavigate,
+  onNavigate,
 }: Props) {
   const { t } = useTranslation();
+  const masterPerson = {
+    linkable: (id: string) => canNavigate("master", id),
+    onNavigate: (id: string) => onNavigate("master", id),
+  };
+  const incomingPerson = {
+    linkable: (id: string) => canNavigate("incoming", id),
+    onNavigate: (id: string) => onNavigate("incoming", id),
+  };
   const rows = useMemo<FieldRow[]>(
     () =>
       individualFieldRows(
@@ -119,13 +136,21 @@ export function ComparePanel({
                   className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
                   title={row.masterTitle}
                 >
-                  <FieldValue text={row.master} links={row.masterLinks} />
+                  <FieldValue
+                    text={row.master}
+                    links={row.masterLinks}
+                    person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                  />
                 </td>
                 <td
                   className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
                   title={row.incomingTitle}
                 >
-                  <FieldValue text={row.incoming} links={row.incomingLinks} />
+                  <FieldValue
+                    text={row.incoming}
+                    links={row.incomingLinks}
+                    person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
+                  />
                 </td>
                 <td className="f-choice">
                   {row.state === "conflict" || row.state === "incoming-only" ? (
