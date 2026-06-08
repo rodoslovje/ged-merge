@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
 import { datesTooltipOf } from "../gedcom/lifespan";
@@ -9,6 +9,10 @@ interface Props {
   homeId: string | undefined;
   onChange: (id: string) => void;
   onClear?: () => void;
+  /** When it turns true, focus the input so the user can type right away. */
+  autoFocus?: boolean;
+  /** Called once after an autoFocus has been honoured, so it isn't repeated. */
+  onAutoFocused?: () => void;
 }
 
 const MAX_RESULTS = 50;
@@ -17,10 +21,21 @@ const MAX_RESULTS = 50;
  * Optional, filterable picker for the master's home person. Setting one makes
  * the matcher compute each match's relationship distance and sort by it.
  */
-export function HomePersonSelector({ individuals, homeId, onChange, onClear }: Props) {
+export function HomePersonSelector({ individuals, homeId, onChange, onClear, autoFocus, onAutoFocused }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  // Index of the keyboard-highlighted option in `filtered`, for up/down nav.
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+      onAutoFocused?.();
+    }
+  }, [autoFocus, onAutoFocused]);
 
   const options = useMemo(
     () =>
@@ -38,10 +53,48 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
 
   const current = options.find((o) => o.id === homeId);
 
+  // Reset the highlight to the top whenever the result set changes.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
+
+  // Keep the highlighted option scrolled into view as it moves.
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  function confirm(id: string) {
+    onChange(id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => Math.min(filtered.length - 1, i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(0, i - 1));
+    } else if (e.key === "Enter") {
+      const choice = filtered[activeIndex];
+      if (choice) {
+        e.preventDefault();
+        confirm(choice.id);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
   return (
     <div className={homeId ? "home-selector" : "home-selector unset"}>
       <div className="home-control">
         <input
+          ref={inputRef}
           type="text"
           placeholder={current ? current.text : t("home.set")}
           title={t("home.tooltip")}
@@ -49,6 +102,7 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={onKeyDown}
         />
         {homeId && onClear && (
           <button
@@ -63,22 +117,29 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear }: P
           </button>
         )}
         {open && query.trim() !== "" && (
-          <ul className="home-options">
-            {filtered.map((o) => (
-              <li key={o.id}>
-                <button
-                  className={o.id === homeId ? "home-option active" : "home-option"}
-                  title={o.title || undefined}
-                  onClick={() => {
-                    onChange(o.id);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                >
-                  {o.text}
-                </button>
-              </li>
-            ))}
+          <ul className="home-options" ref={listRef}>
+            {filtered.map((o, i) => {
+              const cls = [
+                "home-option",
+                o.id === homeId ? "active" : "",
+                i === activeIndex ? "highlighted" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              return (
+                <li key={o.id}>
+                  <button
+                    className={cls}
+                    data-index={i}
+                    title={o.title || undefined}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => confirm(o.id)}
+                  >
+                    {o.text}
+                  </button>
+                </li>
+              );
+            })}
             {filtered.length === 0 && <li className="muted home-empty">{t("home.noMatches")}</li>}
           </ul>
         )}

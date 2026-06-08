@@ -38,22 +38,30 @@ button {
 
 .app h1 {
   font-size: 1.4rem;
-  margin: 0 0 4px;
+  margin: 0;
 }
 
+.app-head-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 .subtitle {
   color: var(--muted);
-  margin: 0 0 4px;
+  margin: 0;
 }
 
 .app-head-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
 }
 .lang-switcher {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 .lang-select-wrapper {
   position: relative;
@@ -237,6 +245,90 @@ button {
   display: none;
 }
 
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover,
+.dropzone:focus-visible,
+.dropzone.dragover,
+.dropzone.highlight {
+  border-color: var(--accent);
+  outline: none;
+}
+.dropzone.dragover {
+  background: var(--panel);
+}
+/* The next box to act on pulses to draw the eye. */
+.dropzone.highlight {
+  animation: dropzone-pulse 1.8s ease-in-out infinite;
+}
+.dropzone.highlight:hover,
+.dropzone.highlight:focus-visible,
+.dropzone.highlight.dragover {
+  animation: none;
+}
+@keyframes dropzone-pulse {
+  0%, 100% {
+    border-color: var(--border);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dropzone.highlight {
+    animation: none;
+  }
+}
+.dropzone-icon {
+  color: var(--muted);
+  margin-bottom: 4px;
+  transition: color 0.15s;
+}
+.dropzone:hover .dropzone-icon,
+.dropzone:focus-visible .dropzone-icon,
+.dropzone.dragover .dropzone-icon,
+.dropzone.highlight .dropzone-icon {
+  color: var(--accent);
+}
+.dropzone-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.dropzone-hint {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.dropzone-text {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.dropzone.compact {
+  margin-top: 12px;
+  padding: 10px 14px;
+}
+
+.load-privacy {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .parsing-status {
   display: flex;
   align-items: center;
@@ -250,6 +342,29 @@ button {
   font-size: 0.85rem;
   color: var(--muted);
   white-space: pre-wrap;
+}
+.loader-filename {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.loader-cols {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.loader-info,
+.loader-report {
+  white-space: pre-wrap;
+}
+.loader-report {
+  flex: 1;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+.loader-report-head {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
 }
 
 .error {
@@ -343,7 +458,8 @@ button {
   padding: 6px 8px;
   border-radius: 6px;
 }
-.home-option:hover { background: var(--panel); }
+.home-option:hover,
+.home-option.highlighted { background: var(--panel); }
 .home-option.active { color: var(--accent); }
 .home-empty { padding: 6px 8px; }
 
@@ -1108,6 +1224,13 @@ button {
   .app-head {
     padding: 16px 16px 0;
     margin-bottom: 12px;
+  }
+  .app-head-brand {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+  .app-head-brand .subtitle {
+    flex-basis: 100%;
   }
   .section {
     border-left: none;

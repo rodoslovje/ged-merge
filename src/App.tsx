@@ -89,6 +89,9 @@ export function App() {
   const [matches, setMatches] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
   const [homeId, setHomeId] = useState<string | undefined>(undefined);
+  // When the first matches arrive with no home person, focus the picker so the
+  // user can start typing immediately.
+  const [focusHome, setFocusHome] = useState(false);
   const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
 
   // Matches list view state.
@@ -206,6 +209,7 @@ export function App() {
     setMatches(null);
     setDecisions(new Map());
     setHomeId(undefined); // home person is opt-in; reset on (re)load
+    setFocusHome(false);
     autoHomeRef.current = false; // allow the default home person for the new file
     setOpenCompare(false);
     setOpenMatches(false);
@@ -230,7 +234,12 @@ export function App() {
     autoHomeRef.current = true;
     if (homeId) return; // user already chose before the first result
     const ds = master.status === "loaded" ? master.file.dataset : undefined;
-    if (ds?.individuals.has(DEFAULT_HOME_ID)) changeHome(DEFAULT_HOME_ID);
+    if (ds?.individuals.has(DEFAULT_HOME_ID)) {
+      changeHome(DEFAULT_HOME_ID);
+    } else {
+      // No conventional root person to default to — focus the picker instead.
+      setFocusHome(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
@@ -417,7 +426,10 @@ export function App() {
       )}
       <header className="app-head">
         <div className="app-head-top">
-          <h1><Wordmark /></h1>
+          <div className="app-head-brand">
+            <h1><Wordmark /></h1>
+            <p className="subtitle">{t("app.subtitle")}</p>
+          </div>
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
@@ -445,9 +457,6 @@ export function App() {
             </div>
           </div>
         </div>
-        <p className="subtitle">
-          {t("app.subtitle")}
-        </p>
       </header>
 
       <Section
@@ -461,6 +470,7 @@ export function App() {
             title={t("load.master")}
             state={master}
             onLoad={(f) => loadFile("master", f)}
+            accent="master"
             highlight={master.status === "empty"}
             tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
           />
@@ -468,10 +478,12 @@ export function App() {
             title={t("load.incoming")}
             state={compare}
             onLoad={(f) => loadFile("compare", f)}
+            accent="incoming"
             highlight={master.status === "loaded" && compare.status === "empty"}
             tooltip={master.status === "loaded" && compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
           />
         </div>
+        <p className="load-privacy">{t("load.privacy")}</p>
       </Section>
 
       <div className="main-split">
@@ -505,6 +517,8 @@ export function App() {
                       homeId={homeId}
                       onChange={changeHome}
                       onClear={() => changeHome(undefined)}
+                      autoFocus={focusHome}
+                      onAutoFocused={() => setFocusHome(false)}
                     />
                   )
                 }
