@@ -112,6 +112,34 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
 }
 
 /**
+ * A human-readable pattern for an inferred date profile, e.g. "DD.MM.YYYY" or
+ * "D JAN YYYY". The month-word form uses the file's own month token so its
+ * abbreviation and casing show through.
+ */
+export function describeDateFormat(profile: DateFormatProfile): string {
+  if (profile.numeric) {
+    const { order, separator, padDay, padMonth } = profile.numeric;
+    const d = padDay ? "DD" : "D";
+    const m = padMonth ? "MM" : "M";
+    const fields = order === "YMD" ? ["YYYY", m, d] : order === "MDY" ? [m, d, "YYYY"] : [d, m, "YYYY"];
+    return fields.join(separator);
+  }
+  const d = profile.padDay ? "DD" : "D";
+  const month = profile.monthTokens[1] || "MMM";
+  return `${d} ${month} YYYY`;
+}
+
+/** Detect and describe a dataset's date format; undefined when it has no dates. */
+export function inferDateLayout(dataset: Dataset): string | undefined {
+  const values: string[] = [];
+  walkNodes(dataset.records, (node) => {
+    if (node.tag === "DATE" && node.value !== undefined) values.push(node.value);
+  });
+  if (values.length === 0) return undefined;
+  return describeDateFormat(inferDateProfile(values));
+}
+
+/**
  * Accumulates evidence about numeric date values to infer their layout: field
  * order (DMY/MDY/YMD), separator, and zero-padding.
  */

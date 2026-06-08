@@ -34,6 +34,7 @@ export const sl = {
   "loader.warnings": "Opozorila: {{count}}",
   "loader.normalized": "Normalizirano glede na glavno datoteko:",
   "loader.datesChanged": "Spremenjeni datumi: {{count}}",
+  "loader.dateFormat": "Oblika datumov: {{format}}",
   "loader.placeFormat": "Oblika krajev: {{format}}",
   "placeLayout.structured-addr": "strukturirano + naslov",
   "placeLayout.packed-plac": "vse v enem",

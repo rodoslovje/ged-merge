@@ -29,6 +29,8 @@ export interface ParseSuccess {
   report?: NormalizationReport;
   /** Detected place-formatting convention of this file. */
   placeLayout?: PlaceLayout;
+  /** Detected date format pattern of this file, e.g. "DD.MM.YYYY". */
+  dateFormat?: string;
 }
 
 export interface ParseFailure {

@@ -34,6 +34,7 @@ export const en = {
   "loader.warnings": "Warnings: {{count}}",
   "loader.normalized": "Normalized to master:",
   "loader.datesChanged": "Dates changed: {{count}}",
+  "loader.dateFormat": "Date format: {{format}}",
   "loader.placeFormat": "Place format: {{format}}",
   "placeLayout.structured-addr": "structured + address",
   "placeLayout.packed-plac": "all in one",

@@ -35,6 +35,7 @@ interface LoadedFile {
   dataset: Dataset;
   report?: NormalizationReport;
   placeLayout?: PlaceLayout;
+  dateFormat?: string;
 }
 
 type SlotState =
@@ -190,6 +191,7 @@ export function App() {
         const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
         if (msg.report) file.report = msg.report;
         if (msg.placeLayout) file.placeLayout = msg.placeLayout;
+        if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         setter({ status: "loaded", file });
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });
