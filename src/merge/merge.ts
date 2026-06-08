@@ -1,8 +1,10 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
+import { inferPlaceExportFormat } from "../normalize/profile";
 import { individualFieldRows } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
+import { reformatPlace, type PlaceTargetFormat } from "./placeReformat";
 
 /** A translator (i18next `t`); only used for human-readable field labels. */
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -86,7 +88,9 @@ export function mergeDecisions(
 
   const report: ChangeReport = { changes: [], deferred: [], recordsChanged: 0 };
   const touched = new Set<string>();
-  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched);
+  // How the master writes places, so incoming places can be reshaped to match.
+  const placeFmt = inferPlaceExportFormat(master);
+  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -98,7 +102,7 @@ export function mergeDecisions(
     const incoming = compare.individuals.get(compareId);
     if (!target || !masterIndi || !incoming) continue;
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
   }
@@ -124,8 +128,12 @@ function applyRows(
   report: ChangeReport,
   touched: Set<string>,
   handled: Set<string>,
+  placeFmt: PlaceTargetFormat,
 ): void {
   let nameApplied = false;
+  // Event tags whose place we already reshaped, so the matching ADDR row is
+  // skipped (the PLAC reshape consumed both PLAC and ADDR together).
+  const reshaped = new Set<string>();
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "master-only") continue;
@@ -148,8 +156,16 @@ function applyRows(
       applied = setChild(target, "SEX", incomingRecord, choice);
     } else {
       const [tag, sub] = row.key.split(".");
-      const subTag = SUB_TAG[sub];
-      if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice);
+      if ((sub === "place" || sub === "addr") && placeFmt.layout === "structured-addr") {
+        // Reshape PLAC+ADDR together into the master's structured layout, once
+        // per event. The PLAC row drives it; a later ADDR row is then skipped.
+        if (reshaped.has(tag)) continue;
+        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt);
+        reshaped.add(tag);
+      } else {
+        const subTag = SUB_TAG[sub];
+        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice);
+      }
     }
 
     if (applied) {
@@ -190,6 +206,57 @@ function applyEventSub(
     target.children.push(event);
   }
   return setChild(event, subTag, incEvent!, choice, incSub);
+}
+
+/**
+ * Reshape an incoming event's place into the master's structured layout and
+ * write it onto the target event: jurisdiction → PLAC, house number → ADDR, and
+ * any leftover (parish/facility) → a NOTE so nothing is dropped. Consumes both
+ * the incoming PLAC and ADDR. Returns whether anything was written.
+ */
+function applyReformattedPlace(
+  target: GedNode,
+  incomingRecord: GedNode,
+  tag: string,
+  choice: FieldChoice,
+  fmt: PlaceTargetFormat,
+): boolean {
+  const incEvent = incomingRecord.children.find((c) => c.tag === tag);
+  if (!incEvent) return false;
+  const placRaw = incEvent.children.find((c) => c.tag === "PLAC")?.value;
+  const addrRaw = incEvent.children.find((c) => c.tag === "ADDR")?.value;
+  if (!placRaw && !addrRaw) return false;
+
+  const r = reformatPlace(placRaw, addrRaw, fmt);
+  let event = target.children.find((c) => c.tag === tag);
+  if (!event) {
+    event = newNode(tag);
+    target.children.push(event);
+  }
+
+  let applied = false;
+  if (setValueChild(event, "PLAC", r.plac, choice)) applied = true;
+  if (setValueChild(event, "ADDR", r.addr, choice)) applied = true;
+  if (r.note) {
+    event.children.push(newNode("NOTE", r.note));
+    applied = true;
+  }
+  return applied;
+}
+
+/** Set (or, for "both", append) a tagged child carrying a plain value. */
+function setValueChild(
+  parent: GedNode,
+  tag: string,
+  value: string | undefined,
+  choice: FieldChoice,
+): boolean {
+  if (!value) return false;
+  const node = newNode(tag, value);
+  const idx = parent.children.findIndex((c) => c.tag === tag);
+  if (choice === "both" || idx < 0) parent.children.push(node);
+  else parent.children[idx] = node;
+  return true;
 }
 
 /**
@@ -251,6 +318,8 @@ interface MergeContext {
   label: (id: string) => string;
   report: ChangeReport;
   touched: Set<string>;
+  /** How the master writes places (for reshaping incoming places on export). */
+  placeFmt: PlaceTargetFormat;
 }
 
 function makeContext(
@@ -262,6 +331,7 @@ function makeContext(
   famNodes: Map<string, GedNode>,
   report: ChangeReport,
   touched: Set<string>,
+  placeFmt: PlaceTargetFormat,
 ): MergeContext {
   const incToMaster = new Map<string, string>();
   for (const c of matches.individuals) incToMaster.set(c.compareId, c.masterId);
@@ -304,6 +374,7 @@ function makeContext(
     node.xref = newId;
     // Drop incoming family pointers; we re-link only into the family being merged.
     node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
+    reshapeRecordPlaces(node, placeFmt);
     insertRecord(records, node);
     indiNodes.set(newId, node);
     addedFromIncoming.set(incomingId, newId);
@@ -324,7 +395,30 @@ function makeContext(
       addedLabels.get(id) ?? displayName(master.individuals.get(id)?.names[0]),
     report,
     touched,
+    placeFmt,
   };
+}
+
+/**
+ * Reshape every place under a record (a newly-added person cloned wholesale)
+ * into the master's layout. Each node bearing a PLAC/ADDR has them rewritten —
+ * jurisdiction to PLAC, address to ADDR, leftovers to a NOTE.
+ */
+function reshapeRecordPlaces(record: GedNode, fmt: PlaceTargetFormat): void {
+  if (fmt.layout !== "structured-addr") return;
+  const visit = (node: GedNode): void => {
+    const placRaw = node.children.find((c) => c.tag === "PLAC")?.value;
+    const addrRaw = node.children.find((c) => c.tag === "ADDR")?.value;
+    if (placRaw || addrRaw) {
+      const r = reformatPlace(placRaw, addrRaw, fmt);
+      node.children = node.children.filter((c) => c.tag !== "PLAC" && c.tag !== "ADDR");
+      if (r.plac) node.children.push(newNode("PLAC", r.plac));
+      if (r.addr) node.children.push(newNode("ADDR", r.addr));
+      if (r.note) node.children.push(newNode("NOTE", r.note));
+    }
+    node.children.forEach(visit);
+  };
+  visit(record);
 }
 
 /**
@@ -477,10 +571,21 @@ function applyIndividualFamilies(
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, children: takeChildren });
 
+    const reshapeMarr = ctx.placeFmt.layout === "structured-addr";
+    let marrReshaped = false;
     for (const sub of ["date", "place", "addr"] as const) {
       const choice = marriageChoice(sub);
       if (!choice) continue;
-      if (applyEventSub(famNode, incFam.raw, "MARR", SUB_TAG[sub], choice)) {
+      let applied: boolean;
+      if ((sub === "place" || sub === "addr") && reshapeMarr) {
+        // PLAC+ADDR are reshaped together, once, into the master's layout.
+        if (marrReshaped) continue;
+        applied = applyReformattedPlace(famNode, incFam.raw, "MARR", choice, ctx.placeFmt);
+        marrReshaped = true;
+      } else {
+        applied = applyEventSub(famNode, incFam.raw, "MARR", SUB_TAG[sub], choice);
+      }
+      if (applied) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: `Marriage ${sub}`,

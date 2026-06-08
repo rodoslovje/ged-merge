@@ -77,6 +77,11 @@ const PD_RE = /^(?:pd|po\s+doma[čc]e)\s+(.+)$/i;
 const PARISH_RE = /\s*[-,]?\s*župnij[ae]\s+(.+?)\s*$/i;
 /** A house number at the end of a segment: "18", "38/a", "2/b", "12a". */
 const HOUSE_TAIL = /\s+(\d[\d/a-zA-Z]*)$/;
+/** Street-type words: a segment with one is an address, even without a number. */
+const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
+/** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
+const FACILITY_WORDS =
+  /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;
 
 const tidy = (s: string): string => s.replace(/\s+/g, " ").trim();
 const normNum = (s: string): string => s.replace(/\s+/g, "");
@@ -115,11 +120,19 @@ export function decomposePlace(raw: string): PlaceComponents {
       out.locality = hm ? seg.slice(0, hm.index).trim() : seg;
       if (hm) out.houseNumber = normNum(hm[1]);
       if (out.locality) out.jurisdiction.push(out.locality);
+      return;
+    }
+    if (FACILITY_WORDS.test(seg)) {
+      // A landmark like "porodnišnica" / "pokopališče Blejska Dobrava".
+      out.facility = out.facility ? `${out.facility}; ${seg}` : seg;
     } else if (/\d/.test(seg)) {
       // An address segment: street ("Kidričeva 38/a") or "Locality 52".
       if (hm) out.houseNumber = normNum(hm[1]);
       const name = (hm ? seg.slice(0, hm.index) : seg).trim();
       if (name && name.toLowerCase() !== out.locality?.toLowerCase()) out.street = seg;
+    } else if (STREET_WORDS.test(seg)) {
+      // A street with no house number, e.g. "Gosposvetska cesta blok VII".
+      out.street ??= seg;
     } else {
       // A further jurisdiction level (municipality, region, country).
       if (!out.country && COUNTRIES.has(seg.toLowerCase())) out.country = seg;

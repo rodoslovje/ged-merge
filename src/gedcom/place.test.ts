@@ -44,6 +44,24 @@ describe("decomposePlace", () => {
     expect(p.parish).toBe("Šmarje pri Jelšah");
   });
 
+  it("routes a bare facility segment to facility, not jurisdiction", () => {
+    const p = decomposePlace("Jesenice (Slovenija), porodnišnica");
+    expect(p.facility).toBe("porodnišnica");
+    expect(p.jurisdiction).toEqual(["Jesenice", "Slovenija"]);
+  });
+
+  it("treats a numberless street as a street, not a jurisdiction level", () => {
+    const p = decomposePlace("Jesenice (Slovenija), Gosposvetska cesta blok VII");
+    expect(p.street).toBe("Gosposvetska cesta blok VII");
+    expect(p.jurisdiction).toEqual(["Jesenice", "Slovenija"]);
+  });
+
+  it("does not mistake a hyphenated place name for a parish", () => {
+    const p = decomposePlace("Kalce - Naklo (Slovenija)");
+    expect(p.parish).toBeUndefined();
+    expect(p.jurisdiction).toEqual(["Kalce - Naklo", "Slovenija"]);
+  });
+
   it("handles a bare 'Locality (Country)' place", () => {
     const p = decomposePlace("Jesenice (Slovenija)");
     expect(p.locality).toBe("Jesenice");

@@ -72,6 +72,36 @@ describe("mergeDecisions", () => {
   });
 });
 
+describe("mergeDecisions — place reshaping to a structured-addr master", () => {
+  // Master writes structured PLAC ("A,B,C") + separate ADDR, so its layout is
+  // detected as structured-addr. @I1@'s birth has no place yet, so the incoming
+  // (packed Brother's Keeper) place fills it — reshaped to the master's layout.
+  const master = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
+        "2 PLAC Kuželj,Kostel,Slovenia\n2 ADDR Kuželj 22\n" +
+        "1 DEAT\n2 PLAC Kranj,Gorenjska,Slovenia\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+        "2 PLAC Kranj (Slovenija), Kidričeva 38/a (porodnišnica)\n",
+    ),
+  );
+
+  it("splits the packed place into PLAC, ADDR and a NOTE", () => {
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain(
+      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenija\n2 ADDR Kidričeva 38/a\n2 NOTE porodnišnica",
+    );
+    // The raw packed string must not survive in the output.
+    expect(out).not.toContain("(porodnišnica)");
+  });
+});
+
 describe("mergeDecisions — family structure (driven by the confirmed spouse)", () => {
   // Master has the people but the family @F1@ only links the husband.
   const master = dataset(

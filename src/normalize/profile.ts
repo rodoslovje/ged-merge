@@ -248,6 +248,31 @@ export function inferPlaceLayout(dataset: Dataset): PlaceLayout {
   return detectPlaceLayout(values, addrCount);
 }
 
+/**
+ * The master's place layout plus its PLAC part separator ("," vs ", "), used at
+ * export to reshape incoming places to match the master.
+ */
+export function inferPlaceExportFormat(dataset: Dataset): { layout: PlaceLayout; separator: string } {
+  const values: string[] = [];
+  let addrCount = 0;
+  let withSpace = 0;
+  let withoutSpace = 0;
+  walkNodes(dataset.records, (node) => {
+    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    else if (node.tag === "PLAC" && node.value !== undefined) {
+      values.push(node.value);
+      for (const m of node.value.matchAll(/,(\s?)/g)) {
+        if (m[1]) withSpace++;
+        else withoutSpace++;
+      }
+    }
+  });
+  return {
+    layout: detectPlaceLayout(values, addrCount),
+    separator: withoutSpace > withSpace ? "," : ", ",
+  };
+}
+
 // --- helpers ---------------------------------------------------------------
 
 function isMonthWord(token: string): boolean {
