@@ -6,7 +6,7 @@ import { inferDateProfile } from "./profile";
 import type { MasterProfile, NormalizationReport, NormChange } from "./types";
 import { walkNodes } from "./walk";
 
-const MAX_EXAMPLES = 8;
+const MAX_EXAMPLES = 12;
 
 /**
  * Normalize a compare dataset to the master's conventions.
@@ -27,6 +27,11 @@ export function normalizeDataset(
     dateExamples: [],
     placeExamples: [],
   };
+  // Track the kind of each recorded change so the examples illustrate distinct
+  // transformations (padding, reordering, casing…) rather than repeating the
+  // same one many times.
+  const seenDate = new Set<string>();
+  const seenPlace = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -38,14 +43,14 @@ export function normalizeDataset(
     if (node.tag === "DATE") {
       const next = normalizeDateString(node.value, profile.date, sourceOrder);
       if (next !== node.value) {
-        record(report.dateExamples, node.value, next);
+        record(report.dateExamples, seenDate, node.value, next);
         report.datesChanged++;
         node.value = next;
       }
     } else if (node.tag === "PLAC") {
       const next = normalizePlaceString(node.value, profile.place);
       if (next !== node.value) {
-        record(report.placeExamples, node.value, next);
+        record(report.placeExamples, seenPlace, node.value, next);
         report.placesChanged++;
         node.value = next;
       }
@@ -72,8 +77,21 @@ function inferSourceOrder(compare: Dataset) {
   return inferDateProfile(dateValues).numeric?.order;
 }
 
-function record(examples: NormChange[], before: string, after: string): void {
-  if (examples.length < MAX_EXAMPLES) examples.push({ before, after });
+function record(examples: NormChange[], seen: Set<string>, before: string, after: string): void {
+  if (examples.length >= MAX_EXAMPLES) return;
+  const signature = `${shape(before)}→${shape(after)}`;
+  if (seen.has(signature)) return;
+  seen.add(signature);
+  examples.push({ before, after });
+}
+
+/**
+ * Reduce a value to the "shape" of its transformation so two changes of the
+ * same kind share a signature: digit runs collapse to `#`, letter runs to `A`,
+ * and separators/spacing are kept verbatim.
+ */
+function shape(value: string): string {
+  return value.replace(/\d+/g, "#").replace(/\p{L}+/gu, "A");
 }
 
 /** Deep clone the record forest so normalization doesn't mutate the input. */

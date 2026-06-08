@@ -35,8 +35,6 @@ export const en = {
   "loader.normalized": "Normalized to master:",
   "loader.datesChanged": "Dates changed: {{count}}",
   "loader.placesChanged": "Places changed: {{count}}",
-  "loader.dateEx": "  date: {{before}} → {{after}}",
-  "loader.placeEx": "  place: {{before}} → {{after}}",
   "home.set": "Set home person...",
   "home.clear": "Clear home person",
   "home.noMatches": "No matches",

@@ -378,6 +378,13 @@ button {
   cursor: help;
 }
 
+/* Only the normalization lines that actually have examples get the help cursor. */
+.loader-report-line[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--border);
+  text-underline-offset: 3px;
+}
+
 .error {
   color: #ff6b6b;
 }

@@ -129,14 +129,8 @@ function renderSummary(
     ? warnings.map((w) => (w.line != null ? `[${w.line}] ${w.message}` : w.message)).join("\n")
     : undefined;
 
-  const reportLines = report
-    ? [
-        t("loader.datesChanged", { count: report.datesChanged }),
-        ...report.dateExamples.slice(0, 1).map((ex) => t("loader.dateEx", { before: ex.before, after: ex.after })),
-        t("loader.placesChanged", { count: report.placesChanged }),
-        ...report.placeExamples.slice(0, 1).map((ex) => t("loader.placeEx", { before: ex.before, after: ex.after })),
-      ]
-    : null;
+  const examplesTooltip = (changes: { before: string; after: string }[]): string | undefined =>
+    changes.length > 0 ? changes.map((ex) => `${ex.before} → ${ex.after}`).join("\n") : undefined;
 
   return (
     <>
@@ -149,10 +143,16 @@ function renderSummary(
             {t("loader.warnings", { count: warnings.length })}
           </span>
         </div>
-        {reportLines && (
+        {report && (
           <div className="loader-report">
             <div className="loader-report-head">{t("loader.normalized")}</div>
-            {reportLines.join("\n")}
+            <span className="loader-report-line" title={examplesTooltip(report.dateExamples)}>
+              {t("loader.datesChanged", { count: report.datesChanged })}
+            </span>
+            {"\n"}
+            <span className="loader-report-line" title={examplesTooltip(report.placeExamples)}>
+              {t("loader.placesChanged", { count: report.placesChanged })}
+            </span>
           </div>
         )}
       </div>

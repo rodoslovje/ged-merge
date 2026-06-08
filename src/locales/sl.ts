@@ -35,8 +35,6 @@ export const sl = {
   "loader.normalized": "Normalizirano glede na glavno datoteko:",
   "loader.datesChanged": "Spremenjeni datumi: {{count}}",
   "loader.placesChanged": "Spremenjeni kraji: {{count}}",
-  "loader.dateEx": "  datum: {{before}} → {{after}}",
-  "loader.placeEx": "  kraj: {{before}} → {{after}}",
   "home.set": "Izhodiščna oseba...",
   "home.clear": "Počisti izhodiščno osebo",
   "home.noMatches": "Ni zadetkov",
