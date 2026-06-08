@@ -175,6 +175,51 @@ export function CompareTree({
     [nodesByKey, scrollTo],
   );
 
+  // Grab-to-pan with mouse / touchpad. Touch keeps the browser's native
+  // one-finger scroll (with momentum), so we ignore touch pointers here.
+  const pan = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
+  const [panning, setPanning] = useState(false);
+
+  const onPanStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    pan.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, moved: false };
+    el.setPointerCapture(e.pointerId);
+    setPanning(true);
+  }, []);
+
+  const onPanMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const p = pan.current;
+    const el = canvasRef.current;
+    if (!p || !el) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    if (!p.moved && Math.hypot(dx, dy) < 4) return; // ignore jitter, keep clicks clickable
+    p.moved = true;
+    el.scrollLeft = p.left - dx;
+    el.scrollTop = p.top - dy;
+  }, []);
+
+  const onPanEnd = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const p = pan.current;
+    if (!p) return;
+    if (p.moved) dragged.current = true; // swallow the click that the drag would emit
+    pan.current = null;
+    setPanning(false);
+    const el = canvasRef.current;
+    if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+  }, []);
+
+  // After a pan, cancel the trailing click so dragging doesn't select a node.
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (dragged.current) {
+      e.stopPropagation();
+      dragged.current = false;
+    }
+  }, []);
+
   const needsMinimap =
     !!laid &&
     viewport.width > 0 &&
@@ -215,7 +260,16 @@ export function CompareTree({
       <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
 
       <div className="tree-canvas-wrap">
-        <div className="tree-canvas" ref={canvasRef} onScroll={syncViewport}>
+        <div
+          className={`tree-canvas${panning ? " panning" : ""}`}
+          ref={canvasRef}
+          onScroll={syncViewport}
+          onPointerDown={onPanStart}
+          onPointerMove={onPanMove}
+          onPointerUp={onPanEnd}
+          onPointerCancel={onPanEnd}
+          onClickCapture={onClickCapture}
+        >
           {laid && flat ? (
             <TreeSvg
               flat={flat}

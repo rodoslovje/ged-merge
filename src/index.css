@@ -1115,6 +1115,12 @@ button {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
+  cursor: grab;
+  user-select: none;
+}
+.tree-canvas.panning,
+.tree-canvas.panning * {
+  cursor: grabbing !important;
 }
 .tree-minimap {
   position: absolute;
