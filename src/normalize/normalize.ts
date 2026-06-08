@@ -2,6 +2,7 @@ import { buildDataset } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
+import { inferDateProfile } from "./profile";
 import type { MasterProfile, NormalizationReport, NormChange } from "./types";
 import { walkNodes } from "./walk";
 
@@ -27,10 +28,15 @@ export function normalizeDataset(
     placeExamples: [],
   };
 
+  // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
+  // D/M or M/D?). Infer its own order so we parse its dates correctly before
+  // re-rendering them in the master's style.
+  const sourceOrder = inferSourceOrder(compare);
+
   walkNodes(records, (node) => {
     if (node.value === undefined) return;
     if (node.tag === "DATE") {
-      const next = normalizeDateString(node.value, profile.date);
+      const next = normalizeDateString(node.value, profile.date, sourceOrder);
       if (next !== node.value) {
         record(report.dateExamples, node.value, next);
         report.datesChanged++;
@@ -55,6 +61,15 @@ export function normalizeDataset(
     finalNewline: compare.finalNewline,
   };
   return { dataset: buildDataset(parsed), report };
+}
+
+/** Infer the compare file's own numeric date order, used to parse its dates. */
+function inferSourceOrder(compare: Dataset) {
+  const dateValues: string[] = [];
+  walkNodes(compare.records, (node) => {
+    if (node.tag === "DATE" && node.value !== undefined) dateValues.push(node.value);
+  });
+  return inferDateProfile(dateValues).numeric?.order;
 }
 
 function record(examples: NormChange[], before: string, after: string): void {

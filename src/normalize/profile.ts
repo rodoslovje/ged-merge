@@ -1,8 +1,9 @@
 import { parsePlace } from "../gedcom/place";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
   DateFormatProfile,
   MasterProfile,
+  NumericDateFormat,
   PlaceFormatProfile,
 } from "./types";
 import { walkNodes } from "./walk";
@@ -51,7 +52,7 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
   };
 }
 
-function inferDateProfile(values: string[]): DateFormatProfile {
+export function inferDateProfile(values: string[]): DateFormatProfile {
   let upper = 0;
   let lower = 0;
   let title = 0;
@@ -60,9 +61,14 @@ function inferDateProfile(values: string[]): DateFormatProfile {
   let paddedDay = 0;
   let dayCount = 0;
 
+  let monthWordValues = 0;
+  const numeric = new NumericTally();
+
   for (const v of values) {
+    let hasMonthWord = false;
     for (const token of v.match(/[A-Za-z]{3,}/g) ?? []) {
       if (!isMonthWord(token)) continue;
+      hasMonthWord = true;
       if (token.length > 3) full++;
       else abbr++;
       switch (casingOf(token)) {
@@ -71,11 +77,16 @@ function inferDateProfile(values: string[]): DateFormatProfile {
         case "title": title++; break;
       }
     }
-    // Day token: 1-2 digits immediately before a month word.
-    const m = v.match(/(?:^|\s)(\d{1,2})\s+[A-Za-z]{3,}/);
-    if (m) {
-      dayCount++;
-      if (/^0\d$/.test(m[1])) paddedDay++;
+    if (hasMonthWord) {
+      monthWordValues++;
+      // Day token: 1-2 digits immediately before a month word.
+      const m = v.match(/(?:^|\s)(\d{1,2})\s+[A-Za-z]{3,}/);
+      if (m) {
+        dayCount++;
+        if (/^0\d$/.test(m[1])) paddedDay++;
+      }
+    } else {
+      numeric.observe(v);
     }
   }
 
@@ -85,7 +96,74 @@ function inferDateProfile(values: string[]): DateFormatProfile {
   const monthTokens = base.map((t, i) => (i === 0 ? "" : applyCasing(t, casing)));
   const padDay = dayCount > 0 && paddedDay * 2 > dayCount; // majority padded
 
-  return { monthTokens, padDay, qualifierTokens: DEFAULT_QUALIFIER_TOKENS };
+  const profile: DateFormatProfile = {
+    monthTokens,
+    padDay,
+    qualifierTokens: DEFAULT_QUALIFIER_TOKENS,
+  };
+  // Prefer numeric output only when it's the master's dominant style.
+  if (numeric.count > monthWordValues && numeric.count > 0) {
+    profile.numeric = numeric.resolve();
+  }
+  return profile;
+}
+
+/**
+ * Accumulates evidence about numeric date values to infer their layout: field
+ * order (DMY/MDY/YMD), separator, and zero-padding.
+ */
+class NumericTally {
+  count = 0;
+  private sep = new Map<string, number>();
+  private yearFirst = 0;
+  private yearLast = 0;
+  private dmyVotes = 0; // year-last values where the first field can't be a month
+  private mdyVotes = 0; // year-last values where the second field can't be a month
+  private padFields = 0;
+  private fieldCount = 0;
+
+  observe(value: string): void {
+    const m = value.trim().match(/^(\d{1,4})([./-])(\d{1,4})\2(\d{1,4})$/);
+    if (!m) return;
+    const [, g1, separator, g2, g3] = m;
+    let dayMonth: [string, string];
+    if (isYearField(g1)) {
+      this.yearFirst++;
+      dayMonth = [g2, g3];
+    } else if (isYearField(g3)) {
+      this.yearLast++;
+      dayMonth = [g1, g2];
+      if (+g1 > 12 && +g2 <= 12) this.dmyVotes++;
+      else if (+g2 > 12 && +g1 <= 12) this.mdyVotes++;
+    } else {
+      return; // No identifiable year — not usable evidence.
+    }
+    this.count++;
+    bumpStr(this.sep, separator);
+    // Only single-digit values carry padding signal: "05" is padded, "5" is
+    // not; a value like "20" is intrinsically two digits and tells us nothing.
+    for (const g of dayMonth) {
+      if (+g >= 10) continue;
+      this.fieldCount++;
+      if (g.length === 2) this.padFields++;
+    }
+  }
+
+  resolve(): NumericDateFormat {
+    const separator = mostFrequentStr(this.sep) ?? ".";
+    let order: DateOrder;
+    if (this.yearFirst > this.yearLast) order = "YMD";
+    else if (this.dmyVotes > this.mdyVotes) order = "DMY";
+    else if (this.mdyVotes > this.dmyVotes) order = "MDY";
+    else order = separator === "/" ? "MDY" : "DMY"; // ambiguous default
+    const pad = this.fieldCount > 0 && this.padFields * 2 > this.fieldCount;
+    return { order, separator, padDay: pad, padMonth: pad };
+  }
+}
+
+/** A 3+ digit run, or any value too large to be a day, is taken to be a year. */
+function isYearField(g: string): boolean {
+  return g.length >= 3 || +g > 31;
 }
 
 function inferPlaceProfile(values: string[]): PlaceFormatProfile {
@@ -149,6 +227,18 @@ function bumpStr(map: Map<string, number>, key: string): void {
 
 function mostFrequentKey(map: Map<number, number>): number | undefined {
   let best: number | undefined;
+  let bestCount = -1;
+  for (const [k, c] of map) {
+    if (c > bestCount) {
+      best = k;
+      bestCount = c;
+    }
+  }
+  return best;
+}
+
+function mostFrequentStr(map: Map<string, number>): string | undefined {
+  let best: string | undefined;
   let bestCount = -1;
   for (const [k, c] of map) {
     if (c > bestCount) {

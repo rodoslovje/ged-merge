@@ -84,6 +84,13 @@ export interface PersonName {
   nickname?: string;
 }
 
+/**
+ * Field ordering of a numeric date (e.g. "DMY" = `DD.MM.YYYY`, "MDY" =
+ * `MM/DD/YYYY`, "YMD" = `YYYY-MM-DD`). Used both to disambiguate numeric dates
+ * when parsing and to re-render them in a target style.
+ */
+export type DateOrder = "DMY" | "MDY" | "YMD";
+
 /** Date qualifier per the GEDCOM date grammar. */
 export type DateQualifier =
   | "exact"

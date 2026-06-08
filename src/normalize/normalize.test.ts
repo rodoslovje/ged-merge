@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { inferMasterProfile } from "./profile";
+import { inferDateProfile, inferMasterProfile } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
@@ -92,5 +92,162 @@ describe("normalizeDataset", () => {
     normalizeDataset(input, profile);
     const anna = input.individuals.get("@I1@")!;
     expect(anna.events.find((e) => e.tag === "BIRT")?.date?.raw).toBe("5 JAN 1885");
+  });
+});
+
+// --- numeric date formats --------------------------------------------------
+
+describe("inferDateProfile (numeric)", () => {
+  it("detects DD.MM.YYYY (European, dotted)", () => {
+    const p = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
+    expect(p.numeric).toEqual({
+      order: "DMY",
+      separator: ".",
+      padDay: true,
+      padMonth: true,
+    });
+  });
+
+  it("detects MM/DD/YYYY (US, slashed) from a day > 12", () => {
+    const p = inferDateProfile(["02/20/1989", "7/4/1776"]);
+    expect(p.numeric?.order).toBe("MDY");
+    expect(p.numeric?.separator).toBe("/");
+  });
+
+  it("defaults ambiguous slashed dates to MDY", () => {
+    const p = inferDateProfile(["02/03/1989", "05/06/1990"]);
+    expect(p.numeric?.order).toBe("MDY");
+  });
+
+  it("detects YYYY-MM-DD (ISO)", () => {
+    const p = inferDateProfile(["1989-02-20", "1990-12-01"]);
+    expect(p.numeric).toMatchObject({ order: "YMD", separator: "-" });
+  });
+
+  it("leaves month-word masters non-numeric", () => {
+    const p = inferDateProfile(["20 FEB 1989", "1 JAN 1990"]);
+    expect(p.numeric).toBeUndefined();
+  });
+});
+
+describe("formatGedDate (numeric output)", () => {
+  it("renders into a DD.MM.YYYY master style", () => {
+    const profile = inferDateProfile(["20.02.1989"]);
+    expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("12.02.1900");
+    expect(formatGedDate(parseDate("FEB 1900"), profile)).toBe("02.1900");
+    expect(formatGedDate(parseDate("1900"), profile)).toBe("1900");
+    expect(formatGedDate(parseDate("ABT 5 JAN 1880"), profile)).toBe("ABT 05.01.1880");
+  });
+
+  it("renders into a YYYY-MM-DD master style", () => {
+    const profile = inferDateProfile(["1989-02-20"]);
+    expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("1900-02-12");
+  });
+});
+
+describe("parseDate (2-digit years)", () => {
+  it("expands 2-digit years in numeric dates (window picks the 1900s for 32–99)", () => {
+    expect(parseDate("20.02.89", "DMY")).toMatchObject({ day: 20, month: 2, year: 1989 });
+    expect(parseDate("3/7/76", "MDY")).toMatchObject({ month: 3, day: 7, year: 1976 });
+  });
+
+  it("expands 2-digit years disambiguated by a month word", () => {
+    expect(parseDate("5 JAN 89")).toMatchObject({ day: 5, month: 1, year: 1989 });
+    expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 1950 });
+  });
+
+  it("re-renders an expanded 2-digit year in the master's full-year style", () => {
+    const profile = inferDateProfile(["20 Feb 1989"]);
+    expect(formatGedDate(parseDate("03.06.88", "DMY"), profile)).toBe("3 Jun 1988");
+  });
+});
+
+describe("date qualifiers", () => {
+  const profile = inferDateProfile(["20 Feb 1989"]); // D Mmm YYYY, abbr, title
+
+  it("treats ABT / ABOUT / ~ / EST / CCA / CIRCA / CA as the same 'about'", () => {
+    for (const raw of ["ABT 1900", "ABOUT 1900", "~1900", "~ 1900", "EST 1900",
+      "CCA 1900", "CCA. 1900", "CIRCA 1900", "CA 1900", "Cir 1900"]) {
+      expect(parseDate(raw).qualifier).toBe("about");
+      // All normalize to a single canonical token in the output.
+      expect(formatGedDate(parseDate(raw), profile)).toBe("ABT 1900");
+    }
+  });
+
+  it("normalizes an about-qualified full date and its inner date style", () => {
+    expect(formatGedDate(parseDate("CCA 5 JAN 1880"), profile)).toBe("ABT 5 Jan 1880");
+  });
+
+  it("supports FROM…TO ranges, normalizing both endpoints", () => {
+    expect(formatGedDate(parseDate("FROM 5 JAN 1900 TO 3 MAR 1905"), profile)).toBe(
+      "FROM 5 Jan 1900 TO 3 Mar 1905",
+    );
+    // Endpoints in a numeric source are reformatted to the master style too.
+    expect(formatGedDate(parseDate("FROM 05.01.1900 TO 03.03.1905", "DMY"), profile)).toBe(
+      "FROM 5 Jan 1900 TO 3 Mar 1905",
+    );
+  });
+
+  it("supports BET…AND ranges", () => {
+    expect(formatGedDate(parseDate("BET 1900 AND 1905"), profile)).toBe(
+      "BET 1900 AND 1905",
+    );
+  });
+});
+
+describe("normalizeDataset (numeric conversion)", () => {
+  const numericMaster = (dates: string[]) => `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
+0 TRLR
+`;
+
+  it("converts month-word compare dates to the master's DD.MM.YYYY", () => {
+    const profile = inferMasterProfile(dataset(numericMaster(["20.02.1989", "01.05.1990"])));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 5 JAN 1885
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const birth = out.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.date?.raw).toBe("05.01.1885");
+  });
+
+  it("converts the master's example (D Mmm YYYY) from a numeric compare file", () => {
+    // Master like Renko-Rakar-Jekovec-Pezdirc.ged: "20 Feb 1989".
+    const profile = inferMasterProfile(dataset(numericMaster(["20 Feb 1989", "1 May 1990"])));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 03.06.1885
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const birth = out.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.date?.raw).toBe("3 Jun 1885");
+  });
+
+  it("uses the compare file's own order to disambiguate its numeric dates", () => {
+    // Master is month-word; compare is unambiguously MDY (a 02/20 proves it).
+    const profile = inferMasterProfile(dataset(numericMaster(["20 Feb 1989"])));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 02/20/1885
+1 DEAT
+2 DATE 05/06/1950
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const events = out.individuals.get("@I1@")!.events;
+    expect(events.find((e) => e.tag === "BIRT")?.date?.raw).toBe("20 Feb 1885");
+    // 05/06 is read as MDY (May 6), per the file's detected order.
+    expect(events.find((e) => e.tag === "DEAT")?.date?.raw).toBe("6 May 1950");
   });
 });

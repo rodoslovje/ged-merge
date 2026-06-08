@@ -1,5 +1,5 @@
 import { parseDate } from "../gedcom/date";
-import type { GedDate } from "../gedcom/types";
+import type { DateOrder, GedDate } from "../gedcom/types";
 import type { DateFormatProfile } from "./types";
 
 /**
@@ -31,10 +31,17 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
   }
 }
 
-/** Re-render a raw DATE string into master format; raw is returned unchanged
- * when nothing about it differs. */
-export function normalizeDateString(raw: string, profile: DateFormatProfile): string {
-  return formatGedDate(parseDate(raw), profile);
+/**
+ * Re-render a raw DATE string into master format; raw is returned unchanged
+ * when nothing about it differs. `sourceOrder` disambiguates numeric dates in
+ * the source file (e.g. whether `05/06/1989` is D/M or M/D).
+ */
+export function normalizeDateString(
+  raw: string,
+  profile: DateFormatProfile,
+  sourceOrder?: DateOrder,
+): string {
+  return formatGedDate(parseDate(raw, sourceOrder), profile);
 }
 
 function formatParts(
@@ -44,9 +51,31 @@ function formatParts(
   profile: DateFormatProfile,
 ): string {
   if (year === undefined) return "";
+  if (profile.numeric) return formatNumeric(year, month, day, profile.numeric);
   if (month === undefined) return String(year);
   const mon = profile.monthTokens[month] ?? String(month);
   if (day === undefined) return `${mon} ${year}`;
   const d = profile.padDay ? String(day).padStart(2, "0") : String(day);
   return `${d} ${mon} ${year}`;
+}
+
+function formatNumeric(
+  year: number,
+  month: number | undefined,
+  day: number | undefined,
+  fmt: NonNullable<DateFormatProfile["numeric"]>,
+): string {
+  const sep = fmt.separator;
+  const y = String(year);
+  if (month === undefined) return y; // year-only: numeric layout can't add more.
+  const mm = fmt.padMonth ? String(month).padStart(2, "0") : String(month);
+  if (day === undefined) {
+    return fmt.order === "YMD" ? `${y}${sep}${mm}` : `${mm}${sep}${y}`;
+  }
+  const dd = fmt.padDay ? String(day).padStart(2, "0") : String(day);
+  switch (fmt.order) {
+    case "DMY": return `${dd}${sep}${mm}${sep}${y}`;
+    case "MDY": return `${mm}${sep}${dd}${sep}${y}`;
+    case "YMD": return `${y}${sep}${mm}${sep}${dd}`;
+  }
 }
