@@ -83,7 +83,6 @@ describe("normalizeDataset", () => {
     expect(birth.place?.raw).toBe("wien, österreich");
 
     expect(report.datesChanged).toBe(1);
-    expect(report.placesChanged).toBe(0);
     expect(report.dateExamples[0]).toEqual({ before: "5 JAN 1885", after: "05 january 1885" });
   });
 
@@ -96,11 +95,9 @@ describe("normalizeDataset", () => {
 2 PLAC zgornje   bitnje  52,  kranj
 0 TRLR
 `;
-    const { dataset: out, report } = normalizeDataset(dataset(messy), profile);
+    const { dataset: out } = normalizeDataset(dataset(messy), profile);
     const birth = out.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("zgornje bitnje 52, kranj");
-    expect(report.placesChanged).toBe(0);
-    expect(report.placeExamples).toEqual([]);
   });
 
   it("does not mutate the input dataset", () => {

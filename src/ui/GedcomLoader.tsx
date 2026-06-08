@@ -119,12 +119,14 @@ function renderSummary(
   const info = [
     t("loader.version", { version: dataset.version }),
     t("loader.encoding", { charset: dataset.charset }),
-    t("loader.individuals", { count: dataset.individuals.size }),
-    t("loader.families", { count: dataset.families.size }),
   ];
   if (placeLayout && placeLayout !== "unknown") {
     info.push(t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }));
   }
+  info.push(
+    t("loader.individuals", { count: dataset.individuals.size }),
+    t("loader.families", { count: dataset.families.size }),
+  );
 
   const warnings = dataset.warnings;
   const hasWarnings = warnings.length > 0;
@@ -151,10 +153,6 @@ function renderSummary(
             <div className="loader-report-head">{t("loader.normalized")}</div>
             <span className="loader-report-line" title={examplesTooltip(report.dateExamples)}>
               {t("loader.datesChanged", { count: report.datesChanged })}
-            </span>
-            {"\n"}
-            <span className="loader-report-line" title={examplesTooltip(report.placeExamples)}>
-              {t("loader.placesChanged", { count: report.placesChanged })}
             </span>
           </div>
         )}

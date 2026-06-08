@@ -72,11 +72,13 @@ export interface NormChange {
   after: string;
 }
 
-/** Summary of what the normalization pass altered in the compare file. */
+/**
+ * Summary of what the load-time normalization pass altered in the compare file.
+ * Only dates are reported: place text is left as-is on load, and place
+ * reformatting to the master's layout happens later, at export/merge time.
+ */
 export interface NormalizationReport {
   datesChanged: number;
-  placesChanged: number;
   /** A handful of illustrative changes for display. */
   dateExamples: NormChange[];
-  placeExamples: NormChange[];
 }

@@ -23,9 +23,7 @@ export function normalizeDataset(
   const records = cloneRecords(compare.records);
   const report: NormalizationReport = {
     datesChanged: 0,
-    placesChanged: 0,
     dateExamples: [],
-    placeExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
