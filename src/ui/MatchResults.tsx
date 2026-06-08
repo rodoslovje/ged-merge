@@ -82,7 +82,17 @@ export function MatchResults({
       {showFilters && (
         <div className="filters">
           <div className="filter-row">
+            <input
+              type="search"
+              className="name-search"
+              placeholder={t("filter.search")}
+              title={t("filter.searchTooltip")}
+              value={filters.nameQuery}
+              onChange={(e) => onFilters({ ...filters, nameQuery: e.target.value })}
+            />
             {homeControl}
+          </div>
+          <div className="filter-row">
             <label className="filter-score" title={t("filter.scoreTooltip")}>
               <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
                 {filters.minScore}
@@ -97,8 +107,6 @@ export function MatchResults({
                 onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
               />
             </label>
-          </div>
-          <div className="filter-row">
             <label className="filter-check" title={t("filter.newDataTooltip")}>
               <input
                 type="checkbox"
@@ -145,7 +153,25 @@ export function MatchResults({
                 title={t("list.distanceTooltip")}
                 onClick={() => onToggleSort("distance")}
               >
-                ↺{arrow("distance")}
+                <svg
+                  className="dist-ico"
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                {arrow("distance")}
               </button>
             )}
             <button

@@ -41,6 +41,8 @@ export const sl = {
   "home.clear": "Počisti izhodiščno osebo",
   "home.noMatches": "Ni zadetkov",
   "home.tooltip": "Nastavite izhodiščno osebo za razvrščanje ujemanj po sorodstveni razdalji",
+  "filter.search": "Iskanje imena…",
+  "filter.searchTooltip": "Filtriraj ujemanja po imenu ali priimku",
   "filter.newData": "Novi podatki",
   "filter.newDataTooltip": "Prikaži samo ujemanja, ki dodajajo nove podatke",
   "filter.differences": "Razlike",

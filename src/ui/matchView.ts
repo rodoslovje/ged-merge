@@ -45,6 +45,8 @@ export function nextSort(sorts: SortState[], key: SortKey): SortState[] {
 
 /** Active filters for the matches list. */
 export interface Filters {
+  /** Free-text name/surname search (case-insensitive substring). */
+  nameQuery: string;
   /** Keep only matches that add new data (newCount > 0). */
   onlyNew: boolean;
   /** Keep only matches with conflicting fields (diffCount > 0). */
@@ -56,6 +58,7 @@ export interface Filters {
 }
 
 export const NO_FILTERS: Filters = {
+  nameQuery: "",
   onlyNew: false,
   onlyDiff: false,
   onlyLinks: false,
@@ -64,6 +67,7 @@ export const NO_FILTERS: Filters = {
 
 /** Initial filters: hide weak matches by defaulting the score gate to "strong". */
 export const DEFAULT_FILTERS: Filters = {
+  nameQuery: "",
   onlyNew: false,
   onlyDiff: false,
   onlyLinks: false,
@@ -71,9 +75,11 @@ export const DEFAULT_FILTERS: Filters = {
 };
 
 export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
-  if (!f.onlyNew && !f.onlyDiff && !f.onlyLinks && f.minScore <= 0) return list;
+  const q = f.nameQuery.trim().toLowerCase();
+  if (!q && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && f.minScore <= 0) return list;
   return list.filter(
     (c) =>
+      (!q || c.name.toLowerCase().includes(q)) &&
       (!f.onlyNew || (c.newCount ?? 0) > 0) &&
       (!f.onlyDiff || (c.diffCount ?? 0) > 0) &&
       (!f.onlyLinks || (c.linkCount ?? 0) > 0) &&

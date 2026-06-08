@@ -398,12 +398,27 @@ button {
   gap: 4px;
 }
 .home-selector input {
-  width: 230px;
+  width: 180px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  padding: 6px 28px 6px 10px; /* room for the clear button overlaid on the right */
+  /* room for the home icon on the left and the clear button on the right */
+  padding: 5px 26px 5px 28px;
+  font-size: 0.85rem;
+}
+.home-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 1;
+}
+.home-selector.unset .home-icon,
+.home-control:focus-within .home-icon {
+  color: var(--accent);
 }
 .home-selector input:focus {
   outline: none;
@@ -526,6 +541,22 @@ button {
   gap: 6px;
   cursor: pointer;
 }
+.name-search {
+  flex: 1 1 160px;
+  min-width: 120px;
+  max-width: 260px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+.name-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
 .filter-score {
   display: flex;
   align-items: center;
@@ -630,6 +661,9 @@ button {
 .candidate-list-head .sortbtn.nd {
   min-width: 0;
   overflow: visible;
+}
+.dist-ico {
+  vertical-align: -2px;
 }
 .sortbtn {
   background: none;
