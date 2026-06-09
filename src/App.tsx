@@ -7,7 +7,7 @@ import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
 import type { NormalizationReport, PlaceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
-import { decisionKey, type CandidateDecision } from "./review/types";
+import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { MatchResults } from "./ui/MatchResults";
@@ -411,6 +411,21 @@ export function App() {
     setDecisions((prev) => new Map(prev).set(key, next));
   }
 
+  // Set a pair's status while keeping its field choices; clicking the active
+  // status again clears it back to undecided. Used by the compare tree, where a
+  // node may be a person that never appeared in the candidate list.
+  const setPairStatus = useCallback(
+    (masterId: string, compareId: string, status: MatchDecisionStatus) => {
+      const key = decisionKey("individual", masterId, compareId);
+      setDecisions((prev) => {
+        const cur = prev.get(key);
+        const nextStatus = cur?.status === status ? "undecided" : status;
+        return new Map(prev).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
+      });
+    },
+    [],
+  );
+
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
@@ -449,6 +464,8 @@ export function App() {
         onModeChange={changeTreeMode}
         onReroot={rerootTree}
         onBack={() => window.history.back()}
+        decisions={decisions}
+        onDecide={setPairStatus}
       />
     );
   }

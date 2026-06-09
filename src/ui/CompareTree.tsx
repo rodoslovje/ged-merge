@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
+import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { FieldValue } from "./FieldValue";
 import { sexClass, sexColorVar, sexGlyph } from "./sex";
 import {
@@ -25,7 +26,25 @@ interface Props {
   /** Re-root the tree on another person (clicked from a node's relative links). */
   onReroot: (masterId?: string, compareId?: string) => void;
   onBack: () => void;
+  /** Decisions by pair key, so matched nodes can show + set their status. */
+  decisions: Map<string, CandidateDecision>;
+  /** Toggle a matched node's decision status (confirm / reject / defer). */
+  onDecide: (masterId: string, compareId: string, status: MatchDecisionStatus) => void;
 }
+
+/** The three actionable decisions, in button order. */
+const DECISION_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = [
+  "confirmed",
+  "rejected",
+  "deferred",
+];
+
+/** Decision badge / button colours, matching the compare panel's decision bar. */
+const DECISION_COLOR: Record<Exclude<MatchDecisionStatus, "undecided">, string> = {
+  confirmed: "#3ecf8e",
+  rejected: "#ef4444",
+  deferred: "#e2b341",
+};
 
 const NODE_W = 184;
 const NODE_H = 48;
@@ -90,8 +109,26 @@ export function CompareTree({
   onModeChange,
   onReroot,
   onBack,
+  decisions,
+  onDecide,
 }: Props) {
   const { t } = useTranslation();
+
+  // A matched node (both sides present) carries a decision; resolve its status,
+  // localized letter, and colour for the corner badge. Undecided → no badge.
+  const decisionOf = useCallback(
+    (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string; color: string } | undefined => {
+      if (!n.master || !n.incoming) return undefined;
+      const d = decisions.get(decisionKey("individual", n.master.id, n.incoming.id));
+      if (!d || d.status === "undecided") return undefined;
+      return {
+        status: d.status,
+        letter: t(`status.${d.status}`).charAt(0).toUpperCase(),
+        color: DECISION_COLOR[d.status],
+      };
+    },
+    [decisions, t],
+  );
 
   const rootMaster = rootMasterId ? masterDs.individuals.get(rootMasterId) : undefined;
   const rootIncoming = rootCompareId ? compareDs.individuals.get(rootCompareId) : undefined;
@@ -279,6 +316,7 @@ export function CompareTree({
               height={laid.height}
               selectedKey={selectedKey}
               onSelect={setSelectedKey}
+              decisionOf={decisionOf}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -301,6 +339,16 @@ export function CompareTree({
             maps={maps}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
+            decision={
+              selected.master && selected.incoming
+                ? decisions.get(decisionKey("individual", selected.master.id, selected.incoming.id))
+                : undefined
+            }
+            onDecide={(status) => {
+              if (selected.master && selected.incoming) {
+                onDecide(selected.master.id, selected.incoming.id, status);
+              }
+            }}
           />
         )}
       </div>
@@ -346,12 +394,14 @@ function TreeSvg({
   height,
   selectedKey,
   onSelect,
+  decisionOf,
 }: {
   flat: Flat;
   width: number;
   height: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  decisionOf: (n: Placed) => { status: string; letter: string; color: string } | undefined;
 }) {
   const { nodes, edges } = flat;
   return (
@@ -364,39 +414,59 @@ function TreeSvg({
             d={e.d}
           />
         ))}
-        {nodes.map((n) => (
-          <g
-            key={n.key}
-            transform={`translate(${n.x},${n.y})`}
-            className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
-            onClick={() => onSelect(n.key)}
-          >
-            <title>{n.detail}</title>
-            <rect
-              width={NODE_W}
-              height={NODE_H}
-              rx={10}
-              ry={10}
-              fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
-              stroke={STATUS_COLOR[n.status]}
-              strokeWidth={2.5}
-            />
-            <SexDot sex={n.sex} x={16} y={15} />
-            <text
-              className="tree-node-name"
-              x={32}
-              y={19}
-              style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
+        {nodes.map((n) => {
+          const dec = decisionOf(n);
+          return (
+            <g
+              key={n.key}
+              transform={`translate(${n.x},${n.y})`}
+              className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
+              onClick={() => onSelect(n.key)}
             >
-              {truncate(n.name, 24)}
-            </text>
-            {n.years && (
-              <text className="tree-node-year gm-data" x={32} y={36}>
-                {n.years}
+              <title>{n.detail}</title>
+              <rect
+                width={NODE_W}
+                height={NODE_H}
+                rx={10}
+                ry={10}
+                fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
+                stroke={STATUS_COLOR[n.status]}
+                strokeWidth={2.5}
+              />
+              <SexDot sex={n.sex} x={16} y={15} />
+              <text
+                className="tree-node-name"
+                x={32}
+                y={19}
+                style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
+              >
+                {truncate(n.name, 24)}
               </text>
-            )}
-          </g>
-        ))}
+              {n.years && (
+                <text className="tree-node-year gm-data" x={32} y={36}>
+                  {n.years}
+                </text>
+              )}
+              {/* Decision badge in the top-right corner (matched, decided nodes). */}
+              {dec && (
+                <g className="tree-node-decision" transform={`translate(${NODE_W - 11},11)`}>
+                  <circle r={8.5} fill={dec.color} stroke="var(--panel)" strokeWidth={1.5} />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    x={0}
+                    y={0.5}
+                    fontSize={10}
+                    fontWeight={700}
+                    fill="#10231b"
+                  >
+                    {dec.letter}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
       </g>
     </svg>
   );
@@ -559,6 +629,8 @@ function NodeCompare({
   maps,
   onReroot,
   onClose,
+  decision,
+  onDecide,
 }: {
   node: Placed;
   masterDs: Dataset;
@@ -566,8 +638,13 @@ function NodeCompare({
   maps: MatchMaps;
   onReroot: (masterId?: string, compareId?: string) => void;
   onClose: () => void;
+  decision: CandidateDecision | undefined;
+  onDecide: (status: MatchDecisionStatus) => void;
 }) {
   const { t } = useTranslation();
+  // Both sides present → an actionable match the user can confirm/reject/defer.
+  const decidable = !!node.master && !!node.incoming;
+  const status = decision?.status ?? "undecided";
   const rows = useMemo(
     () => individualFieldRows(t, node.master, node.incoming, masterDs, compareDs),
     [t, node, masterDs, compareDs],
@@ -596,34 +673,58 @@ function NodeCompare({
           ×
         </button>
       </div>
+      {decidable && (
+        <div className="tree-compare-decisions decision-bar">
+          {DECISION_STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              onClick={() => onDecide(s)}
+            >
+              {t(`status.${s}`)}
+            </button>
+          ))}
+        </div>
+      )}
       <table className="tree-compare-table">
         <thead>
           <tr>
             <th />
-            <th>{t("tree.master")}</th>
-            <th>{t("tree.incoming")}</th>
+            <th className="compare-col compare-col-master">{t("tree.master")}</th>
+            <th className="compare-col compare-col-incoming">{t("tree.incoming")}</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.key} className={`field ${row.state}`}>
-              <td className="f-label">{row.label}</td>
-              <td className="f-val gm-data" title={row.masterTitle}>
-                <FieldValue
-                  text={row.master}
-                  links={row.masterLinks}
-                  person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
-                />
-              </td>
-              <td className="f-val gm-data" title={row.incomingTitle}>
-                <FieldValue
-                  text={row.incoming}
-                  links={row.incomingLinks}
-                  person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
-                />
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            // Read-only here, but mark the value that would be kept (master, else
+            // incoming) in bold — the same emphasis as the main compare screen.
+            const choice = defaultChoice(row);
+            return (
+              <tr key={row.key} className={`field ${row.state}`}>
+                <td className="f-label">{row.label}</td>
+                <td
+                  className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
+                  title={row.masterTitle}
+                >
+                  <FieldValue
+                    text={row.master}
+                    links={row.masterLinks}
+                    person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                  />
+                </td>
+                <td
+                  className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                  title={row.incomingTitle}
+                >
+                  <FieldValue
+                    text={row.incoming}
+                    links={row.incomingLinks}
+                    person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
+                  />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

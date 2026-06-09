@@ -1300,12 +1300,29 @@ button {
   vertical-align: top;
 }
 .tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
-.tree-compare-table .f-val { color: var(--text); }
+/* Bold the kept value, mute the other — same emphasis as the main compare table
+   (.f-val.chosen / .f-val:not(.chosen)). */
 /* Match the Compare screen's row highlights for new (incoming-only) and
    conflicting (difference) fields. Applied to cells because the table is
    display:block, where a <tr> background doesn't paint reliably. */
 .tree-compare-table .field.conflict td { background: rgba(226, 179, 65, 0.08); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
+/* Master | Incoming headers: source-coloured uppercase mono, like the compare
+   panel. Scoped to beat the muted `.tree-compare-table th` base colour. */
+.tree-compare-table th.compare-col {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tree-compare-table th.compare-col-master { color: var(--state-master); }
+.tree-compare-table th.compare-col-incoming { color: var(--state-incoming); }
+/* Quick confirm / reject / defer for the selected node, above its field table. */
+.tree-compare-decisions {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
 
 /* --- modal --- */
 .modal-overlay {
