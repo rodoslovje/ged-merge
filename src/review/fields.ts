@@ -162,8 +162,7 @@ function parentRef(
   for (const famId of indi.childOf) {
     const id = ds.families.get(famId)?.[role];
     const parent = id ? ds.individuals.get(id) : undefined;
-    const name = parent?.names[0]?.full;
-    if (name) return { text: name, id: parent!.id };
+    if (parent) return { text: lifespanLabel(parent), id: parent.id };
   }
   return { text: "" };
 }
@@ -192,8 +191,15 @@ function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[]
     if (!fam) continue;
     const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
     const partner = otherId ? ds.individuals.get(otherId) : undefined;
-    const name = partner?.names[0];
-    if (name?.full) out.push({ id: partner!.id, name, text: name.full });
+    if (partner) {
+      out.push({
+        id: partner.id,
+        name: partner.names[0],
+        text: lifespanLabel(partner),
+        full: fullDatesLabel(partner),
+        birthYear: findEvent(partner, "BIRT")?.date?.year,
+      });
+    }
   }
   return out;
 }
@@ -497,4 +503,3 @@ function sexText(t: Translate, sex: string | undefined): string {
   if (sex === "F") return t("sex.F");
   return "";
 }
-
