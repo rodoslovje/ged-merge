@@ -1,3 +1,6 @@
+import { Fragment } from "react";
+import type { RelativePair } from "../review/types";
+
 /** A person a value line can link to: its id plus a click handler. */
 export interface PersonLinks {
   /** Per-line individual ids, aligned with the lines of `text`. */
@@ -61,7 +64,51 @@ function renderLines(text: string, person?: PersonLinks) {
   ));
 }
 
-function renderLine(line: string, id: string | undefined, person?: PersonLinks) {
+/** One side's link behaviour for a relative cell (no per-line `refs` needed). */
+export type RelativePerson = Pick<PersonLinks, "linkable" | "onNavigate">;
+
+/**
+ * Renders an aligned relatives list (children, partners) as a two-column grid:
+ * each pair occupies one grid row, so the same person stays lined up across the
+ * master and incoming columns even when a name wraps to several lines. The
+ * bold/muted emphasis follows the field's chosen side, like single-value rows.
+ */
+export function RelativeGrid({
+  pairs,
+  masterChosen,
+  incomingChosen,
+  masterPerson,
+  incomingPerson,
+}: {
+  pairs: RelativePair[];
+  masterChosen: boolean;
+  incomingChosen: boolean;
+  masterPerson: RelativePerson;
+  incomingPerson: RelativePerson;
+}) {
+  return (
+    <div className="rel-grid">
+      {pairs.map((p, i) => (
+        <Fragment key={i}>
+          <div
+            className={`rel-cell f-val gm-data${masterChosen ? " chosen" : ""}`}
+            title={p.master?.title}
+          >
+            {renderLine(p.master?.text ?? "", p.master?.id, masterPerson)}
+          </div>
+          <div
+            className={`rel-cell rel-incoming f-val gm-data${incomingChosen ? " chosen" : ""}`}
+            title={p.incoming?.title}
+          >
+            {renderLine(p.incoming?.text ?? "", p.incoming?.id, incomingPerson)}
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function renderLine(line: string, id: string | undefined, person?: PersonLinks | RelativePerson) {
   if (!line) return " ";
   if (person && id && person.linkable(id)) {
     return (

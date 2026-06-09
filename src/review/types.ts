@@ -36,6 +36,29 @@ export interface FieldRow {
    */
   masterRefs?: (string | undefined)[];
   incomingRefs?: (string | undefined)[];
+  /**
+   * For aligned relative lists (partners, children): one entry per aligned
+   * relative, so the UI can render each as its own row that spans both columns —
+   * keeping the same person lined up across master and incoming even when a name
+   * wraps. When set, the row is rendered from this instead of `master`/`incoming`.
+   */
+  relatives?: RelativePair[];
+}
+
+/** One side of an aligned relative row. */
+export interface RelativeCell {
+  /** Display text ("Name 1817–1921"), or "" when this side has no counterpart. */
+  text: string;
+  /** The relative's individual id, when navigable. */
+  id?: string;
+  /** Full-date tooltip; absent when it adds nothing beyond `text`. */
+  title?: string;
+}
+
+/** A relative paired across the two files; either side may be absent. */
+export interface RelativePair {
+  master?: RelativeCell;
+  incoming?: RelativeCell;
 }
 
 /** The user's decision for one master/compare candidate pair. */

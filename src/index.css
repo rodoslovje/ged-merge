@@ -983,6 +983,18 @@ button {
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
 .f-choice { width: 120px; white-space: nowrap; }
+
+/* Aligned relatives (children, partners): a two-column grid spanning the Master
+   and Incoming columns. Each pair is one grid row, so the same person lines up
+   on both sides even when a name wraps. The wrapping cell grows the whole row. */
+.f-rel { padding: 0; }
+.rel-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.rel-cell { padding: 6px 8px; }
+/* Divider between the two halves, matching the table's master/incoming border.
+   `td.f-rel` ties the specificity of `.compare td:nth-child(2)` and wins by order. */
+.compare td.f-rel { border-right: none; }
+.compare .rel-cell.rel-incoming { border-left: 1px solid var(--border); }
+.tree-compare-table .rel-cell { padding: 5px 10px; }
 .links { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .link-icon {
   text-decoration: none;

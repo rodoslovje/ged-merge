@@ -4,7 +4,7 @@ import type { Dataset, Sex } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { FieldValue } from "./FieldValue";
+import { FieldValue, RelativeGrid } from "./FieldValue";
 import { sexClass, sexColorVar, sexGlyph } from "./sex";
 import {
   buildCompareTree,
@@ -702,26 +702,40 @@ function NodeCompare({
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.label}</td>
-                <td
-                  className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
-                  title={row.masterTitle}
-                >
-                  <FieldValue
-                    text={row.master}
-                    links={row.masterLinks}
-                    person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
-                  />
-                </td>
-                <td
-                  className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
-                  title={row.incomingTitle}
-                >
-                  <FieldValue
-                    text={row.incoming}
-                    links={row.incomingLinks}
-                    person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
-                  />
-                </td>
+                {row.relatives ? (
+                  <td className="f-rel" colSpan={2}>
+                    <RelativeGrid
+                      pairs={row.relatives}
+                      masterChosen={choice !== "incoming"}
+                      incomingChosen={choice !== "master"}
+                      masterPerson={masterPerson}
+                      incomingPerson={incomingPerson}
+                    />
+                  </td>
+                ) : (
+                  <>
+                    <td
+                      className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
+                      title={row.masterTitle}
+                    >
+                      <FieldValue
+                        text={row.master}
+                        links={row.masterLinks}
+                        person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                      />
+                    </td>
+                    <td
+                      className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                      title={row.incomingTitle}
+                    >
+                      <FieldValue
+                        text={row.incoming}
+                        links={row.incomingLinks}
+                        person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
+                      />
+                    </td>
+                  </>
+                )}
               </tr>
             );
           })}
