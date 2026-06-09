@@ -45,6 +45,8 @@ export interface FieldRow {
    * wraps. When set, the row is rendered from this instead of `master`/`incoming`.
    */
   relatives?: RelativePair[];
+  /** When true, this row is a visual separator/header for a group of fields. */
+  isGroupHeader?: boolean;
 }
 
 /** One side of an aligned relative row. */

@@ -58,11 +58,6 @@ export interface MergeResult {
 const INDI_HANDLED = new Set([
   "father",
   "mother",
-  "partners",
-  "children",
-  "MARR.date",
-  "MARR.place",
-  "MARR.addr",
 ]);
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
@@ -166,7 +161,7 @@ function applyRows(
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "master-only") continue;
     // Handled elsewhere (family spouses/children go through applyFamilyStructure).
-    if (handled.has(row.key)) continue;
+    if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
     const choice = fields[row.key] ?? defaultChoice(row as never);
     if (choice === "master") continue;
 
@@ -607,18 +602,20 @@ function applyIndividualFamilies(
   compare: Dataset,
   ctx: MergeContext,
 ): void {
-  const takeSpouses = wantsIncoming(rows, fields, "partners");
-  const takeChildren = wantsIncoming(rows, fields, "children");
-  const marriageChoice = (sub: string): FieldChoice | undefined => {
-    const key = `MARR.${sub}`;
-    return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
-  };
-  const wantMarriage = (["date", "place", "addr"] as const).some((s) => marriageChoice(s));
-  if (!takeSpouses && !takeChildren && !wantMarriage) return;
-
   for (const incFamId of incomingIndi.spouseOf) {
     const incFam = compare.families.get(incFamId);
     if (!incFam) continue;
+    const famKey = `fam.${incFamId}`;
+
+    const takeSpouses = wantsIncoming(rows, fields, `${famKey}.partner`);
+    const takeChildren = wantsIncoming(rows, fields, `${famKey}.children`);
+    const marriageChoice = (sub: string): FieldChoice | undefined => {
+      const key = `${famKey}.MARR.${sub}`;
+      return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
+    };
+    const wantMarriage = (["date", "place", "addr"] as const).some((s) => marriageChoice(s));
+    if (!takeSpouses && !takeChildren && !wantMarriage) continue;
+
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
     const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
 

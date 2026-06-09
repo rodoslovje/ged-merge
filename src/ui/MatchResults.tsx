@@ -107,18 +107,18 @@ export function MatchResults({
           </div>
           <div className="filter-row">
             <label className="filter-score" title={t("filter.scoreTooltip")}>
-              <span className="filter-score-val" style={{ color: scoreColor(filters.minScore) }}>
-                {filters.minScore}
-              </span>
-              <input
-                type="range"
-                min={50}
-                max={100}
-                step={5}
+              <select
+                className="score-select"
                 value={filters.minScore}
-                style={{ accentColor: scoreColor(filters.minScore) }}
+                style={{ color: scoreColor(filters.minScore) }}
                 onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
-              />
+              >
+                {[50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((v) => (
+                  <option key={v} value={v} style={{ color: "var(--text)" }}>
+                    {v === 100 ? "100" : `≥ ${v}`}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="filter-check" title={t("filter.newDataTooltip")}>
               <input

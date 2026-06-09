@@ -102,7 +102,7 @@ describe("individualFieldRows", () => {
     const plac = (p: string, id: string) =>
       dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC ${p}\n0 TRLR\n`);
     const rows = (pm: string, pi: string) =>
-      individualFieldRows(tr, 
+      individualFieldRows(tr,
         plac(pm, "@I1@").individuals.get("@I1@"),
         plac(pi, "@P1@").individuals.get("@P1@"),
       );
@@ -120,7 +120,7 @@ describe("individualFieldRows", () => {
   it("ignores repeated (excessive) place parts", () => {
     const plac = (p: string, id: string) =>
       dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC ${p}\n0 TRLR\n`);
-    const rows = individualFieldRows(tr, 
+    const rows = individualFieldRows(tr,
       plac("Kranj, Kranj, Slovenia", "@I1@").individuals.get("@I1@"),
       plac("Kranj, Slovenia", "@P1@").individuals.get("@P1@"),
     );
@@ -178,7 +178,7 @@ describe("individual parents and partners rows", () => {
   it("shows father/mother/partner rows resolved through the family graph", () => {
     const m = dataset(masterGed);
     const c = dataset(compareGed);
-    const rows = individualFieldRows(tr, 
+    const rows = individualFieldRows(tr,
       m.individuals.get("@C@"),
       c.individuals.get("@C@"),
       m,
@@ -186,14 +186,14 @@ describe("individual parents and partners rows", () => {
     );
     expect(byKey(rows, "father")).toMatchObject({ master: "Janez Novak", state: "agree" });
     expect(byKey(rows, "mother")).toMatchObject({ master: "Marija Kos", state: "master-only" });
-    expect(byKey(rows, "partners")).toMatchObject({ master: "Tone Horvat", state: "agree" });
+    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ master: "Tone Horvat", state: "agree" });
   });
 
   it("omits relative rows when datasets are not supplied", () => {
     const m = dataset(masterGed);
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), m.individuals.get("@C@"));
     expect(byKey(rows, "father")).toBeUndefined();
-    expect(byKey(rows, "partners")).toBeUndefined();
+    expect(byKey(rows, "fam.@F2@.partner")).toBeUndefined();
   });
 });
 
@@ -322,8 +322,8 @@ describe("marriage rows on the spouse", () => {
     const m = dataset(doc("2 DATE 1875"));
     const c = dataset(doc("2 DATE 1875\n2 PLAC Graz"));
     const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
-    expect(byKey(rows, "MARR.date")?.state).toBe("agree");
-    expect(byKey(rows, "MARR.place")?.state).toBe("incoming-only");
+    expect(byKey(rows, "fam.@F@.MARR.date")?.state).toBe("agree");
+    expect(byKey(rows, "fam.@F@.MARR.place")?.state).toBe("incoming-only");
   });
 });
 
@@ -341,7 +341,7 @@ describe("aligned relative lists (children/partners)", () => {
   const md = dataset(fam(["Anna /Novak/", "Berta /Novak/"]));
   const cd = dataset(fam(["Anna /Novak/", "Doris /Novak/"]));
   const rows = individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd);
-  const children = byKey(rows, "children")!;
+  const children = byKey(rows, "fam.@F@.children")!;
 
   it("aligns a matched child on the same line in both columns", () => {
     const m = children.master.split("\n");
@@ -378,7 +378,7 @@ describe("aligned relative lists (children/partners)", () => {
     const cd = dataset(famB([{ name: "Janez /Novak/", year: "1855" }]));
     const children = byKey(
       individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
-      "children",
+      "fam.@F@.children",
     )!;
     const m = children.master.split("\n");
     const i = children.incoming.split("\n");
@@ -397,7 +397,7 @@ describe("aligned relative lists (children/partners)", () => {
       `0 @K2@ INDI\n1 NAME Berta /Novak/\n1 BIRT\n2 DATE 5 MAR 1855\n1 FAMC @F@\n` +
       `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n1 CHIL @K1@\n1 CHIL @K2@\n0 TRLR\n`;
     const ds = dataset(text);
-    const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "children")!;
+    const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.@F@.children")!;
     const lines = children.master.split("\n");
     expect(lines.map((l) => l.match(/Ana|Berta|Cilka/)?.[0])).toEqual(["Ana", "Berta", "Cilka"]);
   });

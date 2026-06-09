@@ -273,7 +273,11 @@ function nodeStatus(
   if (conflict("given") || conflict("surname") || birthYearConflict(master, incoming)) {
     return "major";
   }
-  return rows.some((r) => r.state !== "agree") ? "minor" : "match";
+  // A row with `relatives` is a list of people, not a scalar field of the
+  // root person. Differences in relatives are reflected in the child nodes, not
+  // as a 'minor' conflict on the parent.
+  const hasDiff = rows.some((r) => r.state !== "agree" && !r.relatives);
+  return hasDiff ? "minor" : "match";
 }
 
 function describe(

@@ -695,6 +695,16 @@ function NodeCompare({
         </thead>
         <tbody>
           {rows.map((row) => {
+            if (row.isGroupHeader) {
+              return (
+                <tr key={row.key} className="group-header-row">
+                  <td colSpan={3} className="group-header-cell" style={{ textAlign: "left", paddingLeft: "10px" }}>
+                    {row.label}
+                  </td>
+                </tr>
+              );
+            }
+
             // Read-only here, but mark the value that would be kept (master, else
             // incoming) in bold — the same emphasis as the main compare screen.
             const choice = defaultChoice(row);

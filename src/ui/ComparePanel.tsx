@@ -128,6 +128,16 @@ export function ComparePanel({
         </thead>
         <tbody>
           {rows.map((row) => {
+            if (row.isGroupHeader) {
+              return (
+                <tr key={row.key} className="group-header-row">
+                  <td colSpan={4} className="group-header-cell">
+                    {row.label}
+                  </td>
+                </tr>
+              );
+            }
+
             const choice = fields[row.key] ?? defaultChoice(row);
             return (
               <tr key={row.key} className={`field ${row.state}`}>

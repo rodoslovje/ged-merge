@@ -28,13 +28,25 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "sex") return t("field.sex");
   if (key === "father") return t("field.father");
   if (key === "mother") return t("field.mother");
-  if (key === "partners") return t("field.partners");
-  if (key === "children") return t("field.children");
+  if (key === "partners" || key.endsWith(".partner")) return t("field.partners");
+  if (key === "children" || key.endsWith(".children")) return t("field.children");
   if (key === "husband") return t("field.husband");
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.links");
 
-  const [tag, sub] = key.split(".");
+  let tag = key;
+  let sub = "";
+  if (key.includes(".MARR.")) {
+    tag = "MARR";
+    sub = key.split(".MARR.")[1];
+  } else {
+    const parts = key.split(".");
+    if (parts.length === 2) {
+      tag = parts[0];
+      sub = parts[1];
+    }
+  }
+
   const name = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
   if (!sub) return name;
   if (sub === "date") return t("event.date", { event: name });
@@ -84,62 +96,147 @@ export function individualFieldRows(
   if (masterDs && compareDs) {
     pushRelativesRow(rows, "father", formatFieldLabel(t, "father"), parentRelative(master, masterDs, "husband"), parentRelative(compare, compareDs, "husband"));
     pushRelativesRow(rows, "mother", formatFieldLabel(t, "mother"), parentRelative(master, masterDs, "wife"), parentRelative(compare, compareDs, "wife"));
-    pushRelativesRow(rows, "partners", formatFieldLabel(t, "partners"), partnerRelatives(master, masterDs), partnerRelatives(compare, compareDs));
 
-    const mMar = primaryMarriage(master, masterDs);
-    const cMar = primaryMarriage(compare, compareDs);
-    pushRow(rows, "MARR.date", formatFieldLabel(t, "MARR.date"), mMar?.date?.raw, cMar?.date?.raw);
-    pushRow(rows, "MARR.place", formatFieldLabel(t, "MARR.place"), mMar?.place?.raw, cMar?.place?.raw);
-    pushRow(rows, "MARR.addr", formatFieldLabel(t, "MARR.addr"), mMar?.address?.raw, cMar?.address?.raw);
+    const famPairs = pairFamilies(master, compare, masterDs, compareDs);
+    famPairs.forEach((pair) => {
+      const mFam = pair.masterFam;
+      const cFam = pair.compareFam;
+      const famKey = cFam ? `fam.${cFam.id}` : `fam.${mFam!.id}`;
 
-    pushRelativesRow(rows, "children", formatFieldLabel(t, "children"), personChildRelatives(master, masterDs), personChildRelatives(compare, compareDs));
+      const mSpouseId = mFam ? (mFam.husband === master?.id ? mFam.wife : mFam.husband) : undefined;
+      const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
+      const mSpouse = mSpouseId ? masterDs.individuals.get(mSpouseId) : undefined;
+      const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
+      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse)] : [];
+      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse)] : [];
+
+      const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
+
+      rows.push({
+        key: `${famKey}.header`,
+        label: t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` }),
+        master: "",
+        incoming: "",
+        state: "agree",
+        isGroupHeader: true,
+      });
+
+      if (mSpouseRel.length > 0 || cSpouseRel.length > 0) {
+        pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
+      }
+
+      const mMar = mFam?.events.find((e) => e.tag === "MARR");
+      const cMar = cFam?.events.find((e) => e.tag === "MARR");
+
+      pushRow(rows, `${famKey}.MARR.date`, formatFieldLabel(t, "MARR.date"), mMar?.date?.raw, cMar?.date?.raw);
+      pushRow(rows, `${famKey}.MARR.place`, formatFieldLabel(t, "MARR.place"), mMar?.place?.raw, cMar?.place?.raw);
+      pushRow(rows, `${famKey}.MARR.addr`, formatFieldLabel(t, "MARR.addr"), mMar?.address?.raw, cMar?.address?.raw);
+
+      const mChildren = mFam ? mFam.children.map(id => masterDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
+      const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
+      const mChildRels = individualsToRelatives(mChildren);
+      const cChildRels = individualsToRelatives(cChildren);
+
+      if (mChildRels.length > 0 || cChildRels.length > 0) {
+        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels);
+      }
+    });
   }
   return rows;
 }
 
-/** The MARR event of the first family this person is a spouse in that has one. */
-function primaryMarriage(indi: Individual | undefined, ds: Dataset) {
-  if (!indi) return undefined;
-  for (const famId of indi.spouseOf) {
-    const m = ds.families.get(famId)?.events.find((e) => e.tag === "MARR");
-    if (m) return m;
-  }
-  return undefined;
+function partnerToRelative(partner: Individual): Relative {
+  return {
+    id: partner.id,
+    name: partner.names[0],
+    text: lifespanLabel(partner),
+    full: fullDatesLabel(partner),
+    birthYear: findEvent(partner, "BIRT")?.date?.year,
+    displayName: displayName(partner.names[0]),
+    years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
+    sex: partner.sex,
+  };
 }
 
-/**
- * This person's children across all their families, as alignable relatives,
- * sorted by birth date (children with no known birth sort last, keeping their
- * original family order).
- */
-function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
-  if (!indi) return [];
-  const seen = new Set<string>();
-  const children: Individual[] = [];
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    for (const cid of fam.children) {
-      if (seen.has(cid)) continue;
-      const child = ds.individuals.get(cid);
-      if (!child) continue;
-      seen.add(cid);
-      children.push(child);
-    }
-  }
-  return children
+function individualsToRelatives(indis: Individual[]): Relative[] {
+  return indis
     .map((child, order) => ({ child, order, sort: birthSortKey(child) }))
     .sort((a, b) => a.sort - b.sort || a.order - b.order)
-    .map(({ child }) => ({
-      id: child.id,
-      name: child.names[0],
-      text: lifespanLabel(child),
-      full: fullDatesLabel(child),
-      birthYear: findEvent(child, "BIRT")?.date?.year,
-      displayName: displayName(child.names[0]),
-      years: formatLifespan(findEvent(child, "BIRT")?.date?.year, findEvent(child, "DEAT")?.date?.year, isDeceased(child)),
-      sex: child.sex,
-    }));
+    .map(({ child }) => partnerToRelative(child));
+}
+
+interface FamPair {
+  masterFam?: Family;
+  compareFam?: Family;
+}
+
+function pairFamilies(
+  master: Individual | undefined,
+  compare: Individual | undefined,
+  masterDs: Dataset,
+  compareDs: Dataset
+): FamPair[] {
+  const mFams = master ? master.spouseOf.map(id => masterDs.families.get(id)).filter((f): f is Family => !!f) : [];
+  const cFams = compare ? compare.spouseOf.map(id => compareDs.families.get(id)).filter((f): f is Family => !!f) : [];
+
+  const cand: { mi: number; ii: number; sim: number }[] = [];
+
+  mFams.forEach((mf, mi) => {
+    cFams.forEach((cf, ii) => {
+      const mSpouseId = mf.husband === master?.id ? mf.wife : mf.husband;
+      const cSpouseId = cf.husband === compare?.id ? cf.wife : cf.husband;
+      const mSpouse = mSpouseId ? masterDs.individuals.get(mSpouseId) : undefined;
+      const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
+
+      let sim = 0;
+      if (mSpouse && cSpouse) {
+         const mRel = partnerToRelative(mSpouse);
+         const cRel = partnerToRelative(cSpouse);
+         sim = relativeSimilarity(mRel, cRel);
+      } else {
+         if (mFams.length === 1 && cFams.length === 1) {
+           sim = 1;
+         } else {
+           const mKids = mf.children.map(id => masterDs.individuals.get(id)).filter(Boolean) as Individual[];
+           const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
+           let matches = 0;
+           mKids.forEach(mk => {
+             if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck)) >= RELATIVE_PAIR_THRESHOLD)) {
+               matches++;
+             }
+           });
+           if (matches > 0) {
+             sim = matches / Math.max(mKids.length, cKids.length);
+           }
+         }
+      }
+
+      if (sim >= 0.5) {
+         cand.push({ mi, ii, sim });
+      }
+    });
+  });
+
+  cand.sort((a, b) => b.sim - a.sim);
+  const matchOf = new Map<number, number>();
+  const usedC = new Set<number>();
+  const usedM = new Set<number>();
+  for (const p of cand) {
+    if (usedM.has(p.mi) || usedC.has(p.ii)) continue;
+    usedM.add(p.mi);
+    usedC.add(p.ii);
+    matchOf.set(p.mi, p.ii);
+  }
+
+  const pairs: FamPair[] = [];
+  mFams.forEach((mf, mi) => {
+    const ii = matchOf.get(mi);
+    pairs.push({ masterFam: mf, compareFam: ii !== undefined ? cFams[ii] : undefined });
+  });
+  cFams.forEach((cf, ii) => {
+    if (!usedC.has(ii)) pairs.push({ compareFam: cf });
+  });
+  return pairs;
 }
 
 /** Sortable birth-date value (YYYYMMDD); +Infinity when no birth year is known. */
@@ -174,10 +271,6 @@ function parentRelative(
   return [];
 }
 
-/**
- * A relative shown in an aligned list: the structured name used to pair the two
- * sides, plus the text rendered to the user.
- */
 interface Relative {
   /** The relative's individual id, used to link/navigate to them. */
   id?: string;
@@ -191,31 +284,6 @@ interface Relative {
   displayName?: string;
   years?: string;
   sex?: Sex;
-}
-
-/** This person's spouses as alignable relatives. */
-function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[] {
-  if (!indi) return [];
-  const out: Relative[] = [];
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
-    const partner = otherId ? ds.individuals.get(otherId) : undefined;
-    if (partner) {
-      out.push({
-        id: partner.id,
-        name: partner.names[0],
-        text: lifespanLabel(partner),
-        full: fullDatesLabel(partner),
-        birthYear: findEvent(partner, "BIRT")?.date?.year,
-        displayName: displayName(partner.names[0]),
-        years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
-        sex: partner.sex,
-      });
-    }
-  }
-  return out;
 }
 
 
@@ -289,6 +357,8 @@ function pushRelativesRow(
     incoming: i,
     state,
     relatives: pairs,
+    masterRefs: pairs.map((p) => p.master?.id),
+    incomingRefs: pairs.map((p) => p.incoming?.id),
   });
 }
 
