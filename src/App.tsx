@@ -141,9 +141,8 @@ export function App() {
   );
   const compareRef = useRef<HTMLDivElement>(null);
 
-  // Collapsible sections.
+  // Collapsible sections. (Compare is always shown — it's the main interface.)
   const [openLoad, setOpenLoad] = useState(true);
-  const [openCompare, setOpenCompare] = useState(false);
   const [openMatches, setOpenMatches] = useState(false);
 
   // Light/dark theme: auto-detected from the OS, overridable, and persisted.
@@ -186,7 +185,6 @@ export function App() {
         const idx = visibleRef.current.findIndex((c) => c.masterId === masterId && c.compareId === compareId);
         if (idx >= 0) {
           setSelectedIndex(idx);
-          setOpenCompare(true);
         }
       }
     }
@@ -243,7 +241,6 @@ export function App() {
         // Land on the first match and reveal the compare + matches sections.
         setSelectedIndex(0);
         setOpenLoad(false);
-        setOpenCompare(true);
         setOpenMatches(true);
         return;
       }
@@ -276,7 +273,6 @@ export function App() {
     setHomeId(undefined); // home person is opt-in; reset on (re)load
     setFocusHome(false);
     autoHomeRef.current = false; // allow the default home person for the new file
-    setOpenCompare(false);
     setOpenMatches(false);
     setOpenLoad(true);
     const buffer = await file.arrayBuffer();
@@ -367,7 +363,6 @@ export function App() {
   // or filter toggle (only the rows whose own props change re-render).
   const select = useCallback((index: number) => {
     setSelectedIndex(index);
-    setOpenCompare(true);
     if (window.innerWidth <= 880) {
       setTimeout(() => {
         compareRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -500,7 +495,7 @@ export function App() {
       </div>
     </>
   ) : undefined;
-  const compareSubtitle = current ? (
+  const compareHeader = current ? (
     <>
       <div className={`compare-header-info ${sexClass(current.sex)}`}>
         <SexBadge sex={current.sex} />
@@ -517,26 +512,26 @@ export function App() {
       <div className="compare-nav-header">
         <button
           className="nav-btn icon-only"
-          onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.max(0, i - 1)); }}
-        disabled={safeIndex <= 0}
-        title={t("nav.prev")}
-      >
-        ‹
-      </button>
-      <span className="nav-pos gm-data">
-        {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
-      </span>
-      <button
-        className="nav-btn icon-only"
-        onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => Math.min(visible.length - 1, i + 1)); }}
-        disabled={safeIndex >= visible.length - 1}
-        title={t("nav.next")}
-      >
-        ›
-      </button>
-    </div>
+          onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
+          disabled={safeIndex <= 0}
+          title={t("nav.prev")}
+        >
+          ‹
+        </button>
+        <span className="nav-pos gm-data">
+          {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
+        </span>
+        <button
+          className="nav-btn icon-only"
+          onClick={() => setSelectedIndex((i) => Math.min(visible.length - 1, i + 1))}
+          disabled={safeIndex >= visible.length - 1}
+          title={t("nav.next")}
+        >
+          ›
+        </button>
+      </div>
     </>
-  ) : undefined;
+  ) : null;
 
   return (
     <div className="app">
@@ -653,30 +648,29 @@ export function App() {
         </div>
 
         <div className="split-pane split-compare" ref={compareRef}>
-          <Section
-            title={t("section.compare")}
-            subtitle={compareSubtitle}
-            open={openCompare}
-            onToggle={() => setOpenCompare((o) => !o)}
-            disabled={!current}
-          >
-            {current && masterDataset && compareDataset ? (
-              <ComparePanel
-                candidate={current}
-                masterDs={masterDataset}
-                compareDs={compareDataset}
-                decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
-                onChange={updateDecision}
-                onOpenTree={() => openTree(current.masterId, current.compareId)}
-                canNavigate={canNavigatePerson}
-                onNavigate={navigatePerson}
-              />
-            ) : (
-              <p className="muted">
-                {matches ? t("compare.empty") : t("matches.empty")}
-              </p>
-            )}
-          </Section>
+          {/* Always-open: the compare view is the app's main interface, so it has
+              no collapse toggle or section title — just the person and nav. */}
+          <div className="section open">
+            {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
+            <div className="section-body">
+              {current && masterDataset && compareDataset ? (
+                <ComparePanel
+                  candidate={current}
+                  masterDs={masterDataset}
+                  compareDs={compareDataset}
+                  decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
+                  onChange={updateDecision}
+                  onOpenTree={() => openTree(current.masterId, current.compareId)}
+                  canNavigate={canNavigatePerson}
+                  onNavigate={navigatePerson}
+                />
+              ) : (
+                <p className="muted">
+                  {matches ? t("compare.empty") : t("matches.empty")}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />

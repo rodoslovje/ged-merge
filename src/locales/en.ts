@@ -4,7 +4,6 @@ export const en = {
   "load.privacy": "Your data never leaves your device. Processed 100% in-browser.",
   "app.mobileWarning": "This application is optimized for larger screens. For the best user experience, please use a tablet or desktop.",
   "section.load": "Load GEDCOM",
-  "section.compare": "Compare",
   "section.matches": "Matches",
   "load.master": "Master GEDCOM",
   "load.master.tooltip": "Load your primary GEDCOM file first",

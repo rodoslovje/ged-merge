@@ -867,27 +867,26 @@ button {
   margin-bottom: 14px;
   flex-wrap: wrap;
 }
+/* Compare header: person on the left, navigation on the right. */
+.compare-head {
+  gap: 12px;
+}
 .compare-header-info {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  flex: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.9rem;
   /* Colour comes from a .sex-m / .sex-f modifier; defaults to --text. */
-  pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 45%;
 }
 .compare-name { overflow: hidden; text-overflow: ellipsis; }
-/* Re-enable pointer events on the year so its full-date title shows on hover
-   (the header itself is pointer-events:none so clicks reach the toggle). */
-.compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; pointer-events: auto; }
+.compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; }
 .compare-nav-header {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1513,13 +1512,9 @@ button {
     gap: 8px;
   }
   .matches-tabs-header,
-  .header-center,
-  .compare-header-info {
+  .header-center {
     position: static;
     transform: none;
-  }
-  .compare-header-info {
-    max-width: 65%;
   }
   .matches-actions {
     flex-direction: row;

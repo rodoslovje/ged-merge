@@ -4,7 +4,6 @@ export const sl = {
   "load.privacy": "Vaši podatki nikoli ne zapustijo naprave. Vse se obdela v brskalniku.",
   "app.mobileWarning": "Ta aplikacija je optimizirana za večje zaslone. Za najboljšo uporabniško izkušnjo uporabite tablico ali računalnik.",
   "section.load": "Naloži GEDCOM",
-  "section.compare": "Primerjava",
   "section.matches": "Ujemanja",
   "load.master": "Glavni GEDCOM",
   "load.master.tooltip": "Najprej naložite glavno GEDCOM datoteko",
