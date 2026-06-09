@@ -5,7 +5,7 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { FieldValue, RelativeGrid } from "./FieldValue";
-import { sexClass, sexColorVar, sexGlyph } from "./sex";
+import { sexClass, sexColorVar } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
@@ -433,17 +433,16 @@ function TreeSvg({
                 stroke={STATUS_COLOR[n.status]}
                 strokeWidth={2.5}
               />
-              <SexDot sex={n.sex} x={16} y={15} />
               <text
                 className="tree-node-name"
-                x={32}
+                x={16}
                 y={19}
                 style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
               >
                 {truncate(n.name, 24)}
               </text>
               {n.years && (
-                <text className="tree-node-year gm-data" x={32} y={36}>
+                <text className="tree-node-year gm-data" x={16} y={36}>
                   {n.years}
                 </text>
               )}
@@ -841,18 +840,4 @@ function maxDepth(node: TreeNode): number {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
-}
-
-/** A small sex-coloured ♀/♂ disc shown at the left of a tree node. */
-function SexDot({ sex, x, y }: { sex: Sex; x: number; y: number }) {
-  const color = sexColorVar(sex);
-  if (!color) return null;
-  return (
-    <g className="tree-sex" transform={`translate(${x},${y})`}>
-      <circle r={9} fill={color} fillOpacity={0.16} />
-      <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={color}>
-        {sexGlyph(sex)}
-      </text>
-    </g>
-  );
 }

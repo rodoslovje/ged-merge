@@ -16,7 +16,6 @@ import { formatFieldLabel } from "../review/fields";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { sexClass } from "./sex";
-import { SexBadge } from "./SexBadge";
 
 interface Props {
   result: MatchResult;
@@ -158,7 +157,7 @@ export function MatchResults({
       ) : (
         <ul className="candidate-list" ref={listRef}>
           <li className="candidate-list-head">
-            <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
+            <button className={cls("label", "person-col")} onClick={() => onToggleSort("label")}>
               {t("list.person")}{arrow("label")}
             </button>
             {/* Decision status: confirmed / rejected / deferred. Sorting groups
@@ -295,12 +294,11 @@ const CandidateRow = memo(function CandidateRow({
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
-          <span className={`labels ${sexClass(candidate.sex)}`}>
-            <SexBadge sex={candidate.sex} />
-            <span className="candidate-name">{candidate.name}</span>
+          <span className={`person-label ${sexClass(candidate.sex)}`}>
+            <span className="person-name">{candidate.name}</span>
             {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased) && (
               <span
-                className="candidate-year gm-data"
+                className="person-years gm-data"
                 title={datesTooltip(candidate.birthDate, candidate.deathDate, candidate.deceased)}
               >
                 {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}

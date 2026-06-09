@@ -1,11 +1,12 @@
-import type { Dataset, Family, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, Family, Individual, PersonName, Sex } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
-import { findEvent, fullDatesLabel, lifespanLabel } from "../match/relatives";
+import { findEvent, fullDatesLabel, lifespanLabel, displayName } from "../match/relatives";
+import { formatLifespan, isDeceased } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
-import type { FieldRow, FieldState, RelativePair } from "./types";
+import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
 
 /** Friendly labels for the event tags we surface in review. */
 const EVENT_LABELS: Record<string, string> = {
@@ -81,8 +82,8 @@ export function individualFieldRows(
   // Marriage and children live on the FAM record but are reconciled here on the
   // spouse so every decision about a person is made in one place.
   if (masterDs && compareDs) {
-    pushParentRow(rows, "father", formatFieldLabel(t, "father"), parentRef(master, masterDs, "husband"), parentRef(compare, compareDs, "husband"));
-    pushParentRow(rows, "mother", formatFieldLabel(t, "mother"), parentRef(master, masterDs, "wife"), parentRef(compare, compareDs, "wife"));
+    pushRelativesRow(rows, "father", formatFieldLabel(t, "father"), parentRelative(master, masterDs, "husband"), parentRelative(compare, compareDs, "husband"));
+    pushRelativesRow(rows, "mother", formatFieldLabel(t, "mother"), parentRelative(master, masterDs, "wife"), parentRelative(compare, compareDs, "wife"));
     pushRelativesRow(rows, "partners", formatFieldLabel(t, "partners"), partnerRelatives(master, masterDs), partnerRelatives(compare, compareDs));
 
     const mMar = primaryMarriage(master, masterDs);
@@ -135,6 +136,9 @@ function personChildRelatives(indi: Individual | undefined, ds: Dataset): Relati
       text: lifespanLabel(child),
       full: fullDatesLabel(child),
       birthYear: findEvent(child, "BIRT")?.date?.year,
+      displayName: displayName(child.names[0]),
+      years: formatLifespan(findEvent(child, "BIRT")?.date?.year, findEvent(child, "DEAT")?.date?.year, isDeceased(child)),
+      sex: child.sex,
     }));
 }
 
@@ -145,26 +149,29 @@ function birthSortKey(indi: Individual): number {
   return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
 
-/** A parent's display name plus its individual id, for a navigable parent row. */
-interface ParentRef {
-  text: string;
-  id?: string;
-}
-
 /** The parent (father via HUSB, mother via WIFE) from the first family this
- * person is a child in, with its name and id. */
-function parentRef(
+ * person is a child in, as an alignable relative. */
+function parentRelative(
   indi: Individual | undefined,
   ds: Dataset,
   role: "husband" | "wife",
-): ParentRef {
-  if (!indi) return { text: "" };
+): Relative[] {
+  if (!indi) return [];
   for (const famId of indi.childOf) {
     const id = ds.families.get(famId)?.[role];
     const parent = id ? ds.individuals.get(id) : undefined;
-    if (parent) return { text: lifespanLabel(parent), id: parent.id };
+    if (parent) return [{
+      id: parent.id,
+      name: parent.names[0],
+      text: lifespanLabel(parent),
+      full: fullDatesLabel(parent),
+      birthYear: findEvent(parent, "BIRT")?.date?.year,
+      displayName: displayName(parent.names[0]),
+      years: formatLifespan(findEvent(parent, "BIRT")?.date?.year, findEvent(parent, "DEAT")?.date?.year, isDeceased(parent)),
+      sex: parent.sex,
+    }];
   }
-  return { text: "" };
+  return [];
 }
 
 /**
@@ -180,6 +187,10 @@ interface Relative {
   full?: string;
   /** Birth year, when known — used to align same-named relatives by birth. */
   birthYear?: number;
+  /** Display name. */
+  displayName?: string;
+  years?: string;
+  sex?: Sex;
 }
 
 /** This person's spouses as alignable relatives. */
@@ -198,6 +209,9 @@ function partnerRelatives(indi: Individual | undefined, ds: Dataset): Relative[]
         text: lifespanLabel(partner),
         full: fullDatesLabel(partner),
         birthYear: findEvent(partner, "BIRT")?.date?.year,
+        displayName: displayName(partner.names[0]),
+        years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
+        sex: partner.sex,
       });
     }
   }
@@ -278,36 +292,17 @@ function pushRelativesRow(
   });
 }
 
-/**
- * Push a single-person relative row (father, mother) carrying the person's id so
- * the name can link to them. Mirrors {@link pushRow} but attaches a one-element
- * ref array per side.
- */
-function pushParentRow(
-  rows: FieldRow[],
-  key: string,
-  label: string,
-  master: ParentRef,
-  incoming: ParentRef,
-): void {
-  const m = master.text.trim();
-  const i = incoming.text.trim();
-  if (!m && !i) return;
-  rows.push({
-    key,
-    label,
-    master: m,
-    incoming: i,
-    state: stateOf(key, m, i),
-    masterRefs: m ? [master.id] : undefined,
-    incomingRefs: i ? [incoming.id] : undefined,
-  });
-}
-
 /** One relative as an aligned cell: visible text, id, and a full-date tooltip
  *  (only when it adds detail beyond the text). */
-function relativeCell(r: Relative) {
-  return { text: r.text, id: r.id, title: r.full && r.full !== r.text ? r.full : undefined };
+function relativeCell(r: Relative): RelativeCell {
+  return {
+    text: r.text,
+    id: r.id,
+    title: r.full && r.full !== r.text ? r.full : undefined,
+    name: r.displayName,
+    years: r.years,
+    sex: r.sex,
+  };
 }
 
 /**

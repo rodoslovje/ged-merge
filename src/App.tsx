@@ -17,7 +17,6 @@ import { Section } from "./ui/Section";
 import { HelpModal } from "./ui/HelpModal";
 import { MergePreview } from "./ui/MergePreview";
 import { Wordmark } from "./ui/icons/LogoMark";
-import { SexBadge } from "./ui/SexBadge";
 import { sexClass } from "./ui/sex";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -514,12 +513,11 @@ export function App() {
   ) : undefined;
   const compareHeader = current ? (
     <>
-      <div className={`compare-header-info ${sexClass(current.sex)}`}>
-        <SexBadge sex={current.sex} />
-        <span className="compare-name">{current.name}</span>
+      <div className={`person-label ${sexClass(current.sex)}`}>
+        <span className="person-name">{current.name}</span>
         {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
           <span
-            className="compare-birth gm-data"
+            className="person-years gm-data"
             title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
           >
             {formatLifespan(current.birthYear, current.deathYear, current.deceased)}

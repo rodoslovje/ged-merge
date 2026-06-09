@@ -1,3 +1,5 @@
+import type { Sex } from "../gedcom/types";
+
 /** Whether a candidate match has been acted on. */
 export type MatchDecisionStatus = "undecided" | "confirmed" | "rejected" | "deferred";
 
@@ -53,6 +55,12 @@ export interface RelativeCell {
   id?: string;
   /** Full-date tooltip; absent when it adds nothing beyond `text`. */
   title?: string;
+  /** The relative's name without dates. */
+  name?: string;
+  /** The relative's abbreviated lifespan (e.g. "1817–1921"). */
+  years?: string;
+  /** The relative's sex ("M", "F", "U"). */
+  sex?: Sex;
 }
 
 /** A relative paired across the two files; either side may be absent. */

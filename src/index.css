@@ -695,7 +695,7 @@ button {
   cursor: pointer;
   white-space: nowrap;
 }
-.sortbtn.labels {
+.sortbtn.person-col {
   text-align: left;
 }
 .sortbtn:hover {
@@ -773,7 +773,7 @@ button {
     padding-top: 4px;
     padding-bottom: 4px;
   }
-  .candidate-main .labels {
+  .candidate-main .person-label {
     order: 1;
   }
   .candidate-main .status-chip {
@@ -844,9 +844,32 @@ button {
 .badge.strong { background: #14492f; color: #6ee7b7; }
 .badge.probable { background: #4a3b12; color: #fcd34d; }
 
-.labels { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.candidate-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.candidate-year { color: var(--muted); font-size: 0.82rem; flex: none; }
+.person-label {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+.person-name {
+  word-break: break-word;
+}
+.person-years {
+  color: var(--muted);
+  font-size: 0.9em;
+  flex: none;
+}
+
+.candidate-main .person-label { gap: 2px 8px; }
+.candidate-main .person-name { font-weight: 600; }
+
+.compare-head .person-label { font-size: 1rem; }
+.compare-head .person-name,
+.compare-head .person-years { font-weight: 600; }
+
 .chev { color: var(--muted); }
 
 .breakdown {
@@ -876,14 +899,19 @@ button {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 2px 6px;
   font-size: 0.9rem;
   /* Colour comes from a .sex-m / .sex-f modifier; defaults to --text. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.compare-name { overflow: hidden; text-overflow: ellipsis; }
+.compare-name {
+  word-break: break-word;
+}
+.compare-head .compare-name,
+.compare-head .compare-birth {
+  font-weight: 600;
+}
 .compare-birth { color: var(--muted); font-size: 0.82rem; flex: none; }
 .compare-nav-header {
   flex: none;
@@ -993,8 +1021,8 @@ button {
    they actually win. */
 .compare td.f-rel,
 .tree-compare-table td.f-rel { padding: 0; }
-.rel-grid { display: grid; grid-template-columns: 1fr 1fr; padding-block: 6px; }
-.rel-cell { padding: 0 8px; }
+.rel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-block: 6px; }
+.rel-cell { padding: 0 8px; min-width: 0; }
 /* Divider between the two halves, matching the table's master/incoming border. */
 .compare td.f-rel { border-right: none; }
 .compare .rel-cell.rel-incoming { border-left: 1px solid var(--border); }

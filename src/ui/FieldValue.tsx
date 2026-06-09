@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import type { RelativePair } from "../review/types";
+import type { RelativeCell, RelativePair } from "../review/types";
+import { sexClass } from "./sex";
 
 /** A person a value line can link to: its id plus a click handler. */
 export interface PersonLinks {
@@ -86,6 +87,20 @@ export function RelativeGrid({
   masterPerson: RelativePerson;
   incomingPerson: RelativePerson;
 }) {
+  const renderCell = (cell: RelativeCell | undefined, person: RelativePerson) => {
+    if (!cell || !cell.text) return " ";
+    let content: React.ReactNode = cell.text;
+    if (cell.name) {
+      content = (
+        <span className={`person-label ${sexClass(cell.sex)}`}>
+          <span className="person-name">{cell.name}</span>
+          {cell.years && <span className="person-years gm-data">{cell.years}</span>}
+        </span>
+      );
+    }
+    return renderLine(content, cell.id, person);
+  };
+
   return (
     <div className="rel-grid">
       {pairs.map((p, i) => (
@@ -94,13 +109,13 @@ export function RelativeGrid({
             className={`rel-cell f-val gm-data${masterChosen ? " chosen" : ""}`}
             title={p.master?.title}
           >
-            {renderLine(p.master?.text ?? "", p.master?.id, masterPerson)}
+            {renderCell(p.master, masterPerson)}
           </div>
           <div
             className={`rel-cell rel-incoming f-val gm-data${incomingChosen ? " chosen" : ""}`}
             title={p.incoming?.title}
           >
-            {renderLine(p.incoming?.text ?? "", p.incoming?.id, incomingPerson)}
+            {renderCell(p.incoming, incomingPerson)}
           </div>
         </Fragment>
       ))}
@@ -108,7 +123,7 @@ export function RelativeGrid({
   );
 }
 
-function renderLine(line: string, id: string | undefined, person?: PersonLinks | RelativePerson) {
+function renderLine(line: React.ReactNode, id: string | undefined, person?: PersonLinks | RelativePerson) {
   if (!line) return " ";
   if (person && id && person.linkable(id)) {
     return (
