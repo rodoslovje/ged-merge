@@ -153,7 +153,7 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   it("adds a brand-new child as a fresh record with a back-pointer", () => {
     expect(out).toContain("0 @I4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 FAMC @F1@");
     expect(out).toContain("1 CHIL @I4@");
-    expect(report.changes.some((c) => c.field === "New person" && c.to === "Tone Novak")).toBe(true);
+    expect(report.changes.some((c) => c.newRecord && c.to === "Tone Novak")).toBe(true);
   });
 
   it("keeps unrelated records and the trailer intact", () => {

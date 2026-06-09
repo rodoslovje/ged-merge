@@ -659,7 +659,8 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 12px 6px 11px; /* left matches the body row's content offset */
+  /* left/right match the body row's content offsets so columns line up */
+  padding: 4px 9px 6px 11px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -675,7 +676,8 @@ button {
 }
 .candidate-list-head .sortbtn.badge-h,
 .candidate-list-head .sortbtn.dist,
-.candidate-list-head .sortbtn.nd {
+.candidate-list-head .sortbtn.nd,
+.candidate-list-head .sortbtn.status-h {
   min-width: 0;
   overflow: visible;
 }
@@ -761,6 +763,9 @@ button {
 }
 
 @container matches (max-width: 600px) {
+  /* Only the body rows wrap: Person on the left of the first row, status on the
+     right, and the metric columns centered on the second row. The header stays
+     a single compact row. */
   .candidate-main {
     flex-wrap: wrap;
     column-gap: 12px;
@@ -768,18 +773,33 @@ button {
     padding-top: 4px;
     padding-bottom: 4px;
   }
-  .labels {
+  .candidate-main .labels {
     order: 1;
   }
-  .status-chip {
+  .candidate-main .status-chip {
     order: 1;
   }
-  .candidate-metrics {
+  .candidate-main .candidate-metrics {
     order: 2;
     flex-basis: 100%;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
+  }
+  /* Header stays one row but mirrors the body's spatial layout: Person on the
+     left, the metric columns centered, the status marker last on the right.
+     Equal flex on Person and status keeps the metrics group centered. */
+  .candidate-list-head .candidate-metrics {
+    order: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .candidate-list-head .status-h {
+    order: 2;
+    flex: 1 1 0;
+    justify-content: flex-end;
   }
 }
 .status-chip {
@@ -792,6 +812,19 @@ button {
   font-weight: 600;
   text-transform: uppercase;
   border-radius: 50%;
+}
+/* Header marker for the status column; sized to centre over the 18px chip. */
+.status-h {
+  flex: none;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Empty placeholder keeping the status column reserved on undecided rows so the
+   metric columns stay aligned under their headers. */
+.status-empty {
+  background: none;
 }
 .status-chip.confirmed { background: #14492f; color: #6ee7b7; }
 .status-chip.rejected { background: #4a1d1d; color: #fca5a5; }
@@ -1324,6 +1357,93 @@ button {
 .modal-body h4 { font-size: 1.15rem; margin: 24px 0 8px; color: var(--text); }
 .modal-body p { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 .modal-body strong { color: var(--text); font-weight: 600; }
+
+/* --- merge preview --- */
+.preview-body {
+  padding-top: 8px;
+  flex: 1;
+  min-height: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.preview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0 16px;
+}
+.preview-stat {
+  flex: 1 1 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.preview-stat-num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+.preview-stat-num.is-accent { color: var(--accent); }
+.preview-stat-num.is-warn { color: #d9a441; }
+.preview-stat-label { font-size: 0.8rem; color: var(--muted); text-align: center; }
+.preview-total { margin: 0 0 8px; color: var(--text); font-size: 0.95rem; }
+.preview-note { margin: 4px 0; color: var(--muted); font-size: 0.85rem; }
+.preview-empty { color: var(--muted); }
+
+.preview-section { margin-top: 20px; }
+.preview-section h3 {
+  font-size: 1.1rem; margin: 0 0 10px; color: var(--accent);
+  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+}
+.preview-section h3.preview-warn { color: #d9a441; border-bottom-color: color-mix(in srgb, #d9a441 40%, transparent); }
+
+.preview-deferred { margin: 0; padding-left: 18px; }
+.preview-deferred li { margin: 4px 0; color: var(--muted); font-size: 0.9rem; }
+
+.preview-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.preview-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 6px;
+}
+.preview-rec { font-weight: 600; color: var(--text); }
+.preview-badge {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+}
+.preview-badge.is-new { background: color-mix(in srgb, var(--state-incoming) 22%, transparent); color: var(--state-incoming); }
+.preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
+
+.preview-fields { margin: 0; padding-left: 18px; }
+.preview-fields li { margin: 3px 0; font-size: 0.9rem; color: var(--muted); }
+.preview-field { color: var(--text); }
+.preview-add { color: var(--accent); }
+.preview-from { color: var(--muted); text-decoration: line-through; }
+.preview-to { color: var(--accent); }
+
+.preview-files {
+  margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
+  color: var(--muted); font-size: 0.9rem;
+}
+.preview-files ul { margin: 6px 0; padding-left: 18px; }
+.preview-files code { color: var(--text); }
+
+.preview-actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 32px; border-top: 1px solid var(--border); background: var(--panel);
+  border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+}
+.btn-secondary {
+  background: transparent; border: 1px solid var(--border-2); color: var(--text);
+  border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.btn-secondary:hover { border-color: var(--accent); }
 
 @keyframes pulse-glow {
   0% { box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent); }

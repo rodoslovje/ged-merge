@@ -16,6 +16,8 @@ export interface FieldChange {
   from: string;
   to: string;
   action: FieldChoice;
+  /** Marks the placeholder change for a freshly added person/family record. */
+  newRecord?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */
@@ -30,6 +32,16 @@ export interface ChangeReport {
   deferred: DeferredChange[];
   /** Distinct master records touched. */
   recordsChanged: number;
+  /** New individual records added from the incoming file. */
+  newPersons: number;
+  /** New family records created to stitch merged relationships together. */
+  newFamilies: number;
+  /** Incoming places reshaped into the master's layout on export. */
+  placesReformatted: number;
+  /** Of those, how many had extra detail preserved in a NOTE. */
+  placesNoted: number;
+  /** Display label per touched record id, for grouping the preview/report. */
+  recordLabels: Record<string, string>;
 }
 
 export interface MergeResult {
@@ -86,11 +98,20 @@ export function mergeDecisions(
     else if (r.tag === "FAM") famNodes.set(r.xref, r);
   }
 
-  const report: ChangeReport = { changes: [], deferred: [], recordsChanged: 0 };
+  const report: ChangeReport = {
+    changes: [],
+    deferred: [],
+    recordsChanged: 0,
+    newPersons: 0,
+    newFamilies: 0,
+    placesReformatted: 0,
+    placesNoted: 0,
+    recordLabels: {},
+  };
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
   const placeFmt = inferPlaceExportFormat(master);
-  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt);
+  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt, t);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -101,10 +122,16 @@ export function mergeDecisions(
     const masterIndi = master.individuals.get(masterId);
     const incoming = compare.individuals.get(compareId);
     if (!target || !masterIndi || !incoming) continue;
+    report.recordLabels[masterId] = displayName(masterIndi.names[0]);
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
+  }
+
+  // Label each touched family by the spouses we know about (master or added).
+  for (const [famId, names] of ctx.famSpouseNames) {
+    if (names.length) report.recordLabels[famId] = names.join(" & ");
   }
 
   report.recordsChanged = touched.size;
@@ -129,6 +156,7 @@ function applyRows(
   touched: Set<string>,
   handled: Set<string>,
   placeFmt: PlaceTargetFormat,
+  t: Translate,
 ): void {
   let nameApplied = false;
   // Event tags whose place we already reshaped, so the matching ADDR row is
@@ -143,7 +171,7 @@ function applyRows(
     if (choice === "master") continue;
 
     if (row.key === "links" || row.key.endsWith(".links")) {
-      report.deferred.push({ recordId, field: row.label, reason: "link merge not yet implemented" });
+      report.deferred.push({ recordId, field: row.label, reason: t("merge.reason.linkNotImplemented") });
       continue;
     }
 
@@ -160,7 +188,7 @@ function applyRows(
         // Reshape PLAC+ADDR together into the master's layout, once per event.
         // The PLAC row drives it; a later ADDR row is then skipped.
         if (reshaped.has(tag)) continue;
-        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt);
+        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt, report);
         reshaped.add(tag);
       } else {
         const subTag = SUB_TAG[sub];
@@ -220,6 +248,7 @@ function applyReformattedPlace(
   tag: string,
   choice: FieldChoice,
   fmt: PlaceTargetFormat,
+  report: ChangeReport,
 ): boolean {
   const incEvent = incomingRecord.children.find((c) => c.tag === tag);
   if (!incEvent) return false;
@@ -240,6 +269,10 @@ function applyReformattedPlace(
   if (r.note) {
     event.children.push(newNode("NOTE", r.note));
     applied = true;
+  }
+  if (applied) {
+    report.placesReformatted++;
+    if (r.note) report.placesNoted++;
   }
   return applied;
 }
@@ -320,6 +353,12 @@ interface MergeContext {
   touched: Set<string>;
   /** How the master writes places (for reshaping incoming places on export). */
   placeFmt: PlaceTargetFormat;
+  /** Spouse display names gathered per family id, used to label the family. */
+  famSpouseNames: Map<string, string[]>;
+  /** Record a spouse's name against a family (for the merge preview/report). */
+  noteSpouse: (famId: string, name: string) => void;
+  /** Translator for human-readable change/deferred labels. */
+  t: Translate;
 }
 
 function makeContext(
@@ -332,6 +371,7 @@ function makeContext(
   report: ChangeReport,
   touched: Set<string>,
   placeFmt: PlaceTargetFormat,
+  t: Translate,
 ): MergeContext {
   const incToMaster = new Map<string, string>();
   for (const c of matches.individuals) incToMaster.set(c.compareId, c.masterId);
@@ -356,9 +396,17 @@ function makeContext(
     node.xref = id;
     insertRecord(records, node);
     famNodes.set(id, node);
-    report.changes.push({ recordId: id, field: "New family", from: "", to: "", action: "incoming" });
+    report.changes.push({ recordId: id, field: t("merge.field.newFamily"), from: "", to: "", action: "incoming", newRecord: true });
+    report.newFamilies++;
     touched.add(id);
     return { id, node };
+  };
+
+  const famSpouseNames = new Map<string, string[]>();
+  const noteSpouse = (famId: string, name: string): void => {
+    const arr = famSpouseNames.get(famId) ?? [];
+    if (name && !arr.includes(name)) arr.push(name);
+    famSpouseNames.set(famId, arr);
   };
 
   const addedLabels = new Map<string, string>();
@@ -374,13 +422,15 @@ function makeContext(
     node.xref = newId;
     // Drop incoming family pointers; we re-link only into the family being merged.
     node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
-    reshapeRecordPlaces(node, placeFmt);
+    reshapeRecordPlaces(node, placeFmt, report);
     insertRecord(records, node);
     indiNodes.set(newId, node);
     addedFromIncoming.set(incomingId, newId);
     const name = displayName(incIndi.names[0]);
     addedLabels.set(newId, name);
-    report.changes.push({ recordId: newId, field: "New person", from: "", to: name, action: "incoming" });
+    report.recordLabels[newId] = name;
+    report.changes.push({ recordId: newId, field: t("merge.field.newPerson"), from: "", to: name, action: "incoming", newRecord: true });
+    report.newPersons++;
     touched.add(newId);
     return newId;
   };
@@ -396,6 +446,9 @@ function makeContext(
     report,
     touched,
     placeFmt,
+    famSpouseNames,
+    noteSpouse,
+    t,
   };
 }
 
@@ -404,7 +457,7 @@ function makeContext(
  * into the master's layout. Each node bearing a PLAC/ADDR has them rewritten —
  * jurisdiction to PLAC, address to ADDR, leftovers to a NOTE.
  */
-function reshapeRecordPlaces(record: GedNode, fmt: PlaceTargetFormat): void {
+function reshapeRecordPlaces(record: GedNode, fmt: PlaceTargetFormat, report: ChangeReport): void {
   if (!reshapesLayout(fmt.layout)) return;
   const visit = (node: GedNode): void => {
     const placRaw = node.children.find((c) => c.tag === "PLAC")?.value;
@@ -415,6 +468,8 @@ function reshapeRecordPlaces(record: GedNode, fmt: PlaceTargetFormat): void {
       if (r.plac) node.children.push(newNode("PLAC", r.plac));
       if (r.addr) node.children.push(newNode("ADDR", r.addr));
       if (r.note) node.children.push(newNode("NOTE", r.note));
+      report.placesReformatted++;
+      if (r.note) report.placesNoted++;
     }
     node.children.forEach(visit);
   };
@@ -451,17 +506,18 @@ function applyFamilyStructure(
         if (masterSlot !== targetId) {
           ctx.report.deferred.push({
             recordId: famId,
-            field: role === "HUSB" ? "Husband" : "Wife",
-            reason: "master already has a different spouse",
+            field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
+            reason: ctx.t("merge.reason.masterHasSpouse"),
           });
         }
         continue;
       }
       if (addPointer(famNode, role, targetId, ["HUSB", "WIFE", "CHIL"], "start")) {
         linkBack(ctx, targetId, "FAMS", famId);
+        ctx.noteSpouse(famId, ctx.label(targetId));
         ctx.report.changes.push({
           recordId: famId,
-          field: role === "HUSB" ? "Husband" : "Wife",
+          field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
           from: "",
           to: ctx.label(targetId),
           action: "incoming",
@@ -485,7 +541,7 @@ function applyFamilyStructure(
         linkBack(ctx, targetId, "FAMC", famId);
         ctx.report.changes.push({
           recordId: famId,
-          field: "Child",
+          field: ctx.t("merge.field.child"),
           from: "",
           to: ctx.label(targetId),
           action: "incoming",
@@ -519,18 +575,18 @@ function applyIndividualRelations(
   ctx: MergeContext,
 ): void {
   const parents: Array<["father" | "mother", "HUSB" | "WIFE", string]> = [
-    ["father", "HUSB", "Father"],
-    ["mother", "WIFE", "Mother"],
+    ["father", "HUSB", "merge.field.father"],
+    ["mother", "WIFE", "merge.field.mother"],
   ];
   let childFam: { id: string; node: GedNode } | undefined;
-  for (const [key, role, label] of parents) {
+  for (const [key, role, labelKey] of parents) {
     if (!wantsIncoming(rows, fields, key)) continue;
     const incParentId = incomingParentId(incomingIndi, compare, role);
     if (!incParentId) continue;
     const targetId = ctx.resolve(incParentId);
     if (!targetId) continue;
     childFam ??= ensureChildFamily(masterId, master, ctx);
-    setSpouseSlot(childFam.node, role, targetId, label, ctx);
+    setSpouseSlot(childFam.node, role, targetId, ctx.t(labelKey), ctx);
   }
 }
 
@@ -580,7 +636,7 @@ function applyIndividualFamilies(
       if ((sub === "place" || sub === "addr") && reshapeMarr) {
         // PLAC+ADDR are reshaped together, once, into the master's layout.
         if (marrReshaped) continue;
-        applied = applyReformattedPlace(famNode, incFam.raw, "MARR", choice, ctx.placeFmt);
+        applied = applyReformattedPlace(famNode, incFam.raw, "MARR", choice, ctx.placeFmt, ctx.report);
         marrReshaped = true;
       } else {
         applied = applyEventSub(famNode, incFam.raw, "MARR", SUB_TAG[sub], choice);
@@ -588,7 +644,7 @@ function applyIndividualFamilies(
       if (applied) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
-          field: `Marriage ${sub}`,
+          field: ctx.t(`merge.field.marriage.${sub}`),
           from: "",
           to: incFam.events.find((e) => e.tag === "MARR")?.[sub === "addr" ? "address" : sub]?.raw ?? "",
           action: choice,
@@ -628,6 +684,7 @@ function createPersonFamily(
   const role = masterIndi.sex === "F" ? "WIFE" : "HUSB";
   addPointer(fam.node, role, masterId, ["HUSB", "WIFE", "CHIL"], "start");
   linkBack(ctx, masterId, "FAMS", fam.id);
+  ctx.noteSpouse(fam.id, ctx.label(masterId));
   return fam.node;
 }
 
@@ -664,13 +721,14 @@ function setSpouseSlot(
       ctx.report.deferred.push({
         recordId: famId,
         field: label,
-        reason: `family already has a different ${role.toLowerCase()}`,
+        reason: ctx.t(role === "HUSB" ? "merge.reason.familyHasHusband" : "merge.reason.familyHasWife"),
       });
     }
     return;
   }
   addPointer(famNode, role, personId, ["HUSB", "WIFE", "CHIL"], "start");
   linkBack(ctx, personId, "FAMS", famId);
+  ctx.noteSpouse(famId, ctx.label(personId));
   ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming" });
   ctx.touched.add(famId);
 }
@@ -730,9 +788,15 @@ export function formatReport(report: ChangeReport): string {
   lines.push("GED Merge change report");
   lines.push("=======================");
   lines.push("");
-  lines.push(`Records changed: ${report.recordsChanged}`);
-  lines.push(`Fields applied:  ${report.changes.length}`);
-  lines.push(`Deferred:        ${report.deferred.length}`);
+  lines.push(`Records changed:  ${report.recordsChanged}`);
+  lines.push(`Fields applied:   ${report.changes.length}`);
+  lines.push(`New persons:      ${report.newPersons}`);
+  lines.push(`New families:     ${report.newFamilies}`);
+  if (report.placesReformatted) {
+    const noted = report.placesNoted ? ` (${report.placesNoted} kept extra detail in a note)` : "";
+    lines.push(`Places reshaped:  ${report.placesReformatted}${noted}`);
+  }
+  lines.push(`Deferred:         ${report.deferred.length}`);
   lines.push("");
 
   if (report.changes.length) {

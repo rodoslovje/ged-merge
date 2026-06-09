@@ -1,13 +1,29 @@
 import type { IndividualCandidate } from "../match/types";
+import type { MatchDecisionStatus } from "../review/types";
 
 export type Candidate = IndividualCandidate;
+
+/** Decision-status sort order (lower sorts first); undecided leads the list. */
+export const STATUS_RANK: Record<MatchDecisionStatus, number> = {
+  undecided: 0,
+  confirmed: 1,
+  deferred: 2,
+  rejected: 3,
+};
 
 /** One decimal, except a perfect 100 which reads better (and aligns) as "100". */
 export function formatScore(score: number): string {
   return score >= 100 ? "100" : score.toFixed(1);
 }
 
-export type SortKey = "score" | "distance" | "newCount" | "diffCount" | "linkCount" | "label";
+export type SortKey =
+  | "score"
+  | "distance"
+  | "newCount"
+  | "diffCount"
+  | "linkCount"
+  | "label"
+  | "status";
 
 export interface SortState {
   key: SortKey;
@@ -21,6 +37,7 @@ export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   diffCount: "desc",
   linkCount: "desc",
   label: "asc",
+  status: "asc",
 };
 
 /** Primary, then secondary sort. New clicks push the old primary to secondary. */
@@ -87,20 +104,33 @@ export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
   );
 }
 
-/** Sort a copy of the list by each key in turn; empty list keeps worker order. */
-export function applySort<T extends Candidate>(list: T[], sorts: SortState[]): T[] {
+/**
+ * Sort a copy of the list by each key in turn; empty list keeps worker order.
+ * `statusRank` maps a candidate to its decision-status order (lower first); it
+ * is only consulted by the "status" key, so callers without decisions can omit it.
+ */
+export function applySort<T extends Candidate>(
+  list: T[],
+  sorts: SortState[],
+  statusRank?: (c: Candidate) => number,
+): T[] {
   if (sorts.length === 0) return list;
   return [...list].sort((a, b) => {
     for (const s of sorts) {
       const mul = s.dir === "asc" ? 1 : -1;
-      const c = mul * compareBy(a, b, s.key);
+      const c = mul * compareBy(a, b, s.key, statusRank);
       if (c !== 0) return c;
     }
     return 0;
   });
 }
 
-function compareBy(a: Candidate, b: Candidate, key: SortKey): number {
+function compareBy(
+  a: Candidate,
+  b: Candidate,
+  key: SortKey,
+  statusRank?: (c: Candidate) => number,
+): number {
   switch (key) {
     case "score":
       return a.score - b.score;
@@ -116,5 +146,8 @@ function compareBy(a: Candidate, b: Candidate, key: SortKey): number {
       // Sort by the displayed person name (what the row shows), not the
       // master-centric diff title.
       return a.name.localeCompare(b.name);
+    case "status":
+      // Groups rows by decision; undecided rows sort together via rank 0.
+      return (statusRank?.(a) ?? 0) - (statusRank?.(b) ?? 0);
   }
 }

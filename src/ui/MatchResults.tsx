@@ -158,60 +158,85 @@ export function MatchResults({
       ) : (
         <ul className="candidate-list" ref={listRef}>
           <li className="candidate-list-head">
-            <button className={cls("score", "badge-h")} onClick={() => onToggleSort("score")}>
-              {t("list.score")}{arrow("score")}
-            </button>
-            {showRelation && (
-              <button
-                className={cls("distance", "dist")}
-                title={t("list.distanceTooltip")}
-                onClick={() => onToggleSort("distance")}
-              >
-                <svg {...ICON_PROPS}>
-                  <circle cx="18" cy="5" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="19" r="3" />
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                </svg>
-                {arrow("distance")}
-              </button>
-            )}
-            <button
-              className={cls("newCount", "nd")}
-              title={t("list.newTooltip")}
-              onClick={() => onToggleSort("newCount")}
-            >
-              {/* New data: a plus sign. */}
-              <svg {...ICON_PROPS}>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              {arrow("newCount")}
-            </button>
-            <button
-              className={cls("diffCount", "nd")}
-              title={t("list.diffTooltip")}
-              onClick={() => onToggleSort("diffCount")}
-            >
-              {/* Differences: a not-equal sign. */}
-              <svg {...ICON_PROPS}>
-                <line x1="5" y1="9" x2="19" y2="9" />
-                <line x1="5" y1="15" x2="19" y2="15" />
-                <line x1="17" y1="5" x2="7" y2="19" />
-              </svg>
-              {arrow("diffCount")}
-            </button>
-            <button
-              className={cls("linkCount", "nd")}
-              title={t("list.linkTooltip")}
-              onClick={() => onToggleSort("linkCount")}
-            >
-              🔗{arrow("linkCount")}
-            </button>
             <button className={cls("label", "labels")} onClick={() => onToggleSort("label")}>
               {t("list.person")}{arrow("label")}
             </button>
+            {/* Decision status: confirmed / rejected / deferred. Sorting groups
+               rows by status. Kept next to Person, the row it judges. */}
+            <button
+              className={cls("status", "status-h")}
+              title={t("list.statusTooltip")}
+              onClick={() => onToggleSort("status")}
+            >
+              <svg {...ICON_PROPS}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              {arrow("status")}
+            </button>
+            <span className="candidate-metrics">
+              <button
+                className={cls("score", "badge-h")}
+                title={t("list.score")}
+                onClick={() => onToggleSort("score")}
+              >
+                {/* Match score: a target / bullseye. */}
+                <svg {...ICON_PROPS}>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                {arrow("score")}
+              </button>
+              {showRelation && (
+                <button
+                  className={cls("distance", "dist")}
+                  title={t("list.distanceTooltip")}
+                  onClick={() => onToggleSort("distance")}
+                >
+                  <svg {...ICON_PROPS}>
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  {arrow("distance")}
+                </button>
+              )}
+              <button
+                className={cls("newCount", "nd")}
+                title={t("list.newTooltip")}
+                onClick={() => onToggleSort("newCount")}
+              >
+                {/* New data: a plus sign. */}
+                <svg {...ICON_PROPS}>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                {arrow("newCount")}
+              </button>
+              <button
+                className={cls("diffCount", "nd")}
+                title={t("list.diffTooltip")}
+                onClick={() => onToggleSort("diffCount")}
+              >
+                {/* Differences: a not-equal sign. */}
+                <svg {...ICON_PROPS}>
+                  <line x1="5" y1="9" x2="19" y2="9" />
+                  <line x1="5" y1="15" x2="19" y2="15" />
+                  <line x1="17" y1="5" x2="7" y2="19" />
+                </svg>
+                {arrow("diffCount")}
+              </button>
+              <button
+                className={cls("linkCount", "nd")}
+                title={t("list.linkTooltip")}
+                onClick={() => onToggleSort("linkCount")}
+              >
+                🔗{arrow("linkCount")}
+              </button>
+            </span>
           </li>
           {list.map((c, i) => (
             <CandidateRow
@@ -270,6 +295,25 @@ const CandidateRow = memo(function CandidateRow({
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
+          <span className={`labels ${sexClass(candidate.sex)}`}>
+            <SexBadge sex={candidate.sex} />
+            <span className="candidate-name">{candidate.name}</span>
+            {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased) && (
+              <span
+                className="candidate-year gm-data"
+                title={datesTooltip(candidate.birthDate, candidate.deathDate, candidate.deceased)}
+              >
+                {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}
+              </span>
+            )}
+          </span>
+          {status && status !== "undecided" ? (
+            <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
+              {t(`status.${status}`).charAt(0)}
+            </span>
+          ) : (
+            <span className="status-chip status-empty" aria-hidden />
+          )}
           <span className="candidate-metrics">
             <span className={`badge ${candidate.category}`} title={scoreTooltip}>
               {formatScore(candidate.score)}
@@ -298,23 +342,6 @@ const CandidateRow = memo(function CandidateRow({
               {candidate.linkCount ?? 0}
             </span>
           </span>
-          <span className={`labels ${sexClass(candidate.sex)}`}>
-            <SexBadge sex={candidate.sex} />
-            <span className="candidate-name">{candidate.name}</span>
-            {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased) && (
-              <span
-                className="candidate-year gm-data"
-                title={datesTooltip(candidate.birthDate, candidate.deathDate, candidate.deceased)}
-              >
-                {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}
-              </span>
-            )}
-          </span>
-          {status && status !== "undecided" && (
-            <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
-              {t(`status.${status}`).charAt(0)}
-            </span>
-          )}
         </button>
       </div>
     </li>

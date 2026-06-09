@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "./gedcom/types";
+import type { Dataset, GedNode } from "./gedcom/types";
 import { serializeGedcom } from "./gedcom/serialize";
 import { datesTooltip, formatLifespan } from "./gedcom/lifespan";
-import { mergeDecisions, formatReport } from "./merge/merge";
+import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
 import type { NormalizationReport, PlaceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
@@ -15,6 +15,7 @@ import { ComparePanel } from "./ui/ComparePanel";
 import { CompareTree } from "./ui/CompareTree";
 import { Section } from "./ui/Section";
 import { HelpModal } from "./ui/HelpModal";
+import { MergePreview } from "./ui/MergePreview";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { SexBadge } from "./ui/SexBadge";
 import { sexClass } from "./ui/sex";
@@ -25,6 +26,8 @@ import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
   nextSort,
+  STATUS_RANK,
+  type Candidate,
   type Filters,
   type SortKey,
   type SortState,
@@ -128,6 +131,11 @@ export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [preview, setPreview] = useState<{
+    records: GedNode[];
+    report: ChangeReport;
+    base: string;
+  } | null>(null);
   const [showMobileWarning, setShowMobileWarning] = useState(
     () => window.innerWidth <= 880 && !localStorage.getItem("mobileWarningDismissed")
   );
@@ -305,11 +313,15 @@ export function App() {
     setSort((prev) => nextSort(prev, key));
   }
 
-  // Filtered + sorted list of individual matches.
+  // Filtered + sorted list of individual matches. The status rank lets the
+  // "status" sort group rows by the user's decision (and re-groups live as
+  // decisions change).
   const visible = useMemo(() => {
     if (!matches) return [];
-    return applySort(applyFilters(matches.individuals, filters), sort);
-  }, [matches, filters, sort]);
+    const statusRank = (c: Candidate) =>
+      STATUS_RANK[decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status ?? "undecided"];
+    return applySort(applyFilters(matches.individuals, filters), sort, statusRank);
+  }, [matches, filters, sort, decisions]);
 
   const safeIndex = visible.length === 0 ? 0 : Math.min(selectedIndex, visible.length - 1);
   const current = visible[safeIndex];
@@ -407,18 +419,26 @@ export function App() {
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
-  function exportMerged() {
+  // Run the (non-destructive) merge and open the preview; nothing is written yet.
+  function openPreview() {
     if (!masterDataset || !compareDataset) return;
     const matchResult = matches ?? { individuals: [] };
     const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, matchResult, t);
-    const merged = serializeGedcom(records, {
+    const base =
+      master.status === "loaded" ? master.file.fileName.replace(/\.ged$/i, "") : "merged";
+    setPreview({ records, report, base });
+  }
+
+  // Confirmed from the preview: serialize and download the merged file + report.
+  function confirmExport() {
+    if (!preview || !masterDataset) return;
+    const merged = serializeGedcom(preview.records, {
       eol: masterDataset.eol,
       finalNewline: masterDataset.finalNewline,
     });
-    const base =
-      master.status === "loaded" ? master.file.fileName.replace(/\.ged$/i, "") : "merged";
-    downloadText(`${base}.merged.ged`, merged);
-    downloadText(`${base}.merge-report.txt`, formatReport(report));
+    downloadText(`${preview.base}.merged.ged`, merged);
+    downloadText(`${preview.base}.merge-report.txt`, formatReport(preview.report));
+    setPreview(null);
   }
 
   // Full-page compare tree takes over the whole view when open.
@@ -443,7 +463,7 @@ export function App() {
     <>
       {confirmedCount > 0 && (
         <div className="header-center" onClick={(e) => e.stopPropagation()}>
-          <button className="export-btn" onClick={exportMerged} title={t("export.tooltip")}>
+          <button className="export-btn" onClick={openPreview} title={t("export.tooltip")}>
             {t("export.merged")} ({confirmedCount})
           </button>
         </div>
@@ -660,6 +680,15 @@ export function App() {
         </div>
       </div>
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      {preview && masterDataset && (
+        <MergePreview
+          report={preview.report}
+          masterRecordCount={masterDataset.individuals.size + masterDataset.families.size}
+          fileBase={preview.base}
+          onConfirm={confirmExport}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }
