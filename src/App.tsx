@@ -76,15 +76,21 @@ function detectTheme(): Theme {
 const DEFAULT_HOME_XREFS = ["@1@", "@I1@"];
 
 /**
- * The default home person to pre-select. Prefers the explicit `1 _ROOT @xref@`
- * pointer written in the HEAD by some apps (e.g. RootsMagic), then falls back to
- * the conventional root individual (`@1@` / `@I1@`). Returns undefined when the
- * file gives no usable signal.
+ * The default home person to pre-select, by descending strength of signal:
+ *  1. an explicit `1 _ROOT @xref@` pointer in the HEAD (e.g. RootsMagic);
+ *  2. an individual flagged with `_STP` ("start person", e.g. MacFamilyTree);
+ *  3. the conventional root individual (`@1@` / `@I1@`).
+ * Returns undefined when the file gives no usable signal.
  */
 function defaultHomeId(ds: Dataset): string | undefined {
   const head = ds.records.find((r) => r.tag === "HEAD");
   const root = head?.children.find((c) => c.tag === "_ROOT")?.value;
   if (root && ds.individuals.has(root)) return root;
+
+  for (const indi of ds.individuals.values()) {
+    if (indi.raw.children.some((c) => c.tag === "_STP")) return indi.id;
+  }
+
   return DEFAULT_HOME_XREFS.find((id) => ds.individuals.has(id));
 }
 
