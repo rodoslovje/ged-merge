@@ -65,9 +65,15 @@ export interface MatchConfig {
     birthDate: number;
     birthPlace: number;
     birthAddress: number;
+    /** Death date/place, when known — disambiguates same-named individuals
+     *  across generations but isn't part of the identity key (many records
+     *  lack it for the living or the unrecorded). */
+    deathDate: number;
+    deathPlace: number;
     sex: number;
     parents: number;
     partners: number;
+    children: number;
     /** Marriage corroboration, folded in from the person's spouse family. */
     marriageDate: number;
     marriagePlace: number;
@@ -119,9 +125,12 @@ export const DEFAULT_CONFIG: MatchConfig = {
     birthDate: 3,
     birthPlace: 1.5,
     birthAddress: 1.5,
+    deathDate: 1.5,
+    deathPlace: 0.75,
     sex: 0.5,
     parents: 2,
     partners: 1.5,
+    children: 1.5,
     marriageDate: 1.5,
     marriagePlace: 0.75,
   },

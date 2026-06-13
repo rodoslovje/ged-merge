@@ -130,6 +130,19 @@ export function partnerNames(indi: Individual, ds: Dataset): PersonName[] {
   return names;
 }
 
+/** Children resolved via the families where this person is a parent. */
+export function childrenNames(indi: Individual, ds: Dataset): PersonName[] {
+  const names: PersonName[] = [];
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const childId of fam.children) {
+      pushName(names, childId, ds);
+    }
+  }
+  return names;
+}
+
 function pushName(into: PersonName[], id: string | undefined, ds: Dataset): void {
   if (!id) return;
   const n = ds.individuals.get(id)?.names[0];

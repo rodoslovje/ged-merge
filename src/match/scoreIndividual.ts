@@ -1,6 +1,6 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
 import { birthDateText, deathDateText, isDeceased } from "../gedcom/lifespan";
-import { displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
+import { childrenNames, displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
   givenSimilarity,
@@ -51,12 +51,20 @@ export function scoreIndividualPair(
   add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
   add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
 
+  // Death date/place: corroborating evidence, not part of the identity key —
+  // absence (e.g. living people) is skipped rather than penalized.
+  const md = findEvent(master, "DEAT");
+  const cd = findEvent(compare, "DEAT");
+  add(components, "deathDate", w.deathDate, dateSimilarity(md?.date, cd?.date), `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
+  add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
+
   if (master.sex !== "U" && compare.sex !== "U") {
     add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
   }
 
   add(components, "parents", w.parents, nameSetSimilarity(parentNames(master, masterDs), parentNames(compare, compareDs)), "parents");
   add(components, "partners", w.partners, nameSetSimilarity(partnerNames(master, masterDs), partnerNames(compare, compareDs)), "partners");
+  add(components, "children", w.children, nameSetSimilarity(childrenNames(master, masterDs), childrenNames(compare, compareDs)), "children");
 
   // Marriage corroboration, folded in from the person's spouse family: a matching
   // marriage date/place is strong evidence (and disambiguates same-named people).
