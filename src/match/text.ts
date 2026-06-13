@@ -69,6 +69,22 @@ const SOUNDEX_CODES: Record<string, number> = {
   R: 6,
 };
 
+/**
+ * Padded character trigrams of a folded string, e.g. "Hribar" -> [" hr", "hri",
+ * "rib", "iba", "bar", "ar "]. Used for blocking: unlike Soundex, trigrams don't
+ * anchor on the first letter, so they still find candidates when the first
+ * letter itself differs (e.g. "Hribar"/"Gribar" transliteration variants).
+ */
+export function trigrams(s: string): string[] {
+  const padded = ` ${foldToken(s)} `;
+  if (padded.length < 3) return [];
+  const out: string[] = [];
+  for (let i = 0; i <= padded.length - 3; i++) {
+    out.push(padded.slice(i, i + 3));
+  }
+  return out;
+}
+
 /** Soundex phonetic code (e.g. "Smith"/"Smyth" -> "S530"). Used for blocking. */
 export function soundex(s: string): string {
   const letters = foldToken(s).toUpperCase().replace(/[^A-Z]/g, "");

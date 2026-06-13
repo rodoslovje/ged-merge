@@ -8,7 +8,7 @@ import {
   nameSimilarity,
   placeSimilarity,
 } from "./similarity";
-import { foldToken, jaroWinkler } from "./text";
+import { foldToken, jaroWinkler, trigrams } from "./text";
 import {
   categorize,
   combineComponents,
@@ -310,12 +310,22 @@ export function individualBlockKeys(indi: Individual, soundex: (s: string) => st
   const n = primaryName(indi);
   const surname = n?.surname;
   const given = n?.given;
-  const sdx = soundex(surname ?? given ?? "");
-  if (!sdx) return [];
+  const name = surname ?? given ?? "";
+  const sdx = soundex(name);
 
-  const keys = [`S:${sdx}`];
-  const birthYear = indi.events.find((e) => e.tag === "BIRT")?.date?.year;
-  if (birthYear) keys.push(`SB:${sdx}:${Math.floor(birthYear / 10)}`);
-  if (given) keys.push(`SG:${sdx}:${foldToken(given)[0] ?? ""}`);
+  const keys: string[] = [];
+  if (sdx) {
+    keys.push(`S:${sdx}`);
+    const birthYear = indi.events.find((e) => e.tag === "BIRT")?.date?.year;
+    if (birthYear) keys.push(`SB:${sdx}:${Math.floor(birthYear / 10)}`);
+    if (given) keys.push(`SG:${sdx}:${foldToken(given)[0] ?? ""}`);
+  }
+
+  // Trigrams of the surname (or given name, if no surname) supplement the
+  // Soundex keys above: they catch candidates whose first-letter spelling
+  // differs too much for Soundex to bucket together, which is common with
+  // Slavic transliteration variants (e.g. "Hribar"/"Gribar").
+  for (const tri of trigrams(name)) keys.push(`T:${tri}`);
+
   return keys;
 }
