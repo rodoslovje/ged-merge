@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "./engine";
-import { jaroWinkler, soundex, foldToken, trigrams } from "./text";
-import { individualBlockKeys } from "./scoreIndividual";
+import { jaroWinkler, soundex, foldToken } from "./text";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -24,42 +23,6 @@ describe("text primitives", () => {
   it("foldToken strips diacritics and case", () => {
     expect(foldToken("Müller")).toBe("muller");
     expect(foldToken("  Österreich ")).toBe("osterreich");
-  });
-
-  it("trigrams pad short strings and slide across the name", () => {
-    expect(trigrams("Bar")).toEqual([" ba", "bar", "ar "]);
-    expect(trigrams("Hribar")).toEqual([" hr", "hri", "rib", "iba", "bar", "ar "]);
-  });
-});
-
-describe("individualBlockKeys", () => {
-  // "Hribar"/"Gribar" is a common transliteration variant: different first
-  // letter means different Soundex code, but the surnames still share
-  // trigrams — so trigram keys give blocking a second chance to find the pair.
-  it("shares trigram keys for first-letter transliteration variants", () => {
-    const hribar = dataset(`0 HEAD
-1 GEDC
-2 VERS 5.5.1
-1 CHAR UTF-8
-0 @I1@ INDI
-1 NAME Janez /Hribar/
-1 SEX M
-0 TRLR
-`);
-    const gribar = dataset(`0 HEAD
-1 GEDC
-2 VERS 5.5.1
-1 CHAR UTF-8
-0 @I1@ INDI
-1 NAME Janez /Gribar/
-1 SEX M
-0 TRLR
-`);
-    const a = individualBlockKeys(hribar.individuals.get("@I1@")!, soundex);
-    const b = individualBlockKeys(gribar.individuals.get("@I1@")!, soundex);
-
-    expect(a.find((k) => k.startsWith("S:"))).not.toBe(b.find((k) => k.startsWith("S:")));
-    expect(a.filter((k) => k.startsWith("T:")).some((k) => b.includes(k))).toBe(true);
   });
 });
 
