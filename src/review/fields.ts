@@ -504,14 +504,27 @@ function linkState(master: string[], incoming: string[]): FieldState {
   return same ? "agree" : "conflict";
 }
 
+/** Matches the language-code path segment of a Matricula Online URL, e.g. ".../sl/slovenia/...". */
+const MATRICULA_LANG_RE = /^(https?:\/\/data\.matricula-online\.eu)\/([a-z]{2})\//;
+
 /**
  * Normalize a URL for set comparison: case-fold, drop a trailing slash, and
  * ignore the language code in Matricula Online URLs (e.g. /sl/ vs /de/)
  * since they link to the same record in different UI languages.
  */
-function linkKey(url: string): string {
+export function linkKey(url: string): string {
   const key = url.trim().toLowerCase().replace(/\/+$/, "");
-  return key.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//, "$1/xx/");
+  return key.replace(MATRICULA_LANG_RE, "$1/xx/");
+}
+
+/** The language code a Matricula Online URL uses, if it is one. */
+export function matriculaLangCode(url: string): string | undefined {
+  return MATRICULA_LANG_RE.exec(url.trim().toLowerCase())?.[2];
+}
+
+/** Rewrite a Matricula Online URL to use the given language code. */
+export function withMatriculaLang(url: string, lang: string): string {
+  return url.replace(MATRICULA_LANG_RE, `$1/${lang}/`);
 }
 
 function stateOf(key: string, master: string, incoming: string): FieldState {

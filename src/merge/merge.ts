@@ -2,7 +2,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
-import { individualFieldRows } from "../review/fields";
+import { individualFieldRows, linkKey, matriculaLangCode, withMatriculaLang } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 import { reformatPlace, reshapesLayout, type PlaceTargetFormat } from "./placeReformat";
 
@@ -106,6 +106,9 @@ export function mergeDecisions(
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
   const placeFmt = inferPlaceExportFormat(master);
+  // The language code the master's own Matricula Online links already use, so
+  // newly added links can be rewritten to match (e.g. /sl/ vs /de/).
+  const matriculaLang = detectMatriculaLang(master);
   const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt, t);
 
   for (const [key, decision] of decisions) {
@@ -119,7 +122,7 @@ export function mergeDecisions(
     if (!target || !masterIndi || !incoming) continue;
     report.recordLabels[masterId] = displayName(masterIndi.names[0]);
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
   }
@@ -139,6 +142,8 @@ interface Row {
   master: string;
   incoming: string;
   state: string;
+  masterLinks?: string[];
+  incomingLinks?: string[];
 }
 
 function applyRows(
@@ -152,6 +157,7 @@ function applyRows(
   handled: Set<string>,
   placeFmt: PlaceTargetFormat,
   t: Translate,
+  matriculaLang: string | undefined,
 ): void {
   let nameApplied = false;
   // Event tags whose place we already reshaped, so the matching ADDR row is
@@ -165,7 +171,15 @@ function applyRows(
     const choice = fields[row.key] ?? defaultChoice(row as never);
     if (choice === "master") continue;
 
-    if (row.key === "links" || row.key.endsWith(".links")) {
+    if (row.key === "links") {
+      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], matriculaLang);
+      if (added.length) {
+        report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice });
+        touched.add(recordId);
+      }
+      continue;
+    }
+    if (row.key.endsWith(".links")) {
       report.deferred.push({ recordId, field: row.label, reason: t("merge.reason.linkNotImplemented") });
       continue;
     }
@@ -196,6 +210,61 @@ function applyRows(
       touched.add(recordId);
     }
   }
+}
+
+/**
+ * Append a WWW node for each incoming link the master doesn't already have
+ * (by `linkKey`). Matricula Online links are rewritten to the master's
+ * language code, if one is known. Returns the URLs actually added.
+ */
+function applyLinks(
+  target: GedNode,
+  incomingLinks: string[],
+  masterLinks: string[],
+  matriculaLang: string | undefined,
+): string[] {
+  const existing = new Set(masterLinks.map(linkKey));
+  const added: string[] = [];
+  for (const url of incomingLinks) {
+    const key = linkKey(url);
+    if (existing.has(key)) continue;
+    existing.add(key);
+    const value = matriculaLang && matriculaLangCode(url) ? withMatriculaLang(url, matriculaLang) : url;
+    target.children.push(newNode("WWW", value));
+    added.push(value);
+  }
+  return added;
+}
+
+/**
+ * The language code the master file's existing Matricula Online links use
+ * most often, so newly added links can be rewritten to match.
+ */
+function detectMatriculaLang(master: Dataset): string | undefined {
+  const counts = new Map<string, number>();
+  const consider = (links?: string[]) => {
+    for (const url of links ?? []) {
+      const lang = matriculaLangCode(url);
+      if (lang) counts.set(lang, (counts.get(lang) ?? 0) + 1);
+    }
+  };
+  for (const indi of master.individuals.values()) {
+    consider(indi.links);
+    for (const e of indi.events) consider(e.links);
+  }
+  for (const fam of master.families.values()) {
+    consider(fam.links);
+    for (const e of fam.events) consider(e.links);
+  }
+  let best: string | undefined;
+  let bestCount = 0;
+  for (const [lang, count] of counts) {
+    if (count > bestCount) {
+      best = lang;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 /** Replace or (for "both") add the primary NAME line from the incoming record. */

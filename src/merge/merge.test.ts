@@ -211,6 +211,51 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
   });
 });
 
+describe("mergeDecisions — links", () => {
+  it("adds a new incoming link the master lacks", () => {
+    const master = dataset(MASTER);
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 WWW https://example.com/new");
+    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+  });
+
+  it("doesn't duplicate a link the master already has (even with a trailing slash)", () => {
+    const master = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old/\n"),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old\n"),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/WWW/g)).toHaveLength(1);
+    expect(report.changes).toHaveLength(0);
+  });
+
+  it("rewrites a new Matricula link to the language code the master already uses", () => {
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56\n",
+      ),
+    );
+    const { records } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56");
+    expect(out).not.toContain("/de/slovenia/ljubljana/preddvor");
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();
