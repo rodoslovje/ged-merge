@@ -89,7 +89,7 @@ describe("parseGiMatchesCsv", () => {
     expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
     // The note is built from the second (incoming) row — the master-side
     // "Starši" value above isn't repeated here since the incoming row's is empty.
-    expect(indi?.notes?.join("\n")).toBe("Source: Pokopališča-geneanet (confidence 99%)");
+    expect(indi?.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
 
     // "Žena: Helena Krt *1883" becomes a real partner family rather than a note.
     const partners = partnerNames(indi!, dataset);
@@ -137,7 +137,7 @@ describe("parseGiMatchesCsv", () => {
     expect(pairs[0].masterKey).toEqual({ given: "Stane", surname: "Tepina", birthYear: 1939 });
 
     const indi = dataset.individuals.get("@SGI1@");
-    expect(indi?.notes?.join("\n")).toBe("Source: Pokopališča-geneanet (confidence 99%)");
+    expect(indi?.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
   });
 
   it("builds father/mother and partner families from the second row's Father/Mother/Partners fields", () => {
@@ -179,7 +179,7 @@ describe("parseGiMatchesCsv", () => {
     const indi = dataset.individuals.get("@SGI1@")!;
 
     // Partners/Father/Mother are now real family relationships, not notes.
-    expect(indi.notes?.join("\n")).toBe("Source: Pokopališča-geneanet (confidence 99%)");
+    expect(indi.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
 
     expect(fatherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Father", surname: "Person" }));
     expect(motherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Mother", surname: "Person" }));
