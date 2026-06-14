@@ -171,6 +171,7 @@ export function ComparePanel({
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
+                        otherLinks={row.masterLinks}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
                     </td>

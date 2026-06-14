@@ -1047,8 +1047,16 @@ button {
   font-size: 0.95rem;
   line-height: 1;
   opacity: 0.85;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: transparent;
 }
 .link-icon:hover { opacity: 1; }
+/* Marks an incoming link that the master doesn't have yet (will be added). */
+.link-icon.link-new {
+  background: #93c5fd40;
+  opacity: 1;
+}
 /* A relative's name rendered as a jump-to-person link. */
 .person-link {
   appearance: none;

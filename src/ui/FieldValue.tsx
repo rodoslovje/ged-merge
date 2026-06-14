@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import type { RelativeCell, RelativePair } from "../review/types";
+import { linkKey } from "../review/fields";
 import { sexClass } from "./sex";
 
 /** A person a value line can link to: its id plus a click handler. */
@@ -22,12 +23,16 @@ export function FieldValue({
   text,
   links,
   person,
+  otherLinks,
 }: {
   text: string;
   links?: string[];
   person?: PersonLinks;
+  /** The other side's links, to highlight ones in `links` that would be added. */
+  otherLinks?: string[];
 }) {
   if (links && links.length > 0) {
+    const otherKeys = otherLinks && new Set(otherLinks.map(linkKey));
     return (
       <span className="links">
         {links.map((url, i) => (
@@ -36,7 +41,7 @@ export function FieldValue({
             href={linkHref(url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="link-icon"
+            className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
             title={url}
           >
             🔗
