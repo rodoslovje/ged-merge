@@ -33,6 +33,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "husband") return t("field.husband");
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.links");
+  if (key === "notes") return t("field.notes");
 
   let tag = key;
   let sub = "";
@@ -89,6 +90,9 @@ export function individualFieldRows(
 
   // Links (record-level and from any event, collapsed) come after the events.
   pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
+
+  // Free-text notes (e.g. source attribution from an imported matches CSV).
+  pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
 
   // Relatives last: parents, partner(s), the marriage facts, then children.
   // Marriage and children live on the FAM record but are reconciled here on the

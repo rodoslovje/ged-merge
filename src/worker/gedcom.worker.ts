@@ -6,8 +6,10 @@ import { inferDateLayout, inferMasterProfile, inferPlaceLayout } from "../normal
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
+import { matchGiPairs } from "../match/giMatch";
 import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
+import { parseGiMatchesCsv, type GiPair } from "../csv/giMatches";
 import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
@@ -25,6 +27,8 @@ let profile: MasterProfile | undefined;
 let masterDataset: Dataset | undefined;
 let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
+/** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
+let compareCsvPairs: GiPair[] | undefined;
 let homeId: string | undefined;
 let lastResult: MatchResult | undefined;
 
@@ -38,6 +42,24 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         ? applyDistanceRanking(lastResult, masterDataset, homeId)
         : clearDistanceRanking(lastResult);
       post({ type: "matched", result: lastResult });
+    }
+    return;
+  }
+  if (req.type === "parseCsv") {
+    try {
+      const text = decodeCsv(req.buffer);
+      const { dataset, pairs } = parseGiMatchesCsv(text);
+      compareCsvPairs = pairs;
+      compareRaw = { fileName: req.fileName, dataset };
+      emitCompare(req.fileName, dataset);
+      maybeMatch();
+    } catch (err) {
+      post({
+        type: "error",
+        role: "compare",
+        fileName: req.fileName,
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
     return;
   }
@@ -62,6 +84,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     } else {
       // Keep the raw parse so we can re-normalize if the master changes later.
       compareRaw = { fileName: req.fileName, dataset };
+      compareCsvPairs = undefined;
       emitCompare(req.fileName, dataset);
     }
 
@@ -75,6 +98,12 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     });
   }
 };
+
+/** Decode an ArrayBuffer as UTF-8 text, stripping a leading BOM if present. */
+function decodeCsv(buffer: ArrayBuffer): string {
+  const text = new TextDecoder("utf-8").decode(buffer);
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
 
 /** Emit the compare slot, normalized to the master profile when available. */
 function emitCompare(fileName: string, rawDataset: Dataset): void {
@@ -96,7 +125,9 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
 function maybeMatch(): void {
   if (!masterDataset || !compareNormalized) return;
   post({ type: "matching" });
-  let result = matchDatasets(masterDataset, compareNormalized);
+  let result = compareCsvPairs
+    ? matchGiPairs(masterDataset, compareNormalized, compareCsvPairs)
+    : matchDatasets(masterDataset, compareNormalized);
   result = annotateCounts(result, masterDataset, compareNormalized);
   if (homeId) result = applyDistanceRanking(result, masterDataset, homeId);
   lastResult = result;

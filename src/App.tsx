@@ -275,8 +275,9 @@ export function App() {
     setOpenMatches(false);
     setOpenLoad(true);
     const buffer = await file.arrayBuffer();
+    const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     workerRef.current?.postMessage(
-      { type: "parse", role, fileName, buffer },
+      isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role, fileName, buffer },
       [buffer], // transfer ownership — avoids copying large files
     );
   }

@@ -75,7 +75,13 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip 
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <input ref={inputRef} className="file-input" type="file" accept=".ged,.gedcom,text/plain" onChange={onChange} />
+          <input
+            ref={inputRef}
+            className="file-input"
+            type="file"
+            accept={accent === "incoming" ? ".ged,.gedcom,.csv,text/plain,text/csv" : ".ged,.gedcom,text/plain"}
+            onChange={onChange}
+          />
           {loaded ? (
             <span className="dropzone-text">{t("loader.dropReplace")}</span>
           ) : (

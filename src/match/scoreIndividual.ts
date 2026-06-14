@@ -290,7 +290,7 @@ function yearOfAny(indi: Individual, tags: string[]): number | undefined {
 }
 
 /** Birth year, or baptism/christening as a close proxy. */
-function birthYear(indi: Individual): number | undefined {
+export function birthYear(indi: Individual): number | undefined {
   return yearOfAny(indi, ["BIRT", "BAPM", "CHR"]);
 }
 function deathYear(indi: Individual): number | undefined {

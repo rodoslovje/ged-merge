@@ -157,6 +157,8 @@ export interface Individual {
   spouseOf: string[];
   /** URLs attached directly to the record (not to a specific event). */
   links?: string[];
+  /** Free-text NOTE records attached directly to the individual. */
+  notes?: string[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }

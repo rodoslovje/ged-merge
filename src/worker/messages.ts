@@ -12,13 +12,20 @@ export interface ParseRequest {
   buffer: ArrayBuffer;
 }
 
+/** Load a matches CSV from indeks.rodoslovje.si into the compare slot. */
+export interface ParseCsvRequest {
+  type: "parseCsv";
+  fileName: string;
+  buffer: ArrayBuffer;
+}
+
 /** Choose the home person in the master; triggers a re-ranked match result. */
 export interface SetHomeRequest {
   type: "setHome";
   id: string;
 }
 
-export type WorkerRequest = ParseRequest | SetHomeRequest;
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetHomeRequest;
 
 export interface ParseSuccess {
   type: "parsed";

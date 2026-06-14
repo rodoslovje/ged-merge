@@ -51,6 +51,7 @@ function buildIndividual(record: GedNode, media: MediaLinks): Individual {
   const childOf: string[] = [];
   const spouseOf: string[] = [];
   const links: string[] = [];
+  const notes: string[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -67,6 +68,10 @@ function buildIndividual(record: GedNode, media: MediaLinks): Individual {
       case "FAMS":
         if (child.value) spouseOf.push(child.value.trim());
         break;
+      case "NOTE":
+        if (child.value) notes.push(child.value);
+        collectLinks(child, media, links);
+        break;
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
@@ -77,6 +82,7 @@ function buildIndividual(record: GedNode, media: MediaLinks): Individual {
 
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (links.length) indi.links = dedupe(links);
+  if (notes.length) indi.notes = notes;
   return indi;
 }
 
