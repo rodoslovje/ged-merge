@@ -295,7 +295,7 @@ interface Relative {
  * Summary counts over a set of field rows:
  *  - `newCount`  = fields the compare record has but the master lacks (to add)
  *  - `diffCount` = fields both have but that differ (to reconcile)
- *  - `linkCount` = attached-link rows the compare adds or that differ
+ *  - `linkCount` = attached links the compare has that the master lacks
  *
  * Links are tallied separately (not folded into new/diff) so the matches list
  * can surface and filter on them as their own dimension.
@@ -309,7 +309,8 @@ export function fieldDiffCounts(
   for (const row of rows) {
     const isLink = row.masterLinks !== undefined || row.incomingLinks !== undefined;
     if (isLink) {
-      if (row.state === "incoming-only" || row.state === "conflict") linkCount++;
+      const masterKeys = new Set((row.masterLinks ?? []).map(linkKey));
+      if ((row.incomingLinks ?? []).some((url) => !masterKeys.has(linkKey(url)))) linkCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
   }
