@@ -140,9 +140,6 @@ const MOTHER_COLUMN = "Mother";
 /** Prefix for the synthetic individual IDs produced from this import. */
 const ID_PREFIX = "SGI";
 
-/** Name of the genealogical index site, recorded in the source note. */
-const SITE_NAME = "indeks.rodoslovje.si";
-
 /** The master-side identity used to find the corresponding individual. */
 export interface GiMasterKey {
   given: string;
@@ -255,27 +252,102 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
 }
 
 /**
+ * Column header set for the "family matches" CSV: pairs of rows describing a
+ * couple (husband + wife) rather than a single person. Only known in English
+ * so far — not yet translated for the other UI languages.
+ */
+interface FamilyColumnSet {
+  husbandName: string;
+  husbandSurname: string;
+  husbandBirth: string;
+  wifeName: string;
+  wifeSurname: string;
+  wifeBirth: string;
+  marriageDate: string;
+  marriagePlace: string;
+  links: string;
+  children: string;
+  husbandFather: string;
+  husbandMother: string;
+  wifeFather: string;
+  wifeMother: string;
+  genealogist: string;
+}
+
+type FamilyField = keyof FamilyColumnSet;
+
+const FAMILY_COLUMNS: FamilyColumnSet = {
+  husbandName: "Husband Name",
+  husbandSurname: "Husband Surname",
+  husbandBirth: "Husband Birth",
+  wifeName: "Wife Name",
+  wifeSurname: "Wife Surname",
+  wifeBirth: "Wife Birth",
+  marriageDate: "Date of Marriage",
+  marriagePlace: "Place of Marriage",
+  links: "Links",
+  children: "Children",
+  husbandFather: "Husband's Father",
+  husbandMother: "Husband's Mother",
+  wifeFather: "Wife's Father",
+  wifeMother: "Wife's Mother",
+  genealogist: "Genealogist",
+};
+
+/** Match the header row against the family matches column set. */
+function detectFamilyColumns(header: string[]): Record<FamilyField, number> | undefined {
+  const index: Partial<Record<FamilyField, number>> = {};
+  for (const [field, name] of Object.entries(FAMILY_COLUMNS) as [FamilyField, string][]) {
+    const idx = header.indexOf(name);
+    if (idx < 0) return undefined;
+    index[field] = idx;
+  }
+  return index as Record<FamilyField, number>;
+}
+
+/**
  * Parse a genealogical index matches CSV into a synthetic compare `Dataset`
- * (one individual per pair, built from the second row) plus the master-side
- * keys needed to resolve each pair to a master individual.
+ * plus the master-side keys needed to resolve each pair to a master
+ * individual. Two CSV shapes are recognised: per-person matches (one
+ * individual per pair) and per-family matches (one couple per pair, yielding
+ * up to two pairs — husband and wife).
  *
- * Throws if the header doesn't match any known column set.
+ * Throws if the header doesn't match either known shape.
  */
 export function parseGiMatchesCsv(text: string): GiMatchesImport {
   const rows = parseCsvText(text).filter((r) => !(r.length === 1 && r[0] === ""));
   if (rows.length === 0) throw new Error("Empty CSV file");
 
   const header = rows[0];
-  const layout = detectColumns(header);
-  if (!layout) throw new Error("Unrecognized matches CSV: unknown column headers");
-
-  const col = (row: string[], field: RequiredField): string => (row[layout.index[field]] ?? "").trim();
-  const colAt = (row: string[], idx: number | undefined): string =>
-    idx === undefined ? "" : (row[idx] ?? "").trim();
-
   // Trailing metadata rows (source/date/search footer) have a different
   // column count than the header and are ignored.
   const dataRows = rows.slice(1).filter((r) => r.length === header.length);
+
+  const layout = detectColumns(header);
+  if (layout) return parsePersonMatches(dataRows, layout);
+
+  const familyIndex = detectFamilyColumns(header);
+  if (familyIndex) return parseFamilyMatches(dataRows, familyIndex);
+
+  throw new Error("Unrecognized matches CSV: unknown column headers");
+}
+
+function finish(records: GedNode[], pairs: GiPair[]): GiMatchesImport {
+  const parsed: ParseResult = {
+    version: "5.5.1",
+    charset: "UTF-8",
+    records,
+    warnings: [],
+    eol: "\n",
+    finalNewline: true,
+  };
+  return { dataset: buildDataset(parsed), pairs };
+}
+
+function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatchesImport {
+  const col = (row: string[], field: RequiredField): string => (row[layout.index[field]] ?? "").trim();
+  const colAt = (row: string[], idx: number | undefined): string =>
+    idx === undefined ? "" : (row[idx] ?? "").trim();
 
   const records: GedNode[] = [];
   const pairs: GiPair[] = [];
@@ -297,15 +369,7 @@ export function parseGiMatchesCsv(text: string): GiMatchesImport {
     pairs.push({ masterKey, compareId });
   }
 
-  const parsed: ParseResult = {
-    version: "5.5.1",
-    charset: "UTF-8",
-    records,
-    warnings: [],
-    eol: "\n",
-    finalNewline: true,
-  };
-  return { dataset: buildDataset(parsed), pairs };
+  return finish(records, pairs);
 }
 
 /** One parent/partner parsed from a "Father"/"Mother"/"Partners"/"Parents" cell. */
@@ -364,18 +428,50 @@ function splitName(full: string): { given: string; surname: string } {
 }
 
 /** Build a synthetic INDI record for a relative parsed from a "Name | date" cell. */
-function buildRelativeIndi(xref: string, entry: RelativeEntry, famId: string): GedNode {
+function buildRelativeIndi(xref: string, entry: RelativeEntry, famId: string, pointerTag: "FAMS" | "FAMC" = "FAMS"): GedNode {
   const { given, surname } = splitName(entry.name);
   const children: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
   if (entry.date && !isAnnotation(entry.date)) {
     children.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", entry.date)] });
   }
-  children.push(node(1, "FAMS", famId));
+  children.push(node(1, pointerTag, famId));
   return { level: 0, xref, tag: "INDI", children };
 }
 
 function famNode(xref: string, children: GedNode[]): GedNode {
   return { level: 0, xref, tag: "FAM", children };
+}
+
+/**
+ * Build a synthetic parents FAM (father=HUSB, mother=WIFE, `childId`=CHIL)
+ * plus INDI records for whichever of father/mother are present, and the FAMC
+ * pointer to add to the child's INDI record. Returns no records if neither
+ * parent is present.
+ */
+function buildParentsRecords(
+  idPrefix: string,
+  childId: string,
+  father: RelativeEntry | undefined,
+  mother: RelativeEntry | undefined,
+): { records: GedNode[]; famc?: GedNode } {
+  if (!father && !mother) return { records: [] };
+
+  const famId = `${idPrefix}FAM@`;
+  const records: GedNode[] = [];
+  const famChildren: GedNode[] = [];
+  if (father) {
+    const id = `${idPrefix}F@`;
+    records.push(buildRelativeIndi(id, father, famId));
+    famChildren.push(node(1, "HUSB", id));
+  }
+  if (mother) {
+    const id = `${idPrefix}M@`;
+    records.push(buildRelativeIndi(id, mother, famId));
+    famChildren.push(node(1, "WIFE", id));
+  }
+  famChildren.push(node(1, "CHIL", childId));
+  records.push(famNode(famId, famChildren));
+  return { records, famc: node(1, "FAMC", famId) };
 }
 
 /**
@@ -415,23 +511,9 @@ function buildPairRecords(
     father = parents[0];
     mother = parents[1];
   }
-  if (father || mother) {
-    const famId = `@${ID_PREFIX}${n}FAM@`;
-    const famChildren: GedNode[] = [];
-    if (father) {
-      const id = `@${ID_PREFIX}${n}F@`;
-      records.push(buildRelativeIndi(id, father, famId));
-      famChildren.push(node(1, "HUSB", id));
-    }
-    if (mother) {
-      const id = `@${ID_PREFIX}${n}M@`;
-      records.push(buildRelativeIndi(id, mother, famId));
-      famChildren.push(node(1, "WIFE", id));
-    }
-    famChildren.push(node(1, "CHIL", compareId));
-    records.push(famNode(famId, famChildren));
-    indiChildren.push(node(1, "FAMC", famId));
-  }
+  const parents = buildParentsRecords(`@${ID_PREFIX}${n}`, compareId, father, mother);
+  records.push(...parents.records);
+  if (parents.famc) indiChildren.push(parents.famc);
 
   // Partners: each entry becomes its own family shared with the main individual.
   const partners = parseRelativeList(col(row, "partners"));
@@ -447,13 +529,6 @@ function buildPairRecords(
     indiChildren.push(node(1, "FAMS", famId));
   });
 
-  const genealogist = col(row, "genealogist");
-  const confidence = col(row, "confidence");
-  let source = SITE_NAME;
-  if (genealogist) source += ` – ${genealogist}`;
-  if (confidence) source += ` (confidence ${confidence}%)`;
-  indiChildren.push(node(1, "NOTE", `Source: ${source}`));
-
   records.unshift({ level: 0, xref: compareId, tag: "INDI", children: indiChildren });
   return records;
 }
@@ -468,4 +543,94 @@ function pushEvent(into: GedNode[], tag: string, date: string, place: string): v
 
 function node(level: number, tag: string, value: string): GedNode {
   return { level, tag, value, children: [] };
+}
+
+function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, number>): GiMatchesImport {
+  const col = (row: string[], field: FamilyField): string => (row[index[field]] ?? "").trim();
+
+  const records: GedNode[] = [];
+  const pairs: GiPair[] = [];
+  let n = 0;
+  for (let i = 0; i + 1 < dataRows.length; i += 2) {
+    const masterRow = dataRows[i];
+    const incomingRow = dataRows[i + 1];
+
+    const husbandKey: GiMasterKey = {
+      given: col(masterRow, "husbandName"),
+      surname: col(masterRow, "husbandSurname"),
+      birthYear: parseDate(col(masterRow, "husbandBirth")).year,
+    };
+    const wifeKey: GiMasterKey = {
+      given: col(masterRow, "wifeName"),
+      surname: col(masterRow, "wifeSurname"),
+      birthYear: parseDate(col(masterRow, "wifeBirth")).year,
+    };
+    if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
+
+    n++;
+    const husbandId = `@${ID_PREFIX}${n}H@`;
+    const wifeId = `@${ID_PREFIX}${n}W@`;
+    records.push(...buildFamilyRecords(n, incomingRow, col, husbandId, wifeId));
+
+    if (husbandKey.given || husbandKey.surname) pairs.push({ masterKey: husbandKey, compareId: husbandId });
+    if (wifeKey.given || wifeKey.surname) pairs.push({ masterKey: wifeKey, compareId: wifeId });
+  }
+
+  return finish(records, pairs);
+}
+
+/**
+ * Build the synthetic FAM record for one couple, plus INDI records for the
+ * husband and wife (with their parent families and a source note), and any
+ * children listed in the "Children" column.
+ */
+function buildFamilyRecords(
+  n: number,
+  row: string[],
+  col: (row: string[], field: FamilyField) => string,
+  husbandId: string,
+  wifeId: string,
+): GedNode[] {
+  const records: GedNode[] = [];
+  const famId = `@${ID_PREFIX}${n}FAM@`;
+
+  const husbandChildren: GedNode[] = [node(1, "NAME", `${col(row, "husbandName")} /${col(row, "husbandSurname")}/`)];
+  pushEvent(husbandChildren, "BIRT", col(row, "husbandBirth"), "");
+  husbandChildren.push(node(1, "FAMS", famId));
+  const husbandParents = buildParentsRecords(
+    `@${ID_PREFIX}${n}H`,
+    husbandId,
+    parseRelativeList(col(row, "husbandFather"))[0],
+    parseRelativeList(col(row, "husbandMother"))[0],
+  );
+  records.push(...husbandParents.records);
+  if (husbandParents.famc) husbandChildren.push(husbandParents.famc);
+
+  const wifeChildren: GedNode[] = [node(1, "NAME", `${col(row, "wifeName")} /${col(row, "wifeSurname")}/`)];
+  pushEvent(wifeChildren, "BIRT", col(row, "wifeBirth"), "");
+  wifeChildren.push(node(1, "FAMS", famId));
+  const wifeParents = buildParentsRecords(
+    `@${ID_PREFIX}${n}W`,
+    wifeId,
+    parseRelativeList(col(row, "wifeFather"))[0],
+    parseRelativeList(col(row, "wifeMother"))[0],
+  );
+  records.push(...wifeParents.records);
+  if (wifeParents.famc) wifeChildren.push(wifeParents.famc);
+
+  const famChildren: GedNode[] = [node(1, "HUSB", husbandId), node(1, "WIFE", wifeId)];
+  pushEvent(famChildren, "MARR", col(row, "marriageDate"), col(row, "marriagePlace"));
+  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
+    famChildren.push(node(1, "WWW", url));
+  }
+  parseRelativeList(col(row, "children")).forEach((child, i) => {
+    const childId = `@${ID_PREFIX}${n}C${i + 1}@`;
+    records.push(buildRelativeIndi(childId, child, famId, "FAMC"));
+    famChildren.push(node(1, "CHIL", childId));
+  });
+  records.push(famNode(famId, famChildren));
+
+  records.push({ level: 0, xref: husbandId, tag: "INDI", children: husbandChildren });
+  records.push({ level: 0, xref: wifeId, tag: "INDI", children: wifeChildren });
+  return records;
 }

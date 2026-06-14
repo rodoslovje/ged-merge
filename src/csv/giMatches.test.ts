@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { parseCsvText, parseGiMatchesCsv } from "./giMatches";
-import { fatherName, motherName, partnerNames } from "../match/relatives";
+import { childrenNames, fatherName, motherName, partnerNames } from "../match/relatives";
 
 const SL_HEADER =
   '"Ime","Priimek","Datum rojstva","Kraj rojstva","Datum smrti","Kraj smrti","Datum pokopa","Kraj pokopa","Povezave","Partnerji","Starši","Rodoslovec","Zaupanje"';
 
 const EN_HEADER =
   '"Name","Surname","Date of Birth","Place of Birth","Date of Death","Place of Death","Burial date","Burial place","Links","Partners","Father","Mother","Genealogist","Confidence"';
+
+const FAMILY_HEADER =
+  '"Husband Name","Husband Surname","Husband Birth","Wife Name","Wife Surname","Wife Birth","Date of Marriage","Place of Marriage","Links","Children","Husband\'s Father","Husband\'s Mother","Wife\'s Father","Wife\'s Mother","Genealogist","Confidence"';
 
 function row(cells: string[]): string {
   return cells.map((c) => `"${c.replace(/"/g, '""')}"`).join(",");
@@ -87,9 +90,7 @@ describe("parseGiMatchesCsv", () => {
     expect(burial?.place?.raw).toBe("Zabnica, Pokopališče Žabnica");
 
     expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
-    // The note is built from the second (incoming) row — the master-side
-    // "Starši" value above isn't repeated here since the incoming row's is empty.
-    expect(indi?.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
+    expect(indi?.notes).toBeUndefined();
 
     // "Žena: Helena Krt *1883" becomes a real partner family rather than a note.
     const partners = partnerNames(indi!, dataset);
@@ -137,7 +138,7 @@ describe("parseGiMatchesCsv", () => {
     expect(pairs[0].masterKey).toEqual({ given: "Stane", surname: "Tepina", birthYear: 1939 });
 
     const indi = dataset.individuals.get("@SGI1@");
-    expect(indi?.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
+    expect(indi?.notes).toBeUndefined();
   });
 
   it("builds father/mother and partner families from the second row's Father/Mother/Partners fields", () => {
@@ -179,7 +180,7 @@ describe("parseGiMatchesCsv", () => {
     const indi = dataset.individuals.get("@SGI1@")!;
 
     // Partners/Father/Mother are now real family relationships, not notes.
-    expect(indi.notes?.join("\n")).toBe("Source: indeks.rodoslovje.si – Pokopališča-geneanet (confidence 99%)");
+    expect(indi.notes).toBeUndefined();
 
     expect(fatherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Father", surname: "Person" }));
     expect(motherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Mother", surname: "Person" }));
@@ -216,5 +217,76 @@ describe("parseGiMatchesCsv", () => {
 
     const { pairs } = parseGiMatchesCsv(text);
     expect(pairs).toHaveLength(1);
+  });
+
+  it("resolves a family match (Husband/Wife header) into husband and wife pairs", () => {
+    const masterRow = row([
+      "Franc",
+      "Benedik",
+      "1 SEP 1875",
+      "Frančiška",
+      "Volčič",
+      "24 OCT 1878",
+      "30 JAN 1907",
+      "Stražišče, Kranj",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Renko",
+      "85",
+    ]);
+    const incomingRow = row([
+      "Franc",
+      "Benedik",
+      "1 SEP 1875",
+      "Frančiška",
+      "Volčič",
+      "24 OCT 1878",
+      "30 JAN 1907",
+      "Stražišče, Kranj",
+      "https://en.geneanet.org/cemetery/view/8419923",
+      "Marija | 24 JUN 1901; Kristina | 22 JUL 1907",
+      "Jakob Benedik | 1 JAN 1840",
+      "",
+      "Jakob Volčič | 3 MAY 1839",
+      "Jera Rakovec | 27 FEB 1838",
+      "Pokopališča-geneanet",
+      "85",
+    ]);
+    const text = `${FAMILY_HEADER}\n${masterRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { masterKey: { given: "Franc", surname: "Benedik", birthYear: 1875 }, compareId: "@SGI1H@" },
+      { masterKey: { given: "Frančiška", surname: "Volčič", birthYear: 1878 }, compareId: "@SGI1W@" },
+    ]);
+
+    const husband = dataset.individuals.get("@SGI1H@")!;
+    const wife = dataset.individuals.get("@SGI1W@")!;
+    expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Franc", surname: "Benedik" }));
+    expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Volčič" }));
+    expect(husband.notes).toBeUndefined();
+    expect(wife.notes).toBeUndefined();
+
+    // The shared family carries the marriage event, links, and children.
+    const fam = dataset.families.get("@SGI1FAM@")!;
+    expect(fam.husband).toBe("@SGI1H@");
+    expect(fam.wife).toBe("@SGI1W@");
+    expect(fam.links).toContain("https://en.geneanet.org/cemetery/view/8419923");
+    expect(fam.events.find((e) => e.tag === "MARR")?.place?.raw).toBe("Stražišče, Kranj");
+
+    const children = childrenNames(husband, dataset);
+    expect(children).toEqual([
+      expect.objectContaining({ given: "Marija" }),
+      expect.objectContaining({ given: "Kristina" }),
+    ]);
+
+    // Each side's parents become their own family.
+    expect(fatherName(husband, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Benedik" }));
+    expect(fatherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Volčič" }));
+    expect(motherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jera", surname: "Rakovec" }));
   });
 });
