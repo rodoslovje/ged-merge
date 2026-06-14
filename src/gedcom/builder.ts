@@ -168,7 +168,11 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
       const resolved = media.get(v);
       if (resolved) out.push(...resolved);
     } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(v)) {
-      out.push(v);
+      // A link-bearing tag's value is the URL itself, so a CONT-introduced
+      // line break partway through it is a wrap artifact, not real content;
+      // drop it to keep the URL intact (CONC wraps never produce one, since
+      // they're folded into the value with no separator).
+      out.push(v.replace(/\n/g, ""));
     } else {
       const found = v.match(URL_RE);
       if (found) for (const m of found) out.push(stripTrailingPunct(m));
