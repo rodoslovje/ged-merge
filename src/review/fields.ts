@@ -504,9 +504,14 @@ function linkState(master: string[], incoming: string[]): FieldState {
   return same ? "agree" : "conflict";
 }
 
-/** Normalize a URL for set comparison: case-fold and drop a trailing slash. */
+/**
+ * Normalize a URL for set comparison: case-fold, drop a trailing slash, and
+ * ignore the language code in Matricula Online URLs (e.g. /sl/ vs /de/)
+ * since they link to the same record in different UI languages.
+ */
 function linkKey(url: string): string {
-  return url.trim().toLowerCase().replace(/\/+$/, "");
+  const key = url.trim().toLowerCase().replace(/\/+$/, "");
+  return key.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//, "$1/xx/");
 }
 
 function stateOf(key: string, master: string, incoming: string): FieldState {

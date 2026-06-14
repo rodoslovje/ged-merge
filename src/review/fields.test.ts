@@ -287,6 +287,20 @@ describe("attached links", () => {
     expect(byKey(rows2, "links")?.state).toBe("agree"); // trailing-slash-insensitive
   });
 
+  it("treats Matricula Online links as equal regardless of language code", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+        `1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+        `1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.state).toBe("agree");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+
   it("resolves shared OBJE multimedia pointers to their FILE url", () => {
     // Renko.ged stores links as top-level OBJE records referenced by pointer.
     const ds = dataset(
