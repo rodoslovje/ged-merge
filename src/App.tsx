@@ -665,8 +665,9 @@ export function App() {
 
         <div className="split-pane split-compare" ref={compareRef}>
           {/* Always-open: the compare view is the app's main interface, so it has
-              no collapse toggle or section title — just the person and nav. */}
-          <div className="section open">
+              no collapse toggle or section title — just the person and nav.
+              Grayed out like the matches section until matches are computed. */}
+          <div className={`section${matches ? " open" : " disabled"}`}>
             {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
             <div className="section-body">
               {current && masterDataset && compareDataset ? (

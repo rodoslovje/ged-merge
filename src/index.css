@@ -120,6 +120,9 @@ button {
 .section.open {
   border-color: #343c47;
 }
+.section.disabled {
+  opacity: 0.6;
+}
 .section-head {
   display: flex;
   align-items: center;
