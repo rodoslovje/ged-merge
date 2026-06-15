@@ -45,7 +45,7 @@ export function buildDataset(parsed: ParseResult): Dataset {
   };
 }
 
-function buildIndividual(record: GedNode, media: MediaLinks): Individual {
+export function buildIndividual(record: GedNode, media: MediaLinks): Individual {
   const names: Individual["names"] = [];
   const events: GedEvent[] = [];
   const childOf: string[] = [];
@@ -86,7 +86,7 @@ function buildIndividual(record: GedNode, media: MediaLinks): Individual {
   return indi;
 }
 
-function buildFamily(record: GedNode, media: MediaLinks): Family {
+export function buildFamily(record: GedNode, media: MediaLinks): Family {
   const children: string[] = [];
   const events: GedEvent[] = [];
   const links: string[] = [];
@@ -131,7 +131,7 @@ function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
 }
 
 /** Map of OBJE record xref -> the URLs that record holds. */
-type MediaLinks = Map<string, string[]>;
+export type MediaLinks = Map<string, string[]>;
 
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
@@ -144,7 +144,7 @@ const URL_RE = /https?:\/\/[^\s<>"]+/gi;
  * URLs it contains (typically a single FILE line). Records reference these by
  * pointer, so this lets `collectLinks` resolve `OBJE @xref@` to a real URL.
  */
-function buildMediaLinks(records: GedNode[]): MediaLinks {
+export function buildMediaLinks(records: GedNode[]): MediaLinks {
   const map: MediaLinks = new Map();
   for (const rec of records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;

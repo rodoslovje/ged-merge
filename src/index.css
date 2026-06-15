@@ -56,6 +56,10 @@ button {
   justify-content: space-between;
   align-items: center;
 }
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+}
 .lang-switcher {
   display: flex;
   align-items: center;
@@ -221,6 +225,9 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 32px;
   align-items: start;
+}
+.loaders.loaders-single {
+  grid-template-columns: 1fr;
 }
 /* Divider between the two loaders instead of a box around each. */
 .loaders > .loader + .loader {
@@ -879,6 +886,227 @@ button {
 .compare-head .person-label { font-size: 1rem; }
 .compare-head .person-name,
 .compare-head .person-years { font-weight: 600; }
+
+/* Edit mode: person layout */
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.edit-toolbar .home-selector { flex: 1; max-width: 360px; }
+
+.edit-parents {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.edit-families {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.edit-parent-group,
+.edit-family {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.edit-children-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edit-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+/* Horizontal line linking a couple (parents) or a partner to their children. */
+.edit-connector-h {
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  background: var(--border);
+  align-self: center;
+}
+
+/* Vertical line linking the parents/families rows to the center person. */
+.edit-connector-v {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin-left: 20px;
+}
+
+.edit-person {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  max-width: 640px;
+}
+.edit-person .person-label { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+
+.edit-other-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: -6px 0 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.edit-events {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.edit-event {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.edit-event-label {
+  flex: none;
+  width: 90px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.edit-event-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  flex: 1;
+}
+.edit-event-link {
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* Edit mode: inline-editable fields */
+.edit-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+}
+.edit-input:hover { border-color: var(--border); }
+.edit-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--bg);
+}
+
+.edit-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.edit-name-input {
+  font-size: 1.1rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+}
+
+.edit-sex-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.edit-field-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.sex-toggle {
+  display: flex;
+  gap: 4px;
+}
+.sex-toggle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sex-toggle-btn:hover { border-color: var(--accent); }
+.sex-toggle-btn.active {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.edit-event-date { width: 140px; }
+.edit-event-place {
+  flex: 1;
+  min-width: 160px;
+}
+.edit-event-links {
+  flex: 1 1 100%;
+  min-width: 160px;
+  min-height: 1.8em;
+  resize: vertical;
+}
+
+.person-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  width: 200px;
+}
+.person-card .person-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.person-card:hover { border-color: var(--accent); }
+.person-card.empty {
+  border-style: dashed;
+  cursor: default;
+}
+.person-card.sex-m {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.person-card.sex-f {
+  background: rgba(244, 114, 182, 0.1);
+  border-color: rgba(244, 114, 182, 0.35);
+}
+.person-card.sex-m:hover { border-color: #38bdf8; }
+.person-card.sex-f:hover { border-color: #f472b6; }
+.person-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.person-card-role {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
 
 .chev { color: var(--muted); }
 

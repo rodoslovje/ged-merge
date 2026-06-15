@@ -1,0 +1,295 @@
+import { useMemo, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useTranslation } from "react-i18next";
+import type { Dataset, GedNode } from "../gedcom/types";
+import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
+import type { ChangeReport } from "../merge/merge";
+import type { MatchResult } from "../match/types";
+import { decisionKey, type CandidateDecision } from "../review/types";
+import type { SlotState } from "../App";
+import { GedcomLoader } from "./GedcomLoader";
+import { HomePersonSelector } from "./HomePersonSelector";
+import { MatchResults } from "./MatchResults";
+import { ComparePanel } from "./ComparePanel";
+import { Section } from "./Section";
+import { MergePreview } from "./MergePreview";
+import { sexClass } from "./sex";
+import {
+  type Candidate,
+  type Filters,
+  type SortKey,
+  type SortState,
+} from "./matchView";
+
+interface Props {
+  // Incoming loader
+  compare: SlotState;
+  onLoadCompare: (file: File) => void;
+  openIncoming: boolean;
+  onToggleIncoming: () => void;
+  onOpenPreview: () => void;
+
+  // Matches section
+  matches: MatchResult | null;
+  matching: boolean;
+  sort: SortState[];
+  onToggleSort: (key: SortKey) => void;
+  filters: Filters;
+  setFilters: (filters: Filters) => void;
+  setSelectedIndex: Dispatch<SetStateAction<number>>;
+  visible: Candidate[];
+  safeIndex: number;
+  onSelect: (index: number) => void;
+  decisions: Map<string, CandidateDecision>;
+  showFilters: boolean;
+  setShowFilters: Dispatch<SetStateAction<boolean>>;
+  homeId: string | undefined;
+  masterDataset: Dataset | undefined;
+  changeHome: (id: string | undefined) => void;
+  focusHome: boolean;
+  setFocusHome: Dispatch<SetStateAction<boolean>>;
+  openMatches: boolean;
+  setOpenMatches: Dispatch<SetStateAction<boolean>>;
+
+  // Compare panel
+  current: Candidate | undefined;
+  compareDataset: Dataset | undefined;
+  onUpdateDecision: (next: CandidateDecision) => void;
+  onOpenTree: (masterId: string, compareId: string) => void;
+  canNavigatePerson: (side: "master" | "incoming", id: string) => boolean;
+  onNavigatePerson: (side: "master" | "incoming", id: string) => void;
+  compareRef: RefObject<HTMLDivElement | null>;
+
+  // Merge preview / export
+  preview: { records: GedNode[]; report: ChangeReport; base: string } | null;
+  onConfirmExport: () => void;
+  onClosePreview: () => void;
+}
+
+/** The merge workflow: incoming loader, matches list, compare panel, and the
+ * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
+ * — the Master GEDCOM is loaded by the shared shell. */
+export function MergeView({
+  compare,
+  onLoadCompare,
+  openIncoming,
+  onToggleIncoming,
+  onOpenPreview,
+  matches,
+  matching,
+  sort,
+  onToggleSort,
+  filters,
+  setFilters,
+  setSelectedIndex,
+  visible,
+  safeIndex,
+  onSelect,
+  decisions,
+  showFilters,
+  setShowFilters,
+  homeId,
+  masterDataset,
+  changeHome,
+  focusHome,
+  setFocusHome,
+  openMatches,
+  setOpenMatches,
+  current,
+  compareDataset,
+  onUpdateDecision,
+  onOpenTree,
+  canNavigatePerson,
+  onNavigatePerson,
+  compareRef,
+  preview,
+  onConfirmExport,
+  onClosePreview,
+}: Props) {
+  const { t } = useTranslation();
+
+  const confirmedCount = useMemo(() => {
+    let n = 0;
+    for (const d of decisions.values()) if (d.status === "confirmed") n++;
+    return n;
+  }, [decisions]);
+
+  const incomingSubtitle = compare.status === "loaded" ? (
+    <>
+      {confirmedCount > 0 && (
+        <div className="header-center" onClick={(e) => e.stopPropagation()}>
+          <button className="export-btn" onClick={onOpenPreview} title={t("export.tooltip")}>
+            {t("export.merged")} ({confirmedCount})
+          </button>
+        </div>
+      )}
+      <span className="gm-file incoming gm-data">{compare.file.fileName}</span>
+    </>
+  ) : undefined;
+
+  const matchesSubtitle = matching ? (
+    <div className="matches-tabs-header matching" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      {t("matches.calculating")}
+    </div>
+  ) : matches ? (
+    <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
+      <span className="muted gm-data">
+        {t("list.count", { visible: visible.length, total: matches.individuals.length })}
+      </span>
+      <button
+        className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
+        onClick={() => setShowFilters((s) => !s)}
+        title={t("filter.title")}
+      >
+        <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      </button>
+    </div>
+  ) : undefined;
+
+  const compareHeader = current ? (
+    <>
+      <div className={`person-label ${sexClass(current.sex)}`}>
+        <span className="person-name">{current.name}</span>
+        {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
+          <span
+            className="person-years gm-data"
+            title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
+          >
+            {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
+          </span>
+        )}
+      </div>
+      <div className="compare-nav-header">
+        <button
+          className="nav-btn icon-only"
+          onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
+          disabled={safeIndex <= 0}
+          title={t("nav.prev")}
+        >
+          ‹
+        </button>
+        <span className="nav-pos gm-data">
+          {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
+        </span>
+        <button
+          className="nav-btn icon-only"
+          onClick={() => setSelectedIndex((i) => Math.min(visible.length - 1, i + 1))}
+          disabled={safeIndex >= visible.length - 1}
+          title={t("nav.next")}
+        >
+          ›
+        </button>
+      </div>
+    </>
+  ) : null;
+
+  return (
+    <>
+      <Section
+        title={t("section.load")}
+        subtitle={incomingSubtitle}
+        open={openIncoming}
+        onToggle={onToggleIncoming}
+      >
+        <div className="loaders loaders-single">
+          <GedcomLoader
+            title={t("load.incoming")}
+            state={compare}
+            onLoad={onLoadCompare}
+            accent="incoming"
+            highlight={compare.status === "empty"}
+            tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
+          />
+        </div>
+        <p className="load-privacy">{t("load.privacy")}</p>
+      </Section>
+
+      <div className="main-split">
+        <div className="split-pane split-matches">
+          <Section
+            title={t("section.matches")}
+            subtitle={matchesSubtitle}
+            open={openMatches}
+            onToggle={() => setOpenMatches((o) => !o)}
+            disabled={!matches && !matching}
+          >
+            {matches ? (
+              <MatchResults
+                result={matches}
+                sort={sort}
+                onToggleSort={onToggleSort}
+                filters={filters}
+                onFilters={(f) => {
+                  setFilters(f);
+                  setSelectedIndex(0);
+                }}
+                list={visible}
+                selectedIndex={safeIndex}
+                onSelect={onSelect}
+                decisions={decisions}
+                showFilters={showFilters}
+                showRelation={!!homeId}
+                homeControl={
+                  masterDataset && (
+                    <HomePersonSelector
+                      individuals={masterDataset.individuals}
+                      homeId={homeId}
+                      onChange={changeHome}
+                      onClear={() => changeHome(undefined)}
+                      autoFocus={focusHome}
+                      onAutoFocused={() => setFocusHome(false)}
+                    />
+                  )
+                }
+              />
+            ) : !matching ? (
+              <p className="muted">{t("matches.empty")}</p>
+            ) : null}
+          </Section>
+        </div>
+
+        <div className="split-pane split-compare" ref={compareRef}>
+          {matches ? (
+            <div className="section open">
+              {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
+              <div className="section-body">
+                {current && masterDataset && compareDataset ? (
+                  <ComparePanel
+                    candidate={current}
+                    masterDs={masterDataset}
+                    compareDs={compareDataset}
+                    decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
+                    onChange={onUpdateDecision}
+                    onOpenTree={() => onOpenTree(current.masterId, current.compareId)}
+                    canNavigate={canNavigatePerson}
+                    onNavigate={onNavigatePerson}
+                  />
+                ) : (
+                  <p className="muted">{t("compare.empty")}</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="section">
+              <div className="section-head">
+                <button className="section-toggle" disabled>
+                  <span className="section-chev">▸</span>
+                  <span className="section-title">{t("section.compare")}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {preview && masterDataset && (
+        <MergePreview
+          report={preview.report}
+          masterRecordCount={masterDataset.individuals.size + masterDataset.families.size}
+          fileBase={preview.base}
+          onConfirm={onConfirmExport}
+          onClose={onClosePreview}
+        />
+      )}
+    </>
+  );
+}

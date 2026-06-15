@@ -13,6 +13,7 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   const prefix = subTags.get("NPFX");
   const suffix = subTags.get("NSFX");
   const nickname = subTags.get("NICK");
+  const type = subTags.get("TYPE");
 
   const raw = (value ?? "").trim();
 
@@ -35,5 +36,6 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   if (prefix) name.prefix = prefix;
   if (suffix) name.suffix = suffix;
   if (nickname) name.nickname = nickname;
+  if (type) name.type = type;
   return name;
 }

@@ -6,3 +6,6 @@ dist-ssr
 .vite
 node_modules/.tmp
 /test-data
+/test-results
+/playwright-report
+/blob-report

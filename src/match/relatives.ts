@@ -1,5 +1,30 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
+import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+
+/** Conventional xrefs of "person 1" — the root individual many apps assign to
+ * the home/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
+ * the default home person when no explicit pointer is present, in priority order. */
+const DEFAULT_HOME_XREFS = ["@1@", "@I1@"];
+
+/**
+ * The default home person to pre-select, by descending strength of signal:
+ *  1. an explicit `1 _ROOT @xref@` pointer in the HEAD (e.g. RootsMagic);
+ *  2. an individual flagged with `_STP` ("start person", e.g. MacFamilyTree);
+ *  3. the conventional root individual (`@1@` / `@I1@`).
+ * Returns undefined when the file gives no usable signal.
+ */
+export function defaultHomeId(ds: Dataset): string | undefined {
+  const head = ds.records.find((r) => r.tag === "HEAD");
+  const root = head?.children.find((c) => c.tag === "_ROOT")?.value;
+  if (root && ds.individuals.has(root)) return root;
+
+  for (const indi of ds.individuals.values()) {
+    if (indi.raw.children.some((c) => c.tag === "_STP")) return indi.id;
+  }
+
+  return DEFAULT_HOME_XREFS.find((id) => ds.individuals.has(id));
+}
 
 /** The individual's primary name (first NAME record), if any. */
 export function primaryName(indi: Individual): PersonName | undefined {
@@ -9,6 +34,30 @@ export function primaryName(indi: Individual): PersonName | undefined {
 /** Full display name from a structured name. */
 export function displayName(n: PersonName | undefined): string {
   return n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || "(unnamed)";
+}
+
+/** Known `NAME`/`2 TYPE` values with a translated label; anything else is shown as-is. */
+const KNOWN_NAME_TYPES = new Set([
+  "aka", "birth", "married", "maiden", "nick", "formal", "family", "variation", "religious", "immigrant", "other",
+]);
+
+/** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
+export function nameTypeLabel(type: string, t: Translate): string {
+  const key = type.toLowerCase();
+  return KNOWN_NAME_TYPES.has(key) ? t(`nametype.${key}`) : type;
+}
+
+/**
+ * Additional names beyond the primary one: the primary name's nickname (if
+ * any), plus any further `NAME` records — each with its `type` carried over
+ * for {@link nameTypeLabel}.
+ */
+export function additionalNames(indi: Individual): PersonName[] {
+  const extra: PersonName[] = [];
+  const primary = indi.names[0];
+  if (primary?.nickname) extra.push({ full: primary.nickname, type: "nick" });
+  extra.push(...indi.names.slice(1));
+  return extra;
 }
 
 /** Display label "Name 1817–1921" using the shared lifespan format. */

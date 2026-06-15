@@ -82,6 +82,8 @@ export interface PersonName {
   prefix?: string;
   suffix?: string;
   nickname?: string;
+  /** `2 TYPE` value (e.g. "married", "maiden", "aka", "nick") for non-primary names. */
+  type?: string;
 }
 
 /**

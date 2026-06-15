@@ -13,15 +13,30 @@ interface Props {
   autoFocus?: boolean;
   /** Called once after an autoFocus has been honoured, so it isn't repeated. */
   onAutoFocused?: () => void;
+  /** Input placeholder shown when no person is selected. Defaults to the home-person wording. */
+  placeholder?: string;
+  /** Input tooltip. Defaults to the home-person wording. */
+  tooltip?: string;
 }
 
 const MAX_RESULTS = 50;
 
 /**
- * Optional, filterable picker for the master's home person. Setting one makes
- * the matcher compute each match's relationship distance and sort by it.
+ * Optional, filterable picker for an individual. Originally built for setting
+ * the master's home person (which makes the matcher compute each match's
+ * relationship distance and sort by it); also reused in Edit mode as a
+ * generic "jump to person" picker via the `placeholder`/`tooltip` props.
  */
-export function HomePersonSelector({ individuals, homeId, onChange, onClear, autoFocus, onAutoFocused }: Props) {
+export function HomePersonSelector({
+  individuals,
+  homeId,
+  onChange,
+  onClear,
+  autoFocus,
+  onAutoFocused,
+  placeholder,
+  tooltip,
+}: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   // Index of the keyboard-highlighted option in `filtered`, for up/down nav.
@@ -112,8 +127,8 @@ export function HomePersonSelector({ individuals, homeId, onChange, onClear, aut
         <input
           ref={inputRef}
           type="text"
-          placeholder={current ? current.text : t("home.set")}
-          title={t("home.tooltip")}
+          placeholder={current ? current.text : placeholder ?? t("home.set")}
+          title={tooltip ?? t("home.tooltip")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
