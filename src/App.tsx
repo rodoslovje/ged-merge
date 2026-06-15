@@ -664,30 +664,40 @@ export function App() {
         </div>
 
         <div className="split-pane split-compare" ref={compareRef}>
-          {/* Always-open: the compare view is the app's main interface, so it has
-              no collapse toggle or section title — just the person and nav.
-              Grayed out like the matches section until matches are computed. */}
-          <div className={`section${matches ? " open" : " disabled"}`}>
-            {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
-            <div className="section-body">
-              {current && masterDataset && compareDataset ? (
-                <ComparePanel
-                  candidate={current}
-                  masterDs={masterDataset}
-                  compareDs={compareDataset}
-                  decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
-                  onChange={updateDecision}
-                  onOpenTree={() => openTree(current.masterId, current.compareId)}
-                  canNavigate={canNavigatePerson}
-                  onNavigate={navigatePerson}
-                />
-              ) : (
-                <p className="muted">
-                  {matches ? t("compare.empty") : t("matches.empty")}
-                </p>
-              )}
+          {/* Once matches are loaded, the compare view becomes the app's main
+              interface, with no collapse toggle or section title — just the
+              person and nav. Until then, it mirrors the collapsed Matches
+              section's look (disabled header-only box). */}
+          {matches ? (
+            <div className="section open">
+              {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
+              <div className="section-body">
+                {current && masterDataset && compareDataset ? (
+                  <ComparePanel
+                    candidate={current}
+                    masterDs={masterDataset}
+                    compareDs={compareDataset}
+                    decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
+                    onChange={updateDecision}
+                    onOpenTree={() => openTree(current.masterId, current.compareId)}
+                    canNavigate={canNavigatePerson}
+                    onNavigate={navigatePerson}
+                  />
+                ) : (
+                  <p className="muted">{t("compare.empty")}</p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="section">
+              <div className="section-head">
+                <button className="section-toggle" disabled>
+                  <span className="section-chev">▸</span>
+                  <span className="section-title">{t("section.compare")}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
