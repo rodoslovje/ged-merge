@@ -10,17 +10,25 @@ interface Props {
   /** Shown instead of a name when `individual` is undefined. */
   placeholder?: string;
   onSelect?: (id: string) => void;
+  /** Called when the empty placeholder is clicked, to add a new relative. */
+  onAdd?: () => void;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
         {roleLabel && <div className="person-card-role">{roleLabel}</div>}
-        <div className="person-card empty">
-          <span className="muted">{placeholder}</span>
-        </div>
+        {onAdd ? (
+          <button className="person-card empty person-card-add" onClick={onAdd}>
+            <span className="muted">{placeholder}</span>
+          </button>
+        ) : (
+          <div className="person-card empty">
+            <span className="muted">{placeholder}</span>
+          </div>
+        )}
       </div>
     );
   }

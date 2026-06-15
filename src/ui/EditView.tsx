@@ -6,6 +6,9 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, nameTypeLabel, primaryName } from "../match/relatives";
 import {
   addAdditionalName,
+  addChild,
+  addParent,
+  addPartner,
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
@@ -94,6 +97,18 @@ export function EditView({ dataset, fileName, homeId }: Props) {
     setTick((v) => v + 1);
   };
 
+  function addRelative(kind: "father" | "mother" | "partner" | "child", fam?: Family) {
+    if (!person) return;
+    const added =
+      kind === "partner"
+        ? addPartner(dataset, person, fam)
+        : kind === "child"
+          ? addChild(dataset, person, fam)
+          : addParent(dataset, person, fam, kind);
+    setDirty(true);
+    navigate(added.id);
+  }
+
   function exportGedcom() {
     const text = serializeGedcom(dataset.records, { eol: dataset.eol, finalNewline: dataset.finalNewline });
     const base = fileName.replace(/\.ged$/i, "");
@@ -149,6 +164,7 @@ export function EditView({ dataset, fileName, homeId }: Props) {
                 roleLabel={t("field.father")}
                 placeholder={t("edit.addFather")}
                 onSelect={navigate}
+                onAdd={() => addRelative("father", fam)}
               />
               <div className="edit-connector-h" />
               <PersonCard
@@ -156,6 +172,7 @@ export function EditView({ dataset, fileName, homeId }: Props) {
                 roleLabel={t("field.mother")}
                 placeholder={t("edit.addMother")}
                 onSelect={navigate}
+                onAdd={() => addRelative("mother", fam)}
               />
             </div>
           ))}
@@ -183,6 +200,7 @@ export function EditView({ dataset, fileName, homeId }: Props) {
                     roleLabel={t("field.partners")}
                     placeholder={t("edit.addPartner")}
                     onSelect={navigate}
+                    onAdd={() => addRelative("partner", fam)}
                   />
                   <div className="edit-connector-h" />
                   <div className="edit-children-wrap">
@@ -196,7 +214,7 @@ export function EditView({ dataset, fileName, homeId }: Props) {
                           onSelect={navigate}
                         />
                       ))}
-                      <PersonCard placeholder={t("edit.addChild")} />
+                      <PersonCard placeholder={t("edit.addChild")} onAdd={() => addRelative("child", fam)} />
                     </div>
                   </div>
                 </div>

@@ -223,6 +223,123 @@ export function setSex(indi: Individual, sex: Sex): void {
   getOrCreateChild(indi.raw, "SEX", INDI_CHILD_ORDER).value = sex;
 }
 
+/** Find the next unused `@I<n>@`/`@F<n>@` xref for a new top-level record. */
+function nextXref(records: GedNode[], prefix: "I" | "F"): string {
+  const re = new RegExp(`^@${prefix}(\\d+)@$`);
+  let max = 0;
+  for (const r of records) {
+    const m = r.xref?.match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `@${prefix}${max + 1}@`;
+}
+
+/** Append a new top-level record just before `TRLR` (or at the end, if there's none). */
+function insertRecord(dataset: Dataset, record: GedNode): void {
+  const trlrIndex = dataset.records.findIndex((r) => r.tag === "TRLR");
+  if (trlrIndex === -1) dataset.records.push(record);
+  else dataset.records.splice(trlrIndex, 0, record);
+}
+
+/** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
+function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
+  insertOrdered(indi.raw, { level: indi.raw.level + 1, tag, value: famId, children: [] }, INDI_CHILD_ORDER);
+}
+
+/** Set a family's `HUSB`/`WIFE` pointer to an individual. */
+function setFamilySpouse(fam: Family, tag: "HUSB" | "WIFE", indiId: string): void {
+  getOrCreateChild(fam.raw, tag, FAM_CHILD_ORDER).value = indiId;
+}
+
+/** Append a `CHIL` pointer to a family. */
+function addFamilyChild(fam: Family, childId: string): void {
+  insertOrdered(fam.raw, { level: fam.raw.level + 1, tag: "CHIL", value: childId, children: [] }, FAM_CHILD_ORDER);
+}
+
+/** Create a new, empty `INDI` record (with just a `SEX` line, if known) and add it to the dataset. */
+export function addIndividual(dataset: Dataset, sex: Sex): Individual {
+  const xref = nextXref(dataset.records, "I");
+  const raw: GedNode = { level: 0, xref, tag: "INDI", children: [] };
+  if (sex !== "U") raw.children.push({ level: 1, tag: "SEX", value: sex, children: [] });
+  insertRecord(dataset, raw);
+  return rebuildIndividual(dataset, { id: xref, raw } as Individual);
+}
+
+/** Create a new, empty `FAM` record and add it to the dataset. */
+export function addFamily(dataset: Dataset): Family {
+  const xref = nextXref(dataset.records, "F");
+  const raw: GedNode = { level: 0, xref, tag: "FAM", children: [] };
+  insertRecord(dataset, raw);
+  return rebuildFamily(dataset, { id: xref, raw } as Family);
+}
+
+/**
+ * Add a new, empty father (or mother) to `person`. If `fam` is given (an
+ * existing parent family missing that role), the new individual fills its
+ * `HUSB`/`WIFE` slot; otherwise a new family is created and linked via
+ * `FAMC`/`HUSB`/`WIFE`. Returns the new individual so the caller can navigate
+ * to it for editing.
+ */
+export function addParent(dataset: Dataset, person: Individual, fam: Family | undefined, role: "father" | "mother"): Individual {
+  const sex: Sex = role === "father" ? "M" : "F";
+  const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
+  const parent = addIndividual(dataset, sex);
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    addFamilyChild(fam, person.id);
+    addFamilyLink(person, "FAMC", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  setFamilySpouse(fam, tag, parent.id);
+  addFamilyLink(parent, "FAMS", fam.id);
+  rebuildFamily(dataset, fam);
+  return rebuildIndividual(dataset, parent);
+}
+
+/**
+ * Add a new, empty partner to `person`. If `fam` is given (an existing spouse
+ * family missing the other `HUSB`/`WIFE` slot), the new individual fills it;
+ * otherwise a new family is created with `person` in the slot matching their
+ * sex. Returns the new individual so the caller can navigate to it.
+ */
+export function addPartner(dataset: Dataset, person: Individual, fam: Family | undefined): Individual {
+  const personTag: "HUSB" | "WIFE" = fam ? (fam.husband === person.id ? "HUSB" : "WIFE") : person.sex === "F" ? "WIFE" : "HUSB";
+  const partnerTag: "HUSB" | "WIFE" = personTag === "HUSB" ? "WIFE" : "HUSB";
+  const partner = addIndividual(dataset, partnerTag === "HUSB" ? "M" : "F");
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    setFamilySpouse(fam, personTag, person.id);
+    addFamilyLink(person, "FAMS", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  setFamilySpouse(fam, partnerTag, partner.id);
+  addFamilyLink(partner, "FAMS", fam.id);
+  rebuildFamily(dataset, fam);
+  return rebuildIndividual(dataset, partner);
+}
+
+/**
+ * Add a new, empty child to `person`. If `fam` is given, the child is added
+ * there; otherwise a new spouse family is created for `person` first.
+ * Returns the new individual so the caller can navigate to it.
+ */
+export function addChild(dataset: Dataset, person: Individual, fam: Family | undefined): Individual {
+  const child = addIndividual(dataset, "U");
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    setFamilySpouse(fam, person.sex === "F" ? "WIFE" : "HUSB", person.id);
+    addFamilyLink(person, "FAMS", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  addFamilyChild(fam, child.id);
+  addFamilyLink(child, "FAMC", fam.id);
+  rebuildFamily(dataset, fam);
+  return rebuildIndividual(dataset, child);
+}
+
 /**
  * Re-derive the typed `Individual` from its (mutated) raw node and store it
  * back in `dataset.individuals`. Cheaper than rebuilding the whole dataset.

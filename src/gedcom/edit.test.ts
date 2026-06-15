@@ -4,6 +4,9 @@ import { buildDataset } from "./builder";
 import { serializeGedcom } from "./serialize";
 import {
   addAdditionalName,
+  addChild,
+  addParent,
+  addPartner,
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
@@ -266,6 +269,87 @@ describe("additional names", () => {
     removeAdditionalName(indi, 0);
     updated = rebuildIndividual(ds, indi);
     expect(updated.names).toHaveLength(1);
+  });
+});
+
+describe("addParent", () => {
+  it("creates a new family and FAMC link when the person has none", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    const father = addParent(ds, indi, undefined, "father");
+
+    expect(father.sex).toBe("M");
+    const fam = [...ds.families.values()].find((f) => f.husband === father.id)!;
+    expect(fam.children).toContain(indi.id);
+    expect(ds.individuals.get(indi.id)!.childOf).toContain(fam.id);
+  });
+
+  it("fills the missing HUSB/WIFE slot of an existing family", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    // First add a child, which creates a family with `indi` as HUSB and no WIFE.
+    const child = addChild(ds, indi, undefined);
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+    expect(fam.wife).toBeUndefined();
+
+    const mother = addParent(ds, ds.individuals.get(child.id)!, fam, "mother");
+
+    expect(mother.sex).toBe("F");
+    expect(rebuildFamily(ds, fam).wife).toBe(mother.id);
+  });
+});
+
+describe("addPartner", () => {
+  it("creates a new family with the person and partner in opposite roles", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!; // sex M
+
+    const partner = addPartner(ds, indi, undefined);
+
+    expect(partner.sex).toBe("F");
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+    expect(fam.wife).toBe(partner.id);
+    expect(ds.individuals.get(indi.id)!.spouseOf).toContain(fam.id);
+    expect(partner.spouseOf).toContain(fam.id);
+  });
+
+  it("fills the missing HUSB/WIFE slot of an existing family", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!; // sex M
+    const child = addChild(ds, indi, undefined);
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+
+    const partner = addPartner(ds, ds.individuals.get(indi.id)!, fam);
+
+    expect(partner.sex).toBe("F");
+    expect(rebuildFamily(ds, fam).wife).toBe(partner.id);
+    expect(rebuildIndividual(ds, ds.individuals.get(child.id)!).childOf).toContain(fam.id);
+  });
+});
+
+describe("addChild", () => {
+  it("creates a new spouse family for the person and adds the child to it", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!; // sex M
+
+    const child = addChild(ds, indi, undefined);
+
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+    expect(fam.children).toContain(child.id);
+    expect(child.childOf).toContain(fam.id);
+  });
+
+  it("adds another child to an existing family", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const first = addChild(ds, indi, undefined);
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+
+    const second = addChild(ds, ds.individuals.get(indi.id)!, fam);
+    const updatedFam = rebuildFamily(ds, fam);
+    expect(updatedFam.children).toEqual([first.id, second.id]);
   });
 });
 

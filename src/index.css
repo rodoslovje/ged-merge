@@ -1159,6 +1159,13 @@ button {
   border-style: dashed;
   cursor: default;
 }
+.person-card-add {
+  cursor: pointer;
+}
+.person-card-add:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
 .person-card.sex-m {
   background: rgba(56, 189, 248, 0.1);
   border-color: rgba(56, 189, 248, 0.35);
