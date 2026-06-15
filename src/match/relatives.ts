@@ -41,6 +41,12 @@ const KNOWN_NAME_TYPES = new Set([
   "aka", "birth", "married", "maiden", "nick", "formal", "family", "variation", "religious", "immigrant", "other",
 ]);
 
+/** `2 TYPE` values offered when editing an additional `NAME` record
+ * (nicknames use the primary name's `NICK` sub-tag instead). */
+export const ADDITIONAL_NAME_TYPES = [
+  "aka", "married", "maiden", "birth", "formal", "family", "variation", "religious", "immigrant", "other",
+];
+
 /** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
 export function nameTypeLabel(type: string, t: Translate): string {
   const key = type.toLowerCase();

@@ -8,8 +8,6 @@ import type { PersonName } from "./types";
  * sub-tags which, when present, take precedence.
  */
 export function parseName(value: string | undefined, subTags: Map<string, string>): PersonName {
-  let given = subTags.get("GIVN");
-  let surname = subTags.get("SURN");
   const prefix = subTags.get("NPFX");
   const suffix = subTags.get("NSFX");
   const nickname = subTags.get("NICK");
@@ -17,15 +15,21 @@ export function parseName(value: string | undefined, subTags: Map<string, string
 
   const raw = (value ?? "").trim();
 
-  if (given === undefined || surname === undefined) {
-    const slash = raw.match(/^(.*?)\/([^/]*)\/(.*)$/);
-    if (slash) {
-      if (given === undefined) given = slash[1].trim() || undefined;
-      if (surname === undefined) surname = slash[2].trim() || undefined;
-    } else if (given === undefined) {
-      given = raw || undefined;
-    }
+  // The slash-delimited NAME value is what's actually displayed, so it takes
+  // precedence over the GIVN/SURN pieces when present — those are only a
+  // fallback for names with no slash form (and occasionally drift out of
+  // sync with the value, e.g. a GIVN missing a middle name).
+  let given: string | undefined;
+  let surname: string | undefined;
+  const slash = raw.match(/^(.*?)\/([^/]*)\/(.*)$/);
+  if (slash) {
+    given = slash[1].trim() || undefined;
+    surname = slash[2].trim() || undefined;
+  } else {
+    given = raw || undefined;
   }
+  given = given ?? subTags.get("GIVN");
+  surname = surname ?? subTags.get("SURN");
 
   const full = raw.replace(/\//g, "").replace(/\s+/g, " ").trim() ||
     [prefix, given, surname, suffix].filter(Boolean).join(" ");

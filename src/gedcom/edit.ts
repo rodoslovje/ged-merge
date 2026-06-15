@@ -1,5 +1,5 @@
-import { buildIndividual, buildMediaLinks } from "./builder";
-import type { Dataset, GedNode, Individual, Sex } from "./types";
+import { buildFamily, buildIndividual, buildMediaLinks } from "./builder";
+import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
  * In-place mutation helpers for the Edit mode.
@@ -23,6 +23,16 @@ const INDI_CHILD_ORDER = [
   "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
 ];
 
+/** Canonical top-level field order within a FAM record. */
+const FAM_CHILD_ORDER = [
+  "HUSB", "WIFE", "CHIL",
+  "MARR", "ENGA", "MARB", "MARL", "DIV",
+  "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
+];
+
+/** Canonical sub-tag order within a `NAME` node. */
+const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE", "NOTE", "SOUR"];
+
 /** Links attached to an event are plain `WWW` lines. */
 const EVENT_LINK_TAG = "WWW";
 
@@ -31,6 +41,8 @@ export interface EventFieldUpdate {
   date?: string;
   /** New PLAC value, or `""` to remove the place. Omit to leave unchanged. */
   place?: string;
+  /** New ADDR value, or `""` to remove the address. Omit to leave unchanged. */
+  address?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
 }
@@ -97,28 +109,41 @@ function setLinks(event: GedNode, links: string[]): void {
 }
 
 /**
- * Update an individual event's date, place and/or links — finding (or
- * creating) the event subtree, e.g. `1 BIRT` with `2 DATE`/`2 PLAC`/`2 WWW`
- * children. Fields set to `""`/`[]` remove the corresponding lines; an event
- * left with no children and no value is removed entirely.
+ * Update an event's date, place, address and/or links — finding (or
+ * creating) the event subtree, e.g. `1 BIRT`/`1 MARR` with `2 DATE`/`2 PLAC`/
+ * `2 ADDR`/`2 WWW` children. Fields set to `""`/`[]` remove the corresponding
+ * lines; an event left with no children and no value is removed entirely.
  */
-export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate): void {
-  const record = indi.raw;
+function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): void {
   let event = findChild(record, tag);
 
   const hasContent =
-    !!update.date?.trim() || !!update.place?.trim() || !!update.links?.some((l) => l.trim());
+    !!update.date?.trim() || !!update.place?.trim() || !!update.address?.trim() ||
+    !!update.links?.some((l) => l.trim());
   if (!event) {
     if (!hasContent) return;
     event = { level: record.level + 1, tag, children: [] };
-    insertOrdered(record, event, INDI_CHILD_ORDER);
+    insertOrdered(record, event, order);
   }
 
   if (update.date !== undefined) setOrRemoveValue(event, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(event, "PLAC", update.place, EVENT_CHILD_ORDER);
+  if (update.address !== undefined) setOrRemoveValue(event, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(event, update.links);
 
   if (event.children.length === 0 && event.value === undefined) removeChild(record, tag);
+}
+
+/** Update an individual event's date, place, address and/or links — see
+ * `setRecordEventField`. */
+export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate): void {
+  setRecordEventField(indi.raw, tag, update, INDI_CHILD_ORDER);
+}
+
+/** Update a family event's (e.g. `1 MARR`) date, place, address and/or
+ * links — see `setRecordEventField`. */
+export function setFamilyEventField(fam: Family, tag: string, update: EventFieldUpdate): void {
+  setRecordEventField(fam.raw, tag, update, FAM_CHILD_ORDER);
 }
 
 /** Set (or clear) the individual's primary `NAME` line. */
@@ -138,6 +163,57 @@ export function setName(indi: Individual, name: { given?: string; surname?: stri
   node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
 }
 
+function nameNodes(indi: Individual): GedNode[] {
+  return indi.raw.children.filter((c) => c.tag === "NAME");
+}
+
+/** Set (or clear) the primary `NAME`'s `NICK` (nickname) sub-tag. */
+export function setNickname(indi: Individual, nickname: string): void {
+  const node = nameNodes(indi)[0];
+  if (!node) return;
+  setOrRemoveValue(node, "NICK", nickname, NAME_CHILD_ORDER);
+}
+
+export interface NameVariantUpdate {
+  given?: string;
+  surname?: string;
+  /** `2 TYPE` value (e.g. "married", "maiden", "aka"). */
+  type?: string;
+}
+
+/**
+ * Update an additional name — `index` 0 is `indi.names[1]` (the second
+ * `1 NAME` record), 1 is `indi.names[2]`, etc.
+ */
+export function setAdditionalName(indi: Individual, index: number, update: NameVariantUpdate): void {
+  const node = nameNodes(indi)[index + 1];
+  if (!node) return;
+
+  if (update.given !== undefined || update.surname !== undefined) {
+    const current = indi.names[index + 1];
+    const given = (update.given ?? current?.given ?? "").trim();
+    const surname = (update.surname ?? current?.surname ?? "").trim();
+    node.value = surname ? `${given} /${surname}/`.trim() : given;
+    node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
+  }
+  if (update.type !== undefined) setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+}
+
+/** Append a new additional `1 NAME` record with the given `2 TYPE`. */
+export function addAdditionalName(indi: Individual, type: string): void {
+  const node: GedNode = { level: indi.raw.level + 1, tag: "NAME", value: "", children: [] };
+  insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
+  setOrRemoveValue(node, "TYPE", type, NAME_CHILD_ORDER);
+}
+
+/** Remove an additional `1 NAME` record — see `setAdditionalName` for indexing. */
+export function removeAdditionalName(indi: Individual, index: number): void {
+  const node = nameNodes(indi)[index + 1];
+  if (!node) return;
+  const i = indi.raw.children.indexOf(node);
+  if (i !== -1) indi.raw.children.splice(i, 1);
+}
+
 /** Set (or, for "U", remove) the individual's `SEX` line. */
 export function setSex(indi: Individual, sex: Sex): void {
   if (sex === "U") {
@@ -155,5 +231,16 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
   const media = buildMediaLinks(dataset.records);
   const rebuilt = buildIndividual(indi.raw, media);
   dataset.individuals.set(rebuilt.id, rebuilt);
+  return rebuilt;
+}
+
+/**
+ * Re-derive the typed `Family` from its (mutated) raw node and store it back
+ * in `dataset.families`. Cheaper than rebuilding the whole dataset.
+ */
+export function rebuildFamily(dataset: Dataset, fam: Family): Family {
+  const media = buildMediaLinks(dataset.records);
+  const rebuilt = buildFamily(fam.raw, media);
+  dataset.families.set(rebuilt.id, rebuilt);
   return rebuilt;
 }

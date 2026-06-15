@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
 import { serializeGedcom } from "./serialize";
-import { rebuildIndividual, setEventField, setName, setSex } from "./edit";
+import {
+  addAdditionalName,
+  rebuildFamily,
+  rebuildIndividual,
+  removeAdditionalName,
+  setAdditionalName,
+  setEventField,
+  setFamilyEventField,
+  setName,
+  setNickname,
+  setSex,
+} from "./edit";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -115,6 +126,20 @@ describe("setEventField", () => {
     setEventField(indi, "DEAT", { date: "", place: "" });
     expect(serializeGedcom(ds.records)).toBe(BASE);
   });
+
+  it("sets and clears the event address", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    setEventField(indi, "RESI", { address: "Glavni trg 1, Kranj" });
+    let updated = rebuildIndividual(ds, indi);
+    expect(updated.events[0].address?.raw).toBe("Glavni trg 1, Kranj");
+    expect(serializeGedcom(ds.records)).toContain("2 ADDR Glavni trg 1, Kranj");
+
+    setEventField(indi, "RESI", { address: "" });
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.events).toHaveLength(0);
+  });
 });
 
 describe("setName", () => {
@@ -151,6 +176,96 @@ describe("setName", () => {
       "0 TRLR",
       "",
     ].join("\n"));
+  });
+});
+
+describe("setFamilyEventField", () => {
+  const FAM_BASE = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 FAMS @F1@",
+    "0 @I2@ INDI",
+    "1 NAME Ana /Kos/",
+    "1 FAMS @F1@",
+    "0 @F1@ FAM",
+    "1 HUSB @I1@",
+    "1 WIFE @I2@",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  it("creates a new MARR event with date and place, ordered after HUSB/WIFE", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    setFamilyEventField(fam, "MARR", { date: "5 MAY 1880", place: "Ljubljana" });
+
+    expect(serializeGedcom(ds.records)).toContain([
+      "0 @F1@ FAM",
+      "1 HUSB @I1@",
+      "1 WIFE @I2@",
+      "1 MARR",
+      "2 DATE 5 MAY 1880",
+      "2 PLAC Ljubljana",
+    ].join("\n"));
+
+    const updated = rebuildFamily(ds, fam);
+    expect(updated.events[0].date?.raw).toBe("5 MAY 1880");
+    expect(updated.events[0].place?.raw).toBe("Ljubljana");
+    expect(ds.families.get("@F1@")).toBe(updated);
+  });
+
+  it("removes the MARR event once it's empty", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    setFamilyEventField(fam, "MARR", { date: "1880" });
+    setFamilyEventField(fam, "MARR", { date: "" });
+
+    expect(serializeGedcom(ds.records)).toBe(FAM_BASE);
+  });
+});
+
+describe("setNickname", () => {
+  it("adds and removes the primary name's NICK sub-tag", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setNickname(indi, "Janezek");
+
+    let updated = rebuildIndividual(ds, indi);
+    expect(updated.names[0].nickname).toBe("Janezek");
+    expect(serializeGedcom(ds.records)).toContain("2 NICK Janezek");
+
+    setNickname(indi, "");
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.names[0].nickname).toBeUndefined();
+  });
+});
+
+describe("additional names", () => {
+  it("adds, edits and removes an additional NAME record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    addAdditionalName(indi, "married");
+    let updated = rebuildIndividual(ds, indi);
+    expect(updated.names).toHaveLength(2);
+    expect(updated.names[1].type).toBe("married");
+
+    setAdditionalName(indi, 0, { given: "Janez", surname: "Kovac" });
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.names[1].full).toBe("Janez Kovac");
+    expect(updated.names[1].type).toBe("married");
+    expect(serializeGedcom(ds.records)).toContain("1 NAME Janez /Kovac/");
+
+    setAdditionalName(indi, 0, { type: "maiden" });
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.names[1].type).toBe("maiden");
+
+    removeAdditionalName(indi, 0);
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.names).toHaveLength(1);
   });
 });
 
