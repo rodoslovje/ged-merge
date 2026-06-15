@@ -888,6 +888,18 @@ button {
 .compare-head .person-years { font-weight: 600; }
 
 /* Edit mode: person layout */
+.edit-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.edit-view .section-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .edit-toolbar {
   display: flex;
   align-items: center;
@@ -908,6 +920,7 @@ button {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  margin-top: 20px;
 }
 
 .edit-parent-group {
@@ -923,12 +936,10 @@ button {
   gap: 8px;
   width: 100%;
 }
-
-.edit-family-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
+/* Separate multiple spouse families with a divider above each subsequent one. */
+.edit-family + .edit-family {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 
 .edit-children-wrap {

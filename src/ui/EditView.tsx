@@ -187,39 +187,34 @@ export function EditView({ dataset, fileName, homeId }: Props) {
           <EventList person={person} t={t} commit={commit} />
         </div>
 
-        <div className="edit-connector-v" />
-
         <div className="edit-families">
           {(spouseFamilies.length ? spouseFamilies : [undefined]).map((fam, i) => {
             const partnerId = fam && (fam.husband === person.id ? fam.wife : fam.husband);
             return (
               <div className="edit-family" key={fam?.id ?? `empty-${i}`}>
-                <div className="edit-family-row">
-                  <PersonCard
-                    individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
-                    roleLabel={t("field.partners")}
-                    placeholder={t("edit.addPartner")}
-                    onSelect={navigate}
-                    onAdd={() => addRelative("partner", fam)}
-                  />
-                  <div className="edit-connector-h" />
-                  <div className="edit-children-wrap">
-                    <div className="person-card-role">{t("field.children")}</div>
-                    <div className="edit-children">
-                      {fam?.children.map((childId) => (
-                        <PersonCard
-                          key={childId}
-                          individual={dataset.individuals.get(childId)}
-                          placeholder={t("edit.unknown")}
-                          onSelect={navigate}
-                        />
-                      ))}
-                      <PersonCard placeholder={t("edit.addChild")} onAdd={() => addRelative("child", fam)} />
-                    </div>
-                  </div>
-                </div>
+                <PersonCard
+                  individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
+                  roleLabel={t("field.partners")}
+                  placeholder={t("edit.addPartner")}
+                  onSelect={navigate}
+                  onAdd={() => addRelative("partner", fam)}
+                />
                 {fam && <FamilyMarriageRow fam={fam} t={t} commit={commitFamily} />}
                 {fam?.events.some((e) => e.tag === "DIV") && <FamilyDivorceRow fam={fam} t={t} commit={commitFamily} />}
+                <div className="edit-children-wrap">
+                  <div className="person-card-role">{t("field.children")}</div>
+                  <div className="edit-children">
+                    {fam?.children.map((childId) => (
+                      <PersonCard
+                        key={childId}
+                        individual={dataset.individuals.get(childId)}
+                        placeholder={t("edit.unknown")}
+                        onSelect={navigate}
+                      />
+                    ))}
+                    <PersonCard placeholder={t("edit.addChild")} onAdd={() => addRelative("child", fam)} />
+                  </div>
+                </div>
               </div>
             );
           })}
