@@ -236,6 +236,41 @@ describe("mergeDecisions — links", () => {
     expect(report.changes).toHaveLength(0);
   });
 
+  it("adds a new incoming link as a _WEBTAG block when the master uses that format", () => {
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 _WEBTAG\n2 NAME rojstvo\n2 URL https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n",
+      ),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 _WEBTAG\n2 URL https://example.com/new");
+    expect(out).not.toMatch(/^1 WWW/m);
+    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+  });
+
+  it("adds a new incoming link as an OBJE/FILE record when the master uses that format", () => {
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OBJE @O3@\n" +
+          "0 @O3@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n1 FORM jpeg\n",
+      ),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 OBJE @O4@");
+    expect(out).toContain("0 @O4@ OBJE\n1 FILE https://example.com/new");
+    expect(out).not.toMatch(/^1 WWW/m);
+    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+  });
+
   it("rewrites a new Matricula link to the language code the master already uses", () => {
     const master = dataset(
       wrap(

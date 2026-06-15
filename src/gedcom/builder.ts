@@ -186,7 +186,7 @@ function isPointer(v: string): boolean {
   return /^@[^@]+@$/.test(v);
 }
 
-function looksLikeUrl(v: string): boolean {
+export function looksLikeUrl(v: string): boolean {
   return /^(https?:\/\/|www\.)/i.test(v);
 }
 

@@ -1,3 +1,4 @@
+import { looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
@@ -109,6 +110,9 @@ export function mergeDecisions(
   // The language code the master's own Matricula Online links already use, so
   // newly added links can be rewritten to match (e.g. /sl/ vs /de/).
   const matriculaLang = detectMatriculaLang(master);
+  // How the master stores record-level links, so newly added links match (e.g.
+  // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
+  const linkFormat = detectLinkFormat(master);
   const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt, t);
 
   for (const [key, decision] of decisions) {
@@ -122,7 +126,7 @@ export function mergeDecisions(
     if (!target || !masterIndi || !incoming) continue;
     report.recordLabels[masterId] = displayName(masterIndi.names[0]);
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang, linkFormat, records);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
   }
@@ -158,6 +162,8 @@ function applyRows(
   placeFmt: PlaceTargetFormat,
   t: Translate,
   matriculaLang: string | undefined,
+  linkFormat: LinkFormat,
+  records: GedNode[],
 ): void {
   let nameApplied = false;
   // Event tags whose place we already reshaped, so the matching ADDR row is
@@ -172,7 +178,7 @@ function applyRows(
     if (choice === "master") continue;
 
     if (row.key === "links") {
-      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], matriculaLang);
+      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], matriculaLang, linkFormat, records);
       if (added.length) {
         report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice });
         touched.add(recordId);
@@ -213,15 +219,28 @@ function applyRows(
 }
 
 /**
- * Append a WWW node for each incoming link the master doesn't already have
- * (by `linkKey`). Matricula Online links are rewritten to the master's
- * language code, if one is known. Returns the URLs actually added.
+ * How the master file stores a record-level link.
+ *  - "WWW": a plain `WWW <url>` line (RootsMagic, Ancestry, Synium, …).
+ *  - "WEBTAG": Family Historian's `_WEBTAG` block, with the URL on a `URL`
+ *    sub-line (`1 _WEBTAG` / `2 URL <url>`).
+ *  - "OBJE": a shared multimedia record holding the URL in `FILE`
+ *    (`0 @On@ OBJE` / `1 FILE <url>`), referenced via `1 OBJE @On@`.
+ */
+export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
+
+/**
+ * Append a link node for each incoming link the master doesn't already have
+ * (by `linkKey`), shaped to match the master's own link format. Matricula
+ * Online links are rewritten to the master's language code, if one is known.
+ * Returns the URLs actually added.
  */
 function applyLinks(
   target: GedNode,
   incomingLinks: string[],
   masterLinks: string[],
   matriculaLang: string | undefined,
+  linkFormat: LinkFormat,
+  records: GedNode[],
 ): string[] {
   const existing = new Set(masterLinks.map(linkKey));
   const added: string[] = [];
@@ -230,10 +249,83 @@ function applyLinks(
     if (existing.has(key)) continue;
     existing.add(key);
     const value = matriculaLang && matriculaLangCode(url) ? withMatriculaLang(url, matriculaLang) : url;
-    target.children.push(newNode("WWW", value));
+    target.children.push(buildLinkNode(linkFormat, value, records));
     added.push(value);
   }
   return added;
+}
+
+/**
+ * Build a new link node for `url`, shaped per `format`. For "OBJE", also
+ * appends a new top-level `OBJE` record holding the URL in `FILE` and returns
+ * a pointer to it.
+ */
+function buildLinkNode(format: LinkFormat, url: string, records: GedNode[]): GedNode {
+  if (format === "WEBTAG") {
+    const webtag = newNode("_WEBTAG");
+    webtag.children.push(newNode("URL", url));
+    return webtag;
+  }
+  if (format === "OBJE") {
+    const xref = nextXref(records, "O");
+    const obje = newNode("OBJE", undefined, xref);
+    obje.children.push(newNode("FILE", url));
+    // Insert before TRLR (which must stay last) rather than appending.
+    const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
+    if (trlrIndex === -1) records.push(obje);
+    else records.splice(trlrIndex, 0, obje);
+    return newNode("OBJE", xref);
+  }
+  return newNode("WWW", url);
+}
+
+/** Find an unused `@<prefix><n>@` xref, one past the highest existing `<n>`. */
+function nextXref(records: GedNode[], prefix: string): string {
+  const re = new RegExp(`^@${prefix}(\\d+)@$`);
+  let max = 0;
+  for (const r of records) {
+    const m = r.xref ? re.exec(r.xref) : null;
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `@${prefix}${max + 1}@`;
+}
+
+/**
+ * Which `LinkFormat` the master file uses for its own record-level links, so
+ * newly added links are written the same way. Counts `WWW` lines, `_WEBTAG`
+ * blocks, and `OBJE` pointers to a media record whose `FILE` is a URL, across
+ * all individuals and families (including their events), and picks whichever
+ * the master already uses most; defaults to plain `WWW` lines when the master
+ * has none of these (or is ambiguous).
+ */
+function detectLinkFormat(master: Dataset): LinkFormat {
+  const objeFiles = new Map<string, string>();
+  for (const rec of master.records) {
+    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    const file = rec.children.find((c) => c.tag === "FILE")?.value?.trim();
+    if (file) objeFiles.set(rec.xref, file);
+  }
+
+  let www = 0;
+  let webtag = 0;
+  let obje = 0;
+  const visit = (node: GedNode): void => {
+    if (node.tag === "WWW" && node.value) www++;
+    else if (node.tag === "_WEBTAG") webtag++;
+    else if (node.tag === "OBJE" && node.value) {
+      const file = objeFiles.get(node.value.trim());
+      if (file && looksLikeUrl(file)) obje++;
+    }
+    for (const child of node.children) visit(child);
+  };
+  for (const indi of master.individuals.values()) visit(indi.raw);
+  for (const fam of master.families.values()) visit(fam.raw);
+
+  const max = Math.max(www, webtag, obje);
+  if (max === 0) return "WWW";
+  if (obje === max) return "OBJE";
+  if (webtag === max) return "WEBTAG";
+  return "WWW";
 }
 
 /**
@@ -384,9 +476,10 @@ function insertAt(parent: GedNode, index: number, child: GedNode): void {
   parent.children.splice(index, 0, child);
 }
 
-function newNode(tag: string, value?: string): GedNode {
+function newNode(tag: string, value?: string, xref?: string): GedNode {
   const node: GedNode = { level: 0, tag, children: [] };
   if (value !== undefined) node.value = value;
+  if (xref !== undefined) node.xref = xref;
   return node;
 }
 
