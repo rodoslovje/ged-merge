@@ -237,5 +237,41 @@ export const en = {
   "edit.tree.back": "Back to edit",
   "edit.tree.unmodified": "Unmodified",
   "edit.tree.modified": "Modified",
-  "edit.tree.reroot": "Set as root"
+  "edit.tree.reroot": "Set as root",
+
+  "footer.privacy": "Privacy",
+  "footer.terms": "Terms",
+  "footer.contact": "Contact",
+
+  "legal.title": "Privacy Policy & Terms of Service",
+  "legal.effective": "Effective Date: June 16, 2026",
+  "legal.operator": "Operator: Luka Renko",
+  "legal.tab.privacy": "Privacy Policy",
+  "legal.tab.terms": "Terms of Service",
+  "legal.coreNotice.title": "Core Architecture Notice",
+  "legal.coreNotice.text": "GED Merge operates entirely within your web browser. No family tree data, GEDCOM files, CSV files, or personal details are ever uploaded to, processed by, or stored on any server.",
+
+  "legal.privacy.1.title": "1. Data Collection and Processing",
+  "legal.privacy.1.p1": "<strong>User File Data:</strong> Any GEDCOM (.ged) or CSV files you import are processed entirely inside your local web browser using JavaScript. This data never leaves your computer, is never transmitted to our servers, and we have zero access to it — including any information about living or deceased individuals contained in your files.",
+  "legal.privacy.1.p2": "<strong>Personal Data:</strong> We do not require user registration, account creation, names, or email addresses to use the service.",
+  "legal.privacy.1.p3": "<strong>Server Logs:</strong> Our web hosting provider may log standard, anonymised technical requests — such as your IP address, browser type, and timestamp — solely for system maintenance, security monitoring, and delivery of the static website files. These logs contain no genealogical or file data and are automatically deleted after a short retention period.",
+  "legal.privacy.2.title": "2. Cookies and Tracking",
+  "legal.privacy.2.text": "GED Merge does not use tracking cookies, advertising cookies, or third-party analytics scripts. We do not track your behaviour across the internet or profile your usage.",
+  "legal.privacy.3.title": "3. Legal Basis for Processing (GDPR)",
+  "legal.privacy.3.text": "For users in the European Economic Area (EEA), the only personal data we are involved in is the technical server logs held by our hosting provider. These are processed based on our <strong>Legitimate Interests</strong> (Article 6(1)(f) GDPR) in maintaining and securing the website infrastructure. All genealogical data processing occurs entirely within your browser under your own control; we are not the data controller for that processing and no legal basis is required from our side.",
+  "legal.privacy.4.title": "4. Your Rights",
+  "legal.privacy.4.text": "Because we do not collect, store, or possess any of your genealogical or file data, there is nothing for us to provide, rectify, or erase in that regard — your rights are inherently preserved by the fully client-side architecture. Regarding the technical server logs held by our hosting provider: you may exercise your right to <strong>object to processing</strong> based on Legitimate Interests, or request information about those logs, by contacting us at <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>.",
+
+  "legal.terms.1.title": "1. Permitted Use",
+  "legal.terms.1.text": "You are granted a non-exclusive, non-transferable, revocable licence to access GED Merge strictly for personal, non-commercial genealogy research and data file processing. You agree not to attempt to disrupt the website infrastructure or to reverse-engineer the underlying client-side logic for malicious purposes.",
+  "legal.terms.2.title": "2. Ownership of Data",
+  "legal.terms.2.text": "We claim absolutely no ownership, copyright, or intellectual property rights over the files you process using this application. The contents of your GEDCOM and CSV files, including all historical data compiled within them, remain entirely yours.",
+  "legal.terms.3.title": "3. Disclaimer of Warranties",
+  "legal.terms.3.text": "GED Merge is provided on an \"AS IS\" and \"AS AVAILABLE\" basis, without any warranties of any kind, either express or implied. While we strive to provide a reliable file utility, we do not warrant that the application will be error-free, that data will not be corrupted during client-side processing, or that the application will meet your specific requirements. <strong>Always back up your original GEDCOM and CSV files before performing a merge.</strong>",
+  "legal.terms.4.title": "4. Limitation of Liability",
+  "legal.terms.4.text": "To the maximum extent permitted by applicable European Union and United States laws, Luka Renko shall not be liable for any direct, indirect, incidental, consequential, or special damages arising out of or in connection with your use or inability to use this website. This includes, without limitation, loss of data, corrupted family tree structures, or software compatibility issues.",
+  "legal.terms.5.title": "5. Governing Law",
+  "legal.terms.5.text": "These terms and any disputes arising from your use of the website shall be governed by and construed in accordance with the laws of Slovenia (European Union), without regard to its conflict of law principles.",
+  "legal.terms.6.title": "6. Contact Information",
+  "legal.terms.6.text": "If you have questions regarding this legal framework, please contact the operator directly at <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>."
 };

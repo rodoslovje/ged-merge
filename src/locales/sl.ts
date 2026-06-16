@@ -237,5 +237,41 @@ export const sl = {
   "edit.tree.back": "Nazaj na urejanje",
   "edit.tree.unmodified": "Nespremenjeno",
   "edit.tree.modified": "Spremenjeno",
-  "edit.tree.reroot": "Nastavi kot koren"
+  "edit.tree.reroot": "Nastavi kot koren",
+
+  "footer.privacy": "Zasebnost",
+  "footer.terms": "Pogoji",
+  "footer.contact": "Kontakt",
+
+  "legal.title": "Pravilnik o zasebnosti in pogoji uporabe",
+  "legal.effective": "Datum veljavnosti: 16. junij 2026",
+  "legal.operator": "Upravljavec: Luka Renko",
+  "legal.tab.privacy": "Pravilnik o zasebnosti",
+  "legal.tab.terms": "Pogoji uporabe",
+  "legal.coreNotice.title": "Opomba o arhitekturi",
+  "legal.coreNotice.text": "GED Merge deluje v celoti v vašem spletnem brskalniku. Nobeni podatki o rodovniku, datoteke GEDCOM, datoteke CSV ali osebni podatki niso nikoli naloženi na strežnik, obdelani na strežniku ali shranjeni na strežniku.",
+
+  "legal.privacy.1.title": "1. Zbiranje in obdelava podatkov",
+  "legal.privacy.1.p1": "<strong>Podatki iz datotek:</strong> Vse datoteke GEDCOM (.ged) ali CSV, ki jih uvozite, se obdelajo izključno v vašem lokalnem spletnem brskalniku s pomočjo JavaScripta. Ti podatki nikoli ne zapustijo vašega računalnika, niso nikoli preneseni na naše strežnike in do njih nimamo dostopa — vključno z informacijami o živih ali umrlih osebah v vaših datotekah.",
+  "legal.privacy.1.p2": "<strong>Osebni podatki:</strong> Za uporabo storitve ne zahtevamo registracije, ustvarjanja računa, imen ali e-poštnih naslovov.",
+  "legal.privacy.1.p3": "<strong>Strežniški dnevniki:</strong> Naš ponudnik spletnega gostovanja lahko beleži standardne tehnične zahteve — kot so vaš IP-naslov, vrsta brskalnika in časovni žig — izključno za vzdrževanje sistema, varnostno nadzorovanje in dostavo statičnih datotek spletnega mesta. Ti dnevniki ne vsebujejo genealoških podatkov ali podatkov iz datotek in se samodejno izbrišejo po kratkem obdobju hranjenja.",
+  "legal.privacy.2.title": "2. Piškotki in sledenje",
+  "legal.privacy.2.text": "GED Merge ne uporablja sledilnih piškotkov, oglaševalskih piškotkov ali skriptov za analitiko tretjih oseb. Ne sledimo vašemu vedenju po spletu in ne ustvarjamo vašega profila.",
+  "legal.privacy.3.title": "3. Pravna podlaga za obdelavo (GDPR)",
+  "legal.privacy.3.text": "Za uporabnike v Evropskem gospodarskem prostoru (EGP) so edini osebni podatki, pri katerih smo udeleženi, tehnični strežniški dnevniki, ki jih hrani naš ponudnik gostovanja. Ti se obdelajo na podlagi naših <strong>zakonitih interesov</strong> (člen 6(1)(f) GDPR) pri vzdrževanju in varovanju spletne infrastrukture. Vsa obdelava genealoških podatkov poteka izključno v vašem brskalniku pod vašim nadzorom; nismo upravljavec teh podatkov in s naše strani ni potrebna nobena pravna podlaga.",
+  "legal.privacy.4.title": "4. Vaše pravice",
+  "legal.privacy.4.text": "Ker ne zbiramo, ne shranjujemo in ne posedujemo vaših genealoških podatkov ali podatkov iz datotek, z naše strani ni ničesar za predložitev, popravek ali izbris — vaše pravice so inherentno ohranjene z arhitekturo, ki deluje izključno na strani odjemalca. Glede tehničnih strežniških dnevnikov, ki jih hrani naš ponudnik gostovanja: imate pravico <strong>ugovarjati obdelavi</strong> na podlagi zakonitih interesov ali zahtevati informacije o teh dnevnikih tako, da nas kontaktirate na <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>.",
+
+  "legal.terms.1.title": "1. Dovoljena uporaba",
+  "legal.terms.1.text": "Podeljujemo vam neizključno, neprenosljivo, preklicno licenco za dostop do GED Merge izključno za osebno, nekomercialno genealoško rabo in obdelavo podatkovnih datotek. Strinjate se, da ne boste poskušali motiti infrastrukture spletnega mesta ali zlonamernega reverznega inženiringa logike na strani odjemalca.",
+  "legal.terms.2.title": "2. Lastništvo podatkov",
+  "legal.terms.2.text": "Ne zahtevamo nobene lastnine, avtorskih pravic ali pravic intelektualne lastnine nad datotekami, ki jih obdelate s to aplikacijo. Vsebina vaših datotek GEDCOM in CSV, vključno z vsemi zgodovinskimi podatki v njih, ostaja v celoti vaša.",
+  "legal.terms.3.title": "3. Izjava o garancijah",
+  "legal.terms.3.text": "GED Merge se zagotavlja »TAKŠEN, KAKRŠEN JE« in »PO NAČELU RAZPOLOŽLJIVOSTI«, brez kakršnih koli jamstev, bodisi izrecnih ali posrednih. Čeprav si prizadevamo zagotoviti zanesljiv pripomoček za obdelavo datotek, ne jamčimo, da bo aplikacija brez napak, da podatki ne bodo poškodovani med obdelavo na strani odjemalca ali da bo aplikacija izpolnila vaše specifične zahteve. <strong>Vedno varnostno kopirajte izvirne datoteke GEDCOM in CSV, preden opravite združevanje.</strong>",
+  "legal.terms.4.title": "4. Omejitev odgovornosti",
+  "legal.terms.4.text": "V največjem obsegu, ki ga dovoljujeta veljavno pravo Evropske unije in Združenih držav Amerike, Luka Renko ne odgovarja za nobeno neposredno, posredno, naključno, posledično ali posebno škodo, ki izhaja iz vaše uporabe ali nezmožnosti uporabe tega spletnega mesta. To vključuje med drugim izgubo podatkov, poškodovane strukture rodovnika ali težave z združljivostjo programske opreme.",
+  "legal.terms.5.title": "5. Veljavno pravo",
+  "legal.terms.5.text": "Ti pogoji in vsi spori, ki izhajajo iz vaše uporabe spletnega mesta, se urejajo in razlagajo v skladu z zakonodajo Slovenije (Evropska unija), brez upoštevanja načel kolizijskega prava.",
+  "legal.terms.6.title": "6. Kontaktni podatki",
+  "legal.terms.6.text": "Če imate vprašanja v zvezi s tem pravnim okvirom, se obrnite neposredno na upravljavca na <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>."
 };

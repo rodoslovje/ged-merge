@@ -12,6 +12,7 @@ import { downloadText } from "./ui/download";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
 import { HelpModal } from "./ui/HelpModal";
+import { LegalModal } from "./ui/LegalModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { EditPreview } from "./ui/EditPreview";
@@ -103,6 +104,8 @@ export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [showLegal, setShowLegal] = useState(false);
+  const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
     records: GedNode[];
     report: ChangeReport;
@@ -753,6 +756,28 @@ export function App() {
         />
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+      <footer className="app-footer">
+        <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
+          © 2026 Luka Renko
+        </a>
+        <span className="app-footer-sep">·</span>
+        <button
+          className="app-footer-link"
+          onClick={() => { setLegalPage("privacy"); setShowLegal(true); }}
+        >
+          {t("footer.privacy")}
+        </button>
+        <span className="app-footer-sep">·</span>
+        <button
+          className="app-footer-link"
+          onClick={() => { setLegalPage("terms"); setShowLegal(true); }}
+        >
+          {t("footer.terms")}
+        </button>
+        <span className="app-footer-sep">·</span>
+        <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
+      </footer>
     </div>
   );
 }
