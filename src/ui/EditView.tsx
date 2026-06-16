@@ -22,7 +22,7 @@ import {
   setEventField,
   setEventFieldAtIndex,
   setFamilyEventField,
-  setFamilyLinks,
+
   setFamilyNotes,
   setIndividualLinks,
   setName,
@@ -58,9 +58,6 @@ const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.estate",    tags: ["WILL", "PROB"] },
   { labelKey: "eventGroup.death",     tags: ["DEAT", "BURI", "CREM"] },
 ] as const;
-
-/** All individual event tags (BIRT first so EventList can always show it). */
-const EVENT_TAGS = ["BIRT", ...INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags)];
 
 /** Family events that are hidden until explicitly added (marriage is always shown). */
 const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
@@ -234,7 +231,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     ? kinshipLabel(dataset, homeId, selectedId!, t)
     : undefined;
   const homePersonName = homeId
-    ? displayName(primaryName(dataset.individuals.get(homeId)))
+    ? displayName(primaryName(dataset.individuals.get(homeId)!))
     : undefined;
   const kinshipTooltip = kinship && homePersonName
     ? t("kinship.tooltip", { kinship, name: homePersonName })

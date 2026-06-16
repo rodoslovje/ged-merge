@@ -113,7 +113,7 @@ export function MergeView({
     ? kinshipLabel(masterDataset, homeId, current.masterId, t)
     : undefined;
   const homePersonName = homeId && masterDataset
-    ? displayName(primaryName(masterDataset.individuals.get(homeId)))
+    ? displayName(primaryName(masterDataset.individuals.get(homeId)!))
     : undefined;
   const kinshipTooltip = kinship && homePersonName
     ? t("kinship.tooltip", { kinship, name: homePersonName })
