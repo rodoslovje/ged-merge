@@ -974,6 +974,15 @@ function EventFieldsRow({
   return (
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
+      <ClearableInput
+        className={cls("edit-input edit-event-date", dateField.isDirty)}
+        value={dateField.value}
+        placeholder={t("event.date", { event: label })}
+        title={t("event.date", { event: label })}
+        onChange={dateField.onChange}
+        onBlur={() => commitField({ date: dateField.value })}
+        onClear={() => { dateField.clear(); commitField({ date: "" }); }}
+      />
       {showValue && (
         <ClearableInput
           className={cls("edit-input edit-event-value", valueField.isDirty)}
@@ -985,15 +994,6 @@ function EventFieldsRow({
           onClear={() => { valueField.clear(); commitField({ value: "" }); }}
         />
       )}
-      <ClearableInput
-        className={cls("edit-input edit-event-date", dateField.isDirty)}
-        value={dateField.value}
-        placeholder={t("event.date", { event: label })}
-        title={t("event.date", { event: label })}
-        onChange={dateField.onChange}
-        onBlur={() => commitField({ date: dateField.value })}
-        onClear={() => { dateField.clear(); commitField({ date: "" }); }}
-      />
       <ClearableInput
         className={cls("edit-input edit-event-place", placeField.isDirty)}
         value={placeField.value}

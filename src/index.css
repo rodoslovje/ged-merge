@@ -1282,7 +1282,7 @@ button {
 
 .edit-event-head {
   display: grid;
-  grid-template-columns: 96px 150px 1fr 1fr auto;
+  grid-template-columns: 96px 150px 2fr 1fr auto;
   gap: 14px;
   padding: 0 0 8px;
   font-family: var(--font-mono);
@@ -1294,14 +1294,14 @@ button {
 }
 .edit-event {
   display: grid;
-  grid-template-columns: 96px 150px 1fr 1fr auto;
+  grid-template-columns: 96px 150px 2fr 1fr auto;
   gap: 14px;
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
 .edit-event--has-value {
-  grid-template-columns: 96px 1fr 150px 1fr 1fr auto;
+  grid-template-columns: 96px 150px 2fr 2fr 1fr auto;
 }
 .edit-event-label { flex: none; width: auto; color: var(--muted); }
 .edit-event > .edit-input { width: 100%; }
@@ -1309,6 +1309,8 @@ button {
 .edit-event-date,
 .edit-event-place,
 .edit-event-addr { width: 100%; min-width: 0; }
+.edit-event-head > :nth-child(2) { text-align: right; }
+.edit-event-date { text-align: right; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
