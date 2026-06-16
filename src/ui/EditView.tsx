@@ -50,6 +50,9 @@ interface Props {
   navigateToId?: string;
 }
 
+/** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
+const VALUE_EVENT_TAGS = new Set(["OCCU", "EDUC", "RETI"]);
+
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded. */
 const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.earlyLife", tags: ["BAPM", "CHR", "CONF", "ADOP", "FCOM"] },
@@ -835,6 +838,7 @@ function EventList({
         key={`${person.id}-BIRT`}
         ev={birtEv}
         label={t("event.BIRT")}
+        tag="BIRT"
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
       />
@@ -843,6 +847,7 @@ function EventList({
           key={`${person.id}-${i}`}
           ev={ev}
           label={t(`event.${ev.tag}`)}
+          tag={ev.tag}
           t={t}
           commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, i, update))}
         />
@@ -931,14 +936,18 @@ function useField(initial: string) {
 function EventFieldsRow({
   ev,
   label,
+  tag,
   t,
   commitField,
 }: {
   ev: GedEvent | undefined;
   label: string;
+  tag?: string;
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
 }) {
+  const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
+  const valueField = useField(ev?.value ?? "");
   const dateField = useField(ev?.date?.raw ?? "");
   const placeField = useField(ev?.place?.raw ?? "");
   const addrField = useField(ev?.address?.raw ?? "");
@@ -954,8 +963,19 @@ function EventFieldsRow({
   }
 
   return (
-    <div className="edit-event">
+    <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
+      {showValue && (
+        <ClearableInput
+          className={cls("edit-input edit-event-value", valueField.isDirty)}
+          value={valueField.value}
+          placeholder={label}
+          title={label}
+          onChange={valueField.onChange}
+          onBlur={() => commitField({ value: valueField.value })}
+          onClear={() => { valueField.clear(); commitField({ value: "" }); }}
+        />
+      )}
       <ClearableInput
         className={cls("edit-input edit-event-date", dateField.isDirty)}
         value={dateField.value}

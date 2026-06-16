@@ -44,6 +44,8 @@ export interface ChangeReport {
   placesNoted: number;
   /** Display label per touched record id, for grouping the preview/report. */
   recordLabels: Record<string, string>;
+  /** Whether each touched record is an individual or a family. */
+  recordKinds: Record<string, "individual" | "family">;
 }
 
 export interface MergeResult {
@@ -104,6 +106,7 @@ export function mergeDecisions(
     placesReformatted: 0,
     placesNoted: 0,
     recordLabels: {},
+    recordKinds: {},
   };
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
@@ -135,6 +138,13 @@ export function mergeDecisions(
   // Label each touched family by the spouses we know about (master or added).
   for (const [famId, names] of ctx.famSpouseNames) {
     if (names.length) report.recordLabels[famId] = names.join(" & ");
+  }
+
+  // Derive record kinds from node maps built during merge.
+  for (const c of report.changes) {
+    if (report.recordKinds[c.recordId]) continue;
+    if (indiNodes.has(c.recordId)) report.recordKinds[c.recordId] = "individual";
+    else if (famNodes.has(c.recordId)) report.recordKinds[c.recordId] = "family";
   }
 
   report.recordsChanged = touched.size;
@@ -205,16 +215,22 @@ function applyRows(
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice);
     } else {
-      const [tag, sub] = row.key.split(".");
-      if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
+      const parts = row.key.split(".");
+      const [tag, eventIdx, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
+        ? [parts[0], parseInt(parts[1], 10), parts[2]]
+        : [parts[0], 0, parts[1]];
+      if (sub === "value") {
+        applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx);
+      } else if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
         // Reshape PLAC+ADDR together into the master's layout, once per event.
         // The PLAC row drives it; a later ADDR row is then skipped.
-        if (reshaped.has(tag)) continue;
-        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt, report);
-        reshaped.add(tag);
+        const reshapeKey = `${tag}.${eventIdx}`;
+        if (reshaped.has(reshapeKey)) continue;
+        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt, report, eventIdx);
+        reshaped.add(reshapeKey);
       } else {
         const subTag = SUB_TAG[sub];
-        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice);
+        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx);
       }
     }
 
@@ -418,6 +434,29 @@ function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldC
   return true;
 }
 
+/** Copy the direct value on an event line (e.g. occupation text) from incoming to master. */
+function applyEventValue(
+  target: GedNode,
+  incomingRecord: GedNode,
+  tag: string,
+  choice: FieldChoice,
+  eventIdx = 0,
+): boolean {
+  const incEvent = incomingRecord.children.filter((c) => c.tag === tag)[eventIdx];
+  if (!incEvent?.value) return false;
+  const masterEvents = target.children.filter((c) => c.tag === tag);
+  let event = masterEvents[eventIdx];
+  if (!event) {
+    event = newNode(tag);
+    target.children.push(event);
+  }
+  if (choice === "incoming" || choice === "both") {
+    event.value = incEvent.value;
+    return true;
+  }
+  return false;
+}
+
 /** Apply an event's date/place/address by copying the incoming sub-node. */
 function applyEventSub(
   target: GedNode,
@@ -425,11 +464,14 @@ function applyEventSub(
   tag: string,
   subTag: string,
   choice: FieldChoice,
+  eventIdx = 0,
 ): boolean {
-  const incEvent = incomingRecord.children.find((c) => c.tag === tag);
+  const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
+  const incEvent = incEvents[eventIdx];
   const incSub = incEvent?.children.find((c) => c.tag === subTag);
   if (!incSub) return false;
-  let event = target.children.find((c) => c.tag === tag);
+  const masterEvents = target.children.filter((c) => c.tag === tag);
+  let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
     target.children.push(event);
@@ -450,15 +492,18 @@ function applyReformattedPlace(
   choice: FieldChoice,
   fmt: PlaceTargetFormat,
   report: ChangeReport,
+  eventIdx = 0,
 ): boolean {
-  const incEvent = incomingRecord.children.find((c) => c.tag === tag);
+  const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
+  const incEvent = incEvents[eventIdx];
   if (!incEvent) return false;
   const placRaw = incEvent.children.find((c) => c.tag === "PLAC")?.value;
   const addrRaw = incEvent.children.find((c) => c.tag === "ADDR")?.value;
   if (!placRaw && !addrRaw) return false;
 
   const r = reformatPlace(placRaw, addrRaw, fmt);
-  let event = target.children.find((c) => c.tag === tag);
+  const masterEvents = target.children.filter((c) => c.tag === tag);
+  let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
     target.children.push(event);

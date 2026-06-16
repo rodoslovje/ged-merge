@@ -4,6 +4,7 @@ import type { Dataset, GedNode } from "./gedcom/types";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
+import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultHomeId } from "./match/relatives";
 import type { NormalizationReport, PlaceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
@@ -16,7 +17,7 @@ import { HelpModal } from "./ui/HelpModal";
 import { LegalModal } from "./ui/LegalModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
-import { EditPreview } from "./ui/EditPreview";
+import { SaveDialog } from "./ui/SaveDialog";
 import { EditTree } from "./ui/EditTree";
 import { Wordmark } from "./ui/icons/LogoMark";
 import type { TreeMode } from "./tree/compareTree";
@@ -108,9 +109,17 @@ export function App() {
   const [showLegal, setShowLegal] = useState(false);
   const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
-    records: GedNode[];
+    /** Cloned + merged records to serialize; null means serialize masterDataset directly (edit-only). */
+    records: GedNode[] | null;
     report: ChangeReport;
+    title: string;
+    files: string[];
+    downloadLabel: string;
+    /** For the merge "total records" line. */
+    masterRecordCount?: number;
     base: string;
+    /** Record IDs from edit mode — show navigate/remove buttons for these. */
+    editRecordIds: Set<string>;
   } | null>(null);
   const [showMobileWarning, setShowMobileWarning] = useState(
     () => window.innerWidth <= 880 && !localStorage.getItem("mobileWarningDismissed")
@@ -273,7 +282,7 @@ export function App() {
     familySnapshots.current = new Map();
     loadedPersonIds.current = new Set();
     loadedFamilyIds.current = new Set();
-    setEditPreviewOpen(false);
+    setPreview(null);
     setEditTreeId(null);
     setHomeId(undefined); // home person is opt-in; reset on (re)load
     setFocusHome(false);
@@ -462,8 +471,7 @@ export function App() {
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
-  const [editPreviewOpen, setEditPreviewOpen] = useState(false);
-  const [editNavigateId, setEditNavigateId] = useState<string | undefined>(undefined);
+  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
   // IDs present when the master was loaded (to distinguish edits vs. new additions).
   const loadedPersonIds = useRef<Set<string>>(new Set());
   const loadedFamilyIds = useRef<Set<string>>(new Set());
@@ -484,21 +492,50 @@ export function App() {
     }
   }
 
-  function saveEdit() {
-    if (!masterDataset || master.status !== "loaded") return;
-    const text = serializeGedcom(masterDataset.records, {
-      eol: masterDataset.eol,
-      finalNewline: masterDataset.finalNewline,
-    });
-    downloadText(master.file.fileName, text);
-    setChangedPersonIds(new Set());
-    setChangedFamilyIds(new Set());
-    setEditPreviewOpen(false);
-  }
-
   function handleSave() {
-    if (confirmedCount > 0) openPreview();
-    else setEditPreviewOpen(true);
+    if (!masterDataset || master.status !== "loaded") return;
+    const base = master.file.fileName.replace(/\.ged$/i, "");
+    const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
+
+    if (confirmedCount > 0) {
+      const compareDs = compareDataset!;
+      const { records, report: mergeReport } = mergeDecisions(
+        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t,
+      );
+      const masterRecordCount = masterDataset.individuals.size + masterDataset.families.size;
+      let report = mergeReport;
+      if (changedCount > 0) {
+        const editReport = enrichEditReport(
+          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current),
+          masterDataset, personSnapshots.current, familySnapshots.current, t,
+        );
+        report = combineReports(editReport, mergeReport);
+      }
+      setPreview({
+        records,
+        report,
+        title: t("preview.title"),
+        files: [`${base}.merged.ged`, `${base}.merge-report.txt`],
+        downloadLabel: t("preview.download"),
+        masterRecordCount,
+        base,
+        editRecordIds,
+      });
+    } else {
+      const report = enrichEditReport(
+        buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current),
+        masterDataset, personSnapshots.current, familySnapshots.current, t,
+      );
+      setPreview({
+        records: null,
+        report,
+        title: t("save.preview.title"),
+        files: [master.file.fileName],
+        downloadLabel: t("save.preview.download"),
+        base,
+        editRecordIds,
+      });
+    }
   }
 
   function handleEditDirty(type: "individual" | "family", id: string) {
@@ -517,28 +554,66 @@ export function App() {
     }
   }
 
-  // Run the (non-destructive) merge and open the preview; nothing is written yet.
-  function openPreview() {
-    if (!masterDataset || !compareDataset) return;
-    const matchResult = matches ?? { individuals: [] };
-    const { records, report } = mergeDecisions(masterDataset, compareDataset, decisions, matchResult, t);
-    const base =
-      master.status === "loaded" ? master.file.fileName.replace(/\.ged$/i, "") : "merged";
-    setPreview({ records, report, base });
-  }
-
-  // Confirmed from the preview: serialize and download the merged file + report.
-  function confirmExport() {
+  function handleConfirmSave() {
     if (!preview || !masterDataset) return;
-    const merged = serializeGedcom(preview.records, {
-      eol: masterDataset.eol,
-      finalNewline: masterDataset.finalNewline,
-    });
-    downloadText(`${preview.base}.merged.ged`, merged);
-    downloadText(`${preview.base}.merge-report.txt`, formatReport(preview.report));
+    if (preview.records) {
+      const merged = serializeGedcom(preview.records, {
+        eol: masterDataset.eol,
+        finalNewline: masterDataset.finalNewline,
+      });
+      downloadText(`${preview.base}.merged.ged`, merged);
+      downloadText(`${preview.base}.merge-report.txt`, formatReport(preview.report));
+    } else {
+      const text = serializeGedcom(masterDataset.records, {
+        eol: masterDataset.eol,
+        finalNewline: masterDataset.finalNewline,
+      });
+      downloadText(master.status === "loaded" ? master.file.fileName : `${preview.base}.ged`, text);
+    }
     setPreview(null);
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+  }
+
+  function handleRemoveFromSave(id: string, kind: "individual" | "family") {
+    if (!masterDataset || !preview) return;
+    if (kind === "individual") {
+      const snapshot = personSnapshots.current.get(id);
+      const indi = masterDataset.individuals.get(id);
+      if (indi) {
+        if (loadedPersonIds.current.has(id) && snapshot) {
+          indi.raw.value = snapshot.value;
+          indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+          rebuildIndividual(masterDataset, indi);
+        } else {
+          removeIndividual(masterDataset, indi);
+        }
+      }
+      personSnapshots.current.delete(id);
+      setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    } else {
+      const snapshot = familySnapshots.current.get(id);
+      const fam = masterDataset.families.get(id);
+      if (fam) {
+        if (loadedFamilyIds.current.has(id) && snapshot) {
+          fam.raw.value = snapshot.value;
+          fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+          rebuildFamily(masterDataset, fam);
+        } else {
+          removeFamily(masterDataset, fam);
+        }
+      }
+      familySnapshots.current.delete(id);
+      setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+    setPreview((prev) => {
+      if (!prev) return null;
+      const newReport = removeRecordFromReport(prev.report, id);
+      if (newReport.changes.length === 0) return null;
+      const newEditRecordIds = new Set(prev.editRecordIds);
+      newEditRecordIds.delete(id);
+      return { ...prev, report: newReport, editRecordIds: newEditRecordIds };
+    });
   }
 
   // Full-page compare tree takes over the whole view when open.
@@ -772,9 +847,6 @@ export function App() {
             canNavigatePerson={canNavigatePerson}
             onNavigatePerson={navigatePerson}
             compareRef={compareRef}
-            preview={preview}
-            onConfirmExport={confirmExport}
-            onClosePreview={() => setPreview(null)}
           />
         ) : (
           <EditView
@@ -784,55 +856,23 @@ export function App() {
             changeHome={changeHome}
             onDirty={handleEditDirty}
             onShowTree={(id) => setEditTreeId(id)}
-            navigateToId={editNavigateId}
+            navigateToId={navigateToId}
           />
         )
       )}
-      {editPreviewOpen && masterDataset && master.status === "loaded" && (
-        <EditPreview
-          changedPersonIds={changedPersonIds}
-          changedFamilyIds={changedFamilyIds}
+      {preview && (
+        <SaveDialog
+          report={preview.report}
+          title={preview.title}
+          files={preview.files}
+          downloadLabel={preview.downloadLabel}
+          masterRecordCount={preview.masterRecordCount}
+          editRecordIds={preview.editRecordIds}
           dataset={masterDataset}
-          fileName={master.file.fileName}
-          onConfirm={saveEdit}
-          onClose={() => setEditPreviewOpen(false)}
-          onNavigate={(id) => { setEditPreviewOpen(false); setEditNavigateId(id); }}
-          onRemovePerson={(id) => {
-            if (masterDataset) {
-              const snapshot = personSnapshots.current.get(id);
-              const indi = masterDataset.individuals.get(id);
-              if (indi) {
-                if (loadedPersonIds.current.has(id) && snapshot) {
-                  // Restore the raw node to its pre-edit state then rebuild.
-                  indi.raw.value = snapshot.value;
-                  indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
-                  rebuildIndividual(masterDataset, indi);
-                } else {
-                  // Newly added person — remove from the dataset entirely.
-                  removeIndividual(masterDataset, indi);
-                }
-              }
-              personSnapshots.current.delete(id);
-            }
-            setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
-          }}
-          onRemoveFamily={(id) => {
-            if (masterDataset) {
-              const snapshot = familySnapshots.current.get(id);
-              const fam = masterDataset.families.get(id);
-              if (fam) {
-                if (loadedFamilyIds.current.has(id) && snapshot) {
-                  fam.raw.value = snapshot.value;
-                  fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
-                  rebuildFamily(masterDataset, fam);
-                } else {
-                  removeFamily(masterDataset, fam);
-                }
-              }
-              familySnapshots.current.delete(id);
-            }
-            setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
-          }}
+          onConfirm={handleConfirmSave}
+          onClose={() => setPreview(null)}
+          onNavigate={(id) => { setPreview(null); setNavigateToId(id); }}
+          onRemove={handleRemoveFromSave}
         />
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />

@@ -48,6 +48,8 @@ const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE"
 const EVENT_LINK_TAG = "WWW";
 
 export interface EventFieldUpdate {
+  /** New direct value on the event line (e.g. occupation text), or `""` to remove. */
+  value?: string;
   /** New DATE value, or `""` to remove the date. Omit to leave unchanged. */
   date?: string;
   /** New PLAC value, or `""` to remove the place. Omit to leave unchanged. */
@@ -121,6 +123,7 @@ function setLinks(event: GedNode, links: string[]): void {
 
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
 function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate): void {
+  if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
@@ -140,8 +143,8 @@ function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: Event
 function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): void {
   let event = findChild(record, tag);
   const hasContent =
-    !!update.date?.trim() || !!update.place?.trim() || !!update.address?.trim() ||
-    !!update.links?.some((l) => l.trim());
+    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
+    !!update.address?.trim() || !!update.links?.some((l) => l.trim());
   if (!event) {
     if (!hasContent) return;
     event = { level: record.level + 1, tag, children: [] };

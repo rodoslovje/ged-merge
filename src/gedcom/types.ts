@@ -140,6 +140,8 @@ export interface GedPlace {
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
 export interface GedEvent {
   tag: string;
+  /** Direct value on the event line itself, e.g. "Farmer" in `1 OCCU Farmer`. */
+  value?: string;
   date?: GedDate;
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */

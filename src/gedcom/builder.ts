@@ -128,6 +128,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
 
 function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
   const event: GedEvent = { tag: node.tag };
+  if (node.value?.trim()) event.value = node.value.trim();
   const dateNode = node.children.find((c) => c.tag === "DATE");
   const placeNode = node.children.find((c) => c.tag === "PLAC");
   const addrNode = node.children.find((c) => c.tag === "ADDR");

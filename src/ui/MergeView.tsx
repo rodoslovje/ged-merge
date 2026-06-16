@@ -1,8 +1,7 @@
 import { type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
-import type { ChangeReport } from "../merge/merge";
 import type { MatchResult } from "../match/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { kinshipLabel } from "../match/kinship";
@@ -11,7 +10,6 @@ import { HomePersonSelector } from "./HomePersonSelector";
 import { MatchResults } from "./MatchResults";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
-import { MergePreview } from "./MergePreview";
 import { sexClass } from "./sex";
 import {
   type Candidate,
@@ -52,10 +50,6 @@ interface Props {
   onNavigatePerson: (side: "master" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
 
-  // Merge preview / export
-  preview: { records: GedNode[]; report: ChangeReport; base: string } | null;
-  onConfirmExport: () => void;
-  onClosePreview: () => void;
 }
 
 /** The merge workflow: incoming loader, matches list, compare panel, and the
@@ -88,9 +82,6 @@ export function MergeView({
   canNavigatePerson,
   onNavigatePerson,
   compareRef,
-  preview,
-  onConfirmExport,
-  onClosePreview,
 }: Props) {
   const { t } = useTranslation();
 
@@ -226,15 +217,6 @@ export function MergeView({
         </>
       )}
 
-      {preview && masterDataset && (
-        <MergePreview
-          report={preview.report}
-          masterRecordCount={masterDataset.individuals.size + masterDataset.families.size}
-          fileBase={preview.base}
-          onConfirm={onConfirmExport}
-          onClose={onClosePreview}
-        />
-      )}
     </>
   );
 }

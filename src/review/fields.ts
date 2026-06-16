@@ -13,12 +13,26 @@ const EVENT_LABELS: Record<string, string> = {
   BIRT: "Birth",
   BAPM: "Baptism",
   CHR: "Christening",
+  CONF: "Confirmation",
+  ADOP: "Adoption",
+  FCOM: "First Communion",
+  OCCU: "Occupation",
+  EDUC: "Education",
+  RETI: "Retirement",
+  RESI: "Residence",
+  EMIG: "Emigration",
+  IMMI: "Immigration",
+  NATU: "Naturalization",
+  CENS: "Census",
+  WILL: "Will",
+  PROB: "Probate",
   DEAT: "Death",
   BURI: "Burial",
   CREM: "Cremation",
   MARR: "Marriage",
+  ENGA: "Engagement",
+  SEPA: "Separation",
   DIV: "Divorce",
-  RESI: "Residence",
 };
 
 /** Translate internal matching keys to friendly field labels. */
@@ -54,6 +68,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
 
   const name = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
   if (!sub) return name;
+  if (sub === "value") return name;
   if (sub === "date") return t("event.date", { event: name });
   if (sub === "place") return t("event.place", { event: name });
   if (sub === "addr") return t("event.addr", { event: name });
@@ -62,7 +77,13 @@ export function formatFieldLabel(t: Translate, key: string): string {
 }
 
 /** Order events are displayed in; unknown tags follow, in first-seen order. */
-const EVENT_ORDER = ["BIRT", "BAPM", "CHR", "RESI", "MARR", "DIV", "DEAT", "BURI", "CREM"];
+const EVENT_ORDER = [
+  "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
+  "OCCU", "EDUC", "RETI",
+  "RESI", "EMIG", "IMMI", "NATU", "CENS",
+  "WILL", "PROB",
+  "DEAT", "BURI", "CREM",
+];
 
 /**
  * Build the comparable field rows for an individual candidate. When datasets are
@@ -92,12 +113,16 @@ export function individualFieldRows(
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
 
-  for (const tag of orderedEventTags(master, compare)) {
-    const me = master?.events.find((e) => e.tag === tag);
-    const ce = compare?.events.find((e) => e.tag === tag);
-    pushRow(rows, `${tag}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw);
-    pushRow(rows, `${tag}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw);
-    pushRow(rows, `${tag}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw);
+  for (const { tag, idx, multi } of orderedEventTags(master, compare)) {
+    const masterEvents = master?.events.filter((e) => e.tag === tag) ?? [];
+    const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
+    const me = masterEvents[idx];
+    const ce = compareEvents[idx];
+    const keyBase = multi ? `${tag}.${idx}` : tag;
+    pushRow(rows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
+    pushRow(rows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw);
+    pushRow(rows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw);
+    pushRow(rows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw);
   }
 
   // Links (record-level and from any event, collapsed) come after the events.
@@ -607,13 +632,26 @@ function placeCompareKey(value: string): string {
   return parts.join(",");
 }
 
-function orderedEventTags(master?: Individual, compare?: Individual): string[] {
-  const present = new Set<string>();
-  for (const e of master?.events ?? []) present.add(e.tag);
-  for (const e of compare?.events ?? []) present.add(e.tag);
-  const known = EVENT_ORDER.filter((t) => present.has(t));
-  const extra = [...present].filter((t) => !EVENT_ORDER.includes(t)).sort();
-  return [...known, ...extra];
+function orderedEventTags(
+  master?: Individual,
+  compare?: Individual,
+): Array<{ tag: string; idx: number; multi: boolean }> {
+  const mCount = new Map<string, number>();
+  const cCount = new Map<string, number>();
+  for (const e of master?.events ?? []) mCount.set(e.tag, (mCount.get(e.tag) ?? 0) + 1);
+  for (const e of compare?.events ?? []) cCount.set(e.tag, (cCount.get(e.tag) ?? 0) + 1);
+
+  const allTags = new Set([...mCount.keys(), ...cCount.keys()]);
+  const known = EVENT_ORDER.filter((t) => allTags.has(t));
+  const extra = [...allTags].filter((t) => !EVENT_ORDER.includes(t)).sort();
+
+  const result: Array<{ tag: string; idx: number; multi: boolean }> = [];
+  for (const tag of [...known, ...extra]) {
+    const maxCount = Math.max(mCount.get(tag) ?? 0, cCount.get(tag) ?? 0);
+    const multi = maxCount > 1;
+    for (let i = 0; i < maxCount; i++) result.push({ tag, idx: i, multi });
+  }
+  return result;
 }
 
 function sexText(t: Translate, sex: string | undefined): string {
