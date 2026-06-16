@@ -677,10 +677,14 @@ function orderedEventTags(
     cByTag.set(tag, cEvents.filter((e) => e.tag === tag));
   }
 
+  function instanceDate(tag: string, idx: number): number {
+    const mk = eventDateKey(mByTag.get(tag)!, idx);
+    return mk < 9_999_999 ? mk : eventDateKey(cByTag.get(tag)!, idx);
+  }
+
   instances.sort((a, b) => {
-    // Primary: date (prefer master's date; fall back to compare's)
-    const dateA = Math.min(eventDateKey(mByTag.get(a.tag)!, a.idx), eventDateKey(cByTag.get(a.tag)!, a.idx));
-    const dateB = Math.min(eventDateKey(mByTag.get(b.tag)!, b.idx), eventDateKey(cByTag.get(b.tag)!, b.idx));
+    const dateA = instanceDate(a.tag, a.idx);
+    const dateB = instanceDate(b.tag, b.idx);
     if (dateA !== dateB) return dateA - dateB;
     // Secondary: lifecycle order, then occurrence index
     const posA = EVENT_ORDER.indexOf(a.tag);
