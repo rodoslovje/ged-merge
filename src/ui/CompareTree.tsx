@@ -5,6 +5,7 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { FieldValue, RelativeGrid } from "./FieldValue";
+import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
   buildCompareTree,
@@ -30,6 +31,8 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Toggle a matched node's decision status (confirm / reject / defer). */
   onDecide: (masterId: string, compareId: string, status: MatchDecisionStatus) => void;
+  /** Home person ID in the master dataset, used to show kinship labels on nodes. */
+  homeId?: string;
 }
 
 /** The three actionable decisions, in button order. */
@@ -111,6 +114,7 @@ export function CompareTree({
   onBack,
   decisions,
   onDecide,
+  homeId,
 }: Props) {
   const { t } = useTranslation();
 
@@ -128,6 +132,14 @@ export function CompareTree({
       };
     },
     [decisions, t],
+  );
+
+  const kinshipOf = useCallback(
+    (n: Placed): string | undefined => {
+      if (!homeId || !n.master) return undefined;
+      return kinshipLabel(masterDs, homeId, n.master.id, t) ?? undefined;
+    },
+    [homeId, masterDs, t],
   );
 
   const rootMaster = rootMasterId ? masterDs.individuals.get(rootMasterId) : undefined;
@@ -317,6 +329,7 @@ export function CompareTree({
               selectedKey={selectedKey}
               onSelect={setSelectedKey}
               decisionOf={decisionOf}
+              kinshipOf={kinshipOf}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -395,6 +408,7 @@ function TreeSvg({
   selectedKey,
   onSelect,
   decisionOf,
+  kinshipOf,
 }: {
   flat: Flat;
   width: number;
@@ -402,6 +416,7 @@ function TreeSvg({
   selectedKey: string | null;
   onSelect: (key: string) => void;
   decisionOf: (n: Placed) => { status: string; letter: string; color: string } | undefined;
+  kinshipOf: (n: Placed) => string | undefined;
 }) {
   const { nodes, edges } = flat;
   return (
@@ -416,6 +431,7 @@ function TreeSvg({
         ))}
         {nodes.map((n) => {
           const dec = decisionOf(n);
+          const kinship = kinshipOf(n);
           return (
             <g
               key={n.key}
@@ -444,6 +460,11 @@ function TreeSvg({
               {n.years && (
                 <text className="tree-node-year gm-data" x={16} y={36}>
                   {n.years}
+                </text>
+              )}
+              {kinship && (
+                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={36} textAnchor="end">
+                  {kinship}
                 </text>
               )}
               {/* Decision badge in the top-right corner (matched, decided nodes). */}

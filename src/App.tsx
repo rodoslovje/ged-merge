@@ -631,6 +631,7 @@ export function App() {
         onBack={() => window.history.back()}
         decisions={decisions}
         onDecide={setPairStatus}
+        homeId={homeId}
       />
     );
   }
