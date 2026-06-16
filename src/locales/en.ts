@@ -8,7 +8,9 @@ export const en = {
   "section.matches": "Matches",
   "section.compare": "Compare",
   "mode.merge": "Merge",
+  "mode.merge.tooltip": "Compare two GEDCOM files and merge them field-by-field",
   "mode.edit": "Edit",
+  "mode.edit.tooltip": "Browse and edit individuals in your master GEDCOM",
   "edit.selectPerson": "Jump to person...",
   "edit.back": "Back",
   "edit.addFather": "+ Add father",
@@ -215,5 +217,12 @@ export const en = {
   "merge.intro.bullet1": "Load an incoming GEDCOM or CSV to compare against your master",
   "merge.intro.bullet2": "Individuals are automatically matched and ranked by similarity score",
   "merge.intro.bullet3": "Confirm matches field-by-field, then export a clean merged GEDCOM",
-  "merge.intro.incomingHint": "Accepts .ged / .gedcom files or a matches CSV from indeks.rodoslovje.si"
+  "merge.intro.incomingHint": "Accepts .ged / .gedcom files or a matches CSV from indeks.rodoslovje.si",
+  "save.gedcom": "Save GEDCOM",
+  "save.gedcom.edit.tooltip": "Preview changes and download the edited GEDCOM",
+  "save.gedcom.merge.tooltip": "Preview changes and download the merged GEDCOM",
+  "save.preview.title": "Save preview",
+  "save.preview.persons": "Persons changed",
+  "save.preview.families": "Families changed",
+  "save.preview.download": "Download GEDCOM"
 };

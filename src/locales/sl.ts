@@ -8,7 +8,9 @@ export const sl = {
   "section.matches": "Ujemanja",
   "section.compare": "Primerjava",
   "mode.merge": "Združevanje",
+  "mode.merge.tooltip": "Primerjajte dve datoteki GEDCOM in ju združite po poljih",
   "mode.edit": "Urejanje",
+  "mode.edit.tooltip": "Pregledujte in urejajte osebe v vaši glavni datoteki GEDCOM",
   "edit.selectPerson": "Skoči na osebo...",
   "edit.back": "Nazaj",
   "edit.addFather": "+ Dodaj očeta",
@@ -215,5 +217,12 @@ export const sl = {
   "merge.intro.bullet1": "Naložite vhodni GEDCOM ali CSV za primerjavo z glavno datoteko",
   "merge.intro.bullet2": "Osebe se samodejno ujamejo in razvrstijo po podobnosti",
   "merge.intro.bullet3": "Potrdite ujemanja po poljih in izvozite čisto združeno datoteko",
-  "merge.intro.incomingHint": "Sprejema datoteke .ged / .gedcom ali CSV z ujemanji iz indeks.rodoslovje.si"
+  "merge.intro.incomingHint": "Sprejema datoteke .ged / .gedcom ali CSV z ujemanji iz indeks.rodoslovje.si",
+  "save.gedcom": "Shrani GEDCOM",
+  "save.gedcom.edit.tooltip": "Predogled sprememb in prenos urejene datoteke GEDCOM",
+  "save.gedcom.merge.tooltip": "Predogled sprememb in prenos združene datoteke GEDCOM",
+  "save.preview.title": "Predogled shranjevanja",
+  "save.preview.persons": "Spremembe oseb",
+  "save.preview.families": "Spremembe družin",
+  "save.preview.download": "Prenesi GEDCOM"
 };

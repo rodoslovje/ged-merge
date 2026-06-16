@@ -14,6 +14,7 @@ import { CompareTree } from "./ui/CompareTree";
 import { HelpModal } from "./ui/HelpModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
+import { EditPreview } from "./ui/EditPreview";
 import { Wordmark } from "./ui/icons/LogoMark";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -249,6 +250,9 @@ export function App() {
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
     setDecisions(new Map());
+    setChangedPersonIds(new Set());
+    setChangedFamilyIds(new Set());
+    setEditPreviewOpen(false);
     setHomeId(undefined); // home person is opt-in; reset on (re)load
     setFocusHome(false);
     autoHomeRef.current = false; // allow the default home person for the new file
@@ -403,6 +407,43 @@ export function App() {
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
+  // Edit mode change tracking — lifted from EditView so the header Save button can see counts.
+  const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
+  const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
+  const changedCount = changedPersonIds.size + changedFamilyIds.size;
+  const [editPreviewOpen, setEditPreviewOpen] = useState(false);
+
+  const confirmedCount = useMemo(() => {
+    let n = 0;
+    for (const d of decisions.values()) if (d.status === "confirmed") n++;
+    return n;
+  }, [decisions]);
+
+  function saveEdit() {
+    if (!masterDataset || master.status !== "loaded") return;
+    const text = serializeGedcom(masterDataset.records, {
+      eol: masterDataset.eol,
+      finalNewline: masterDataset.finalNewline,
+    });
+    downloadText(master.file.fileName, text);
+    setChangedPersonIds(new Set());
+    setChangedFamilyIds(new Set());
+    setEditPreviewOpen(false);
+  }
+
+  function handleSave() {
+    if (mode === "edit") setEditPreviewOpen(true);
+    else openPreview();
+  }
+
+  function handleEditDirty(type: "individual" | "family", id: string) {
+    if (type === "individual") {
+      setChangedPersonIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    } else {
+      setChangedFamilyIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    }
+  }
+
   // Run the (non-destructive) merge and open the preview; nothing is written yet.
   function openPreview() {
     if (!masterDataset || !compareDataset) return;
@@ -477,12 +518,14 @@ export function App() {
             <button
               className={`nav-btn ${mode === "edit" ? "active" : ""}`}
               onClick={() => setMode("edit")}
+              title={t("mode.edit.tooltip")}
             >
               {t("mode.edit")}
             </button>
             <button
               className={`nav-btn ${mode === "merge" ? "active" : ""}`}
               onClick={() => setMode("merge")}
+              title={t("mode.merge.tooltip")}
             >
               {t("mode.merge")}
             </button>
@@ -526,6 +569,15 @@ export function App() {
                 {compare.file.fileName}
               </button>
             )}
+            {master.status === "loaded" && (mode === "edit" ? changedCount > 0 : confirmedCount > 0) && (
+              <button
+                className="export-btn"
+                onClick={handleSave}
+                title={mode === "edit" ? t("save.gedcom.edit.tooltip") : t("save.gedcom.merge.tooltip")}
+              >
+                {t("save.gedcom")} ({mode === "edit" ? changedCount : confirmedCount})
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -534,15 +586,13 @@ export function App() {
       {infoPanelOpen && master.status === "loaded" && (
         <div className="info-panel">
           {canClosePanel && (
-            <div className="info-panel-head">
-              <button
-                className="nav-btn icon-only"
-                onClick={() => setShowInfoPanel(false)}
-                title={t("help.close")}
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              className="nav-btn icon-only info-panel-close"
+              onClick={() => setShowInfoPanel(false)}
+              title={t("help.close")}
+            >
+              ✕
+            </button>
           )}
           <div className={showCompareInPanel ? "info-panel-cols" : "info-panel-single"}>
             <GedcomLoader
@@ -599,7 +649,6 @@ export function App() {
           <MergeView
             compare={compare}
             onLoadCompare={(f) => loadFile("compare", f)}
-            onOpenPreview={openPreview}
             matches={matches}
             sort={sort}
             onToggleSort={toggleSort}
@@ -631,8 +680,18 @@ export function App() {
             onClosePreview={() => setPreview(null)}
           />
         ) : (
-          <EditView dataset={masterDataset} fileName={master.file.fileName} homeId={homeId} />
+          <EditView dataset={masterDataset} fileName={master.file.fileName} homeId={homeId} onDirty={handleEditDirty} />
         )
+      )}
+      {editPreviewOpen && masterDataset && master.status === "loaded" && (
+        <EditPreview
+          changedPersonIds={changedPersonIds}
+          changedFamilyIds={changedFamilyIds}
+          dataset={masterDataset}
+          fileName={master.file.fileName}
+          onConfirm={saveEdit}
+          onClose={() => setEditPreviewOpen(false)}
+        />
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>

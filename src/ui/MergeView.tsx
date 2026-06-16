@@ -1,4 +1,4 @@
-import { useMemo, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
@@ -23,7 +23,6 @@ interface Props {
   // Incoming loader
   compare: SlotState;
   onLoadCompare: (file: File) => void;
-  onOpenPreview: () => void;
 
   // Matches section
   matches: MatchResult | null;
@@ -67,7 +66,6 @@ interface Props {
 export function MergeView({
   compare,
   onLoadCompare,
-  onOpenPreview,
   matches,
   sort,
   onToggleSort,
@@ -99,12 +97,6 @@ export function MergeView({
   onClosePreview,
 }: Props) {
   const { t } = useTranslation();
-
-  const confirmedCount = useMemo(() => {
-    let n = 0;
-    for (const d of decisions.values()) if (d.status === "confirmed") n++;
-    return n;
-  }, [decisions]);
 
   const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
@@ -163,14 +155,6 @@ export function MergeView({
       {/* Matches + Compare: shown once matching is done */}
       {matches && (
         <>
-          {confirmedCount > 0 && (
-            <div className="merge-bar">
-              <button className="export-btn" onClick={onOpenPreview} title={t("export.tooltip")}>
-                {t("export.merged")} ({confirmedCount})
-              </button>
-            </div>
-          )}
-
           <div className="main-split">
             <div className="split-pane split-matches">
               <Section

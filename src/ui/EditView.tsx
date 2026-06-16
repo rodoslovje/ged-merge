@@ -20,8 +20,6 @@ import {
   setSex,
   type EventFieldUpdate,
 } from "../gedcom/edit";
-import { serializeGedcom } from "../gedcom/serialize";
-import { downloadText } from "./download";
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
@@ -31,6 +29,8 @@ interface Props {
   fileName: string;
   /** Seeds the initial selection (the Merge-mode home person, if set). */
   homeId?: string;
+  /** Called whenever the dataset is mutated so the parent can track which records changed. */
+  onDirty: (type: "individual" | "family", id: string) => void;
 }
 
 /** Birth/christening/residence/death/burial — the events shown in the
@@ -55,13 +55,12 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId }: Props) {
+export function EditView({ dataset, fileName, homeId, onDirty }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
-  const [dirty, setDirty] = useState(false);
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [, setTick] = useState(0);
@@ -86,14 +85,14 @@ export function EditView({ dataset, fileName, homeId }: Props) {
     if (!person) return;
     mutate(person);
     rebuildIndividual(dataset, person);
-    setDirty(true);
+    onDirty("individual", person.id);
     setTick((v) => v + 1);
   };
 
   const commitFamily: FamilyCommit = (fam, mutate) => {
     mutate(fam);
     rebuildFamily(dataset, fam);
-    setDirty(true);
+    onDirty("family", fam.id);
     setTick((v) => v + 1);
   };
 
@@ -105,15 +104,9 @@ export function EditView({ dataset, fileName, homeId }: Props) {
         : kind === "child"
           ? addChild(dataset, person, fam)
           : addParent(dataset, person, fam, kind);
-    setDirty(true);
+    onDirty("individual", person.id);
+    onDirty("individual", added.id);
     navigate(added.id);
-  }
-
-  function exportGedcom() {
-    const text = serializeGedcom(dataset.records, { eol: dataset.eol, finalNewline: dataset.finalNewline });
-    const base = fileName.replace(/\.ged$/i, "");
-    downloadText(`${base}.edited.ged`, text);
-    setDirty(false);
   }
 
   if (!person) {
@@ -151,9 +144,6 @@ export function EditView({ dataset, fileName, homeId }: Props) {
             placeholder={t("edit.selectPerson")}
             tooltip={t("edit.selectPerson")}
           />
-          <button className="nav-btn" onClick={exportGedcom} disabled={!dirty} title={t("edit.exportTooltip")}>
-            {t("edit.export")}
-          </button>
         </div>
 
         <div className="edit-parents">

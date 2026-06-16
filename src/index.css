@@ -77,6 +77,10 @@ button {
   margin-top: 6px;
   flex-wrap: wrap;
 }
+.app-head-files .export-btn {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
 
 .app-head-top {
   display: flex;
