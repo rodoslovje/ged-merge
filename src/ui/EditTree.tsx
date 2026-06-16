@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildCompareTree, type TreeMode, type TreeNode } from "../tree/compareTree";
+import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 
 // ─── Constants (identical to CompareTree so node sizes match) ─────────────────
@@ -63,11 +64,12 @@ interface Viewport {
 interface Props {
   masterDs: Dataset;
   rootId: string;
+  homeId?: string;
   changedPersonIds: Set<string>;
   onBack: () => void;
 }
 
-export function EditTree({ masterDs, rootId, changedPersonIds, onBack }: Props) {
+export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -302,6 +304,14 @@ export function EditTree({ masterDs, rootId, changedPersonIds, onBack }: Props) 
                           {n.years}
                         </text>
                       )}
+                      {homeId && n.master?.id && (() => {
+                        const k = kinshipLabel(masterDs, homeId, n.master.id, t);
+                        return k ? (
+                          <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={36} textAnchor="end">
+                            {k}
+                          </text>
+                        ) : null;
+                      })()}
                       {modified && (
                         <g className="tree-node-decision" transform={`translate(${NODE_W - 11},11)`}>
                           <circle r={8.5} fill={COLOR_MODIFIED} stroke="var(--panel)" strokeWidth={1.5} />

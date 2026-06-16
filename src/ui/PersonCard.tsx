@@ -16,10 +16,14 @@ interface Props {
   onRemove?: () => void;
   /** Tooltip for the × detach button. */
   removeTooltip?: string;
+  /** Kinship label relative to the home person, e.g. "Son", "Spouse". */
+  kinship?: string;
+  /** Long-form tooltip for the kinship badge, e.g. "Son of Luka Renko". */
+  kinshipTooltip?: string;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -49,7 +53,12 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
         >
           <div className={`person-label ${sexClass(individual.sex)}`}>
             <span className="person-name">{displayName(primaryName(individual))}</span>
-            {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+            {(lifespan || kinship) && (
+              <div className="person-card-meta">
+                {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+                {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
+              </div>
+            )}
           </div>
         </button>
         {onRemove && (

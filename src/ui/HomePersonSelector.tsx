@@ -17,6 +17,8 @@ interface Props {
   placeholder?: string;
   /** Input tooltip. Defaults to the home-person wording. */
   tooltip?: string;
+  /** Icon to show left of the input. Defaults to "home". */
+  icon?: "home" | "search";
 }
 
 const MAX_RESULTS = 50;
@@ -36,6 +38,7 @@ export function HomePersonSelector({
   onAutoFocused,
   placeholder,
   tooltip,
+  icon = "home",
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -109,21 +112,39 @@ export function HomePersonSelector({
   return (
     <div className={homeId ? "home-selector" : "home-selector unset"}>
       <div className="home-control">
-        <svg
-          className="home-icon"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 9.5 12 3l9 6.5" />
-          <path d="M5 10v10h14V10" />
-        </svg>
+        {icon === "home" ? (
+          <svg
+            className="home-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 9.5 12 3l9 6.5" />
+            <path d="M5 10v10h14V10" />
+          </svg>
+        ) : (
+          <svg
+            className="home-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="16.5" y1="16.5" x2="22" y2="22" />
+          </svg>
+        )}
         <input
           ref={inputRef}
           type="text"

@@ -287,19 +287,33 @@ export function App() {
     workerRef.current?.postMessage({ type: "setHome", id: id ?? "" });
   }
 
-  // When the first results for a freshly loaded master arrive, default the home
-  // person to the master's root individual if present. Attempted once per file
-  // (autoHomeRef), so a user who later clears the home person isn't overridden.
+  // When the master finishes loading, default the home person to its root
+  // individual if present. Attempted once per file (autoHomeRef), so a user
+  // who later clears the home person isn't overridden.
+  useEffect(() => {
+    if (master.status !== "loaded" || autoHomeRef.current) return;
+    autoHomeRef.current = true;
+    if (homeId) return;
+    const home = defaultHomeId(master.file.dataset);
+    if (home) {
+      changeHome(home);
+    } else {
+      setFocusHome(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [master.status]);
+
+  // In merge mode, also attempt once when first match results arrive (covers
+  // the case where master loaded before the worker finished computing matches).
   useEffect(() => {
     if (!matches || autoHomeRef.current) return;
     autoHomeRef.current = true;
-    if (homeId) return; // user already chose before the first result
+    if (homeId) return;
     const ds = master.status === "loaded" ? master.file.dataset : undefined;
     const home = ds ? defaultHomeId(ds) : undefined;
     if (home) {
       changeHome(home);
     } else {
-      // No conventional root person to default to — focus the picker instead.
       setFocusHome(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -520,6 +534,7 @@ export function App() {
       <EditTree
         masterDs={masterDataset}
         rootId={editTreeId}
+        homeId={homeId}
         changedPersonIds={changedPersonIds}
         onBack={() => setEditTreeId(null)}
       />
@@ -742,6 +757,7 @@ export function App() {
             dataset={masterDataset}
             fileName={master.file.fileName}
             homeId={homeId}
+            changeHome={changeHome}
             onDirty={handleEditDirty}
             onShowTree={(id) => setEditTreeId(id)}
           />

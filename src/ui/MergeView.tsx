@@ -5,6 +5,8 @@ import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { ChangeReport } from "../merge/merge";
 import type { MatchResult } from "../match/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
+import { kinshipLabel } from "../match/kinship";
+import { displayName, primaryName } from "../match/relatives";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { MatchResults } from "./MatchResults";
 import { ComparePanel } from "./ComparePanel";
@@ -107,6 +109,16 @@ export function MergeView({
     </div>
   ) : undefined;
 
+  const kinship = current && homeId && masterDataset
+    ? kinshipLabel(masterDataset, homeId, current.masterId, t)
+    : undefined;
+  const homePersonName = homeId && masterDataset
+    ? displayName(primaryName(masterDataset.individuals.get(homeId)))
+    : undefined;
+  const kinshipTooltip = kinship && homePersonName
+    ? t("kinship.tooltip", { kinship, name: homePersonName })
+    : undefined;
+
   const compareHeader = current ? (
     <>
       <div className={`person-label ${sexClass(current.sex)}`}>
@@ -119,6 +131,7 @@ export function MergeView({
             {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
           </span>
         )}
+        {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
       </div>
       <div className="compare-nav-header">
         <button

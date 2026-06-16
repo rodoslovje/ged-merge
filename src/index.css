@@ -1108,6 +1108,8 @@ button {
   padding: 1px 6px;
   flex: none;
 }
+.person-card-meta .person-kinship,
+.compare-head .person-kinship { margin-left: auto; }
 
 .candidate-main .person-label { gap: 2px 8px; }
 .candidate-main .person-name { font-weight: 600; }
@@ -1127,7 +1129,6 @@ button {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
-  max-width: 1000px;
 }
 
 .edit-toolbar {
@@ -1420,7 +1421,6 @@ button {
   gap: 4px;
 }
 .edit-event-link-row .edit-link-input { flex: 1; min-width: 0; }
-.edit-event-link-row .edit-link-remove { opacity: 1; }
 .edit-links {
   font-size: 0.88rem;
 }
@@ -1467,11 +1467,11 @@ button {
 }
 .edit-link-row:hover .edit-link-remove,
 .edit-link-row:focus-within .edit-link-remove,
+.edit-event-link-row:hover .edit-link-remove,
+.edit-event-link-row:focus-within .edit-link-remove,
 .edit-note-row:hover .edit-link-remove,
 .edit-note-row:focus-within .edit-link-remove,
 .edit-link-remove:focus-visible { opacity: 1; }
-/* In record sections (links / notes panels) buttons are always visible */
-.edit-record-section .edit-link-remove { opacity: 1; }
 .edit-record-section .edit-name-chip-add { opacity: 1; }
 .edit-link-remove:hover,
 .edit-link-remove:focus-visible {
@@ -1490,11 +1490,8 @@ button {
   color: var(--muted);
   font-size: 0.8rem;
   text-decoration: none;
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  opacity: 1;
 }
-.edit-link-row:hover .edit-link-open,
-.edit-link-row:focus-within .edit-link-open { opacity: 1; }
 .edit-link-open:hover { color: var(--accent); }
 .edit-link-add {
   align-self: flex-start;
@@ -1529,6 +1526,13 @@ button {
   align-items: flex-start;
   gap: 2px;
 }
+.person-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 100%;
+}
 .person-card:hover { border-color: var(--accent); }
 .person-card.empty {
   border-style: dashed;
@@ -1558,7 +1562,9 @@ button {
 }
 .person-card-role {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
 }
 .person-card-row {
   position: relative;
@@ -2127,6 +2133,13 @@ button {
 .tree-node-year {
   fill: rgba(255, 255, 255, 0.85);
   font-size: 11px;
+}
+.tree-node-kinship {
+  fill: rgba(255, 255, 255, 0.65);
+  font-size: 10px;
+}
+:root[data-theme="light"] .tree-node-kinship {
+  fill: var(--muted);
 }
 
 /* selected-person compare table (top-right overlay) */

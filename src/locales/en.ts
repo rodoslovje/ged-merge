@@ -242,6 +242,8 @@ export const en = {
   "kinship.cousin1":          "1st cousin",
   "kinship.cousin2":          "2nd cousin",
   "kinship.cousin":           "cousin",
+  "kinship.home":             "Home Person",
+  "kinship.tooltip":          "{{kinship}} of {{name}}",
   "event.colDate": "Date",
   "event.colPlace": "Place",
   "event.colAddr": "Address",

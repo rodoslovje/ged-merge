@@ -242,6 +242,8 @@ export const sl = {
   "kinship.cousin1":          "Bratranec/sestrična",
   "kinship.cousin2":          "Bratranec/sestrična (2.)",
   "kinship.cousin":           "bratranec/sestrična",
+  "kinship.home":             "Domača oseba",
+  "kinship.tooltip":          "{{kinship}} od {{name}}",
   "event.colDate": "Datum",
   "event.colPlace": "Kraj",
   "event.colAddr": "Naslov",

@@ -40,6 +40,8 @@ interface Props {
   fileName: string;
   /** Seeds the initial selection (the Merge-mode home person, if set). */
   homeId?: string;
+  /** Called to change (or clear) the home person. */
+  changeHome: (id: string | undefined) => void;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
   /** Open the edit tree rooted on the currently selected person. */
@@ -80,7 +82,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -221,9 +223,24 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
     .filter((f): f is NonNullable<typeof f> => !!f);
 
   const lifespan = lifespanOf(person);
-  const kinship = homeId && homeId !== selectedId
+  const kinship = homeId
     ? kinshipLabel(dataset, homeId, selectedId!, t)
     : undefined;
+  const homePersonName = homeId
+    ? displayName(primaryName(dataset.individuals.get(homeId)))
+    : undefined;
+  const kinshipTooltip = kinship && homePersonName
+    ? t("kinship.tooltip", { kinship, name: homePersonName })
+    : undefined;
+
+  function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string } {
+    if (!homeId || !id) return {};
+    const k = kinshipLabel(dataset, homeId, id, t);
+    return {
+      kinship: k,
+      kinshipTooltip: k && homePersonName ? t("kinship.tooltip", { kinship: k, name: homePersonName }) : undefined,
+    };
+  }
 
   return (
     <div className="section open edit-view">
@@ -238,6 +255,13 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
             onChange={navigate}
             placeholder={t("edit.selectPerson")}
             tooltip={t("edit.selectPerson")}
+            icon="search"
+          />
+          <HomePersonSelector
+            individuals={dataset.individuals}
+            homeId={homeId}
+            onChange={changeHome}
+            onClear={() => changeHome(undefined)}
           />
           <button
             className="nav-btn"
@@ -262,6 +286,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
                   onAdd={() => addRelative("father", fam)}
                   onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
                   removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
+                  {...cardKinship(fam?.husband)}
                 />
                 <div className="edit-connector-h" />
                 <PersonCard
@@ -272,6 +297,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
                   onAdd={() => addRelative("mother", fam)}
                   onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
                   removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
+                  {...cardKinship(fam?.wife)}
                 />
               </div>
             );
@@ -287,6 +313,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
             t={t}
             lifespan={lifespan}
             kinship={kinship}
+            kinshipTooltip={kinshipTooltip}
             commit={commit}
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
@@ -355,6 +382,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
                       onAdd={() => addRelative("partner", fam)}
                       onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
                       removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
+                      {...cardKinship(partnerId)}
                     />
                     {fam && (
                       <AddEventSelect
@@ -393,6 +421,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
                           onSelect={navigate}
                           onRemove={() => handleDetachChild(fam, childId, t("edit.detachChildConfirm", { name: childName }))}
                           removeTooltip={t("edit.detachChildTooltip", { name: childName })}
+                          {...cardKinship(childId)}
                         />
                       );
                     })}
@@ -460,6 +489,7 @@ function NameEditor({
   t,
   lifespan,
   kinship,
+  kinshipTooltip,
   commit,
   focusOnMount,
   onMounted,
@@ -468,6 +498,7 @@ function NameEditor({
   t: Translate;
   lifespan?: string;
   kinship?: string;
+  kinshipTooltip?: string;
   commit: Commit;
   focusOnMount?: boolean;
   onMounted?: () => void;
@@ -511,7 +542,7 @@ function NameEditor({
         onClear={() => { setSurname(""); commitName(given, ""); }}
       />
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-      {kinship && <span className="person-kinship">{kinship}</span>}
+      {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
     </div>
   );
 }
@@ -957,6 +988,17 @@ function EventFieldsRow({
       </button>
       {links.map((link, i) => (
         <div className="edit-event-link-row" key={i}>
+          {link.trim() && (
+            <a
+              className="edit-link-open"
+              href={link.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("edit.openLink")}
+            >
+              ↗
+            </a>
+          )}
           <div className="edit-link-input-wrap">
             <input
               className="edit-input edit-link-input"
@@ -975,17 +1017,6 @@ function EventFieldsRow({
               ×
             </button>
           </div>
-          {link.trim() && (
-            <a
-              className="edit-link-open"
-              href={link.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("edit.openLink")}
-            >
-              ↗
-            </a>
-          )}
         </div>
       ))}
     </div>
@@ -1102,6 +1133,17 @@ function LinksEditor({
       )}
       {links.map((link, i) => (
         <div className="edit-link-row" key={i}>
+          {link.trim() && (
+            <a
+              className="edit-link-open"
+              href={link.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("edit.openLink")}
+            >
+              ↗
+            </a>
+          )}
           <div className="edit-link-input-wrap">
             <input
               className="edit-input edit-link-input"
@@ -1120,17 +1162,6 @@ function LinksEditor({
               ×
             </button>
           </div>
-          {link.trim() && (
-            <a
-              className="edit-link-open"
-              href={link.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("edit.openLink")}
-            >
-              ↗
-            </a>
-          )}
         </div>
       ))}
     </div>

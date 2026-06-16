@@ -12,7 +12,7 @@ export function kinshipLabel(
   targetId: string,
   t: Translate,
 ): string | undefined {
-  if (homeId === targetId) return undefined;
+  if (homeId === targetId) return t("kinship.home");
 
   const homeIndi = ds.individuals.get(homeId);
   const targetIndi = ds.individuals.get(targetId);
