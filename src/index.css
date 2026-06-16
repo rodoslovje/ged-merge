@@ -1961,6 +1961,12 @@ button {
 }
 .preview-badge.is-new { background: color-mix(in srgb, var(--state-incoming) 22%, transparent); color: var(--state-incoming); }
 .preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
+.edit-tree-badge {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--node-minor) 22%, transparent);
+  color: var(--node-minor);
+}
 
 .preview-fields { margin: 0; padding-left: 18px; }
 .preview-fields li { margin: 3px 0; font-size: 0.9rem; color: var(--muted); }

@@ -224,5 +224,12 @@ export const sl = {
   "save.preview.title": "Predogled shranjevanja",
   "save.preview.persons": "Spremembe oseb",
   "save.preview.families": "Spremembe družin",
-  "save.preview.download": "Prenesi GEDCOM"
+  "save.preview.download": "Prenesi GEDCOM",
+  "edit.tree.button": "Prikaži drevo",
+  "edit.tree.tooltip": "Prikaži rodoslovno drevo za trenutno osebo",
+  "edit.tree.title": "Drevo",
+  "edit.tree.back": "Nazaj na urejanje",
+  "edit.tree.unmodified": "Nespremenjeno",
+  "edit.tree.modified": "Spremenjeno",
+  "edit.tree.reroot": "Nastavi kot koren"
 };

@@ -224,5 +224,12 @@ export const en = {
   "save.preview.title": "Save preview",
   "save.preview.persons": "Persons changed",
   "save.preview.families": "Families changed",
-  "save.preview.download": "Download GEDCOM"
+  "save.preview.download": "Download GEDCOM",
+  "edit.tree.button": "Show tree",
+  "edit.tree.tooltip": "Show family tree for the current person",
+  "edit.tree.title": "Tree",
+  "edit.tree.back": "Back to edit",
+  "edit.tree.unmodified": "Unmodified",
+  "edit.tree.modified": "Modified",
+  "edit.tree.reroot": "Set as root"
 };

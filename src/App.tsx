@@ -15,6 +15,7 @@ import { HelpModal } from "./ui/HelpModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { EditPreview } from "./ui/EditPreview";
+import { EditTree } from "./ui/EditTree";
 import { Wordmark } from "./ui/icons/LogoMark";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -253,6 +254,7 @@ export function App() {
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
     setEditPreviewOpen(false);
+    setEditTreeId(null);
     setHomeId(undefined); // home person is opt-in; reset on (re)load
     setFocusHome(false);
     autoHomeRef.current = false; // allow the default home person for the new file
@@ -407,6 +409,9 @@ export function App() {
   const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
+  // Edit Tree: full-page tree view for the edit mode.
+  const [editTreeId, setEditTreeId] = useState<string | null>(null);
+
   // Edit mode change tracking — lifted from EditView so the header Save button can see counts.
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
@@ -481,6 +486,18 @@ export function App() {
         onBack={() => window.history.back()}
         decisions={decisions}
         onDecide={setPairStatus}
+      />
+    );
+  }
+
+  // Edit Tree takes over the full page when open.
+  if (editTreeId && masterDataset) {
+    return (
+      <EditTree
+        masterDs={masterDataset}
+        rootId={editTreeId}
+        changedPersonIds={changedPersonIds}
+        onBack={() => setEditTreeId(null)}
       />
     );
   }
@@ -678,7 +695,13 @@ export function App() {
             onClosePreview={() => setPreview(null)}
           />
         ) : (
-          <EditView dataset={masterDataset} fileName={master.file.fileName} homeId={homeId} onDirty={handleEditDirty} />
+          <EditView
+            dataset={masterDataset}
+            fileName={master.file.fileName}
+            homeId={homeId}
+            onDirty={handleEditDirty}
+            onShowTree={(id) => setEditTreeId(id)}
+          />
         )
       )}
       {editPreviewOpen && masterDataset && master.status === "loaded" && (

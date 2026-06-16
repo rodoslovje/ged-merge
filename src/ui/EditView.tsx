@@ -31,6 +31,8 @@ interface Props {
   homeId?: string;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
+  /** Open the edit tree rooted on the currently selected person. */
+  onShowTree: (id: string) => void;
 }
 
 /** Birth/christening/residence/death/burial — the events shown in the
@@ -55,7 +57,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, onDirty }: Props) {
+export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -144,6 +146,13 @@ export function EditView({ dataset, fileName, homeId, onDirty }: Props) {
             placeholder={t("edit.selectPerson")}
             tooltip={t("edit.selectPerson")}
           />
+          <button
+            className="nav-btn"
+            onClick={() => selectedId && onShowTree(selectedId)}
+            title={t("edit.tree.tooltip")}
+          >
+            {t("edit.tree.button")}
+          </button>
         </div>
 
         <div className="edit-parents">
