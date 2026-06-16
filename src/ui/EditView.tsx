@@ -1,22 +1,33 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, nameTypeLabel, primaryName } from "../match/relatives";
+import { kinshipLabel } from "../match/kinship";
 import {
   addAdditionalName,
   addChild,
+  addEventNode,
+  addFamilyEventNode,
   addParent,
   addPartner,
+  detachChildFromFamily,
+  detachSpouseRole,
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
+  removeIndividual,
   setAdditionalName,
   setEventField,
+  setEventFieldAtIndex,
   setFamilyEventField,
+  setFamilyLinks,
+  setFamilyNotes,
+  setIndividualLinks,
   setName,
   setNickname,
+  setNotes,
   setSex,
   type EventFieldUpdate,
 } from "../gedcom/edit";
@@ -35,9 +46,20 @@ interface Props {
   onShowTree: (id: string) => void;
 }
 
-/** Birth/christening/residence/death/burial — the events shown in the
- * center panel. */
-const EVENT_TAGS = ["BIRT", "CHR", "RESI", "DEAT", "BURI"];
+/** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded. */
+const INDIVIDUAL_EVENT_GROUPS = [
+  { labelKey: "eventGroup.earlyLife", tags: ["BAPM", "CHR", "CONF", "ADOP", "FCOM"] },
+  { labelKey: "eventGroup.career",    tags: ["OCCU", "EDUC", "RETI"] },
+  { labelKey: "eventGroup.residence", tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
+  { labelKey: "eventGroup.estate",    tags: ["WILL", "PROB"] },
+  { labelKey: "eventGroup.death",     tags: ["DEAT", "BURI", "CREM"] },
+] as const;
+
+/** All individual event tags (BIRT first so EventList can always show it). */
+const EVENT_TAGS = ["BIRT", ...INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags)];
+
+/** Family events that are hidden until explicitly added (marriage is always shown). */
+const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
 
 /** A mutation applied to the selected person's raw record, then rebuilt and
  * re-rendered. */
@@ -68,10 +90,17 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
   // in place, so React has no other signal that `person` changed.
   const [, setTick] = useState(0);
   const focusNextName = useRef(false);
+  // Whether the user has clicked "+ Add link" or "+ Add note" for the current person.
+  const [linksAdded, setLinksAdded] = useState(false);
+  const [notesAdded, setNotesAdded] = useState(false);
+  // Trigger counters to add a note to a specific family (keyed by family ID).
+  const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
 
   function navigate(id: string) {
     if (!id || id === selectedId) return;
     if (selectedId) setHistory((h) => [...h, selectedId]);
+    setLinksAdded(false);
+    setNotesAdded(false);
     setSelectedId(id);
   }
 
@@ -130,6 +159,48 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
     navigate(added.id);
   }
 
+  function personName(id: string | undefined): string {
+    if (!id) return "";
+    const indi = dataset.individuals.get(id);
+    return indi ? (primaryName(indi)?.full ?? id) : id;
+  }
+
+  function handleDetachSpouseRole(fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) {
+    if (!window.confirm(confirmMsg)) return;
+    const indiId = role === "HUSB" ? fam.husband : fam.wife;
+    detachSpouseRole(dataset, fam, role);
+    onDirty("family", fam.id);
+    if (indiId) onDirty("individual", indiId);
+    setTick((v) => v + 1);
+  }
+
+  function handleDetachChild(fam: Family, childId: string, confirmMsg: string) {
+    if (!window.confirm(confirmMsg)) return;
+    detachChildFromFamily(dataset, fam, childId);
+    onDirty("family", fam.id);
+    onDirty("individual", childId);
+    setTick((v) => v + 1);
+  }
+
+  function handleDeletePerson() {
+    if (!person) return;
+    const name = primaryName(person)?.full ?? person.id;
+    if (!window.confirm(t("edit.deletePersonConfirm", { name }))) return;
+    const personId = person.id;
+    const affectedFamilies = [...person.spouseOf, ...person.childOf];
+    removeIndividual(dataset, person);
+    onDirty("individual", personId);
+    affectedFamilies.forEach((fid) => onDirty("family", fid));
+    const nextId =
+      history.filter((id) => id !== personId).pop() ??
+      dataset.individuals.keys().next().value;
+    setHistory((prev) => prev.filter((id) => id !== personId));
+    setLinksAdded(false);
+    setNotesAdded(false);
+    setSelectedId(nextId);
+    setTick((v) => v + 1);
+  }
+
   if (!person) {
     return (
       <div className="section open edit-view">
@@ -150,6 +221,9 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
     .filter((f): f is NonNullable<typeof f> => !!f);
 
   const lifespan = lifespanOf(person);
+  const kinship = homeId && homeId !== selectedId
+    ? kinshipLabel(dataset, homeId, selectedId!, t)
+    : undefined;
 
   return (
     <div className="section open edit-view">
@@ -175,25 +249,33 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
         </div>
 
         <div className="edit-parents">
-          {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => (
-            <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
-              <PersonCard
-                individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
-                roleLabel={t("field.father")}
-                placeholder={t("edit.addFather")}
-                onSelect={navigate}
-                onAdd={() => addRelative("father", fam)}
-              />
-              <div className="edit-connector-h" />
-              <PersonCard
-                individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
-                roleLabel={t("field.mother")}
-                placeholder={t("edit.addMother")}
-                onSelect={navigate}
-                onAdd={() => addRelative("mother", fam)}
-              />
-            </div>
-          ))}
+          {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => {
+            const fatherName = personName(fam?.husband);
+            const motherName = personName(fam?.wife);
+            return (
+              <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
+                <PersonCard
+                  individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
+                  roleLabel={t("field.father")}
+                  placeholder={t("edit.addFather")}
+                  onSelect={navigate}
+                  onAdd={() => addRelative("father", fam)}
+                  onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
+                  removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
+                />
+                <div className="edit-connector-h" />
+                <PersonCard
+                  individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
+                  roleLabel={t("field.mother")}
+                  placeholder={t("edit.addMother")}
+                  onSelect={navigate}
+                  onAdd={() => addRelative("mother", fam)}
+                  onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
+                  removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div className="edit-connector-v" />
@@ -204,43 +286,130 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
             person={person}
             t={t}
             lifespan={lifespan}
+            kinship={kinship}
             commit={commit}
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
           />
-          <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
-          <OtherNamesEditor key={`names-${person.id}`} person={person} t={t} commit={commit} />
+          <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} />
+          <OtherNamesEditor
+            key={`names-${person.id}`}
+            person={person}
+            t={t}
+            commit={commit}
+            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
+            onAddEvent={(tag) => commit((indi) => addEventNode(indi, tag))}
+            showAddLink={!linksAdded && !(person.links ?? []).length}
+            onAddLink={() => setLinksAdded(true)}
+            showAddNote={!notesAdded && !(person.notes ?? []).length}
+            onAddNote={() => setNotesAdded(true)}
+          />
           <EventList person={person} t={t} commit={commit} />
+          {((person.links ?? []).length > 0 || linksAdded) && (
+            <div className="edit-record-section">
+              <LinksEditor
+                key={`rlinks-${person.id}`}
+                links={person.links ?? []}
+                addOnMount={linksAdded && !(person.links ?? []).length}
+                sectionLabel={t("field.links")}
+                label={t("field.links")}
+                t={t}
+                onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
+              />
+            </div>
+          )}
+          {((person.notes ?? []).length > 0 || notesAdded) && (
+            <div className="edit-record-section">
+              <NotesEditor
+                key={`notes-${person.id}`}
+                notes={person.notes ?? []}
+                addOnMount={notesAdded && !(person.notes ?? []).length}
+                sectionLabel={t("field.notes")}
+                t={t}
+                onCommit={(notes) => commit((indi) => setNotes(indi, notes))}
+              />
+            </div>
+          )}
         </div>
 
         <div className="edit-families">
           {(spouseFamilies.length ? spouseFamilies : [undefined]).map((fam, i) => {
             const partnerId = fam && (fam.husband === person.id ? fam.wife : fam.husband);
+            const partnerRole = fam && (fam.husband === person.id ? "WIFE" : "HUSB");
+            const partnerName = personName(partnerId ?? undefined);
+            const shownFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
+              (tag) => fam?.events.some((e) => e.tag === tag),
+            );
+            const emptyFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
+              (tag) => !shownFamilyTags.includes(tag),
+            );
             return (
               <div className="edit-family" key={fam?.id ?? `empty-${i}`}>
-                <PersonCard
-                  individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
-                  roleLabel={t("field.partners")}
-                  placeholder={t("edit.addPartner")}
-                  onSelect={navigate}
-                  onAdd={() => addRelative("partner", fam)}
-                />
-                {fam && <FamilyMarriageRow fam={fam} t={t} commit={commitFamily} />}
-                {fam?.events.some((e) => e.tag === "DIV") && <FamilyDivorceRow fam={fam} t={t} commit={commitFamily} />}
+                <div className="edit-family-header">
+                  <div className="person-card-role">{t("field.partners")}</div>
+                  <div className="edit-family-card-row">
+                    <PersonCard
+                      individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
+                      placeholder={t("edit.addPartner")}
+                      onSelect={navigate}
+                      onAdd={() => addRelative("partner", fam)}
+                      onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
+                      removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
+                    />
+                    {fam && (
+                      <AddEventSelect
+                        tags={emptyFamilyTags}
+                        label={t("edit.addFamilyEvent")}
+                        t={t}
+                        onAdd={(tag) => commitFamily(fam, (f) => addFamilyEventNode(f, tag))}
+                      />
+                    )}
+                    {fam && (
+                      <button
+                        type="button"
+                        className="edit-name-chip edit-name-chip-add"
+                        title={t("edit.addNoteTooltip")}
+                        onClick={() => setFamNoteAdd((prev) => ({ ...prev, [fam.id]: (prev[fam.id] ?? 0) + 1 }))}
+                      >
+                        + {t("edit.addNote")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} />}
+                {fam && shownFamilyTags.map((tag) => (
+                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} />
+                ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
                   <div className="edit-children">
-                    {fam?.children.map((childId) => (
-                      <PersonCard
-                        key={childId}
-                        individual={dataset.individuals.get(childId)}
-                        placeholder={t("edit.unknown")}
-                        onSelect={navigate}
-                      />
-                    ))}
+                    {fam?.children.map((childId) => {
+                      const childName = personName(childId);
+                      return (
+                        <PersonCard
+                          key={childId}
+                          individual={dataset.individuals.get(childId)}
+                          placeholder={t("edit.unknown")}
+                          onSelect={navigate}
+                          onRemove={() => handleDetachChild(fam, childId, t("edit.detachChildConfirm", { name: childName }))}
+                          removeTooltip={t("edit.detachChildTooltip", { name: childName })}
+                        />
+                      );
+                    })}
                     <PersonCard placeholder={t("edit.addChild")} onAdd={() => addRelative("child", fam)} />
                   </div>
                 </div>
+                {fam && (
+                  <div className="edit-record-section">
+                    <NotesEditor
+                      key={`fnotes-${fam.id}`}
+                      notes={fam.notes ?? []}
+                      addTrigger={famNoteAdd[fam.id]}
+                      t={t}
+                      onCommit={(notes) => commitFamily(fam, (f) => setFamilyNotes(f, notes))}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -250,11 +419,47 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
   );
 }
 
+/** Input with an × button at the right edge to clear its value.
+ * The clear button only appears when the field is non-empty.
+ * `wrapStyle` is applied to the wrapper div (e.g. to set a ch-based width). */
+const ClearableInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    onClear: () => void;
+    wrapStyle?: React.CSSProperties;
+    wrapClassName?: string;
+  }
+>(function ClearableInput({ value, onClear, wrapStyle, wrapClassName, className, ...rest }, ref) {
+  return (
+    <div
+      className={`clearable-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`}
+      style={wrapStyle}
+    >
+      <input ref={ref} className={className} value={value} {...rest} />
+      {value ? (
+        <button
+          type="button"
+          className="input-clear"
+          tabIndex={-1}
+          title={rest.title ? `${rest.title ? "Clear " + rest.title.toLowerCase() : "Clear"}` : "Clear"}
+          onMouseDown={(e) => {
+            e.preventDefault(); // keep input focused so onBlur fires with the cleared value
+            onClear();
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+});
+
 /** Editable given/surname fields for the primary name, plus the lifespan. */
 function NameEditor({
   person,
   t,
   lifespan,
+  kinship,
   commit,
   focusOnMount,
   onMounted,
@@ -262,6 +467,7 @@ function NameEditor({
   person: Individual;
   t: Translate;
   lifespan?: string;
+  kinship?: string;
   commit: Commit;
   focusOnMount?: boolean;
   onMounted?: () => void;
@@ -283,26 +489,29 @@ function NameEditor({
 
   return (
     <div className="edit-name-row" title={datesTooltipOf(person)}>
-      <input
+      <ClearableInput
         ref={givenRef}
         className={`edit-input edit-name-input ${sexClass(person.sex)}`}
-        style={{ width: fieldWidth(given, t("field.given")) }}
+        wrapStyle={{ width: fieldWidth(given, t("field.given")) }}
         value={given}
         placeholder={t("field.given")}
         title={t("field.given")}
         onChange={(e) => setGiven(e.target.value)}
         onBlur={() => commitName(given, surname)}
+        onClear={() => { setGiven(""); commitName("", surname); }}
       />
-      <input
+      <ClearableInput
         className={`edit-input edit-name-input ${sexClass(person.sex)}`}
-        style={{ width: fieldWidth(surname, t("field.surname")) }}
+        wrapStyle={{ width: fieldWidth(surname, t("field.surname")) }}
         value={surname}
         placeholder={t("field.surname")}
         title={t("field.surname")}
         onChange={(e) => setSurname(e.target.value)}
         onBlur={() => commitName(given, surname)}
+        onClear={() => { setSurname(""); commitName(given, ""); }}
       />
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+      {kinship && <span className="person-kinship">{kinship}</span>}
     </div>
   );
 }
@@ -312,7 +521,7 @@ const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
 /** M/F/U toggle for the individual's `SEX` line. */
 const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
 
-function SexToggle({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
+function SexToggle({ person, t, commit, onDelete }: { person: Individual; t: Translate; commit: Commit; onDelete: () => void }) {
   return (
     <div className="edit-sex-row">
       <select
@@ -326,50 +535,118 @@ function SexToggle({ person, t, commit }: { person: Individual; t: Translate; co
           </option>
         ))}
       </select>
+      <button
+        type="button"
+        className="edit-delete-btn"
+        title={t("edit.deletePersonTooltip")}
+        onClick={onDelete}
+      >
+        🗑
+      </button>
     </div>
   );
 }
 
 /** Nickname plus any further `NAME` records (married/maiden/aka/…), shown as
  * chips that turn into editable fields on click, plus a single "+ Add name"
- * button to append more. */
-function OtherNamesEditor({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
+ * button and an "+ Add event" dropdown to append events from the same row. */
+function OtherNamesEditor({
+  person,
+  t,
+  commit,
+  emptyEventGroups,
+  onAddEvent,
+  showAddLink,
+  onAddLink,
+  showAddNote,
+  onAddNote,
+}: {
+  person: Individual;
+  t: Translate;
+  commit: Commit;
+  emptyEventGroups: { labelKey: string; tags: string[] }[];
+  onAddEvent: (tag: string) => void;
+  showAddLink: boolean;
+  onAddLink: () => void;
+  showAddNote: boolean;
+  onAddNote: () => void;
+}) {
   const [editing, setEditing] = useState<"nick" | number | null>(null);
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
+  const hasNamesContent = editing !== null || !!primary?.nickname || extraNames.length > 0;
+
+  const addNameBtn = (
+    <button
+      type="button"
+      className="edit-name-chip edit-name-chip-add"
+      title={t("edit.addNameTooltip")}
+      onClick={() => {
+        commit((indi) => addAdditionalName(indi, "aka"));
+        setEditing(extraNames.length);
+      }}
+    >
+      + {t("edit.addName")}
+    </button>
+  );
 
   return (
     <div className="edit-other-names">
-      {editing === "nick" ? (
-        <NicknameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
-      ) : primary?.nickname ? (
-        <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
-          {primary.nickname}
-          <span className="muted"> · {nameTypeLabel("nick", t)}</span>
-        </button>
-      ) : null}
-
-      {extraNames.map((n, i) =>
-        editing === i ? (
-          <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} onDone={() => setEditing(null)} />
-        ) : (
-          <button type="button" className="edit-name-chip" key={i} onClick={() => setEditing(i)}>
-            {displayName(n)}
-            {n.type && <span className="muted"> · {nameTypeLabel(n.type, t)}</span>}
-          </button>
-        ),
+      {/* Names row — only shown when there are names or editing */}
+      {hasNamesContent && (
+        <div className="edit-other-names-row">
+          {editing === "nick" ? (
+            <NicknameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
+          ) : primary?.nickname ? (
+            <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
+              {primary.nickname}
+              <span className="muted"> · {nameTypeLabel("nick", t)}</span>
+            </button>
+          ) : null}
+          {extraNames.map((n, i) =>
+            editing === i ? (
+              <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} onDone={() => setEditing(null)} />
+            ) : (
+              <button type="button" className="edit-name-chip" key={i} onClick={() => setEditing(i)}>
+                {displayName(n)}
+                {n.type && <span className="muted"> · {nameTypeLabel(n.type, t)}</span>}
+              </button>
+            ),
+          )}
+          {addNameBtn}
+        </div>
       )}
-
-      <button
-        type="button"
-        className="edit-name-chip edit-name-chip-add"
-        onClick={() => {
-          commit((indi) => addAdditionalName(indi, "aka"));
-          setEditing(extraNames.length);
-        }}
-      >
-        + {t("edit.addName")}
-      </button>
+      {/* Action chips row — always present */}
+      <div className="edit-other-names-row edit-other-names-actions">
+        {!hasNamesContent && addNameBtn}
+        <AddEventSelect
+          groups={emptyEventGroups}
+          label={t("edit.addEvent")}
+          t={t}
+          onAdd={onAddEvent}
+          className="edit-name-chip edit-name-chip-add add-chip-select"
+        />
+        {showAddLink && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addLinkTooltip")}
+            onClick={onAddLink}
+          >
+            + {t("edit.addLink")}
+          </button>
+        )}
+        {showAddNote && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addNoteTooltip")}
+            onClick={onAddNote}
+          >
+            + {t("edit.addNote")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -390,15 +667,16 @@ function NicknameEditor({
 
   return (
     <span className="edit-name-chip edit-name-chip-editing">
-      <input
+      <ClearableInput
         className="edit-input edit-name-variant-input"
-        style={{ width: fieldWidth(value, t("nametype.nick")) }}
+        wrapStyle={{ width: fieldWidth(value, t("nametype.nick")) }}
         value={value}
         placeholder={t("nametype.nick")}
         title={t("nametype.nick")}
         autoFocus
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => commit((indi) => setNickname(indi, value))}
+        onClear={() => { setValue(""); commit((indi) => setNickname(indi, "")); }}
       />
       <button
         type="button"
@@ -447,24 +725,26 @@ function NameVariantEditor({
       className="edit-name-chip edit-name-chip-editing"
       onBlur={(e) => { if (!ref.current?.contains(e.relatedTarget as Node)) onDone(); }}
     >
-      <input
+      <ClearableInput
         className="edit-input edit-name-variant-input"
-        style={{ width: fieldWidth(given, t("field.given")) }}
+        wrapStyle={{ width: fieldWidth(given, t("field.given")) }}
         value={given}
         placeholder={t("field.given")}
         title={t("field.given")}
         autoFocus
         onChange={(e) => setGiven(e.target.value)}
         onBlur={() => commitFields(given, surname)}
+        onClear={() => { setGiven(""); commitFields("", surname); }}
       />
-      <input
+      <ClearableInput
         className="edit-input edit-name-variant-input"
-        style={{ width: fieldWidth(surname, t("field.surname")) }}
+        wrapStyle={{ width: fieldWidth(surname, t("field.surname")) }}
         value={surname}
         placeholder={t("field.surname")}
         title={t("field.surname")}
         onChange={(e) => setSurname(e.target.value)}
         onBlur={() => commitFields(given, surname)}
+        onClear={() => { setSurname(""); commitFields(given, ""); }}
       />
       <select
         className="edit-input edit-name-type-select"
@@ -493,13 +773,19 @@ function NameVariantEditor({
   );
 }
 
-/** Birth/residence/death/burial rows for the center panel, always shown so
- * empty events can be filled in. */
-function EventList({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
-  const [revealed, setRevealed] = useState<Set<string>>(new Set());
-  const isShown = (tag: string) => tag === "BIRT" || person.events.some((e) => e.tag === tag) || revealed.has(tag);
-  const shown = EVENT_TAGS.filter(isShown);
-  const empty = EVENT_TAGS.filter((tag) => !isShown(tag));
+/** Events grid: BIRT always first (creates on commit), then all other events
+ * in person.events order — multiple occurrences of the same tag are supported. */
+function EventList({
+  person,
+  t,
+  commit,
+}: {
+  person: Individual;
+  t: Translate;
+  commit: Commit;
+}) {
+  const birtEv = person.events.find((e) => e.tag === "BIRT");
+  const nonBirtEvents = person.events.map((ev, i) => ({ ev, i })).filter(({ ev }) => ev.tag !== "BIRT");
 
   return (
     <div className="edit-events">
@@ -508,67 +794,89 @@ function EventList({ person, t, commit }: { person: Individual; t: Translate; co
         <span>{t("event.colDate")}</span>
         <span>{t("event.colPlace")}</span>
         <span>{t("event.colAddr")}</span>
+        <span>{t("event.colLink")}</span>
       </div>
-      {shown.map((tag) => (
-        <EventRow key={`${person.id}-${tag}`} person={person} tag={tag} t={t} commit={commit} />
+      <EventFieldsRow
+        key={`${person.id}-BIRT`}
+        ev={birtEv}
+        label={t("event.BIRT")}
+        t={t}
+        commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
+      />
+      {nonBirtEvents.map(({ ev, i }) => (
+        <EventFieldsRow
+          key={`${person.id}-${i}`}
+          ev={ev}
+          label={t(`event.${ev.tag}`)}
+          t={t}
+          commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, i, update))}
+        />
       ))}
-      {empty.length > 0 && (
-        <div className="edit-event-add">
-          <span className="edit-event-add-label">{t("event.addLabel")}</span>
-          {empty.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className="add-chip"
-              onClick={() => setRevealed((prev) => new Set(prev).add(tag))}
-            >
-              + {t(`event.${tag}`)}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-/** Editable date/place/address/links for a single event (e.g. `1 BIRT`). */
-function EventRow({ person, tag, t, commit }: { person: Individual; tag: string; t: Translate; commit: Commit }) {
-  const ev = person.events.find((e) => e.tag === tag);
+/** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
+function FamilyEventRow({ fam, tag, t, commit }: { fam: Family; tag: string; t: Translate; commit: FamilyCommit }) {
+  const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
 
   return (
-    <EventFieldsRow ev={ev} label={label} t={t} commitField={(update) => commit((indi) => setEventField(indi, tag, update))} />
-  );
-}
-
-/** Marriage (`1 MARR`) date/place/address/links for a spouse family. */
-function FamilyMarriageRow({ fam, t, commit }: { fam: Family; t: Translate; commit: FamilyCommit }) {
-  const ev = fam.events.find((e) => e.tag === "MARR");
-  const label = t("event.MARR");
-
-  return (
     <EventFieldsRow
       ev={ev}
       label={label}
       t={t}
-      commitField={(update) => commit(fam, (f) => setFamilyEventField(f, "MARR", update))}
+      commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
     />
   );
 }
 
-/** Divorce (`1 DIV`) date/place/address/links for a spouse family — only
- * shown when the family already has a DIV event. */
-function FamilyDivorceRow({ fam, t, commit }: { fam: Family; t: Translate; commit: FamilyCommit }) {
-  const ev = fam.events.find((e) => e.tag === "DIV");
-  const label = t("event.DIV");
-
+/** Dropdown chip that adds an event tag from a list of available tags.
+ * Resets to the placeholder after selection. */
+function AddEventSelect({
+  tags,
+  groups,
+  label,
+  t,
+  onAdd,
+  className = "add-chip add-chip-select",
+}: {
+  tags?: string[];
+  groups?: { labelKey: string; tags: string[] }[];
+  label: string;
+  t: Translate;
+  onAdd: (tag: string) => void;
+  className?: string;
+}) {
+  const [value, setValue] = useState("");
+  const hasAny = tags?.length || groups?.some((g) => g.tags.length);
+  if (!hasAny) return null;
   return (
-    <EventFieldsRow
-      ev={ev}
-      label={label}
-      t={t}
-      commitField={(update) => commit(fam, (f) => setFamilyEventField(f, "DIV", update))}
-    />
+    <label className={className}>
+      + {label}
+      <select
+        className="add-chip-select-inner"
+        value={value}
+        onChange={(e) => {
+          const tag = e.target.value;
+          setValue("");
+          if (tag) onAdd(tag);
+        }}
+      >
+        <option value="" />
+        {groups
+          ? groups.map((g) => (
+              <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                {g.tags.map((tag) => (
+                  <option key={tag} value={tag}>{t(`event.${tag}`)}</option>
+                ))}
+              </optgroup>
+            ))
+          : tags?.map((tag) => (
+              <option key={tag} value={tag}>{t(`event.${tag}`)}</option>
+            ))}
+      </select>
+    </label>
   );
 }
 
@@ -579,6 +887,7 @@ function useField(initial: string) {
     value,
     isDirty: value !== init.current,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+    clear: () => setValue(""),
   };
 }
 
@@ -598,57 +907,178 @@ function EventFieldsRow({
   const dateField = useField(ev?.date?.raw ?? "");
   const placeField = useField(ev?.place?.raw ?? "");
   const addrField = useField(ev?.address?.raw ?? "");
+  const [links, setLinks] = useState<string[]>(ev?.links ?? []);
 
   function cls(base: string, isDirty: boolean) {
     return isDirty ? `${base} edit-input--dirty` : base;
   }
 
+  function commitLinks(next: string[]) {
+    setLinks(next);
+    commitField({ links: next.map((l) => l.trim()).filter(Boolean) });
+  }
+
   return (
     <div className="edit-event">
       <div className="edit-event-label">{label}</div>
-      <input
+      <ClearableInput
         className={cls("edit-input edit-event-date", dateField.isDirty)}
         value={dateField.value}
         placeholder={t("event.date", { event: label })}
         title={t("event.date", { event: label })}
         onChange={dateField.onChange}
         onBlur={() => commitField({ date: dateField.value })}
+        onClear={() => { dateField.clear(); commitField({ date: "" }); }}
       />
-      <input
+      <ClearableInput
         className={cls("edit-input edit-event-place", placeField.isDirty)}
         value={placeField.value}
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
         onChange={placeField.onChange}
         onBlur={() => commitField({ place: placeField.value })}
+        onClear={() => { placeField.clear(); commitField({ place: "" }); }}
       />
-      <input
+      <ClearableInput
         className={cls("edit-input edit-event-addr", addrField.isDirty)}
         value={addrField.value}
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
         onChange={addrField.onChange}
         onBlur={() => commitField({ address: addrField.value })}
+        onClear={() => { addrField.clear(); commitField({ address: "" }); }}
       />
-      <LinksEditor links={ev?.links ?? []} label={label} t={t} onCommit={(links) => commitField({ links })} />
+      <button
+        type="button"
+        className="edit-link-add"
+        onClick={() => setLinks((prev) => [...prev, ""])}
+      >
+        + {t("edit.addLink")}
+      </button>
+      {links.map((link, i) => (
+        <div className="edit-event-link-row" key={i}>
+          <div className="edit-link-input-wrap">
+            <input
+              className="edit-input edit-link-input"
+              value={link}
+              placeholder={t("event.link", { event: label })}
+              title={t("event.link", { event: label })}
+              onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
+              onBlur={() => commitLinks(links)}
+            />
+            <button
+              type="button"
+              className="edit-link-remove"
+              title={t("edit.removeLink")}
+              onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
+            >
+              ×
+            </button>
+          </div>
+          {link.trim() && (
+            <a
+              className="edit-link-open"
+              href={link.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("edit.openLink")}
+            >
+              ↗
+            </a>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
 
-/** A list of single-line link inputs, each removable, plus a "+ Add link"
- * button to append another. */
+/** Multi-line notes attached to a person or family record. */
+function NotesEditor({
+  notes: initialNotes,
+  addOnMount,
+  addTrigger,
+  sectionLabel,
+  t,
+  onCommit,
+}: {
+  notes: string[];
+  addOnMount?: boolean;
+  addTrigger?: number;
+  sectionLabel?: string;
+  t: Translate;
+  onCommit: (notes: string[]) => void;
+}) {
+  const [notes, setNotes] = useState(() => addOnMount ? [...initialNotes, ""] : initialNotes);
+  const prevTrigger = useRef(addTrigger ?? 0);
+  useEffect(() => {
+    if ((addTrigger ?? 0) > prevTrigger.current) {
+      setNotes((prev) => [...prev, ""]);
+    }
+    prevTrigger.current = addTrigger ?? 0;
+  }, [addTrigger]);
+
+  function commitNotes(next: string[]) {
+    setNotes(next);
+    onCommit(next.map((n) => n.trim()).filter(Boolean));
+  }
+
+  return (
+    <div className="edit-notes">
+      {sectionLabel && (
+        <div className="edit-record-label-row">
+          <span className="edit-record-label">{sectionLabel}</span>
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addNoteTooltip")}
+            onClick={() => setNotes((prev) => [...prev, ""])}
+          >
+            + {t("edit.addNote")}
+          </button>
+        </div>
+      )}
+      {notes.map((note, i) => (
+        <div className="edit-note-row" key={i}>
+          <textarea
+            className="edit-input edit-note-input"
+            value={note}
+            placeholder={t("field.notes")}
+            rows={2}
+            onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? e.target.value : n)))}
+            onBlur={() => commitNotes(notes)}
+          />
+          <button
+            type="button"
+            className="edit-link-remove"
+            title={t("edit.removeNote")}
+            onClick={() => commitNotes(notes.filter((_, idx) => idx !== i))}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A list of single-line link inputs, each removable. When `sectionLabel` is
+ * provided it renders its own header row with the label and an add button. */
 function LinksEditor({
   links: initialLinks,
+  addOnMount,
+  sectionLabel,
   label,
   t,
   onCommit,
 }: {
   links: string[];
+  addOnMount?: boolean;
+  sectionLabel?: string;
   label: string;
   t: Translate;
   onCommit: (links: string[]) => void;
 }) {
-  const [links, setLinks] = useState(initialLinks);
+  const [links, setLinks] = useState(() => addOnMount ? [...initialLinks, ""] : initialLinks);
 
   function commitLinks(next: string[]) {
     setLinks(next);
@@ -657,29 +1087,52 @@ function LinksEditor({
 
   return (
     <div className="edit-links">
-      {links.map((link, i) => (
-        <div className="edit-link-row" key={i}>
-          <input
-            className="edit-input edit-link-input"
-            value={link}
-            placeholder={t("event.link", { event: label })}
-            title={t("event.link", { event: label })}
-            onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
-            onBlur={() => commitLinks(links)}
-          />
+      {sectionLabel && (
+        <div className="edit-record-label-row">
+          <span className="edit-record-label">{sectionLabel}</span>
           <button
             type="button"
-            className="edit-link-remove"
-            title={t("edit.removeLink")}
-            onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addLinkTooltip")}
+            onClick={() => setLinks((prev) => [...prev, ""])}
           >
-            ×
+            + {t("edit.addLink")}
           </button>
         </div>
+      )}
+      {links.map((link, i) => (
+        <div className="edit-link-row" key={i}>
+          <div className="edit-link-input-wrap">
+            <input
+              className="edit-input edit-link-input"
+              value={link}
+              placeholder={t("event.link", { event: label })}
+              title={t("event.link", { event: label })}
+              onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
+              onBlur={() => commitLinks(links)}
+            />
+            <button
+              type="button"
+              className="edit-link-remove"
+              title={t("edit.removeLink")}
+              onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
+            >
+              ×
+            </button>
+          </div>
+          {link.trim() && (
+            <a
+              className="edit-link-open"
+              href={link.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("edit.openLink")}
+            >
+              ↗
+            </a>
+          )}
+        </div>
       ))}
-      <button type="button" className="edit-link-add" onClick={() => setLinks((prev) => [...prev, ""])}>
-        + {t("edit.addLink")}
-      </button>
     </div>
   );
 }

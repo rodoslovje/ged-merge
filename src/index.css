@@ -422,7 +422,7 @@ button {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px 22px;
+  gap: 14px 22px;
 }
 
 .landing-bullets li {
@@ -1099,6 +1099,15 @@ button {
   font-size: 0.9em;
   flex: none;
 }
+.person-kinship {
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in oklch, var(--accent) 25%, transparent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex: none;
+}
 
 .candidate-main .person-label { gap: 2px 8px; }
 .candidate-main .person-name { font-weight: 600; }
@@ -1158,6 +1167,17 @@ button {
   width: 100%;
   font-size: 0.88rem;
 }
+.edit-family-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.edit-family-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 /* Separate multiple spouse families with a divider above each subsequent one. */
 .edit-family + .edit-family {
   border-top: 1px solid var(--border);
@@ -1175,7 +1195,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 /* Horizontal line linking a couple (parents) or a partner to their children. */
@@ -1206,12 +1226,17 @@ button {
 
 .edit-other-names {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  flex-direction: column;
+  gap: 4px;
   margin: -6px 0 12px;
   font-size: 0.85rem;
   color: var(--muted);
+}
+.edit-other-names-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .edit-name-chip {
@@ -1234,9 +1259,13 @@ button {
 }
 .edit-name-row:hover .edit-name-chip-add,
 .edit-other-names:hover .edit-name-chip-add,
+.edit-other-names-row:hover .edit-name-chip-add,
 .edit-name-chip-add:focus-visible { opacity: 1; }
+/* Action chips row — always visible */
+.edit-other-names-actions .edit-name-chip-add { opacity: 1; }
 .edit-name-chip-add:hover,
-.edit-name-chip-add:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
+.edit-name-chip-add:focus-visible,
+.edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); outline: none; }
 .edit-name-chip-editing {
   display: inline-flex;
   align-items: center;
@@ -1252,7 +1281,7 @@ button {
 
 .edit-event-head {
   display: grid;
-  grid-template-columns: 96px 150px 1fr 1fr;
+  grid-template-columns: 96px 150px 1fr 1fr auto;
   gap: 14px;
   padding: 0 0 8px;
   font-family: var(--font-mono);
@@ -1264,7 +1293,7 @@ button {
 }
 .edit-event {
   display: grid;
-  grid-template-columns: 96px 150px 1fr 1fr;
+  grid-template-columns: 96px 150px 1fr 1fr auto;
   gap: 14px;
   align-items: baseline;
   padding: 11px 0;
@@ -1307,6 +1336,20 @@ button {
 }
 .add-chip:hover,
 .add-chip:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
+.add-chip-select {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+}
+.add-chip-select-inner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
 
 /* Edit mode: inline-editable fields */
 .edit-input {
@@ -1347,7 +1390,10 @@ button {
 .edit-sex-row {
   position: absolute;
   top: 16px;
-  right: 22px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .edit-field-label {
   color: var(--muted);
@@ -1367,13 +1413,39 @@ button {
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
 
-.edit-links {
+.edit-event-link-row {
   grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.edit-event-link-row .edit-link-input { flex: 1; min-width: 0; }
+.edit-event-link-row .edit-link-remove { opacity: 1; }
+.edit-links {
+  font-size: 0.88rem;
 }
 .edit-link-row {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+.edit-link-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.edit-link-input-wrap .edit-link-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 28px;
+}
+.edit-link-input-wrap .edit-link-remove {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .edit-link-input {
   flex: 1;
@@ -1395,13 +1467,35 @@ button {
 }
 .edit-link-row:hover .edit-link-remove,
 .edit-link-row:focus-within .edit-link-remove,
+.edit-note-row:hover .edit-link-remove,
+.edit-note-row:focus-within .edit-link-remove,
 .edit-link-remove:focus-visible { opacity: 1; }
+/* In record sections (links / notes panels) buttons are always visible */
+.edit-record-section .edit-link-remove { opacity: 1; }
+.edit-record-section .edit-name-chip-add { opacity: 1; }
 .edit-link-remove:hover,
 .edit-link-remove:focus-visible {
   border-color: var(--accent);
   color: var(--text);
   outline: none;
 }
+.edit-link-open {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.edit-link-row:hover .edit-link-open,
+.edit-link-row:focus-within .edit-link-open { opacity: 1; }
+.edit-link-open:hover { color: var(--accent); }
 .edit-link-add {
   align-self: flex-start;
   border: none;
@@ -1465,6 +1559,137 @@ button {
 .person-card-role {
   color: var(--muted);
   font-size: 0.8rem;
+}
+.person-card-row {
+  position: relative;
+  display: inline-block;
+}
+.person-card-detach {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.person-card-wrap:hover .person-card-detach { opacity: 1; }
+.person-card-detach:hover {
+  color: var(--danger, #c0392b);
+  background: color-mix(in oklch, var(--danger, #c0392b) 12%, transparent);
+  opacity: 1;
+}
+
+/* Clearable input wrapper — positions the × button at the right edge */
+.clearable-wrap {
+  position: relative;
+  display: flex;
+}
+.clearable-wrap .edit-input {
+  flex: 1;
+  min-width: 0;
+}
+.input-clear {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.65rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.clearable-wrap:hover .input-clear,
+.clearable-wrap:focus-within .input-clear { opacity: 0.7; }
+.input-clear:hover { opacity: 1 !important; color: var(--text); background: var(--border); }
+
+/* Record-level links and notes sections (individual and family) */
+.edit-record-section {
+  margin-top: 12px;
+}
+.edit-record-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.edit-record-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* Notes editor */
+.edit-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.edit-note-row {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+.edit-note-input {
+  flex: 1;
+  min-height: 3em;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.edit-note-input:focus { outline: none; border-color: var(--accent); }
+
+/* Delete person — trash icon button in the sex row */
+.edit-delete-btn {
+  margin-left: auto;
+  border: 1px solid var(--danger, #e74c3c);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--danger, #e74c3c);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: background 0.12s;
+}
+.edit-delete-btn:hover {
+  background: color-mix(in oklch, var(--danger, #e74c3c) 12%, transparent);
+}
+.edit-delete-btn:focus-visible {
+  outline: 2px solid var(--danger, #e74c3c);
+  outline-offset: 2px;
 }
 
 .chev { color: var(--muted); }

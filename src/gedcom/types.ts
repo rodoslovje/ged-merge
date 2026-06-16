@@ -173,6 +173,8 @@ export interface Family {
   events: GedEvent[]; // MARR, DIV, …
   /** URLs attached directly to the family record (not to a specific event). */
   links?: string[];
+  /** Free-text NOTE records attached directly to the family. */
+  notes?: string[];
   raw: GedNode;
 }
 

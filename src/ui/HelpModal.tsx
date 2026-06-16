@@ -24,6 +24,22 @@ export function HelpModal({ isOpen, onClose }: Props) {
           <h4>{t("help.concepts.scoring.title")}</h4>
           <p dangerouslySetInnerHTML={{ __html: t("help.concepts.scoring.text") }} />
 
+          <h3>{t("help.edit.title")}</h3>
+          <h4>{t("help.edit.overview.title")}</h4>
+          <p dangerouslySetInnerHTML={{ __html: t("help.edit.overview.text") }} />
+          <h4>{t("help.edit.names.title")}</h4>
+          <p dangerouslySetInnerHTML={{ __html: t("help.edit.names.text") }} />
+          <h4>{t("help.edit.events.title")}</h4>
+          <div dangerouslySetInnerHTML={{ __html: t("help.edit.events.text") }} />
+          <h4>{t("help.edit.family.title")}</h4>
+          <div dangerouslySetInnerHTML={{ __html: t("help.edit.family.text") }} />
+          <h4>{t("help.edit.notes.title")}</h4>
+          <p dangerouslySetInnerHTML={{ __html: t("help.edit.notes.text") }} />
+          <h4>{t("help.edit.delete.title")}</h4>
+          <p dangerouslySetInnerHTML={{ __html: t("help.edit.delete.text") }} />
+          <h4>{t("help.edit.save.title")}</h4>
+          <p dangerouslySetInnerHTML={{ __html: t("help.edit.save.text") }} />
+
           <h3>{t("help.features.title")}</h3>
           <h4>{t("help.features.review.title")}</h4>
           <p dangerouslySetInnerHTML={{ __html: t("help.features.review.text") }} />

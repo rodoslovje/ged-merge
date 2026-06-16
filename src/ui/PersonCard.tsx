@@ -12,10 +12,14 @@ interface Props {
   onSelect?: (id: string) => void;
   /** Called when the empty placeholder is clicked, to add a new relative. */
   onAdd?: () => void;
+  /** Called to detach this relative; shows a × button on card hover. */
+  onRemove?: () => void;
+  /** Tooltip for the × detach button. */
+  removeTooltip?: string;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -37,16 +41,23 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
   return (
     <div className="person-card-wrap">
       {roleLabel && <div className="person-card-role">{roleLabel}</div>}
-      <button
-        className={`person-card ${sexClass(individual.sex)}`}
-        title={datesTooltipOf(individual)}
-        onClick={() => onSelect?.(individual.id)}
-      >
-        <div className={`person-label ${sexClass(individual.sex)}`}>
-          <span className="person-name">{displayName(primaryName(individual))}</span>
-          {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-        </div>
-      </button>
+      <div className="person-card-row">
+        <button
+          className={`person-card ${sexClass(individual.sex)}`}
+          title={datesTooltipOf(individual)}
+          onClick={() => onSelect?.(individual.id)}
+        >
+          <div className={`person-label ${sexClass(individual.sex)}`}>
+            <span className="person-name">{displayName(primaryName(individual))}</span>
+            {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+          </div>
+        </button>
+        {onRemove && (
+          <button type="button" className="person-card-detach" title={removeTooltip} onClick={onRemove}>
+            ×
+          </button>
+        )}
+      </div>
     </div>
   );
 }

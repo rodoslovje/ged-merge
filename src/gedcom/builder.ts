@@ -14,8 +14,12 @@ import type {
 /** Event-bearing tags we lift into the typed `events` array. */
 const INDI_EVENT_TAGS = new Set([
   "BIRT", "DEAT", "BAPM", "CHR", "BURI", "CREM", "MARR", "RESI",
+  "CONF", "ADOP", "FCOM",
+  "OCCU", "EDUC", "RETI",
+  "EMIG", "IMMI", "NATU", "CENS",
+  "WILL", "PROB",
 ]);
-const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "MARB", "MARL"]);
+const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "SEPA", "MARB", "MARL"]);
 
 /** Build the typed domain `Dataset` from a parsed line tree. */
 export function buildDataset(parsed: ParseResult): Dataset {
@@ -90,6 +94,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
   const children: string[] = [];
   const events: GedEvent[] = [];
   const links: string[] = [];
+  const notes: string[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
 
@@ -104,6 +109,9 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
       case "CHIL":
         if (child.value) children.push(child.value.trim());
         break;
+      case "NOTE":
+        if (child.value) notes.push(child.value);
+        break;
       default:
         if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
         else collectLinks(child, media, links);
@@ -114,6 +122,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
   if (husband) fam.husband = husband;
   if (wife) fam.wife = wife;
   if (links.length) fam.links = dedupe(links);
+  if (notes.length) fam.notes = notes;
   return fam;
 }
 
