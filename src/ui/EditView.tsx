@@ -46,6 +46,8 @@ interface Props {
   onDirty: (type: "individual" | "family", id: string) => void;
   /** Open the edit tree rooted on the currently selected person. */
   onShowTree: (id: string) => void;
+  /** Navigate to this person when it changes (used by the save dialog person links). */
+  navigateToId?: string;
 }
 
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded. */
@@ -82,7 +84,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -105,6 +107,11 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     setNotesAdded(false);
     setSelectedId(id);
   }
+
+  useEffect(() => {
+    if (navigateToId) navigate(navigateToId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateToId]);
 
   function goBack() {
     setHistory((h) => {

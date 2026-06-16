@@ -1883,6 +1883,7 @@ button {
   padding: 0;
   margin: 0;
   font: inherit;
+  font-weight: 600;
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -2320,6 +2321,15 @@ button {
 
 .preview-deferred { margin: 0; padding-left: 18px; }
 .preview-deferred li { margin: 4px 0; color: var(--muted); font-size: 0.9rem; }
+.preview-item { display: flex; align-items: center; gap: 6px; }
+.preview-item-remove {
+  appearance: none; background: none; border: none; padding: 0; margin: 0;
+  width: 18px; height: 18px; border-radius: 50%; font: inherit; font-size: 0.9rem;
+  line-height: 1; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity 0.12s;
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.preview-item:hover .preview-item-remove { opacity: 1; }
+.preview-item-remove:hover { color: var(--danger, #c0392b); background: color-mix(in oklch, var(--danger, #c0392b) 12%, transparent); opacity: 1; }
 
 .preview-card {
   background: var(--panel);

@@ -1,10 +1,22 @@
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, Individual } from "../gedcom/types";
 import { displayName, primaryName } from "../match/relatives";
+import { lifespanOf } from "../gedcom/lifespan";
+import { sexClass } from "./sex";
 
 function personLabel(p: Parameters<typeof primaryName>[0]): string {
   const n = primaryName(p);
   return n ? displayName(n) : "—";
+}
+
+function PersonInline({ p }: { p: Individual }) {
+  const lifespan = lifespanOf(p);
+  return (
+    <>
+      <span className={`preview-rec ${sexClass(p.sex)}`}>{personLabel(p)}</span>
+      {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+    </>
+  );
 }
 
 interface Props {
@@ -14,9 +26,12 @@ interface Props {
   fileName: string;
   onConfirm: () => void;
   onClose: () => void;
+  onNavigate?: (id: string) => void;
+  onRemovePerson?: (id: string) => void;
+  onRemoveFamily?: (id: string) => void;
 }
 
-export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileName, onConfirm, onClose }: Props) {
+export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileName, onConfirm, onClose, onNavigate, onRemovePerson, onRemoveFamily }: Props) {
   const { t } = useTranslation();
 
   const persons = [...changedPersonIds]
@@ -53,7 +68,18 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
               <ul className="preview-deferred">
                 {persons.map((p) => (
                   <li key={p.id}>
-                    <span className="preview-rec gm-file master">{personLabel(p)}</span>
+                    <div className="preview-item">
+                      {onNavigate ? (
+                        <button className="person-link" onClick={() => { onNavigate(p.id); onClose(); }}>
+                          <PersonInline p={p} />
+                        </button>
+                      ) : (
+                        <PersonInline p={p} />
+                      )}
+                      {onRemovePerson && (
+                        <button className="preview-item-remove" title="Remove from save" onClick={() => onRemovePerson(p.id)}>×</button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -67,10 +93,19 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
                 {families.map((f) => {
                   const husband = f.husband ? dataset.individuals.get(f.husband) : undefined;
                   const wife = f.wife ? dataset.individuals.get(f.wife) : undefined;
-                  const parts = [husband && personLabel(husband), wife && personLabel(wife)].filter(Boolean);
                   return (
                     <li key={f.id}>
-                      <span className="preview-rec">{parts.length ? parts.join(" & ") : f.id}</span>
+                      <div className="preview-item">
+                        <span>
+                          {husband && <PersonInline p={husband} />}
+                          {husband && wife && <span className="muted"> &amp; </span>}
+                          {wife && <PersonInline p={wife} />}
+                          {!husband && !wife && <span className="preview-rec">{f.id}</span>}
+                        </span>
+                        {onRemoveFamily && (
+                          <button className="preview-item-remove" title="Remove from save" onClick={() => onRemoveFamily(f.id)}>×</button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}

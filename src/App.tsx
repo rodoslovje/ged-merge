@@ -446,6 +446,7 @@ export function App() {
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
   const [editPreviewOpen, setEditPreviewOpen] = useState(false);
+  const [editNavigateId, setEditNavigateId] = useState<string | undefined>(undefined);
 
   const confirmedCount = useMemo(() => {
     let n = 0;
@@ -584,14 +585,6 @@ export function App() {
             </button>
           </div>
           <div className="lang-switcher">
-            <button
-              className="nav-btn icon-only"
-              style={{ marginRight: "8px" }}
-              onClick={() => setShowHelp(true)}
-              title={t("help.button")}
-            >
-              ?
-            </button>
             <button
               className="nav-btn icon-only"
               style={{ marginRight: "8px" }}
@@ -760,6 +753,7 @@ export function App() {
             changeHome={changeHome}
             onDirty={handleEditDirty}
             onShowTree={(id) => setEditTreeId(id)}
+            navigateToId={editNavigateId}
           />
         )
       )}
@@ -771,6 +765,9 @@ export function App() {
           fileName={master.file.fileName}
           onConfirm={saveEdit}
           onClose={() => setEditPreviewOpen(false)}
+          onNavigate={(id) => { setEditPreviewOpen(false); setEditNavigateId(id); }}
+          onRemovePerson={(id) => setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; })}
+          onRemoveFamily={(id) => setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; })}
         />
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
@@ -779,6 +776,13 @@ export function App() {
         <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
           © 2026 Luka Renko
         </a>
+        <span className="app-footer-sep">·</span>
+        <button
+          className="app-footer-link"
+          onClick={() => setShowHelp(true)}
+        >
+          {t("help.title")}
+        </button>
         <span className="app-footer-sep">·</span>
         <button
           className="app-footer-link"
