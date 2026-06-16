@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
-import { findEvent, fullDatesLabel, lifespanLabel, displayName } from "../match/relatives";
+import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { formatLifespan, isDeceased } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -26,6 +26,8 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "given") return t("field.given");
   if (key === "surname") return t("field.surname");
   if (key === "sex") return t("field.sex");
+  if (key === "nickname") return t("field.nickname");
+  if (key === "additionalNames") return t("field.additionalNames");
   if (key === "father") return t("field.father");
   if (key === "mother") return t("field.mother");
   if (key === "partners" || key.endsWith(".partner")) return t("field.partners");
@@ -33,13 +35,15 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "husband") return t("field.husband");
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.links");
-  if (key === "notes") return t("field.notes");
+  if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
 
   let tag = key;
   let sub = "";
-  if (key.includes(".MARR.")) {
-    tag = "MARR";
-    sub = key.split(".MARR.")[1];
+  // Handles family event keys: fam.<id>.MARR.date, fam.<id>.ENGA.place, etc.
+  const famEventMatch = /\.([A-Z]+)\.([a-z]+)$/.exec(key);
+  if (famEventMatch) {
+    tag = famEventMatch[1];
+    sub = famEventMatch[2];
   } else {
     const parts = key.split(".");
     if (parts.length === 2) {
@@ -79,6 +83,14 @@ export function individualFieldRows(
   pushRow(rows, "given", formatFieldLabel(t, "given"), mn?.given, cn?.given);
   pushRow(rows, "surname", formatFieldLabel(t, "surname"), mn?.surname, cn?.surname);
   pushRow(rows, "sex", formatFieldLabel(t, "sex"), sexText(t, master?.sex), sexText(t, compare?.sex));
+  pushRow(rows, "nickname", formatFieldLabel(t, "nickname"), mn?.nickname, cn?.nickname);
+  const mExtraNames = master?.names.slice(1) ?? [];
+  const cExtraNames = compare?.names.slice(1) ?? [];
+  if (mExtraNames.length || cExtraNames.length) {
+    const mText = mExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
+    const cText = cExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
+    pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
+  }
 
   for (const tag of orderedEventTags(master, compare)) {
     const me = master?.events.find((e) => e.tag === tag);
@@ -132,9 +144,22 @@ export function individualFieldRows(
       const mMar = mFam?.events.find((e) => e.tag === "MARR");
       const cMar = cFam?.events.find((e) => e.tag === "MARR");
 
-      pushRow(rows, `${famKey}.MARR.date`, formatFieldLabel(t, "MARR.date"), mMar?.date?.raw, cMar?.date?.raw);
-      pushRow(rows, `${famKey}.MARR.place`, formatFieldLabel(t, "MARR.place"), mMar?.place?.raw, cMar?.place?.raw);
-      pushRow(rows, `${famKey}.MARR.addr`, formatFieldLabel(t, "MARR.addr"), mMar?.address?.raw, cMar?.address?.raw);
+      pushRow(rows, `${famKey}.MARR.date`, formatFieldLabel(t, `${famKey}.MARR.date`), mMar?.date?.raw, cMar?.date?.raw);
+      pushRow(rows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, cMar?.place?.raw);
+      pushRow(rows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, cMar?.address?.raw);
+
+      for (const etag of ["ENGA", "SEPA", "DIV"] as const) {
+        const mEv = mFam?.events.find((e) => e.tag === etag);
+        const cEv = cFam?.events.find((e) => e.tag === etag);
+        if (!mEv && !cEv) continue;
+        pushRow(rows, `${famKey}.${etag}.date`, formatFieldLabel(t, `${famKey}.${etag}.date`), mEv?.date?.raw, cEv?.date?.raw);
+        pushRow(rows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, cEv?.place?.raw);
+        pushRow(rows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, cEv?.address?.raw);
+      }
+
+      const mFamNotes = mFam?.notes?.join("\n");
+      const cFamNotes = cFam?.notes?.join("\n");
+      pushRow(rows, `${famKey}.notes`, formatFieldLabel(t, `${famKey}.notes`), mFamNotes, cFamNotes);
 
       const mChildren = mFam ? mFam.children.map(id => masterDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
       const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
@@ -525,6 +550,11 @@ export function matriculaLangCode(url: string): string | undefined {
 /** Rewrite a Matricula Online URL to use the given language code. */
 export function withMatriculaLang(url: string, lang: string): string {
   return url.replace(MATRICULA_LANG_RE, `$1/${lang}/`);
+}
+
+function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
+  const name = displayName(n);
+  return n.type ? `${name} (${nameTypeLabel(n.type, t)})` : name;
 }
 
 function stateOf(key: string, master: string, incoming: string): FieldState {

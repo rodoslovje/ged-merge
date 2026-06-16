@@ -185,6 +185,8 @@ export const en = {
   "field.husband": "Husband",
   "field.wife": "Wife",
   "field.familyWith": "Family with {{name}}",
+  "field.nickname": "Nickname",
+  "field.additionalNames": "Other names",
   "field.links": "Links",
   "field.notes": "Notes",
   "field.nameType": "Name type",

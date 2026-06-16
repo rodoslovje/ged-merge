@@ -185,6 +185,8 @@ export const sl = {
   "field.husband": "Mož",
   "field.wife": "Žena",
   "field.familyWith": "Družina z: {{name}}",
+  "field.nickname": "Vzdevek",
+  "field.additionalNames": "Druga imena",
   "field.links": "Povezave",
   "field.notes": "Opombe",
   "field.nameType": "Vrsta imena",

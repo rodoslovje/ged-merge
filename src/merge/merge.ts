@@ -197,6 +197,10 @@ function applyRows(
       nameApplied = applied;
     } else if (row.key === "sex") {
       applied = setChild(target, "SEX", incomingRecord, choice);
+    } else if (row.key === "nickname") {
+      applied = applyNickname(target, incomingRecord, choice);
+    } else if (row.key === "additionalNames") {
+      applied = applyAdditionalNames(target, incomingRecord, choice);
     } else {
       const [tag, sub] = row.key.split(".");
       if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
@@ -370,6 +374,43 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
   } else {
     target.children[idx] = clone;
   }
+  return true;
+}
+
+/** Set the NICK sub-node on the primary NAME record from the incoming side. */
+function applyNickname(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
+  const incName = incomingRecord.children.find((c) => c.tag === "NAME");
+  if (!incName) return false;
+  const incNick = incName.children.find((c) => c.tag === "NICK");
+  if (!incNick) return false;
+  let name = target.children.find((c) => c.tag === "NAME");
+  if (!name) {
+    name = newNode("NAME");
+    insertAt(target, 0, name);
+  }
+  return setChild(name, "NICK", incName, choice, incNick);
+}
+
+/** Copy the incoming record's additional NAME nodes (everything after the first). */
+function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldChoice): boolean {
+  let firstSeen = false;
+  const incExtra: GedNode[] = [];
+  for (const c of incoming.children) {
+    if (c.tag !== "NAME") continue;
+    if (!firstSeen) { firstSeen = true; continue; }
+    incExtra.push(c);
+  }
+  if (incExtra.length === 0) return false;
+  if (choice !== "both") {
+    // Strip target's extra NAMEs, keeping only the primary one.
+    let primaryKept = false;
+    target.children = target.children.filter((c) => {
+      if (c.tag !== "NAME") return true;
+      if (!primaryKept) { primaryKept = true; return true; }
+      return false;
+    });
+  }
+  for (const n of incExtra) target.children.push(cloneNode(n));
   return true;
 }
 
@@ -806,6 +847,57 @@ function applyIndividualFamilies(
           field: ctx.t(`merge.field.marriage.${sub}`),
           from: "",
           to: incFam.events.find((e) => e.tag === "MARR")?.[sub === "addr" ? "address" : sub]?.raw ?? "",
+          action: choice,
+        });
+        ctx.touched.add(famNode.xref!);
+      }
+    }
+
+    // Engagement, Separation, Divorce — same pattern as MARR.
+    for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
+      const evName = ctx.t(`event.${evTag}`);
+      const reshapeEv = reshapesLayout(ctx.placeFmt.layout);
+      let evReshaped = false;
+      for (const sub of ["date", "place", "addr"] as const) {
+        const key = `${famKey}.${evTag}.${sub}`;
+        if (!wantsIncoming(rows, fields, key)) continue;
+        const choice = fields[key] ?? "incoming";
+        let applied: boolean;
+        if ((sub === "place" || sub === "addr") && reshapeEv) {
+          if (evReshaped) continue;
+          applied = applyReformattedPlace(famNode, incFam.raw, evTag, choice, ctx.placeFmt, ctx.report);
+          evReshaped = true;
+        } else {
+          applied = applyEventSub(famNode, incFam.raw, evTag, SUB_TAG[sub], choice);
+        }
+        if (applied) {
+          ctx.report.changes.push({
+            recordId: famNode.xref!,
+            field: ctx.t(`event.${sub}`, { event: evName }),
+            from: "",
+            to: incFam.events.find((e) => e.tag === evTag)?.[sub === "addr" ? "address" : sub]?.raw ?? "",
+            action: choice,
+          });
+          ctx.touched.add(famNode.xref!);
+        }
+      }
+    }
+
+    // Family notes.
+    const famNotesKey = `${famKey}.notes`;
+    if (wantsIncoming(rows, fields, famNotesKey)) {
+      const choice = fields[famNotesKey] ?? "incoming";
+      const incNotes = incFam.raw.children.filter((c) => c.tag === "NOTE");
+      if (incNotes.length) {
+        if (choice !== "both") {
+          famNode.children = famNode.children.filter((c) => c.tag !== "NOTE");
+        }
+        for (const n of incNotes) famNode.children.push(cloneNode(n));
+        ctx.report.changes.push({
+          recordId: famNode.xref!,
+          field: ctx.t("field.notes"),
+          from: "",
+          to: incFam.notes?.join("\n") ?? "",
           action: choice,
         });
         ctx.touched.add(famNode.xref!);
