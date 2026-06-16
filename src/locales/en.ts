@@ -207,5 +207,13 @@ export const en = {
   "help.features.decisions.title": "Marking for Merge",
   "help.features.decisions.text": "Use the decision buttons or keyboard shortcuts to categorize each match as <strong>Confirmed (C)</strong>, <strong>Rejected (R)</strong>, or <strong>Deferred (D)</strong>.",
   "help.merge.title": "How Merging Works",
-  "help.merge.text": "When you click <strong>Export merged GEDCOM</strong>, the app takes your Master file as the base. It then updates confirmed matches with your field-level choices, and seamlessly inserts any new individuals or families from the Incoming file that are connected to those confirmed matches.<br/><br/>Your original files remain completely untouched; a new merged file is downloaded to your computer securely."
+  "help.merge.text": "When you click <strong>Export merged GEDCOM</strong>, the app takes your Master file as the base. It then updates confirmed matches with your field-level choices, and seamlessly inserts any new individuals or families from the Incoming file that are connected to those confirmed matches.<br/><br/>Your original files remain completely untouched; a new merged file is downloaded to your computer securely.",
+  "intro.bullet1": "Edit, compare and merge GEDCOM files entirely in your browser",
+  "intro.bullet2": "Your data never leaves your device — processed 100% locally",
+  "intro.bullet3": "Review matches side-by-side and export a clean merged GEDCOM",
+  "intro.masterHint": "Your primary family tree — the file you own and maintain. Load it first to get started.",
+  "merge.intro.bullet1": "Load an incoming GEDCOM or CSV to compare against your master",
+  "merge.intro.bullet2": "Individuals are automatically matched and ranked by similarity score",
+  "merge.intro.bullet3": "Confirm matches field-by-field, then export a clean merged GEDCOM",
+  "merge.intro.incomingHint": "Accepts .ged / .gedcom files or a matches CSV from indeks.rodoslovje.si"
 };

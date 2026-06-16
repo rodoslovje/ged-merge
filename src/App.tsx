@@ -11,7 +11,6 @@ import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from ".
 import { downloadText } from "./ui/download";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
-import { Section } from "./ui/Section";
 import { HelpModal } from "./ui/HelpModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
@@ -106,14 +105,17 @@ export function App() {
   );
   const compareRef = useRef<HTMLDivElement>(null);
 
-  // Collapsible sections. (Compare is always shown — it's the main interface.)
-  const [openMasterLoad, setOpenMasterLoad] = useState(true);
-  const [openLoad, setOpenLoad] = useState(true);
   const [openMatches, setOpenMatches] = useState(false);
 
-  // Merge / Edit mode, persisted like the theme.
+  // File-info panel: forced open when Merge has no matches yet; otherwise toggleable.
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+
+  // Merge / Edit mode; defaults to "edit" on first use.
   const [mode, setMode] = useState<Mode>(
-    () => (localStorage.getItem(MODE_KEY) === "edit" ? "edit" : "merge"),
+    () => {
+      const saved = localStorage.getItem(MODE_KEY);
+      return saved === "merge" || saved === "edit" ? saved : "edit";
+    },
   );
   useEffect(() => {
     try {
@@ -216,10 +218,9 @@ export function App() {
       if (msg.type === "matched") {
         setMatches(msg.result);
         setMatching(false);
-        // Land on the first match and reveal the compare + matches sections.
         setSelectedIndex(0);
-        setOpenLoad(false);
         setOpenMatches(true);
+        setShowInfoPanel(false);
         return;
       }
       const setter = msg.role === "master" ? setMaster : setCompare;
@@ -229,7 +230,6 @@ export function App() {
         if (msg.placeLayout) file.placeLayout = msg.placeLayout;
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         setter({ status: "loaded", file });
-        if (msg.role === "master") setOpenMasterLoad(false);
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });
       }
@@ -253,8 +253,6 @@ export function App() {
     setFocusHome(false);
     autoHomeRef.current = false; // allow the default home person for the new file
     setOpenMatches(false);
-    setOpenLoad(true);
-    if (role === "master") setOpenMasterLoad(true);
     const buffer = await file.arrayBuffer();
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     workerRef.current?.postMessage(
@@ -446,9 +444,16 @@ export function App() {
     );
   }
 
-  const masterSubtitle = master.status === "loaded" ? (
-    <span className="gm-file master gm-data">{master.file.fileName}</span>
-  ) : undefined;
+  // Panel is forced open whenever Merge mode has no matches yet; otherwise
+  // follows the user's showInfoPanel toggle.
+  const infoPanelOpen = showInfoPanel || (mode === "merge" && !matches);
+  const canClosePanel = !(mode === "merge" && !matches);
+  // Show the incoming column in the panel when in Merge mode or a file was loaded.
+  const showCompareInPanel = mode === "merge" || compare.status !== "empty";
+
+  function toggleInfoPanel() {
+    if (canClosePanel) setShowInfoPanel((p) => !p);
+  }
 
   return (
     <div className="app">
@@ -461,25 +466,27 @@ export function App() {
       <header className="app-head">
         <div className="app-head-top">
           <div className="app-head-brand">
-            <h1><Wordmark /></h1>
-            <p className="subtitle">{t("app.subtitle")}</p>
+            <h1
+              onClick={master.status === "loaded" ? toggleInfoPanel : undefined}
+              className={master.status === "loaded" ? "brand-clickable" : undefined}
+            >
+              <Wordmark />
+            </h1>
           </div>
-          {master.status === "loaded" && (
-            <div className="mode-tabs">
-              <button
-                className={`nav-btn ${mode === "merge" ? "active" : ""}`}
-                onClick={() => setMode("merge")}
-              >
-                {t("mode.merge")}
-              </button>
-              <button
-                className={`nav-btn ${mode === "edit" ? "active" : ""}`}
-                onClick={() => setMode("edit")}
-              >
-                {t("mode.edit")}
-              </button>
-            </div>
-          )}
+          <div className="mode-tabs">
+            <button
+              className={`nav-btn ${mode === "edit" ? "active" : ""}`}
+              onClick={() => setMode("edit")}
+            >
+              {t("mode.edit")}
+            </button>
+            <button
+              className={`nav-btn ${mode === "merge" ? "active" : ""}`}
+              onClick={() => setMode("merge")}
+            >
+              {t("mode.merge")}
+            </button>
+          </div>
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
@@ -507,37 +514,93 @@ export function App() {
             </div>
           </div>
         </div>
+        {(master.status === "loaded" || compare.status === "loaded") && (
+          <div className="app-head-files">
+            {master.status === "loaded" && (
+              <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={t("load.master")}>
+                {master.file.fileName}
+              </button>
+            )}
+            {compare.status === "loaded" && (
+              <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={t("load.incoming")}>
+                {compare.file.fileName}
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
-      <Section
-        title={t("section.loadMaster")}
-        subtitle={masterSubtitle}
-        open={openMasterLoad}
-        onToggle={() => setOpenMasterLoad((o) => !o)}
-      >
-        <div className="loaders loaders-single">
-          <GedcomLoader
-            title={t("load.master")}
-            state={master}
-            onLoad={(f) => loadFile("master", f)}
-            accent="master"
-            highlight={master.status === "empty"}
-            tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
-          />
+      {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
+      {infoPanelOpen && master.status === "loaded" && (
+        <div className="info-panel">
+          {canClosePanel && (
+            <div className="info-panel-head">
+              <button
+                className="nav-btn icon-only"
+                onClick={() => setShowInfoPanel(false)}
+                title={t("help.close")}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <div className={showCompareInPanel ? "info-panel-cols" : "info-panel-single"}>
+            <GedcomLoader
+              title={t("load.master")}
+              state={master}
+              onLoad={(f) => loadFile("master", f)}
+              accent="master"
+            />
+            {showCompareInPanel && (
+              <GedcomLoader
+                title={t("load.incoming")}
+                state={compare}
+                onLoad={(f) => loadFile("compare", f)}
+                accent="incoming"
+                highlight={compare.status === "empty"}
+                tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
+                description={t("merge.intro.incomingHint")}
+              />
+            )}
+          </div>
+          {matching && (
+            <div className="matching" role="status" aria-live="polite" style={{ marginTop: "12px" }}>
+              <span className="spinner" aria-hidden="true" />
+              {t("matches.calculating")}
+            </div>
+          )}
         </div>
-        <p className="load-privacy">{t("load.privacy")}</p>
-      </Section>
+      )}
+
+      {/* Master landing — shown before any master file is loaded */}
+      {master.status !== "loaded" && (
+        <div className="landing">
+          <ul className="landing-bullets">
+            <li>{t("intro.bullet1")}</li>
+            <li>{t("intro.bullet2")}</li>
+            <li>{t("intro.bullet3")}</li>
+          </ul>
+          <div className="landing-master">
+            <GedcomLoader
+              title={t("load.master")}
+              state={master}
+              onLoad={(f) => loadFile("master", f)}
+              accent="master"
+              highlight={master.status === "empty"}
+              tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
+              description={t("intro.masterHint")}
+            />
+          </div>
+        </div>
+      )}
 
       {master.status === "loaded" && masterDataset && (
         mode === "merge" ? (
           <MergeView
             compare={compare}
             onLoadCompare={(f) => loadFile("compare", f)}
-            openIncoming={openLoad}
-            onToggleIncoming={() => setOpenLoad((o) => !o)}
             onOpenPreview={openPreview}
             matches={matches}
-            matching={matching}
             sort={sort}
             onToggleSort={toggleSort}
             filters={filters}

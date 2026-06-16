@@ -46,9 +46,36 @@ button {
   align-items: center;
   gap: 16px;
 }
-.subtitle {
-  color: var(--muted);
-  margin: 0;
+.brand-clickable {
+  cursor: pointer;
+}
+.brand-clickable:hover {
+  opacity: 0.8;
+}
+
+/* Filename buttons in the header — reset button styles, then colour via .gm-file */
+.header-file-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.header-file-btn:hover {
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+/* Second header row: loaded filenames, one after the other */
+.app-head-files {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
 }
 
 .app-head-top {
@@ -342,6 +369,101 @@ button {
   text-align: center;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+/* --- landing (before master file is loaded) --- */
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 560px;
+}
+
+.landing-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.landing-bullets li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.landing-bullets li::before {
+  content: "✓";
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.landing-master {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.loader-desc {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+/* Compact strip shown above the split layout once matches are ready */
+.merge-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+/* --- file info panel (below header) --- */
+.info-panel {
+  flex: 0 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.info-panel-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+/* Two-column layout: Master on the left, Incoming on the right */
+.info-panel-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+/* Divider between the two loaders (same as loaders > .loader + .loader) */
+.info-panel-cols > .loader + .loader {
+  border-left: 1px solid var(--border);
+  padding-left: 24px;
+  margin-left: 24px;
+}
+
+/* Single-column layout (Edit mode — master only) */
+.info-panel-single {
+  max-width: 480px;
 }
 
 .parsing-status {
@@ -1895,11 +2017,7 @@ button {
     margin-bottom: 12px;
   }
   .app-head-brand {
-    flex-wrap: wrap;
-    gap: 4px 16px;
-  }
-  .app-head-brand .subtitle {
-    flex-basis: 100%;
+    gap: 12px;
   }
   .section {
     border-left: none;

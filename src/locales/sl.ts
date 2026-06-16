@@ -207,5 +207,13 @@ export const sl = {
   "help.features.decisions.title": "Označevanje za združevanje",
   "help.features.decisions.text": "Uporabite gumbe za odločitev ali bližnjice na tipkovnici za kategorizacijo vsakega ujemanja kot <strong>Potrjeno (P)</strong>, <strong>Zavrnjeno (Z)</strong> ali <strong>Kasneje (K)</strong>.",
   "help.merge.title": "Kako poteka združevanje",
-  "help.merge.text": "Ko kliknete <strong>Izvozi združeni GEDCOM</strong>, aplikacija vzame vašo glavno datoteko kot osnovo. Nato posodobi potrjena ujemanja z vašimi izbirami polj in neopazno vstavi vse nove osebe ali družine iz vhodne datoteke, ki so povezane s temi potrjenimi ujemanji.<br/><br/>Vaše izvirne datoteke ostanejo popolnoma nedotaknjene; na vaš računalnik se varno prenese nova združena datoteka."
+  "help.merge.text": "Ko kliknete <strong>Izvozi združeni GEDCOM</strong>, aplikacija vzame vašo glavno datoteko kot osnovo. Nato posodobi potrjena ujemanja z vašimi izbirami polj in neopazno vstavi vse nove osebe ali družine iz vhodne datoteke, ki so povezane s temi potrjenimi ujemanji.<br/><br/>Vaše izvirne datoteke ostanejo popolnoma nedotaknjene; na vaš računalnik se varno prenese nova združena datoteka.",
+  "intro.bullet1": "Urejajte, primerjajte in združujte GEDCOM datoteke v brskalniku",
+  "intro.bullet2": "Vaši podatki nikoli ne zapustijo naprave — vse se obdela lokalno",
+  "intro.bullet3": "Preglejte ujemanja vzporedno in izvozite čisto združeno datoteko",
+  "intro.masterHint": "Vaše osnovno družinsko drevo — datoteka, ki jo vzdržujete. Naložite jo najprej.",
+  "merge.intro.bullet1": "Naložite vhodni GEDCOM ali CSV za primerjavo z glavno datoteko",
+  "merge.intro.bullet2": "Osebe se samodejno ujamejo in razvrstijo po podobnosti",
+  "merge.intro.bullet3": "Potrdite ujemanja po poljih in izvozite čisto združeno datoteko",
+  "merge.intro.incomingHint": "Sprejema datoteke .ged / .gedcom ali CSV z ujemanji iz indeks.rodoslovje.si"
 };

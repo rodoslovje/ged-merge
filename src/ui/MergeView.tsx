@@ -6,7 +6,6 @@ import type { ChangeReport } from "../merge/merge";
 import type { MatchResult } from "../match/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import type { SlotState } from "../App";
-import { GedcomLoader } from "./GedcomLoader";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { MatchResults } from "./MatchResults";
 import { ComparePanel } from "./ComparePanel";
@@ -24,13 +23,10 @@ interface Props {
   // Incoming loader
   compare: SlotState;
   onLoadCompare: (file: File) => void;
-  openIncoming: boolean;
-  onToggleIncoming: () => void;
   onOpenPreview: () => void;
 
   // Matches section
   matches: MatchResult | null;
-  matching: boolean;
   sort: SortState[];
   onToggleSort: (key: SortKey) => void;
   filters: Filters;
@@ -71,11 +67,8 @@ interface Props {
 export function MergeView({
   compare,
   onLoadCompare,
-  openIncoming,
-  onToggleIncoming,
   onOpenPreview,
   matches,
-  matching,
   sort,
   onToggleSort,
   filters,
@@ -113,25 +106,7 @@ export function MergeView({
     return n;
   }, [decisions]);
 
-  const incomingSubtitle = compare.status === "loaded" ? (
-    <>
-      {confirmedCount > 0 && (
-        <div className="header-center" onClick={(e) => e.stopPropagation()}>
-          <button className="export-btn" onClick={onOpenPreview} title={t("export.tooltip")}>
-            {t("export.merged")} ({confirmedCount})
-          </button>
-        </div>
-      )}
-      <span className="gm-file incoming gm-data">{compare.file.fileName}</span>
-    </>
-  ) : undefined;
-
-  const matchesSubtitle = matching ? (
-    <div className="matches-tabs-header matching" role="status" aria-live="polite">
-      <span className="spinner" aria-hidden="true" />
-      {t("matches.calculating")}
-    </div>
-  ) : matches ? (
+  const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
       <span className="muted gm-data">
         {t("list.count", { visible: visible.length, total: matches.individuals.length })}
@@ -185,102 +160,81 @@ export function MergeView({
 
   return (
     <>
-      <Section
-        title={t("section.load")}
-        subtitle={incomingSubtitle}
-        open={openIncoming}
-        onToggle={onToggleIncoming}
-      >
-        <div className="loaders loaders-single">
-          <GedcomLoader
-            title={t("load.incoming")}
-            state={compare}
-            onLoad={onLoadCompare}
-            accent="incoming"
-            highlight={compare.status === "empty"}
-            tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
-          />
-        </div>
-        <p className="load-privacy">{t("load.privacy")}</p>
-      </Section>
-
-      <div className="main-split">
-        <div className="split-pane split-matches">
-          <Section
-            title={t("section.matches")}
-            subtitle={matchesSubtitle}
-            open={openMatches}
-            onToggle={() => setOpenMatches((o) => !o)}
-            disabled={!matches && !matching}
-          >
-            {matches ? (
-              <MatchResults
-                result={matches}
-                sort={sort}
-                onToggleSort={onToggleSort}
-                filters={filters}
-                onFilters={(f) => {
-                  setFilters(f);
-                  setSelectedIndex(0);
-                }}
-                list={visible}
-                selectedIndex={safeIndex}
-                onSelect={onSelect}
-                decisions={decisions}
-                showFilters={showFilters}
-                showRelation={!!homeId}
-                homeControl={
-                  masterDataset && (
-                    <HomePersonSelector
-                      individuals={masterDataset.individuals}
-                      homeId={homeId}
-                      onChange={changeHome}
-                      onClear={() => changeHome(undefined)}
-                      autoFocus={focusHome}
-                      onAutoFocused={() => setFocusHome(false)}
-                    />
-                  )
-                }
-              />
-            ) : !matching ? (
-              <p className="muted">{t("matches.empty")}</p>
-            ) : null}
-          </Section>
-        </div>
-
-        <div className="split-pane split-compare" ref={compareRef}>
-          {matches ? (
-            <div className="section open">
-              {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
-              <div className="section-body">
-                {current && masterDataset && compareDataset ? (
-                  <ComparePanel
-                    candidate={current}
-                    masterDs={masterDataset}
-                    compareDs={compareDataset}
-                    decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
-                    onChange={onUpdateDecision}
-                    onOpenTree={() => onOpenTree(current.masterId, current.compareId)}
-                    canNavigate={canNavigatePerson}
-                    onNavigate={onNavigatePerson}
-                  />
-                ) : (
-                  <p className="muted">{t("compare.empty")}</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="section">
-              <div className="section-head">
-                <button className="section-toggle" disabled>
-                  <span className="section-chev">▸</span>
-                  <span className="section-title">{t("section.compare")}</span>
-                </button>
-              </div>
+      {/* Matches + Compare: shown once matching is done */}
+      {matches && (
+        <>
+          {confirmedCount > 0 && (
+            <div className="merge-bar">
+              <button className="export-btn" onClick={onOpenPreview} title={t("export.tooltip")}>
+                {t("export.merged")} ({confirmedCount})
+              </button>
             </div>
           )}
-        </div>
-      </div>
+
+          <div className="main-split">
+            <div className="split-pane split-matches">
+              <Section
+                title={t("section.matches")}
+                subtitle={matchesSubtitle}
+                open={openMatches}
+                onToggle={() => setOpenMatches((o) => !o)}
+              >
+                <MatchResults
+                  result={matches}
+                  sort={sort}
+                  onToggleSort={onToggleSort}
+                  filters={filters}
+                  onFilters={(f) => {
+                    setFilters(f);
+                    setSelectedIndex(0);
+                  }}
+                  list={visible}
+                  selectedIndex={safeIndex}
+                  onSelect={onSelect}
+                  decisions={decisions}
+                  showFilters={showFilters}
+                  showRelation={!!homeId}
+                  homeControl={
+                    masterDataset && (
+                      <HomePersonSelector
+                        individuals={masterDataset.individuals}
+                        homeId={homeId}
+                        onChange={changeHome}
+                        onClear={() => changeHome(undefined)}
+                        autoFocus={focusHome}
+                        onAutoFocused={() => setFocusHome(false)}
+                      />
+                    )
+                  }
+                />
+              </Section>
+            </div>
+
+            <div className="split-pane split-compare" ref={compareRef}>
+              <div className="section open">
+                {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
+                <div className="section-body">
+                  {current && masterDataset && compareDataset ? (
+                    <ComparePanel
+                      candidate={current}
+                      masterDs={masterDataset}
+                      compareDs={compareDataset}
+                      decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
+                      onChange={onUpdateDecision}
+                      onOpenTree={() => onOpenTree(current.masterId, current.compareId)}
+                      canNavigate={canNavigatePerson}
+                      onNavigate={onNavigatePerson}
+                    />
+                  ) : (
+                    <p className="muted">{t("compare.empty")}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {preview && masterDataset && (
         <MergePreview
           report={preview.report}

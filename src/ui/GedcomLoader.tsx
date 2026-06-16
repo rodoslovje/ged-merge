@@ -11,9 +11,11 @@ interface Props {
   accent: "master" | "incoming";
   highlight?: boolean;
   tooltip?: string;
+  /** Short description shown below the title before any file is loaded. */
+  description?: string;
 }
 
-export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip }: Props) {
+export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip, description }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { t } = useTranslation();
@@ -46,6 +48,9 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip 
       <div className="loader-head">
         <h2>{title}</h2>
       </div>
+      {description && state.status === "empty" && (
+        <p className="loader-desc">{description}</p>
+      )}
 
       {state.status === "loading" && (
         <div className="summary">
