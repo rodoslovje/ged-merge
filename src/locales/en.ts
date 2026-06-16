@@ -178,6 +178,7 @@ export const en = {
   "field.given": "Given name",
   "field.surname": "Surname",
   "field.sex": "Sex",
+  "field.parents": "Parents",
   "field.father": "Father",
   "field.mother": "Mother",
   "field.partners": "Partner",

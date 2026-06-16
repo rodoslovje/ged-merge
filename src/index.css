@@ -1915,10 +1915,20 @@ button {
   font-weight: 600;
   color: var(--text);
   padding: 8px 16px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   text-align: center;
   font-size: 0.95rem;
+}
+.event-header-row {
+  background: transparent;
+}
+.event-header-cell {
+  font-weight: 500;
+  font-variant: small-caps;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 16px 3px;
+  text-align: center;
 }
 
 .comp-key { width: 110px; color: var(--muted); }

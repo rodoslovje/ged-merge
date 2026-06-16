@@ -119,10 +119,16 @@ export function individualFieldRows(
     const me = masterEvents[idx];
     const ce = compareEvents[idx];
     const keyBase = multi ? `${tag}.${idx}` : tag;
-    pushRow(rows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
-    pushRow(rows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw);
-    pushRow(rows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw);
-    pushRow(rows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw);
+    const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
+    const subRows: FieldRow[] = [];
+    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value, "");
+    pushRow(subRows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw, t("event.colDate"));
+    pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
+    pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw, t("event.colAddr"));
+    if (subRows.length > 0) {
+      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true });
+      rows.push(...subRows);
+    }
   }
 
   // Links (record-level and from any event, collapsed) come after the events.
@@ -135,8 +141,13 @@ export function individualFieldRows(
   // Marriage and children live on the FAM record but are reconciled here on the
   // spouse so every decision about a person is made in one place.
   if (masterDs && compareDs) {
-    pushRelativesRow(rows, "father", formatFieldLabel(t, "father"), parentRelative(master, masterDs, "husband"), parentRelative(compare, compareDs, "husband"));
-    pushRelativesRow(rows, "mother", formatFieldLabel(t, "mother"), parentRelative(master, masterDs, "wife"), parentRelative(compare, compareDs, "wife"));
+    const parentRows: FieldRow[] = [];
+    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(master, masterDs, "husband"), parentRelative(compare, compareDs, "husband"));
+    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(master, masterDs, "wife"), parentRelative(compare, compareDs, "wife"));
+    if (parentRows.length > 0) {
+      rows.push({ key: "parents.header", label: t("field.parents"), master: "", incoming: "", state: "agree", isGroupHeader: true });
+      rows.push(...parentRows);
+    }
 
     const famPairs = pairFamilies(master, compare, masterDs, compareDs);
     famPairs.forEach((pair) => {
@@ -375,11 +386,12 @@ function pushRow(
   label: string,
   master: string | undefined,
   incoming: string | undefined,
+  displayLabel?: string,
 ): void {
   const m = (master ?? "").trim();
   const i = (incoming ?? "").trim();
   if (!m && !i) return; // nothing to show
-  rows.push({ key, label, master: m, incoming: i, state: stateOf(key, m, i) });
+  rows.push({ key, label, master: m, incoming: i, state: stateOf(key, m, i), displayLabel });
 }
 
 /**
@@ -632,26 +644,51 @@ function placeCompareKey(value: string): string {
   return parts.join(",");
 }
 
+function eventDateKey(events: GedEvent[], idx: number): number {
+  const d = events[idx]?.date;
+  if (d?.year !== undefined) return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
+  return 9_999_999; // undated events sort last
+}
+
 function orderedEventTags(
   master?: Individual,
   compare?: Individual,
 ): Array<{ tag: string; idx: number; multi: boolean }> {
+  const mEvents = master?.events ?? [];
+  const cEvents = compare?.events ?? [];
+
   const mCount = new Map<string, number>();
   const cCount = new Map<string, number>();
-  for (const e of master?.events ?? []) mCount.set(e.tag, (mCount.get(e.tag) ?? 0) + 1);
-  for (const e of compare?.events ?? []) cCount.set(e.tag, (cCount.get(e.tag) ?? 0) + 1);
+  for (const e of mEvents) mCount.set(e.tag, (mCount.get(e.tag) ?? 0) + 1);
+  for (const e of cEvents) cCount.set(e.tag, (cCount.get(e.tag) ?? 0) + 1);
 
   const allTags = new Set([...mCount.keys(), ...cCount.keys()]);
-  const known = EVENT_ORDER.filter((t) => allTags.has(t));
-  const extra = [...allTags].filter((t) => !EVENT_ORDER.includes(t)).sort();
-
-  const result: Array<{ tag: string; idx: number; multi: boolean }> = [];
-  for (const tag of [...known, ...extra]) {
+  const instances: Array<{ tag: string; idx: number; multi: boolean }> = [];
+  for (const tag of allTags) {
     const maxCount = Math.max(mCount.get(tag) ?? 0, cCount.get(tag) ?? 0);
     const multi = maxCount > 1;
-    for (let i = 0; i < maxCount; i++) result.push({ tag, idx: i, multi });
+    for (let i = 0; i < maxCount; i++) instances.push({ tag, idx: i, multi });
   }
-  return result;
+
+  const mByTag = new Map<string, GedEvent[]>();
+  const cByTag = new Map<string, GedEvent[]>();
+  for (const tag of allTags) {
+    mByTag.set(tag, mEvents.filter((e) => e.tag === tag));
+    cByTag.set(tag, cEvents.filter((e) => e.tag === tag));
+  }
+
+  instances.sort((a, b) => {
+    // Primary: date (prefer master's date; fall back to compare's)
+    const dateA = Math.min(eventDateKey(mByTag.get(a.tag)!, a.idx), eventDateKey(cByTag.get(a.tag)!, a.idx));
+    const dateB = Math.min(eventDateKey(mByTag.get(b.tag)!, b.idx), eventDateKey(cByTag.get(b.tag)!, b.idx));
+    if (dateA !== dateB) return dateA - dateB;
+    // Secondary: lifecycle order, then occurrence index
+    const posA = EVENT_ORDER.indexOf(a.tag);
+    const posB = EVENT_ORDER.indexOf(b.tag);
+    return (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB) || a.idx - b.idx;
+  });
+
+  return instances;
 }
 
 function sexText(t: Translate, sex: string | undefined): string {

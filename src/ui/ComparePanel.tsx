@@ -129,9 +129,10 @@ export function ComparePanel({
         <tbody>
           {rows.map((row) => {
             if (row.isGroupHeader) {
+              const isEventHeader = /^[A-Z]+(\.\d+)?\.header$/.test(row.key);
               return (
-                <tr key={row.key} className="group-header-row">
-                  <td colSpan={4} className="group-header-cell">
+                <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
+                  <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>
                     {row.label}
                   </td>
                 </tr>
@@ -141,7 +142,7 @@ export function ComparePanel({
             const choice = fields[row.key] ?? defaultChoice(row);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
-                <td className="f-label">{row.label}</td>
+                <td className="f-label">{row.displayLabel ?? row.label}</td>
                 {row.relatives ? (
                   <td className="f-rel" colSpan={2}>
                     <RelativeGrid

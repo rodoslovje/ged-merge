@@ -18,7 +18,9 @@ export type FieldState =
 /** One comparable field, shown as a row in the review panel. */
 export interface FieldRow {
   key: string; // stable id, e.g. "surname", "BIRT.date"
-  label: string; // display label, e.g. "Birth date"
+  label: string; // full label used in change reports, e.g. "Birth date"
+  /** Short label for UI display when an event group header provides context (e.g. "Date"). Falls back to `label`. */
+  displayLabel?: string;
   master: string; // "" when absent
   incoming: string; // "" when absent
   state: FieldState;
