@@ -53,21 +53,29 @@ button {
   opacity: 0.8;
 }
 
-/* Filename buttons in the header — reset button styles, then colour via .gm-file */
+/* Filename buttons in the header — pill chips, coloured via .gm-file */
 .header-file-btn {
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font: inherit;
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 11px 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
 }
-.header-file-btn:hover {
-  border-color: var(--border);
-  background: var(--panel);
+.header-file-btn::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
 }
+.header-file-btn:hover { border-color: var(--border-2); background: var(--panel-2); }
 
 /* Second header row: loaded filenames, one after the other */
 .app-head-files {
@@ -88,8 +96,29 @@ button {
   align-items: center;
 }
 .mode-tabs {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.seg-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: var(--muted);
+  padding: 5px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
 }
 .lang-switcher {
   display: flex;
@@ -153,7 +182,7 @@ button {
   overflow: hidden;
 }
 .section.open {
-  border-color: #343c47;
+  border-color: var(--border);
 }
 .section.disabled {
   opacity: 0.6;
@@ -379,17 +408,21 @@ button {
 .landing {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
   max-width: 560px;
+  margin: auto;
 }
 
 .landing-bullets {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
 }
 
 .landing-bullets li {
@@ -412,6 +445,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
+  width: 100%;
 }
 
 .loader-desc {
@@ -469,6 +503,16 @@ button {
   margin-left: 24px;
 }
 
+/* Equal-height loader columns; dropzone anchors to bottom in loaded state */
+.info-panel-cols > .loader {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.info-panel-cols .summary { flex: 0 0 auto; }
+.info-panel-cols .dropzone.compact { margin-top: auto; }
+.info-panel-cols .dropzone:not(.compact) { flex: 1 1 auto; justify-content: center; }
+
 /* Single-column layout (Edit mode — master only) */
 .info-panel-single {
   max-width: 480px;
@@ -501,6 +545,29 @@ button {
 .loader-report {
   white-space: pre-wrap;
 }
+
+/* Metadata key/value grid inside the loader summary */
+.loader-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 8px 0 12px;
+  font-size: 0.82rem;
+}
+.loader-meta dt { color: var(--muted); }
+.loader-meta dd { margin: 0; font-family: var(--font-mono); color: var(--text); }
+
+/* Warnings status — green check at 0, amber count when >0 */
+.loader-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.loader-warn.ok    { color: var(--state-match); }
+.loader-warn.alert { color: var(--state-minor); cursor: help; }
+.loader-warn svg   { width: 15px; height: 15px; flex: none; }
 .loader-report {
   flex: 1;
   padding-left: 20px;
@@ -986,10 +1053,10 @@ button {
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 6px;
-  background: #2b313a;
+  background: var(--panel-2);
 }
-.badge.strong { background: #14492f; color: #6ee7b7; }
-.badge.probable { background: #4a3b12; color: #fcd34d; }
+.badge.strong   { background: color-mix(in oklch, var(--state-match) 14%, transparent); color: var(--state-match); }
+.badge.probable { background: color-mix(in oklch, var(--state-minor) 14%, transparent); color: var(--state-minor); }
 
 .person-label {
   flex: 1;
@@ -1028,6 +1095,7 @@ button {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
+  max-width: 1000px;
 }
 
 .edit-toolbar {
@@ -1090,7 +1158,7 @@ button {
   flex: 1;
   min-width: 24px;
   height: 1px;
-  background: var(--border);
+  background: var(--border-2);
   align-self: center;
 }
 
@@ -1104,9 +1172,10 @@ button {
 
 .edit-person {
   position: relative;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.5);
 }
 .edit-person .person-label { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
 
@@ -1129,7 +1198,8 @@ button {
   font: inherit;
   cursor: pointer;
 }
-.edit-name-chip:hover { border-color: var(--border); }
+.edit-name-chip:hover,
+.edit-name-chip:focus-visible { border-color: var(--accent); outline: none; }
 .edit-name-chip-add {
   border-style: dashed;
   border-color: var(--border-2);
@@ -1140,7 +1210,8 @@ button {
 .edit-name-row:hover .edit-name-chip-add,
 .edit-other-names:hover .edit-name-chip-add,
 .edit-name-chip-add:focus-visible { opacity: 1; }
-.edit-name-chip-add:hover { border-color: var(--accent); color: var(--text); }
+.edit-name-chip-add:hover,
+.edit-name-chip-add:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
 .edit-name-chip-editing {
   display: inline-flex;
   align-items: center;
@@ -1152,33 +1223,65 @@ button {
   border-radius: 6px;
 }
 
-.edit-events {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.edit-events { display: flex; flex-direction: column; }
+
+.edit-event-head {
+  display: grid;
+  grid-template-columns: 96px 150px 1fr 1fr;
+  gap: 14px;
+  padding: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border-bottom: 1px solid var(--border);
 }
 .edit-event {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 96px 150px 1fr 1fr;
+  gap: 14px;
   align-items: baseline;
-  flex-wrap: wrap;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
 }
-.edit-event-label {
-  flex: none;
-  width: 90px;
-  color: var(--muted);
-  font-weight: 400;
-}
-.edit-event-value {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  flex: 1;
-}
+.edit-event-label { flex: none; width: auto; color: var(--muted); font-weight: 400; }
+.edit-event > .edit-input { width: 100%; }
+.edit-event-date,
+.edit-event-place,
+.edit-event-addr { width: 100%; min-width: 0; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
 }
+
+.edit-event-add {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0 2px;
+}
+.edit-event-add-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 4px;
+}
+.add-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--border-2);
+  border-radius: 7px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.add-chip:hover,
+.add-chip:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
 
 /* Edit mode: inline-editable fields */
 .edit-input {
@@ -1190,7 +1293,7 @@ button {
   font: inherit;
   min-width: 0;
 }
-.edit-input:hover { border-color: var(--border); }
+.edit-input:hover { border-color: var(--accent); }
 .edit-input:focus {
   border-color: var(--accent);
   outline: none;
@@ -1199,7 +1302,8 @@ button {
 .edit-input::placeholder { opacity: 0; transition: opacity 0.15s; }
 .edit-input:hover::placeholder,
 .edit-input:focus::placeholder { opacity: 1; }
-.edit-input:not(:placeholder-shown) { font-weight: 600; }
+.edit-input:not(:placeholder-shown) { font-family: var(--font-mono); }
+.edit-input--dirty { font-weight: 600; }
 
 .edit-name-row {
   display: flex;
@@ -1212,6 +1316,8 @@ button {
   font-size: 1.1rem;
   font-weight: 600;
   flex: none;
+  border-bottom: 1px solid var(--border-2);
+  border-radius: 6px 6px 0 0;
 }
 
 .edit-sex-row {
@@ -1232,22 +1338,13 @@ button {
   padding: 2px 6px;
   cursor: pointer;
 }
-.sex-select:hover { border-color: var(--border-2); }
+.sex-select:hover { border-color: var(--accent); }
 .sex-select:focus { outline: none; border-color: var(--accent); }
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
 
-.edit-event-date { width: 140px; }
-.edit-event-place,
-.edit-event-addr {
-  flex: 1;
-  min-width: 160px;
-}
 .edit-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1 1 100%;
+  grid-column: 2 / -1;
 }
 .edit-link-row {
   display: flex;
@@ -1270,9 +1367,11 @@ button {
   font: inherit;
   cursor: pointer;
 }
-.edit-link-remove:hover {
-  border-color: var(--border);
+.edit-link-remove:hover,
+.edit-link-remove:focus-visible {
+  border-color: var(--accent);
   color: var(--text);
+  outline: none;
 }
 .edit-link-add {
   align-self: flex-start;
@@ -1282,7 +1381,14 @@ button {
   font: inherit;
   padding: 2px 6px;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
+.edit-event:hover .edit-link-add,
+.edit-link-add:focus-visible { opacity: 1; }
+.edit-link-row + .edit-link-add,
+.edit-links:has(.edit-link-row) .edit-link-add { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .edit-link-add { transition: none; } }
 .edit-link-add:hover { color: var(--accent); }
 
 .person-card {
@@ -1315,15 +1421,15 @@ button {
   color: var(--text);
 }
 .person-card.sex-m {
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.35);
+  background: color-mix(in oklch, var(--sex-male) 8%, transparent);
+  border-color: color-mix(in oklch, var(--sex-male) 40%, var(--border));
 }
 .person-card.sex-f {
-  background: rgba(244, 114, 182, 0.1);
-  border-color: rgba(244, 114, 182, 0.35);
+  background: color-mix(in oklch, var(--sex-female) 8%, transparent);
+  border-color: color-mix(in oklch, var(--sex-female) 40%, var(--border));
 }
-.person-card.sex-m:hover { border-color: #38bdf8; }
-.person-card.sex-f:hover { border-color: #f472b6; }
+.person-card.sex-m:hover { border-color: var(--sex-male); }
+.person-card.sex-f:hover { border-color: var(--sex-female); }
 .person-card-wrap {
   display: flex;
   flex-direction: column;

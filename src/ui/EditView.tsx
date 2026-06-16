@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
@@ -67,6 +67,7 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [, setTick] = useState(0);
+  const focusNextName = useRef(false);
 
   function navigate(id: string) {
     if (!id || id === selectedId) return;
@@ -107,8 +108,25 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
         : kind === "child"
           ? addChild(dataset, person, fam)
           : addParent(dataset, person, fam, kind);
+
+    // Pre-fill surname from family context
+    let defaultSurname: string | undefined;
+    if (kind === "child") {
+      // Inherit from the father of the family the child was added to
+      const childFam = added.childOf.map((id) => dataset.families.get(id)).find((f) => f?.husband);
+      const father = childFam?.husband ? dataset.individuals.get(childFam.husband) : undefined;
+      defaultSurname = (father ? primaryName(father)?.surname : undefined) || undefined;
+    } else if (kind === "father") {
+      defaultSurname = primaryName(person)?.surname || undefined;
+    }
+    if (defaultSurname) {
+      setName(added, { surname: defaultSurname });
+      rebuildIndividual(dataset, added);
+    }
+
     onDirty("individual", person.id);
     onDirty("individual", added.id);
+    focusNextName.current = true;
     navigate(added.id);
   }
 
@@ -181,7 +199,15 @@ export function EditView({ dataset, fileName, homeId, onDirty, onShowTree }: Pro
         <div className="edit-connector-v" />
 
         <div className="edit-person">
-          <NameEditor key={`name-${person.id}`} person={person} t={t} lifespan={lifespan} commit={commit} />
+          <NameEditor
+            key={`name-${person.id}`}
+            person={person}
+            t={t}
+            lifespan={lifespan}
+            commit={commit}
+            focusOnMount={focusNextName.current}
+            onMounted={() => { focusNextName.current = false; }}
+          />
           <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
           <OtherNamesEditor key={`names-${person.id}`} person={person} t={t} commit={commit} />
           <EventList person={person} t={t} commit={commit} />
@@ -230,15 +256,26 @@ function NameEditor({
   t,
   lifespan,
   commit,
+  focusOnMount,
+  onMounted,
 }: {
   person: Individual;
   t: Translate;
   lifespan?: string;
   commit: Commit;
+  focusOnMount?: boolean;
+  onMounted?: () => void;
 }) {
   const primary = primaryName(person);
   const [given, setGiven] = useState(primary?.given ?? "");
   const [surname, setSurname] = useState(primary?.surname ?? "");
+  const givenRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusOnMount) givenRef.current?.focus();
+    onMounted?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function commitName(nextGiven: string, nextSurname: string) {
     commit((indi) => setName(indi, { given: nextGiven, surname: nextSurname }));
@@ -247,6 +284,7 @@ function NameEditor({
   return (
     <div className="edit-name-row" title={datesTooltipOf(person)}>
       <input
+        ref={givenRef}
         className={`edit-input edit-name-input ${sexClass(person.sex)}`}
         style={{ width: fieldWidth(given, t("field.given")) }}
         value={given}
@@ -459,7 +497,7 @@ function NameVariantEditor({
  * empty events can be filled in. */
 function EventList({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
-  const isShown = (tag: string) => person.events.some((e) => e.tag === tag) || revealed.has(tag);
+  const isShown = (tag: string) => tag === "BIRT" || person.events.some((e) => e.tag === tag) || revealed.has(tag);
   const shown = EVENT_TAGS.filter(isShown);
   const empty = EVENT_TAGS.filter((tag) => !isShown(tag));
 
@@ -534,6 +572,16 @@ function FamilyDivorceRow({ fam, t, commit }: { fam: Family; t: Translate; commi
   );
 }
 
+function useField(initial: string) {
+  const [value, setValue] = useState(initial);
+  const init = useRef(initial);
+  return {
+    value,
+    isDirty: value !== init.current,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+  };
+}
+
 /** Editable date/place/address/links for a single event (individual or
  * family), e.g. `1 BIRT` or `1 MARR`. */
 function EventFieldsRow({
@@ -547,29 +595,40 @@ function EventFieldsRow({
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
 }) {
+  const dateField = useField(ev?.date?.raw ?? "");
+  const placeField = useField(ev?.place?.raw ?? "");
+  const addrField = useField(ev?.address?.raw ?? "");
+
+  function cls(base: string, isDirty: boolean) {
+    return isDirty ? `${base} edit-input--dirty` : base;
+  }
+
   return (
     <div className="edit-event">
       <div className="edit-event-label">{label}</div>
       <input
-        className="edit-input edit-event-date"
-        defaultValue={ev?.date?.raw ?? ""}
+        className={cls("edit-input edit-event-date", dateField.isDirty)}
+        value={dateField.value}
         placeholder={t("event.date", { event: label })}
         title={t("event.date", { event: label })}
-        onBlur={(e) => commitField({ date: e.target.value })}
+        onChange={dateField.onChange}
+        onBlur={() => commitField({ date: dateField.value })}
       />
       <input
-        className="edit-input edit-event-place"
-        defaultValue={ev?.place?.raw ?? ""}
+        className={cls("edit-input edit-event-place", placeField.isDirty)}
+        value={placeField.value}
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
-        onBlur={(e) => commitField({ place: e.target.value })}
+        onChange={placeField.onChange}
+        onBlur={() => commitField({ place: placeField.value })}
       />
       <input
-        className="edit-input edit-event-addr"
-        defaultValue={ev?.address?.raw ?? ""}
+        className={cls("edit-input edit-event-addr", addrField.isDirty)}
+        value={addrField.value}
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
-        onBlur={(e) => commitField({ address: e.target.value })}
+        onChange={addrField.onChange}
+        onBlur={() => commitField({ address: addrField.value })}
       />
       <LinksEditor links={ev?.links ?? []} label={label} t={t} onCommit={(links) => commitField({ links })} />
     </div>
