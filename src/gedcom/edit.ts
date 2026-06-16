@@ -433,6 +433,28 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
   dataset.individuals.delete(indi.id);
 }
 
+/** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */
+export function removeFamily(dataset: Dataset, fam: Family): void {
+  for (const indiId of [fam.husband, fam.wife]) {
+    if (!indiId) continue;
+    const indi = dataset.individuals.get(indiId);
+    if (!indi) continue;
+    const i = indi.raw.children.findIndex((c) => c.tag === "FAMS" && c.value === fam.id);
+    if (i !== -1) indi.raw.children.splice(i, 1);
+    rebuildIndividual(dataset, indi);
+  }
+  for (const childId of fam.children) {
+    const child = dataset.individuals.get(childId);
+    if (!child) continue;
+    const i = child.raw.children.findIndex((c) => c.tag === "FAMC" && c.value === fam.id);
+    if (i !== -1) child.raw.children.splice(i, 1);
+    rebuildIndividual(dataset, child);
+  }
+  const ri = dataset.records.findIndex((r) => r.xref === fam.id);
+  if (ri !== -1) dataset.records.splice(ri, 1);
+  dataset.families.delete(fam.id);
+}
+
 /** Replace all NOTE records on an individual with the given texts. */
 export function setNotes(indi: Individual, notes: string[]): void {
   indi.raw.children = indi.raw.children.filter((c) => c.tag !== "NOTE");

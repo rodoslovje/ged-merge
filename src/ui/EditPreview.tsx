@@ -77,7 +77,7 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
                         <PersonInline p={p} />
                       )}
                       {onRemovePerson && (
-                        <button className="preview-item-remove" title="Remove from save" onClick={() => onRemovePerson(p.id)}>×</button>
+                        <button className="preview-item-remove" title={t("save.preview.removeChange")} onClick={() => onRemovePerson(p.id)}>×</button>
                       )}
                     </div>
                   </li>
@@ -103,7 +103,7 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
                           {!husband && !wife && <span className="preview-rec">{f.id}</span>}
                         </span>
                         {onRemoveFamily && (
-                          <button className="preview-item-remove" title="Remove from save" onClick={() => onRemoveFamily(f.id)}>×</button>
+                          <button className="preview-item-remove" title={t("save.preview.removeChange")} onClick={() => onRemoveFamily(f.id)}>×</button>
                         )}
                       </div>
                     </li>

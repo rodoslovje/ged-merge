@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
+import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
 import { defaultHomeId } from "./match/relatives";
@@ -268,6 +269,10 @@ export function App() {
     setDecisions(new Map());
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+    personSnapshots.current = new Map();
+    familySnapshots.current = new Map();
+    loadedPersonIds.current = new Set();
+    loadedFamilyIds.current = new Set();
     setEditPreviewOpen(false);
     setEditTreeId(null);
     setHomeId(undefined); // home person is opt-in; reset on (re)load
@@ -286,6 +291,18 @@ export function App() {
     setHomeId(id);
     workerRef.current?.postMessage({ type: "setHome", id: id ?? "" });
   }
+
+  // Capture the set of IDs that exist at load time so we can later distinguish
+  // "modified existing" from "newly added" when reverting via Remove from save.
+  useEffect(() => {
+    if (master.status !== "loaded") return;
+    const ds = master.file.dataset;
+    loadedPersonIds.current = new Set(ds.individuals.keys());
+    loadedFamilyIds.current = new Set(ds.families.keys());
+    personSnapshots.current = new Map();
+    familySnapshots.current = new Map();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [master.status]);
 
   // When the master finishes loading, default the home person to its root
   // individual if present. Attempted once per file (autoHomeRef), so a user
@@ -447,6 +464,12 @@ export function App() {
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
   const [editPreviewOpen, setEditPreviewOpen] = useState(false);
   const [editNavigateId, setEditNavigateId] = useState<string | undefined>(undefined);
+  // IDs present when the master was loaded (to distinguish edits vs. new additions).
+  const loadedPersonIds = useRef<Set<string>>(new Set());
+  const loadedFamilyIds = useRef<Set<string>>(new Set());
+  // Raw-node snapshots taken at first-dirty time, used to revert "Remove from save".
+  const personSnapshots = useRef<Map<string, GedNode>>(new Map());
+  const familySnapshots = useRef<Map<string, GedNode>>(new Map());
 
   const confirmedCount = useMemo(() => {
     let n = 0;
@@ -480,8 +503,16 @@ export function App() {
 
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (type === "individual") {
+      if (!personSnapshots.current.has(id) && masterDataset) {
+        const indi = masterDataset.individuals.get(id);
+        if (indi) personSnapshots.current.set(id, JSON.parse(JSON.stringify(indi.raw)) as GedNode);
+      }
       setChangedPersonIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
     } else {
+      if (!familySnapshots.current.has(id) && masterDataset) {
+        const fam = masterDataset.families.get(id);
+        if (fam) familySnapshots.current.set(id, JSON.parse(JSON.stringify(fam.raw)) as GedNode);
+      }
       setChangedFamilyIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
     }
   }
@@ -766,8 +797,42 @@ export function App() {
           onConfirm={saveEdit}
           onClose={() => setEditPreviewOpen(false)}
           onNavigate={(id) => { setEditPreviewOpen(false); setEditNavigateId(id); }}
-          onRemovePerson={(id) => setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; })}
-          onRemoveFamily={(id) => setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; })}
+          onRemovePerson={(id) => {
+            if (masterDataset) {
+              const snapshot = personSnapshots.current.get(id);
+              const indi = masterDataset.individuals.get(id);
+              if (indi) {
+                if (loadedPersonIds.current.has(id) && snapshot) {
+                  // Restore the raw node to its pre-edit state then rebuild.
+                  indi.raw.value = snapshot.value;
+                  indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+                  rebuildIndividual(masterDataset, indi);
+                } else {
+                  // Newly added person — remove from the dataset entirely.
+                  removeIndividual(masterDataset, indi);
+                }
+              }
+              personSnapshots.current.delete(id);
+            }
+            setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+          }}
+          onRemoveFamily={(id) => {
+            if (masterDataset) {
+              const snapshot = familySnapshots.current.get(id);
+              const fam = masterDataset.families.get(id);
+              if (fam) {
+                if (loadedFamilyIds.current.has(id) && snapshot) {
+                  fam.raw.value = snapshot.value;
+                  fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+                  rebuildFamily(masterDataset, fam);
+                } else {
+                  removeFamily(masterDataset, fam);
+                }
+              }
+              familySnapshots.current.delete(id);
+            }
+            setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+          }}
         />
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />

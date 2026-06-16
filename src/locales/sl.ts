@@ -313,6 +313,7 @@ export const sl = {
   "save.preview.persons": "Spremembe oseb",
   "save.preview.families": "Spremembe družin",
   "save.preview.download": "Prenesi GEDCOM",
+  "save.preview.removeChange": "Odstrani iz shranjevanja",
   "edit.tree.button": "Prikaži drevo",
   "edit.tree.tooltip": "Prikaži rodoslovno drevo za trenutno osebo",
   "edit.tree.title": "Drevo",

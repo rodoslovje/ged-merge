@@ -313,6 +313,7 @@ export const en = {
   "save.preview.persons": "Persons changed",
   "save.preview.families": "Families changed",
   "save.preview.download": "Download GEDCOM",
+  "save.preview.removeChange": "Remove from save",
   "edit.tree.button": "Show tree",
   "edit.tree.tooltip": "Show family tree for the current person",
   "edit.tree.title": "Tree",
