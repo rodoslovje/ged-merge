@@ -823,7 +823,16 @@ function EventList({
   commit: Commit;
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
-  const nonBirtEvents = person.events.map((ev, i) => ({ ev, i })).filter(({ ev }) => ev.tag !== "BIRT");
+  const nonBirtEvents = person.events
+    .map((ev, i) => ({ ev, i }))
+    .filter(({ ev }) => ev.tag !== "BIRT")
+    .sort((a, b) => {
+      const key = (ev: typeof a.ev) => {
+        const d = ev.date;
+        return d?.year !== undefined ? d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0) : 9_999_999;
+      };
+      return key(a.ev) - key(b.ev);
+    });
 
   return (
     <div className="edit-events">
