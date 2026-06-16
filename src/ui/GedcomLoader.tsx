@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
+import { Fragment, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { SlotState } from "../App";
@@ -151,14 +151,34 @@ function renderSummary(
   const examplesTooltip = (changes: { before: string; after: string }[]): string | undefined =>
     changes.length > 0 ? changes.map((ex) => `${ex.before} → ${ex.after}`).join("\n") : undefined;
 
+  const kv = info.map((s): [string, string] => {
+    const i = s.indexOf(":");
+    return i >= 0 ? [s.slice(0, i).trim(), s.slice(i + 1).trim()] : [s, ""];
+  });
+
   return (
     <>
       <div className={`gm-file ${accent} loader-filename`}>{fileName}</div>
       <div className="loader-cols">
         <div className="loader-info">
-          {info.join("\n")}
-          {"\n"}
-          <span className={hasWarnings ? "loader-warnings alert" : "loader-warnings"} title={warningTooltip}>
+          <dl className="loader-meta">
+            {kv.map(([label, value]) => (
+              <Fragment key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </Fragment>
+            ))}
+          </dl>
+          <span className={hasWarnings ? "loader-warn alert" : "loader-warn ok"} title={warningTooltip}>
+            {hasWarnings ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
             {t("loader.warnings", { count: warnings.length })}
           </span>
         </div>

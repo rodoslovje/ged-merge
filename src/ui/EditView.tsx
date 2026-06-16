@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
@@ -51,7 +51,8 @@ type FamilyCommit = (fam: Family, mutate: (fam: Family) => void) => void;
  * without the input growing/shrinking awkwardly as the user types — used to
  * keep name fields compact instead of stretching to fill the row. */
 function fieldWidth(value: string, placeholder: string): string {
-  return `${Math.max(value.length, placeholder.length) + 2}ch`;
+  const len = value.length > 0 ? value.length : placeholder.length;
+  return `${Math.max(len, 3) + 2}ch`;
 }
 
 /** Edit mode's person view: parents on top, the selected person in the
@@ -271,23 +272,22 @@ function NameEditor({
 const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
 
 /** M/F/U toggle for the individual's `SEX` line. */
+const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
+
 function SexToggle({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
   return (
     <div className="edit-sex-row">
-      <span className="edit-field-label">{t("field.sex")}</span>
-      <div className="sex-toggle">
+      <select
+        className={`sex-select ${sexClass(person.sex)}`}
+        value={person.sex}
+        onChange={(e) => commit((indi) => setSex(indi, e.target.value as Sex))}
+      >
         {SEX_OPTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={`sex-toggle-btn ${sexClass(s)} ${person.sex === s ? "active" : ""}`}
-            title={t(`sex.${s}`)}
-            onClick={() => commit((indi) => setSex(indi, s))}
-          >
-            {s}
-          </button>
+          <option key={s} value={s}>
+            {SEX_GLYPHS[s]} {t(`sex.${s}`)}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }
@@ -401,8 +401,14 @@ function NameVariantEditor({
     commit((indi) => setAdditionalName(indi, index, { given: nextGiven, surname: nextSurname }));
   }
 
+  const ref = useRef<HTMLSpanElement>(null);
+
   return (
-    <span className="edit-name-chip edit-name-chip-editing">
+    <span
+      ref={ref}
+      className="edit-name-chip edit-name-chip-editing"
+      onBlur={(e) => { if (!ref.current?.contains(e.relatedTarget as Node)) onDone(); }}
+    >
       <input
         className="edit-input edit-name-variant-input"
         style={{ width: fieldWidth(given, t("field.given")) }}
@@ -452,11 +458,37 @@ function NameVariantEditor({
 /** Birth/residence/death/burial rows for the center panel, always shown so
  * empty events can be filled in. */
 function EventList({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const isShown = (tag: string) => person.events.some((e) => e.tag === tag) || revealed.has(tag);
+  const shown = EVENT_TAGS.filter(isShown);
+  const empty = EVENT_TAGS.filter((tag) => !isShown(tag));
+
   return (
     <div className="edit-events">
-      {EVENT_TAGS.map((tag) => (
+      <div className="edit-event-head">
+        <span />
+        <span>{t("event.colDate")}</span>
+        <span>{t("event.colPlace")}</span>
+        <span>{t("event.colAddr")}</span>
+      </div>
+      {shown.map((tag) => (
         <EventRow key={`${person.id}-${tag}`} person={person} tag={tag} t={t} commit={commit} />
       ))}
+      {empty.length > 0 && (
+        <div className="edit-event-add">
+          <span className="edit-event-add-label">{t("event.addLabel")}</span>
+          {empty.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className="add-chip"
+              onClick={() => setRevealed((prev) => new Set(prev).add(tag))}
+            >
+              + {t(`event.${tag}`)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -518,30 +550,28 @@ function EventFieldsRow({
   return (
     <div className="edit-event">
       <div className="edit-event-label">{label}</div>
-      <div className="edit-event-value">
-        <input
-          className="edit-input edit-event-date"
-          defaultValue={ev?.date?.raw ?? ""}
-          placeholder={t("event.date", { event: label })}
-          title={t("event.date", { event: label })}
-          onBlur={(e) => commitField({ date: e.target.value })}
-        />
-        <input
-          className="edit-input edit-event-place"
-          defaultValue={ev?.place?.raw ?? ""}
-          placeholder={t("event.place", { event: label })}
-          title={t("event.place", { event: label })}
-          onBlur={(e) => commitField({ place: e.target.value })}
-        />
-        <input
-          className="edit-input edit-event-addr"
-          defaultValue={ev?.address?.raw ?? ""}
-          placeholder={t("event.addr", { event: label })}
-          title={t("event.addr", { event: label })}
-          onBlur={(e) => commitField({ address: e.target.value })}
-        />
-        <LinksEditor links={ev?.links ?? []} label={label} t={t} onCommit={(links) => commitField({ links })} />
-      </div>
+      <input
+        className="edit-input edit-event-date"
+        defaultValue={ev?.date?.raw ?? ""}
+        placeholder={t("event.date", { event: label })}
+        title={t("event.date", { event: label })}
+        onBlur={(e) => commitField({ date: e.target.value })}
+      />
+      <input
+        className="edit-input edit-event-place"
+        defaultValue={ev?.place?.raw ?? ""}
+        placeholder={t("event.place", { event: label })}
+        title={t("event.place", { event: label })}
+        onBlur={(e) => commitField({ place: e.target.value })}
+      />
+      <input
+        className="edit-input edit-event-addr"
+        defaultValue={ev?.address?.raw ?? ""}
+        placeholder={t("event.addr", { event: label })}
+        title={t("event.addr", { event: label })}
+        onBlur={(e) => commitField({ address: e.target.value })}
+      />
+      <LinksEditor links={ev?.links ?? []} label={label} t={t} onCommit={(links) => commitField({ links })} />
     </div>
   );
 }
@@ -588,9 +618,11 @@ function LinksEditor({
           </button>
         </div>
       ))}
-      <button type="button" className="edit-link-add" onClick={() => setLinks((prev) => [...prev, ""])}>
-        + {t("edit.addLink")}
-      </button>
+      {links.length === 0 && (
+        <button type="button" className="edit-link-add" onClick={() => setLinks((prev) => [...prev, ""])}>
+          + {t("edit.addLink")}
+        </button>
+      )}
     </div>
   );
 }

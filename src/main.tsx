@@ -7,6 +7,7 @@ import { App } from "./App.tsx";
 import "./theme/fonts.css";
 import "./theme/heritage-pine.css";
 import "./index.css";
+import "./design_handoff_gedmerge_edit_loading/patch.css";
 import "./theme/components.css";
 import "./locales/i18n";
 

@@ -1103,6 +1103,7 @@ button {
 }
 
 .edit-person {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
@@ -1129,7 +1130,17 @@ button {
   cursor: pointer;
 }
 .edit-name-chip:hover { border-color: var(--border); }
-.edit-name-chip-add { color: var(--muted); }
+.edit-name-chip-add {
+  border-style: dashed;
+  border-color: var(--border-2);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.edit-name-row:hover .edit-name-chip-add,
+.edit-other-names:hover .edit-name-chip-add,
+.edit-name-chip-add:focus-visible { opacity: 1; }
+.edit-name-chip-add:hover { border-color: var(--accent); color: var(--text); }
 .edit-name-chip-editing {
   display: inline-flex;
   align-items: center;
@@ -1156,7 +1167,7 @@ button {
   flex: none;
   width: 90px;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 400;
 }
 .edit-event-value {
   display: flex;
@@ -1185,6 +1196,10 @@ button {
   outline: none;
   background: var(--bg);
 }
+.edit-input::placeholder { opacity: 0; transition: opacity 0.15s; }
+.edit-input:hover::placeholder,
+.edit-input:focus::placeholder { opacity: 1; }
+.edit-input:not(:placeholder-shown) { font-weight: 600; }
 
 .edit-name-row {
   display: flex;
@@ -1200,35 +1215,27 @@ button {
 }
 
 .edit-sex-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  position: absolute;
+  top: 16px;
+  right: 22px;
 }
 .edit-field-label {
   color: var(--muted);
   font-size: 0.85rem;
 }
-.sex-toggle {
-  display: flex;
-  gap: 4px;
-}
-.sex-toggle-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
+.sex-select {
   font: inherit;
-  font-weight: 600;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
   cursor: pointer;
 }
-.sex-toggle-btn:hover { border-color: var(--accent); }
-.sex-toggle-btn.active {
-  border-color: var(--accent);
-  background: var(--bg);
-}
+.sex-select:hover { border-color: var(--border-2); }
+.sex-select:focus { outline: none; border-color: var(--accent); }
+.sex-select.sex-m { color: var(--sex-male); }
+.sex-select.sex-f { color: var(--sex-female); }
 
 .edit-event-date { width: 140px; }
 .edit-event-place,

@@ -533,14 +533,14 @@ export function App() {
           </div>
           <div className="mode-tabs">
             <button
-              className={`nav-btn ${mode === "edit" ? "active" : ""}`}
+              className={`seg-btn ${mode === "edit" ? "active" : ""}`}
               onClick={() => setMode("edit")}
               title={t("mode.edit.tooltip")}
             >
               {t("mode.edit")}
             </button>
             <button
-              className={`nav-btn ${mode === "merge" ? "active" : ""}`}
+              className={`seg-btn ${mode === "merge" ? "active" : ""}`}
               onClick={() => setMode("merge")}
               title={t("mode.merge.tooltip")}
             >
@@ -563,7 +563,7 @@ export function App() {
               title={theme === "dark" ? t("theme.light") : t("theme.dark")}
               aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              {theme === "dark" ? "🌙" : "☀️"}
             </button>
             <div className="lang-select-wrapper">
               <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
