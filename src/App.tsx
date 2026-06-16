@@ -459,8 +459,8 @@ export function App() {
   }
 
   function handleSave() {
-    if (mode === "edit") setEditPreviewOpen(true);
-    else openPreview();
+    if (confirmedCount > 0) openPreview();
+    else setEditPreviewOpen(true);
   }
 
   function handleEditDirty(type: "individual" | "family", id: string) {
@@ -491,6 +491,8 @@ export function App() {
     downloadText(`${preview.base}.merged.ged`, merged);
     downloadText(`${preview.base}.merge-report.txt`, formatReport(preview.report));
     setPreview(null);
+    setChangedPersonIds(new Set());
+    setChangedFamilyIds(new Set());
   }
 
   // Full-page compare tree takes over the whole view when open.
@@ -605,13 +607,13 @@ export function App() {
                 {compare.file.fileName}
               </button>
             )}
-            {master.status === "loaded" && (mode === "edit" ? changedCount > 0 : confirmedCount > 0) && (
+            {master.status === "loaded" && (changedCount > 0 || confirmedCount > 0) && (
               <button
                 className="export-btn"
                 onClick={handleSave}
-                title={mode === "edit" ? t("save.gedcom.edit.tooltip") : t("save.gedcom.merge.tooltip")}
+                title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
               >
-                {t("save.gedcom")} ({mode === "edit" ? changedCount : confirmedCount})
+                {t("save.gedcom")} ({changedCount + confirmedCount})
               </button>
             )}
           </div>
