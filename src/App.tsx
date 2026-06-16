@@ -647,8 +647,6 @@ export function App() {
       {master.status === "loaded" && masterDataset && (
         mode === "merge" ? (
           <MergeView
-            compare={compare}
-            onLoadCompare={(f) => loadFile("compare", f)}
             matches={matches}
             sort={sort}
             onToggleSort={toggleSort}

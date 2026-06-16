@@ -1,6 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { displayName } from "../match/relatives";
+import { displayName, primaryName } from "../match/relatives";
+
+function personLabel(p: Parameters<typeof primaryName>[0]): string {
+  const n = primaryName(p);
+  return n ? displayName(n) : "—";
+}
 
 interface Props {
   changedPersonIds: Set<string>;
@@ -48,7 +53,7 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
               <ul className="preview-deferred">
                 {persons.map((p) => (
                   <li key={p.id}>
-                    <span className="preview-rec gm-file master">{displayName(p)}</span>
+                    <span className="preview-rec gm-file master">{personLabel(p)}</span>
                   </li>
                 ))}
               </ul>
@@ -62,7 +67,7 @@ export function EditPreview({ changedPersonIds, changedFamilyIds, dataset, fileN
                 {families.map((f) => {
                   const husband = f.husband ? dataset.individuals.get(f.husband) : undefined;
                   const wife = f.wife ? dataset.individuals.get(f.wife) : undefined;
-                  const parts = [husband && displayName(husband), wife && displayName(wife)].filter(Boolean);
+                  const parts = [husband && personLabel(husband), wife && personLabel(wife)].filter(Boolean);
                   return (
                     <li key={f.id}>
                       <span className="preview-rec">{parts.length ? parts.join(" & ") : f.id}</span>

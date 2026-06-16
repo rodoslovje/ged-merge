@@ -5,7 +5,6 @@ import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { ChangeReport } from "../merge/merge";
 import type { MatchResult } from "../match/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
-import type { SlotState } from "../App";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { MatchResults } from "./MatchResults";
 import { ComparePanel } from "./ComparePanel";
@@ -20,9 +19,6 @@ import {
 } from "./matchView";
 
 interface Props {
-  // Incoming loader
-  compare: SlotState;
-  onLoadCompare: (file: File) => void;
 
   // Matches section
   matches: MatchResult | null;
@@ -64,8 +60,6 @@ interface Props {
  * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
  * — the Master GEDCOM is loaded by the shared shell. */
 export function MergeView({
-  compare,
-  onLoadCompare,
   matches,
   sort,
   onToggleSort,

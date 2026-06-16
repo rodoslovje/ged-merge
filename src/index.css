@@ -438,6 +438,7 @@ button {
 /* --- file info panel (below header) --- */
 .info-panel {
   flex: 0 0 auto;
+  position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -445,10 +446,13 @@ button {
   margin-bottom: 14px;
 }
 
-.info-panel-head {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
+.info-panel-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 /* Two-column layout: Master on the left, Incoming on the right */
