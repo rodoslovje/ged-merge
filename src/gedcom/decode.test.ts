@@ -76,4 +76,16 @@ describe("decodeGedcom charset detection", () => {
     const { text } = decodeGedcom(new Uint8Array(bytes).buffer);
     expect(text).toContain("Jäger Ärzte");
   });
+
+  it("decodes ANSI file that is valid UTF-8 with replacement chars (U+FFFD) as UTF-8", () => {
+    // Habsburg.ged scenario: declared ANSI but the actual bytes are valid UTF-8
+    // containing U+FFFD (EF BF BD) where umlauts were already lost.
+    // EF BF BD = U+FFFD (replacement character, 3-byte UTF-8).
+    const { text, charset, warnings } = decodeGedcom(
+      ged("ANSI", [0xef, 0xbf, 0xbd, 0x4b, 0xef, 0xbf, 0xbd, 0x6e, 0x69, 0x67]),
+    );
+    expect(charset).toBe("UTF-8");
+    expect(text).toContain("�K�nig");
+    expect(warnings.some((w) => /valid UTF-8/.test(w.message))).toBe(true);
+  });
 });

@@ -677,11 +677,9 @@ function LinksEditor({
           </button>
         </div>
       ))}
-      {links.length === 0 && (
-        <button type="button" className="edit-link-add" onClick={() => setLinks((prev) => [...prev, ""])}>
-          + {t("edit.addLink")}
-        </button>
-      )}
+      <button type="button" className="edit-link-add" onClick={() => setLinks((prev) => [...prev, ""])}>
+        + {t("edit.addLink")}
+      </button>
     </div>
   );
 }

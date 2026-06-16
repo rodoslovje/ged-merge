@@ -60,6 +60,12 @@ interface SelRef {
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
 
+const SAMPLE_FILES = [
+  { file: "EuropeRoyalFamilies.ged", label: "Europe Royal Families" },
+  { file: "EnglishTudorRoyalFamily.ged", label: "Tudor Royal Family" },
+  { file: "USPresidents.ged", label: "US Presidents" },
+];
+
 type Theme = "light" | "dark";
 const THEME_KEY = "gedmerge.theme";
 
@@ -239,6 +245,12 @@ export function App() {
 
     return () => worker.terminate();
   }, []);
+
+  async function loadSample(role: DatasetRole, fileName: string) {
+    const res = await fetch(`samples/${fileName}`);
+    const blob = await res.blob();
+    loadFile(role, new File([blob], fileName, { type: "text/plain" }));
+  }
 
   async function loadFile(role: DatasetRole, file: File) {
     const setter = role === "master" ? setMaster : setCompare;
@@ -424,6 +436,13 @@ export function App() {
     return n;
   }, [decisions]);
 
+  function handleTitleClick() {
+    const hasChanges = mode === "edit" ? changedCount > 0 : confirmedCount > 0;
+    if (!hasChanges || window.confirm(t("app.reloadConfirm"))) {
+      window.location.reload();
+    }
+  }
+
   function saveEdit() {
     if (!masterDataset || master.status !== "loaded") return;
     const text = serializeGedcom(masterDataset.records, {
@@ -524,10 +543,7 @@ export function App() {
       <header className="app-head">
         <div className="app-head-top">
           <div className="app-head-brand">
-            <h1
-              onClick={master.status === "loaded" ? toggleInfoPanel : undefined}
-              className={master.status === "loaded" ? "brand-clickable" : undefined}
-            >
+            <h1 onClick={handleTitleClick} className="brand-clickable">
               <Wordmark />
             </h1>
           </div>
@@ -619,15 +635,27 @@ export function App() {
               accent="master"
             />
             {showCompareInPanel && (
-              <GedcomLoader
-                title={t("load.incoming")}
-                state={compare}
-                onLoad={(f) => loadFile("compare", f)}
-                accent="incoming"
-                highlight={compare.status === "empty"}
-                tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
-                description={t("merge.intro.incomingHint")}
-              />
+              <div className="loader-with-samples">
+                <GedcomLoader
+                  title={t("load.incoming")}
+                  state={compare}
+                  onLoad={(f) => loadFile("compare", f)}
+                  accent="incoming"
+                  highlight={compare.status === "empty"}
+                  tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
+                  description={t("merge.intro.incomingHint")}
+                />
+                {compare.status === "empty" && (
+                  <div className="sample-links">
+                    <span className="sample-links-label">{t("intro.tryDemo")}</span>
+                    {SAMPLE_FILES.map(({ file, label }) => (
+                      <button key={file} className="sample-link" onClick={() => loadSample("compare", file)}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           {matching && (
@@ -657,6 +685,16 @@ export function App() {
               tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
               description={t("intro.masterHint")}
             />
+            {master.status === "empty" && (
+              <div className="sample-links">
+                <span className="sample-links-label">{t("intro.tryDemo")}</span>
+                {SAMPLE_FILES.map(({ file, label }) => (
+                  <button key={file} className="sample-link" onClick={() => loadSample("master", file)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

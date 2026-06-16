@@ -454,6 +454,26 @@ button {
   margin: 0 0 12px;
   line-height: 1.5;
 }
+.sample-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+.sample-links-label { color: var(--faint); }
+.sample-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.sample-link:hover { color: var(--accent); }
 
 /* Compact strip shown above the split layout once matches are ready */
 .merge-bar {
@@ -497,18 +517,21 @@ button {
 }
 
 /* Divider between the two loaders (same as loaders > .loader + .loader) */
-.info-panel-cols > .loader + .loader {
+.info-panel-cols > .loader + .loader,
+.info-panel-cols > .loader + .loader-with-samples {
   border-left: 1px solid var(--border);
   padding-left: 24px;
   margin-left: 24px;
 }
 
 /* Equal-height loader columns; dropzone anchors to bottom in loaded state */
-.info-panel-cols > .loader {
+.info-panel-cols > .loader,
+.info-panel-cols > .loader-with-samples {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
+.loader-with-samples > .loader { flex: 1 1 auto; }
 .info-panel-cols .summary { flex: 0 0 auto; }
 .info-panel-cols .dropzone.compact { margin-top: auto; }
 .info-panel-cols .dropzone:not(.compact) { flex: 1 1 auto; justify-content: center; }
@@ -1133,12 +1156,14 @@ button {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  font-size: 0.88rem;
 }
 /* Separate multiple spouse families with a divider above each subsequent one. */
 .edit-family + .edit-family {
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+.edit-family .edit-event { border-bottom: none; }
 
 .edit-children-wrap {
   display: flex;
@@ -1223,7 +1248,7 @@ button {
   border-radius: 6px;
 }
 
-.edit-events { display: flex; flex-direction: column; }
+.edit-events { display: flex; flex-direction: column; font-size: 0.88rem; }
 
 .edit-event-head {
   display: grid;
@@ -1245,7 +1270,7 @@ button {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
-.edit-event-label { flex: none; width: auto; color: var(--muted); font-weight: 400; }
+.edit-event-label { flex: none; width: auto; color: var(--muted); }
 .edit-event > .edit-input { width: 100%; }
 .edit-event-date,
 .edit-event-place,
@@ -1302,7 +1327,6 @@ button {
 .edit-input::placeholder { opacity: 0; transition: opacity 0.15s; }
 .edit-input:hover::placeholder,
 .edit-input:focus::placeholder { opacity: 1; }
-.edit-input:not(:placeholder-shown) { font-family: var(--font-mono); }
 .edit-input--dirty { font-weight: 600; }
 
 .edit-name-row {
@@ -1366,7 +1390,12 @@ button {
   color: var(--muted);
   font: inherit;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
+.edit-link-row:hover .edit-link-remove,
+.edit-link-row:focus-within .edit-link-remove,
+.edit-link-remove:focus-visible { opacity: 1; }
 .edit-link-remove:hover,
 .edit-link-remove:focus-visible {
   border-color: var(--accent);
@@ -1386,8 +1415,6 @@ button {
 }
 .edit-event:hover .edit-link-add,
 .edit-link-add:focus-visible { opacity: 1; }
-.edit-link-row + .edit-link-add,
-.edit-links:has(.edit-link-row) .edit-link-add { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .edit-link-add { transition: none; } }
 .edit-link-add:hover { color: var(--accent); }
 

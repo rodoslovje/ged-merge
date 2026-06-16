@@ -37,8 +37,10 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
   // valid UTF-8 *and* carry a Latin two-byte sequence (as all real Slovenian /
   // German UTF-8 does), trust the bytes over an 8-bit label. Requiring the Latin
   // lead avoids treating a short 8-bit run that is coincidentally valid UTF-8
-  // (e.g. a CJK-range 3-byte sequence) as mislabelled.
-  const reallyUtf8 = isValidUtf8(bytes) && hasLatinMultibyte(bytes);
+  // (e.g. a CJK-range 3-byte sequence like 0xE8 0x9A 0x9E = U+689E) as
+  // mislabelled. We also accept the UTF-8 replacement character U+FFFD (EF BF BD)
+  // as an unambiguous UTF-8 signal — it cannot meaningfully appear in 8-bit text.
+  const reallyUtf8 = isValidUtf8(bytes) && (hasLatinMultibyte(bytes) || hasReplacementChar(bytes));
 
   switch (declared) {
     case "UTF-8":
@@ -165,6 +167,20 @@ function countHighBytes(bytes: Uint8Array): number {
 function hasLatinMultibyte(bytes: Uint8Array): boolean {
   for (let i = 0; i < bytes.length - 1; i++) {
     if (bytes[i] >= 0xc2 && bytes[i] <= 0xdf && (bytes[i + 1] & 0xc0) === 0x80) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the bytes contain the UTF-8 encoding of U+FFFD (EF BF BD). The
+ * replacement character is an unambiguous UTF-8 signal: it has no meaning in
+ * 8-bit encodings and only appears in files that were already processed as
+ * Unicode (e.g. a Windows-1252 file exported to UTF-8 with the original chars
+ * already lost, as seen in files like Habsburg.ged).
+ */
+function hasReplacementChar(bytes: Uint8Array): boolean {
+  for (let i = 0; i < bytes.length - 2; i++) {
+    if (bytes[i] === 0xef && bytes[i + 1] === 0xbf && bytes[i + 2] === 0xbd) return true;
   }
   return false;
 }
