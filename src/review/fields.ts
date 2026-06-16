@@ -1,4 +1,4 @@
-import type { Dataset, Family, Individual, PersonName, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedEvent, Individual, PersonName, Sex } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
