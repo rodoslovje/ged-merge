@@ -121,7 +121,7 @@ export function individualFieldRows(
     const keyBase = multi ? `${tag}.${idx}` : tag;
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
-    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value, "");
+    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     pushRow(subRows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw, t("event.colDate"));
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
     pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw, t("event.colAddr"));
