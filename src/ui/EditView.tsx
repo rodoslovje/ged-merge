@@ -319,13 +319,11 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             person={person}
             t={t}
             lifespan={lifespan}
-            kinship={kinship}
-            kinshipTooltip={kinshipTooltip}
             commit={commit}
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
           />
-          <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} />
+          <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           <OtherNamesEditor
             key={`names-${person.id}`}
             person={person}
@@ -495,8 +493,6 @@ function NameEditor({
   person,
   t,
   lifespan,
-  kinship,
-  kinshipTooltip,
   commit,
   focusOnMount,
   onMounted,
@@ -504,8 +500,6 @@ function NameEditor({
   person: Individual;
   t: Translate;
   lifespan?: string;
-  kinship?: string;
-  kinshipTooltip?: string;
   commit: Commit;
   focusOnMount?: boolean;
   onMounted?: () => void;
@@ -549,7 +543,6 @@ function NameEditor({
         onClear={() => { setSurname(""); commitName(given, ""); }}
       />
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-      {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
     </div>
   );
 }
@@ -559,9 +552,10 @@ const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
 /** M/F/U toggle for the individual's `SEX` line. */
 const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
 
-function SexToggle({ person, t, commit, onDelete }: { person: Individual; t: Translate; commit: Commit; onDelete: () => void }) {
+function SexToggle({ person, t, commit, onDelete, kinship, kinshipTooltip }: { person: Individual; t: Translate; commit: Commit; onDelete: () => void; kinship?: string; kinshipTooltip?: string }) {
   return (
     <div className="edit-sex-row">
+      {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
       <select
         className={`sex-select ${sexClass(person.sex)}`}
         value={person.sex}

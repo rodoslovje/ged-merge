@@ -1102,10 +1102,6 @@ button {
 .person-kinship {
   font-size: 0.78rem;
   color: var(--accent);
-  background: color-mix(in oklch, var(--accent) 10%, transparent);
-  border: 1px solid color-mix(in oklch, var(--accent) 25%, transparent);
-  border-radius: 4px;
-  padding: 1px 6px;
   flex: none;
 }
 .person-card-meta .person-kinship,
@@ -2152,13 +2148,9 @@ button {
   font-size: 11px;
 }
 .tree-node-kinship {
-  fill: rgba(255, 255, 255, 0.65);
+  fill: var(--accent);
   font-size: 10px;
 }
-:root[data-theme="light"] .tree-node-kinship {
-  fill: var(--muted);
-}
-
 /* selected-person compare table (top-right overlay) */
 .tree-compare {
   position: absolute;
