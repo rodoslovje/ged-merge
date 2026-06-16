@@ -1,4 +1,5 @@
 import { looksLikeUrl } from "../gedcom/builder";
+import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
@@ -201,6 +202,8 @@ function applyRows(
       applied = applyNickname(target, incomingRecord, choice);
     } else if (row.key === "additionalNames") {
       applied = applyAdditionalNames(target, incomingRecord, choice);
+    } else if (row.key === "notes") {
+      applied = applyNotes(target, incomingRecord, choice);
     } else {
       const [tag, sub] = row.key.split(".");
       if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
@@ -283,17 +286,6 @@ function buildLinkNode(format: LinkFormat, url: string, records: GedNode[]): Ged
   return newNode("WWW", url);
 }
 
-/** Find an unused `@<prefix><n>@` xref, one past the highest existing `<n>`. */
-function nextXref(records: GedNode[], prefix: string): string {
-  const re = new RegExp(`^@${prefix}(\\d+)@$`);
-  let max = 0;
-  for (const r of records) {
-    const m = r.xref ? re.exec(r.xref) : null;
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `@${prefix}${max + 1}@`;
-}
-
 /**
  * Which `LinkFormat` the master file uses for its own record-level links, so
  * newly added links are written the same way. Counts `WWW` lines, `_WEBTAG`
@@ -374,6 +366,18 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
   } else {
     target.children[idx] = clone;
   }
+  return true;
+}
+
+/**
+ * Copy NOTE children from the incoming record. "incoming" replaces any existing
+ * notes; "both" appends them. Used for both individual and family notes.
+ */
+function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice): boolean {
+  const incNotes = incoming.children.filter((c) => c.tag === "NOTE");
+  if (!incNotes.length) return false;
+  if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "NOTE");
+  for (const n of incNotes) target.children.push(cloneNode(n));
   return true;
 }
 
@@ -710,7 +714,7 @@ function applyFamilyStructure(
         }
         continue;
       }
-      if (addPointer(famNode, role, targetId, ["HUSB", "WIFE", "CHIL"], "start")) {
+      if (addPointer(famNode, role, targetId, FAM_CHILD_ORDER)) {
         linkBack(ctx, targetId, "FAMS", famId);
         ctx.noteSpouse(famId, ctx.label(targetId));
         ctx.report.changes.push({
@@ -734,7 +738,7 @@ function applyFamilyStructure(
       if (known && existing.has(known)) continue;
       const targetId = ctx.resolve(incChild);
       if (!targetId || existing.has(targetId)) continue;
-      if (addPointer(famNode, "CHIL", targetId, ["HUSB", "WIFE", "CHIL"], "start")) {
+      if (addPointer(famNode, "CHIL", targetId, FAM_CHILD_ORDER)) {
         existing.add(targetId);
         linkBack(ctx, targetId, "FAMC", famId);
         ctx.report.changes.push({
@@ -887,12 +891,7 @@ function applyIndividualFamilies(
     const famNotesKey = `${famKey}.notes`;
     if (wantsIncoming(rows, fields, famNotesKey)) {
       const choice = fields[famNotesKey] ?? "incoming";
-      const incNotes = incFam.raw.children.filter((c) => c.tag === "NOTE");
-      if (incNotes.length) {
-        if (choice !== "both") {
-          famNode.children = famNode.children.filter((c) => c.tag !== "NOTE");
-        }
-        for (const n of incNotes) famNode.children.push(cloneNode(n));
+      if (applyNotes(famNode, incFam.raw, choice)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.notes"),
@@ -933,7 +932,7 @@ function createPersonFamily(
 ): GedNode {
   const fam = ctx.createFamily();
   const role = masterIndi.sex === "F" ? "WIFE" : "HUSB";
-  addPointer(fam.node, role, masterId, ["HUSB", "WIFE", "CHIL"], "start");
+  addPointer(fam.node, role, masterId, FAM_CHILD_ORDER);
   linkBack(ctx, masterId, "FAMS", fam.id);
   ctx.noteSpouse(fam.id, ctx.label(masterId));
   return fam.node;
@@ -951,9 +950,9 @@ function ensureChildFamily(
     if (node) return { id: existing, node };
   }
   const fam = ctx.createFamily();
-  addPointer(fam.node, "CHIL", masterId, ["HUSB", "WIFE", "CHIL"], "start");
+  addPointer(fam.node, "CHIL", masterId, FAM_CHILD_ORDER);
   const indi = ctx.indiNode(masterId);
-  if (indi) addPointer(indi, "FAMC", fam.id, ["FAMC", "FAMS"], "end");
+  if (indi) addPointer(indi, "FAMC", fam.id, INDI_CHILD_ORDER);
   return fam;
 }
 
@@ -977,7 +976,7 @@ function setSpouseSlot(
     }
     return;
   }
-  addPointer(famNode, role, personId, ["HUSB", "WIFE", "CHIL"], "start");
+  addPointer(famNode, role, personId, FAM_CHILD_ORDER);
   linkBack(ctx, personId, "FAMS", famId);
   ctx.noteSpouse(famId, ctx.label(personId));
   ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming" });
@@ -997,35 +996,17 @@ function incomingParentId(
 /** Add a FAMC/FAMS pointer back on the individual record (if not already there). */
 function linkBack(ctx: MergeContext, indiId: string, tag: string, famId: string): void {
   const node = ctx.indiNode(indiId);
-  if (node) addPointer(node, tag, famId, ["FAMC", "FAMS"], "end");
+  if (node) addPointer(node, tag, famId, INDI_CHILD_ORDER);
 }
 
 /**
- * Insert a pointer line (`<tag> <id>`) into a record, grouped after the last of
- * `afterTags`. Skips if an identical pointer already exists. `fallback` controls
- * placement when no `afterTags` line exists yet.
+ * Insert a pointer line (`<tag> <id>`) into a record using canonical ordering.
+ * Skips if an identical pointer already exists.
  */
-function addPointer(
-  parent: GedNode,
-  tag: string,
-  id: string,
-  afterTags: string[],
-  fallback: "start" | "end",
-): boolean {
+function addPointer(parent: GedNode, tag: string, id: string, order: string[]): boolean {
   if (parent.children.some((c) => c.tag === tag && c.value === id)) return false;
-  let lastIdx = -1;
-  for (let i = 0; i < parent.children.length; i++) {
-    if (afterTags.includes(parent.children[i].tag)) lastIdx = i;
-  }
-  const at = lastIdx >= 0 ? lastIdx + 1 : fallback === "start" ? 0 : parent.children.length;
-  insertAt(parent, at, newNode(tag, id));
+  insertOrdered(parent, newNode(tag, id), order);
   return true;
-}
-
-function insertRecord(records: GedNode[], node: GedNode): void {
-  const i = records.findIndex((r) => r.tag === "TRLR");
-  if (i < 0) records.push(node);
-  else records.splice(i, 0, node);
 }
 
 function parseKey(key: string): { kind: string; masterId: string; compareId: string } {

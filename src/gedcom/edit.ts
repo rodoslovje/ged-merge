@@ -16,7 +16,7 @@ const EVENT_CHILD_ORDER = [
 ];
 
 /** Canonical top-level field order within an INDI record. */
-const INDI_CHILD_ORDER = [
+export const INDI_CHILD_ORDER = [
   "NAME", "SEX",
   "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "RETI",
@@ -35,7 +35,7 @@ const INDI_EVENT_TAG_SET = new Set([
 ]);
 
 /** Canonical top-level field order within a FAM record. */
-const FAM_CHILD_ORDER = [
+export const FAM_CHILD_ORDER = [
   "HUSB", "WIFE", "CHIL",
   "MARR", "ENGA", "MARB", "MARL", "DIV",
   "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
@@ -72,7 +72,7 @@ function removeChild(node: GedNode, tag: string): void {
  * Tags not listed in `order` are left where they are (new children with an
  * unlisted tag go last).
  */
-function insertOrdered(parent: GedNode, child: GedNode, order: string[]): void {
+export function insertOrdered(parent: GedNode, child: GedNode, order: string[]): void {
   const tagRank = order.indexOf(child.tag);
   if (tagRank === -1) {
     parent.children.push(child);
@@ -265,8 +265,8 @@ export function setSex(indi: Individual, sex: Sex): void {
   getOrCreateChild(indi.raw, "SEX", INDI_CHILD_ORDER).value = sex;
 }
 
-/** Find the next unused `@I<n>@`/`@F<n>@` xref for a new top-level record. */
-function nextXref(records: GedNode[], prefix: "I" | "F"): string {
+/** Find the next unused `@<prefix><n>@` xref among the top-level records. */
+export function nextXref(records: GedNode[], prefix: string): string {
   const re = new RegExp(`^@${prefix}(\\d+)@$`);
   let max = 0;
   for (const r of records) {
@@ -277,10 +277,10 @@ function nextXref(records: GedNode[], prefix: "I" | "F"): string {
 }
 
 /** Append a new top-level record just before `TRLR` (or at the end, if there's none). */
-function insertRecord(dataset: Dataset, record: GedNode): void {
-  const trlrIndex = dataset.records.findIndex((r) => r.tag === "TRLR");
-  if (trlrIndex === -1) dataset.records.push(record);
-  else dataset.records.splice(trlrIndex, 0, record);
+export function insertRecord(records: GedNode[], record: GedNode): void {
+  const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
+  if (trlrIndex === -1) records.push(record);
+  else records.splice(trlrIndex, 0, record);
 }
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
@@ -303,7 +303,7 @@ export function addIndividual(dataset: Dataset, sex: Sex): Individual {
   const xref = nextXref(dataset.records, "I");
   const raw: GedNode = { level: 0, xref, tag: "INDI", children: [] };
   if (sex !== "U") raw.children.push({ level: 1, tag: "SEX", value: sex, children: [] });
-  insertRecord(dataset, raw);
+  insertRecord(dataset.records, raw);
   return rebuildIndividual(dataset, { id: xref, raw } as Individual);
 }
 
@@ -311,7 +311,7 @@ export function addIndividual(dataset: Dataset, sex: Sex): Individual {
 export function addFamily(dataset: Dataset): Family {
   const xref = nextXref(dataset.records, "F");
   const raw: GedNode = { level: 0, xref, tag: "FAM", children: [] };
-  insertRecord(dataset, raw);
+  insertRecord(dataset.records, raw);
   return rebuildFamily(dataset, { id: xref, raw } as Family);
 }
 

@@ -199,7 +199,7 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
 
   it("creates a child-family linking the matched father and mother", () => {
     // A new FAM with the child and both parents (existing master people).
-    expect(out).toMatch(/0 @F\d+@ FAM\n1 CHIL @I1@\n1 HUSB @I2@\n1 WIFE @I3@/);
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@/);
     expect(out).toContain("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @");
     expect(out).toContain("0 @I2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @");
   });
