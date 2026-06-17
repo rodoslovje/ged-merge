@@ -750,10 +750,28 @@ function orderedEventTags(
   return instances;
 }
 
+/**
+ * Sort key for a single GedDate that is precision- and qualifier-aware:
+ *  - BEF Y  → just before year start (Y*10000 - 1), so it sorts before any Y date
+ *  - AFT Y  → after year end (Y*10000 + 9999)
+ *  - Full date Y-M-D → Y*10000 + M*100 + D
+ *  - Month-only Y-M  → mid-month (M*100 + 50), after same-month full dates
+ *  - Year-only Y     → Y*10000 + 9000, after all specific dates in that year
+ */
+function dateToSortKey(d: GedDate | undefined): number {
+  if (!d || d.year == null) return 9_999_999;
+  const base = d.year * 10000;
+  if (d.qualifier === "before") return base - 1;
+  if (d.qualifier === "after") return base + 9999;
+  const m = d.month;
+  if (!m) return base + 9000;            // year-only → after any known date in year
+  const day = d.day;
+  if (!day) return base + m * 100 + 50;  // month-only → mid-month
+  return base + m * 100 + day;
+}
+
 function eventSortKey(me: GedEvent | undefined, ce: GedEvent | undefined): number {
-  const d = me?.date ?? ce?.date;
-  if (d?.year != null) return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
-  return 9_999_999;
+  return dateToSortKey(me?.date ?? ce?.date);
 }
 
 /** Minimum score for two events to be considered the same event. Below this they are shown separately. */

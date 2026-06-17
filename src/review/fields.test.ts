@@ -231,6 +231,43 @@ describe("date before value in event sub-rows", () => {
   });
 });
 
+describe("event sort key — precision and qualifier", () => {
+  // Helper: build a dataset with the given event tags and dates, then return
+  // the ordered header keys so we can assert relative sort positions.
+  function orderedHeaders(events: Array<{ tag: string; date: string }>) {
+    const lines = events.map(({ tag, date }) => `1 ${tag}\n2 DATE ${date}\n`).join("");
+    const ds = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n${lines}0 TRLR\n`);
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), undefined);
+    return rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+  }
+
+  it("puts a specific date before a year-only date of the same year", () => {
+    // Death "26 Mar 1944" should sort before Burial "1944".
+    const keys = orderedHeaders([
+      { tag: "BURI", date: "1944" },
+      { tag: "DEAT", date: "26 MAR 1944" },
+    ]);
+    expect(keys.indexOf("DEAT.header")).toBeLessThan(keys.indexOf("BURI.header"));
+  });
+
+  it("puts BEF YYYY before an exact date in the same year", () => {
+    // BEF 1944 must sort before 26 Mar 1944.
+    const keys = orderedHeaders([
+      { tag: "DEAT", date: "26 MAR 1944" },
+      { tag: "BIRT", date: "BEF 1944" },
+    ]);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+  });
+
+  it("puts BEF YYYY before a year-only date of the same year", () => {
+    const keys = orderedHeaders([
+      { tag: "DEAT", date: "1944" },
+      { tag: "BIRT", date: "BEF 1944" },
+    ]);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+  });
+});
+
 describe("event ordering", () => {
   it("sorts events chronologically across types", () => {
     // Master has RESI before BIRT in the file; sorted output must put BIRT first.
