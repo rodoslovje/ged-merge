@@ -1,5 +1,6 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
+import { decomposePlace } from "../gedcom/place";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
 import { nameSimilarity } from "../match/similarity";
@@ -125,14 +126,15 @@ export function individualFieldRows(
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
-    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     pushRow(subRows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw, t("event.colDate"));
+    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
-    // If one side's address is embedded in the other's combined place string, treat as matching.
+    // When master uses a structured PLAC+ADDR and the incoming has a packed PLAC (address
+    // folded in, no separate ADDR), extract the address component for side-by-side comparison.
     const mAddr = me?.address?.raw;
     const cAddr = ce?.address?.raw;
-    const effectiveMAddr = !mAddr && cAddr && placeContainsAddr(me?.place?.raw, cAddr) ? cAddr : mAddr;
-    const effectiveCAddr = !cAddr && mAddr && placeContainsAddr(ce?.place?.raw, mAddr) ? mAddr : cAddr;
+    const effectiveMAddr = extractEffectiveAddr(mAddr, me?.place?.raw, cAddr);
+    const effectiveCAddr = extractEffectiveAddr(cAddr, ce?.place?.raw, mAddr);
     pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), effectiveMAddr, effectiveCAddr, t("event.colAddr"));
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
@@ -830,6 +832,40 @@ function placeContainsAddr(place: string | undefined, addr: string): boolean {
   const norm = foldToken(addr).replace(/\s+/g, "");
   if (norm.length < 5) return false;
   return foldToken(place ?? "").replace(/\s+/g, "").includes(norm);
+}
+
+/**
+ * Compute the effective address for comparison when one side's address may be
+ * embedded inside a packed PLAC (no separate ADDR field). Only extracts when
+ * the other side has an ADDR, so we don't add addr rows where neither side has
+ * address data.
+ *
+ * Priority:
+ *  1. Own ADDR if present — use it directly.
+ *  2. Exact substring match: the other side's ADDR appears verbatim in our PLAC
+ *     → return the other addr so the row shows "=".
+ *  3. Structural extraction: decompose our packed PLAC; use the street component
+ *     (or locality + houseNumber) as the effective addr so a conflict is visible.
+ */
+function extractEffectiveAddr(
+  ownAddr: string | undefined,
+  ownPlace: string | undefined,
+  otherAddr: string | undefined,
+): string | undefined {
+  if (ownAddr) return ownAddr;
+  if (!ownPlace) return undefined;
+  // Structural extraction: decompose the packed PLAC and reassemble
+  // the address component (street/house + facility parenthetical).
+  // Runs even when the other side has no ADDR, so packed PLACs always
+  // surface their embedded address as a separate row.
+  const dec = decomposePlace(ownPlace);
+  let extracted = dec.street
+    ?? (dec.houseNumber ? `${dec.locality ?? ""} ${dec.houseNumber}`.trim() : undefined);
+  if (extracted && dec.facility) extracted += ` (${dec.facility})`;
+  if (extracted) return extracted;
+  // Fallback: exact substring match shows the other addr verbatim (→ "=").
+  if (otherAddr && placeContainsAddr(ownPlace, otherAddr)) return otherAddr;
+  return undefined;
 }
 
 function sexText(t: Translate, sex: string | undefined): string {

@@ -432,6 +432,9 @@ function TreeSvg({
         {nodes.map((n) => {
           const dec = decisionOf(n);
           const kinship = kinshipOf(n);
+          // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char at 10px).
+          // If they'd overflow the 160px gap, stack kinship on a separate third row.
+          const needsKinshipRow = !!(kinship && n.years && n.years.length * 13 + kinship.length * 11 > 300);
           return (
             <g
               key={n.key}
@@ -458,12 +461,12 @@ function TreeSvg({
                 {truncate(n.name, 24)}
               </text>
               {n.years && (
-                <text className="tree-node-year gm-data" x={16} y={36}>
+                <text className="tree-node-year gm-data" x={16} y={needsKinshipRow ? 32 : 36}>
                   {n.years}
                 </text>
               )}
               {kinship && (
-                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={36} textAnchor="end">
+                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 44 : 36} textAnchor="end">
                   {kinship}
                 </text>
               )}

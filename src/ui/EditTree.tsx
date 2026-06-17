@@ -299,18 +299,23 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
                       >
                         {truncate(n.name, 24)}
                       </text>
-                      {n.years && (
-                        <text className="tree-node-year gm-data" x={16} y={36}>
-                          {n.years}
-                        </text>
-                      )}
-                      {homeId && n.master?.id && (() => {
-                        const k = kinshipLabel(masterDs, homeId, n.master.id, t);
-                        return k ? (
-                          <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={36} textAnchor="end">
-                            {k}
-                          </text>
-                        ) : null;
+                      {(() => {
+                        const k = homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
+                        const needsKinshipRow = !!(k && n.years && n.years.length * 13 + k.length * 11 > 300);
+                        return (
+                          <>
+                            {n.years && (
+                              <text className="tree-node-year gm-data" x={16} y={needsKinshipRow ? 32 : 36}>
+                                {n.years}
+                              </text>
+                            )}
+                            {k && (
+                              <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 44 : 36} textAnchor="end">
+                                {k}
+                              </text>
+                            )}
+                          </>
+                        );
                       })()}
                       {modified && (
                         <g className="tree-node-decision" transform={`translate(${NODE_W - 11},11)`}>

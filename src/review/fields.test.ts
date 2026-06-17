@@ -217,6 +217,20 @@ describe("fieldDiffCounts", () => {
   });
 });
 
+describe("date before value in event sub-rows", () => {
+  it("shows date as the first sub-row for events that have both a value and a date", () => {
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 OCCU rač. teh.\n2 DATE 1998\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, undefined, c.individuals.get("@P1@"));
+    const dateIdx = rows.findIndex((r) => r.key === "OCCU.date");
+    const valueIdx = rows.findIndex((r) => r.key === "OCCU.value");
+    expect(dateIdx).toBeGreaterThan(-1);
+    expect(valueIdx).toBeGreaterThan(-1);
+    expect(dateIdx).toBeLessThan(valueIdx);
+  });
+});
+
 describe("event ordering", () => {
   it("sorts events chronologically across types", () => {
     // Master has RESI before BIRT in the file; sorted output must put BIRT first.
@@ -304,12 +318,70 @@ describe("multi-RESI pairing by date", () => {
     );
     const c = dataset(
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
-      `1 RESI\n2 DATE 1998\n2 PLAC Ljubljana, Cesta v Pecale 50 - zupnija Crnuce\n` +
+      `1 RESI\n2 DATE 1998\n2 PLAC Ljubljana, Cesta v Pecale 50 - župnija Črnuče\n` +
       `0 TRLR\n`,
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     // Master has addr, incoming has none but embeds it in place — should agree.
     expect(byKey(rows, "RESI.addr")?.state).toBe("agree");
+  });
+
+  it("extracts addr from packed PLAC even when it does not exactly match master ADDR", () => {
+    // Master addr: "Hafnarjeva pot 21a / 53" — incoming packed PLAC: "Hafnarjeva pot 21/a"
+    // The strings differ so placeContainsAddr fails; structural extraction should still
+    // surface the incoming address so the row shows "conflict" rather than "master-only".
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1974\n2 PLAC Strazisce,Kranj,Slovenia\n2 ADDR Hafnarjeva pot 21a / 53\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1974\n2 PLAC Kranj (Slovenija), Hafnarjeva pot 21/a - župnija Šmartin\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const addrRow = byKey(rows, "RESI.addr");
+    // The incoming addr should be extracted and shown (conflict), not blank (master-only).
+    expect(addrRow?.state).toBe("conflict");
+    expect(addrRow?.incoming).toBe("Hafnarjeva pot 21/a");
+  });
+
+  it("includes facility in extracted addr when packed PLAC contains one", () => {
+    // "Kidričeva 38/a (porodnišnica)" — decomposePlace splits the facility into dec.facility;
+    // the extracted address should re-append it in parentheses.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 BIRT\n2 PLAC Kranj,Kranj,Slovenia\n2 ADDR Kidričeva 38/a\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 BIRT\n2 PLAC Kranj (Slovenija), Kidričeva 38/a (porodnišnica)\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const addrRow = byKey(rows, "BIRT.addr");
+    expect(addrRow?.incoming).toBe("Kidričeva 38/a (porodnišnica)");
+  });
+
+  it("extracts addr from packed PLAC even when master has no ADDR field", () => {
+    // Birth: master has only PLAC, no ADDR. Incoming has packed PLAC with embedded address.
+    // An incoming-only ADDR row should appear showing the extracted address.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 BIRT\n2 PLAC Kranj,Kranj,Slovenia\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 BIRT\n2 PLAC Kranj (Slovenija), Kidričeva 38/a (porodnišnica)\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const addrRow = byKey(rows, "BIRT.addr");
+    expect(addrRow?.state).toBe("incoming-only");
+    expect(addrRow?.incoming).toBe("Kidričeva 38/a (porodnišnica)");
   });
 });
 
