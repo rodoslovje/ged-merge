@@ -49,6 +49,8 @@ export interface FieldRow {
   relatives?: RelativePair[];
   /** When true, this row is a visual separator/header for a group of fields. */
   isGroupHeader?: boolean;
+  /** When true, styled as a small-caps event sub-header rather than a bold group header. */
+  isEventHeader?: boolean;
 }
 
 /** One side of an aligned relative row. */

@@ -129,7 +129,7 @@ export function ComparePanel({
         <tbody>
           {rows.map((row) => {
             if (row.isGroupHeader) {
-              const isEventHeader = /^[A-Z]+(\.\d+)?\.header$/.test(row.key);
+              const isEventHeader = !!row.isEventHeader;
               return (
                 <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
                   <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>

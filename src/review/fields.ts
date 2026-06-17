@@ -126,7 +126,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
     pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw, t("event.colAddr"));
     if (subRows.length > 0) {
-      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true });
+      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
       rows.push(...subRows);
     }
   }
@@ -179,18 +179,27 @@ export function individualFieldRows(
 
       const mMar = mFam?.events.find((e) => e.tag === "MARR");
       const cMar = cFam?.events.find((e) => e.tag === "MARR");
-
-      pushRow(rows, `${famKey}.MARR.date`, formatFieldLabel(t, `${famKey}.MARR.date`), mMar?.date?.raw, cMar?.date?.raw);
-      pushRow(rows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, cMar?.place?.raw);
-      pushRow(rows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, cMar?.address?.raw);
+      const marriageRows: FieldRow[] = [];
+      pushRow(marriageRows, `${famKey}.MARR.date`, formatFieldLabel(t, `${famKey}.MARR.date`), mMar?.date?.raw, cMar?.date?.raw);
+      pushRow(marriageRows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, cMar?.place?.raw);
+      pushRow(marriageRows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, cMar?.address?.raw);
+      if (marriageRows.length > 0) {
+        rows.push({ key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+        rows.push(...marriageRows);
+      }
 
       for (const etag of ["ENGA", "SEPA", "DIV"] as const) {
         const mEv = mFam?.events.find((e) => e.tag === etag);
         const cEv = cFam?.events.find((e) => e.tag === etag);
         if (!mEv && !cEv) continue;
-        pushRow(rows, `${famKey}.${etag}.date`, formatFieldLabel(t, `${famKey}.${etag}.date`), mEv?.date?.raw, cEv?.date?.raw);
-        pushRow(rows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, cEv?.place?.raw);
-        pushRow(rows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, cEv?.address?.raw);
+        const etagRows: FieldRow[] = [];
+        pushRow(etagRows, `${famKey}.${etag}.date`, formatFieldLabel(t, `${famKey}.${etag}.date`), mEv?.date?.raw, cEv?.date?.raw);
+        pushRow(etagRows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, cEv?.place?.raw);
+        pushRow(etagRows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, cEv?.address?.raw);
+        if (etagRows.length > 0) {
+          rows.push({ key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+          rows.push(...etagRows);
+        }
       }
 
       const mFamNotes = mFam?.notes?.join("\n");
@@ -203,7 +212,8 @@ export function individualFieldRows(
       const cChildRels = individualsToRelatives(cChildren);
 
       if (mChildRels.length > 0 || cChildRels.length > 0) {
-        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels);
+        rows.push({ key: `${famKey}.children.header`, label: t("field.children"), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "");
       }
     });
   }
@@ -408,6 +418,7 @@ function pushRelativesRow(
   label: string,
   master: Relative[],
   incoming: Relative[],
+  displayLabel?: string,
 ): void {
   if (master.length === 0 && incoming.length === 0) return;
   const pairs = alignRelatives(master, incoming);
@@ -420,6 +431,7 @@ function pushRelativesRow(
   rows.push({
     key,
     label,
+    ...(displayLabel !== undefined ? { displayLabel } : {}),
     master: m,
     incoming: i,
     state,
