@@ -75,9 +75,14 @@ type FamilyCommit = (fam: Family, mutate: (fam: Family) => void) => void;
 
 interface PlaceSuggestions {
   placeSuggestions: string[];
-  addrSuggestions: string[];
+  /** Canonical place key → sorted unique address strings seen at that place. */
+  placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+}
+
+function placeKey(raw: string): string {
+  return raw.trim().split(",").map((p) => p.trim().toLowerCase()).join("|");
 }
 
 /** Collect all unique PLAC and ADDR values from a dataset and build canonical
@@ -85,27 +90,37 @@ interface PlaceSuggestions {
 function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   const placeForms = new Map<string, Map<string, number>>();
   const addrForms = new Map<string, Map<string, number>>();
+  // placeKey → addrRaw → count
+  const placeAddrForms = new Map<string, Map<string, number>>();
 
   function addValue(forms: Map<string, Map<string, number>>, raw: string) {
     const r = raw.trim();
     if (!r) return;
-    const key = r.split(",").map((p) => p.trim().toLowerCase()).join("|");
+    const key = placeKey(r);
     const m = forms.get(key) ?? new Map<string, number>();
     m.set(r, (m.get(r) ?? 0) + 1);
     forms.set(key, m);
   }
 
-  for (const indi of dataset.individuals.values()) {
-    for (const ev of indi.events) {
-      if (ev.place?.raw) addValue(placeForms, ev.place.raw);
-      if (ev.address?.raw) addValue(addrForms, ev.address.raw);
+  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined) {
+    if (placeRaw) addValue(placeForms, placeRaw);
+    if (addrRaw) addValue(addrForms, addrRaw);
+    if (placeRaw && addrRaw) {
+      const pk = placeKey(placeRaw);
+      const ar = addrRaw.trim();
+      if (ar) {
+        const m = placeAddrForms.get(pk) ?? new Map<string, number>();
+        m.set(ar, (m.get(ar) ?? 0) + 1);
+        placeAddrForms.set(pk, m);
+      }
     }
   }
+
+  for (const indi of dataset.individuals.values()) {
+    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw);
+  }
   for (const fam of dataset.families.values()) {
-    for (const ev of fam.events) {
-      if (ev.place?.raw) addValue(placeForms, ev.place.raw);
-      if (ev.address?.raw) addValue(addrForms, ev.address.raw);
-    }
+    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw);
   }
 
   function build(forms: Map<string, Map<string, number>>): { suggestions: string[]; canonical: Map<string, string> } {
@@ -126,9 +141,15 @@ function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
 
   const place = build(placeForms);
   const addr = build(addrForms);
+
+  const placeToAddrs = new Map<string, string[]>();
+  for (const [pk, m] of placeAddrForms) {
+    placeToAddrs.set(pk, [...m.keys()].sort());
+  }
+
   return {
     placeSuggestions: place.suggestions,
-    addrSuggestions: addr.suggestions,
+    placeToAddrs,
     placeCanonical: place.canonical,
     addrCanonical: addr.canonical,
   };
@@ -290,7 +311,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     .map((famId) => dataset.families.get(famId))
     .filter((f): f is NonNullable<typeof f> => !!f);
 
-  const { placeSuggestions, addrSuggestions, placeCanonical, addrCanonical } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical } = useMemo(
     () => buildPlaceSuggestions(dataset),
     [dataset],
   );
@@ -407,7 +428,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             t={t}
             commit={commit}
             placeSuggestions={placeSuggestions}
-            addrSuggestions={addrSuggestions}
+            placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
           />
@@ -483,9 +504,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} addrSuggestions={addrSuggestions} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
+                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} addrSuggestions={addrSuggestions} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -995,7 +1016,7 @@ function EventList({
   t,
   commit,
   placeSuggestions,
-  addrSuggestions,
+  placeToAddrs,
   placeCanonical,
   addrCanonical,
 }: {
@@ -1003,7 +1024,7 @@ function EventList({
   t: Translate;
   commit: Commit;
   placeSuggestions: string[];
-  addrSuggestions: string[];
+  placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
 }) {
@@ -1036,7 +1057,7 @@ function EventList({
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
         placeSuggestions={placeSuggestions}
-        addrSuggestions={addrSuggestions}
+        placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
       />
@@ -1049,7 +1070,7 @@ function EventList({
           t={t}
           commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, i, update))}
           placeSuggestions={placeSuggestions}
-          addrSuggestions={addrSuggestions}
+          placeToAddrs={placeToAddrs}
           placeCanonical={placeCanonical}
           addrCanonical={addrCanonical}
         />
@@ -1061,11 +1082,11 @@ function EventList({
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
   fam, tag, t, commit,
-  placeSuggestions, addrSuggestions, placeCanonical, addrCanonical,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   placeSuggestions: string[];
-  addrSuggestions: string[];
+  placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
 }) {
@@ -1079,7 +1100,7 @@ function FamilyEventRow({
       t={t}
       commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
       placeSuggestions={placeSuggestions}
-      addrSuggestions={addrSuggestions}
+      placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
     />
@@ -1156,7 +1177,7 @@ function EventFieldsRow({
   t,
   commitField,
   placeSuggestions,
-  addrSuggestions,
+  placeToAddrs,
   placeCanonical,
   addrCanonical,
 }: {
@@ -1166,7 +1187,7 @@ function EventFieldsRow({
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
   placeSuggestions: string[];
-  addrSuggestions: string[];
+  placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
 }) {
@@ -1223,7 +1244,7 @@ function EventFieldsRow({
       />
       <PlaceAutocomplete
         value={addrField.value}
-        suggestions={addrSuggestions}
+        suggestions={placeToAddrs.get(placeKey(placeField.value)) ?? []}
         canonical={addrCanonical}
         isDirty={addrField.isDirty}
         className="edit-input edit-event-addr"
