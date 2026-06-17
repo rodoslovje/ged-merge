@@ -1134,6 +1134,7 @@ button {
   margin-bottom: 16px;
 }
 .edit-toolbar .home-selector { flex: 1; max-width: 360px; }
+.toolbar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
 .edit-parents {
   display: flex;
@@ -1993,6 +1994,12 @@ button {
 }
 
 /* --- compare tree --- */
+.compare-nav-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .tree-open-btn {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -2000,9 +2007,9 @@ button {
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 0.85rem;
-  margin-left: auto;
 }
-.tree-open-btn:hover { border-color: var(--accent); }
+.tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
+.tree-open-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
 
 .tree-page {
   display: flex;
@@ -2034,14 +2041,6 @@ button {
   font-size: 0.85rem;
   font-weight: 400;
 }
-.tree-back {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 6px 14px;
-}
-.tree-back:hover { border-color: var(--accent); }
 .tree-mode {
   display: flex;
   gap: 4px;
@@ -2656,9 +2655,8 @@ button {
     flex: 1 1 100%;
     font-size: 1.1rem;
   }
-  .tree-back {
+  .tree-open-btn {
     padding: 4px 10px;
-    font-size: 0.85rem;
   }
   .tree-mode button {
     padding: 4px 8px;

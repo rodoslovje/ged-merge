@@ -279,7 +279,7 @@ export function CompareTree({
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-back" onClick={onBack}>
+        <button className="tree-open-btn" onClick={onBack}>
           ← {t("tree.back")}
         </button>
         <h2 className="tree-title">

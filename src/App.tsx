@@ -848,6 +848,7 @@ export function App() {
             canNavigatePerson={canNavigatePerson}
             onNavigatePerson={navigatePerson}
             compareRef={compareRef}
+            onEdit={current ? () => { setNavigateToId(current.masterId); setMode("edit"); } : undefined}
           />
         ) : (
           <EditView
@@ -858,6 +859,12 @@ export function App() {
             onDirty={handleEditDirty}
             onShowTree={(id) => setEditTreeId(id)}
             navigateToId={navigateToId}
+            onMerge={matches ? (id) => {
+              const idx = visible.findIndex((c) => c.masterId === id);
+              if (idx >= 0) setSelectedIndex(idx);
+              setMode("merge");
+            } : undefined}
+            canMerge={matches ? (id) => visible.some((c) => c.masterId === id) : undefined}
           />
         )
       )}

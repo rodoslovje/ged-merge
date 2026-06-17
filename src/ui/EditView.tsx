@@ -48,6 +48,10 @@ interface Props {
   onShowTree: (id: string) => void;
   /** Navigate to this person when it changes (used by the save dialog person links). */
   navigateToId?: string;
+  /** When set, shows a Merge button to switch to merge mode. Called with the current person's ID. */
+  onMerge?: (currentPersonId: string) => void;
+  /** Returns true when the given person ID has a match in the merge list. */
+  canMerge?: (id: string) => boolean;
 }
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -166,7 +170,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -340,7 +344,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     <div className="section open edit-view">
       <div className="section-body">
         <div className="edit-toolbar">
-          <button className="nav-btn" onClick={goBack} disabled={history.length === 0}>
+          <button className="tree-open-btn" onClick={goBack} disabled={history.length === 0}>
             ← {t("edit.back")}
           </button>
           <HomePersonSelector
@@ -357,13 +361,24 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onChange={changeHome}
             onClear={() => changeHome(undefined)}
           />
-          <button
-            className="nav-btn"
-            onClick={() => selectedId && onShowTree(selectedId)}
-            title={t("edit.tree.tooltip")}
-          >
-            {t("edit.tree.button")}
-          </button>
+          <div className="toolbar-end">
+            <button
+              className="tree-open-btn"
+              onClick={() => selectedId && onShowTree(selectedId)}
+              title={t("edit.tree.tooltip")}
+            >
+              {t("edit.tree.button")}
+            </button>
+            {onMerge && selectedId && canMerge?.(selectedId) && (
+              <button
+                className="tree-open-btn"
+                onClick={() => onMerge(selectedId)}
+                title={t("edit.mergeTooltip")}
+              >
+                {t("edit.mergeButton")}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="edit-parents">

@@ -49,6 +49,8 @@ interface Props {
   canNavigatePerson: (side: "master" | "incoming", id: string) => boolean;
   onNavigatePerson: (side: "master" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
+  /** When set, shows an Edit button on the compare panel to jump to edit mode. */
+  onEdit?: () => void;
 
 }
 
@@ -82,6 +84,7 @@ export function MergeView({
   canNavigatePerson,
   onNavigatePerson,
   compareRef,
+  onEdit,
 }: Props) {
   const { t } = useTranslation();
 
@@ -204,6 +207,7 @@ export function MergeView({
                       decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
                       onChange={onUpdateDecision}
                       onOpenTree={() => onOpenTree(current.masterId, current.compareId)}
+                      onEdit={onEdit}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
                     />

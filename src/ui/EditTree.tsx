@@ -209,7 +209,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-back" onClick={onBack}>
+        <button className="tree-open-btn" onClick={onBack}>
           ← {t("edit.tree.back")}
         </button>
         <h2 className="tree-title">

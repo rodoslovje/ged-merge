@@ -24,6 +24,8 @@ interface Props {
   onChange: (next: CandidateDecision) => void;
   /** When set, shows a "Compare tree" button that opens the full-page tree. */
   onOpenTree?: () => void;
+  /** When set, shows an "Edit" button that switches to edit mode for the master person. */
+  onEdit?: () => void;
   /** True when the person on `side` with this id is reachable in the match list. */
   canNavigate: (side: RelativeSide, id: string) => boolean;
   /** Jump the compare view to the person on `side` with this id. */
@@ -40,6 +42,7 @@ export function ComparePanel({
   decision,
   onChange,
   onOpenTree,
+  onEdit,
   canNavigate,
   onNavigate,
 }: Props) {
@@ -110,10 +113,19 @@ export function ComparePanel({
           ))}
         </div>
 
-        {onOpenTree && (
-          <button className="tree-open-btn" onClick={onOpenTree}>
-            {t("tree.button")}
-          </button>
+        {(onOpenTree || onEdit) && (
+          <div className="compare-nav-actions">
+            {onOpenTree && (
+              <button className="tree-open-btn" onClick={onOpenTree}>
+                {t("tree.button")}
+              </button>
+            )}
+            {onEdit && (
+              <button className="tree-open-btn" onClick={onEdit} title={t("compare.editTooltip")}>
+                {t("compare.editButton")}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
