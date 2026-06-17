@@ -103,7 +103,7 @@ export function App() {
   // Matches list view state.
   const [sort, setSort] = useState<SortState[]>(DEFAULT_SORT);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<{ masterId: string; compareId: string } | null>(null);
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
@@ -183,10 +183,7 @@ export function App() {
       // Restore a remembered compare selection (set when a person link pushed it).
       if (st.gedSel) {
         const { masterId, compareId } = st.gedSel;
-        const idx = visibleRef.current.findIndex((c) => c.masterId === masterId && c.compareId === compareId);
-        if (idx >= 0) {
-          setSelectedIndex(idx);
-        }
+        setSelectedId({ masterId, compareId });
       }
     }
     window.addEventListener("popstate", onPop);
@@ -196,8 +193,7 @@ export function App() {
   /** Record the current compare selection in the current history entry so the
    *  browser Back button returns here after a person-link or tree push. */
   function rememberSelection() {
-    const cur = visible[safeIndex];
-    if (cur) window.history.replaceState({ gedSel: { masterId: cur.masterId, compareId: cur.compareId } }, "");
+    if (current) window.history.replaceState({ gedSel: { masterId: current.masterId, compareId: current.compareId } }, "");
   }
 
   function openTree(masterId: string, compareId: string) {
@@ -239,7 +235,7 @@ export function App() {
       if (msg.type === "matched") {
         setMatches(msg.result);
         setMatching(false);
-        setSelectedIndex(0);
+        setSelectedId(null);
         setOpenMatches(true);
         setShowInfoPanel(false);
         return;
@@ -349,38 +345,58 @@ export function App() {
     setSort((prev) => nextSort(prev, key));
   }
 
-  // Filtered + sorted list of individual matches. The status rank lets the
-  // "status" sort group rows by the user's decision (and re-groups live as
-  // decisions change).
-  const visible = useMemo(() => {
+  // Sorted (but not filtered) list — used for navigation across all matches
+  // regardless of the active filter, and as the base for the filtered display.
+  const allSorted = useMemo(() => {
     if (!matches) return [];
     const statusRank = (c: Candidate) =>
       STATUS_RANK[decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status ?? "undecided"];
-    return applySort(applyFilters(matches.individuals, filters), sort, statusRank);
-  }, [matches, filters, sort, decisions]);
+    return applySort(matches.individuals, sort, statusRank);
+  }, [matches, sort, decisions]);
 
-  const safeIndex = visible.length === 0 ? 0 : Math.min(selectedIndex, visible.length - 1);
-  const current = visible[safeIndex];
+  // Filtered list for display — preserves the sort order of allSorted.
+  const visible = useMemo(() => applyFilters(allSorted, filters), [allSorted, filters]);
 
-  // Person id -> index in the visible list, so a relative's name can jump to
-  // their own match row. A person with several candidates resolves to the first
-  // (highest-ranked) one present in the list. Built per column: master ids on the
-  // master side, compare ids on the incoming side.
+  // The currently selected candidate (ID-based, survives filter changes).
+  // Falls back to the first in allSorted when no explicit selection exists.
+  const current = useMemo(() => {
+    if (allSorted.length === 0) return undefined;
+    if (!selectedId) return allSorted[0];
+    return allSorted.find(c => c.masterId === selectedId.masterId && c.compareId === selectedId.compareId) ?? allSorted[0];
+  }, [allSorted, selectedId]);
+
+  // Index of current in the visible (filtered) list — -1 when filtered out.
+  const visibleIndex = useMemo(() => {
+    if (!current) return -1;
+    return visible.findIndex(c => c.masterId === current.masterId && c.compareId === current.compareId);
+  }, [visible, current]);
+
+  // Index of current in allSorted — used for prev/next navigation bounds.
+  const allSortedIndex = useMemo(() => {
+    if (!current) return 0;
+    return allSorted.findIndex(c => c.masterId === current.masterId && c.compareId === current.compareId);
+  }, [allSorted, current]);
+
+  // Person id -> candidate, so a relative's name can jump to their own match.
+  // A person with several candidates resolves to the first (highest-ranked) one.
+  // Built over allSorted so navigation works regardless of the active filter.
   const indexByMaster = useMemo(() => {
-    const m = new Map<string, number>();
-    visible.forEach((c, i) => { if (!m.has(c.masterId)) m.set(c.masterId, i); });
+    const m = new Map<string, Candidate>();
+    allSorted.forEach((c) => { if (!m.has(c.masterId)) m.set(c.masterId, c); });
     return m;
-  }, [visible]);
+  }, [allSorted]);
   const indexByCompare = useMemo(() => {
-    const m = new Map<string, number>();
-    visible.forEach((c, i) => { if (!m.has(c.compareId)) m.set(c.compareId, i); });
+    const m = new Map<string, Candidate>();
+    allSorted.forEach((c) => { if (!m.has(c.compareId)) m.set(c.compareId, c); });
     return m;
-  }, [visible]);
+  }, [allSorted]);
 
-  // popstate reads the live list to resolve a remembered selection; a ref keeps
-  // its handler (registered once) from closing over a stale `visible`.
+  // Refs used by the stable callbacks and the arrow-key effect so they don't
+  // need to re-register whenever visible changes.
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const visibleIndexRef = useRef(visibleIndex);
+  visibleIndexRef.current = visibleIndex;
 
   const canNavigatePerson = useCallback(
     (side: "master" | "incoming", id: string) =>
@@ -394,10 +410,12 @@ export function App() {
     setShowMobileWarning(false);
   }
 
-  // Stable identity so memoized candidate rows don't re-render on every keystroke
-  // or filter toggle (only the rows whose own props change re-render).
-  const select = useCallback((index: number) => {
-    setSelectedIndex(index);
+  // Stable identity — uses visibleRef so memoized rows don't re-render on
+  // every filter change (only rows whose own props change do).
+  const select = useCallback((visIdx: number) => {
+    const c = visibleRef.current[visIdx];
+    if (!c) return;
+    setSelectedId({ masterId: c.masterId, compareId: c.compareId });
     if (window.innerWidth <= 880) {
       setTimeout(() => {
         compareRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -405,35 +423,67 @@ export function App() {
     }
   }, []);
 
+  // Prev/Next navigate within the filtered visible list.
+  const onSelectPrev = useCallback(() => {
+    const idx = Math.max(0, visibleIndexRef.current - 1);
+    const c = visibleRef.current[idx];
+    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+  }, []);
+
+  const onSelectNext = useCallback(() => {
+    const idx = Math.min(visibleRef.current.length - 1, visibleIndexRef.current + 1);
+    const c = visibleRef.current[idx];
+    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+  }, []);
+
+  // When filters change: keep current person if they survive the new filter;
+  // otherwise jump to the first person in the new filtered list.
+  function handleFilters(f: Filters) {
+    const newVisible = applyFilters(allSorted, f);
+    const currentStillVisible = current
+      ? newVisible.some(c => c.masterId === current.masterId && c.compareId === current.compareId)
+      : false;
+    if (!currentStillVisible && newVisible.length > 0) {
+      setSelectedId({ masterId: newVisible[0].masterId, compareId: newVisible[0].compareId });
+    }
+    setFilters(f);
+  }
+
   // Jump the compare view to a relative's own match row, pushing a history entry
   // so the browser Back button returns to where we were.
   const navigatePerson = useCallback(
     (side: "master" | "incoming", id: string) => {
-      const idx = (side === "master" ? indexByMaster : indexByCompare).get(id);
-      if (idx == null || idx === safeIndex) return; // unknown or already selected
-      const cur = visible[safeIndex];
-      if (cur) window.history.replaceState({ gedSel: { masterId: cur.masterId, compareId: cur.compareId } }, "");
-      const target = visible[idx];
+      const target = (side === "master" ? indexByMaster : indexByCompare).get(id);
+      if (!target) return;
+      if (target.masterId === current?.masterId && target.compareId === current?.compareId) return;
+      if (current) window.history.replaceState({ gedSel: { masterId: current.masterId, compareId: current.compareId } }, "");
       window.history.pushState({ gedSel: { masterId: target.masterId, compareId: target.compareId } }, "");
-      select(idx);
+      setSelectedId({ masterId: target.masterId, compareId: target.compareId });
+      if (window.innerWidth <= 880) {
+        setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
+      }
     },
-    [indexByMaster, indexByCompare, visible, safeIndex, select],
+    [indexByMaster, indexByCompare, current],
   );
 
-  // Keyboard navigation across the filtered list (ignored while typing).
+  // Keyboard navigation within the filtered visible list (ignored while typing).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
         return;
       }
-      if (visible.length === 0) return;
+      if (visibleRef.current.length === 0) return;
       if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.max(0, Math.min(i, visible.length - 1) - 1));
+        const idx = Math.max(0, visibleIndexRef.current - 1);
+        const c = visibleRef.current[idx];
+        if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
       } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(visible.length - 1, i + 1));
+        const idx = Math.min(visibleRef.current.length - 1, visibleIndexRef.current + 1);
+        const c = visibleRef.current[idx];
+        if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
       }
     }
     window.addEventListener("keydown", onKey);
@@ -826,10 +876,13 @@ export function App() {
             sort={sort}
             onToggleSort={toggleSort}
             filters={filters}
-            setFilters={setFilters}
-            setSelectedIndex={setSelectedIndex}
+            setFilters={handleFilters}
             visible={visible}
-            safeIndex={safeIndex}
+            visibleIndex={visibleIndex}
+            allSortedIndex={visibleIndex}
+            allSortedCount={visible.length}
+            onSelectPrev={onSelectPrev}
+            onSelectNext={onSelectNext}
             onSelect={select}
             decisions={decisions}
             showFilters={showFilters}
@@ -860,11 +913,11 @@ export function App() {
             onShowTree={(id) => setEditTreeId(id)}
             navigateToId={navigateToId}
             onMerge={matches ? (id) => {
-              const idx = visible.findIndex((c) => c.masterId === id);
-              if (idx >= 0) setSelectedIndex(idx);
+              const c = allSorted.find((c) => c.masterId === id);
+              if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
               setMode("merge");
             } : undefined}
-            canMerge={matches ? (id) => visible.some((c) => c.masterId === id) : undefined}
+            canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
           />
         )
       )}

@@ -26,9 +26,14 @@ interface Props {
   onToggleSort: (key: SortKey) => void;
   filters: Filters;
   setFilters: (filters: Filters) => void;
-  setSelectedIndex: Dispatch<SetStateAction<number>>;
   visible: Candidate[];
-  safeIndex: number;
+  /** Index of current in visible; -1 when current is filtered out. */
+  visibleIndex: number;
+  /** Position of current in the full sorted list (for prev/next nav). */
+  allSortedIndex: number;
+  allSortedCount: number;
+  onSelectPrev: () => void;
+  onSelectNext: () => void;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
   showFilters: boolean;
@@ -63,9 +68,12 @@ export function MergeView({
   onToggleSort,
   filters,
   setFilters,
-  setSelectedIndex,
   visible,
-  safeIndex,
+  visibleIndex,
+  allSortedIndex,
+  allSortedCount,
+  onSelectPrev,
+  onSelectNext,
   onSelect,
   decisions,
   showFilters,
@@ -130,19 +138,19 @@ export function MergeView({
       <div className="compare-nav-header">
         <button
           className="nav-btn icon-only"
-          onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}
-          disabled={safeIndex <= 0}
+          onClick={onSelectPrev}
+          disabled={allSortedIndex <= 0}
           title={t("nav.prev")}
         >
           ‹
         </button>
         <span className="nav-pos gm-data">
-          {t("nav.pos", { current: safeIndex + 1, total: visible.length })}
+          {t("nav.pos", { current: allSortedIndex + 1, total: allSortedCount })}
         </span>
         <button
           className="nav-btn icon-only"
-          onClick={() => setSelectedIndex((i) => Math.min(visible.length - 1, i + 1))}
-          disabled={safeIndex >= visible.length - 1}
+          onClick={onSelectNext}
+          disabled={allSortedIndex >= allSortedCount - 1}
           title={t("nav.next")}
         >
           ›
@@ -169,12 +177,9 @@ export function MergeView({
                   sort={sort}
                   onToggleSort={onToggleSort}
                   filters={filters}
-                  onFilters={(f) => {
-                    setFilters(f);
-                    setSelectedIndex(0);
-                  }}
+                  onFilters={setFilters}
                   list={visible}
-                  selectedIndex={safeIndex}
+                  selectedIndex={visibleIndex}
                   onSelect={onSelect}
                   decisions={decisions}
                   showFilters={showFilters}

@@ -98,6 +98,7 @@ export const sl = {
   "home.tooltip": "Nastavite izhodiščno osebo za razvrščanje ujemanj po sorodstveni razdalji",
   "filter.search": "Iskanje imena…",
   "filter.searchTooltip": "Filtriraj ujemanja po imenu ali priimku",
+  "filter.clearSearch": "Počisti iskanje",
   "filter.newData": "Novo",
   "filter.newDataTooltip": "Prikaži samo ujemanja, ki dodajajo nove podatke",
   "filter.differences": "Razlike",

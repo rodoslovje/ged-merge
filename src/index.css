@@ -792,14 +792,19 @@ button {
   gap: 6px;
   cursor: pointer;
 }
-.name-search {
+.name-search-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-width: 120px;
+}
+.name-search {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  padding: 5px 10px;
+  padding: 5px 28px 5px 10px;
   font-size: 0.85rem;
 }
 .name-search:focus {
@@ -807,6 +812,20 @@ button {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
 }
+.name-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 2px 4px;
+  line-height: 1;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.name-search-clear:hover { color: var(--text); }
 .filter-score {
   display: flex;
   align-items: center;
@@ -973,6 +992,10 @@ button {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
+/* Subtle left accent for candidates that carry link data. */
+.candidate.has-links {
+  border-left: 3px solid #93c5fd;
+}
 
 .candidate-head {
   display: flex;
@@ -1073,11 +1096,12 @@ button {
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 400;
   padding: 2px 6px;
   border-radius: 6px;
   background: var(--panel-2);
 }
+.candidate.selected .badge { font-weight: 600; }
 .badge.strong   { background: color-mix(in oklch, var(--state-match) 14%, transparent); color: var(--state-match); }
 .badge.probable { background: color-mix(in oklch, var(--state-minor) 14%, transparent); color: var(--state-minor); }
 
@@ -1108,7 +1132,8 @@ button {
 .compare-head .person-kinship { margin-left: auto; }
 
 .candidate-main .person-label { gap: 2px 8px; }
-.candidate-main .person-name { font-weight: 600; }
+.candidate-main .person-name { font-weight: 400; }
+.candidate.selected .person-name { font-weight: 600; }
 
 .compare-head .person-label { font-size: 1rem; }
 .compare-head .person-name,

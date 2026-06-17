@@ -95,14 +95,27 @@ export function MatchResults({
       {showFilters && (
         <div className="filters">
           <div className="filter-row">
-            <input
-              type="search"
-              className="name-search"
-              placeholder={t("filter.search")}
-              title={t("filter.searchTooltip")}
-              value={filters.nameQuery}
-              onChange={(e) => onFilters({ ...filters, nameQuery: e.target.value })}
-            />
+            <div className="name-search-wrap">
+              <input
+                type="text"
+                className="name-search"
+                placeholder={t("filter.search")}
+                title={t("filter.searchTooltip")}
+                value={filters.nameQuery}
+                onChange={(e) => onFilters({ ...filters, nameQuery: e.target.value })}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              />
+              {filters.nameQuery && (
+                <button
+                  className="name-search-clear"
+                  onClick={() => onFilters({ ...filters, nameQuery: "" })}
+                  tabIndex={-1}
+                  aria-label={t("filter.clearSearch")}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             {homeControl}
           </div>
           <div className="filter-row">
@@ -291,7 +304,7 @@ const CandidateRow = memo(function CandidateRow({
   );
 
   return (
-    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
+    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}${candidate.linkCount ? " has-links" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
           <span className={`person-label ${sexClass(candidate.sex)}`}>
