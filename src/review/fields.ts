@@ -1,4 +1,4 @@
-import type { Dataset, Family, GedEvent, Individual, PersonName, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { foldToken } from "../match/text";
 import { canonicalPlaceToken } from "../match/place";
@@ -117,18 +117,23 @@ export function individualFieldRows(
   pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
 
-  for (const { tag, idx, multi } of orderedEventTags(master, compare)) {
+  for (const { tag, masterIdx, compareIdx, keyIdx, multi } of orderedEventTags(master, compare)) {
     const masterEvents = master?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
-    const me = masterEvents[idx];
-    const ce = compareEvents[idx];
-    const keyBase = multi ? `${tag}.${idx}` : tag;
+    const me = masterIdx >= 0 ? masterEvents[masterIdx] : undefined;
+    const ce = compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
+    const keyBase = multi ? `${tag}.${keyIdx}` : tag;
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     pushRow(subRows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw, t("event.colDate"));
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
-    pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw, t("event.colAddr"));
+    // If one side's address is embedded in the other's combined place string, treat as matching.
+    const mAddr = me?.address?.raw;
+    const cAddr = ce?.address?.raw;
+    const effectiveMAddr = !mAddr && cAddr && placeContainsAddr(me?.place?.raw, cAddr) ? cAddr : mAddr;
+    const effectiveCAddr = !cAddr && mAddr && placeContainsAddr(ce?.place?.raw, mAddr) ? mAddr : cAddr;
+    pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), effectiveMAddr, effectiveCAddr, t("event.colAddr"));
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
       const cLinks = ce?.links?.length ? ce.links : undefined;
@@ -682,55 +687,149 @@ function placeCompareKey(value: string): string {
   return parts.join(",");
 }
 
-function eventDateKey(events: GedEvent[], idx: number): number {
-  const d = events[idx]?.date;
-  if (d?.year !== undefined) return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
-  return 9_999_999; // undated events sort last
-}
-
 function orderedEventTags(
   master?: Individual,
   compare?: Individual,
-): Array<{ tag: string; idx: number; multi: boolean }> {
+): Array<{ tag: string; masterIdx: number; compareIdx: number; keyIdx: number; multi: boolean }> {
   const mEvents = master?.events ?? [];
   const cEvents = compare?.events ?? [];
 
-  const mCount = new Map<string, number>();
-  const cCount = new Map<string, number>();
-  for (const e of mEvents) mCount.set(e.tag, (mCount.get(e.tag) ?? 0) + 1);
-  for (const e of cEvents) cCount.set(e.tag, (cCount.get(e.tag) ?? 0) + 1);
-
-  const allTags = new Set([...mCount.keys(), ...cCount.keys()]);
-  const instances: Array<{ tag: string; idx: number; multi: boolean }> = [];
-  for (const tag of allTags) {
-    const maxCount = Math.max(mCount.get(tag) ?? 0, cCount.get(tag) ?? 0);
-    const multi = maxCount > 1;
-    for (let i = 0; i < maxCount; i++) instances.push({ tag, idx: i, multi });
-  }
-
   const mByTag = new Map<string, GedEvent[]>();
   const cByTag = new Map<string, GedEvent[]>();
-  for (const tag of allTags) {
-    mByTag.set(tag, mEvents.filter((e) => e.tag === tag));
-    cByTag.set(tag, cEvents.filter((e) => e.tag === tag));
-  }
+  for (const e of mEvents) { const a = mByTag.get(e.tag) ?? []; a.push(e); mByTag.set(e.tag, a); }
+  for (const e of cEvents) { const a = cByTag.get(e.tag) ?? []; a.push(e); cByTag.set(e.tag, a); }
 
-  function instanceDate(tag: string, idx: number): number {
-    const mk = eventDateKey(mByTag.get(tag)!, idx);
-    return mk !== 9_999_999 ? mk : eventDateKey(cByTag.get(tag)!, idx);
+  const allTags = new Set([...mByTag.keys(), ...cByTag.keys()]);
+  type Instance = { tag: string; masterIdx: number; compareIdx: number; keyIdx: number; multi: boolean };
+  const instances: Instance[] = [];
+
+  for (const tag of allTags) {
+    const mTagEvs = mByTag.get(tag) ?? [];
+    const cTagEvs = cByTag.get(tag) ?? [];
+    const multi = Math.max(mTagEvs.length, cTagEvs.length) > 1;
+
+    if (!multi) {
+      const mIdx = mTagEvs.length > 0 ? 0 : -1;
+      const cIdx = cTagEvs.length > 0 ? 0 : -1;
+      // When both sides have a dated event and the pair scores too low, show them separately.
+      if (mIdx >= 0 && cIdx >= 0
+          && mTagEvs[0].date?.year != null && cTagEvs[0].date?.year != null
+          && eventPairScore(mTagEvs[0], cTagEvs[0]) < MIN_EVENT_PAIR_SCORE) {
+        instances.push({ tag, masterIdx: 0, compareIdx: -1, keyIdx: 0, multi: true });
+        instances.push({ tag, masterIdx: -1, compareIdx: 0, keyIdx: 1, multi: true });
+      } else {
+        instances.push({ tag, masterIdx: mIdx, compareIdx: cIdx, keyIdx: 0, multi: false });
+      }
+    } else {
+      // Pair events by date+place similarity instead of positional index.
+      const pairs = pairEventsByDatePlace(mTagEvs, cTagEvs);
+      const usedM = new Set(pairs.map(p => p.mi));
+      const usedC = new Set(pairs.map(p => p.ci));
+      let keyIdx = 0;
+      for (const { mi, ci } of pairs) instances.push({ tag, masterIdx: mi, compareIdx: ci, keyIdx: keyIdx++, multi: true });
+      for (let mi = 0; mi < mTagEvs.length; mi++) if (!usedM.has(mi)) instances.push({ tag, masterIdx: mi, compareIdx: -1, keyIdx: keyIdx++, multi: true });
+      for (let ci = 0; ci < cTagEvs.length; ci++) if (!usedC.has(ci)) instances.push({ tag, masterIdx: -1, compareIdx: ci, keyIdx: keyIdx++, multi: true });
+    }
   }
 
   instances.sort((a, b) => {
-    const dateA = instanceDate(a.tag, a.idx);
-    const dateB = instanceDate(b.tag, b.idx);
+    const me = a.masterIdx >= 0 ? (mByTag.get(a.tag) ?? [])[a.masterIdx] : undefined;
+    const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
+    const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
+    const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
+    const dateA = eventSortKey(me, ce);
+    const dateB = eventSortKey(me2, ce2);
     if (dateA !== dateB) return dateA - dateB;
-    // Secondary: lifecycle order, then occurrence index
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
-    return (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB) || a.idx - b.idx;
+    return (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB) || a.keyIdx - b.keyIdx;
   });
 
   return instances;
+}
+
+function eventSortKey(me: GedEvent | undefined, ce: GedEvent | undefined): number {
+  const d = me?.date ?? ce?.date;
+  if (d?.year != null) return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
+  return 9_999_999;
+}
+
+/** Minimum score for two events to be considered the same event. Below this they are shown separately. */
+const MIN_EVENT_PAIR_SCORE = 0.35;
+
+/** Greedy bipartite matching of events by date+place similarity. */
+function pairEventsByDatePlace(
+  masterEvents: GedEvent[],
+  compareEvents: GedEvent[],
+): { mi: number; ci: number }[] {
+  const cands: { mi: number; ci: number; score: number }[] = [];
+  for (let mi = 0; mi < masterEvents.length; mi++) {
+    for (let ci = 0; ci < compareEvents.length; ci++) {
+      const score = eventPairScore(masterEvents[mi], compareEvents[ci]);
+      if (score >= MIN_EVENT_PAIR_SCORE) cands.push({ mi, ci, score });
+    }
+  }
+  cands.sort((a, b) => b.score - a.score);
+  const usedM = new Set<number>();
+  const usedC = new Set<number>();
+  const pairs: { mi: number; ci: number }[] = [];
+  for (const { mi, ci } of cands) {
+    if (usedM.has(mi) || usedC.has(ci)) continue;
+    usedM.add(mi);
+    usedC.add(ci);
+    pairs.push({ mi, ci });
+  }
+  return pairs;
+}
+
+function eventPairScore(me: GedEvent, ce: GedEvent): number {
+  return datePairSim(me.date, ce.date) * 0.6 + eventPlaceSim(me, ce) * 0.4;
+}
+
+/** Year-based date similarity: 1.0 for gap ≤ 1 year, decays to 0 beyond 15 years. */
+function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
+  if (a?.year == null || b?.year == null) return 0.3;
+  const ay = a.year2 != null ? (a.year + a.year2) / 2 : a.year;
+  const by = b.year2 != null ? (b.year + b.year2) / 2 : b.year;
+  const gap = Math.abs(ay - by);
+  if (gap <= 1) return 1;
+  if (gap <= 3) return 0.7;
+  if (gap <= 7) return 0.4;
+  if (gap <= 15) return 0.2;
+  return 0;
+}
+
+/** Place similarity: word overlap plus a bonus when one side's address is embedded in the other's place. */
+function eventPlaceSim(me: GedEvent, ce: GedEvent): number {
+  const mWords = placeWords(me.place?.raw);
+  const cWords = placeWords(ce.place?.raw);
+  const addrBonus =
+    (me.address?.raw && placeContainsAddr(ce.place?.raw, me.address.raw)) ||
+    (ce.address?.raw && placeContainsAddr(me.place?.raw, ce.address.raw))
+      ? 0.4
+      : 0;
+  if (mWords.size === 0 && cWords.size === 0 && addrBonus === 0) return 0.3;
+  const shared = [...mWords].filter(w => cWords.has(w)).length;
+  const total = new Set([...mWords, ...cWords]).size;
+  return Math.min(1, (total > 0 ? shared / total : 0) + addrBonus);
+}
+
+/** Significant words from a place string, with country-name canonicalization. */
+function placeWords(place: string | undefined): Set<string> {
+  if (!place) return new Set();
+  return new Set(
+    foldToken(place)
+      .split(/[\s,()\-\/\.]+/)
+      .map(w => canonicalPlaceToken(w))
+      .filter(w => w.length >= 3),
+  );
+}
+
+/** True when `addr` (normalized) appears as a substring inside `place` (normalized). */
+function placeContainsAddr(place: string | undefined, addr: string): boolean {
+  const norm = foldToken(addr).replace(/\s+/g, "");
+  if (norm.length < 5) return false;
+  return foldToken(place ?? "").replace(/\s+/g, "").includes(norm);
 }
 
 function sexText(t: Translate, sex: string | undefined): string {

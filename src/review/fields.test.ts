@@ -249,6 +249,70 @@ describe("event ordering", () => {
   });
 });
 
+describe("multi-RESI pairing by date", () => {
+  it("pairs residences by date proximity rather than positional index", () => {
+    // Master: RESI 1997 (addr: Cesta 50), RESI 2004
+    // Compare: RESI 1974, RESI 1998 (place includes Cesta 50)
+    // By index: master[0] ↔ compare[0] (1997↔1974), master[1] ↔ compare[1] (2004↔1998)
+    // By date: master[0] ↔ compare[1] (1997↔1998), master[1] has no close compare match
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1997\n2 PLAC Ljubljana\n2 ADDR Cesta 50\n` +
+      `1 RESI\n2 DATE JUN 2004\n2 PLAC Ljubljana\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1974\n2 PLAC Strazisce\n` +
+      `1 RESI\n2 DATE 1998\n2 PLAC Ljubljana, Cesta 50\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // Find the RESI that has master date 1997 — it should be paired with compare date 1998, not 1974.
+    const resiDateRows = rows.filter(r => r.key.match(/^RESI\.\d+\.date$/));
+    const paired1997 = resiDateRows.find(r => r.master === "1997");
+    expect(paired1997?.incoming).toBe("1998"); // paired by date proximity, not position
+  });
+
+  it("does not pair residences that are too far apart in date and place", () => {
+    // Master: Jun 2004, Ljubljana; Incoming: BEF 1998, Kranj — should stay unpaired.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE JUN 2004\n2 PLAC Ljubljana\n2 ADDR Ulica talcev 7\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE BEF 1998\n2 PLAC Kranj, Hafnarjeva pot 53\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
+    // Must appear as two separate rows, not one paired row.
+    expect(dateRows.length).toBe(2);
+    const masterDate = dateRows.find(r => r.master && !r.incoming);
+    const compareDate = dateRows.find(r => !r.master && r.incoming);
+    expect(masterDate?.state).toBe("master-only");
+    expect(compareDate?.state).toBe("incoming-only");
+  });
+
+  it("detects addr-in-place when paired correctly and marks addr as agree", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1997\n2 PLAC Ljubljana\n2 ADDR Cesta v Pecale 50\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1998\n2 PLAC Ljubljana, Cesta v Pecale 50 - zupnija Crnuce\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // Master has addr, incoming has none but embeds it in place — should agree.
+    expect(byKey(rows, "RESI.addr")?.state).toBe("agree");
+  });
+});
+
 describe("ADDR support", () => {
   const m = dataset(
     `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 19 SEP 1917\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Zgornje Bitnje 52 (pd Urbanov Jaka)\n0 TRLR\n`,
