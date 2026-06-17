@@ -788,7 +788,7 @@ function eventPairScore(me: GedEvent, ce: GedEvent): number {
   return datePairSim(me.date, ce.date) * 0.6 + eventPlaceSim(me, ce) * 0.4;
 }
 
-/** Year-based date similarity: 1.0 for gap ≤ 1 year, decays to 0 beyond 15 years. */
+/** Year-based date similarity: 1.0 for gap ≤ 1 year, decays to 0 beyond 10 years. */
 function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
   if (a?.year == null || b?.year == null) return 0.3;
   const ay = a.year2 != null ? (a.year + a.year2) / 2 : a.year;
@@ -796,8 +796,8 @@ function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
   const gap = Math.abs(ay - by);
   if (gap <= 1) return 1;
   if (gap <= 3) return 0.7;
-  if (gap <= 7) return 0.4;
-  if (gap <= 15) return 0.2;
+  if (gap <= 5) return 0.4;
+  if (gap <= 10) return 0.2;
   return 0;
 }
 

@@ -310,6 +310,24 @@ describe("multi-RESI pairing by date", () => {
     expect(compareDate?.state).toBe("incoming-only");
   });
 
+  it("does not pair residences 7 years apart even when they share a locality", () => {
+    // 7-year gap now scores 0.2 (not 0.4), so shared locality alone cannot push
+    // the total above the 0.35 pairing threshold.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1970\n2 PLAC Strazisce,Kranj,Slovenia\n2 ADDR Hafnarjeva pot 21a\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1963\n2 PLAC Kranj (Slovenija), Hafnarjeva pot 21 - župnija Šmartin\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
+    expect(dateRows.length).toBe(2); // shown as separate events, not paired
+  });
+
   it("detects addr-in-place when paired correctly and marks addr as agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
