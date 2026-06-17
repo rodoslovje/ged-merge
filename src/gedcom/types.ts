@@ -142,10 +142,16 @@ export interface GedEvent {
   tag: string;
   /** Direct value on the event line itself, e.g. "Farmer" in `1 OCCU Farmer`. */
   value?: string;
+  /** `2 TYPE` sub-tag value — event sub-type or custom event description (e.g. "Graduation"). */
+  type?: string;
   date?: GedDate;
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;
+  /** Agency (AGNC) that recorded or organised the event (e.g. hospital, parish). */
+  agency?: string;
+  /** Cause (CAUS) associated with the event, e.g. cause of death. */
+  cause?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
 }

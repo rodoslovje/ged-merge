@@ -1,5 +1,5 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
-import { deathYear, formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { birthYear, deathYear, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -302,10 +302,6 @@ function describe(
 
 function nameOf(indi: Individual): string {
   return displayName(primaryName(indi));
-}
-
-function birthYear(indi: Individual | undefined): number | undefined {
-  return indi?.events.find((e) => e.tag === "BIRT")?.date?.year;
 }
 
 function birthYearConflict(

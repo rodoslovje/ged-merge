@@ -1,7 +1,8 @@
 import type { Dataset, Individual } from "../gedcom/types";
 import type { GiMasterKey, GiPair } from "../csv/giMatches";
+import { birthYear } from "../gedcom/lifespan";
 import { primaryName } from "./relatives";
-import { birthYear, scoreIndividualPair } from "./scoreIndividual";
+import { scoreIndividualPair } from "./scoreIndividual";
 import { foldToken } from "./text";
 import { DEFAULT_CONFIG, type IndividualCandidate, type MatchConfig, type MatchResult } from "./types";
 

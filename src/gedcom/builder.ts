@@ -12,12 +12,13 @@ import type {
 } from "./types";
 
 /** Event-bearing tags we lift into the typed `events` array. */
-const INDI_EVENT_TAGS = new Set([
+export const INDI_EVENT_TAGS = new Set([
   "BIRT", "DEAT", "BAPM", "CHR", "BURI", "CREM", "MARR", "RESI",
   "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "RETI",
   "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
+  "EVEN",
 ]);
 const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "SEPA", "MARB", "MARL"]);
 
@@ -111,6 +112,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
         break;
       case "NOTE":
         if (child.value) notes.push(child.value);
+        collectLinks(child, media, links);
         break;
       default:
         if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
@@ -132,9 +134,15 @@ function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
   const dateNode = node.children.find((c) => c.tag === "DATE");
   const placeNode = node.children.find((c) => c.tag === "PLAC");
   const addrNode = node.children.find((c) => c.tag === "ADDR");
+  const typeNode = node.children.find((c) => c.tag === "TYPE");
+  const agncNode = node.children.find((c) => c.tag === "AGNC");
+  const causNode = node.children.find((c) => c.tag === "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   if (placeNode?.value) event.place = parsePlace(placeNode.value);
   if (addrNode?.value) event.address = parsePlace(addrNode.value);
+  if (typeNode?.value) event.type = typeNode.value.trim();
+  if (agncNode?.value) event.agency = agncNode.value.trim();
+  if (causNode?.value) event.cause = causNode.value.trim();
   const links = collectLinks(node, media);
   if (links.length) event.links = dedupe(links);
   return event;

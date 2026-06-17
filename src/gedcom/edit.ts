@@ -1,4 +1,4 @@
-import { buildFamily, buildIndividual, buildMediaLinks } from "./builder";
+import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS } from "./builder";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -22,22 +22,16 @@ export const INDI_CHILD_ORDER = [
   "OCCU", "EDUC", "RETI",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
+  "EVEN",
   "DEAT", "BURI", "CREM",
   "FAMC", "FAMS",
   "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
 ];
 
-/** Event tags for an individual — used to locate event nodes by index. */
-const INDI_EVENT_TAG_SET = new Set([
-  "BIRT", "DEAT", "BAPM", "CHR", "BURI", "CREM", "MARR", "RESI",
-  "CONF", "ADOP", "FCOM", "OCCU", "EDUC", "RETI",
-  "EMIG", "IMMI", "NATU", "CENS", "WILL", "PROB",
-]);
-
 /** Canonical top-level field order within a FAM record. */
 export const FAM_CHILD_ORDER = [
   "HUSB", "WIFE", "CHIL",
-  "MARR", "ENGA", "MARB", "MARL", "DIV",
+  "MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV",
   "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
 ];
 
@@ -161,7 +155,7 @@ export function setEventField(indi: Individual, tag: string, update: EventFieldU
 
 /** Update an individual event at position `index` in `indi.events` (0-based). */
 export function setEventFieldAtIndex(indi: Individual, index: number, update: EventFieldUpdate): void {
-  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAG_SET.has(c.tag));
+  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
   const eventNode = eventNodes[index];
   if (eventNode) applyEventNodeUpdate(indi.raw, eventNode, update);
 }

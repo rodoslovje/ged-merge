@@ -1,5 +1,5 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
-import { birthDateText, deathDateText, isDeceased } from "../gedcom/lifespan";
+import { birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { childrenNames, displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
 import {
   dateSimilarity,
@@ -281,27 +281,12 @@ function temporalGate(a: Individual, b: Individual, gates: MatchConfig["gates"])
   return true;
 }
 
-function yearOfAny(indi: Individual, tags: string[]): number | undefined {
-  for (const tag of tags) {
-    const year = findEvent(indi, tag)?.date?.year;
-    if (year !== undefined) return year;
-  }
-  return undefined;
-}
-
-/** Birth year, or baptism/christening as a close proxy. */
-export function birthYear(indi: Individual): number | undefined {
-  return yearOfAny(indi, ["BIRT", "BAPM", "CHR"]);
-}
-function deathYear(indi: Individual): number | undefined {
-  return yearOfAny(indi, ["DEAT", "BURI", "CREM"]);
-}
 /** A representative year placing the person in time, from any dated event. */
 function eraYear(indi: Individual): number | undefined {
   return (
     birthYear(indi) ??
     deathYear(indi) ??
-    yearOfAny(indi, ["MARR", "RESI"])
+    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year
   );
 }
 
