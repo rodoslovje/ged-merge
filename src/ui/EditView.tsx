@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
@@ -72,6 +72,67 @@ type Commit = (mutate: (indi: Individual) => void) => void;
 /** A mutation applied to a family's raw record, then rebuilt and
  * re-rendered. */
 type FamilyCommit = (fam: Family, mutate: (fam: Family) => void) => void;
+
+interface PlaceSuggestions {
+  placeSuggestions: string[];
+  addrSuggestions: string[];
+  placeCanonical: Map<string, string>;
+  addrCanonical: Map<string, string>;
+}
+
+/** Collect all unique PLAC and ADDR values from a dataset and build canonical
+ * maps (most-frequent casing wins) for normalize-on-blur. */
+function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
+  const placeForms = new Map<string, Map<string, number>>();
+  const addrForms = new Map<string, Map<string, number>>();
+
+  function addValue(forms: Map<string, Map<string, number>>, raw: string) {
+    const r = raw.trim();
+    if (!r) return;
+    const key = r.split(",").map((p) => p.trim().toLowerCase()).join("|");
+    const m = forms.get(key) ?? new Map<string, number>();
+    m.set(r, (m.get(r) ?? 0) + 1);
+    forms.set(key, m);
+  }
+
+  for (const indi of dataset.individuals.values()) {
+    for (const ev of indi.events) {
+      if (ev.place?.raw) addValue(placeForms, ev.place.raw);
+      if (ev.address?.raw) addValue(addrForms, ev.address.raw);
+    }
+  }
+  for (const fam of dataset.families.values()) {
+    for (const ev of fam.events) {
+      if (ev.place?.raw) addValue(placeForms, ev.place.raw);
+      if (ev.address?.raw) addValue(addrForms, ev.address.raw);
+    }
+  }
+
+  function build(forms: Map<string, Map<string, number>>): { suggestions: string[]; canonical: Map<string, string> } {
+    const canonical = new Map<string, string>();
+    const suggestions: string[] = [];
+    for (const [key, m] of forms) {
+      let best = "";
+      let bestCount = 0;
+      for (const [form, count] of m) {
+        if (count > bestCount) { best = form; bestCount = count; }
+      }
+      canonical.set(key, best);
+      suggestions.push(best);
+    }
+    suggestions.sort();
+    return { suggestions, canonical };
+  }
+
+  const place = build(placeForms);
+  const addr = build(addrForms);
+  return {
+    placeSuggestions: place.suggestions,
+    addrSuggestions: addr.suggestions,
+    placeCanonical: place.canonical,
+    addrCanonical: addr.canonical,
+  };
+}
 
 /** Width (in `ch`) that fits `value` (or, while empty, `placeholder`)
  * without the input growing/shrinking awkwardly as the user types — used to
@@ -229,6 +290,11 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     .map((famId) => dataset.families.get(famId))
     .filter((f): f is NonNullable<typeof f> => !!f);
 
+  const { placeSuggestions, addrSuggestions, placeCanonical, addrCanonical } = useMemo(
+    () => buildPlaceSuggestions(dataset),
+    [dataset],
+  );
+
   const lifespan = lifespanOf(person);
   const kinship = homeId
     ? kinshipLabel(dataset, homeId, selectedId!, t)
@@ -336,7 +402,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
           />
-          <EventList person={person} t={t} commit={commit} />
+          <EventList
+            person={person}
+            t={t}
+            commit={commit}
+            placeSuggestions={placeSuggestions}
+            addrSuggestions={addrSuggestions}
+            placeCanonical={placeCanonical}
+            addrCanonical={addrCanonical}
+          />
           {((person.links ?? []).length > 0 || linksAdded) && (
             <div className="edit-record-section">
               <LinksEditor
@@ -409,9 +483,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} />}
+                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} addrSuggestions={addrSuggestions} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} />
+                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} addrSuggestions={addrSuggestions} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -487,6 +561,115 @@ const ClearableInput = forwardRef<
     </div>
   );
 });
+
+/** Canonical lookup: given raw user input, return the canonical casing form if
+ * it matches an existing entry in the map, otherwise return the input trimmed. */
+function applyCanonical(raw: string, canonical: Map<string, string>): string {
+  const key = raw.trim().split(",").map((p) => p.trim().toLowerCase()).join("|");
+  return canonical.get(key) ?? raw.trim();
+}
+
+/** A text input with dropdown autocomplete from a pre-built suggestion list.
+ * When the user selects a suggestion or blurs, the canonical form is applied. */
+function PlaceAutocomplete({
+  value,
+  suggestions,
+  canonical,
+  isDirty,
+  className,
+  placeholder,
+  title,
+  onChange,
+  onCommit,
+  onClear,
+}: {
+  value: string;
+  suggestions: string[];
+  canonical: Map<string, string>;
+  isDirty: boolean;
+  className?: string;
+  placeholder?: string;
+  title?: string;
+  onChange: (value: string) => void;
+  onCommit: (value: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return [];
+    return suggestions.filter((s) => s.toLowerCase().includes(q)).slice(0, 8);
+  }, [value, suggestions]);
+
+  const showDropdown = open && filtered.length > 0;
+
+  function selectSuggestion(suggestion: string) {
+    onChange(suggestion);
+    onCommit(suggestion);
+    setOpen(false);
+    setHighlighted(-1);
+  }
+
+  function handleBlur(e: React.FocusEvent) {
+    if (containerRef.current?.contains(e.relatedTarget as Node)) return;
+    setOpen(false);
+    setHighlighted(-1);
+    const norm = applyCanonical(value, canonical);
+    if (norm !== value) onChange(norm);
+    onCommit(norm);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlighted((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlighted((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter" && highlighted >= 0 && showDropdown) {
+      e.preventDefault();
+      selectSuggestion(filtered[highlighted]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setHighlighted(-1);
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="place-autocomplete-wrap" onBlur={handleBlur}>
+      <ClearableInput
+        className={`${isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
+        value={value}
+        placeholder={placeholder}
+        title={title}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlighted(-1); }}
+        onFocus={() => { if (value.trim()) setOpen(true); }}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {}}
+        onClear={() => { onClear(); setOpen(false); }}
+      />
+      {showDropdown && (
+        <ul className="place-suggestions" role="listbox">
+          {filtered.map((s, i) => (
+            <li
+              key={s}
+              role="option"
+              aria-selected={i === highlighted}
+              className={i === highlighted ? "place-suggestion place-suggestion--hi" : "place-suggestion"}
+              onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+            >
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** Editable given/surname fields for the primary name, plus the lifespan. */
 function NameEditor({
@@ -811,10 +994,18 @@ function EventList({
   person,
   t,
   commit,
+  placeSuggestions,
+  addrSuggestions,
+  placeCanonical,
+  addrCanonical,
 }: {
   person: Individual;
   t: Translate;
   commit: Commit;
+  placeSuggestions: string[];
+  addrSuggestions: string[];
+  placeCanonical: Map<string, string>;
+  addrCanonical: Map<string, string>;
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
   const nonBirtEvents = person.events
@@ -844,6 +1035,10 @@ function EventList({
         tag="BIRT"
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
+        placeSuggestions={placeSuggestions}
+        addrSuggestions={addrSuggestions}
+        placeCanonical={placeCanonical}
+        addrCanonical={addrCanonical}
       />
       {nonBirtEvents.map(({ ev, i }) => (
         <EventFieldsRow
@@ -853,6 +1048,10 @@ function EventList({
           tag={ev.tag}
           t={t}
           commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, i, update))}
+          placeSuggestions={placeSuggestions}
+          addrSuggestions={addrSuggestions}
+          placeCanonical={placeCanonical}
+          addrCanonical={addrCanonical}
         />
       ))}
     </div>
@@ -860,7 +1059,16 @@ function EventList({
 }
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
-function FamilyEventRow({ fam, tag, t, commit }: { fam: Family; tag: string; t: Translate; commit: FamilyCommit }) {
+function FamilyEventRow({
+  fam, tag, t, commit,
+  placeSuggestions, addrSuggestions, placeCanonical, addrCanonical,
+}: {
+  fam: Family; tag: string; t: Translate; commit: FamilyCommit;
+  placeSuggestions: string[];
+  addrSuggestions: string[];
+  placeCanonical: Map<string, string>;
+  addrCanonical: Map<string, string>;
+}) {
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
 
@@ -870,6 +1078,10 @@ function FamilyEventRow({ fam, tag, t, commit }: { fam: Family; tag: string; t: 
       label={label}
       t={t}
       commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
+      placeSuggestions={placeSuggestions}
+      addrSuggestions={addrSuggestions}
+      placeCanonical={placeCanonical}
+      addrCanonical={addrCanonical}
     />
   );
 }
@@ -930,6 +1142,7 @@ function useField(initial: string) {
     value,
     isDirty: value !== init.current,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+    set: setValue,
     clear: () => setValue(""),
   };
 }
@@ -942,12 +1155,20 @@ function EventFieldsRow({
   tag,
   t,
   commitField,
+  placeSuggestions,
+  addrSuggestions,
+  placeCanonical,
+  addrCanonical,
 }: {
   ev: GedEvent | undefined;
   label: string;
   tag?: string;
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
+  placeSuggestions: string[];
+  addrSuggestions: string[];
+  placeCanonical: Map<string, string>;
+  addrCanonical: Map<string, string>;
 }) {
   const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
   const valueField = useField(ev?.value ?? "");
@@ -988,22 +1209,28 @@ function EventFieldsRow({
           onClear={() => { valueField.clear(); commitField({ value: "" }); }}
         />
       )}
-      <ClearableInput
-        className={cls("edit-input edit-event-place", placeField.isDirty)}
+      <PlaceAutocomplete
         value={placeField.value}
+        suggestions={placeSuggestions}
+        canonical={placeCanonical}
+        isDirty={placeField.isDirty}
+        className="edit-input edit-event-place"
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
-        onChange={placeField.onChange}
-        onBlur={() => commitField({ place: placeField.value })}
+        onChange={placeField.set}
+        onCommit={(val) => commitField({ place: val })}
         onClear={() => { placeField.clear(); commitField({ place: "" }); }}
       />
-      <ClearableInput
-        className={cls("edit-input edit-event-addr", addrField.isDirty)}
+      <PlaceAutocomplete
         value={addrField.value}
+        suggestions={addrSuggestions}
+        canonical={addrCanonical}
+        isDirty={addrField.isDirty}
+        className="edit-input edit-event-addr"
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
-        onChange={addrField.onChange}
-        onBlur={() => commitField({ address: addrField.value })}
+        onChange={addrField.set}
+        onCommit={(val) => commitField({ address: val })}
         onClear={() => { addrField.clear(); commitField({ address: "" }); }}
       />
       <button
