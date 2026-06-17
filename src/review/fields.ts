@@ -132,17 +132,14 @@ export function individualFieldRows(
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
       const cLinks = ce?.links?.length ? ce.links : undefined;
-      rows.push({
-        key: `${keyBase}.header`,
-        label: eventLabel,
-        master: "",
-        incoming: "",
-        state: "agree",
-        isGroupHeader: true,
-        isEventHeader: true,
-        ...(mLinks ? { masterLinks: mLinks } : {}),
-        ...(cLinks ? { incomingLinks: cLinks } : {}),
-      });
+      if (mLinks || cLinks) {
+        subRows[0] = {
+          ...subRows[0],
+          ...(mLinks ? { masterLinkIcons: mLinks } : {}),
+          ...(cLinks ? { incomingLinkIcons: cLinks } : {}),
+        };
+      }
+      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
       rows.push(...subRows);
     }
   }
@@ -196,17 +193,14 @@ export function individualFieldRows(
       if (marriageRows.length > 0) {
         const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
         const cMarLinks = cMar?.links?.length ? cMar.links : undefined;
-        rows.push({
-          key: `${famKey}.MARR.header`,
-          label: t("event.MARR", { defaultValue: "Marriage" }),
-          master: "",
-          incoming: "",
-          state: "agree",
-          isGroupHeader: true,
-          isEventHeader: true,
-          ...(mMarLinks ? { masterLinks: mMarLinks } : {}),
-          ...(cMarLinks ? { incomingLinks: cMarLinks } : {}),
-        });
+        if (mMarLinks || cMarLinks) {
+          marriageRows[0] = {
+            ...marriageRows[0],
+            ...(mMarLinks ? { masterLinkIcons: mMarLinks } : {}),
+            ...(cMarLinks ? { incomingLinkIcons: cMarLinks } : {}),
+          };
+        }
+        rows.push({ key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
         rows.push(...marriageRows);
       }
 
@@ -221,17 +215,14 @@ export function individualFieldRows(
         if (etagRows.length > 0) {
           const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
           const cEvLinks = cEv?.links?.length ? cEv.links : undefined;
-          rows.push({
-            key: `${famKey}.${etag}.header`,
-            label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }),
-            master: "",
-            incoming: "",
-            state: "agree",
-            isGroupHeader: true,
-            isEventHeader: true,
-            ...(mEvLinks ? { masterLinks: mEvLinks } : {}),
-            ...(cEvLinks ? { incomingLinks: cEvLinks } : {}),
-          });
+          if (mEvLinks || cEvLinks) {
+            etagRows[0] = {
+              ...etagRows[0],
+              ...(mEvLinks ? { masterLinkIcons: mEvLinks } : {}),
+              ...(cEvLinks ? { incomingLinkIcons: cEvLinks } : {}),
+            };
+          }
+          rows.push({ key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
           rows.push(...etagRows);
         }
       }
@@ -418,6 +409,10 @@ export function fieldDiffCounts(
       if ((row.incomingLinks ?? []).some((url) => !masterKeys.has(linkKey(url)))) linkCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
+    if (row.masterLinkIcons || row.incomingLinkIcons) {
+      const masterIconKeys = new Set((row.masterLinkIcons ?? []).map(linkKey));
+      if ((row.incomingLinkIcons ?? []).some((url) => !masterIconKeys.has(linkKey(url)))) linkCount++;
+    }
   }
   return { newCount, diffCount, linkCount };
 }

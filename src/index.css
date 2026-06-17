@@ -1966,12 +1966,6 @@ button {
   padding: 10px 16px 3px;
   text-align: center;
 }
-.event-link-icons {
-  display: inline-flex;
-  gap: 0;
-  margin-left: 4px;
-  vertical-align: middle;
-}
 
 .comp-key { width: 110px; color: var(--muted); }
 .comp-bar { width: 140px; }

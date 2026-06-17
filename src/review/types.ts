@@ -27,6 +27,9 @@ export interface FieldRow {
   /** When set, the row holds attached links rendered as icons (not text). */
   masterLinks?: string[];
   incomingLinks?: string[];
+  /** Inline link icons shown alongside the field's text value (used for event-attached links). */
+  masterLinkIcons?: string[];
+  incomingLinkIcons?: string[];
   /** Hover tooltip for the value cell (e.g. relatives' full dates behind the
    *  abbreviated "Name yyyy–yyyy" lines). */
   masterTitle?: string;

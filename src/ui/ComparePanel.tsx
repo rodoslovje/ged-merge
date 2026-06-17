@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
-import { individualFieldRows, linkKey } from "../review/fields";
-import { FieldValue, RelativeGrid, linkHref } from "./FieldValue";
+import { individualFieldRows } from "../review/fields";
+import { FieldValue, RelativeGrid } from "./FieldValue";
 import {
   defaultChoice,
   type CandidateDecision,
@@ -130,33 +130,10 @@ export function ComparePanel({
           {rows.map((row) => {
             if (row.isGroupHeader) {
               const isEventHeader = !!row.isEventHeader;
-              const masterKeys = new Set((row.masterLinks ?? []).map(linkKey));
-              const eventLinks: { url: string; isNew: boolean }[] = [
-                ...(row.masterLinks ?? []).map((url) => ({ url, isNew: false })),
-                ...(row.incomingLinks ?? [])
-                  .filter((url) => !masterKeys.has(linkKey(url)))
-                  .map((url) => ({ url, isNew: true })),
-              ];
               return (
                 <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
                   <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>
                     {row.label}
-                    {eventLinks.length > 0 && (
-                      <span className="event-link-icons">
-                        {eventLinks.map(({ url, isNew }, i) => (
-                          <a
-                            key={i}
-                            href={linkHref(url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={isNew ? "link-icon link-new" : "link-icon"}
-                            title={url}
-                          >
-                            🔗
-                          </a>
-                        ))}
-                      </span>
-                    )}
                   </td>
                 </tr>
               );
@@ -185,6 +162,8 @@ export function ComparePanel({
                       <FieldValue
                         text={row.master}
                         links={row.masterLinks}
+                        linkIcons={row.masterLinkIcons}
+                        otherLinkIcons={row.incomingLinkIcons}
                         person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
                       />
                     </td>
@@ -196,6 +175,8 @@ export function ComparePanel({
                         text={row.incoming}
                         links={row.incomingLinks}
                         otherLinks={row.masterLinks}
+                        linkIcons={row.incomingLinkIcons}
+                        otherLinkIcons={row.masterLinkIcons}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
                     </td>

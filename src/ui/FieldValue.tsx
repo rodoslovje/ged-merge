@@ -24,12 +24,18 @@ export function FieldValue({
   links,
   person,
   otherLinks,
+  linkIcons,
+  otherLinkIcons,
 }: {
   text: string;
   links?: string[];
   person?: PersonLinks;
   /** The other side's links, to highlight ones in `links` that would be added. */
   otherLinks?: string[];
+  /** Inline link icons shown alongside the text (for event-attached links). */
+  linkIcons?: string[];
+  /** The other side's inline link icons, to highlight new ones. */
+  otherLinkIcons?: string[];
 }) {
   if (links && links.length > 0) {
     const otherKeys = otherLinks && new Set(otherLinks.map(linkKey));
@@ -48,6 +54,28 @@ export function FieldValue({
           </a>
         ))}
       </span>
+    );
+  }
+  if (linkIcons && linkIcons.length > 0) {
+    const otherIconKeys = otherLinkIcons && new Set(otherLinkIcons.map(linkKey));
+    return (
+      <>
+        {renderLines(text, person)}
+        <span className="links">
+          {linkIcons.map((url, i) => (
+            <a
+              key={i}
+              href={linkHref(url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={otherIconKeys && !otherIconKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
+              title={url}
+            >
+              🔗
+            </a>
+          ))}
+        </span>
+      </>
     );
   }
   return <>{renderLines(text, person)}</>;
