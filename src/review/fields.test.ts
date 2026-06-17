@@ -263,9 +263,12 @@ describe("attached links", () => {
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n0 TRLR\n`,
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    // Event links roll up into the single aggregated "links" row.
-    expect(byKey(rows, "links")?.state).toBe("incoming-only");
-    expect(byKey(rows, "BIRT.links")).toBeUndefined();
+    // Event links appear on their event header row, not the aggregated "links" row.
+    expect(byKey(rows, "links")).toBeUndefined(); // no record-level links
+    expect(byKey(rows, "BIRT.links")).toBeUndefined(); // no separate links data row
+    const birtHeader = byKey(rows, "BIRT.header");
+    expect(birtHeader?.incomingLinks).toEqual(["https://example.com/birth"]);
+    expect(birtHeader?.masterLinks).toBeUndefined();
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
   });
 

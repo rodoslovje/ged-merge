@@ -141,6 +141,6 @@ function renderLine(line: React.ReactNode, id: string | undefined, person?: Pers
 }
 
 /** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
-function linkHref(url: string): string {
+export function linkHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }

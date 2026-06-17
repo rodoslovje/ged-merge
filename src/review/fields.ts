@@ -113,6 +113,10 @@ export function individualFieldRows(
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
 
+  // Record-level links and notes before events.
+  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
+  pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
+
   for (const { tag, idx, multi } of orderedEventTags(master, compare)) {
     const masterEvents = master?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
@@ -126,16 +130,22 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, ce?.place?.raw, t("event.colPlace"));
     pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), me?.address?.raw, ce?.address?.raw, t("event.colAddr"));
     if (subRows.length > 0) {
-      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+      const mLinks = me?.links?.length ? me.links : undefined;
+      const cLinks = ce?.links?.length ? ce.links : undefined;
+      rows.push({
+        key: `${keyBase}.header`,
+        label: eventLabel,
+        master: "",
+        incoming: "",
+        state: "agree",
+        isGroupHeader: true,
+        isEventHeader: true,
+        ...(mLinks ? { masterLinks: mLinks } : {}),
+        ...(cLinks ? { incomingLinks: cLinks } : {}),
+      });
       rows.push(...subRows);
     }
   }
-
-  // Links (record-level and from any event, collapsed) come after the events.
-  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
-
-  // Free-text notes (e.g. source attribution from an imported matches CSV).
-  pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
 
   // Relatives last: parents, partner(s), the marriage facts, then children.
   // Marriage and children live on the FAM record but are reconciled here on the
@@ -184,7 +194,19 @@ export function individualFieldRows(
       pushRow(marriageRows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, cMar?.place?.raw);
       pushRow(marriageRows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, cMar?.address?.raw);
       if (marriageRows.length > 0) {
-        rows.push({ key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+        const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
+        const cMarLinks = cMar?.links?.length ? cMar.links : undefined;
+        rows.push({
+          key: `${famKey}.MARR.header`,
+          label: t("event.MARR", { defaultValue: "Marriage" }),
+          master: "",
+          incoming: "",
+          state: "agree",
+          isGroupHeader: true,
+          isEventHeader: true,
+          ...(mMarLinks ? { masterLinks: mMarLinks } : {}),
+          ...(cMarLinks ? { incomingLinks: cMarLinks } : {}),
+        });
         rows.push(...marriageRows);
       }
 
@@ -197,7 +219,19 @@ export function individualFieldRows(
         pushRow(etagRows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, cEv?.place?.raw);
         pushRow(etagRows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, cEv?.address?.raw);
         if (etagRows.length > 0) {
-          rows.push({ key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+          const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
+          const cEvLinks = cEv?.links?.length ? cEv.links : undefined;
+          rows.push({
+            key: `${famKey}.${etag}.header`,
+            label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }),
+            master: "",
+            incoming: "",
+            state: "agree",
+            isGroupHeader: true,
+            isEventHeader: true,
+            ...(mEvLinks ? { masterLinks: mEvLinks } : {}),
+            ...(cEvLinks ? { incomingLinks: cEvLinks } : {}),
+          });
           rows.push(...etagRows);
         }
       }
@@ -550,14 +584,11 @@ function pushLinkRow(
 }
 
 /**
- * Every link reachable from a record — attached directly or to any of its
- * events — gathered into one list, de-duplicated (case- and trailing-slash
- * insensitive), preserving first-seen order.
+ * Record-level links only (event links are shown per-event in their header rows).
  */
 function gatherLinks(record: Individual | Family | undefined): string[] {
   if (!record) return [];
   const all: string[] = [...(record.links ?? [])];
-  for (const e of record.events) if (e.links) all.push(...e.links);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const url of all) {
