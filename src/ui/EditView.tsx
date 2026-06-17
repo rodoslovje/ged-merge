@@ -20,6 +20,7 @@ import {
   rebuildIndividual,
   removeAdditionalName,
   removeEventAtIndex,
+  restoreEvent,
   removeIndividual,
   setAdditionalName,
   setEventField,
@@ -1168,6 +1169,33 @@ function EventList({
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
 }) {
+  type DeletedRow = {
+    tag: string;
+    label: string;
+    mergeKeyBase: string;
+    snapshot: { date?: string; place?: string; address?: string; value?: string; links?: string[] };
+  };
+  const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
+  const personId = person.id;
+  useEffect(() => { setDeletedRows([]); }, [personId]);
+
+  function handleRemove(ev: GedEvent | undefined, tag: string, label: string, mergeKeyBase: string, removeAction: () => void) {
+    setDeletedRows((prev) => [
+      ...prev,
+      {
+        tag, label, mergeKeyBase,
+        snapshot: {
+          date: ev?.date?.raw,
+          place: ev?.place?.raw,
+          address: ev?.address?.raw,
+          value: ev?.value,
+          links: ev?.links,
+        },
+      },
+    ]);
+    removeAction();
+  }
+
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
   // Fallback key bases when no merge is active (master-only count-based naming).
@@ -1230,6 +1258,7 @@ function EventList({
         tag="BIRT"
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
+        onRemove={birtOriginalIdx >= 0 ? () => handleRemove(birtEv, "BIRT", t("event.BIRT"), birtMergeKeyBase, () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx))) : undefined}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
@@ -1246,7 +1275,7 @@ function EventList({
             tag={row.ev.tag}
             t={t}
             commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
-            onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
+            onRemove={() => handleRemove(row.ev, row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase, () => commit((indi) => removeEventAtIndex(indi, row.i)))}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1271,6 +1300,26 @@ function EventList({
           />
         ),
       )}
+      {deletedRows.map((deleted) => (
+        <div key={`${person.id}-deleted-${deleted.mergeKeyBase}`} className="edit-event edit-event--deleted">
+          <div className="edit-event-label">{deleted.label}</div>
+          <span className="edit-event-deleted-date">{deleted.snapshot.date ?? ""}</span>
+          <span className="edit-event-deleted-place">{deleted.snapshot.place ?? ""}</span>
+          <span className="edit-event-deleted-addr">{deleted.snapshot.address ?? ""}</span>
+          <div className="edit-event-actions">
+            <button
+              type="button"
+              className="edit-event-undo"
+              onClick={() => {
+                commit((indi) => restoreEvent(indi, deleted.tag, deleted.snapshot));
+                setDeletedRows((prev) => prev.filter((d) => d.mergeKeyBase !== deleted.mergeKeyBase));
+              }}
+            >
+              ↩ {t("edit.undoRemove")}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

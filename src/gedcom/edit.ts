@@ -116,7 +116,7 @@ function setLinks(event: GedNode, links: string[]): void {
 }
 
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
-function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate): void {
+export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
