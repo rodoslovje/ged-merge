@@ -879,8 +879,8 @@ export function App() {
             setFilters={handleFilters}
             visible={visible}
             visibleIndex={visibleIndex}
-            allSortedIndex={visibleIndex}
-            allSortedCount={visible.length}
+            allSortedIndex={allSortedIndex}
+            allSortedCount={allSorted.length}
             onSelectPrev={onSelectPrev}
             onSelectNext={onSelectNext}
             onSelect={select}
