@@ -5,6 +5,8 @@ import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, nameTypeLabel, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
+import { dateToSortKey, individualFieldRows, orderedEventTags } from "../review/fields";
+import { defaultChoice, type CandidateDecision } from "../review/types";
 import {
   addAdditionalName,
   addChild,
@@ -17,6 +19,7 @@ import {
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
+  removeEventAtIndex,
   removeIndividual,
   setAdditionalName,
   setEventField,
@@ -52,6 +55,10 @@ interface Props {
   onMerge?: (currentPersonId: string) => void;
   /** Returns true when the given person ID has a match in the merge list. */
   canMerge?: (id: string) => boolean;
+  /** Merge decisions — used to preview incoming values for confirmed matches. */
+  decisions?: Map<string, CandidateDecision>;
+  /** The incoming dataset — needed to resolve confirmed match incoming values. */
+  compareDataset?: Dataset;
 }
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -170,7 +177,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -178,7 +185,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const [history, setHistory] = useState<string[]>([]);
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   const focusNextName = useRef(false);
   // Whether the user has clicked "+ Add link" or "+ Add note" for the current person.
   const [linksAdded, setLinksAdded] = useState(false);
@@ -208,6 +215,87 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }
 
   const person = selectedId ? dataset.individuals.get(selectedId) : undefined;
+
+  /** Merge preview data for the currently selected person's confirmed match. */
+  const mergeData = useMemo(() => {
+    const empty = {
+      mergeHighlight: new Map<string, string>(),
+      /** master person.events overall index → field key base aligned with orderedEventTags. */
+      masterMergeKeyBases: new Map<number, string>(),
+      /** master person.events overall index → sort key from incoming date, when master has no date. */
+      masterMergeSortKeys: new Map<number, number>(),
+      /** Incoming-only events with no master counterpart (BIRT excluded — always shown). */
+      extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number }[],
+    };
+    if (!decisions || !compareDataset || !person) return empty;
+    for (const [key, dec] of decisions) {
+      if (dec.status !== "confirmed") continue;
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
+      const incoming = compareDataset.individuals.get(parts[2]);
+      if (!incoming) continue;
+
+      // Field key → incoming value for all fields the merge will add/change.
+      const rows = individualFieldRows(t, person, incoming, dataset, compareDataset);
+      const mergeHighlight = new Map<string, string>();
+      for (const row of rows) {
+        if (row.isGroupHeader || !row.incoming) continue;
+        if (row.state === "agree" || row.state === "master-only") continue;
+        const choice = dec.fields[row.key] ?? defaultChoice(row);
+        if (choice !== "master") mergeHighlight.set(row.key, row.incoming);
+      }
+
+      // Map master overall event index → the key base that orderedEventTags assigned to it.
+      // This handles multi-instance keys (e.g. "RESI.0") that arise when incoming has more
+      // events of the same tag, or when a same-tag pair scores too low to be merged.
+      const mByTagIndices = new Map<string, number[]>();
+      person.events.forEach((ev, i) => {
+        const arr = mByTagIndices.get(ev.tag) ?? [];
+        arr.push(i);
+        mByTagIndices.set(ev.tag, arr);
+      });
+      const masterMergeKeyBases = new Map<number, string>();
+      const masterMergeSortKeys = new Map<number, number>();
+      const extraMergeEvents: { tag: string; keyBase: string; sortKey: number }[] = [];
+      const EVENT_SUBS = ["date", "place", "addr", "value"] as const;
+
+      // Index incoming events by tag for sort key lookup.
+      const cByTag = new Map<string, typeof incoming.events>();
+      incoming.events.forEach((ev) => {
+        const arr = cByTag.get(ev.tag) ?? [];
+        arr.push(ev);
+        cByTag.set(ev.tag, arr);
+      });
+
+      for (const inst of orderedEventTags(person, incoming)) {
+        const keyBase = inst.multi ? `${inst.tag}.${inst.keyIdx}` : inst.tag;
+        if (inst.masterIdx >= 0) {
+          const overallIdx = mByTagIndices.get(inst.tag)?.[inst.masterIdx];
+          if (overallIdx !== undefined) {
+            masterMergeKeyBases.set(overallIdx, keyBase);
+            // When master has no date, use incoming date for sort so the row stays in
+            // the right chronological position (e.g. after committing only a place).
+            if (!person.events[overallIdx]?.date && inst.compareIdx >= 0) {
+              const sk = dateToSortKey(cByTag.get(inst.tag)?.[inst.compareIdx]?.date);
+              if (sk !== 0) masterMergeSortKeys.set(overallIdx, sk);
+            }
+          }
+        } else if (inst.tag !== "BIRT") {
+          // Incoming-only event — show only if there is merge data for it.
+          // BIRT is always shown in its own row so exclude it from extras.
+          if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`))) {
+            const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
+            extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: dateToSortKey(incomingEv?.date) });
+          }
+        }
+      }
+
+      return { mergeHighlight, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents };
+    }
+    return empty;
+  }, [decisions, compareDataset, person, dataset, t, tick]);
+
+  const { mergeHighlight, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents } = mergeData;
 
   const commit: Commit = (mutate) => {
     if (!person) return;
@@ -424,6 +512,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             commit={commit}
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
+            mergeHighlight={mergeHighlight}
           />
           <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           <OtherNamesEditor
@@ -446,6 +535,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            mergeHighlight={mergeHighlight}
+            masterMergeKeyBases={masterMergeKeyBases}
+            masterMergeSortKeys={masterMergeSortKeys}
+            extraMergeEvents={extraMergeEvents}
           />
           {((person.links ?? []).length > 0 || linksAdded) && (
             <div className="edit-record-section">
@@ -612,6 +705,7 @@ function PlaceAutocomplete({
   suggestions,
   canonical,
   isDirty,
+  isMerge,
   className,
   placeholder,
   title,
@@ -623,6 +717,7 @@ function PlaceAutocomplete({
   suggestions: string[];
   canonical: Map<string, string>;
   isDirty: boolean;
+  isMerge?: boolean;
   className?: string;
   placeholder?: string;
   title?: string;
@@ -678,7 +773,7 @@ function PlaceAutocomplete({
   return (
     <div ref={containerRef} className="place-autocomplete-wrap" onBlur={handleBlur}>
       <ClearableInput
-        className={`${isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
+        className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
         placeholder={placeholder}
         title={title}
@@ -715,6 +810,7 @@ function NameEditor({
   commit,
   focusOnMount,
   onMounted,
+  mergeHighlight,
 }: {
   person: Individual;
   t: Translate;
@@ -722,10 +818,14 @@ function NameEditor({
   commit: Commit;
   focusOnMount?: boolean;
   onMounted?: () => void;
+  mergeHighlight?: Map<string, string>;
 }) {
   const primary = primaryName(person);
-  const [given, setGiven] = useState(primary?.given ?? "");
-  const [surname, setSurname] = useState(primary?.surname ?? "");
+  // Stable merge values from first render (component is keyed per person)
+  const givenMergeInit = useRef(mergeHighlight?.get("given"));
+  const surnameMergeInit = useRef(mergeHighlight?.get("surname"));
+  const [given, setGiven] = useState(givenMergeInit.current ?? primary?.given ?? "");
+  const [surname, setSurname] = useState(surnameMergeInit.current ?? primary?.surname ?? "");
   const givenRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -738,11 +838,14 @@ function NameEditor({
     commit((indi) => setName(indi, { given: nextGiven, surname: nextSurname }));
   }
 
+  const givenIsMerge = givenMergeInit.current !== undefined && given === givenMergeInit.current;
+  const surnameIsMerge = surnameMergeInit.current !== undefined && surname === surnameMergeInit.current;
+
   return (
     <div className="edit-name-row" title={datesTooltipOf(person)}>
       <ClearableInput
         ref={givenRef}
-        className={`edit-input edit-name-input ${sexClass(person.sex)}`}
+        className={`edit-input edit-name-input ${sexClass(person.sex)}${givenIsMerge ? " edit-input--merge" : ""}`}
         wrapStyle={{ width: fieldWidth(given, t("field.given")) }}
         value={given}
         placeholder={t("field.given")}
@@ -752,7 +855,7 @@ function NameEditor({
         onClear={() => { setGiven(""); commitName("", surname); }}
       />
       <ClearableInput
-        className={`edit-input edit-name-input ${sexClass(person.sex)}`}
+        className={`edit-input edit-name-input ${sexClass(person.sex)}${surnameIsMerge ? " edit-input--merge" : ""}`}
         wrapStyle={{ width: fieldWidth(surname, t("field.surname")) }}
         value={surname}
         placeholder={t("field.surname")}
@@ -851,7 +954,7 @@ function OtherNamesEditor({
           ) : primary?.nickname ? (
             <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
               {primary.nickname}
-              <span className="muted"> · {nameTypeLabel("nick", t)}</span>
+              <span className="muted"> ({nameTypeLabel("nick", t)})</span>
             </button>
           ) : null}
           {extraNames.map((n, i) =>
@@ -860,7 +963,7 @@ function OtherNamesEditor({
             ) : (
               <button type="button" className="edit-name-chip" key={i} onClick={() => setEditing(i)}>
                 {displayName(n)}
-                {n.type && <span className="muted"> · {nameTypeLabel(n.type, t)}</span>}
+                {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
               </button>
             ),
           )}
@@ -1024,8 +1127,19 @@ function NameVariantEditor({
   );
 }
 
+/** Display order for extra merge events (tags not yet in master) and secondary event sort key. */
+const EXTRA_EVENT_ORDER = [
+  "BAPM", "CHR", "CONF", "ADOP", "FCOM",
+  "OCCU", "EDUC", "RETI",
+  "RESI", "EMIG", "IMMI", "NATU", "CENS",
+  "WILL", "PROB",
+  "DEAT", "BURI", "CREM",
+];
+
 /** Events grid: BIRT always first (creates on commit), then all other events
- * in person.events order — multiple occurrences of the same tag are supported. */
+ * in person.events order — multiple occurrences of the same tag are supported.
+ * When mergeHighlight is set, merge-highlighted fields are shown and extra incoming-only
+ * events are appended at the end. */
 function EventList({
   person,
   t,
@@ -1034,6 +1148,10 @@ function EventList({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  mergeHighlight,
+  masterMergeKeyBases,
+  masterMergeSortKeys,
+  extraMergeEvents,
 }: {
   person: Individual;
   t: Translate;
@@ -1042,18 +1160,59 @@ function EventList({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  mergeHighlight?: Map<string, string>;
+  /** master person.events[i] → field key base aligned with orderedEventTags. */
+  masterMergeKeyBases?: Map<number, string>;
+  /** master person.events[i] → sort key from incoming date, when master has no date. */
+  masterMergeSortKeys?: Map<number, number>;
+  /** Incoming-only events, each carrying a date-based sort key for interleaving. */
+  extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
-  const nonBirtEvents = person.events
-    .map((ev, i) => ({ ev, i }))
-    .filter(({ ev }) => ev.tag !== "BIRT")
-    .sort((a, b) => {
-      const key = (ev: typeof a.ev) => {
-        const d = ev.date;
-        return d?.year !== undefined ? d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0) : 9_999_999;
-      };
-      return key(a.ev) - key(b.ev);
-    });
+
+  // Fallback key bases when no merge is active (master-only count-based naming).
+  const tagCount = new Map<string, number>();
+  person.events.forEach((ev) => tagCount.set(ev.tag, (tagCount.get(ev.tag) ?? 0) + 1));
+  const tagIdx = new Map<string, number>();
+  const eventKeyBases: string[] = person.events.map((ev) => {
+    const idx = tagIdx.get(ev.tag) ?? 0;
+    tagIdx.set(ev.tag, idx + 1);
+    return (tagCount.get(ev.tag) ?? 0) > 1 ? `${ev.tag}.${idx}` : ev.tag;
+  });
+  const birtOriginalIdx = person.events.findIndex((e) => e.tag === "BIRT");
+  const birtMergeKeyBase = birtOriginalIdx >= 0
+    ? (masterMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
+    : "BIRT";
+
+  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events.
+  type MasterRow = { kind: "master"; ev: GedEvent; i: number; mergeKeyBase: string };
+  type ExtraRow  = { kind: "extra";  tag: string; keyBase: string };
+  type AnyRow    = (MasterRow | ExtraRow) & { sortKey: number; tagPos: number };
+
+  const allRows: AnyRow[] = [
+    ...person.events
+      .map((ev, i) => ({ ev, i }))
+      .filter(({ ev }) => ev.tag !== "BIRT")
+      .map(({ ev, i }): AnyRow => ({
+        kind: "master",
+        ev, i,
+        mergeKeyBase: masterMergeKeyBases?.get(i) ?? eventKeyBases[i],
+        sortKey: masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date),
+        tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
+      })),
+    ...(extraMergeEvents ?? []).map(({ tag, keyBase, sortKey }): AnyRow => ({
+      kind: "extra",
+      tag, keyBase,
+      sortKey,
+      tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
+    })),
+  ];
+  allRows.sort((a, b) => {
+    if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+    const pa = a.tagPos === -1 ? 999 : a.tagPos;
+    const pb = b.tagPos === -1 ? 999 : b.tagPos;
+    return pa - pb;
+  });
 
   return (
     <div className="edit-events">
@@ -1075,21 +1234,43 @@ function EventList({
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
+        mergeHighlight={mergeHighlight}
+        mergeKeyBase={birtMergeKeyBase}
       />
-      {nonBirtEvents.map(({ ev, i }) => (
-        <EventFieldsRow
-          key={`${person.id}-${i}`}
-          ev={ev}
-          label={t(`event.${ev.tag}`)}
-          tag={ev.tag}
-          t={t}
-          commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, i, update))}
-          placeSuggestions={placeSuggestions}
-          placeToAddrs={placeToAddrs}
-          placeCanonical={placeCanonical}
-          addrCanonical={addrCanonical}
-        />
-      ))}
+      {allRows.map((row) =>
+        row.kind === "master" ? (
+          <EventFieldsRow
+            key={`${person.id}-${row.mergeKeyBase}`}
+            ev={row.ev}
+            label={t(`event.${row.ev.tag}`)}
+            tag={row.ev.tag}
+            t={t}
+            commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
+            onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
+            placeSuggestions={placeSuggestions}
+            placeToAddrs={placeToAddrs}
+            placeCanonical={placeCanonical}
+            addrCanonical={addrCanonical}
+            mergeHighlight={mergeHighlight}
+            mergeKeyBase={row.mergeKeyBase}
+          />
+        ) : (
+          <EventFieldsRow
+            key={`${person.id}-merge-${row.keyBase}`}
+            ev={undefined}
+            label={t(`event.${row.tag}`)}
+            tag={row.tag}
+            t={t}
+            commitField={(update) => commit((indi) => setEventField(indi, row.tag, update))}
+            placeSuggestions={placeSuggestions}
+            placeToAddrs={placeToAddrs}
+            placeCanonical={placeCanonical}
+            addrCanonical={addrCanonical}
+            mergeHighlight={mergeHighlight}
+            mergeKeyBase={row.keyBase}
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -1171,11 +1352,14 @@ function AddEventSelect({
   );
 }
 
-function useField(initial: string) {
-  const [value, setValue] = useState(initial);
-  const init = useRef(initial);
+function useField(initial: string, mergeInitial?: string) {
+  const effectiveInitial = mergeInitial ?? initial;
+  const [value, setValue] = useState(effectiveInitial);
+  const init = useRef(effectiveInitial);
   return {
     value,
+    /** True when the current value still equals the unedited merge-incoming value. */
+    isMerge: mergeInitial !== undefined && value === mergeInitial,
     isDirty: value !== init.current,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
     set: setValue,
@@ -1191,30 +1375,46 @@ function EventFieldsRow({
   tag,
   t,
   commitField,
+  onRemove,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  mergeHighlight,
+  mergeKeyBase,
 }: {
   ev: GedEvent | undefined;
   label: string;
   tag?: string;
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
+  onRemove?: () => void;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  mergeHighlight?: Map<string, string>;
+  mergeKeyBase?: string;
 }) {
   const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
-  const valueField = useField(ev?.value ?? "");
-  const dateField = useField(ev?.date?.raw ?? "");
-  const placeField = useField(ev?.place?.raw ?? "");
-  const addrField = useField(ev?.address?.raw ?? "");
+
+  // Compute merge values before hooks so they can be used as initial state.
+  const kBase = mergeKeyBase ?? tag ?? "";
+  const dateMergeVal = mergeHighlight?.get(`${kBase}.date`);
+  const valueMergeVal = showValue ? mergeHighlight?.get(`${kBase}.value`) : undefined;
+  const placeMergeVal = mergeHighlight?.get(`${kBase}.place`);
+  const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
+
+  const valueField = useField(ev?.value ?? "", valueMergeVal);
+  const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
+  const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
+  const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
 
-  function cls(base: string, isDirty: boolean) {
-    return isDirty ? `${base} edit-input--dirty` : base;
+  function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
+    if (isMerge) return `${base} edit-input--merge`;
+    if (isDirty) return `${base} edit-input--dirty`;
+    return base;
   }
 
   function commitLinks(next: string[]) {
@@ -1226,7 +1426,7 @@ function EventFieldsRow({
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
       <ClearableInput
-        className={cls("edit-input edit-event-date", dateField.isDirty)}
+        className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty)}
         value={dateField.value}
         placeholder={t("event.date", { event: label })}
         title={t("event.date", { event: label })}
@@ -1236,7 +1436,7 @@ function EventFieldsRow({
       />
       {showValue && (
         <ClearableInput
-          className={cls("edit-input edit-event-value", valueField.isDirty)}
+          className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty)}
           value={valueField.value}
           placeholder={label}
           title={label}
@@ -1250,6 +1450,7 @@ function EventFieldsRow({
         suggestions={placeSuggestions}
         canonical={placeCanonical}
         isDirty={placeField.isDirty}
+        isMerge={placeField.isMerge}
         className="edit-input edit-event-place"
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
@@ -1262,6 +1463,7 @@ function EventFieldsRow({
         suggestions={placeToAddrs.get(placeKey(placeField.value)) ?? []}
         canonical={addrCanonical}
         isDirty={addrField.isDirty}
+        isMerge={addrField.isMerge}
         className="edit-input edit-event-addr"
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
@@ -1269,13 +1471,25 @@ function EventFieldsRow({
         onCommit={(val) => commitField({ address: val })}
         onClear={() => { addrField.clear(); commitField({ address: "" }); }}
       />
-      <button
-        type="button"
-        className="edit-link-add"
-        onClick={() => setLinks((prev) => [...prev, ""])}
-      >
-        + {t("edit.addLink")}
-      </button>
+      <div className="edit-event-actions">
+        <button
+          type="button"
+          className="edit-link-add"
+          onClick={() => setLinks((prev) => [...prev, ""])}
+        >
+          + {t("edit.addLink")}
+        </button>
+        {onRemove && (
+          <button
+            type="button"
+            className="edit-event-remove"
+            title={t("edit.removeEvent")}
+            onClick={onRemove}
+          >
+            ×
+          </button>
+        )}
+      </div>
       {links.map((link, i) => (
         <div className="edit-event-link-row" key={i}>
           {link.trim() && (

@@ -27,6 +27,7 @@ export const sl = {
   "edit.addLinkTooltip": "Dodaj URL povezavo k temu dogodku",
   "edit.openLink": "Odpri povezavo v novem zavihku",
   "edit.removeLink": "Odstrani to povezavo",
+  "edit.removeEvent": "Odstrani ta dogodek",
   "edit.addName": "Dodaj ime",
   "edit.addNameTooltip": "Dodaj alternativno ime (poročno, dekliško, vzdevek…)",
   "edit.addEvent": "Dodaj dogodek",

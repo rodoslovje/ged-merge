@@ -918,6 +918,8 @@ export function App() {
               setMode("merge");
             } : undefined}
             canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
+            decisions={decisions}
+            compareDataset={compareDataset}
           />
         )
       )}

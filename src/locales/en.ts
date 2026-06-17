@@ -25,6 +25,7 @@ export const en = {
   "edit.exportTooltip": "Download the edited file",
   "edit.addLink": "Add link",
   "edit.removeLink": "Remove this link",
+  "edit.removeEvent": "Remove this event",
   "edit.addName": "Add name",
   "edit.removeName": "Remove name",
   "edit.addNote": "Add note",

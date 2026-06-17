@@ -1400,6 +1400,8 @@ button {
 .edit-input:hover::placeholder,
 .edit-input:focus::placeholder { opacity: 1; }
 .edit-input--dirty { font-weight: 600; }
+/* Incoming merge value in an editable field — turns to --dirty style once the user edits it */
+.edit-input--merge { font-weight: 700; color: var(--state-incoming); }
 
 .edit-name-row {
   display: flex;
@@ -1521,6 +1523,11 @@ button {
   opacity: 1;
 }
 .edit-link-open:hover { color: var(--accent); }
+.edit-event-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
 .edit-link-add {
   align-self: flex-start;
   border: none;
@@ -1536,6 +1543,22 @@ button {
 .edit-link-add:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .edit-link-add { transition: none; } }
 .edit-link-add:hover { color: var(--accent); }
+.edit-event-remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.edit-event:hover .edit-event-remove,
+.edit-event-remove:focus-visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .edit-event-remove { transition: none; } }
+.edit-event-remove:hover { color: var(--state-danger, #d9534f); }
 
 .person-card {
   background: var(--bg);

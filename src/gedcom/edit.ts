@@ -160,6 +160,26 @@ export function setEventFieldAtIndex(indi: Individual, index: number, update: Ev
   if (eventNode) applyEventNodeUpdate(indi.raw, eventNode, update);
 }
 
+/** Remove an individual event at position `index` in `indi.events` (0-based). */
+export function removeEventAtIndex(indi: Individual, index: number): void {
+  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const eventNode = eventNodes[index];
+  if (eventNode) {
+    const i = indi.raw.children.indexOf(eventNode);
+    if (i !== -1) indi.raw.children.splice(i, 1);
+  }
+}
+
+/** Re-insert a previously-removed event at the end of same-tag events.
+ * Uses the last same-tag node (just appended by addEventNode) so it is safe
+ * even when multiple events share the same tag. */
+export function restoreEvent(indi: Individual, tag: string, data: EventFieldUpdate): void {
+  addEventNode(indi, tag);
+  const sameTagNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag) && c.tag === tag);
+  const newNode = sameTagNodes[sameTagNodes.length - 1];
+  if (newNode) applyEventNodeUpdate(indi.raw, newNode, data);
+}
+
 /** Append a new empty event node for `tag` to an individual record, inserting
  * it after the last existing event of the same tag (or in canonical order). */
 export function addEventNode(indi: Individual, tag: string): void {

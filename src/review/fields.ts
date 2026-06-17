@@ -689,7 +689,7 @@ function placeCompareKey(value: string): string {
   return parts.join(",");
 }
 
-function orderedEventTags(
+export function orderedEventTags(
   master?: Individual,
   compare?: Individual,
 ): Array<{ tag: string; masterIdx: number; compareIdx: number; keyIdx: number; multi: boolean }> {
@@ -758,7 +758,7 @@ function orderedEventTags(
  *  - Month-only Y-M  → mid-month (M*100 + 50), after same-month full dates
  *  - Year-only Y     → Y*10000 + 9000, after all specific dates in that year
  */
-function dateToSortKey(d: GedDate | undefined): number {
+export function dateToSortKey(d: GedDate | undefined): number {
   if (!d || d.year == null) return 9_999_999;
   const base = d.year * 10000;
   if (d.qualifier === "before") return base - 1;
