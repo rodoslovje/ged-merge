@@ -217,6 +217,38 @@ describe("fieldDiffCounts", () => {
   });
 });
 
+describe("event ordering", () => {
+  it("sorts events chronologically across types", () => {
+    // Master has RESI before BIRT in the file; sorted output must put BIRT first.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1 JAN 1974\n` +
+      `1 BIRT\n2 DATE 1 JAN 1974\n` +
+      `1 RESI\n2 DATE JUN 2014\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.1.header")); // Jun 2014 sorts last
+    // The RESI from Jan 1974 shares the date with BIRT; BIRT precedes RESI in EVENT_ORDER.
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.0.header"));
+  });
+
+  it("uses compare date when master event has no date", () => {
+    // Master has an undated RESI; compare's 1974 date should be used for sort order.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 RESI\n1 BIRT\n2 DATE 1 JAN 1974\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 RESI\n2 DATE 1900\n1 BIRT\n2 DATE 1 JAN 1974\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    // Compare's RESI is from 1900, so it should sort before BIRT 1974.
+    expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("BIRT.header"));
+  });
+});
+
 describe("ADDR support", () => {
   const m = dataset(
     `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 19 SEP 1917\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Zgornje Bitnje 52 (pd Urbanov Jaka)\n0 TRLR\n`,

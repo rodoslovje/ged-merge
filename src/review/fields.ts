@@ -722,7 +722,7 @@ function orderedEventTags(
 
   function instanceDate(tag: string, idx: number): number {
     const mk = eventDateKey(mByTag.get(tag)!, idx);
-    return mk < 9_999_999 ? mk : eventDateKey(cByTag.get(tag)!, idx);
+    return mk !== 9_999_999 ? mk : eventDateKey(cByTag.get(tag)!, idx);
   }
 
   instances.sort((a, b) => {
