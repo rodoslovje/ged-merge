@@ -920,6 +920,7 @@ export function App() {
             canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
             decisions={decisions}
             compareDataset={compareDataset}
+            onUpdateDecision={updateDecision}
           />
         )
       )}

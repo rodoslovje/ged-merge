@@ -70,6 +70,8 @@ interface Props {
   decisions?: Map<string, CandidateDecision>;
   /** The incoming dataset — needed to resolve confirmed match incoming values. */
   compareDataset?: Dataset;
+  /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision. */
+  onUpdateDecision?: (next: CandidateDecision) => void;
 }
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -188,7 +190,7 @@ function fieldWidth(value: string, placeholder: string): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -307,6 +309,27 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }, [decisions, compareDataset, person, dataset, t, tick]);
 
   const { mergeHighlight, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents } = mergeData;
+
+  function dismissExtraEvent(keyBase: string) {
+    if (!decisions || !person || !onUpdateDecision) return;
+    for (const [key, dec] of decisions) {
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
+      if (dec.status !== "confirmed") continue;
+      const updatedFields = { ...dec.fields };
+      for (const fkey of Object.keys(updatedFields)) {
+        if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "master";
+      }
+      // Also set any fields not yet explicitly decided (they default to "incoming") to "master".
+      const EVENT_SUBS = ["date", "place", "addr", "value"] as const;
+      for (const sub of EVENT_SUBS) {
+        const fkey = `${keyBase}.${sub}`;
+        if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
+      }
+      onUpdateDecision({ ...dec, fields: updatedFields });
+      break;
+    }
+  }
 
   const commit: Commit = (mutate) => {
     if (!person) return;
@@ -551,6 +574,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             masterMergeKeyBases={masterMergeKeyBases}
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
+            onDismissExtraEvent={dismissExtraEvent}
           />
           {((person.links ?? []).length > 0 || linksAdded) && (
             <div className="edit-record-section">
@@ -1164,6 +1188,7 @@ function EventList({
   masterMergeKeyBases,
   masterMergeSortKeys,
   extraMergeEvents,
+  onDismissExtraEvent,
 }: {
   person: Individual;
   t: Translate;
@@ -1179,26 +1204,26 @@ function EventList({
   masterMergeSortKeys?: Map<number, number>;
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
+  /** Called when an extra merge event is dismissed, to update the merge decision. */
+  onDismissExtraEvent?: (keyBase: string) => void;
 }) {
   type Snapshot = { date?: string; place?: string; address?: string; value?: string; links?: string[] };
   type DeletedSnap = {
     tag: string; label: string; mergeKeyBase: string; stableKey: number;
-    snapshot: Snapshot; sortKey: number; tagPos: number;
+    snapshot: Snapshot; sortKey: number; tagPos: number; isExtra: boolean;
   };
   const [deletedSnaps, setDeletedSnaps] = useState<DeletedSnap[]>([]);
+  const extraStableIds = useRef(new Map<string, number>());
 
   function handleRemove(
-    ev: GedEvent | undefined, tag: string, label: string, mergeKeyBase: string,
-    stableKey: number, sortKey: number, tagPos: number, removeAction: () => void,
+    snapshot: Snapshot, tag: string, label: string, mergeKeyBase: string,
+    stableKey: number, sortKey: number, tagPos: number, isExtra: boolean,
+    removeAction?: () => void,
   ) {
     setDeletedSnaps((prev) => [...prev, {
-      tag, label, mergeKeyBase, stableKey, sortKey, tagPos,
-      snapshot: {
-        date: ev?.date?.raw, place: ev?.place?.raw,
-        address: ev?.address?.raw, value: ev?.value, links: ev?.links,
-      },
+      tag, label, mergeKeyBase, stableKey, sortKey, tagPos, isExtra, snapshot,
     }]);
-    removeAction();
+    removeAction?.();
   }
 
   const birtEv = person.events.find((e) => e.tag === "BIRT");
@@ -1221,7 +1246,7 @@ function EventList({
   // and any stricken-through deleted events (rendered in-place).
   type MasterRow  = { kind: "master";  ev: GedEvent; i: number; mergeKeyBase: string; stableKey: number };
   type ExtraRow   = { kind: "extra";   tag: string; keyBase: string };
-  type DeletedRow = { kind: "deleted"; tag: string; label: string; mergeKeyBase: string; stableKey: number; snapshot: Snapshot };
+  type DeletedRow = { kind: "deleted"; tag: string; label: string; mergeKeyBase: string; stableKey: number; snapshot: Snapshot; isExtra: boolean };
   type AnyRow     = (MasterRow | ExtraRow | DeletedRow) & { sortKey: number; tagPos: number };
 
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
@@ -1239,16 +1264,18 @@ function EventList({
         sortKey: masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
-    ...(extraMergeEvents ?? []).map(({ tag, keyBase, sortKey }): AnyRow => ({
-      kind: "extra",
-      tag, keyBase,
-      sortKey,
-      tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
-    })),
+    ...(extraMergeEvents ?? [])
+      .filter(({ keyBase }) => !deletedSnaps.some((d) => d.isExtra && d.mergeKeyBase === keyBase))
+      .map(({ tag, keyBase, sortKey }): AnyRow => ({
+        kind: "extra",
+        tag, keyBase,
+        sortKey,
+        tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
+      })),
     ...deletedSnaps.map((d): AnyRow => ({
       kind: "deleted",
       tag: d.tag, label: d.label, mergeKeyBase: d.mergeKeyBase,
-      stableKey: d.stableKey, snapshot: d.snapshot,
+      stableKey: d.stableKey, snapshot: d.snapshot, isExtra: d.isExtra,
       sortKey: d.sortKey, tagPos: d.tagPos,
     })),
   ];
@@ -1276,10 +1303,11 @@ function EventList({
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
         onRemove={birtOriginalIdx >= 0 ? () => handleRemove(
-          birtEv, "BIRT", t("event.BIRT"), birtMergeKeyBase,
+          { date: birtEv?.date?.raw, place: birtEv?.place?.raw, address: birtEv?.address?.raw, value: birtEv?.value, links: birtEv?.links },
+          "BIRT", t("event.BIRT"), birtMergeKeyBase,
           nodeId(rawEventNodes[birtOriginalIdx] ?? {}),
           masterMergeSortKeys?.get(birtOriginalIdx) ?? dateToSortKey(birtEv?.date),
-          EXTRA_EVENT_ORDER.indexOf("BIRT"),
+          EXTRA_EVENT_ORDER.indexOf("BIRT"), false,
           () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)),
         ) : undefined}
         placeSuggestions={placeSuggestions}
@@ -1299,8 +1327,9 @@ function EventList({
             t={t}
             commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
             onRemove={() => handleRemove(
-              row.ev, row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase,
-              row.stableKey, row.sortKey, row.tagPos,
+              { date: row.ev.date?.raw, place: row.ev.place?.raw, address: row.ev.address?.raw, value: row.ev.value, links: row.ev.links },
+              row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase,
+              row.stableKey, row.sortKey, row.tagPos, false,
               () => commit((indi) => removeEventAtIndex(indi, row.i)),
             )}
             placeSuggestions={placeSuggestions}
@@ -1318,6 +1347,20 @@ function EventList({
             tag={row.tag}
             t={t}
             commitField={(update) => commit((indi) => setEventField(indi, row.tag, update))}
+            onRemove={() => {
+              const ids = extraStableIds.current;
+              if (!ids.has(row.keyBase)) ids.set(row.keyBase, _nextNodeId++);
+              const stableKey = ids.get(row.keyBase)!;
+              const snap: Snapshot = {
+                date: mergeHighlight?.get(`${row.keyBase}.date`),
+                place: mergeHighlight?.get(`${row.keyBase}.place`),
+                address: mergeHighlight?.get(`${row.keyBase}.address`),
+                value: mergeHighlight?.get(`${row.keyBase}.value`),
+              };
+              onDismissExtraEvent?.(row.keyBase);
+              handleRemove(snap, row.tag, t(`event.${row.tag}`), row.keyBase,
+                stableKey, row.sortKey, row.tagPos, true);
+            }}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1326,11 +1369,14 @@ function EventList({
             mergeKeyBase={row.keyBase}
           />
         ) : (
-          <div key={`del-${row.stableKey}`} className="edit-event edit-event--deleted">
+          <div key={`del-${row.stableKey}`} className={`edit-event edit-event--deleted${VALUE_EVENT_TAGS.has(row.tag) ? " edit-event--has-value" : ""}`}>
             <div className="edit-event-label">{row.label}</div>
             <div className="clearable-wrap">
               <span className="edit-input edit-event-date">{row.snapshot.date ?? ""}</span>
             </div>
+            {VALUE_EVENT_TAGS.has(row.tag) && (
+              <span className="edit-input edit-event-value">{row.snapshot.value ?? ""}</span>
+            )}
             <div className="place-autocomplete-wrap">
               <span className="edit-input edit-event-place">{row.snapshot.place ?? ""}</span>
             </div>
@@ -1343,7 +1389,7 @@ function EventList({
                 className="edit-event-undo"
                 title={t("edit.undoRemove")}
                 onClick={() => {
-                  commit((indi) => restoreEvent(indi, row.tag, row.snapshot));
+                  if (!row.isExtra) commit((indi) => restoreEvent(indi, row.tag, row.snapshot));
                   setDeletedSnaps((prev) => prev.filter((d) => d.stableKey !== row.stableKey));
                 }}
               >
