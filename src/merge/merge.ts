@@ -89,6 +89,8 @@ export function mergeDecisions(
   t: Translate,
 ): MergeResult {
   const records = master.records.map(cloneNode);
+  const masterXrefs = new Set(records.filter((r) => r.xref).map((r) => r.xref as string));
+  const sourXrefMap = buildSourXrefMap(compare.records, masterXrefs);
   const indiNodes = new Map<string, GedNode>();
   const famNodes = new Map<string, GedNode>();
   for (const r of records) {
@@ -117,7 +119,7 @@ export function mergeDecisions(
   // How the master stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
   const linkFormat = detectLinkFormat(master);
-  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt, t);
+  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, placeFmt, t, sourXrefMap);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -130,7 +132,7 @@ export function mergeDecisions(
     if (!target || !masterIndi || !incoming) continue;
     report.recordLabels[masterId] = displayName(masterIndi.names[0]);
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang, linkFormat, records);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang, linkFormat, records, sourXrefMap);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
   }
@@ -146,6 +148,10 @@ export function mergeDecisions(
     if (indiNodes.has(c.recordId)) report.recordKinds[c.recordId] = "individual";
     else if (famNodes.has(c.recordId)) report.recordKinds[c.recordId] = "family";
   }
+
+  // Import any SOUR/REPO records from compare that are now referenced in the
+  // merged output but absent from it (e.g. citations on newly-added people).
+  importSourRecords(records, compare, sourXrefMap);
 
   report.recordsChanged = touched.size;
   return { records, report };
@@ -175,6 +181,7 @@ function applyRows(
   matriculaLang: string | undefined,
   linkFormat: LinkFormat,
   records: GedNode[],
+  sourMap: SourXrefMap,
 ): void {
   let nameApplied = false;
   // Event tags whose place we already reshaped, so the matching ADDR row is
@@ -204,16 +211,16 @@ function applyRows(
     let applied = false;
     if (row.key === "given" || row.key === "surname") {
       if (nameApplied) continue; // the whole NAME line is taken as a unit
-      applied = applyName(target, incomingRecord, choice);
+      applied = applyName(target, incomingRecord, choice, sourMap);
       nameApplied = applied;
     } else if (row.key === "sex") {
       applied = setChild(target, "SEX", incomingRecord, choice);
     } else if (row.key === "nickname") {
       applied = applyNickname(target, incomingRecord, choice);
     } else if (row.key === "additionalNames") {
-      applied = applyAdditionalNames(target, incomingRecord, choice);
+      applied = applyAdditionalNames(target, incomingRecord, choice, sourMap);
     } else if (row.key === "notes") {
-      applied = applyNotes(target, incomingRecord, choice);
+      applied = applyNotes(target, incomingRecord, choice, sourMap);
     } else {
       const parts = row.key.split(".");
       const [tag, eventIdx, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
@@ -372,10 +379,10 @@ function detectMatriculaLang(master: Dataset): string | undefined {
 }
 
 /** Replace or (for "both") add the primary NAME line from the incoming record. */
-function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
+function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
   const incName = incomingRecord.children.find((c) => c.tag === "NAME");
   if (!incName) return false;
-  const clone = cloneNode(incName);
+  const clone = cloneNodeRemapped(incName, sourMap);
   const idx = target.children.findIndex((c) => c.tag === "NAME");
   if (choice === "both" || idx < 0) {
     insertAt(target, idx < 0 ? target.children.length : idx + 1, clone);
@@ -389,11 +396,11 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
  * Copy NOTE children from the incoming record. "incoming" replaces any existing
  * notes; "both" appends them. Used for both individual and family notes.
  */
-function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice): boolean {
+function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
   const incNotes = incoming.children.filter((c) => c.tag === "NOTE");
   if (!incNotes.length) return false;
   if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "NOTE");
-  for (const n of incNotes) target.children.push(cloneNode(n));
+  for (const n of incNotes) target.children.push(cloneNodeRemapped(n, sourMap));
   return true;
 }
 
@@ -412,7 +419,7 @@ function applyNickname(target: GedNode, incomingRecord: GedNode, choice: FieldCh
 }
 
 /** Copy the incoming record's additional NAME nodes (everything after the first). */
-function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldChoice): boolean {
+function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
   let firstSeen = false;
   const incExtra: GedNode[] = [];
   for (const c of incoming.children) {
@@ -430,7 +437,7 @@ function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldC
       return false;
     });
   }
-  for (const n of incExtra) target.children.push(cloneNode(n));
+  for (const n of incExtra) target.children.push(cloneNodeRemapped(n, sourMap));
   return true;
 }
 
@@ -580,6 +587,100 @@ function cloneNode(n: GedNode): GedNode {
   return c;
 }
 
+// ---------------------------------------------------------------------------
+// SOUR / REPO import helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Map from a compare file's SOUR/REPO xref to the xref it will carry in the
+ * merged output. Usually the same; only differs when the compare xref collides
+ * with a master xref that points to a different record.
+ */
+type SourXrefMap = ReadonlyMap<string, string>;
+
+/**
+ * Pre-compute the xref translation table for all compare SOUR/REPO records.
+ * Records whose xref does not exist in the master are mapped to themselves;
+ * collisions get a fresh xref of the same type (S… / R…) that avoids all
+ * existing master xrefs.
+ */
+function buildSourXrefMap(compareRecords: GedNode[], masterXrefs: ReadonlySet<string>): Map<string, string> {
+  const map = new Map<string, string>();
+  const used = new Set(masterXrefs);
+  for (const rec of compareRecords) {
+    if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
+    if (!used.has(rec.xref)) {
+      map.set(rec.xref, rec.xref);
+      used.add(rec.xref);
+    } else {
+      const prefix = rec.tag === "REPO" ? "R" : "S";
+      let n = 1;
+      let fresh: string;
+      do { fresh = `@${prefix}${n++}@`; } while (used.has(fresh));
+      used.add(fresh);
+      map.set(rec.xref, fresh);
+    }
+  }
+  return map;
+}
+
+/** Deep-clone `n`, substituting any SOUR/REPO pointer values via `sourMap`. */
+function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
+  const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
+  if (n.xref !== undefined) c.xref = n.xref;
+  if (n.value !== undefined) {
+    const isSourPointer = (n.tag === "SOUR" || n.tag === "REPO") && /^@[^@]+@$/.test(n.value);
+    c.value = isSourPointer ? (sourMap.get(n.value) ?? n.value) : n.value;
+  }
+  return c;
+}
+
+/**
+ * After all merge decisions have been applied, scan the merged output for
+ * SOUR/REPO xref pointers that don't yet have a corresponding top-level record
+ * and import them from the compare file. Handles transitive dependencies
+ * (a SOUR that references a REPO that also needs importing) by iterating to
+ * fixpoint. The `sourMap` ensures imported records land under the correct output
+ * xref and that any internal REPO pointers inside a SOUR are also remapped.
+ */
+function importSourRecords(records: GedNode[], compare: Dataset, sourMap: SourXrefMap): void {
+  // Reverse map: output xref → compare xref (only entries that were renamed).
+  const reverseMap = new Map<string, string>();
+  for (const [cXref, outXref] of sourMap) reverseMap.set(outXref, cXref);
+
+  // Indexed lookup for compare SOUR/REPO records.
+  const compareIndex = new Map<string, GedNode>();
+  for (const rec of compare.records) {
+    if ((rec.tag === "SOUR" || rec.tag === "REPO") && rec.xref) compareIndex.set(rec.xref, rec);
+  }
+
+  const collectSourRefs = (node: GedNode, out: Set<string>): void => {
+    if ((node.tag === "SOUR" || node.tag === "REPO") && node.value && /^@[^@]+@$/.test(node.value)) {
+      out.add(node.value);
+    }
+    for (const child of node.children) collectSourRefs(child, out);
+  };
+
+  // Iterate to fixpoint: importing a SOUR may introduce a REPO reference.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const presentXrefs = new Set(records.filter((r) => r.xref).map((r) => r.xref as string));
+    const needed = new Set<string>();
+    for (const rec of records) collectSourRefs(rec, needed);
+    for (const outXref of needed) {
+      if (presentXrefs.has(outXref)) continue;
+      const cXref = reverseMap.get(outXref) ?? outXref;
+      const cRec = compareIndex.get(cXref);
+      if (!cRec) continue;
+      const imported = cloneNodeRemapped(cRec, sourMap);
+      imported.xref = outXref;
+      insertRecord(records, imported);
+      changed = true;
+    }
+  }
+}
+
 // --- family structural merge (spouses & children) --------------------------
 
 interface MergeContext {
@@ -606,6 +707,8 @@ interface MergeContext {
   noteSpouse: (famId: string, name: string) => void;
   /** Translator for human-readable change/deferred labels. */
   t: Translate;
+  /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
+  sourXrefMap: SourXrefMap;
 }
 
 function makeContext(
@@ -619,6 +722,7 @@ function makeContext(
   touched: Set<string>,
   placeFmt: PlaceTargetFormat,
   t: Translate,
+  sourXrefMap: SourXrefMap,
 ): MergeContext {
   const incToMaster = new Map<string, string>();
   for (const c of matches.individuals) incToMaster.set(c.compareId, c.masterId);
@@ -665,7 +769,7 @@ function makeContext(
     const incIndi = compare.individuals.get(incomingId);
     if (!incIndi) return undefined;
     const newId = allocXref();
-    const node = cloneNode(incIndi.raw);
+    const node = cloneNodeRemapped(incIndi.raw, sourXrefMap);
     node.xref = newId;
     // Drop incoming family pointers; we re-link only into the family being merged.
     node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
@@ -696,6 +800,7 @@ function makeContext(
     famSpouseNames,
     noteSpouse,
     t,
+    sourXrefMap,
   };
 }
 
@@ -936,7 +1041,7 @@ function applyIndividualFamilies(
     const famNotesKey = `${famKey}.notes`;
     if (wantsIncoming(rows, fields, famNotesKey)) {
       const choice = fields[famNotesKey] ?? "incoming";
-      if (applyNotes(famNode, incFam.raw, choice)) {
+      if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.notes"),

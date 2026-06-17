@@ -291,6 +291,94 @@ describe("mergeDecisions — links", () => {
   });
 });
 
+describe("mergeDecisions — SOUR/REPO import", () => {
+  // Compare has a source record and an individual citing it.
+  // @P1@ must carry 1 FAMS @PF@ so applyIndividualFamilies processes the family.
+  const compareWithSour = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+      "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 SOUR @CS1@\n2 PAGE Birth register p.42\n1 FAMC @PF@\n" +
+      "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+      "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
+  );
+  const masterFamily = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n",
+  );
+
+  it("imports the SOUR record when a new child referencing it is added", () => {
+    const master = dataset(masterFamily);
+    const compare = dataset(compareWithSour);
+    const matches = {
+      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // The new child carries a SOUR citation; the referenced SOUR record must
+    // appear in the merged output.
+    expect(out).toContain("1 SOUR @CS1@");
+    expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj");
+  });
+
+  it("handles an xref collision: imports the compare SOUR under a fresh xref", () => {
+    // Master already has @CS1@ pointing to a different source.
+    const masterWithClash = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @CS1@ SOUR\n1 TITL Župnijska matica — Domžale\n",
+    );
+    const master = dataset(masterWithClash);
+    const compare = dataset(compareWithSour);
+    const matches = {
+      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // Master's @CS1@ must be preserved unchanged.
+    expect(out).toContain("0 @CS1@ SOUR\n1 TITL Župnijska matica — Domžale");
+    // Compare's source ("Matična knjiga rojstev Kranj") must also appear, but
+    // under a different xref since @CS1@ was already taken.
+    expect(out).toContain("1 TITL Matična knjiga rojstev Kranj");
+    // The new child's citation must point to the remapped xref (not @CS1@).
+    const newChildMatch = out.match(/0 @I\d+@ INDI\n1 NAME Tone \/Novak\//);
+    expect(newChildMatch).not.toBeNull();
+    // Extract the citation xref from the new child's record.
+    const childSection = out.slice(out.indexOf(newChildMatch![0]));
+    const sourXref = childSection.match(/1 SOUR (@[^@]+@)/)?.[1];
+    expect(sourXref).toBeDefined();
+    expect(sourXref).not.toBe("@CS1@"); // must have been remapped
+    // That remapped xref must correspond to the compare source.
+    expect(out).toContain(`0 ${sourXref} SOUR\n1 TITL Matična knjiga rojstev Kranj`);
+  });
+
+  it("transitively imports a REPO referenced by an imported SOUR", () => {
+    const compareWithRepo = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@\n" +
+        "0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana\n",
+    );
+    const master = dataset(masterFamily);
+    const compare = dataset(compareWithRepo);
+    const matches = {
+      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@");
+    expect(out).toContain("0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana");
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();
