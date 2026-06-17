@@ -5,6 +5,7 @@ import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, nameTypeLabel, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
+import { INDI_EVENT_TAGS } from "../gedcom/builder";
 import { dateToSortKey, individualFieldRows, orderedEventTags } from "../review/fields";
 import { defaultChoice, type CandidateDecision } from "../review/types";
 import {
@@ -38,6 +39,15 @@ import {
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
+
+// Assign a monotonically increasing integer to each GedNode object so React
+// keys remain stable across insertions and removals of sibling events.
+const _nodeIds = new WeakMap<object, number>();
+let _nextNodeId = 0;
+function nodeId(node: object): number {
+  if (!_nodeIds.has(node)) _nodeIds.set(node, _nextNodeId++);
+  return _nodeIds.get(node)!;
+}
 
 interface Props {
   dataset: Dataset;
@@ -529,6 +539,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onAddNote={() => setNotesAdded(true)}
           />
           <EventList
+            key={person.id}
             person={person}
             t={t}
             commit={commit}
@@ -1169,30 +1180,24 @@ function EventList({
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
 }) {
-  type DeletedRow = {
-    tag: string;
-    label: string;
-    mergeKeyBase: string;
-    snapshot: { date?: string; place?: string; address?: string; value?: string; links?: string[] };
+  type Snapshot = { date?: string; place?: string; address?: string; value?: string; links?: string[] };
+  type DeletedSnap = {
+    tag: string; label: string; mergeKeyBase: string; stableKey: number;
+    snapshot: Snapshot; sortKey: number; tagPos: number;
   };
-  const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
-  const personId = person.id;
-  useEffect(() => { setDeletedRows([]); }, [personId]);
+  const [deletedSnaps, setDeletedSnaps] = useState<DeletedSnap[]>([]);
 
-  function handleRemove(ev: GedEvent | undefined, tag: string, label: string, mergeKeyBase: string, removeAction: () => void) {
-    setDeletedRows((prev) => [
-      ...prev,
-      {
-        tag, label, mergeKeyBase,
-        snapshot: {
-          date: ev?.date?.raw,
-          place: ev?.place?.raw,
-          address: ev?.address?.raw,
-          value: ev?.value,
-          links: ev?.links,
-        },
+  function handleRemove(
+    ev: GedEvent | undefined, tag: string, label: string, mergeKeyBase: string,
+    stableKey: number, sortKey: number, tagPos: number, removeAction: () => void,
+  ) {
+    setDeletedSnaps((prev) => [...prev, {
+      tag, label, mergeKeyBase, stableKey, sortKey, tagPos,
+      snapshot: {
+        date: ev?.date?.raw, place: ev?.place?.raw,
+        address: ev?.address?.raw, value: ev?.value, links: ev?.links,
       },
-    ]);
+    }]);
     removeAction();
   }
 
@@ -1212,10 +1217,15 @@ function EventList({
     ? (masterMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
     : "BIRT";
 
-  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events.
-  type MasterRow = { kind: "master"; ev: GedEvent; i: number; mergeKeyBase: string };
-  type ExtraRow  = { kind: "extra";  tag: string; keyBase: string };
-  type AnyRow    = (MasterRow | ExtraRow) & { sortKey: number; tagPos: number };
+  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events
+  // and any stricken-through deleted events (rendered in-place).
+  type MasterRow  = { kind: "master";  ev: GedEvent; i: number; mergeKeyBase: string; stableKey: number };
+  type ExtraRow   = { kind: "extra";   tag: string; keyBase: string };
+  type DeletedRow = { kind: "deleted"; tag: string; label: string; mergeKeyBase: string; stableKey: number; snapshot: Snapshot };
+  type AnyRow     = (MasterRow | ExtraRow | DeletedRow) & { sortKey: number; tagPos: number };
+
+  // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
+  const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
 
   const allRows: AnyRow[] = [
     ...person.events
@@ -1225,6 +1235,7 @@ function EventList({
         kind: "master",
         ev, i,
         mergeKeyBase: masterMergeKeyBases?.get(i) ?? eventKeyBases[i],
+        stableKey: nodeId(rawEventNodes[i] ?? ev),
         sortKey: masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
@@ -1233,6 +1244,12 @@ function EventList({
       tag, keyBase,
       sortKey,
       tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
+    })),
+    ...deletedSnaps.map((d): AnyRow => ({
+      kind: "deleted",
+      tag: d.tag, label: d.label, mergeKeyBase: d.mergeKeyBase,
+      stableKey: d.stableKey, snapshot: d.snapshot,
+      sortKey: d.sortKey, tagPos: d.tagPos,
     })),
   ];
   allRows.sort((a, b) => {
@@ -1258,7 +1275,13 @@ function EventList({
         tag="BIRT"
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
-        onRemove={birtOriginalIdx >= 0 ? () => handleRemove(birtEv, "BIRT", t("event.BIRT"), birtMergeKeyBase, () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx))) : undefined}
+        onRemove={birtOriginalIdx >= 0 ? () => handleRemove(
+          birtEv, "BIRT", t("event.BIRT"), birtMergeKeyBase,
+          nodeId(rawEventNodes[birtOriginalIdx] ?? {}),
+          masterMergeSortKeys?.get(birtOriginalIdx) ?? dateToSortKey(birtEv?.date),
+          EXTRA_EVENT_ORDER.indexOf("BIRT"),
+          () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)),
+        ) : undefined}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
@@ -1269,13 +1292,17 @@ function EventList({
       {allRows.map((row) =>
         row.kind === "master" ? (
           <EventFieldsRow
-            key={`${person.id}-${row.mergeKeyBase}`}
+            key={`ev-${row.stableKey}`}
             ev={row.ev}
             label={t(`event.${row.ev.tag}`)}
             tag={row.ev.tag}
             t={t}
             commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
-            onRemove={() => handleRemove(row.ev, row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase, () => commit((indi) => removeEventAtIndex(indi, row.i)))}
+            onRemove={() => handleRemove(
+              row.ev, row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase,
+              row.stableKey, row.sortKey, row.tagPos,
+              () => commit((indi) => removeEventAtIndex(indi, row.i)),
+            )}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1283,7 +1310,7 @@ function EventList({
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.mergeKeyBase}
           />
-        ) : (
+        ) : row.kind === "extra" ? (
           <EventFieldsRow
             key={`${person.id}-merge-${row.keyBase}`}
             ev={undefined}
@@ -1298,28 +1325,34 @@ function EventList({
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.keyBase}
           />
+        ) : (
+          <div key={`del-${row.stableKey}`} className="edit-event edit-event--deleted">
+            <div className="edit-event-label">{row.label}</div>
+            <div className="clearable-wrap">
+              <span className="edit-input edit-event-date">{row.snapshot.date ?? ""}</span>
+            </div>
+            <div className="place-autocomplete-wrap">
+              <span className="edit-input edit-event-place">{row.snapshot.place ?? ""}</span>
+            </div>
+            <div className="place-autocomplete-wrap">
+              <span className="edit-input edit-event-addr">{row.snapshot.address ?? ""}</span>
+            </div>
+            <div className="edit-event-actions">
+              <button
+                type="button"
+                className="edit-event-undo"
+                title={t("edit.undoRemove")}
+                onClick={() => {
+                  commit((indi) => restoreEvent(indi, row.tag, row.snapshot));
+                  setDeletedSnaps((prev) => prev.filter((d) => d.stableKey !== row.stableKey));
+                }}
+              >
+                ↩
+              </button>
+            </div>
+          </div>
         ),
       )}
-      {deletedRows.map((deleted) => (
-        <div key={`${person.id}-deleted-${deleted.mergeKeyBase}`} className="edit-event edit-event--deleted">
-          <div className="edit-event-label">{deleted.label}</div>
-          <span className="edit-event-deleted-date">{deleted.snapshot.date ?? ""}</span>
-          <span className="edit-event-deleted-place">{deleted.snapshot.place ?? ""}</span>
-          <span className="edit-event-deleted-addr">{deleted.snapshot.address ?? ""}</span>
-          <div className="edit-event-actions">
-            <button
-              type="button"
-              className="edit-event-undo"
-              onClick={() => {
-                commit((indi) => restoreEvent(indi, deleted.tag, deleted.snapshot));
-                setDeletedRows((prev) => prev.filter((d) => d.mergeKeyBase !== deleted.mergeKeyBase));
-              }}
-            >
-              ↩ {t("edit.undoRemove")}
-            </button>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

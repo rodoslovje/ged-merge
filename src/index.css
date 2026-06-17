@@ -1560,24 +1560,29 @@ button {
 @media (prefers-reduced-motion: reduce) { .edit-event-remove { transition: none; } }
 .edit-event-remove:hover { color: var(--state-danger, #d9534f); }
 .edit-event--deleted {
-  opacity: 0.55;
-  text-decoration: line-through;
+  opacity: 0.5;
   pointer-events: none;
 }
-.edit-event--deleted .edit-event-actions { pointer-events: auto; text-decoration: none; }
-.edit-event--deleted .edit-event-deleted-date,
-.edit-event--deleted .edit-event-deleted-place,
-.edit-event--deleted .edit-event-deleted-addr { color: var(--muted); }
+.edit-event--deleted .edit-input {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.edit-event--deleted .edit-event-label { text-decoration: line-through; }
+.edit-event--deleted .edit-event-actions { pointer-events: auto; }
 .edit-event-undo {
   border: none;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.85em;
+  font-size: 1em;
   padding: 2px 6px;
   cursor: pointer;
-  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
+.edit-event--deleted:hover .edit-event-undo,
+.edit-event-undo:focus-visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .edit-event-undo { transition: none; } }
 .edit-event-undo:hover { color: var(--accent); }
 
 .person-card {
