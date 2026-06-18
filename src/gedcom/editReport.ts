@@ -26,6 +26,13 @@ function getNameParts(node: GedNode): { given: string; surname: string; nickname
   return { given: parsed.given ?? "", surname: parsed.surname ?? "", nickname: parsed.nickname ?? "" };
 }
 
+function displayNameFromRaw(node: GedNode): string {
+  const nameNode = node.children.find((c) => c.tag === "NAME");
+  if (!nameNode) return "";
+  const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
+  return displayName(parseName(nameNode.value, subTags));
+}
+
 function summarizeEvent(node: GedNode): string {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   return [get("DATE"), get("PLAC"), get("ADDR")].filter(Boolean).join(" · ") || "…";
@@ -130,7 +137,20 @@ export function enrichEditReport(
     if (kind === "individual") {
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
-      if (snapshot && current) extra.push(...diffIndividualNodes(id, snapshot, current.raw, t));
+      if (snapshot && current) {
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t));
+      } else if (snapshot && !current) {
+        // Deleted person: list which families they belonged to
+        for (const node of snapshot.children) {
+          if (node.tag === "FAMC" || node.tag === "FAMS") {
+            const famId = node.value?.trim();
+            if (!famId) continue;
+            const famLabel = report.recordLabels[famId] ?? famId;
+            const fieldKey = node.tag === "FAMC" ? "field.childOf" : "field.spouseOf";
+            extra.push({ recordId: id, field: t(fieldKey), from: famLabel, to: "", action: "incoming" });
+          }
+        }
+      }
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
@@ -148,6 +168,8 @@ export function buildEditReport(
   dataset: Dataset,
   loadedPersonIds: Set<string>,
   loadedFamilyIds: Set<string>,
+  personSnapshots?: Map<string, GedNode>,
+  familySnapshots?: Map<string, GedNode>,
 ): ChangeReport {
   const changes: FieldChange[] = [];
   const recordLabels: Record<string, string> = {};
@@ -157,22 +179,39 @@ export function buildEditReport(
 
   for (const id of changedPersonIds) {
     const indi = dataset.individuals.get(id);
-    const label = indi ? displayName(indi.names[0]) || id : id;
     const isNew = !loadedPersonIds.has(id);
+    const isRemoved = !indi && !isNew;
+    let label: string;
+    if (indi) {
+      label = displayName(indi.names[0]) || id;
+    } else {
+      const snap = personSnapshots?.get(id);
+      label = snap ? displayNameFromRaw(snap) || id : id;
+    }
     recordLabels[id] = label;
     recordKinds[id] = "individual";
-    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew });
+    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew, removedRecord: isRemoved });
     if (isNew) newPersons++;
   }
 
+  // Helper to resolve an individual's display name from dataset or snapshots
+  const resolveIndiName = (indiId: string | undefined): string | undefined => {
+    if (!indiId) return undefined;
+    const indi = dataset.individuals.get(indiId);
+    if (indi) return displayName(indi.names[0]) || undefined;
+    const snap = personSnapshots?.get(indiId);
+    return snap ? displayNameFromRaw(snap) || undefined : undefined;
+  };
+
   for (const id of changedFamilyIds) {
     const fam = dataset.families.get(id);
-    const husband = fam?.husband ? dataset.individuals.get(fam.husband) : undefined;
-    const wife = fam?.wife ? dataset.individuals.get(fam.wife) : undefined;
+    const famSnap = familySnapshots?.get(id);
+    // Prefer current fam's HUSB/WIFE; fall back to snapshot xrefs if member was deleted
+    const husbandId = fam?.husband ?? famSnap?.children.find((c) => c.tag === "HUSB")?.value?.trim();
+    const wifeId = fam?.wife ?? famSnap?.children.find((c) => c.tag === "WIFE")?.value?.trim();
     const label =
-      [husband, wife]
+      [resolveIndiName(husbandId), resolveIndiName(wifeId)]
         .filter(Boolean)
-        .map((p) => displayName(p!.names[0]))
         .join(" & ") || id;
     const isNew = !loadedFamilyIds.has(id);
     recordLabels[id] = label;

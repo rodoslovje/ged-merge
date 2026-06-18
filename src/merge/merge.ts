@@ -20,6 +20,8 @@ export interface FieldChange {
   action: FieldChoice;
   /** Marks the placeholder change for a freshly added person/family record. */
   newRecord?: boolean;
+  /** Marks the placeholder change for a deleted person/family record. */
+  removedRecord?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */

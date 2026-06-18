@@ -2458,6 +2458,7 @@ button:focus-visible {
 }
 .preview-badge.is-new { background: color-mix(in srgb, var(--state-incoming) 22%, transparent); color: var(--state-incoming); }
 .preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
+.preview-badge.is-removed { background: color-mix(in srgb, var(--danger, #c0392b) 15%, transparent); color: var(--danger, #c0392b); }
 .edit-tree-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 2px 8px; border-radius: 999px; white-space: nowrap;

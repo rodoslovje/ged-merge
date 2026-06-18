@@ -780,7 +780,7 @@ export function App() {
       let report = mergeReport;
       if (changedCount > 0) {
         const editReport = enrichEditReport(
-          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current),
+          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current, personSnapshots.current, familySnapshots.current),
           masterDataset, personSnapshots.current, familySnapshots.current, t,
         );
         report = combineReports(editReport, mergeReport);
@@ -797,7 +797,7 @@ export function App() {
       });
     } else {
       const report = enrichEditReport(
-        buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current),
+        buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current, personSnapshots.current, familySnapshots.current),
         masterDataset, personSnapshots.current, familySnapshots.current, t,
       );
       setPreview({
