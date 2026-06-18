@@ -23,6 +23,7 @@ import {
   rebuildIndividual,
   removeAdditionalName,
   removeEventAtIndex,
+  removeFamilyEvent,
   removeIndividual,
   setAdditionalName,
   setEventField,
@@ -438,8 +439,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     if (!person) return;
     const before = cloneRaw(person.raw);
     mutate(person);
+    const after = cloneRaw(person.raw);
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
     rebuildIndividual(dataset, person);
-    onPushEdit([{ type: "individual", id: person.id, before, after: cloneRaw(person.raw) }], selectedId);
+    onPushEdit([{ type: "individual", id: person.id, before, after }], selectedId);
     onDirty("individual", person.id);
     setTick((v) => v + 1);
   };
@@ -447,8 +450,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const commitFamily: FamilyCommit = (fam, mutate) => {
     const before = cloneRaw(fam.raw);
     mutate(fam);
+    const after = cloneRaw(fam.raw);
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
     rebuildFamily(dataset, fam);
-    onPushEdit([{ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) }], selectedId);
+    onPushEdit([{ type: "family", id: fam.id, before, after }], selectedId);
     onDirty("family", fam.id);
     setTick((v) => v + 1);
   };
@@ -828,9 +833,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -1505,10 +1510,11 @@ function EventList({
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
-  fam, tag, t, commit,
+  fam, tag, t, commit, onRemove,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
+  onRemove?: () => void;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -1521,8 +1527,10 @@ function FamilyEventRow({
     <EventFieldsRow
       ev={ev}
       label={label}
+      tag={tag}
       t={t}
       commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
+      onRemove={onRemove}
       placeSuggestions={placeSuggestions}
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}

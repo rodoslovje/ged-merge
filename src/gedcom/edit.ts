@@ -205,6 +205,12 @@ export function addFamilyEventNode(fam: Family, tag: string): void {
   insertOrdered(fam.raw, event, FAM_CHILD_ORDER);
 }
 
+/** Remove a family event by tag (e.g. "ENGA", "SEPA", "DIV"). */
+export function removeFamilyEvent(fam: Family, tag: string): void {
+  const i = fam.raw.children.findIndex((c) => c.tag === tag);
+  if (i !== -1) fam.raw.children.splice(i, 1);
+}
+
 /** Set (or clear) the individual's primary `NAME` line. */
 export function setName(indi: Individual, name: { given?: string; surname?: string }): void {
   const record = indi.raw;
