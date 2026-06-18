@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RecordPatch, type PendingEditApply, cloneRaw } from "./ui/historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
@@ -99,6 +100,20 @@ export function App() {
   // user can start typing immediately.
   const [focusHome, setFocusHome] = useState(false);
   const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
+  // Keeps current decisions accessible from stable useCallback closures.
+  const decisionsRef = useRef(decisions);
+  decisionsRef.current = decisions;
+
+  // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
+  type UndoEntry =
+    | { mode: "edit"; patches: RecordPatch[]; navigateTo?: string; redoNavigateTo?: string }
+    | { mode: "merge"; before: Map<string, CandidateDecision>; after: Map<string, CandidateDecision>; masterId: string; compareId: string };
+  const undoStack = useRef<UndoEntry[]>([]);
+  const redoStack = useRef<UndoEntry[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  // Queued edit-patch apply: consumed by EditView once it is mounted.
+  const [pendingEditApply, setPendingEditApply] = useState<PendingEditApply | null>(null);
 
   // Matches list view state.
   const [sort, setSort] = useState<SortState[]>(DEFAULT_SORT);
@@ -262,6 +277,13 @@ export function App() {
   }
 
   async function loadFile(role: DatasetRole, file: File) {
+    if (role === "master" && (changedCount > 0 || confirmedCount > 0)) {
+      if (!window.confirm(t("load.masterReplaceConfirm"))) return;
+    }
+    if (role === "compare" && confirmedCount > 0) {
+      if (!window.confirm(t("load.incomingReplaceConfirm"))) return;
+    }
+
     const setter = role === "master" ? setMaster : setCompare;
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
     // c + combining caron. Our subset fonts don't carry the combining marks, so
@@ -272,18 +294,32 @@ export function App() {
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
     setDecisions(new Map());
-    setChangedPersonIds(new Set());
-    setChangedFamilyIds(new Set());
-    personSnapshots.current = new Map();
-    familySnapshots.current = new Map();
-    loadedPersonIds.current = new Set();
-    loadedFamilyIds.current = new Set();
+    setPendingEditApply(null);
     setPreview(null);
-    setEditTreeId(null);
-    setHomeId(undefined); // home person is opt-in; reset on (re)load
-    setFocusHome(false);
-    autoHomeRef.current = false; // allow the default home person for the new file
     setOpenMatches(false);
+    if (role === "master") {
+      undoStack.current = [];
+      redoStack.current = [];
+      setCanUndo(false);
+      setCanRedo(false);
+      setChangedPersonIds(new Set());
+      setChangedFamilyIds(new Set());
+      personSnapshots.current = new Map();
+      familySnapshots.current = new Map();
+      loadedPersonIds.current = new Set();
+      loadedFamilyIds.current = new Set();
+      setEditTreeId(null);
+      setHomeId(undefined); // home person is opt-in; reset on (re)load
+      setFocusHome(false);
+      autoHomeRef.current = false; // allow the default home person for the new file
+    } else {
+      // Incoming reload: edit entries remain valid (they only touch master data).
+      // Drop merge entries whose field comparisons reference the old incoming file.
+      undoStack.current = undoStack.current.filter(e => e.mode === "edit");
+      redoStack.current = redoStack.current.filter(e => e.mode === "edit");
+      setCanUndo(undoStack.current.length > 0);
+      setCanRedo(redoStack.current.length > 0);
+    }
     const buffer = await file.arrayBuffer();
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     workerRef.current?.postMessage(
@@ -490,10 +526,106 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [visible.length]);
 
+  // Stable ref so useCallback closures with empty deps can call pushUnified.
+  const pushUnifiedRef = useRef((_entry: UndoEntry) => {});
+
+  function pushUnified(entry: UndoEntry) {
+    if (undoStack.current.length >= 100) undoStack.current.shift();
+    undoStack.current.push(entry);
+    redoStack.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }
+  pushUnifiedRef.current = pushUnified;
+
+  function handleUndo() {
+    const entry = undoStack.current.pop();
+    if (!entry) return;
+    redoStack.current.push(entry);
+    setCanUndo(undoStack.current.length > 0);
+    setCanRedo(true);
+    if (entry.mode === "edit") {
+      if (entry.navigateTo) setNavigateToId(entry.navigateTo);
+      setMode("edit");
+      setPendingEditApply({ patches: entry.patches, direction: "undo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
+    } else {
+      setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
+      setMode("merge");
+      requestAnimationFrame(() => {
+        setDecisions(entry.before);
+      });
+    }
+  }
+
+  function handleRedo() {
+    const entry = redoStack.current.pop();
+    if (!entry) return;
+    undoStack.current.push(entry);
+    setCanUndo(true);
+    setCanRedo(redoStack.current.length > 0);
+    if (entry.mode === "edit") {
+      const navId = entry.redoNavigateTo ?? entry.navigateTo;
+      if (navId) setNavigateToId(navId);
+      setMode("edit");
+      setPendingEditApply({ patches: entry.patches, direction: "redo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
+    } else {
+      setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
+      setMode("merge");
+      requestAnimationFrame(() => {
+        setDecisions(entry.after);
+      });
+    }
+  }
+
+  // Stable ref for keyboard handler (recreated each render but registered once).
+  const undoRedoRef = useRef({ undo: handleUndo, redo: handleRedo });
+  undoRedoRef.current = { undo: handleUndo, redo: handleRedo };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undoRedoRef.current.undo(); }
+      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); undoRedoRef.current.redo(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mode-switch shortcuts: first letter of each mode label in the active language.
+  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, setMode });
+  modeSwitchRef.current = {
+    editKey: t("mode.edit").charAt(0).toLowerCase(),
+    mergeKey: t("mode.merge").charAt(0).toLowerCase(),
+    mode,
+    setMode,
+  };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      const { editKey, mergeKey, mode: cur, setMode: sm } = modeSwitchRef.current;
+      if (key === editKey && cur !== "edit") { e.preventDefault(); sm("edit"); }
+      else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sm("merge"); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.masterId, current.compareId);
-    setDecisions((prev) => new Map(prev).set(key, next));
+    const before = new Map(decisions);
+    const after = new Map(decisions).set(key, next);
+    pushUnified({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
+    setDecisions(after);
   }
 
   // Set a pair's status while keeping its field choices; clicking the active
@@ -502,11 +634,30 @@ export function App() {
   const setPairStatus = useCallback(
     (masterId: string, compareId: string, status: MatchDecisionStatus) => {
       const key = decisionKey("individual", masterId, compareId);
-      setDecisions((prev) => {
-        const cur = prev.get(key);
-        const nextStatus = cur?.status === status ? "undecided" : status;
-        return new Map(prev).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
-      });
+      const before = decisionsRef.current;
+      const cur = before.get(key);
+      const nextStatus = cur?.status === status ? "undecided" : status;
+      const after = new Map(before).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
+      pushUnifiedRef.current({ mode: "merge", before: new Map(before), after, masterId, compareId });
+      setDecisions(after);
+    },
+    [],
+  );
+
+  const handlePushEdit = useCallback(
+    (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => {
+      // Capture pre-edit snapshot on first dirty for each record (patch.before is the
+      // correct pre-edit state, unlike onDirty which fires after the mutation).
+      for (const patch of patches) {
+        if (patch.before !== null) {
+          if (patch.type === "individual" && !personSnapshots.current.has(patch.id)) {
+            personSnapshots.current.set(patch.id, cloneRaw(patch.before));
+          } else if (patch.type === "family" && !familySnapshots.current.has(patch.id)) {
+            familySnapshots.current.set(patch.id, cloneRaw(patch.before));
+          }
+        }
+      }
+      pushUnifiedRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo });
     },
     [],
   );
@@ -528,6 +679,71 @@ export function App() {
   // Raw-node snapshots taken at first-dirty time, used to revert "Remove from save".
   const personSnapshots = useRef<Map<string, GedNode>>(new Map());
   const familySnapshots = useRef<Map<string, GedNode>>(new Map());
+
+  // Called by EditView after undo/redo patches have been applied to the dataset.
+  // Cleans up changedPersonIds/changedFamilyIds for any record that has returned
+  // to its original pre-edit state so the Save button count stays accurate.
+  const handlePatchApplied = useCallback(
+    (patches: RecordPatch[], direction: "undo" | "redo") => {
+      if (!masterDataset) return;
+      for (const patch of patches) {
+        const appliedState = direction === "undo" ? patch.before : patch.after;
+        if (appliedState === null) {
+          // Record was removed (undo of creation, or redo of deletion) — clean up.
+          if (patch.type === "individual") {
+            personSnapshots.current.delete(patch.id);
+            setChangedPersonIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
+          } else {
+            familySnapshots.current.delete(patch.id);
+            setChangedFamilyIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
+          }
+          continue;
+        }
+        // Record exists — check if it matches the original snapshot.
+        const snapshot = patch.type === "individual"
+          ? personSnapshots.current.get(patch.id)
+          : familySnapshots.current.get(patch.id);
+        if (direction === "redo" && patch.before === null) {
+          // Redo of a creation: re-mark dirty (no snapshot, it's a new record).
+          if (patch.type === "individual") {
+            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          } else {
+            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          }
+          continue;
+        }
+        const record = patch.type === "individual"
+          ? masterDataset.individuals.get(patch.id)?.raw
+          : masterDataset.families.get(patch.id)?.raw;
+        if (snapshot !== undefined && record && JSON.stringify(record) === JSON.stringify(snapshot)) {
+          // Record is back to its pre-edit state — remove from dirty tracking.
+          if (patch.type === "individual") {
+            personSnapshots.current.delete(patch.id);
+            setChangedPersonIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
+          } else {
+            familySnapshots.current.delete(patch.id);
+            setChangedFamilyIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
+          }
+        } else if (direction === "redo") {
+          // Redo of modification: re-mark dirty (it was cleaned by a prior undo).
+          if (patch.type === "individual") {
+            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          } else {
+            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          }
+          // Restore snapshot if it was cleared when the record was cleaned.
+          if (snapshot === undefined && patch.before !== null) {
+            if (patch.type === "individual") {
+              personSnapshots.current.set(patch.id, cloneRaw(patch.before));
+            } else {
+              familySnapshots.current.set(patch.id, cloneRaw(patch.before));
+            }
+          }
+        }
+      }
+    },
+    [masterDataset],
+  );
 
   const confirmedCount = useMemo(() => {
     let n = 0;
@@ -772,14 +988,28 @@ export function App() {
                 {compare.file.fileName}
               </button>
             )}
-            {master.status === "loaded" && (changedCount > 0 || confirmedCount > 0) && (
-              <button
-                className="export-btn"
-                onClick={handleSave}
-                title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
-              >
-                {t("save.gedcom")} ({changedCount + confirmedCount})
-              </button>
+            {master.status === "loaded" && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
+              <div className="app-head-right">
+                {(canUndo || canRedo) && (
+                  <>
+                    <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
+                      ↩ {t("undo")}
+                    </button>
+                    <button className="tree-open-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")}>
+                      {t("redo")} ↪
+                    </button>
+                  </>
+                )}
+                {(changedCount > 0 || confirmedCount > 0) && (
+                  <button
+                    className="export-btn"
+                    onClick={handleSave}
+                    title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
+                  >
+                    {t("save.gedcom")} ({changedCount + confirmedCount})
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -921,6 +1151,10 @@ export function App() {
             decisions={decisions}
             compareDataset={compareDataset}
             onUpdateDecision={updateDecision}
+            onPushEdit={handlePushEdit}
+            onPatchApplied={handlePatchApplied}
+            pendingApply={pendingEditApply}
+            onApplied={() => setPendingEditApply(null)}
           />
         )
       )}

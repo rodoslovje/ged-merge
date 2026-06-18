@@ -86,8 +86,13 @@ button {
   flex-wrap: wrap;
 }
 .app-head-files .export-btn {
-  margin-left: auto;
   font-size: 0.85rem;
+}
+.app-head-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .app-head-top {
@@ -1559,31 +1564,6 @@ button {
 .edit-event-remove:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .edit-event-remove { transition: none; } }
 .edit-event-remove:hover { color: var(--state-danger, #d9534f); }
-.edit-event--deleted {
-  opacity: 0.5;
-  pointer-events: none;
-}
-.edit-event--deleted .edit-input {
-  text-decoration: line-through;
-  color: var(--muted);
-}
-.edit-event--deleted .edit-event-label { text-decoration: line-through; }
-.edit-event--deleted .edit-event-actions { pointer-events: auto; }
-.edit-event-undo {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 1em;
-  padding: 2px 6px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-.edit-event--deleted:hover .edit-event-undo,
-.edit-event-undo:focus-visible { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .edit-event-undo { transition: none; } }
-.edit-event-undo:hover { color: var(--accent); }
 
 .person-card {
   background: var(--bg);
@@ -1763,6 +1743,9 @@ button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--faint);
+}
+.edit-record-label-row .edit-name-chip {
+  font-size: 0.85rem;
 }
 
 /* Notes editor */

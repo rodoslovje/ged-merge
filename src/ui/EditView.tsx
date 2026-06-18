@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { type RecordPatch, type PendingEditApply, cloneRaw } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
@@ -17,11 +18,11 @@ import {
   addPartner,
   detachChildFromFamily,
   detachSpouseRole,
+  insertRecord,
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
   removeEventAtIndex,
-  restoreEvent,
   removeIndividual,
   setAdditionalName,
   setEventField,
@@ -49,6 +50,7 @@ function nodeId(node: object): number {
   return _nodeIds.get(node)!;
 }
 
+
 interface Props {
   dataset: Dataset;
   fileName: string;
@@ -72,6 +74,14 @@ interface Props {
   compareDataset?: Dataset;
   /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision. */
   onUpdateDecision?: (next: CandidateDecision) => void;
+  /** Called with each edit's patches so the parent can push to the unified undo stack. */
+  onPushEdit: (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => void;
+  /** Called after undo/redo patches are applied so the parent can update dirty tracking. */
+  onPatchApplied?: (patches: RecordPatch[], direction: "undo" | "redo") => void;
+  /** When non-null, apply these patches and then call onApplied. */
+  pendingApply: PendingEditApply | null;
+  /** Called after pendingApply has been processed. */
+  onApplied: () => void;
 }
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -182,15 +192,15 @@ function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
 /** Width (in `ch`) that fits `value` (or, while empty, `placeholder`)
  * without the input growing/shrinking awkwardly as the user types — used to
  * keep name fields compact instead of stretching to fill the row. */
-function fieldWidth(value: string, placeholder: string): string {
+function fieldWidth(value: string, placeholder: string, minLen = 3): string {
   const len = value.length > 0 ? value.length : placeholder.length;
-  return `${Math.max(len, 3) + 2}ch`;
+  return `${Math.max(len, minLen) + 2}ch`;
 }
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -205,6 +215,99 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const [notesAdded, setNotesAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
   const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
+  // Incremented on every undo/redo so components with local state re-mount and
+  // pick up the restored GEDCOM data rather than showing stale values.
+  const [undoVersion, setUndoVersion] = useState(0);
+
+  // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
+
+  function applyEditPatches(patches: RecordPatch[], direction: "undo" | "redo") {
+    const pick: "before" | "after" = direction === "undo" ? "before" : "after";
+    // First pass: remove records that need to go away.
+    for (const patch of patches) {
+      if (patch[pick] === null) {
+        const ri = dataset.records.findIndex((r) => r.xref === patch.id);
+        if (ri !== -1) dataset.records.splice(ri, 1);
+        if (patch.type === "individual") dataset.individuals.delete(patch.id);
+        else dataset.families.delete(patch.id);
+      }
+    }
+    // Second pass: restore or re-add records.
+    for (const patch of patches) {
+      const target = patch[pick];
+      if (target === null) continue;
+      const restored = cloneRaw(target);
+      if (patch.type === "individual") {
+        const existing = dataset.individuals.get(patch.id);
+        if (existing) {
+          existing.raw.value = restored.value;
+          existing.raw.children = restored.children;
+          rebuildIndividual(dataset, existing);
+        } else {
+          insertRecord(dataset.records, restored);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rebuildIndividual(dataset, { raw: restored } as any);
+        }
+      } else {
+        const existing = dataset.families.get(patch.id);
+        if (existing) {
+          existing.raw.value = restored.value;
+          existing.raw.children = restored.children;
+          rebuildFamily(dataset, existing);
+        } else {
+          insertRecord(dataset.records, restored);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rebuildFamily(dataset, { raw: restored } as any);
+        }
+      }
+    }
+  }
+
+  // Apply patches queued by the parent (triggered by unified undo/redo).
+  // Frame 1: navigate to the affected person so the user sees them first.
+  // Frame 2 (RAF): apply the patches so the change is visible on the right person.
+  useEffect(() => {
+    if (!pendingApply) return;
+    const navId = pendingApply.direction === "undo" ? pendingApply.navigateTo : pendingApply.redoNavigateTo;
+    // Always reset local UI state on undo/redo so stale values don't linger.
+    setLinksAdded(false);
+    setNotesAdded(false);
+    setFamNoteAdd({});
+    if (navId !== undefined) {
+      setSelectedId(navId);
+    }
+    const patches = pendingApply.patches;
+    const direction = pendingApply.direction;
+    onApplied();
+    const raf = requestAnimationFrame(() => {
+      applyEditPatches(patches, direction);
+      setTick((v) => v + 1);
+      setUndoVersion((v) => v + 1);
+      onPatchApplied?.(patches, direction);
+    });
+    return () => cancelAnimationFrame(raf);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingApply]);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // T shortcut: open tree for the current person.
+  const treeShortcutRef = useRef({ selectedId, onShowTree });
+  treeShortcutRef.current = { selectedId, onShowTree };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() === "t") {
+        const { selectedId: id, onShowTree: show } = treeShortcutRef.current;
+        if (id) { e.preventDefault(); show(id); }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function navigate(id: string) {
     if (!id || id === selectedId) return;
@@ -333,21 +436,30 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
   const commit: Commit = (mutate) => {
     if (!person) return;
+    const before = cloneRaw(person.raw);
     mutate(person);
     rebuildIndividual(dataset, person);
+    onPushEdit([{ type: "individual", id: person.id, before, after: cloneRaw(person.raw) }], selectedId);
     onDirty("individual", person.id);
     setTick((v) => v + 1);
   };
 
   const commitFamily: FamilyCommit = (fam, mutate) => {
+    const before = cloneRaw(fam.raw);
     mutate(fam);
     rebuildFamily(dataset, fam);
+    onPushEdit([{ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) }], selectedId);
     onDirty("family", fam.id);
     setTick((v) => v + 1);
   };
 
   function addRelative(kind: "father" | "mother" | "partner" | "child", fam?: Family) {
     if (!person) return;
+    const beforePerson = cloneRaw(person.raw);
+    const beforeFam = fam ? cloneRaw(fam.raw) : null;
+    const prevSpouseOf = new Set(person.spouseOf);
+    const prevChildOf = new Set(person.childOf);
+
     const added =
       kind === "partner"
         ? addPartner(dataset, person, fam)
@@ -370,6 +482,31 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       rebuildIndividual(dataset, added);
     }
 
+    const patches: RecordPatch[] = [
+      { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
+      { type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) },
+    ];
+    if (fam) {
+      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
+    } else {
+      // Capture newly created families
+      const seenFams = new Set<string>();
+      const updatedPerson = dataset.individuals.get(person.id);
+      for (const famId of [
+        ...(updatedPerson?.spouseOf ?? []),
+        ...(updatedPerson?.childOf ?? []),
+        ...added.spouseOf,
+        ...added.childOf,
+      ]) {
+        if (!prevSpouseOf.has(famId) && !prevChildOf.has(famId) && !seenFams.has(famId)) {
+          seenFams.add(famId);
+          const newFam = dataset.families.get(famId);
+          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+        }
+      }
+    }
+    onPushEdit(patches, selectedId, added.id);
+
     onDirty("individual", person.id);
     onDirty("individual", added.id);
     focusNextName.current = true;
@@ -385,7 +522,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   function handleDetachSpouseRole(fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) {
     if (!window.confirm(confirmMsg)) return;
     const indiId = role === "HUSB" ? fam.husband : fam.wife;
+    const beforeFam = cloneRaw(fam.raw);
+    const indi = indiId ? dataset.individuals.get(indiId) : undefined;
+    const beforeIndi = indi ? cloneRaw(indi.raw) : null;
     detachSpouseRole(dataset, fam, role);
+    const patches: RecordPatch[] = [
+      { type: "family", id: fam.id, before: beforeFam, after: cloneRaw(fam.raw) },
+    ];
+    if (indiId && beforeIndi) {
+      const updated = dataset.individuals.get(indiId);
+      patches.push({ type: "individual", id: indiId, before: beforeIndi, after: updated ? cloneRaw(updated.raw) : null });
+    }
+    onPushEdit(patches);
     onDirty("family", fam.id);
     if (indiId) onDirty("individual", indiId);
     setTick((v) => v + 1);
@@ -393,7 +541,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
   function handleDetachChild(fam: Family, childId: string, confirmMsg: string) {
     if (!window.confirm(confirmMsg)) return;
+    const beforeFam = cloneRaw(fam.raw);
+    const child = dataset.individuals.get(childId);
+    const beforeChild = child ? cloneRaw(child.raw) : null;
     detachChildFromFamily(dataset, fam, childId);
+    const patches: RecordPatch[] = [
+      { type: "family", id: fam.id, before: beforeFam, after: cloneRaw(fam.raw) },
+    ];
+    if (beforeChild) {
+      const updated = dataset.individuals.get(childId);
+      patches.push({ type: "individual", id: childId, before: beforeChild, after: updated ? cloneRaw(updated.raw) : null });
+    }
+    onPushEdit(patches);
     onDirty("family", fam.id);
     onDirty("individual", childId);
     setTick((v) => v + 1);
@@ -404,13 +563,33 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     const name = primaryName(person)?.full ?? person.id;
     if (!window.confirm(t("edit.deletePersonConfirm", { name }))) return;
     const personId = person.id;
-    const affectedFamilies = [...person.spouseOf, ...person.childOf];
+    const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
+
+    const beforePerson = cloneRaw(person.raw);
+    const familyBefores = new Map<string, import("../gedcom/types").GedNode>();
+    for (const famId of affectedFamilyIds) {
+      const fam = dataset.families.get(famId);
+      if (fam) familyBefores.set(famId, cloneRaw(fam.raw));
+    }
+
     removeIndividual(dataset, person);
-    onDirty("individual", personId);
-    affectedFamilies.forEach((fid) => onDirty("family", fid));
+
+    const patches: RecordPatch[] = [
+      { type: "individual", id: personId, before: beforePerson, after: null },
+    ];
+    for (const [famId, before] of familyBefores) {
+      const fam = dataset.families.get(famId);
+      patches.push({ type: "family", id: famId, before, after: fam ? cloneRaw(fam.raw) : null });
+    }
+
     const nextId =
       history.filter((id) => id !== personId).pop() ??
       dataset.individuals.keys().next().value;
+
+    onPushEdit(patches, personId, nextId);
+
+    onDirty("individual", personId);
+    affectedFamilyIds.forEach((fid) => onDirty("family", fid));
     setHistory((prev) => prev.filter((id) => id !== personId));
     setLinksAdded(false);
     setNotesAdded(false);
@@ -539,7 +718,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
         <div className="edit-person">
           <NameEditor
-            key={`name-${person.id}`}
+            key={`name-${person.id}-${undoVersion}`}
             person={person}
             t={t}
             lifespan={lifespan}
@@ -550,7 +729,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           />
           <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           <OtherNamesEditor
-            key={`names-${person.id}`}
+            key={`names-${person.id}-${undoVersion}`}
             person={person}
             t={t}
             commit={commit}
@@ -575,11 +754,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
             onDismissExtraEvent={dismissExtraEvent}
+            undoVersion={undoVersion}
           />
           {((person.links ?? []).length > 0 || linksAdded) && (
             <div className="edit-record-section">
               <LinksEditor
-                key={`rlinks-${person.id}`}
+                key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.links ?? []}
                 addOnMount={linksAdded && !(person.links ?? []).length}
                 sectionLabel={t("field.links")}
@@ -592,7 +772,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           {((person.notes ?? []).length > 0 || notesAdded) && (
             <div className="edit-record-section">
               <NotesEditor
-                key={`notes-${person.id}`}
+                key={`notes-${person.id}-${undoVersion}`}
                 notes={person.notes ?? []}
                 addOnMount={notesAdded && !(person.notes ?? []).length}
                 sectionLabel={t("field.notes")}
@@ -648,9 +828,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={tag} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -675,7 +855,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                 {fam && (
                   <div className="edit-record-section">
                     <NotesEditor
-                      key={`fnotes-${fam.id}`}
+                      key={`fnotes-${fam.id}-${undoVersion}`}
                       notes={fam.notes ?? []}
                       addTrigger={famNoteAdd[fam.id]}
                       t={t}
@@ -1008,7 +1188,6 @@ function OtherNamesEditor({
       )}
       {/* Action chips row — always present */}
       <div className="edit-other-names-row edit-other-names-actions">
-        {!hasNamesContent && addNameBtn}
         <AddEventSelect
           groups={emptyEventGroups}
           label={t("edit.addEvent")}
@@ -1036,6 +1215,7 @@ function OtherNamesEditor({
             + {t("edit.addNote")}
           </button>
         )}
+        {!hasNamesContent && addNameBtn}
       </div>
     </div>
   );
@@ -1117,7 +1297,7 @@ function NameVariantEditor({
     >
       <ClearableInput
         className="edit-input edit-name-variant-input"
-        wrapStyle={{ width: fieldWidth(given, t("field.given")) }}
+        wrapStyle={{ width: fieldWidth(given, t("field.given"), 12) }}
         value={given}
         placeholder={t("field.given")}
         title={t("field.given")}
@@ -1128,7 +1308,7 @@ function NameVariantEditor({
       />
       <ClearableInput
         className="edit-input edit-name-variant-input"
-        wrapStyle={{ width: fieldWidth(surname, t("field.surname")) }}
+        wrapStyle={{ width: fieldWidth(surname, t("field.surname"), 12) }}
         value={surname}
         placeholder={t("field.surname")}
         title={t("field.surname")}
@@ -1189,6 +1369,7 @@ function EventList({
   masterMergeSortKeys,
   extraMergeEvents,
   onDismissExtraEvent,
+  undoVersion,
 }: {
   person: Individual;
   t: Translate;
@@ -1206,26 +1387,8 @@ function EventList({
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
   /** Called when an extra merge event is dismissed, to update the merge decision. */
   onDismissExtraEvent?: (keyBase: string) => void;
+  undoVersion?: number;
 }) {
-  type Snapshot = { date?: string; place?: string; address?: string; value?: string; links?: string[] };
-  type DeletedSnap = {
-    tag: string; label: string; mergeKeyBase: string; stableKey: number;
-    snapshot: Snapshot; sortKey: number; tagPos: number; isExtra: boolean;
-  };
-  const [deletedSnaps, setDeletedSnaps] = useState<DeletedSnap[]>([]);
-  const extraStableIds = useRef(new Map<string, number>());
-
-  function handleRemove(
-    snapshot: Snapshot, tag: string, label: string, mergeKeyBase: string,
-    stableKey: number, sortKey: number, tagPos: number, isExtra: boolean,
-    removeAction?: () => void,
-  ) {
-    setDeletedSnaps((prev) => [...prev, {
-      tag, label, mergeKeyBase, stableKey, sortKey, tagPos, isExtra, snapshot,
-    }]);
-    removeAction?.();
-  }
-
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
   // Fallback key bases when no merge is active (master-only count-based naming).
@@ -1242,12 +1405,10 @@ function EventList({
     ? (masterMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
     : "BIRT";
 
-  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events
-  // and any stricken-through deleted events (rendered in-place).
-  type MasterRow  = { kind: "master";  ev: GedEvent; i: number; mergeKeyBase: string; stableKey: number };
-  type ExtraRow   = { kind: "extra";   tag: string; keyBase: string };
-  type DeletedRow = { kind: "deleted"; tag: string; label: string; mergeKeyBase: string; stableKey: number; snapshot: Snapshot; isExtra: boolean };
-  type AnyRow     = (MasterRow | ExtraRow | DeletedRow) & { sortKey: number; tagPos: number };
+  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events.
+  type MasterRow  = { kind: "master"; ev: GedEvent; i: number; mergeKeyBase: string; stableKey: number };
+  type ExtraRow   = { kind: "extra";  tag: string; keyBase: string };
+  type AnyRow     = (MasterRow | ExtraRow) & { sortKey: number; tagPos: number };
 
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
   const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
@@ -1265,19 +1426,12 @@ function EventList({
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])
-      .filter(({ keyBase }) => !deletedSnaps.some((d) => d.isExtra && d.mergeKeyBase === keyBase))
       .map(({ tag, keyBase, sortKey }): AnyRow => ({
         kind: "extra",
         tag, keyBase,
         sortKey,
         tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
       })),
-    ...deletedSnaps.map((d): AnyRow => ({
-      kind: "deleted",
-      tag: d.tag, label: d.label, mergeKeyBase: d.mergeKeyBase,
-      stableKey: d.stableKey, snapshot: d.snapshot, isExtra: d.isExtra,
-      sortKey: d.sortKey, tagPos: d.tagPos,
-    })),
   ];
   allRows.sort((a, b) => {
     if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
@@ -1296,20 +1450,13 @@ function EventList({
         <span>{t("event.colLink")}</span>
       </div>
       <EventFieldsRow
-        key={`${person.id}-BIRT`}
+        key={`${person.id}-BIRT-${undoVersion ?? 0}`}
         ev={birtEv}
         label={t("event.BIRT")}
         tag="BIRT"
         t={t}
         commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
-        onRemove={birtOriginalIdx >= 0 ? () => handleRemove(
-          { date: birtEv?.date?.raw, place: birtEv?.place?.raw, address: birtEv?.address?.raw, value: birtEv?.value, links: birtEv?.links },
-          "BIRT", t("event.BIRT"), birtMergeKeyBase,
-          nodeId(rawEventNodes[birtOriginalIdx] ?? {}),
-          masterMergeSortKeys?.get(birtOriginalIdx) ?? dateToSortKey(birtEv?.date),
-          EXTRA_EVENT_ORDER.indexOf("BIRT"), false,
-          () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)),
-        ) : undefined}
+        onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
@@ -1326,12 +1473,7 @@ function EventList({
             tag={row.ev.tag}
             t={t}
             commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
-            onRemove={() => handleRemove(
-              { date: row.ev.date?.raw, place: row.ev.place?.raw, address: row.ev.address?.raw, value: row.ev.value, links: row.ev.links },
-              row.ev.tag, t(`event.${row.ev.tag}`), row.mergeKeyBase,
-              row.stableKey, row.sortKey, row.tagPos, false,
-              () => commit((indi) => removeEventAtIndex(indi, row.i)),
-            )}
+            onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1339,7 +1481,7 @@ function EventList({
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.mergeKeyBase}
           />
-        ) : row.kind === "extra" ? (
+        ) : (
           <EventFieldsRow
             key={`${person.id}-merge-${row.keyBase}`}
             ev={undefined}
@@ -1347,20 +1489,7 @@ function EventList({
             tag={row.tag}
             t={t}
             commitField={(update) => commit((indi) => setEventField(indi, row.tag, update))}
-            onRemove={() => {
-              const ids = extraStableIds.current;
-              if (!ids.has(row.keyBase)) ids.set(row.keyBase, _nextNodeId++);
-              const stableKey = ids.get(row.keyBase)!;
-              const snap: Snapshot = {
-                date: mergeHighlight?.get(`${row.keyBase}.date`),
-                place: mergeHighlight?.get(`${row.keyBase}.place`),
-                address: mergeHighlight?.get(`${row.keyBase}.address`),
-                value: mergeHighlight?.get(`${row.keyBase}.value`),
-              };
-              onDismissExtraEvent?.(row.keyBase);
-              handleRemove(snap, row.tag, t(`event.${row.tag}`), row.keyBase,
-                stableKey, row.sortKey, row.tagPos, true);
-            }}
+            onRemove={() => onDismissExtraEvent?.(row.keyBase)}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1368,35 +1497,6 @@ function EventList({
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.keyBase}
           />
-        ) : (
-          <div key={`del-${row.stableKey}`} className={`edit-event edit-event--deleted${VALUE_EVENT_TAGS.has(row.tag) ? " edit-event--has-value" : ""}`}>
-            <div className="edit-event-label">{row.label}</div>
-            <div className="clearable-wrap">
-              <span className="edit-input edit-event-date">{row.snapshot.date ?? ""}</span>
-            </div>
-            {VALUE_EVENT_TAGS.has(row.tag) && (
-              <span className="edit-input edit-event-value">{row.snapshot.value ?? ""}</span>
-            )}
-            <div className="place-autocomplete-wrap">
-              <span className="edit-input edit-event-place">{row.snapshot.place ?? ""}</span>
-            </div>
-            <div className="place-autocomplete-wrap">
-              <span className="edit-input edit-event-addr">{row.snapshot.address ?? ""}</span>
-            </div>
-            <div className="edit-event-actions">
-              <button
-                type="button"
-                className="edit-event-undo"
-                title={t("edit.undoRemove")}
-                onClick={() => {
-                  if (!row.isExtra) commit((indi) => restoreEvent(indi, row.tag, row.snapshot));
-                  setDeletedSnaps((prev) => prev.filter((d) => d.stableKey !== row.stableKey));
-                }}
-              >
-                ↩
-              </button>
-            </div>
-          </div>
         ),
       )}
     </div>
@@ -1538,6 +1638,15 @@ function EventFieldsRow({
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  const linkFocusRef = useRef<number | null>(null);
+  const linkInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (linkFocusRef.current !== null) {
+      linkInputRefs.current[linkFocusRef.current]?.focus();
+      linkFocusRef.current = null;
+    }
+  });
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -1603,7 +1712,7 @@ function EventFieldsRow({
         <button
           type="button"
           className="edit-link-add"
-          onClick={() => setLinks((prev) => [...prev, ""])}
+          onClick={() => setLinks((prev) => { linkFocusRef.current = prev.length; return [...prev, ""]; })}
         >
           + {t("edit.addLink")}
         </button>
@@ -1633,7 +1742,8 @@ function EventFieldsRow({
           )}
           <div className="edit-link-input-wrap">
             <input
-              className="edit-input edit-link-input"
+              ref={(el) => { linkInputRefs.current[i] = el; }}
+              className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
               value={link}
               placeholder={t("event.link", { event: label })}
               title={t("event.link", { event: label })}
@@ -1673,12 +1783,22 @@ function NotesEditor({
 }) {
   const [notes, setNotes] = useState(() => addOnMount ? [...initialNotes, ""] : initialNotes);
   const prevTrigger = useRef(addTrigger ?? 0);
+  const focusNewRef = useRef<number | null>(addOnMount ? initialNotes.length : null);
+  const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+
   useEffect(() => {
     if ((addTrigger ?? 0) > prevTrigger.current) {
-      setNotes((prev) => [...prev, ""]);
+      setNotes((prev) => { focusNewRef.current = prev.length; return [...prev, ""]; });
     }
     prevTrigger.current = addTrigger ?? 0;
   }, [addTrigger]);
+
+  useEffect(() => {
+    if (focusNewRef.current !== null) {
+      textareaRefs.current[focusNewRef.current]?.focus();
+      focusNewRef.current = null;
+    }
+  });
 
   function commitNotes(next: string[]) {
     setNotes(next);
@@ -1694,7 +1814,7 @@ function NotesEditor({
             type="button"
             className="edit-name-chip edit-name-chip-add"
             title={t("edit.addNoteTooltip")}
-            onClick={() => setNotes((prev) => [...prev, ""])}
+            onClick={() => setNotes((prev) => { focusNewRef.current = prev.length; return [...prev, ""]; })}
           >
             + {t("edit.addNote")}
           </button>
@@ -1703,7 +1823,8 @@ function NotesEditor({
       {notes.map((note, i) => (
         <div className="edit-note-row" key={i}>
           <textarea
-            className="edit-input edit-note-input"
+            ref={(el) => { textareaRefs.current[i] = el; }}
+            className={`edit-input edit-note-input${note.trim() ? " edit-input--dirty" : ""}`}
             value={note}
             placeholder={t("field.notes")}
             rows={2}
@@ -1742,6 +1863,15 @@ function LinksEditor({
   onCommit: (links: string[]) => void;
 }) {
   const [links, setLinks] = useState(() => addOnMount ? [...initialLinks, ""] : initialLinks);
+  const focusNewRef = useRef<number | null>(addOnMount ? initialLinks.length : null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (focusNewRef.current !== null) {
+      inputRefs.current[focusNewRef.current]?.focus();
+      focusNewRef.current = null;
+    }
+  });
 
   function commitLinks(next: string[]) {
     setLinks(next);
@@ -1757,7 +1887,7 @@ function LinksEditor({
             type="button"
             className="edit-name-chip edit-name-chip-add"
             title={t("edit.addLinkTooltip")}
-            onClick={() => setLinks((prev) => [...prev, ""])}
+            onClick={() => setLinks((prev) => { focusNewRef.current = prev.length; return [...prev, ""]; })}
           >
             + {t("edit.addLink")}
           </button>
@@ -1778,7 +1908,8 @@ function LinksEditor({
           )}
           <div className="edit-link-input-wrap">
             <input
-              className="edit-input edit-link-input"
+              ref={(el) => { inputRefs.current[i] = el; }}
+              className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
               value={link}
               placeholder={t("event.link", { event: label })}
               title={t("event.link", { event: label })}

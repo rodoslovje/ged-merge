@@ -87,9 +87,9 @@ export function ComparePanel({
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         return;
       }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
+      if (key === "t") { e.preventDefault(); onOpenTree?.(); return; }
       const hit = STATUSES.find((s) => shortcutOf(s) === key);
       if (hit) toggleStatus(hit);
     }
@@ -116,7 +116,7 @@ export function ComparePanel({
         {(onOpenTree || onEdit) && (
           <div className="compare-nav-actions">
             {onOpenTree && (
-              <button className="tree-open-btn" onClick={onOpenTree}>
+              <button className="tree-open-btn" onClick={onOpenTree} title={t("tree.tooltip")}>
                 {t("tree.button")}
               </button>
             )}
