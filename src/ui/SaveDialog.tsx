@@ -157,6 +157,8 @@ export function SaveDialog({
                             <span className="preview-field">{c.field}</span>:{" "}
                             {c.action === "both" || !c.from ? (
                               <span className="preview-add">+ {c.to}</span>
+                            ) : !c.to ? (
+                              <span className="preview-from">{c.from}</span>
                             ) : (
                               <>
                                 <span className="preview-from">{c.from}</span>

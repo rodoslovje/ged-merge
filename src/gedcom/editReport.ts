@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
 import { displayName } from "../match/relatives";
+import { parseName } from "./name";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -11,13 +12,66 @@ const INDIVIDUAL_EVENT_TAGS = new Set([
 
 const FAMILY_EVENT_TAGS = new Set(["MARR", "ENGA", "SEPA", "DIV"]);
 
+const RECORD_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_WEBTAG"]);
+
 function nodeChild(node: GedNode, tag: string): string {
   return node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
 }
 
-function nodeSub(node: GedNode, tag: string, subTag: string): string {
-  const ev = node.children.find((c) => c.tag === tag);
-  return ev?.children.find((c) => c.tag === subTag)?.value?.trim() ?? "";
+function getNameParts(node: GedNode): { given: string; surname: string; nickname: string } {
+  const nameNode = node.children.find((c) => c.tag === "NAME");
+  if (!nameNode) return { given: "", surname: "", nickname: "" };
+  const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
+  const parsed = parseName(nameNode.value, subTags);
+  return { given: parsed.given ?? "", surname: parsed.surname ?? "", nickname: parsed.nickname ?? "" };
+}
+
+function summarizeEvent(node: GedNode): string {
+  const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
+  return [get("DATE"), get("PLAC"), get("ADDR")].filter(Boolean).join(" · ") || "…";
+}
+
+function diffEventSet(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  tags: Set<string>,
+  label: (tag: string) => string,
+): FieldChange[] {
+  const diffs: FieldChange[] = [];
+  for (const tag of tags) {
+    const beforeSummaries = before.children.filter((c) => c.tag === tag).map(summarizeEvent);
+    const afterSummaries  = after.children.filter((c) => c.tag === tag).map(summarizeEvent);
+    const fieldLabel = label(tag);
+    for (const s of beforeSummaries) {
+      if (!afterSummaries.includes(s))
+        diffs.push({ recordId: id, field: fieldLabel, from: s, to: "", action: "incoming" });
+    }
+    for (const s of afterSummaries) {
+      if (!beforeSummaries.includes(s))
+        diffs.push({ recordId: id, field: fieldLabel, from: "", to: s, action: "both" });
+    }
+  }
+  return diffs;
+}
+
+function diffStringSet(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  tagFilter: (tag: string) => boolean,
+  fieldLabel: string,
+): FieldChange[] {
+  const diffs: FieldChange[] = [];
+  const beforeVals = before.children.filter((c) => tagFilter(c.tag)).map((c) => c.value?.trim() ?? "").filter(Boolean);
+  const afterVals  = after.children.filter((c) => tagFilter(c.tag)).map((c) => c.value?.trim() ?? "").filter(Boolean);
+  for (const v of beforeVals) {
+    if (!afterVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming" });
+  }
+  for (const v of afterVals) {
+    if (!beforeVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both" });
+  }
+  return diffs;
 }
 
 function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
@@ -26,41 +80,34 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
   };
 
-  check(t("field.given"),   nodeSub(before, "NAME", "GIVN"), nodeSub(after, "NAME", "GIVN"));
-  check(t("field.surname"),  nodeSub(before, "NAME", "SURN"), nodeSub(after, "NAME", "SURN"));
-  check(t("field.nickname"), nodeSub(before, "NAME", "NICK"), nodeSub(after, "NAME", "NICK"));
-  check(t("field.sex"),      nodeChild(before, "SEX"),         nodeChild(after, "SEX"));
+  const beforeName = getNameParts(before);
+  const afterName = getNameParts(after);
+  check(t("field.given"),   beforeName.given,    afterName.given);
+  check(t("field.surname"),  beforeName.surname,  afterName.surname);
+  check(t("field.nickname"), beforeName.nickname, afterName.nickname);
+  check(t("field.sex"),      nodeChild(before, "SEX"), nodeChild(after, "SEX"));
 
   const evTags = new Set([
     ...before.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
     ...after.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
   ]);
-  for (const tag of evTags) {
-    const label = t(`event.${tag}`);
-    check(`${label} ${t("event.colDate")}`,    nodeSub(before, tag, "DATE"), nodeSub(after, tag, "DATE"));
-    check(`${label} ${t("event.colPlace")}`,   nodeSub(before, tag, "PLAC"), nodeSub(after, tag, "PLAC"));
-    check(`${label} ${t("event.colAddr")}`,    nodeSub(before, tag, "ADDR"), nodeSub(after, tag, "ADDR"));
-  }
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.links")));
 
   return diffs;
 }
 
 function diffFamilyNodes(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
   const diffs: FieldChange[] = [];
-  const check = (field: string, from: string, to: string) => {
-    if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
-  };
 
   const evTags = new Set([
     ...before.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
     ...after.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
   ]);
-  for (const tag of evTags) {
-    const label = t(`event.${tag}`);
-    check(`${label} ${t("event.colDate")}`,    nodeSub(before, tag, "DATE"), nodeSub(after, tag, "DATE"));
-    check(`${label} ${t("event.colPlace")}`,   nodeSub(before, tag, "PLAC"), nodeSub(after, tag, "PLAC"));
-    check(`${label} ${t("event.colAddr")}`,    nodeSub(before, tag, "ADDR"), nodeSub(after, tag, "ADDR"));
-  }
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.links")));
 
   return diffs;
 }
