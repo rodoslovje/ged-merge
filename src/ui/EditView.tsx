@@ -605,6 +605,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     setLinksAdded(false);
     setNotesAdded(false);
     setSelectedId(nextId);
+    if (personId === homeId) changeHome(nextId);
     setTick((v) => v + 1);
   }
 
