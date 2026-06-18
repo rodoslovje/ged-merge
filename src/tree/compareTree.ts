@@ -4,6 +4,8 @@ import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
 import { individualFieldRows } from "../review/fields";
+import { inferPlaceExportFormat } from "../normalize/profile";
+import type { PlaceTargetFormat } from "../merge/placeReformat";
 
 /** Which direction the tree fans out from the root person. */
 export type TreeMode = "ancestors" | "descendants";
@@ -69,17 +71,18 @@ export function buildCompareTree(
   mode: TreeMode,
 ): TreeNode | undefined {
   const seen = new Set<string>();
+  const placeFmt = inferPlaceExportFormat(masterDs);
 
   const build = (master?: Individual, incoming?: Individual): TreeNode | undefined => {
     if (!master && !incoming) return undefined;
     const key = `${master?.id ?? ""}|${incoming?.id ?? ""}`;
-    const node = makeNode(t, key, master, incoming, masterDs, compareDs);
+    const node = makeNode(t, key, master, incoming, masterDs, compareDs, placeFmt);
     if (seen.has(key)) return node; // already expanded elsewhere: stop here
     seen.add(key);
     if (mode === "ancestors") {
       node.children = parents(master, incoming, masterDs, compareDs, build);
     } else {
-      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build);
+      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build, placeFmt);
       node.partners = partners;
       node.children = directChildren;
     }
@@ -144,6 +147,7 @@ function descend(
   compareDs: Dataset,
   maps: MatchMaps,
   build: Build,
+  placeFmt: PlaceTargetFormat,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
   const masterUnions = unionsOf(master, masterDs);
   const incomingUnions = unionsOf(incoming, compareDs);
@@ -158,7 +162,7 @@ function descend(
     children: TreeNode[],
   ) => {
     if (mPartner || iPartner) {
-      const node = makeNode(t, nodeKey(mPartner, iPartner), mPartner, iPartner, masterDs, compareDs);
+      const node = makeNode(t, nodeKey(mPartner, iPartner), mPartner, iPartner, masterDs, compareDs, placeFmt);
       node.children = children;
       partners.push(node);
     } else {
@@ -240,8 +244,9 @@ function makeNode(
   incoming: Individual | undefined,
   masterDs: Dataset,
   compareDs: Dataset,
+  placeFmt: PlaceTargetFormat,
 ): TreeNode {
-  const status = nodeStatus(t, master, incoming, masterDs, compareDs);
+  const status = nodeStatus(t, master, incoming, masterDs, compareDs, placeFmt);
   const primary = master ?? incoming!;
   const sex = master && master.sex !== "U" ? master.sex : (incoming?.sex ?? "U");
   return {
@@ -252,7 +257,7 @@ function makeNode(
     name: nameOf(primary),
     years: birthYears(master, incoming),
     sex,
-    detail: describe(t, master, incoming, masterDs, compareDs, status),
+    detail: describe(t, master, incoming, masterDs, compareDs, status, placeFmt),
     children: [],
     partners: [],
   };
@@ -264,11 +269,12 @@ function nodeStatus(
   incoming: Individual | undefined,
   masterDs: Dataset,
   compareDs: Dataset,
+  placeFmt: PlaceTargetFormat,
 ): NodeStatus {
   if (master && !incoming) return "master-only";
   if (!master && incoming) return "incoming-only";
 
-  const rows = individualFieldRows(t, master, incoming, masterDs, compareDs);
+  const rows = individualFieldRows(t, master, incoming, masterDs, compareDs, placeFmt);
   const conflict = (k: string) => rows.find((r) => r.key === k)?.state === "conflict";
   if (conflict("given") || conflict("surname") || birthYearConflict(master, incoming)) {
     return "major";
@@ -287,13 +293,14 @@ function describe(
   masterDs: Dataset,
   compareDs: Dataset,
   status: NodeStatus,
+  placeFmt: PlaceTargetFormat,
 ): string {
   if (!master || !incoming) {
     const who = (master ?? incoming)!;
     const side = status === "master-only" ? t("tree.legend.masterOnly") : t("tree.legend.incomingOnly");
     return `${side}: ${nameOf(who)}`;
   }
-  const diffs = individualFieldRows(t, master, incoming, masterDs, compareDs).filter(
+  const diffs = individualFieldRows(t, master, incoming, masterDs, compareDs, placeFmt).filter(
     (r) => r.state !== "agree",
   );
   if (diffs.length === 0) return t("tree.legend.match");

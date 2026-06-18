@@ -11,6 +11,7 @@ import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
 import { parseGiMatchesCsv, type GiPair } from "../csv/giMatches";
 import { fieldDiffCounts, individualFieldRows } from "../review/fields";
+import { inferPlaceExportFormat } from "../normalize/profile";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
 /**
@@ -140,6 +141,7 @@ const rawLabel = (key: string) => key;
 
 /** Attach per-candidate "new" and "differing" field counts for the results table. */
 function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset): MatchResult {
+  const placeFmt = inferPlaceExportFormat(master);
   return {
     individuals: result.individuals.map((c) => ({
       ...c,
@@ -150,6 +152,7 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
           compare.individuals.get(c.compareId),
           master,
           compare,
+          placeFmt,
         ),
       ),
     })),
