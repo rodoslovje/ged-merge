@@ -1165,10 +1165,10 @@ function parseKey(key: string): { kind: string; masterId: string; compareId: str
 }
 
 /** Human-readable change report (plain text) to download alongside the merge. */
-export function formatReport(report: ChangeReport): string {
+export function formatReport(report: ChangeReport, title = "GED Merge change report"): string {
   const lines: string[] = [];
-  lines.push("GED Merge change report");
-  lines.push("=======================");
+  lines.push(title);
+  lines.push("=".repeat(title.length));
   lines.push("");
   lines.push(`Records changed:  ${report.recordsChanged}`);
   lines.push(`Fields applied:   ${report.changes.length}`);
@@ -1181,12 +1181,17 @@ export function formatReport(report: ChangeReport): string {
   lines.push(`Deferred:         ${report.deferred.length}`);
   lines.push("");
 
-  if (report.changes.length) {
+  const meaningful = report.changes.filter((c) => c.field);
+  if (meaningful.length) {
     lines.push("Applied changes");
     lines.push("---------------");
-    for (const c of report.changes) {
-      const verb = c.action === "both" ? "added" : "set";
-      lines.push(`${c.recordId}  ${c.field}: ${verb} "${c.to}"${c.from ? ` (was "${c.from}")` : ""}`);
+    for (const c of meaningful) {
+      if (!c.to && c.from) {
+        lines.push(`${c.recordId}  ${c.field}: removed "${c.from}"`);
+      } else {
+        const verb = c.action === "both" ? "added" : "set";
+        lines.push(`${c.recordId}  ${c.field}: ${verb} "${c.to}"${c.from ? ` (was "${c.from}")` : ""}`);
+      }
     }
     lines.push("");
   }

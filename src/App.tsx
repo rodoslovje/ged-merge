@@ -804,7 +804,7 @@ export function App() {
         records: null,
         report,
         title: t("save.preview.title"),
-        files: [master.file.fileName],
+        files: [master.file.fileName, `${base}.edit-report.txt`],
         downloadLabel: t("save.preview.download"),
         base,
         editRecordIds,
@@ -843,6 +843,7 @@ export function App() {
         finalNewline: masterDataset.finalNewline,
       });
       downloadText(master.status === "loaded" ? master.file.fileName : `${preview.base}.ged`, text);
+      downloadText(`${preview.base}.edit-report.txt`, formatReport(preview.report, "GED Edit change report"));
     }
     setPreview(null);
     setChangedPersonIds(new Set());
