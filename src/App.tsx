@@ -739,6 +739,14 @@ export function App() {
               familySnapshots.current.set(patch.id, cloneRaw(patch.before));
             }
           }
+        } else {
+          // Undo restored a record that isn't back to its original state (e.g. undoing a
+          // "Remove from save" revert) — re-add to dirty tracking so the save button reflects it.
+          if (patch.type === "individual") {
+            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          } else {
+            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
+          }
         }
       }
     },
@@ -843,35 +851,68 @@ export function App() {
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
     if (!masterDataset || !preview) return;
+    const patches: RecordPatch[] = [];
+
     if (kind === "individual") {
       const snapshot = personSnapshots.current.get(id);
       const indi = masterDataset.individuals.get(id);
       if (indi) {
+        const beforeIndi = cloneRaw(indi.raw);
         if (loadedPersonIds.current.has(id) && snapshot) {
           indi.raw.value = snapshot.value;
           indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
           rebuildIndividual(masterDataset, indi);
+          patches.push({ type: "individual", id, before: beforeIndi, after: cloneRaw(indi.raw) });
         } else {
+          const affectedFamilyIds = [...indi.spouseOf, ...indi.childOf];
+          const famBefores = new Map<string, GedNode>();
+          for (const famId of affectedFamilyIds) {
+            const fam = masterDataset.families.get(famId);
+            if (fam) famBefores.set(famId, cloneRaw(fam.raw));
+          }
           removeIndividual(masterDataset, indi);
+          patches.push({ type: "individual", id, before: beforeIndi, after: null });
+          for (const [famId, before] of famBefores) {
+            const fam = masterDataset.families.get(famId);
+            patches.push({ type: "family", id: famId, before, after: fam ? cloneRaw(fam.raw) : null });
+          }
         }
       }
-      personSnapshots.current.delete(id);
+      // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
       setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     } else {
       const snapshot = familySnapshots.current.get(id);
       const fam = masterDataset.families.get(id);
       if (fam) {
+        const beforeFam = cloneRaw(fam.raw);
         if (loadedFamilyIds.current.has(id) && snapshot) {
           fam.raw.value = snapshot.value;
           fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
           rebuildFamily(masterDataset, fam);
+          patches.push({ type: "family", id, before: beforeFam, after: cloneRaw(fam.raw) });
         } else {
+          const memberIds = [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
+          const memberBefores = new Map<string, GedNode>();
+          for (const indiId of memberIds) {
+            const indi = masterDataset.individuals.get(indiId);
+            if (indi) memberBefores.set(indiId, cloneRaw(indi.raw));
+          }
           removeFamily(masterDataset, fam);
+          patches.push({ type: "family", id, before: beforeFam, after: null });
+          for (const [indiId, before] of memberBefores) {
+            const indi = masterDataset.individuals.get(indiId);
+            patches.push({ type: "individual", id: indiId, before, after: indi ? cloneRaw(indi.raw) : null });
+          }
         }
       }
-      familySnapshots.current.delete(id);
+      // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
       setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
+
+    if (patches.length > 0) {
+      pushUnified({ mode: "edit", patches, navigateTo: id });
+    }
+
     setPreview((prev) => {
       if (!prev) return null;
       const newReport = removeRecordFromReport(prev.report, id);
