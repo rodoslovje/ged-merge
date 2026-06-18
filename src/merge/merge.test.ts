@@ -100,6 +100,38 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
     // The raw packed string must not survive in the output.
     expect(out).not.toContain("(porodnišnica)");
   });
+
+  it("does not rewrite existing PLAC when only ADDR is new (minimal diff)", () => {
+    // @I2@ already has a BIRT PLAC that matches the incoming after reshape.
+    // Only the new ADDR should be added — the existing PLAC must not change.
+    const masterWithPlac = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
+          "2 PLAC Kranj,Slovenija\n" +
+          "1 DEAT\n2 PLAC Kuželj,Kostel,Slovenia\n2 ADDR Kuželj 22\n",
+      ),
+    );
+    // Incoming has the same place in packed form plus an ADDR component.
+    const compareWithAddr = dataset(
+      wrap(
+        "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
+          "2 PLAC Kranj (Slovenija), Kidričeva 5\n",
+      ),
+    );
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(
+      decisionKey("individual", "@I2@", "@P2@"),
+      { status: "confirmed", fields: {} },
+    );
+    const before = serializeGedcom(masterWithPlac.records);
+    const { records } = mergeDecisions(masterWithPlac, compareWithAddr, decisions, NO_MATCHES, tr);
+    const after = serializeGedcom(records);
+    const diff = lineDiff(before, after);
+    // Only the new ADDR line should be added; the existing PLAC must stay unchanged.
+    expect(diff.added).toEqual(["2 ADDR Kidričeva 5"]);
+    expect(diff.removed).toEqual([]);
+  });
 });
 
 describe("mergeDecisions — family structure (driven by the confirmed spouse)", () => {

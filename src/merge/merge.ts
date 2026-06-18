@@ -233,9 +233,11 @@ function applyRows(
       } else if ((sub === "place" || sub === "addr") && reshapesLayout(placeFmt.layout)) {
         // Reshape PLAC+ADDR together into the master's layout, once per event.
         // The PLAC row drives it; a later ADDR row is then skipped.
+        // When the ADDR row arrives first (PLAC was "agree"/kept), preserve the
+        // existing master PLAC and only write the incoming ADDR.
         const reshapeKey = `${tag}.${eventIdx}`;
         if (reshaped.has(reshapeKey)) continue;
-        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt, report, eventIdx);
+        applied = applyReformattedPlace(target, incomingRecord, tag, choice, placeFmt, report, eventIdx, sub === "addr");
         reshaped.add(reshapeKey);
       } else {
         const subTag = SUB_TAG[sub];
@@ -502,6 +504,7 @@ function applyReformattedPlace(
   fmt: PlaceTargetFormat,
   report: ChangeReport,
   eventIdx = 0,
+  addrOnly = false,
 ): boolean {
   const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
   const incEvent = incEvents[eventIdx];
@@ -519,7 +522,12 @@ function applyReformattedPlace(
   }
 
   let applied = false;
-  if (setValueChild(event, "PLAC", r.plac, choice)) applied = true;
+  // When triggered by the ADDR row (addrOnly), skip overwriting an existing
+  // master PLAC — it was already "agree" or kept by the user's choice.
+  const existingPlac = event.children.find((c) => c.tag === "PLAC");
+  if (!addrOnly || !existingPlac) {
+    if (setValueChild(event, "PLAC", r.plac, choice)) applied = true;
+  }
   if (setValueChild(event, "ADDR", r.addr, choice)) applied = true;
   if (r.note) {
     event.children.push(newNode("NOTE", r.note));
@@ -992,7 +1000,7 @@ function applyIndividualFamilies(
       if ((sub === "place" || sub === "addr") && reshapeMarr) {
         // PLAC+ADDR are reshaped together, once, into the master's layout.
         if (marrReshaped) continue;
-        applied = applyReformattedPlace(famNode, incFam.raw, "MARR", choice, ctx.placeFmt, ctx.report);
+        applied = applyReformattedPlace(famNode, incFam.raw, "MARR", choice, ctx.placeFmt, ctx.report, 0, sub === "addr");
         marrReshaped = true;
       } else {
         applied = applyEventSub(famNode, incFam.raw, "MARR", SUB_TAG[sub], choice);
@@ -1021,7 +1029,7 @@ function applyIndividualFamilies(
         let applied: boolean;
         if ((sub === "place" || sub === "addr") && reshapeEv) {
           if (evReshaped) continue;
-          applied = applyReformattedPlace(famNode, incFam.raw, evTag, choice, ctx.placeFmt, ctx.report);
+          applied = applyReformattedPlace(famNode, incFam.raw, evTag, choice, ctx.placeFmt, ctx.report, 0, sub === "addr");
           evReshaped = true;
         } else {
           applied = applyEventSub(famNode, incFam.raw, evTag, SUB_TAG[sub], choice);
