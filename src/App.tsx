@@ -1031,6 +1031,15 @@ export function App() {
             )}
             {master.status === "loaded" && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
               <div className="app-head-right">
+                {(changedCount > 0 || confirmedCount > 0) && (
+                  <button
+                    className="export-btn"
+                    onClick={handleSave}
+                    title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
+                  >
+                    {t("save.gedcom")} ({changedCount + confirmedCount})
+                  </button>
+                )}
                 {(canUndo || canRedo) && (
                   <>
                     <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
@@ -1040,15 +1049,6 @@ export function App() {
                       {t("redo")} ↪
                     </button>
                   </>
-                )}
-                {(changedCount > 0 || confirmedCount > 0) && (
-                  <button
-                    className="export-btn"
-                    onClick={handleSave}
-                    title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
-                  >
-                    {t("save.gedcom")} ({changedCount + confirmedCount})
-                  </button>
                 )}
               </div>
             )}

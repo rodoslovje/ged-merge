@@ -219,6 +219,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // Incremented on every undo/redo so components with local state re-mount and
   // pick up the restored GEDCOM data rather than showing stale values.
   const [undoVersion, setUndoVersion] = useState(0);
+  // Tracks which family-event row should auto-focus its date field on mount.
+  const [pendingFocusFamEventKey, setPendingFocusFamEventKey] = useState<string | null>(null);
+  useEffect(() => { if (pendingFocusFamEventKey) setPendingFocusFamEventKey(null); }, [pendingFocusFamEventKey]);
+  // Tracks which individual-event row should auto-focus its date field on mount.
+  const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
+  useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
 
   // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
 
@@ -739,7 +745,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             t={t}
             commit={commit}
             emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
-            onAddEvent={(tag) => commit((indi) => addEventNode(indi, tag))}
+            onAddEvent={(tag) => {
+              commit((indi) => addEventNode(indi, tag));
+              // addEventNode inserts as the last child with this tag, so find it now.
+              const sameTag = person.raw.children.filter((c) => c.tag === tag);
+              if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
+            }}
             showAddLink={!linksAdded && !(person.links ?? []).length}
             onAddLink={() => setLinksAdded(true)}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
@@ -759,6 +770,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
             onDismissExtraEvent={dismissExtraEvent}
+            pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
           />
           {((person.links ?? []).length > 0 || linksAdded) && (
@@ -818,7 +830,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         tags={emptyFamilyTags}
                         label={t("edit.addFamilyEvent")}
                         t={t}
-                        onAdd={(tag) => commitFamily(fam, (f) => addFamilyEventNode(f, tag))}
+                        onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
                       />
                     )}
                     {fam && (
@@ -835,7 +847,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                 </div>
                 {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -1374,6 +1386,7 @@ function EventList({
   masterMergeSortKeys,
   extraMergeEvents,
   onDismissExtraEvent,
+  pendingFocusNodeId,
   undoVersion,
 }: {
   person: Individual;
@@ -1392,6 +1405,7 @@ function EventList({
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
   /** Called when an extra merge event is dismissed, to update the merge decision. */
   onDismissExtraEvent?: (keyBase: string) => void;
+  pendingFocusNodeId?: number | null;
   undoVersion?: number;
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
@@ -1479,6 +1493,7 @@ function EventList({
             t={t}
             commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
             onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
+            autoFocusDate={row.stableKey === pendingFocusNodeId}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1510,11 +1525,12 @@ function EventList({
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
-  fam, tag, t, commit, onRemove,
+  fam, tag, t, commit, onRemove, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   onRemove?: () => void;
+  autoFocusDate?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -1531,6 +1547,7 @@ function FamilyEventRow({
       t={t}
       commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
       onRemove={onRemove}
+      autoFocusDate={autoFocusDate}
       placeSuggestions={placeSuggestions}
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
@@ -1612,6 +1629,7 @@ function EventFieldsRow({
   t,
   commitField,
   onRemove,
+  autoFocusDate,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
@@ -1625,6 +1643,7 @@ function EventFieldsRow({
   t: Translate;
   commitField: (update: EventFieldUpdate) => void;
   onRemove?: () => void;
+  autoFocusDate?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -1675,6 +1694,7 @@ function EventFieldsRow({
         value={dateField.value}
         placeholder={t("event.date", { event: label })}
         title={t("event.date", { event: label })}
+        autoFocus={autoFocusDate}
         onChange={dateField.onChange}
         onBlur={() => commitField({ date: dateField.value })}
         onClear={() => { dateField.clear(); commitField({ date: "" }); }}
