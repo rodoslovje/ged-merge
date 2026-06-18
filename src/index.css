@@ -22,6 +22,10 @@ button {
   font: inherit;
   cursor: pointer;
 }
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .app {
   width: 100%;
@@ -859,6 +863,7 @@ button {
   font-weight: 600;
 }
 .export-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.export-btn:focus-visible { outline-color: var(--bg); }
 .export-btn:disabled {
   background: var(--bg);
   border-color: var(--border);
@@ -1277,7 +1282,7 @@ button {
   cursor: pointer;
 }
 .edit-name-chip:hover,
-.edit-name-chip:focus-visible { border-color: var(--accent); outline: none; }
+.edit-name-chip:focus-visible { border-color: var(--accent); }
 .edit-name-chip-add {
   border-style: dashed;
   border-color: var(--border-2);
@@ -1293,7 +1298,7 @@ button {
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
 .edit-name-chip-add:hover,
 .edit-name-chip-add:focus-visible,
-.edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); outline: none; }
+.edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); }
 .edit-name-chip-editing {
   display: inline-flex;
   align-items: center;
@@ -1369,7 +1374,7 @@ button {
   cursor: pointer;
 }
 .add-chip:hover,
-.add-chip:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
+.add-chip:focus-visible { border-color: var(--accent); color: var(--text); }
 .add-chip-select {
   position: relative;
   display: inline-block;
@@ -1535,8 +1540,9 @@ button {
 }
 .edit-link-add {
   align-self: flex-start;
-  border: none;
   background: transparent;
+  border: 1px dashed var(--border-2);
+  border-radius: 6px;
   color: var(--muted);
   font: inherit;
   padding: 2px 6px;
@@ -1547,7 +1553,8 @@ button {
 .edit-event:hover .edit-link-add,
 .edit-link-add:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .edit-link-add { transition: none; } }
-.edit-link-add:hover { color: var(--accent); }
+.edit-link-add:hover,
+.edit-link-add:focus-visible { border-color: var(--accent); color: var(--text); }
 .edit-event-remove {
   border: none;
   background: transparent;
@@ -2065,6 +2072,7 @@ button {
   font-size: 0.85rem;
 }
 .tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
+.tree-open-btn:focus-visible { border-color: var(--accent); }
 .tree-open-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
 
 .tree-page {
