@@ -4,6 +4,7 @@ export const en = {
   "load.privacy": "Your data never leaves your device. Processed 100% in-browser.",
   "app.mobileWarning": "This application is optimized for larger screens. For the best user experience, please use a tablet or desktop.",
   "app.reloadConfirm": "You have unsaved changes. Reload and discard them?",
+  "app.navLeaveConfirm": "You have unsaved changes. Leave and discard them?",
   "load.masterReplaceConfirm": "You have unsaved changes. Loading a new master file will discard them. Continue?",
   "load.incomingReplaceConfirm": "You have confirmed merges. Loading a new incoming file will discard them. Continue?",
   "section.load": "Load GEDCOM",

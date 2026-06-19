@@ -1,10 +1,11 @@
 import { looksLikeUrl } from "../gedcom/builder";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit";
 import type { Dataset, GedNode } from "../gedcom/types";
+import { parseDate } from "../gedcom/date";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
-import { individualFieldRows, linkKey, matriculaLangCode, withMatriculaLang } from "../review/fields";
+import { dateToSortKey, individualFieldRows, linkKey, matriculaLangCode, withMatriculaLang } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 import { reformatPlace, reshapesLayout, type PlaceTargetFormat } from "./placeReformat";
 
@@ -137,6 +138,7 @@ export function mergeDecisions(
     applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang, linkFormat, records, sourXrefMap);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
+    sortEventsByDate(target);
   }
 
   // Label each touched family by the spouses we know about (master or added).
@@ -226,7 +228,7 @@ function applyRows(
         ? [parts[0], parseInt(parts[1], 10), parts[2]]
         : [parts[0], 0, parts[1]];
       if (sub === "value") {
-        applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx);
+        applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER);
       } else {
         const subTag = SUB_TAG[sub];
         if (subTag) {
@@ -234,9 +236,9 @@ function applyRows(
           // value in row.incoming (set during load). Write that directly so the
           // user sees and confirms exactly what ends up in the file.
           if (reshapesLayout(placeFmt.layout) && (sub === "place" || sub === "addr" || sub === "note")) {
-            applied = applyEventSubValue(target, tag, subTag, row.incoming, choice, eventIdx);
+            applied = applyEventSubValue(target, tag, subTag, row.incoming, choice, eventIdx, INDI_CHILD_ORDER);
           } else {
-            applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx);
+            applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx, INDI_CHILD_ORDER);
           }
         }
       }
@@ -449,6 +451,7 @@ function applyEventValue(
   tag: string,
   choice: FieldChoice,
   eventIdx = 0,
+  order: string[] = [],
 ): boolean {
   const incEvent = incomingRecord.children.filter((c) => c.tag === tag)[eventIdx];
   if (!incEvent?.value) return false;
@@ -456,7 +459,7 @@ function applyEventValue(
   let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
-    target.children.push(event);
+    insertOrdered(target, event, order);
   }
   if (choice === "incoming" || choice === "both") {
     event.value = incEvent.value;
@@ -473,6 +476,7 @@ function applyEventSub(
   subTag: string,
   choice: FieldChoice,
   eventIdx = 0,
+  order: string[] = [],
 ): boolean {
   const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
   const incEvent = incEvents[eventIdx];
@@ -482,7 +486,7 @@ function applyEventSub(
   let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
-    target.children.push(event);
+    insertOrdered(target, event, order);
   }
   return setChild(event, subTag, incEvent!, choice, incSub);
 }
@@ -498,13 +502,14 @@ function applyEventSubValue(
   value: string,
   choice: FieldChoice,
   eventIdx = 0,
+  order: string[] = [],
 ): boolean {
   if (!value) return false;
   const masterEvents = target.children.filter((c) => c.tag === tag);
   let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
-    target.children.push(event);
+    insertOrdered(target, event, order);
   }
   if (subTag === "NOTE") {
     event.children.push(newNode("NOTE", value));
@@ -554,6 +559,42 @@ function setChild(
 
 function insertAt(parent: GedNode, index: number, child: GedNode): void {
   parent.children.splice(index, 0, child);
+}
+
+/**
+ * Globally sort all event children of a record by date — matching the order
+ * the UI displays them. Tag type is a tiebreaker for same-date events.
+ * Structural nodes (NAME, SEX at the front; FAMC, FAMS, NOTE, SOUR, etc. at
+ * the back) keep their relative positions. Unknown tags with a DATE child are
+ * treated as events; those without stay in the suffix.
+ */
+function sortEventsByDate(record: GedNode): void {
+  const suffixStart = INDI_CHILD_ORDER.indexOf("FAMC");
+  const tagRank = (tag: string) => {
+    const i = INDI_CHILD_ORDER.indexOf(tag);
+    return i === -1 ? Infinity : i;
+  };
+  const isEvent = (node: GedNode) => {
+    const r = tagRank(node.tag);
+    return (r >= 2 && r < suffixStart) ||
+      (r === Infinity && node.children.some((c) => c.tag === "DATE"));
+  };
+
+  const prefix: GedNode[] = [];
+  const events: GedNode[] = [];
+  const suffix: GedNode[] = [];
+  for (const child of record.children) {
+    if (tagRank(child.tag) < 2) prefix.push(child);
+    else if (isEvent(child)) events.push(child);
+    else suffix.push(child);
+  }
+  if (events.length < 2) return;
+
+  const dateKey = (node: GedNode): number =>
+    dateToSortKey(parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? ""));
+
+  events.sort((a, b) => dateKey(a) - dateKey(b) || tagRank(a.tag) - tagRank(b.tag));
+  record.children = [...prefix, ...events, ...suffix];
 }
 
 function newNode(tag: string, value?: string, xref?: string): GedNode {
@@ -974,9 +1015,9 @@ function applyIndividualFamilies(
       const rowIncoming = rows.find((r) => r.key === rowKey)?.incoming ?? "";
       let applied: boolean;
       if (reshapeMarr && (sub === "place" || sub === "addr" || sub === "note")) {
-        applied = applyEventSubValue(famNode, "MARR", subTag, rowIncoming, choice);
+        applied = applyEventSubValue(famNode, "MARR", subTag, rowIncoming, choice, 0, FAM_CHILD_ORDER);
       } else {
-        applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice);
+        applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, FAM_CHILD_ORDER);
       }
       if (applied) {
         ctx.report.changes.push({
@@ -1003,9 +1044,9 @@ function applyIndividualFamilies(
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
         let applied: boolean;
         if (reshapeEv && (sub === "place" || sub === "addr" || sub === "note")) {
-          applied = applyEventSubValue(famNode, evTag, subTag, rowIncoming, choice);
+          applied = applyEventSubValue(famNode, evTag, subTag, rowIncoming, choice, 0, FAM_CHILD_ORDER);
         } else {
-          applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice);
+          applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, FAM_CHILD_ORDER);
         }
         if (applied) {
           ctx.report.changes.push({
@@ -1164,28 +1205,53 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   lines.push(`Deferred:         ${report.deferred.length}`);
   lines.push("");
 
+  const recordHeader = (id: string) => {
+    const label = report.recordLabels[id];
+    return label ? `${label}  ${id}` : id;
+  };
+
   const meaningful = report.changes.filter((c) => c.field);
   if (meaningful.length) {
     lines.push("Applied changes");
     lines.push("---------------");
+    const byRecord = new Map<string, typeof meaningful>();
     for (const c of meaningful) {
-      if (!c.to && c.from) {
-        lines.push(`${c.recordId}  ${c.field}: removed "${c.from}"`);
-      } else {
-        const verb = c.action === "both" ? "added" : "set";
-        lines.push(`${c.recordId}  ${c.field}: ${verb} "${c.to}"${c.from ? ` (was "${c.from}")` : ""}`);
-      }
+      const group = byRecord.get(c.recordId) ?? [];
+      group.push(c);
+      byRecord.set(c.recordId, group);
     }
-    lines.push("");
+    for (const [id, group] of byRecord) {
+      const header = recordHeader(id);
+      lines.push(header);
+      lines.push("-".repeat(header.length));
+      for (const c of group) {
+        if (!c.to && c.from) {
+          lines.push(`  ${c.field}: removed "${c.from}"`);
+        } else {
+          const verb = c.action === "both" ? "added" : "set";
+          lines.push(`  ${c.field}: ${verb} "${c.to}"${c.from ? ` (was "${c.from}")` : ""}`);
+        }
+      }
+      lines.push("");
+    }
   }
 
   if (report.deferred.length) {
     lines.push("Not applied (needs relationship/link merge)");
     lines.push("-------------------------------------------");
+    const byRecord = new Map<string, typeof report.deferred>();
     for (const d of report.deferred) {
-      lines.push(`${d.recordId}  ${d.field}: ${d.reason}`);
+      const group = byRecord.get(d.recordId) ?? [];
+      group.push(d);
+      byRecord.set(d.recordId, group);
     }
-    lines.push("");
+    for (const [id, group] of byRecord) {
+      const header = recordHeader(id);
+      lines.push(header);
+      lines.push("-".repeat(header.length));
+      for (const d of group) lines.push(`  ${d.field}: ${d.reason}`);
+      lines.push("");
+    }
   }
 
   return lines.join("\n");

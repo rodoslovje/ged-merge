@@ -103,6 +103,9 @@ export function App() {
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
+  // Tracks whether there are unsaved changes — updated each render so the
+  // stable popstate handler can check without stale-closure issues.
+  const hasUnsavedChangesRef = useRef(false);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   type UndoEntry =
@@ -192,9 +195,27 @@ export function App() {
   const [treeView, setTreeView] = useState<TreeView | null>(null);
 
   useEffect(() => {
+    // Tag the initial history entry so navigating back past all SPA pushStates
+    // (state === null) means the user is about to leave the app entirely.
+    if (!window.history.state?.gedPage) {
+      window.history.replaceState({ ...window.history.state, gedPage: "main" }, "");
+    }
+
     function onPop(e: PopStateEvent) {
-      const st = (e.state ?? {}) as { gedTree?: TreeView; gedSel?: SelRef };
+      // null state = browser navigated back before the SPA's initial entry.
+      // Re-push a sentinel and ask for confirmation if there are unsaved changes.
+      if (e.state === null) {
+        if (hasUnsavedChangesRef.current) {
+          window.history.pushState({ gedPage: "main" }, "");
+          if (!window.confirm(t("app.navLeaveConfirm"))) return;
+          // User confirmed leaving — actually go back now.
+          window.history.back();
+        }
+        return;
+      }
+      const st = e.state as { gedTree?: TreeView; gedSel?: SelRef; gedEditTreeId?: string };
       setTreeView(st.gedTree ?? null);
+      setEditTreeId(st.gedEditTreeId ?? null);
       // Restore a remembered compare selection (set when a person link pushed it).
       if (st.gedSel) {
         const { masterId, compareId } = st.gedSel;
@@ -203,6 +224,7 @@ export function App() {
     }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Record the current compare selection in the current history entry so the
@@ -668,6 +690,11 @@ export function App() {
   // Edit Tree: full-page tree view for the edit mode.
   const [editTreeId, setEditTreeId] = useState<string | null>(null);
 
+  function openEditTree(id: string) {
+    window.history.pushState({ gedEditTreeId: id }, "");
+    setEditTreeId(id);
+  }
+
   // Edit mode change tracking — lifted from EditView so the header Save button can see counts.
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
@@ -758,6 +785,19 @@ export function App() {
     for (const d of decisions.values()) if (d.status === "confirmed") n++;
     return n;
   }, [decisions]);
+
+  hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0;
+
+  // Warn before leaving the page when there are unsaved changes.
+  useEffect(() => {
+    if (changedCount === 0 && confirmedCount === 0) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [changedCount, confirmedCount]);
 
   function handleTitleClick() {
     const hasChanges = mode === "edit" ? changedCount > 0 : confirmedCount > 0;
@@ -952,7 +992,7 @@ export function App() {
         rootId={editTreeId}
         homeId={homeId}
         changedPersonIds={changedPersonIds}
-        onBack={() => setEditTreeId(null)}
+        onBack={() => window.history.back()}
       />
     );
   }
@@ -1182,7 +1222,7 @@ export function App() {
             homeId={homeId}
             changeHome={changeHome}
             onDirty={handleEditDirty}
-            onShowTree={(id) => setEditTreeId(id)}
+            onShowTree={(id) => openEditTree(id)}
             navigateToId={navigateToId}
             onMerge={matches ? (id) => {
               const c = allSorted.find((c) => c.masterId === id);

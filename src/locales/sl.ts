@@ -4,6 +4,7 @@ export const sl = {
   "load.privacy": "Vaši podatki nikoli ne zapustijo naprave. Vse se obdela v brskalniku.",
   "app.mobileWarning": "Ta aplikacija je optimizirana za večje zaslone. Za najboljšo uporabniško izkušnjo uporabite tablico ali računalnik.",
   "app.reloadConfirm": "Imate neshranjene spremembe. Ponovno naloži in jih zavrzi?",
+  "app.navLeaveConfirm": "Imate neshranjene spremembe. Zapustite in jih zavrzite?",
   "load.masterReplaceConfirm": "Imate neshranjene spremembe. Nalaganje nove glavne datoteke jih bo zavrglo. Nadaljujem?",
   "load.incomingReplaceConfirm": "Imate potrjena združevanja. Nalaganje nove dohodne datoteke jih bo zavrglo. Nadaljujem?",
   "section.load": "Naloži GEDCOM",
