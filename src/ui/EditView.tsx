@@ -1660,11 +1660,13 @@ function EventFieldsRow({
   const valueMergeVal = showValue ? mergeHighlight?.get(`${kBase}.value`) : undefined;
   const placeMergeVal = mergeHighlight?.get(`${kBase}.place`);
   const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
+  const noteMergeVal = mergeHighlight?.get(`${kBase}.note`);
 
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
+  const noteField = useField(ev?.note ?? "", noteMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
   const linkFocusRef = useRef<number | null>(null);
   const linkInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -1737,6 +1739,17 @@ function EventFieldsRow({
         onCommit={(val) => commitField({ address: val })}
         onClear={() => { addrField.clear(); commitField({ address: "" }); }}
       />
+      {(noteField.value || noteField.isMerge) && (
+        <ClearableInput
+          className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty)}
+          value={noteField.value}
+          placeholder={t("event.note", { event: label })}
+          title={t("event.note", { event: label })}
+          onChange={noteField.onChange}
+          onBlur={() => commitField({ note: noteField.value })}
+          onClear={() => { noteField.clear(); commitField({ note: "" }); }}
+        />
+      )}
       <div className="edit-event-actions">
         <button
           type="button"

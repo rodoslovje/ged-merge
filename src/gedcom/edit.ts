@@ -50,6 +50,8 @@ export interface EventFieldUpdate {
   place?: string;
   /** New ADDR value, or `""` to remove the address. Omit to leave unchanged. */
   address?: string;
+  /** New NOTE value, or `""` to remove the first inline note. Omit to leave unchanged. */
+  note?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
 }
@@ -121,6 +123,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
+  if (update.note !== undefined) setOrRemoveValue(eventNode, "NOTE", update.note, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
     const i = record.children.indexOf(eventNode);
@@ -138,7 +141,7 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
   let event = findChild(record, tag);
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
-    !!update.address?.trim() || !!update.links?.some((l) => l.trim());
+    !!update.address?.trim() || !!update.note?.trim() || !!update.links?.some((l) => l.trim());
   if (!event) {
     if (!hasContent) return;
     event = { level: record.level + 1, tag, children: [] };

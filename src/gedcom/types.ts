@@ -152,6 +152,8 @@ export interface GedEvent {
   agency?: string;
   /** Cause (CAUS) associated with the event, e.g. cause of death. */
   cause?: string;
+  /** First inline NOTE sub-tag on this event (e.g. parish/facility from packed-place decomposition). */
+  note?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
 }

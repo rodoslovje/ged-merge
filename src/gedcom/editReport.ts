@@ -35,7 +35,7 @@ function displayNameFromRaw(node: GedNode): string {
 
 function summarizeEvent(node: GedNode): string {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
-  return [get("DATE"), get("PLAC"), get("ADDR")].filter(Boolean).join(" · ") || "…";
+  return [get("DATE"), get("PLAC"), get("ADDR"), get("NOTE")].filter(Boolean).join(" · ") || "…";
 }
 
 function diffEventSet(

@@ -143,6 +143,8 @@ function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
+  const noteNode = node.children.find((c) => c.tag === "NOTE" && !c.xref);
+  if (noteNode?.value) event.note = noteNode.value.trim();
   const links = collectLinks(node, media);
   if (links.length) event.links = dedupe(links);
   return event;

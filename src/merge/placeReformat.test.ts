@@ -4,11 +4,11 @@ import { reformatPlace, type PlaceTargetFormat } from "./placeReformat";
 const RENKO: PlaceTargetFormat = { layout: "structured-addr", separator: "," };
 
 describe("reformatPlace → structured-addr", () => {
-  it("splits a packed street place into PLAC, ADDR, and a facility NOTE", () => {
+  it("splits a packed street place into PLAC and ADDR, keeping facility in parens in ADDR", () => {
     const r = reformatPlace("Kranj (Slovenija), Kidričeva 38/a (porodnišnica)", undefined, RENKO);
     expect(r.plac).toBe("Kranj,Slovenija");
-    expect(r.addr).toBe("Kidričeva 38/a");
-    expect(r.note).toBe("porodnišnica");
+    expect(r.addr).toBe("Kidričeva 38/a (porodnišnica)");
+    expect(r.note).toBeUndefined();
   });
 
   it("moves a parish into a NOTE and a house number into ADDR", () => {

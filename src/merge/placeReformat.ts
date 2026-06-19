@@ -75,11 +75,10 @@ export function reformatPlace(
   // structured-addr
   const out: ReformattedPlace = {};
   if (jurisdiction.length) out.plac = jurisdiction.join(fmt.separator);
-  out.addr = address;
-  const notes: string[] = [];
-  if (parish) notes.push(`župnija ${parish}`);
-  if (facility) notes.push(facility);
-  if (notes.length) out.note = notes.join("; ");
+  let addrOut = address;
+  if (facility) addrOut = addrOut ? `${addrOut} (${facility})` : facility;
+  out.addr = addrOut;
+  if (parish) out.note = `župnija ${parish}`;
   return out;
 }
 

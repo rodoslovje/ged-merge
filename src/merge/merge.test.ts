@@ -91,14 +91,13 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
     ),
   );
 
-  it("splits the packed place into PLAC, ADDR and a NOTE", () => {
+  it("splits the packed place into PLAC and ADDR, keeping facility in parens in ADDR", () => {
     const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain(
-      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenija\n2 ADDR Kidričeva 38/a\n2 NOTE porodnišnica",
+      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenija\n2 ADDR Kidričeva 38/a (porodnišnica)",
     );
-    // The raw packed string must not survive in the output.
-    expect(out).not.toContain("(porodnišnica)");
+    expect(out).not.toContain("2 NOTE porodnišnica");
   });
 
   it("does not rewrite existing PLAC when only ADDR is new (minimal diff)", () => {

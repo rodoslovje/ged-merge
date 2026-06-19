@@ -75,6 +75,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "date") return t("event.date", { event: name });
   if (sub === "place") return t("event.place", { event: name });
   if (sub === "addr") return t("event.addr", { event: name });
+  if (sub === "note") return t("event.note", { event: name });
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -133,7 +134,7 @@ export function individualFieldRows(
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.date`, formatFieldLabel(t, `${tag}.date`), me?.date?.raw, ce?.date?.raw, t("event.colDate"));
     pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
-    const { place: incomingPlace, addr: incomingAddr, placeTitle: incomingPlaceTitle, addrTitle: incomingAddrTitle } =
+    const { place: incomingPlace, addr: incomingAddr, note: incomingNote, placeTitle: incomingPlaceTitle, addrTitle: incomingAddrTitle } =
       reshapeIncomingPlace(ce?.place?.raw, ce?.address?.raw, resolvedPlaceFmt, shouldReshape);
     // When not reshaping and master uses a structured PLAC+ADDR while incoming has a packed
     // PLAC, extract the address component for side-by-side comparison.
@@ -143,6 +144,7 @@ export function individualFieldRows(
     const effectiveMAddr = extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.place`, formatFieldLabel(t, `${tag}.place`), me?.place?.raw, incomingPlace, t("event.colPlace"), undefined, incomingPlaceTitle);
     pushRow(subRows, `${keyBase}.addr`, formatFieldLabel(t, `${tag}.addr`), effectiveMAddr, effectiveIncomingAddr, t("event.colAddr"), undefined, incomingAddrTitle);
+    pushRow(subRows, `${keyBase}.note`, formatFieldLabel(t, `${tag}.note`), undefined, incomingNote, t("event.colNote"));
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
       const cLinks = ce?.links?.length ? ce.links : undefined;
@@ -201,11 +203,12 @@ export function individualFieldRows(
       const mMar = mFam?.events.find((e) => e.tag === "MARR");
       const cMar = cFam?.events.find((e) => e.tag === "MARR");
       const marriageRows: FieldRow[] = [];
-      const { place: incomingMarPlace, addr: incomingMarAddr, placeTitle: incomingMarPlaceTitle, addrTitle: incomingMarAddrTitle } =
+      const { place: incomingMarPlace, addr: incomingMarAddr, note: incomingMarNote, placeTitle: incomingMarPlaceTitle, addrTitle: incomingMarAddrTitle } =
         reshapeIncomingPlace(cMar?.place?.raw, cMar?.address?.raw, resolvedPlaceFmt, shouldReshape);
-      pushRow(marriageRows, `${famKey}.MARR.date`, formatFieldLabel(t, `${famKey}.MARR.date`), mMar?.date?.raw, cMar?.date?.raw);
-      pushRow(marriageRows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, incomingMarPlace, undefined, undefined, incomingMarPlaceTitle);
-      pushRow(marriageRows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, incomingMarAddr, undefined, undefined, incomingMarAddrTitle);
+      pushRow(marriageRows, `${famKey}.MARR.date`, formatFieldLabel(t, `${famKey}.MARR.date`), mMar?.date?.raw, cMar?.date?.raw, t("event.colDate"));
+      pushRow(marriageRows, `${famKey}.MARR.place`, formatFieldLabel(t, `${famKey}.MARR.place`), mMar?.place?.raw, incomingMarPlace, t("event.colPlace"), undefined, incomingMarPlaceTitle);
+      pushRow(marriageRows, `${famKey}.MARR.addr`, formatFieldLabel(t, `${famKey}.MARR.addr`), mMar?.address?.raw, incomingMarAddr, t("event.colAddr"), undefined, incomingMarAddrTitle);
+      pushRow(marriageRows, `${famKey}.MARR.note`, formatFieldLabel(t, `${famKey}.MARR.note`), undefined, incomingMarNote, t("event.colNote"));
       if (marriageRows.length > 0) {
         const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
         const cMarLinks = cMar?.links?.length ? cMar.links : undefined;
@@ -225,11 +228,12 @@ export function individualFieldRows(
         const cEv = cFam?.events.find((e) => e.tag === etag);
         if (!mEv && !cEv) continue;
         const etagRows: FieldRow[] = [];
-        const { place: incomingEvPlace, addr: incomingEvAddr, placeTitle: incomingEvPlaceTitle, addrTitle: incomingEvAddrTitle } =
+        const { place: incomingEvPlace, addr: incomingEvAddr, note: incomingEvNote, placeTitle: incomingEvPlaceTitle, addrTitle: incomingEvAddrTitle } =
           reshapeIncomingPlace(cEv?.place?.raw, cEv?.address?.raw, resolvedPlaceFmt, shouldReshape);
-        pushRow(etagRows, `${famKey}.${etag}.date`, formatFieldLabel(t, `${famKey}.${etag}.date`), mEv?.date?.raw, cEv?.date?.raw);
-        pushRow(etagRows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, incomingEvPlace, undefined, undefined, incomingEvPlaceTitle);
-        pushRow(etagRows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, incomingEvAddr, undefined, undefined, incomingEvAddrTitle);
+        pushRow(etagRows, `${famKey}.${etag}.date`, formatFieldLabel(t, `${famKey}.${etag}.date`), mEv?.date?.raw, cEv?.date?.raw, t("event.colDate"));
+        pushRow(etagRows, `${famKey}.${etag}.place`, formatFieldLabel(t, `${famKey}.${etag}.place`), mEv?.place?.raw, incomingEvPlace, t("event.colPlace"), undefined, incomingEvPlaceTitle);
+        pushRow(etagRows, `${famKey}.${etag}.addr`, formatFieldLabel(t, `${famKey}.${etag}.addr`), mEv?.address?.raw, incomingEvAddr, t("event.colAddr"), undefined, incomingEvAddrTitle);
+        pushRow(etagRows, `${famKey}.${etag}.note`, formatFieldLabel(t, `${famKey}.${etag}.note`), undefined, incomingEvNote, t("event.colNote"));
         if (etagRows.length > 0) {
           const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
           const cEvLinks = cEv?.links?.length ? cEv.links : undefined;
@@ -876,17 +880,18 @@ function reshapeIncomingPlace(
   addrRaw: string | undefined,
   placeFmt: PlaceTargetFormat | undefined,
   shouldReshape: boolean,
-): { place: string | undefined; addr: string | undefined; placeTitle: string | undefined; addrTitle: string | undefined } {
+): { place: string | undefined; addr: string | undefined; note: string | undefined; placeTitle: string | undefined; addrTitle: string | undefined } {
   if (shouldReshape && placeFmt && (placRaw || addrRaw)) {
     const r = reformatPlace(placRaw, addrRaw, placeFmt);
     return {
       place: r.plac,
       addr: r.addr,
+      note: r.note,
       placeTitle: (placRaw && placRaw !== r.plac) ? placRaw : undefined,
       addrTitle: (addrRaw && addrRaw !== r.addr) ? addrRaw : undefined,
     };
   }
-  return { place: placRaw, addr: addrRaw, placeTitle: undefined, addrTitle: undefined };
+  return { place: placRaw, addr: addrRaw, note: undefined, placeTitle: undefined, addrTitle: undefined };
 }
 
 /**
