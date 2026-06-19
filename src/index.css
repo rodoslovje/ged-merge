@@ -258,8 +258,8 @@ button:focus-visible {
   display: flex;
   min-height: 0;
 }
-.split-matches { flex: 1 1 0; min-width: 340px; }
-.split-compare { flex: 2 1 0; min-width: 360px; }
+.split-matches { flex: 0 0 340px; }
+.split-compare { flex: 1 1 0; min-width: 360px; }
 
 /* Each pane's open section becomes a full-height flex column; a collapsed one
  * keeps its natural (header-only) height. */
@@ -2687,11 +2687,11 @@ button:focus-visible {
     width: 100%;
   }
   .f-label {
-    width: 80px;
+    width: 76px;
     font-size: 0.75rem;
   }
   .f-choice {
-    width: 90px;
+    width: 76px;
   }
   .choice {
     padding: 2px 4px;
