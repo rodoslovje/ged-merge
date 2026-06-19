@@ -1,9 +1,9 @@
-import { type Dispatch, type RefObject, type SetStateAction } from "react";
+import { type Dispatch, type RefObject, type SetStateAction, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
-import { decisionKey, type CandidateDecision } from "../review/types";
+import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { kinshipLabel } from "../match/kinship";
 import { displayName, primaryName } from "../match/relatives";
 import { HomePersonSelector } from "./HomePersonSelector";
@@ -121,6 +121,34 @@ export function MergeView({
     ? t("kinship.tooltip", { kinship, name: homePersonName })
     : undefined;
 
+  const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
+  const currentDecision = current
+    ? decisions.get(decisionKey("individual", current.masterId, current.compareId))
+    : undefined;
+  const status = currentDecision?.status ?? "undecided";
+  const fields = currentDecision?.fields ?? {};
+  const shortcutOf = (s: MatchDecisionStatus) => t(`status.${s}`).charAt(0).toLowerCase();
+
+  function toggleStatus(next: MatchDecisionStatus) {
+    if (!current) return;
+    onUpdateDecision({ status: status === next ? "undecided" : next, fields });
+  }
+
+  useEffect(() => {
+    if (!current) return;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "t") { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
+      const hit = STATUSES.find((s) => shortcutOf(s) === key);
+      if (hit) toggleStatus(hit);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [current, onUpdateDecision, status, fields, t]);
+
   const compareHeader = current ? (
     <>
       <div className={`person-label ${sexClass(current.sex)}`}>
@@ -155,6 +183,30 @@ export function MergeView({
         >
           ›
         </button>
+      </div>
+      <div className="compare-head-actions">
+        <div className="decision-bar">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
+              onClick={() => toggleStatus(s)}
+            >
+              {t(`status.${s}`)}
+            </button>
+          ))}
+        </div>
+        <div className="compare-nav-actions">
+          <button className="tree-open-btn" onClick={() => onOpenTree(current.masterId, current.compareId)} title={t("tree.tooltip")}>
+            {t("tree.button")}
+          </button>
+          {onEdit && (
+            <button className="tree-open-btn" onClick={onEdit} title={t("compare.editTooltip")}>
+              {t("compare.editButton")}
+            </button>
+          )}
+        </div>
       </div>
     </>
   ) : null;
@@ -211,8 +263,6 @@ export function MergeView({
                       compareDs={compareDataset}
                       decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
                       onChange={onUpdateDecision}
-                      onOpenTree={() => onOpenTree(current.masterId, current.compareId)}
-                      onEdit={onEdit}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
                     />
