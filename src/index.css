@@ -1946,11 +1946,11 @@ button:focus-visible {
 }
 .field.conflict { background: rgba(226, 179, 65, 0.08); }
 .field.incoming-only { background: rgba(62, 207, 142, 0.07); }
-.f-label { color: var(--muted); width: 120px; text-align: right; }
+.f-label { color: var(--muted); width: 96px; text-align: right; }
 .f-val { white-space: pre-wrap; overflow-wrap: anywhere; }
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
-.f-choice { width: 120px; white-space: nowrap; }
+.f-choice { width: 96px; white-space: nowrap; }
 
 /* Aligned relatives (children, partners): a two-column grid spanning the Master
    and Incoming columns. Each pair is one grid row, so the same person lines up
