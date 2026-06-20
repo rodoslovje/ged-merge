@@ -469,6 +469,38 @@ describe("multi-RESI pairing by date", () => {
   });
 });
 
+describe("place reshaping to packed-plac hides addr row", () => {
+  // Master has packed-plac layout (parenthetical country in PLAC, no ADDR).
+  // Incoming has structured-addr (comma PLAC + separate ADDR).
+  // After reshaping to packed-plac, the incoming addr folds into PLAC and the
+  // addr row must not appear in the compare dialog.
+  const masterGed = `0 HEAD
+0 @I1@ INDI
+1 NAME Anton /Kovač/
+1 BIRT
+2 PLAC Kranj (Slovenija)
+1 DEAT
+2 PLAC Jesenice (Slovenija)
+0 TRLR`;
+
+  const compareGed = `0 HEAD
+0 @P1@ INDI
+1 NAME Anton /Kovač/
+1 BIRT
+2 PLAC Kranj,Slovenija
+2 ADDR Kranj 15
+0 TRLR`;
+
+  it("hides addr row when reshaping structured-addr incoming into packed-plac master", () => {
+    const m = dataset(masterGed);
+    const c = dataset(compareGed);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+    // Incoming ADDR ("Kranj 15") folds into packed PLAC; neither side has a
+    // standalone addr value, so the addr row must be absent.
+    expect(byKey(rows, "BIRT.addr")).toBeUndefined();
+  });
+});
+
 describe("ADDR support", () => {
   const m = dataset(
     `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 19 SEP 1917\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Zgornje Bitnje 52 (pd Urbanov Jaka)\n0 TRLR\n`,

@@ -78,6 +78,33 @@ describe("reformatPlace → packed-plac (the reverse direction)", () => {
   });
 });
 
+describe("reformatPlace → country name normalization", () => {
+  const countryPreferred = new Map([["slovenia", "Slovenija"], ["austria", "Avstrija"]]);
+  const KOVACIC_SL: PlaceTargetFormat = { layout: "packed-plac", separator: ",", countryPreferred };
+  const RENKO_SL: PlaceTargetFormat = { layout: "structured-addr", separator: ",", countryPreferred };
+
+  it("rewrites English country to master's Slovenian form in packed-plac output", () => {
+    const r = reformatPlace("Kranj (Slovenia), Kidričeva 38/a", undefined, KOVACIC_SL);
+    expect(r.plac).toContain("(Slovenija)");
+    expect(r.plac).not.toContain("(Slovenia)");
+  });
+
+  it("rewrites English country in structured-addr output", () => {
+    const r = reformatPlace("Kranj,Slovenia", undefined, RENKO_SL);
+    expect(r.plac).toBe("Kranj,Slovenija");
+  });
+
+  it("is a no-op when incoming country already matches master form", () => {
+    const r = reformatPlace("Kranj (Slovenija)", undefined, KOVACIC_SL);
+    expect(r.plac).toContain("(Slovenija)");
+  });
+
+  it("leaves unknown country names unchanged", () => {
+    const r = reformatPlace("New York (USA)", undefined, KOVACIC_SL);
+    expect(r.plac).toContain("(USA)");
+  });
+});
+
 describe("reformatPlace → other layouts pass through", () => {
   it("does not reshape when the master layout is plain-structured", () => {
     const r = reformatPlace("Kranj (Slovenija), Kidričeva 38/a", undefined, {

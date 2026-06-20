@@ -1,4 +1,5 @@
-import { parsePlace } from "../gedcom/place";
+import { decomposePlace, parsePlace } from "../gedcom/place";
+import { canonicalPlaceToken } from "../match/place";
 import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
   DateFormatProfile,
@@ -298,9 +299,26 @@ export function inferPlaceExportFormat(dataset: Dataset): { layout: PlaceLayout;
       }
     }
   });
+  // Build preferred country form map: canonical-key → most-used display form in master.
+  const countryForms = new Map<string, Map<string, number>>();
+  for (const v of values) {
+    const country = decomposePlace(v).country;
+    if (!country) continue;
+    const canonical = canonicalPlaceToken(country);
+    const forms = countryForms.get(canonical) ?? new Map<string, number>();
+    bumpStr(forms, country);
+    countryForms.set(canonical, forms);
+  }
+  const countryPreferred = new Map<string, string>();
+  for (const [canonical, forms] of countryForms) {
+    const preferred = mostFrequentStr(forms);
+    if (preferred) countryPreferred.set(canonical, preferred);
+  }
+
   return {
     layout: detectPlaceLayout(values, addrCount),
     separator: withoutSpace > withSpace ? "," : ", ",
+    ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
   };
 }
 

@@ -95,7 +95,7 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
     const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain(
-      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenija\n2 ADDR Kidričeva 38/a (porodnišnica)",
+      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenia\n2 ADDR Kidričeva 38/a (porodnišnica)",
     );
     expect(out).not.toContain("2 NOTE porodnišnica");
   });

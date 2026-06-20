@@ -141,7 +141,9 @@ export function individualFieldRows(
     const effectiveIncomingAddr = shouldReshape
       ? incomingAddr
       : extractEffectiveAddr(ce?.address?.raw, ce?.place?.raw, me?.address?.raw);
-    const effectiveMAddr = extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
+    const effectiveMAddr = shouldReshape
+      ? me?.address?.raw
+      : extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, incomingPlace, undefined, undefined, incomingPlaceTitle);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, incomingAddrTitle);
     const incomingNoteAll = [ce?.note, incomingNote].filter(Boolean).join("\n") || undefined;
@@ -929,12 +931,18 @@ function reshapeIncomingPlace(
 ): { place: string | undefined; addr: string | undefined; note: string | undefined; placeTitle: string | undefined; addrTitle: string | undefined } {
   if (shouldReshape && placeFmt && (placRaw || addrRaw)) {
     const r = reformatPlace(placRaw, addrRaw, placeFmt);
+    // Build place tooltip: show original PLAC when reshaped, and original ADDR on
+    // a second line when it was absorbed into the PLAC (not emitted as its own row).
+    const placeTitleParts = [
+      placRaw && placRaw !== r.plac ? placRaw : undefined,
+      addrRaw && !r.addr ? addrRaw : undefined,
+    ].filter(Boolean) as string[];
     return {
       place: r.plac,
       addr: r.addr,
       note: r.note,
-      placeTitle: (placRaw && placRaw !== r.plac) ? placRaw : undefined,
-      addrTitle: (addrRaw && addrRaw !== r.addr) ? addrRaw : undefined,
+      placeTitle: placeTitleParts.length > 0 ? placeTitleParts.join("\n") : undefined,
+      addrTitle: addrRaw && addrRaw !== r.addr ? addrRaw : undefined,
     };
   }
   return { place: placRaw, addr: addrRaw, note: undefined, placeTitle: undefined, addrTitle: undefined };

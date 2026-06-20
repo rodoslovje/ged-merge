@@ -1,4 +1,5 @@
 import { decomposePlace } from "../gedcom/place";
+import { canonicalPlaceToken } from "../match/place";
 import type { PlaceLayout } from "../normalize/types";
 
 /** How the master wants places written, so incoming places can match it. */
@@ -6,6 +7,12 @@ export interface PlaceTargetFormat {
   layout: PlaceLayout;
   /** PLAC jurisdiction-part separator, e.g. "," (Renko) or ", ". */
   separator: string;
+  /**
+   * Master's preferred display form for each country, keyed by the canonical
+   * country token (e.g. "slovenia" → "Slovenija" or "Slovenia"). When present,
+   * country names in incoming places are rewritten to match the master's spelling.
+   */
+  countryPreferred?: Map<string, string>;
 }
 
 /** A place reshaped into the master's layout: the parts to write back. */
@@ -48,7 +55,7 @@ export function reformatPlace(
 
   const jurisdiction = p?.jurisdiction.length ? p.jurisdiction : a?.locality ? [a.locality] : [];
   const locality = p?.locality ?? a?.locality;
-  const country = p?.country ?? a?.country;
+  const country = normalizeCountry(p?.country ?? a?.country, fmt);
   const houseNumber = a?.houseNumber ?? p?.houseNumber;
   const houseName = a?.houseName ?? p?.houseName;
   const street = p?.street ?? a?.street;
@@ -74,7 +81,10 @@ export function reformatPlace(
 
   // structured-addr
   const out: ReformattedPlace = {};
-  if (jurisdiction.length) out.plac = jurisdiction.join(fmt.separator);
+  if (jurisdiction.length) {
+    const normJurisdiction = jurisdiction.map(p => normalizeCountry(p, fmt) ?? p);
+    out.plac = normJurisdiction.join(fmt.separator);
+  }
   let addrOut = address;
   if (facility) addrOut = addrOut ? `${addrOut} (${facility})` : facility;
   out.addr = addrOut;
@@ -86,3 +96,10 @@ const clean = (s: string | undefined): string | undefined => {
   const t = s?.trim();
   return t ? t : undefined;
 };
+
+/** Return the master's preferred display form for this country token, or the original. */
+function normalizeCountry(raw: string | undefined, fmt: PlaceTargetFormat): string | undefined {
+  if (!raw || !fmt.countryPreferred) return raw;
+  const canonical = canonicalPlaceToken(raw);
+  return fmt.countryPreferred.get(canonical) ?? raw;
+}
