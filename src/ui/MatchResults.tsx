@@ -85,7 +85,8 @@ export function MatchResults({
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
     if (window.innerWidth > 880) {
-      const el = listRef.current?.querySelector<HTMLElement>(".candidate.selected");
+      // children[0] is the header row; candidate rows start at children[1]
+      const el = listRef.current?.children[selectedIndex + 1] as HTMLElement | undefined;
       el?.scrollIntoView({ block: "nearest" });
     }
   }, [selectedIndex, list]);

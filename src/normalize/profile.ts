@@ -280,11 +280,17 @@ export function inferPlaceLayout(dataset: Dataset): PlaceLayout {
   return detectPlaceLayout(values, addrCount);
 }
 
+type PlaceExportFormat = { layout: PlaceLayout; separator: string; countryPreferred?: Map<string, string> };
+const placeExportFormatCache = new WeakMap<Dataset, PlaceExportFormat>();
+
 /**
  * The master's place layout plus its PLAC part separator ("," vs ", "), used at
  * export to reshape incoming places to match the master.
+ * Cached by dataset identity — the result never changes for the same object.
  */
-export function inferPlaceExportFormat(dataset: Dataset): { layout: PlaceLayout; separator: string } {
+export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
+  const cached = placeExportFormatCache.get(dataset);
+  if (cached) return cached;
   const values: string[] = [];
   let addrCount = 0;
   let withSpace = 0;
@@ -315,11 +321,13 @@ export function inferPlaceExportFormat(dataset: Dataset): { layout: PlaceLayout;
     if (preferred) countryPreferred.set(canonical, preferred);
   }
 
-  return {
+  const result: PlaceExportFormat = {
     layout: detectPlaceLayout(values, addrCount),
     separator: withoutSpace > withSpace ? "," : ", ",
     ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
   };
+  placeExportFormatCache.set(dataset, result);
+  return result;
 }
 
 // --- helpers ---------------------------------------------------------------

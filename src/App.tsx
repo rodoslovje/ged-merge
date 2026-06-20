@@ -415,25 +415,40 @@ export function App() {
   // Filtered list for display — preserves the sort order of allSorted.
   const visible = useMemo(() => applyFilters(allSorted, filters), [allSorted, filters]);
 
+  // Pair-key → position maps rebuilt only when the sorted/filtered list changes,
+  // not on every prev/next click — turns the three find/findIndex scans below
+  // from O(n) per navigation into O(1).
+  const allSortedMap = useMemo(() => {
+    const m = new Map<string, number>();
+    allSorted.forEach((c, i) => m.set(`${c.masterId}|${c.compareId}`, i));
+    return m;
+  }, [allSorted]);
+  const visibleMap = useMemo(() => {
+    const m = new Map<string, number>();
+    visible.forEach((c, i) => m.set(`${c.masterId}|${c.compareId}`, i));
+    return m;
+  }, [visible]);
+
   // The currently selected candidate (ID-based, survives filter changes).
   // Falls back to the first in allSorted when no explicit selection exists.
   const current = useMemo(() => {
     if (allSorted.length === 0) return undefined;
     if (!selectedId) return allSorted[0];
-    return allSorted.find(c => c.masterId === selectedId.masterId && c.compareId === selectedId.compareId) ?? allSorted[0];
-  }, [allSorted, selectedId]);
+    const i = allSortedMap.get(`${selectedId.masterId}|${selectedId.compareId}`);
+    return i !== undefined ? allSorted[i] : allSorted[0];
+  }, [allSorted, allSortedMap, selectedId]);
 
   // Index of current in the visible (filtered) list — -1 when filtered out.
   const visibleIndex = useMemo(() => {
     if (!current) return -1;
-    return visible.findIndex(c => c.masterId === current.masterId && c.compareId === current.compareId);
-  }, [visible, current]);
+    return visibleMap.get(`${current.masterId}|${current.compareId}`) ?? -1;
+  }, [visibleMap, current]);
 
   // Index of current in allSorted — used for prev/next navigation bounds.
   const allSortedIndex = useMemo(() => {
     if (!current) return 0;
-    return allSorted.findIndex(c => c.masterId === current.masterId && c.compareId === current.compareId);
-  }, [allSorted, current]);
+    return allSortedMap.get(`${current.masterId}|${current.compareId}`) ?? 0;
+  }, [allSortedMap, current]);
 
   // Person id -> candidate, so a relative's name can jump to their own match.
   // A person with several candidates resolves to the first (highest-ranked) one.
