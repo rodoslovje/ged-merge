@@ -1,6 +1,6 @@
 import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
-import { displayName } from "../match/relatives";
+import { displayName, nameTypeLabel } from "../match/relatives";
 import { parseName } from "./name";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -31,6 +31,33 @@ function displayNameFromRaw(node: GedNode): string {
   if (!nameNode) return "";
   const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
   return displayName(parseName(nameNode.value, subTags));
+}
+
+/** Summaries of every `NAME` record beyond the primary one (married/maiden/aka/…). */
+function additionalNameSummaries(node: GedNode, t: Translate): string[] {
+  return node.children
+    .filter((c) => c.tag === "NAME")
+    .slice(1)
+    .map((n) => {
+      const subTags = new Map(n.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
+      const label = displayName(parseName(n.value, subTags));
+      const type = subTags.get("TYPE");
+      return type ? `${nameTypeLabel(type, t)}: ${label}` : label;
+    });
+}
+
+function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
+  const diffs: FieldChange[] = [];
+  const beforeNames = additionalNameSummaries(before, t);
+  const afterNames = additionalNameSummaries(after, t);
+  const fieldLabel = t("field.additionalNames");
+  for (const v of beforeNames) {
+    if (!afterNames.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming" });
+  }
+  for (const v of afterNames) {
+    if (!beforeNames.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both" });
+  }
+  return diffs;
 }
 
 function summarizeEvent(node: GedNode): string {
@@ -93,6 +120,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   check(t("field.surname"),  beforeName.surname,  afterName.surname);
   check(t("field.nickname"), beforeName.nickname, afterName.nickname);
   check(t("field.sex"),      nodeChild(before, "SEX"), nodeChild(after, "SEX"));
+  diffs.push(...diffAdditionalNames(id, before, after, t));
 
   const evTags = new Set([
     ...before.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),

@@ -49,7 +49,7 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip,
         <h2>{title}</h2>
       </div>
       {description && state.status === "empty" && (
-        <p className="loader-desc">{description}</p>
+        <p className="loader-desc" dangerouslySetInnerHTML={{ __html: description }} />
       )}
 
       {state.status === "loading" && (

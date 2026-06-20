@@ -20,6 +20,7 @@ import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { SaveDialog } from "./ui/SaveDialog";
 import { EditTree } from "./ui/EditTree";
+import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -64,10 +65,12 @@ interface SelRef {
 
 const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
 
+// Reuses the landing.samples.<key>.name translation keys, so the sample
+// label is only defined once per language.
 const SAMPLE_FILES = [
-  { file: "EuropeRoyalFamilies.ged", label: "Europe Royal Families" },
-  { file: "EnglishTudorRoyalFamily.ged", label: "Tudor Royal Family" },
-  { file: "USPresidents.ged", label: "US Presidents" },
+  { file: "EuropeRoyalFamilies.ged", key: "europe" },
+  { file: "EnglishTudorRoyalFamily.ged", key: "tudor" },
+  { file: "USPresidents.ged", key: "presidents" },
 ];
 
 type Theme = "light" | "dark";
@@ -1145,9 +1148,9 @@ export function App() {
                 {compare.status === "empty" && (
                   <div className="sample-links">
                     <span className="sample-links-label">{t("intro.tryDemo")}</span>
-                    {SAMPLE_FILES.map(({ file, label }) => (
+                    {SAMPLE_FILES.map(({ file, key }) => (
                       <button key={file} className="sample-link" onClick={() => loadSample("compare", file)}>
-                        {label}
+                        {t(`landing.samples.${key}.name`)}
                       </button>
                     ))}
                   </div>
@@ -1166,34 +1169,11 @@ export function App() {
 
       {/* Master landing — shown before any master file is loaded */}
       {master.status !== "loaded" && (
-        <div className="landing">
-          <ul className="landing-bullets">
-            <li>{t("intro.bullet1")}</li>
-            <li>{t("intro.bullet2")}</li>
-            <li>{t("intro.bullet3")}</li>
-          </ul>
-          <div className="landing-master">
-            <GedcomLoader
-              title={t("load.master")}
-              state={master}
-              onLoad={(f) => loadFile("master", f)}
-              accent="master"
-              highlight={master.status === "empty"}
-              tooltip={master.status === "empty" ? t("load.master.tooltip") : undefined}
-              description={t("intro.masterHint")}
-            />
-            {master.status === "empty" && (
-              <div className="sample-links">
-                <span className="sample-links-label">{t("intro.tryDemo")}</span>
-                {SAMPLE_FILES.map(({ file, label }) => (
-                  <button key={file} className="sample-link" onClick={() => loadSample("master", file)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <Landing
+          masterState={master}
+          onLoadFile={(f) => loadFile("master", f)}
+          onLoadSample={(fileName) => loadSample("master", fileName)}
+        />
       )}
 
       {master.status === "loaded" && masterDataset && (

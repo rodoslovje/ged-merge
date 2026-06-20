@@ -413,48 +413,308 @@ button:focus-visible {
   color: var(--muted);
 }
 
-/* --- landing (before master file is loaded) --- */
-.landing {
+/* === Landing redesign (Direction B) === */
+.landing-b {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 64px;
+  align-items: center;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding-top: 8px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.lb-left {
+  max-width: 480px;
+}
+
+.lb-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 16px;
+}
+
+.lb-h1 {
+  font-size: 40px;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.lb-h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.lb-sub {
+  font-size: 17px;
+  color: var(--muted);
+  margin: 16px 0 28px;
+  line-height: 1.5;
+}
+
+/* Dropzone */
+.lb-drop {
+  border: 1.5px dashed color-mix(in oklch, var(--accent) 55%, var(--border-2));
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--accent) 3%, var(--panel));
+  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 22px;
-  max-width: 560px;
-  margin: auto;
-}
-
-.landing-bullets {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: inline-flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 14px 22px;
+  gap: 6px;
+  padding: 34px 22px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
 }
 
-.landing-bullets li {
-  display: flex;
-  align-items: center;
+.lb-drop:hover,
+.lb-drop:focus-visible,
+.lb-drop.dragover {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 6%, var(--panel));
+  outline: none;
+}
+
+.lb-drop-loading {
+  cursor: default;
   gap: 10px;
-  font-size: 0.95rem;
+}
+
+.lb-dz-ico {
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.lb-dz-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lb-dz-hint {
+  font-size: 13.5px;
   color: var(--muted);
 }
 
-.landing-bullets li::before {
-  content: "✓";
-  color: var(--accent);
-  font-weight: 700;
-  flex-shrink: 0;
+.lb-dz-accepts {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-top: 8px;
 }
 
-.landing-master {
-  background: var(--panel);
+.lb-error {
+  margin-top: 10px;
+  font-size: 0.88rem;
+}
+
+/* Sample tray */
+.lb-samples {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.lb-samples-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lb-samples-h svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.lb-sample-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.lb-sample-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  width: 100%;
+  border-radius: 9px;
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.lb-sample-row:hover {
+  border-color: var(--border-2);
+  background: var(--panel-2);
+}
+
+.lb-s-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 11%, transparent);
+  flex: none;
+}
+
+.lb-s-ico svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lb-s-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lb-s-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-s-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.lb-s-load {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Feature list (right column) */
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lb-list-h {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 12px;
+}
+
+.lb-feat {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-feat:last-child {
+  border-bottom: none;
+}
+
+.lb-feat-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.lb-feat-ico svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lb-feat h4 {
+  margin: 2px 0 3px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.lb-feat p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.lb-feat.lead {
+  background: color-mix(in oklch, var(--accent) 5%, transparent);
+  border-bottom: none;
+  border-radius: 11px;
+  padding: 16px 18px;
+  margin: 2px 0 8px;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.lb-feat.lead .lb-feat-ico {
+  background: color-mix(in oklch, var(--accent) 15%, transparent);
+}
+
+.lb-feat.lead h4 {
+  color: var(--accent);
+}
+
+.lb-feat.lead p {
+  color: var(--text);
+}
+
+@media (max-width: 880px) {
+  .landing-b {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    align-items: start;
+    max-width: 560px;
+  }
+  .lb-left {
+    max-width: none;
+  }
+  .lb-h1 {
+    font-size: 32px;
+  }
 }
 
 .loader-desc {
@@ -463,6 +723,11 @@ button:focus-visible {
   margin: 0 0 12px;
   line-height: 1.5;
 }
+.loader-desc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.loader-desc a:hover { text-decoration: underline; }
 .sample-links {
   display: flex;
   align-items: center;
