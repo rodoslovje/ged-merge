@@ -298,6 +298,35 @@ describe("event ordering", () => {
     // Compare's RESI is from 1900, so it should sort before BIRT 1974.
     expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("BIRT.header"));
   });
+
+  it("sorts undated RESI between dated BIRT and DEAT", () => {
+    // An undated RESI (with a place so it renders) must appear after dated BIRT and before dated DEAT.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 PLAC Ravna Gora\n` +
+      `1 BIRT\n2 DATE 1754\n` +
+      `1 DEAT\n2 DATE 1806\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.header"));
+    expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+  });
+
+  it("sorts undated DEAT before undated BURI, both after dated BIRT", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 DEAT\n2 PLAC Ravna Gora\n` +
+      `1 BURI\n2 PLAC Ravna Gora\n` +
+      `1 BIRT\n2 DATE 1754\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+    expect(keys.indexOf("DEAT.header")).toBeLessThan(keys.indexOf("BURI.header"));
+  });
 });
 
 describe("multi-RESI pairing by date", () => {

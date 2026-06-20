@@ -754,13 +754,30 @@ export function orderedEventTags(
     }
   }
 
+  // Compute mid-lifespan sort key for placing undated life-zone events (RESI, OCCU, …)
+  // between birth and death rather than before all dated events.
+  const birthKeys = [...(mByTag.get("BIRT") ?? []), ...(cByTag.get("BIRT") ?? [])]
+    .filter(e => e.date?.year != null).map(e => dateToSortKey(e.date));
+  const deathKeys = [
+    ...(mByTag.get("DEAT") ?? []), ...(cByTag.get("DEAT") ?? []),
+    ...(mByTag.get("BURI") ?? []), ...(cByTag.get("BURI") ?? []),
+    ...(mByTag.get("CREM") ?? []), ...(cByTag.get("CREM") ?? []),
+  ].filter(e => e.date?.year != null).map(e => dateToSortKey(e.date));
+  const minBirthKey = birthKeys.length > 0 ? Math.min(...birthKeys) : undefined;
+  const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
+  const midLifeKey =
+    minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
+    : minBirthKey != null ? minBirthKey + 30 * 10_000
+    : maxDeathKey != null ? maxDeathKey - 30 * 10_000
+    : 15_000_000; // ~year 1500 fallback
+
   instances.sort((a, b) => {
     const me = a.masterIdx >= 0 ? (mByTag.get(a.tag) ?? [])[a.masterIdx] : undefined;
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = eventSortKey(me, ce);
-    const dateB = eventSortKey(me2, ce2);
+    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey);
+    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -768,6 +785,32 @@ export function orderedEventTags(
   });
 
   return instances;
+}
+
+/** Birth-adjacent tags that should always sort before any dated event. */
+const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM"]);
+
+/**
+ * Sort key for an event instance. When the event has a date, returns the
+ * precision-aware date key. When undated, uses zone-based placement:
+ *  - Birth-zone tags (BIRT, BAPM, …): key 0–5, always before any real date.
+ *  - Death-zone tags (DEAT, BURI, CREM): key 99_999_997–99_999_999, always last.
+ *  - Life-zone tags (RESI, OCCU, …): key near `midLifeKey`, between birth and death.
+ */
+function effectiveSortKey(
+  me: GedEvent | undefined,
+  ce: GedEvent | undefined,
+  tag: string,
+  midLifeKey: number,
+): number {
+  const d = me?.date ?? ce?.date;
+  if (d?.year != null) return dateToSortKey(d);
+  const pos = EVENT_ORDER.indexOf(tag);
+  if (BIRTH_ZONE_TAGS.has(tag)) return pos >= 0 ? pos : 5;
+  if (tag === "CREM") return 99_999_999;
+  if (tag === "BURI") return 99_999_998;
+  if (tag === "DEAT") return 99_999_997;
+  return midLifeKey + (pos === -1 ? 500 : pos * 1_000);
 }
 
 /**
