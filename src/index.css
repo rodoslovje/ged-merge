@@ -1661,6 +1661,57 @@ button:focus-visible {
   opacity: 1;
 }
 
+/* Relative picker — inline search-and-pick widget for adding relatives */
+.relative-picker {
+  width: 200px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.relative-picker-input {
+  display: block;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 10px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  box-sizing: border-box;
+  outline: none;
+}
+.relative-picker-input::placeholder { color: var(--muted); }
+.relative-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.relative-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 5px 8px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relative-picker-option.highlighted,
+.relative-picker-option:hover { background: var(--panel); }
+.relative-picker-new { color: var(--accent); font-weight: 500; }
+.relative-picker-empty { padding: 5px 8px; font-size: 0.85rem; }
+
 /* Clearable input wrapper — positions the × button at the right edge */
 .clearable-wrap {
   position: relative;

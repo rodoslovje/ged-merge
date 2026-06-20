@@ -408,6 +408,97 @@ export function addChild(dataset: Dataset, person: Individual, fam: Family | und
   return rebuildIndividual(dataset, child);
 }
 
+/**
+ * Connect an existing individual as a parent of `person`.
+ * If `fam` is given (an existing parent family missing that role), the
+ * individual fills its HUSB/WIFE slot; otherwise a new family is created.
+ */
+export function connectExistingParent(
+  dataset: Dataset,
+  person: Individual,
+  parentId: string,
+  fam: Family | undefined,
+  role: "father" | "mother",
+): void {
+  const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
+  const parent = dataset.individuals.get(parentId);
+  if (!parent) return;
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    addFamilyChild(fam, person.id);
+    if (!person.raw.children.some((c) => c.tag === "FAMC" && c.value === fam!.id))
+      addFamilyLink(person, "FAMC", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  setFamilySpouse(fam, tag, parentId);
+  if (!parent.raw.children.some((c) => c.tag === "FAMS" && c.value === fam!.id))
+    addFamilyLink(parent, "FAMS", fam.id);
+  rebuildFamily(dataset, fam);
+  rebuildIndividual(dataset, parent);
+}
+
+/**
+ * Connect an existing individual as a partner of `person`.
+ * If `fam` is given (an existing spouse family missing the other role),
+ * the individual fills that slot; otherwise a new family is created.
+ */
+export function connectExistingPartner(
+  dataset: Dataset,
+  person: Individual,
+  partnerId: string,
+  fam: Family | undefined,
+): void {
+  const partner = dataset.individuals.get(partnerId);
+  if (!partner) return;
+
+  const personTag: "HUSB" | "WIFE" = fam
+    ? fam.husband === person.id ? "HUSB" : "WIFE"
+    : person.sex === "F" ? "WIFE" : "HUSB";
+  const partnerTag: "HUSB" | "WIFE" = personTag === "HUSB" ? "WIFE" : "HUSB";
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    setFamilySpouse(fam, personTag, person.id);
+    if (!person.raw.children.some((c) => c.tag === "FAMS" && c.value === fam!.id))
+      addFamilyLink(person, "FAMS", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  setFamilySpouse(fam, partnerTag, partnerId);
+  if (!partner.raw.children.some((c) => c.tag === "FAMS" && c.value === fam!.id))
+    addFamilyLink(partner, "FAMS", fam.id);
+  rebuildFamily(dataset, fam);
+  rebuildIndividual(dataset, partner);
+}
+
+/**
+ * Connect an existing individual as a child of `person`.
+ * If `fam` is given, the child is added there; otherwise a new spouse family
+ * is created for `person`.
+ */
+export function connectExistingChild(
+  dataset: Dataset,
+  person: Individual,
+  childId: string,
+  fam: Family | undefined,
+): void {
+  const child = dataset.individuals.get(childId);
+  if (!child) return;
+
+  if (!fam) {
+    fam = addFamily(dataset);
+    setFamilySpouse(fam, person.sex === "F" ? "WIFE" : "HUSB", person.id);
+    if (!person.raw.children.some((c) => c.tag === "FAMS" && c.value === fam!.id))
+      addFamilyLink(person, "FAMS", fam.id);
+    rebuildIndividual(dataset, person);
+  }
+  if (!fam.children.includes(childId)) addFamilyChild(fam, childId);
+  if (!child.raw.children.some((c) => c.tag === "FAMC" && c.value === fam!.id))
+    addFamilyLink(child, "FAMC", fam.id);
+  rebuildFamily(dataset, fam);
+  rebuildIndividual(dataset, child);
+}
+
 /** Tags used for record-level links (top-level on INDI/FAM records). */
 const RECORD_LINK_TAGS = ["WWW", "URL", "_URL", "_WEBTAG"];
 

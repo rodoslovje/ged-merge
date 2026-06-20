@@ -21,6 +21,8 @@ export const sl = {
   "edit.addMother": "+ Dodaj mater",
   "edit.addPartner": "+ Dodaj partnerja",
   "edit.addChild": "+ Dodaj otroka",
+  "edit.searchPerson": "Poišči obstoječo osebo…",
+  "edit.addNewPerson": "Dodaj novo osebo",
   "edit.noEvents": "Ni zabeleženih dogodkov",
   "edit.unknown": "—",
   "edit.empty": "Glavni GEDCOM ne vsebuje oseb za urejanje.",

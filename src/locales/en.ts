@@ -21,6 +21,8 @@ export const en = {
   "edit.addMother": "+ Add Mother",
   "edit.addPartner": "+ Add Partner",
   "edit.addChild": "+ Add Child",
+  "edit.searchPerson": "Search existing person…",
+  "edit.addNewPerson": "Add new person",
   "edit.noEvents": "No events recorded",
   "edit.unknown": "—",
   "edit.empty": "The master GEDCOM has no individuals to edit.",

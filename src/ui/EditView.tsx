@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
-import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, nameTypeLabel, primaryName } from "../match/relatives";
+import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameTypeLabel, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
 import { dateToSortKey, individualFieldRows, orderedEventTags } from "../review/fields";
@@ -16,6 +16,9 @@ import {
   addFamilyEventNode,
   addParent,
   addPartner,
+  connectExistingChild,
+  connectExistingParent,
+  connectExistingPartner,
   detachChildFromFamily,
   detachSpouseRole,
   insertRecord,
@@ -216,6 +219,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const [notesAdded, setNotesAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
   const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
+  const [pickingSlot, setPickingSlot] = useState<{ kind: "father" | "mother" | "partner" | "child"; fam: Family | undefined } | null>(null);
   // Incremented on every undo/redo so components with local state re-mount and
   // pick up the restored GEDCOM data rather than showing stale values.
   const [undoVersion, setUndoVersion] = useState(0);
@@ -321,6 +325,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     if (selectedId) setHistory((h) => [...h, selectedId]);
     setLinksAdded(false);
     setNotesAdded(false);
+    setPickingSlot(null);
     setSelectedId(id);
   }
 
@@ -524,6 +529,54 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     navigate(added.id);
   }
 
+  function connectRelative(kind: "father" | "mother" | "partner" | "child", existingId: string, fam?: Family) {
+    if (!person) return;
+    const existing = dataset.individuals.get(existingId);
+    if (!existing) return;
+
+    const beforePerson = cloneRaw(person.raw);
+    const beforeExisting = cloneRaw(existing.raw);
+    const beforeFam = fam ? cloneRaw(fam.raw) : null;
+    const prevSpouseOf = new Set(person.spouseOf);
+    const prevChildOf = new Set(person.childOf);
+
+    if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
+    else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
+    else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
+    else connectExistingChild(dataset, person, existingId, fam);
+
+    const patches: RecordPatch[] = [
+      { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
+      { type: "individual", id: existingId, before: beforeExisting, after: cloneRaw(existing.raw) },
+    ];
+    if (fam) {
+      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
+    } else {
+      const seenFams = new Set<string>();
+      const updatedPerson = dataset.individuals.get(person.id);
+      const updatedExisting = dataset.individuals.get(existingId);
+      for (const famId of [
+        ...(updatedPerson?.spouseOf ?? []),
+        ...(updatedPerson?.childOf ?? []),
+        ...(updatedExisting?.spouseOf ?? []),
+        ...(updatedExisting?.childOf ?? []),
+      ]) {
+        if (!prevSpouseOf.has(famId) && !prevChildOf.has(famId) && !seenFams.has(famId)) {
+          seenFams.add(famId);
+          const newFam = dataset.families.get(famId);
+          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+        }
+      }
+    }
+
+    onPushEdit(patches, selectedId);
+    onDirty("individual", person.id);
+    onDirty("individual", existingId);
+    if (fam) onDirty("family", fam.id);
+    setPickingSlot(null);
+    setTick((v) => v + 1);
+  }
+
   function personName(id: string | undefined): string {
     if (!id) return "";
     const indi = dataset.individuals.get(id);
@@ -698,29 +751,55 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => {
             const fatherName = personName(fam?.husband);
             const motherName = personName(fam?.wife);
+            const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
+            const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
             return (
               <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
-                <PersonCard
-                  individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
-                  roleLabel={t("field.father")}
-                  placeholder={t("edit.addFather")}
-                  onSelect={navigate}
-                  onAdd={() => addRelative("father", fam)}
-                  onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
-                  removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
-                  {...cardKinship(fam?.husband)}
-                />
+                {fatherPickerOpen && !fam?.husband ? (
+                  <RelativePickerCard
+                    roleLabel={t("field.father")}
+                    individuals={dataset.individuals}
+                    excludeId={person.id}
+                    onPickExisting={(id) => connectRelative("father", id, fam)}
+                    onAddNew={() => { setPickingSlot(null); addRelative("father", fam); }}
+                    onCancel={() => setPickingSlot(null)}
+                    t={t}
+                  />
+                ) : (
+                  <PersonCard
+                    individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
+                    roleLabel={t("field.father")}
+                    placeholder={t("edit.addFather")}
+                    onSelect={navigate}
+                    onAdd={() => setPickingSlot({ kind: "father", fam })}
+                    onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
+                    removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
+                    {...cardKinship(fam?.husband)}
+                  />
+                )}
                 <div className="edit-connector-h" />
-                <PersonCard
-                  individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
-                  roleLabel={t("field.mother")}
-                  placeholder={t("edit.addMother")}
-                  onSelect={navigate}
-                  onAdd={() => addRelative("mother", fam)}
-                  onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
-                  removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
-                  {...cardKinship(fam?.wife)}
-                />
+                {motherPickerOpen && !fam?.wife ? (
+                  <RelativePickerCard
+                    roleLabel={t("field.mother")}
+                    individuals={dataset.individuals}
+                    excludeId={person.id}
+                    onPickExisting={(id) => connectRelative("mother", id, fam)}
+                    onAddNew={() => { setPickingSlot(null); addRelative("mother", fam); }}
+                    onCancel={() => setPickingSlot(null)}
+                    t={t}
+                  />
+                ) : (
+                  <PersonCard
+                    individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
+                    roleLabel={t("field.mother")}
+                    placeholder={t("edit.addMother")}
+                    onSelect={navigate}
+                    onAdd={() => setPickingSlot({ kind: "mother", fam })}
+                    onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
+                    removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
+                    {...cardKinship(fam?.wife)}
+                  />
+                )}
               </div>
             );
           })}
@@ -812,20 +891,33 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             const emptyFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
               (tag) => !shownFamilyTags.includes(tag),
             );
+            const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
+            const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
             return (
               <div className="edit-family" key={fam?.id ?? `empty-${i}`}>
                 <div className="edit-family-header">
                   <div className="person-card-role">{t("field.partners")}</div>
                   <div className="edit-family-card-row">
-                    <PersonCard
-                      individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
-                      placeholder={t("edit.addPartner")}
-                      onSelect={navigate}
-                      onAdd={() => addRelative("partner", fam)}
-                      onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
-                      removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
-                      {...cardKinship(partnerId)}
-                    />
+                    {partnerPickerOpen && !partnerId ? (
+                      <RelativePickerCard
+                        individuals={dataset.individuals}
+                        excludeId={person.id}
+                        onPickExisting={(id) => connectRelative("partner", id, fam)}
+                        onAddNew={() => { setPickingSlot(null); addRelative("partner", fam); }}
+                        onCancel={() => setPickingSlot(null)}
+                        t={t}
+                      />
+                    ) : (
+                      <PersonCard
+                        individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
+                        placeholder={t("edit.addPartner")}
+                        onSelect={navigate}
+                        onAdd={() => setPickingSlot({ kind: "partner", fam })}
+                        onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
+                        removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
+                        {...cardKinship(partnerId)}
+                      />
+                    )}
                     {fam && (
                       <AddEventSelect
                         tags={emptyFamilyTags}
@@ -867,7 +959,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         />
                       );
                     })}
-                    <PersonCard placeholder={t("edit.addChild")} onAdd={() => addRelative("child", fam)} />
+                    {childPickerOpen ? (
+                      <RelativePickerCard
+                        individuals={dataset.individuals}
+                        excludeId={person.id}
+                        onPickExisting={(id) => connectRelative("child", id, fam)}
+                        onAddNew={() => { setPickingSlot(null); addRelative("child", fam); }}
+                        onCancel={() => setPickingSlot(null)}
+                        t={t}
+                      />
+                    ) : (
+                      <PersonCard placeholder={t("edit.addChild")} onAdd={() => setPickingSlot({ kind: "child", fam })} />
+                    )}
                   </div>
                 </div>
                 {fam && (
@@ -885,6 +988,106 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Inline picker that lets the user either search for an existing person or add a new one. */
+function RelativePickerCard({
+  roleLabel,
+  individuals,
+  excludeId,
+  onPickExisting,
+  onAddNew,
+  onCancel,
+  t,
+}: {
+  roleLabel?: string;
+  individuals: Map<string, Individual>;
+  excludeId: string;
+  onPickExisting: (id: string) => void;
+  onAddNew: () => void;
+  onCancel: () => void;
+  t: Translate;
+}) {
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) onCancel();
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [onCancel]);
+
+  const options = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return [...individuals.values()]
+      .filter((i) => i.id !== excludeId)
+      .map((i) => ({ id: i.id, text: lifespanLabel(i) }))
+      .sort((a, b) => a.text.localeCompare(b.text))
+      .filter((o) => !q || o.text.toLowerCase().includes(q))
+      .slice(0, 10);
+  }, [individuals, excludeId, query]);
+
+  useEffect(() => { setActiveIdx(0); }, [query]);
+
+  const totalItems = options.length + 1; // options + "Add new"
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") { onCancel(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, totalItems - 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIdx === 0) onAddNew();
+      else onPickExisting(options[activeIdx - 1].id);
+    }
+  }
+
+  return (
+    <div className="person-card-wrap" ref={containerRef}>
+      {roleLabel && <div className="person-card-role">{roleLabel}</div>}
+      <div className="relative-picker">
+        <input
+          ref={inputRef}
+          className="relative-picker-input"
+          placeholder={t("edit.searchPerson")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <ul className="relative-picker-list">
+          <li>
+            <button
+              className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
+              onMouseEnter={() => setActiveIdx(0)}
+              onMouseDown={(e) => { e.preventDefault(); onAddNew(); }}
+            >
+              + {t("edit.addNewPerson")}
+            </button>
+          </li>
+          {options.map((o, i) => (
+            <li key={o.id}>
+              <button
+                className={`relative-picker-option${i + 1 === activeIdx ? " highlighted" : ""}`}
+                onMouseEnter={() => setActiveIdx(i + 1)}
+                onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
+              >
+                {o.text}
+              </button>
+            </li>
+          ))}
+          {options.length === 0 && query.trim() && (
+            <li className="relative-picker-empty muted">{t("home.noMatches")}</li>
+          )}
+        </ul>
       </div>
     </div>
   );
