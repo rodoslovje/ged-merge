@@ -192,6 +192,54 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   });
 });
 
+describe("mergeDecisions — family touched via both confirmed spouses", () => {
+  // Both spouses already exist in master and are independently confirmed as
+  // matches to the incoming pair, so the shared family is visited twice (once
+  // per spouse) while stitching in their marriage facts.
+  const master = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1900\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1900\n2 NOTE Civil ceremony\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { masterId: "@I1@", compareId: "@P1@" },
+      { masterId: "@I2@", compareId: "@P2@" },
+    ],
+  } as never;
+
+  // Confirm both spouses, each choosing "both" for the marriage note — an
+  // append-style choice, so applying it twice would duplicate the NOTE line.
+  const decisions = new Map<string, CandidateDecision>([
+    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.MARR.note": "both" } }],
+    [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: { "fam.@G1@.MARR.note": "both" } }],
+  ]);
+
+  const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+  const out = serializeGedcom(records);
+
+  it("applies the append-style marriage note only once, not per spouse", () => {
+    expect(out.match(/2 NOTE Civil ceremony/g)).toHaveLength(1);
+  });
+
+  it("labels the family husband + wife, in that order", () => {
+    expect(report.recordLabels["@F1@"]).toBe("Janez Novak + Marija Kos");
+    expect(report.familySpouses["@F1@"]).toEqual([
+      { id: "@I1@", name: "Janez Novak" },
+      { id: "@I2@", name: "Marija Kos" },
+    ]);
+  });
+});
+
 describe("mergeDecisions — individual relations (parents & partners)", () => {
   // Master has the people but @I1@ has no parents and no spouse linked.
   const master = dataset(

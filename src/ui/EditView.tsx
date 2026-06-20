@@ -44,7 +44,7 @@ import {
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
-import { SourceBadges } from "./SourceBadge";
+import { SourceRefs } from "./SourceRef";
 
 // Assign a monotonically increasing integer to each GedNode object so React
 // keys remain stable across insertions and removals of sibling events.
@@ -1129,6 +1129,62 @@ const ClearableInput = forwardRef<
   );
 });
 
+/** Multi-line counterpart to {@link ClearableInput}, for fields (e.g. event
+ * notes) that may carry several lines of text, matching how the Compare panel
+ * renders a multi-line value as stacked lines. */
+const ClearableTextarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    onClear: () => void;
+    wrapStyle?: React.CSSProperties;
+    wrapClassName?: string;
+  }
+>(function ClearableTextarea({ value, onClear, wrapStyle, wrapClassName, className, ...rest }, ref) {
+  const innerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Grow the textarea to fit its content — one line tall when short, taller
+  // as it wraps or gains lines — so editing reads like the multi-line text
+  // the Compare panel renders, instead of scrolling inside a fixed box.
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <div
+      className={`clearable-wrap clearable-wrap--textarea${wrapClassName ? ` ${wrapClassName}` : ""}`}
+      style={wrapStyle}
+    >
+      <textarea
+        ref={(el) => {
+          innerRef.current = el;
+          if (typeof ref === "function") ref(el);
+          else if (ref) ref.current = el;
+        }}
+        className={className}
+        value={value}
+        {...rest}
+      />
+      {value ? (
+        <button
+          type="button"
+          className="input-clear"
+          tabIndex={-1}
+          title={rest.title ? `${rest.title ? "Clear " + rest.title.toLowerCase() : "Clear"}` : "Clear"}
+          onMouseDown={(e) => {
+            e.preventDefault(); // keep textarea focused so onBlur fires with the cleared value
+            onClear();
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+});
+
 /** Canonical lookup: given raw user input, return the canonical casing form if
  * it matches an existing entry in the map, otherwise return the input trimmed. */
 function applyCanonical(raw: string, canonical: Map<string, string>): string {
@@ -1819,7 +1875,7 @@ function useField(initial: string, mergeInitial?: string) {
     /** True when the current value still equals the unedited merge-incoming value. */
     isMerge: mergeInitial !== undefined && value === mergeInitial,
     isDirty: value !== init.current,
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setValue(e.target.value),
     set: setValue,
     clear: () => setValue(""),
   };
@@ -1944,11 +2000,13 @@ function EventFieldsRow({
         onClear={() => { addrField.clear(); commitField({ address: "" }); }}
       />
       {(noteField.value || noteField.isMerge) && (
-        <ClearableInput
+        <ClearableTextarea
+          wrapClassName="edit-event-note-wrap"
           className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty)}
           value={noteField.value}
           placeholder={t("event.note", { event: label })}
           title={t("event.note", { event: label })}
+          rows={1}
           onChange={noteField.onChange}
           onBlur={() => commitField({ note: noteField.value })}
           onClear={() => { noteField.clear(); commitField({ note: "" }); }}
@@ -2009,7 +2067,7 @@ function EventFieldsRow({
       ))}
       {ev?.sources?.length ? (
         <div className="edit-event-sources">
-          <SourceBadges t={t} masterSources={ev.sources} />
+          <SourceRefs t={t} masterSources={ev.sources} />
         </div>
       ) : null}
     </div>

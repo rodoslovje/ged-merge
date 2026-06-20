@@ -5,7 +5,7 @@ import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { FieldValue, RelativeGrid } from "./FieldValue";
-import { SourceBadges } from "./SourceBadge";
+import { SourceRefs } from "./SourceRef";
 import {
   defaultChoice,
   type CandidateDecision,
@@ -109,10 +109,10 @@ export function ComparePanel({
                 ) : hasSources ? (
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceBadges t={t} masterSources={row.masterSources} />
+                      <SourceRefs t={t} masterSources={row.masterSources} />
                     </td>
                     <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceBadges t={t} masterSources={row.incomingSources} />
+                      <SourceRefs t={t} masterSources={row.incomingSources} />
                     </td>
                   </>
                 ) : (

@@ -1,5 +1,5 @@
 import type { Dataset, GedNode } from "./types";
-import type { ChangeReport, FieldChange } from "../merge/merge";
+import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { parseName } from "./name";
 
@@ -202,6 +202,7 @@ export function buildEditReport(
   const changes: FieldChange[] = [];
   const recordLabels: Record<string, string> = {};
   const recordKinds: Record<string, "individual" | "family"> = {};
+  const familySpouses: Record<string, FamilySpouseInfo[]> = {};
   let newPersons = 0;
   let newFamilies = 0;
 
@@ -237,13 +238,15 @@ export function buildEditReport(
     // Prefer current fam's HUSB/WIFE; fall back to snapshot xrefs if member was deleted
     const husbandId = fam?.husband ?? famSnap?.children.find((c) => c.tag === "HUSB")?.value?.trim();
     const wifeId = fam?.wife ?? famSnap?.children.find((c) => c.tag === "WIFE")?.value?.trim();
-    const label =
-      [resolveIndiName(husbandId), resolveIndiName(wifeId)]
-        .filter(Boolean)
-        .join(" & ") || id;
+    const entries: FamilySpouseInfo[] = [];
+    for (const spouseId of [husbandId, wifeId]) {
+      const name = resolveIndiName(spouseId);
+      if (name) entries.push({ id: spouseId, name });
+    }
     const isNew = !loadedFamilyIds.has(id);
-    recordLabels[id] = label;
+    recordLabels[id] = entries.map((e) => e.name).join(" + ") || id;
     recordKinds[id] = "family";
+    if (entries.length) familySpouses[id] = entries;
     changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew });
     if (isNew) newFamilies++;
   }
@@ -258,6 +261,7 @@ export function buildEditReport(
     placesNoted: 0,
     recordLabels,
     recordKinds,
+    familySpouses,
   };
 }
 
@@ -274,6 +278,7 @@ export function combineReports(a: ChangeReport, b: ChangeReport): ChangeReport {
     placesNoted: a.placesNoted + b.placesNoted,
     recordLabels: { ...a.recordLabels, ...b.recordLabels },
     recordKinds: { ...a.recordKinds, ...b.recordKinds },
+    familySpouses: { ...a.familySpouses, ...b.familySpouses },
   };
 }
 
@@ -285,6 +290,8 @@ export function removeRecordFromReport(report: ChangeReport, id: string): Change
   delete recordLabels[id];
   const recordKinds = { ...report.recordKinds };
   delete recordKinds[id];
+  const familySpouses = { ...report.familySpouses };
+  delete familySpouses[id];
   const recordIds = new Set(changes.map((c) => c.recordId));
   return {
     ...report,
@@ -294,5 +301,6 @@ export function removeRecordFromReport(report: ChangeReport, id: string): Change
     newFamilies: removed?.newRecord && kind === "family" ? report.newFamilies - 1 : report.newFamilies,
     recordLabels,
     recordKinds,
+    familySpouses,
   };
 }

@@ -4,13 +4,13 @@ import type { Translate } from "../locales/i18n";
 import { linkHref } from "./FieldValue";
 
 /**
- * Source citation badges. When only `masterSources` is given, renders that
+ * Source citation references. When only `masterSources` is given, renders that
  * side's citations plainly (used for a single column or a read-only list).
  * When `incomingSources` is also given, any incoming citation the master
  * lacks is highlighted as new — so an event both sides agree on shows one
- * compact badge per source rather than duplicating it for each side.
+ * compact reference per source rather than duplicating it for each side.
  */
-export function SourceBadges({
+export function SourceRefs({
   t,
   masterSources,
   incomingSources,
@@ -27,28 +27,28 @@ export function SourceBadges({
   if (all.length === 0) return null;
 
   return (
-    <span className="source-badges">
+    <span className="source-refs">
       {all.map(({ c, isNew }, i) => (
-        <SourceBadgeItem key={i} t={t} citation={c} isNew={isNew} />
+        <SourceRefItem key={i} t={t} citation={c} isNew={isNew} />
       ))}
     </span>
   );
 }
 
-function SourceBadgeItem({ t, citation, isNew }: { t: Translate; citation: SourceCitation; isNew: boolean }) {
+function SourceRefItem({ t, citation, isNew }: { t: Translate; citation: SourceCitation; isNew: boolean }) {
   const label = citation.title ? truncate(citation.title, 40) : t("source.untitled");
   const pageText = citation.page ? t("source.page", { page: citation.page }) : undefined;
   const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
     .join("\n");
   const cls = [
-    "source-badge",
-    citation.url ? (citation.exact ? "" : "source-badge--fallback") : "source-badge--nolink",
-    isNew ? "source-badge--new" : "",
+    "source-ref",
+    citation.url ? (citation.exact ? "" : "source-ref--fallback") : "source-ref--nolink",
+    isNew ? "source-ref--new" : "",
   ]
     .filter(Boolean)
     .join(" ");
-  const text = <span className="source-badge-text">{pageText ? `${label}, ${pageText}` : label}</span>;
+  const text = <span className="source-ref-text">{pageText ? `${label}, ${pageText}` : label}</span>;
   return citation.url ? (
     <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={tooltip}>
       {text}

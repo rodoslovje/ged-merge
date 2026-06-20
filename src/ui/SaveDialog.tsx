@@ -121,6 +121,25 @@ export function SaveDialog({
                 const indi = kind === "individual" ? dataset?.individuals.get(g.id) : undefined;
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
+                const spouses = kind === "family" ? report.familySpouses[g.id] : undefined;
+                const headContent = spouses?.length ? (
+                  spouses.map((s, i) => {
+                    const sIndi = s.id ? dataset?.individuals.get(s.id) : undefined;
+                    const sLifespan = sIndi ? lifespanOf(sIndi) : undefined;
+                    return (
+                      <span key={s.id ?? i} className={sIndi ? sexClass(sIndi.sex) : undefined}>
+                        {i > 0 && " + "}
+                        {s.name}
+                        {sLifespan && <span className="person-years gm-data"> {sLifespan}</span>}
+                      </span>
+                    );
+                  })
+                ) : (
+                  <>
+                    {g.label}
+                    {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+                  </>
+                );
                 return (
                   <div className="preview-card" key={g.id}>
                     <div className="preview-card-head">
@@ -129,13 +148,11 @@ export function SaveDialog({
                           className={`person-link ${labelClass}`}
                           onClick={() => { onNavigate(g.id); onClose(); }}
                         >
-                          {g.label}
-                          {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+                          {headContent}
                         </button>
                       ) : (
                         <span className={labelClass}>
-                          {g.label}
-                          {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+                          {headContent}
                         </span>
                       )}
                       <span className={`preview-badge ${g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
@@ -153,22 +170,26 @@ export function SaveDialog({
                     </div>
                     {fieldRows.length > 0 && (
                       <ul className="preview-fields">
-                        {fieldRows.map((c, i) => (
-                          <li key={i}>
-                            <span className="preview-field">{c.field}</span>:{" "}
-                            {c.action === "both" || !c.from ? (
-                              <span className="preview-add">+ {c.to}</span>
-                            ) : !c.to ? (
-                              <span className="preview-from">{c.from}</span>
-                            ) : (
-                              <>
-                                <span className="preview-from">{c.from}</span>
-                                {" → "}
-                                <span className="preview-to">{c.to}</span>
-                              </>
-                            )}
-                          </li>
-                        ))}
+                        {groupFieldRows(fieldRows).map((grp, gi) =>
+                          grp.group ? (
+                            <li key={gi} className="preview-field-group">
+                              <span className="preview-field-group-label">{grp.group}</span>
+                              <ul className="preview-fields preview-fields-nested">
+                                {grp.rows.map((c, i) => (
+                                  <li key={i}>
+                                    <span className="preview-field">{c.field}</span>: <FieldValue c={c} />
+                                  </li>
+                                ))}
+                              </ul>
+                            </li>
+                          ) : (
+                            grp.rows.map((c, i) => (
+                              <li key={`${gi}-${i}`}>
+                                <span className="preview-field">{c.field}</span>: <FieldValue c={c} />
+                              </li>
+                            ))
+                          ),
+                        )}
                       </ul>
                     )}
                   </div>
@@ -199,6 +220,31 @@ export function SaveDialog({
       </div>
     </div>
   );
+}
+
+function FieldValue({ c }: { c: FieldChange }) {
+  if (c.action === "both" || !c.from) return <span className="preview-add">+ {c.to}</span>;
+  if (!c.to) return <span className="preview-from">{c.from}</span>;
+  return (
+    <>
+      <span className="preview-from">{c.from}</span>
+      {" → "}
+      <span className="preview-to">{c.to}</span>
+    </>
+  );
+}
+
+/** Collapses consecutive fields sharing the same event group (e.g. "Birth") so
+ *  the preview shows the event name once, with its date/place/note/source
+ *  fields indented underneath instead of repeating the event name each time. */
+function groupFieldRows(rows: FieldChange[]): { group?: string; rows: FieldChange[] }[] {
+  const groups: { group?: string; rows: FieldChange[] }[] = [];
+  for (const c of rows) {
+    const last = groups[groups.length - 1];
+    if (c.group && last?.group === c.group) last.rows.push(c);
+    else groups.push({ group: c.group, rows: [c] });
+  }
+  return groups;
 }
 
 function Stat({ value, label, accent, warn }: { value: number; label: string; accent?: boolean; warn?: boolean }) {

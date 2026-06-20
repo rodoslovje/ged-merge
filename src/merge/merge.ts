@@ -23,6 +23,9 @@ export interface FieldChange {
   newRecord?: boolean;
   /** Marks the placeholder change for a deleted person/family record. */
   removedRecord?: boolean;
+  /** Event name (e.g. "Birth", "Marriage") this field belongs to, so the
+   *  preview can show it once as a header above its date/place/note/source. */
+  group?: string;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */
@@ -30,6 +33,13 @@ export interface DeferredChange {
   recordId: string;
   field: string;
   reason: string;
+}
+
+/** A spouse shown on a family's preview card (husband first, then wife). */
+export interface FamilySpouseInfo {
+  /** Individual xref, when resolvable (lets the UI look up sex/lifespan). */
+  id?: string;
+  name: string;
 }
 
 export interface ChangeReport {
@@ -49,6 +59,8 @@ export interface ChangeReport {
   recordLabels: Record<string, string>;
   /** Whether each touched record is an individual or a family. */
   recordKinds: Record<string, "individual" | "family">;
+  /** Husband/wife (in that order) for each touched family record. */
+  familySpouses: Record<string, FamilySpouseInfo[]>;
 }
 
 export interface MergeResult {
@@ -69,6 +81,14 @@ const INDI_HANDLED = new Set([
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
 const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE" };
+
+/** Translation key for a bare sub-field label (event name shown separately as the group header). */
+const SUB_LABEL_KEY: Record<string, string> = {
+  date: "event.colDate",
+  place: "event.colPlace",
+  addr: "event.colAddr",
+  note: "event.colNote",
+};
 
 /**
  * Apply confirmed match decisions to a clone of the master tree, taking each
@@ -112,6 +132,7 @@ export function mergeDecisions(
     placesNoted: 0,
     recordLabels: {},
     recordKinds: {},
+    familySpouses: {},
   };
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
@@ -141,16 +162,28 @@ export function mergeDecisions(
     sortEventsByDate(target);
   }
 
-  // Label each touched family by the spouses we know about (master or added).
-  for (const [famId, names] of ctx.famSpouseNames) {
-    if (names.length) report.recordLabels[famId] = names.join(" & ");
-  }
-
   // Derive record kinds from node maps built during merge.
   for (const c of report.changes) {
     if (report.recordKinds[c.recordId]) continue;
     if (indiNodes.has(c.recordId)) report.recordKinds[c.recordId] = "individual";
     else if (famNodes.has(c.recordId)) report.recordKinds[c.recordId] = "family";
+  }
+
+  // Label each touched family by its husband/wife (pre-existing or newly
+  // stitched in), husband first then wife, for the save-preview family card.
+  for (const [id, kind] of Object.entries(report.recordKinds)) {
+    if (kind !== "family") continue;
+    const famNode = famNodes.get(id);
+    if (!famNode) continue;
+    const entries: FamilySpouseInfo[] = [];
+    for (const role of ["HUSB", "WIFE"] as const) {
+      const spouseId = famNode.children.find((c) => c.tag === role)?.value;
+      if (spouseId) entries.push({ id: spouseId, name: ctx.label(spouseId) });
+    }
+    if (entries.length) {
+      report.recordLabels[id] = entries.map((e) => e.name).join(" + ");
+      report.familySpouses[id] = entries;
+    }
   }
 
   // Import any SOUR/REPO records from compare that are now referenced in the
@@ -188,6 +221,13 @@ function applyRows(
   sourMap: SourXrefMap,
 ): void {
   let nameApplied = false;
+  // Map each event's row-key prefix (e.g. "BIRT", "BIRT.0") to its display
+  // name, so date/place/note/source changes can be grouped under one header
+  // in the save preview instead of repeating the event name on every line.
+  const eventGroups = new Map<string, string>();
+  for (const row of rows) {
+    if (row.isEventHeader) eventGroups.set(row.key.replace(/\.header$/, ""), row.label);
+  }
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "master-only") continue;
@@ -247,7 +287,8 @@ function applyRows(
     }
 
     if (applied) {
-      report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice });
+      const group = eventGroups.get(row.key.replace(/\.(date|place|addr|note|sources|value)$/, ""));
+      report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group });
       touched.add(recordId);
     }
   }
@@ -756,10 +797,9 @@ interface MergeContext {
   touched: Set<string>;
   /** How the master writes places (for reshaping incoming places on export). */
   placeFmt: PlaceTargetFormat;
-  /** Spouse display names gathered per family id, used to label the family. */
-  famSpouseNames: Map<string, string[]>;
-  /** Record a spouse's name against a family (for the merge preview/report). */
-  noteSpouse: (famId: string, name: string) => void;
+  /** Incoming family ids already stitched in by applyIndividualFamilies, so a
+   *  family shared by two confirmed spouses isn't merged in twice. */
+  processedFamIds: Set<string>;
   /** Translator for human-readable change/deferred labels. */
   t: Translate;
   /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
@@ -808,13 +848,6 @@ function makeContext(
     return { id, node };
   };
 
-  const famSpouseNames = new Map<string, string[]>();
-  const noteSpouse = (famId: string, name: string): void => {
-    const arr = famSpouseNames.get(famId) ?? [];
-    if (name && !arr.includes(name)) arr.push(name);
-    famSpouseNames.set(famId, arr);
-  };
-
   const addedLabels = new Map<string, string>();
   const addedFromIncoming = new Map<string, string>(); // incomingId → new master id
 
@@ -852,8 +885,7 @@ function makeContext(
     report,
     touched,
     placeFmt,
-    famSpouseNames,
-    noteSpouse,
+    processedFamIds: new Set<string>(),
     t,
     sourXrefMap,
   };
@@ -921,7 +953,6 @@ function applyFamilyStructure(
       }
       if (addPointer(famNode, role, targetId, FAM_CHILD_ORDER)) {
         linkBack(ctx, targetId, "FAMS", famId);
-        ctx.noteSpouse(famId, ctx.label(targetId));
         ctx.report.changes.push({
           recordId: famId,
           field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
@@ -1015,6 +1046,10 @@ function applyIndividualFamilies(
   ctx: MergeContext,
 ): void {
   for (const incFamId of incomingIndi.spouseOf) {
+    // A family with both spouses confirmed as matches is visited once per
+    // spouse; only stitch it in on the first visit, or append-style fields
+    // (notes, sources, "both" choices) would be applied twice.
+    if (ctx.processedFamIds.has(incFamId)) continue;
     const incFam = compare.families.get(incFamId);
     if (!incFam) continue;
     const famKey = `fam.${incFamId}`;
@@ -1027,6 +1062,7 @@ function applyIndividualFamilies(
     };
     const wantMarriage = (["date", "place", "addr", "note", "sources"] as const).some((s) => marriageChoice(s));
     if (!takeSpouses && !takeChildren && !wantMarriage) continue;
+    ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
     const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
@@ -1053,10 +1089,11 @@ function applyIndividualFamilies(
       if (applied) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
-          field: ctx.t(`merge.field.marriage.${sub}`),
+          field: ctx.t(SUB_LABEL_KEY[sub]),
           from: "",
           to: rowIncoming,
           action: choice,
+          group: ctx.t("event.MARR"),
         });
         ctx.touched.add(famNode.xref!);
       }
@@ -1064,7 +1101,7 @@ function applyIndividualFamilies(
 
     const marrSourcesChoice = marriageChoice("sources");
     if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
-      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice });
+      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR") });
       ctx.touched.add(famNode.xref!);
     }
 
@@ -1088,10 +1125,11 @@ function applyIndividualFamilies(
         if (applied) {
           ctx.report.changes.push({
             recordId: famNode.xref!,
-            field: ctx.t(`event.${sub}`, { event: evName }),
+            field: ctx.t(SUB_LABEL_KEY[sub]),
             from: "",
             to: rowIncoming,
             action: choice,
+            group: evName,
           });
           ctx.touched.add(famNode.xref!);
         }
@@ -1100,7 +1138,7 @@ function applyIndividualFamilies(
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
         if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
-          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice });
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName });
           ctx.touched.add(famNode.xref!);
         }
       }
@@ -1153,7 +1191,6 @@ function createPersonFamily(
   const role = masterIndi.sex === "F" ? "WIFE" : "HUSB";
   addPointer(fam.node, role, masterId, FAM_CHILD_ORDER);
   linkBack(ctx, masterId, "FAMS", fam.id);
-  ctx.noteSpouse(fam.id, ctx.label(masterId));
   return fam.node;
 }
 
@@ -1197,7 +1234,6 @@ function setSpouseSlot(
   }
   addPointer(famNode, role, personId, FAM_CHILD_ORDER);
   linkBack(ctx, personId, "FAMS", famId);
-  ctx.noteSpouse(famId, ctx.label(personId));
   ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming" });
   ctx.touched.add(famId);
 }

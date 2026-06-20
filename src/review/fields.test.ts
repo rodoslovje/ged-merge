@@ -266,6 +266,18 @@ describe("event sort key — precision and qualifier", () => {
     ]);
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("DEAT.header"));
   });
+
+  it("sorts a FROM..TO period by its end date, just before a same-year event", () => {
+    // An occupation held 1963-1981 should land right before a 1981 residence,
+    // not at its start year (1963).
+    const keys = orderedHeaders([
+      { tag: "RESI", date: "1963" },
+      { tag: "OCCU", date: "FROM 1963 TO 1981" },
+      { tag: "RESI", date: "1981" },
+    ]);
+    expect(keys.indexOf("RESI.0.header")).toBeLessThan(keys.indexOf("OCCU.header"));
+    expect(keys.indexOf("OCCU.header")).toBeLessThan(keys.indexOf("RESI.1.header"));
+  });
 });
 
 describe("event ordering", () => {

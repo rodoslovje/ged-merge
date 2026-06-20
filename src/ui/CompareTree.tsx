@@ -5,7 +5,7 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { FieldValue, RelativeGrid } from "./FieldValue";
-import { SourceBadges } from "./SourceBadge";
+import { SourceRefs } from "./SourceRef";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
@@ -751,10 +751,10 @@ function NodeCompare({
                 ) : hasSources ? (
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceBadges t={t} masterSources={row.masterSources} />
+                      <SourceRefs t={t} masterSources={row.masterSources} />
                     </td>
                     <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceBadges t={t} masterSources={row.incomingSources} />
+                      <SourceRefs t={t} masterSources={row.incomingSources} />
                     </td>
                   </>
                 ) : (

@@ -871,12 +871,16 @@ function effectiveSortKey(
  */
 export function dateToSortKey(d: GedDate | undefined): number {
   if (!d || d.year == null) return 9_999_999;
-  const base = d.year * 10000;
-  if (d.qualifier === "before") return base - 1;
-  if (d.qualifier === "after") return base + 9999;
-  const m = d.month;
+  if (d.qualifier === "before") return d.year * 10000 - 1;
+  if (d.qualifier === "after") return d.year * 10000 + 9999;
+  // FROM..TO periods (e.g. an occupation held over several years) sort by their
+  // end date, so they land next to whatever else was happening when they ended.
+  const useEnd = d.qualifier === "range" && d.year2 != null;
+  const year = useEnd ? d.year2! : d.year;
+  const m = useEnd ? d.month2 : d.month;
+  const day = useEnd ? d.day2 : d.day;
+  const base = year * 10000;
   if (!m) return base + 9000;            // year-only → after any known date in year
-  const day = d.day;
   if (!day) return base + m * 100 + 50;  // month-only → mid-month
   return base + m * 100 + day;
 }
