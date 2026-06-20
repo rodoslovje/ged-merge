@@ -11,6 +11,9 @@ const EN_HEADER =
 const FAMILY_HEADER =
   '"Husband Name","Husband Surname","Husband Birth","Wife Name","Wife Surname","Wife Birth","Date of Marriage","Place of Marriage","Links","Children","Husband\'s Father","Husband\'s Mother","Wife\'s Father","Wife\'s Mother","Genealogist","Confidence"';
 
+const FAMILY_HEADER_SL =
+  '"Ime moža","Priimek moža","Rojstvo moža","Ime žene","Priimek žene","Rojstvo žene","Datum poroke","Kraj poroke","Povezave","Otroci","Oče moža","Mati moža","Oče žene","Mati žene","Rodoslovec","Zaupanje"';
+
 function row(cells: string[]): string {
   return cells.map((c) => `"${c.replace(/"/g, '""')}"`).join(",");
 }
@@ -217,6 +220,40 @@ describe("parseGiMatchesCsv", () => {
 
     const { pairs } = parseGiMatchesCsv(text);
     expect(pairs).toHaveLength(1);
+  });
+
+  it("resolves a family match (Slovenian header) into husband and wife pairs", () => {
+    const masterRow = row([
+      "Anton", "Tabar", "7 JUN 1904",
+      "Frančiška", "Bernard (Tabar)", "6 MAR 1904",
+      "1 FEB 1931", "",
+      "", "Justina Tabar | 1932; Marijan Tabar | 11 JUL 1933; <private>",
+      "", "", "Jakob Bernard | 12 JUL 1879", "Frančiška Berčič | 29 JAN 1881",
+      "Renko", "97",
+    ]);
+    const incomingRow = row([
+      "Anton", "Tabar", "7 JUN 1904",
+      "Frančiška", "Bernard", "6 MAR 1904",
+      "1 FEB 1931", "",
+      "", "<private>; <private>; <private>",
+      "", "", "Jakob Bernard | 12 JUL 1879", "Frančiška Berčič | 29 JAN 1881",
+      "Kovačič", "97",
+    ]);
+    const text = `${FAMILY_HEADER_SL}\n${masterRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { masterKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1H@" },
+      { masterKey: { given: "Frančiška", surname: "Bernard (Tabar)", birthYear: 1904 }, compareId: "@SGI1W@" },
+    ]);
+
+    const husband = dataset.individuals.get("@SGI1H@")!;
+    const wife = dataset.individuals.get("@SGI1W@")!;
+    expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Anton", surname: "Tabar" }));
+    expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Bernard" }));
+
+    expect(fatherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Bernard" }));
+    expect(motherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Berčič" }));
   });
 
   it("resolves a family match (Husband/Wife header) into husband and wife pairs", () => {

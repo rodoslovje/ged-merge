@@ -251,11 +251,8 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
   return undefined;
 }
 
-/**
- * Column header set for the "family matches" CSV: pairs of rows describing a
- * couple (husband + wife) rather than a single person. Only known in English
- * so far — not yet translated for the other UI languages.
- */
+/** Column header set for the "family matches" CSV: pairs of rows describing a
+ * couple (husband + wife) rather than a single person. */
 interface FamilyColumnSet {
   husbandName: string;
   husbandSurname: string;
@@ -276,33 +273,125 @@ interface FamilyColumnSet {
 
 type FamilyField = keyof FamilyColumnSet;
 
-const FAMILY_COLUMNS: FamilyColumnSet = {
-  husbandName: "Husband Name",
-  husbandSurname: "Husband Surname",
-  husbandBirth: "Husband Birth",
-  wifeName: "Wife Name",
-  wifeSurname: "Wife Surname",
-  wifeBirth: "Wife Birth",
-  marriageDate: "Date of Marriage",
-  marriagePlace: "Place of Marriage",
-  links: "Links",
-  children: "Children",
-  husbandFather: "Husband's Father",
-  husbandMother: "Husband's Mother",
-  wifeFather: "Wife's Father",
-  wifeMother: "Wife's Mother",
-  genealogist: "Genealogist",
+/** Per-language column header translations for the family CSV format. */
+const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
+  en: {
+    husbandName: "Husband Name",
+    husbandSurname: "Husband Surname",
+    husbandBirth: "Husband Birth",
+    wifeName: "Wife Name",
+    wifeSurname: "Wife Surname",
+    wifeBirth: "Wife Birth",
+    marriageDate: "Date of Marriage",
+    marriagePlace: "Place of Marriage",
+    links: "Links",
+    children: "Children",
+    husbandFather: "Husband's Father",
+    husbandMother: "Husband's Mother",
+    wifeFather: "Wife's Father",
+    wifeMother: "Wife's Mother",
+    genealogist: "Genealogist",
+  },
+  sl: {
+    husbandName: "Ime moža",
+    husbandSurname: "Priimek moža",
+    husbandBirth: "Rojstvo moža",
+    wifeName: "Ime žene",
+    wifeSurname: "Priimek žene",
+    wifeBirth: "Rojstvo žene",
+    marriageDate: "Datum poroke",
+    marriagePlace: "Kraj poroke",
+    links: "Povezave",
+    children: "Otroci",
+    husbandFather: "Oče moža",
+    husbandMother: "Mati moža",
+    wifeFather: "Oče žene",
+    wifeMother: "Mati žene",
+    genealogist: "Rodoslovec",
+  },
+  hr: {
+    husbandName: "Ime muža",
+    husbandSurname: "Prezime muža",
+    husbandBirth: "Rođenje muža",
+    wifeName: "Ime žene",
+    wifeSurname: "Prezime žene",
+    wifeBirth: "Rođenje žene",
+    marriageDate: "Datum vjenčanja",
+    marriagePlace: "Mjesto vjenčanja",
+    links: "Poveznice",
+    children: "Djeca",
+    husbandFather: "Otac muža",
+    husbandMother: "Majka muža",
+    wifeFather: "Otac žene",
+    wifeMother: "Majka žene",
+    genealogist: "Rodoslovac",
+  },
+  de: {
+    husbandName: "Vorname des Ehemanns",
+    husbandSurname: "Nachname des Ehemanns",
+    husbandBirth: "Geburt des Ehemanns",
+    wifeName: "Vorname der Ehefrau",
+    wifeSurname: "Nachname der Ehefrau",
+    wifeBirth: "Geburt der Ehefrau",
+    marriageDate: "Heiratsdatum",
+    marriagePlace: "Heiratsort",
+    links: "Links",
+    children: "Kinder",
+    husbandFather: "Vater des Ehemanns",
+    husbandMother: "Mutter des Ehemanns",
+    wifeFather: "Vater der Ehefrau",
+    wifeMother: "Mutter der Ehefrau",
+    genealogist: "Genealoge",
+  },
+  hu: {
+    husbandName: "Férj utóneve",
+    husbandSurname: "Férj vezetékneve",
+    husbandBirth: "Férj születése",
+    wifeName: "Feleség utóneve",
+    wifeSurname: "Feleség vezetékneve",
+    wifeBirth: "Feleség születése",
+    marriageDate: "Házasságkötés dátuma",
+    marriagePlace: "Házasságkötés helye",
+    links: "Hivatkozások",
+    children: "Gyermekek",
+    husbandFather: "Férj apja",
+    husbandMother: "Férj anyja",
+    wifeFather: "Feleség apja",
+    wifeMother: "Feleség anyja",
+    genealogist: "Genealógus",
+  },
+  it: {
+    husbandName: "Nome del marito",
+    husbandSurname: "Cognome del marito",
+    husbandBirth: "Nascita del marito",
+    wifeName: "Nome della moglie",
+    wifeSurname: "Cognome della moglie",
+    wifeBirth: "Nascita della moglie",
+    marriageDate: "Data del matrimonio",
+    marriagePlace: "Luogo del matrimonio",
+    links: "Collegamenti",
+    children: "Figli",
+    husbandFather: "Padre del marito",
+    husbandMother: "Madre del marito",
+    wifeFather: "Padre della moglie",
+    wifeMother: "Madre della moglie",
+    genealogist: "Genealogista",
+  },
 };
 
-/** Match the header row against the family matches column set. */
+/** Match the header row against each known language's family column set. */
 function detectFamilyColumns(header: string[]): Record<FamilyField, number> | undefined {
-  const index: Partial<Record<FamilyField, number>> = {};
-  for (const [field, name] of Object.entries(FAMILY_COLUMNS) as [FamilyField, string][]) {
-    const idx = header.indexOf(name);
-    if (idx < 0) return undefined;
-    index[field] = idx;
+  for (const columns of Object.values(FAMILY_COLUMN_SETS)) {
+    const index: Partial<Record<FamilyField, number>> = {};
+    let ok = true;
+    for (const [field, name] of Object.entries(columns) as [FamilyField, string][]) {
+      const idx = header.indexOf(name);
+      if (idx < 0) { ok = false; break; }
+      index[field] = idx;
+    }
+    if (ok) return index as Record<FamilyField, number>;
   }
-  return index as Record<FamilyField, number>;
+  return undefined;
 }
 
 /**
