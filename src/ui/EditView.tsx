@@ -44,6 +44,7 @@ import {
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
+import { SourceBadges } from "./SourceBadge";
 
 // Assign a monotonically increasing integer to each GedNode object so React
 // keys remain stable across insertions and removals of sibling events.
@@ -2006,6 +2007,11 @@ function EventFieldsRow({
           </div>
         </div>
       ))}
+      {ev?.sources?.length ? (
+        <div className="edit-event-sources">
+          <SourceBadges t={t} masterSources={ev.sources} />
+        </div>
+      ) : null}
     </div>
   );
 }

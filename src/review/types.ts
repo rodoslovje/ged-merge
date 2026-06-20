@@ -1,4 +1,4 @@
-import type { Sex } from "../gedcom/types";
+import type { SourceCitation, Sex } from "../gedcom/types";
 
 /** Whether a candidate match has been acted on. */
 export type MatchDecisionStatus = "undecided" | "confirmed" | "rejected" | "deferred";
@@ -30,6 +30,9 @@ export interface FieldRow {
   /** Inline link icons shown alongside the field's text value (used for event-attached links). */
   masterLinkIcons?: string[];
   incomingLinkIcons?: string[];
+  /** Source citations attached to the event, rendered as badges in this row's value cells. */
+  masterSources?: SourceCitation[];
+  incomingSources?: SourceCitation[];
   /** Hover tooltip for the value cell (e.g. relatives' full dates behind the
    *  abbreviated "Name yyyy–yyyy" lines). */
   masterTitle?: string;

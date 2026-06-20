@@ -1,5 +1,5 @@
 import type { Dataset } from "../gedcom/types";
-import type { NormalizationReport, PlaceLayout } from "../normalize/types";
+import type { NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
@@ -38,6 +38,8 @@ export interface ParseSuccess {
   placeLayout?: PlaceLayout;
   /** Detected date format pattern of this file, e.g. "DD.MM.YYYY". */
   dateFormat?: string;
+  /** Detected source-citation convention of this file. */
+  sourceLayout?: SourceLayout;
 }
 
 export interface ParseFailure {

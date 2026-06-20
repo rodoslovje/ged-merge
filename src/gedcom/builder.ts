@@ -1,6 +1,7 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace } from "./place";
+import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import type {
   Dataset,
   Family,
@@ -8,6 +9,7 @@ import type {
   GedNode,
   Individual,
   ParseResult,
+  SourceCitation,
   Sex,
 } from "./types";
 
@@ -29,12 +31,15 @@ export function buildDataset(parsed: ParseResult): Dataset {
   // Shared multimedia (OBJE) records hold their URL in a FILE line; records
   // attach them by pointer (`1 OBJE @xref@`), so resolve those up front.
   const media = buildMediaLinks(parsed.records);
+  // Likewise, source (SOUR) and repository (REPO) records are shared and
+  // referenced by pointer from event-level citations.
+  const sourceCtx = buildSourceContext(parsed.records);
 
   for (const record of parsed.records) {
     if (record.tag === "INDI" && record.xref) {
-      individuals.set(record.xref, buildIndividual(record, media));
+      individuals.set(record.xref, buildIndividual(record, media, sourceCtx));
     } else if (record.tag === "FAM" && record.xref) {
-      families.set(record.xref, buildFamily(record, media));
+      families.set(record.xref, buildFamily(record, media, sourceCtx));
     }
   }
 
@@ -50,7 +55,7 @@ export function buildDataset(parsed: ParseResult): Dataset {
   };
 }
 
-export function buildIndividual(record: GedNode, media: MediaLinks): Individual {
+export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext): Individual {
   const names: Individual["names"] = [];
   const events: GedEvent[] = [];
   const childOf: string[] = [];
@@ -80,7 +85,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks): Individual 
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
-        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
+        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
         else collectLinks(child, media, links);
     }
   }
@@ -91,7 +96,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks): Individual 
   return indi;
 }
 
-export function buildFamily(record: GedNode, media: MediaLinks): Family {
+export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: SourceContext): Family {
   const children: string[] = [];
   const events: GedEvent[] = [];
   const links: string[] = [];
@@ -115,7 +120,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
         collectLinks(child, media, links);
         break;
       default:
-        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media));
+        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
         else collectLinks(child, media, links);
     }
   }
@@ -128,7 +133,7 @@ export function buildFamily(record: GedNode, media: MediaLinks): Family {
   return fam;
 }
 
-function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
+function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
   const dateNode = node.children.find((c) => c.tag === "DATE");
@@ -147,6 +152,11 @@ function buildEvent(node: GedNode, media: MediaLinks): GedEvent {
   if (noteNode?.value) event.note = noteNode.value.trim();
   const links = collectLinks(node, media);
   if (links.length) event.links = dedupe(links);
+  const sources = node.children
+    .filter((c) => c.tag === "SOUR")
+    .map((c) => resolveSourceCitation(c, sourceCtx))
+    .filter((s): s is SourceCitation => !!s);
+  if (sources.length) event.sources = sources;
   return event;
 }
 

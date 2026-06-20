@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
+import { inferSourceFormat } from "../gedcom/source";
 import type { Dataset } from "../gedcom/types";
 import { inferDateLayout, inferMasterProfile, inferPlaceLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
@@ -79,6 +80,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         dataset,
         placeLayout: profile.place.layout,
         dateFormat: inferDateLayout(dataset),
+        sourceLayout: inferSourceFormat(dataset.records).layout,
       });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
@@ -112,14 +114,15 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   // Report the format we detected in the incoming file itself (before it is
   // normalized to the master's conventions).
   const dateFormat = inferDateLayout(rawDataset);
+  const sourceLayout = inferSourceFormat(rawDataset.records).layout;
   if (!profile) {
     compareNormalized = rawDataset;
-    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat });
+    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat, sourceLayout });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile);
   compareNormalized = dataset;
-  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat });
+  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat, sourceLayout });
 }
 
 /** Run matching once both sides are available, ranked if a home person is set. */

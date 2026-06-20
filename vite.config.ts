@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
@@ -7,6 +8,16 @@ export default defineConfig({
   // Use relative base so the static build can be hosted from any subpath
   // (GitHub Pages project sites, etc.).
   base: "./",
+  build: {
+    rollupOptions: {
+      // Multi-page build: the app shell, plus a static, crawlable /guide
+      // page for SEO (no client-side router exists to serve it otherwise).
+      input: {
+        main: resolve(__dirname, "index.html"),
+        guide: resolve(__dirname, "guide/index.html"),
+      },
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

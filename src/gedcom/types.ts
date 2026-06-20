@@ -137,6 +137,29 @@ export interface GedPlace {
   detail?: string;
 }
 
+/**
+ * A source citation (`SOUR`) attached to an event, resolved from a pointer to
+ * a top-level `SOUR` record (or, for simpler exporters, the citation's own
+ * free-text value). See `gedcom/source.ts` for how `url`/`exact` are derived.
+ */
+export interface SourceCitation {
+  /** The cited source's xref (e.g. "@S123@"), or the literal text for an inline citation. */
+  sourceId: string;
+  /** SOUR.TITL, or an "AUTH, PUBL" fallback when there is no title. */
+  title?: string;
+  /** SOUR.AGNC — the archive/agency that holds the source. */
+  agency?: string;
+  /** SOUR.FILN — an archival filing/book number. */
+  filingNumber?: string;
+  /** The citation's own `PAGE` sub-tag, e.g. a folio or page number. */
+  page?: string;
+  /** Best link we could resolve: the exact cited page, the source's only
+   *  image, or (last resort) the holding repository's website. */
+  url?: string;
+  /** True when `url` points at the precise cited page rather than a fallback. */
+  exact: boolean;
+}
+
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
 export interface GedEvent {
   tag: string;
@@ -156,6 +179,8 @@ export interface GedEvent {
   note?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
+  /** Source citations (`SOUR`) attached to this event. */
+  sources?: SourceCitation[];
 }
 
 export interface Individual {

@@ -1,4 +1,5 @@
 import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS } from "./builder";
+import { buildSourceContext } from "./source";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -618,7 +619,8 @@ export function setFamilyLinks(fam: Family, links: string[]): void {
  */
 export function rebuildIndividual(dataset: Dataset, indi: Individual): Individual {
   const media = buildMediaLinks(dataset.records);
-  const rebuilt = buildIndividual(indi.raw, media);
+  const sourceCtx = buildSourceContext(dataset.records);
+  const rebuilt = buildIndividual(indi.raw, media, sourceCtx);
   dataset.individuals.set(rebuilt.id, rebuilt);
   return rebuilt;
 }
@@ -629,7 +631,8 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
  */
 export function rebuildFamily(dataset: Dataset, fam: Family): Family {
   const media = buildMediaLinks(dataset.records);
-  const rebuilt = buildFamily(fam.raw, media);
+  const sourceCtx = buildSourceContext(dataset.records);
+  const rebuilt = buildFamily(fam.raw, media, sourceCtx);
   dataset.families.set(rebuilt.id, rebuilt);
   return rebuilt;
 }

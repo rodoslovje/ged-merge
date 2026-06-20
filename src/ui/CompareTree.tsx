@@ -5,6 +5,7 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { FieldValue, RelativeGrid } from "./FieldValue";
+import { SourceBadges } from "./SourceBadge";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
@@ -733,6 +734,7 @@ function NodeCompare({
             // Read-only here, but mark the value that would be kept (master, else
             // incoming) in bold — the same emphasis as the main compare screen.
             const choice = defaultChoice(row);
+            const hasSources = !!(row.masterSources || row.incomingSources);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.displayLabel ?? row.label}</td>
@@ -746,6 +748,15 @@ function NodeCompare({
                       incomingPerson={incomingPerson}
                     />
                   </td>
+                ) : hasSources ? (
+                  <>
+                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceBadges t={t} masterSources={row.masterSources} />
+                    </td>
+                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceBadges t={t} masterSources={row.incomingSources} />
+                    </td>
+                  </>
                 ) : (
                   <>
                     <td

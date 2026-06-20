@@ -7,7 +7,7 @@ import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultHomeId } from "./match/relatives";
-import type { NormalizationReport, PlaceLayout } from "./normalize/types";
+import type { NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
@@ -42,6 +42,7 @@ interface LoadedFile {
   report?: NormalizationReport;
   placeLayout?: PlaceLayout;
   dateFormat?: string;
+  sourceLayout?: SourceLayout;
 }
 
 type SlotState =
@@ -286,6 +287,7 @@ export function App() {
         if (msg.report) file.report = msg.report;
         if (msg.placeLayout) file.placeLayout = msg.placeLayout;
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
+        if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
         setter({ status: "loaded", file });
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });
@@ -1257,12 +1259,13 @@ export function App() {
           © 2026 Luka Renko
         </a>
         <span className="app-footer-sep">·</span>
-        <button
+        <a
+          href="guide/"
           className="app-footer-link"
-          onClick={() => setShowHelp(true)}
+          onClick={(e) => { e.preventDefault(); setShowHelp(true); }}
         >
           {t("help.title")}
-        </button>
+        </a>
         <span className="app-footer-sep">·</span>
         <button
           className="app-footer-link"

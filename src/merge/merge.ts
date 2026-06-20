@@ -229,6 +229,8 @@ function applyRows(
         : [parts[0], 0, parts[1]];
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER);
+      } else if (sub === "sources") {
+        applied = applyEventSources(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER, sourMap);
       } else {
         const subTag = SUB_TAG[sub];
         if (subTag) {
@@ -489,6 +491,35 @@ function applyEventSub(
     insertOrdered(target, event, order);
   }
   return setChild(event, subTag, incEvent!, choice, incSub);
+}
+
+/**
+ * Copy an event's `SOUR` citation children from incoming to master: "incoming"
+ * replaces the master's citations, "both" appends the incoming ones alongside
+ * them. Citation values that point at a compare-file `SOUR`/`REPO` record are
+ * remapped to that record's id in the merged output.
+ */
+function applyEventSources(
+  target: GedNode,
+  incomingRecord: GedNode,
+  tag: string,
+  choice: FieldChoice,
+  eventIdx: number,
+  order: string[],
+  sourMap: SourXrefMap,
+): boolean {
+  const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
+  const incSours = incEvents[eventIdx]?.children.filter((c) => c.tag === "SOUR") ?? [];
+  if (incSours.length === 0) return false;
+  const masterEvents = target.children.filter((c) => c.tag === tag);
+  let event = masterEvents[eventIdx];
+  if (!event) {
+    event = newNode(tag);
+    insertOrdered(target, event, order);
+  }
+  if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
+  for (const s of incSours) event.children.push(cloneNodeRemapped(s, sourMap));
+  return true;
 }
 
 /**
@@ -994,7 +1025,7 @@ function applyIndividualFamilies(
       const key = `${famKey}.MARR.${sub}`;
       return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
     };
-    const wantMarriage = (["date", "place", "addr"] as const).some((s) => marriageChoice(s));
+    const wantMarriage = (["date", "place", "addr", "note", "sources"] as const).some((s) => marriageChoice(s));
     if (!takeSpouses && !takeChildren && !wantMarriage) continue;
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
@@ -1031,6 +1062,12 @@ function applyIndividualFamilies(
       }
     }
 
+    const marrSourcesChoice = marriageChoice("sources");
+    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
+      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice });
+      ctx.touched.add(famNode.xref!);
+    }
+
     // Engagement, Separation, Divorce — same pattern as MARR.
     for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
       const evName = ctx.t(`event.${evTag}`);
@@ -1056,6 +1093,14 @@ function applyIndividualFamilies(
             to: rowIncoming,
             action: choice,
           });
+          ctx.touched.add(famNode.xref!);
+        }
+      }
+      const evSourcesKey = `${famKey}.${evTag}.sources`;
+      if (wantsIncoming(rows, fields, evSourcesKey)) {
+        const choice = fields[evSourcesKey] ?? "incoming";
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice });
           ctx.touched.add(famNode.xref!);
         }
       }

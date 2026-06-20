@@ -126,7 +126,7 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, sourceLayout } = state.file;
   const info = [
     t("loader.version", { version: dataset.version }),
     t("loader.encoding", { charset: dataset.charset }),
@@ -136,6 +136,9 @@ function renderSummary(
   }
   if (placeLayout && placeLayout !== "unknown") {
     info.push(t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }));
+  }
+  if (sourceLayout && sourceLayout !== "unknown") {
+    info.push(t("loader.sourceFormat", { format: t(`sourceLayout.${sourceLayout}`) }));
   }
   info.push(
     t("loader.individuals", { count: dataset.individuals.size }),

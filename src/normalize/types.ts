@@ -66,6 +66,27 @@ export interface PlaceFormatProfile {
   fullCanonical: Map<string, string>;
 }
 
+/**
+ * The major source-citation conventions we detect, so citations can be
+ * resolved into a display label and a link with the right strategy:
+ *  - `paginated`  : `SOUR` records carry one media item per archive page
+ *                   (Matricula-style scans); a citation's `PAGE` is matched
+ *                   against them to find the exact page link.
+ *  - `repository` : `SOUR` records mostly link out via a `REPO` website with
+ *                   no page-level media (e.g. generic Ancestry.com sources).
+ *  - `literature` : `SOUR` records are mostly bibliographic (AUTH/PUBL/TEXT)
+ *                   with no resolvable link — books, articles.
+ *  - `inline`     : event citations are mostly free text directly on the
+ *                   `SOUR` line, not pointers to a `SOUR` record.
+ *  - `unknown`    : too little signal to classify.
+ */
+export type SourceLayout = "paginated" | "repository" | "literature" | "inline" | "unknown";
+
+export interface SourceFormatProfile {
+  /** Detected source-citation convention. */
+  layout: SourceLayout;
+}
+
 /** One before/after pair recorded for the load report. */
 export interface NormChange {
   before: string;

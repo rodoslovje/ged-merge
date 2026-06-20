@@ -1,4 +1,5 @@
-import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
+import { sourceCitationKey } from "../gedcom/source";
 import { parseDate } from "../gedcom/date";
 import { decomposePlace } from "../gedcom/place";
 import { foldToken } from "../match/text";
@@ -148,6 +149,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, incomingAddrTitle);
     const incomingNoteAll = [ce?.note, incomingNote].filter(Boolean).join("\n") || undefined;
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, incomingNoteAll);
+    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources);
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
       const cLinks = ce?.links?.length ? ce.links : undefined;
@@ -158,7 +160,9 @@ export function individualFieldRows(
           ...(cLinks ? { incomingLinkIcons: cLinks } : {}),
         };
       }
-      rows.push({ key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+      rows.push({
+        key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+      });
       rows.push(...subRows);
     }
   }
@@ -213,6 +217,7 @@ export function individualFieldRows(
       pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, incomingMarAddr, undefined, undefined, incomingMarAddrTitle);
       const incomingMarNoteAll = [cMar?.note, incomingMarNote].filter(Boolean).join("\n") || undefined;
       pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, incomingMarNoteAll);
+      pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources);
       if (marriageRows.length > 0) {
         const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
         const cMarLinks = cMar?.links?.length ? cMar.links : undefined;
@@ -223,7 +228,9 @@ export function individualFieldRows(
             ...(cMarLinks ? { incomingLinkIcons: cMarLinks } : {}),
           };
         }
-        rows.push({ key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+        rows.push({
+          key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+        });
         rows.push(...marriageRows);
       }
 
@@ -239,6 +246,7 @@ export function individualFieldRows(
         pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, incomingEvAddr, undefined, undefined, incomingEvAddrTitle);
         const incomingEvNoteAll = [cEv?.note, incomingEvNote].filter(Boolean).join("\n") || undefined;
         pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, incomingEvNoteAll);
+        pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources);
         if (etagRows.length > 0) {
           const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
           const cEvLinks = cEv?.links?.length ? cEv.links : undefined;
@@ -249,7 +257,9 @@ export function individualFieldRows(
               ...(cEvLinks ? { incomingLinkIcons: cEvLinks } : {}),
             };
           }
-          rows.push({ key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+          rows.push({
+            key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+          });
           rows.push(...etagRows);
         }
       }
@@ -627,6 +637,42 @@ function gatherLinks(record: Individual | Family | undefined): string[] {
 function linkState(master: string[], incoming: string[]): FieldState {
   const m = new Set(master.map(linkKey));
   const i = new Set(incoming.map(linkKey));
+  if (m.size && !i.size) return "master-only";
+  if (!m.size && i.size) return "incoming-only";
+  const same = m.size === i.size && [...m].every((x) => i.has(x));
+  return same ? "agree" : "conflict";
+}
+
+/**
+ * A row for an event's source citations, shown under its other fields so each
+ * side's sources sit in their own column (like any other field) rather than
+ * as badges on the event header.
+ */
+function pushSourcesRow(
+  rows: FieldRow[],
+  key: string,
+  label: string,
+  master: SourceCitation[] | undefined,
+  incoming: SourceCitation[] | undefined,
+): void {
+  const m = master ?? [];
+  const i = incoming ?? [];
+  if (m.length === 0 && i.length === 0) return;
+  rows.push({
+    key,
+    label,
+    // Keep a text form so the default merge choice (master-if-present) works.
+    master: m.map((c) => c.title ?? c.sourceId).join("\n"),
+    incoming: i.map((c) => c.title ?? c.sourceId).join("\n"),
+    state: sourcesState(m, i),
+    masterSources: m.length ? m : undefined,
+    incomingSources: i.length ? i : undefined,
+  });
+}
+
+function sourcesState(master: SourceCitation[], incoming: SourceCitation[]): FieldState {
+  const m = new Set(master.map(sourceCitationKey));
+  const i = new Set(incoming.map(sourceCitationKey));
   if (m.size && !i.size) return "master-only";
   if (!m.size && i.size) return "incoming-only";
   const same = m.size === i.size && [...m].every((x) => i.has(x));

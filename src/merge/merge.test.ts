@@ -410,6 +410,58 @@ describe("mergeDecisions — SOUR/REPO import", () => {
   });
 });
 
+describe("mergeDecisions — event source citations", () => {
+  // Master's BIRT has no citation; incoming's does.
+  const masterNoSour = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
+  const compareWithSour = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Birth register p.42\n",
+  );
+
+  it("fills in a missing citation by default", () => {
+    const master = dataset(masterNoSour);
+    const compare = dataset(compareWithSour);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 BIRT\n2 DATE 1850\n2 SOUR Birth register p.42");
+  });
+
+  it("leaves a conflicting citation on master unless explicitly chosen", () => {
+    const masterWithOwnSour = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
+    );
+    const master = dataset(masterWithOwnSour);
+    const compare = dataset(compareWithSour);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR Krstna knjiga");
+    expect(out).not.toContain("Birth register p.42");
+  });
+
+  it("replaces master's citation when incoming is chosen", () => {
+    const masterWithOwnSour = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
+    );
+    const master = dataset(masterWithOwnSour);
+    const compare = dataset(compareWithSour);
+    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "incoming" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR Birth register p.42");
+    expect(out).not.toContain("Krstna knjiga");
+  });
+
+  it("keeps both citations when both is chosen", () => {
+    const masterWithOwnSour = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
+    );
+    const master = dataset(masterWithOwnSour);
+    const compare = dataset(compareWithSour);
+    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR Krstna knjiga");
+    expect(out).toContain("2 SOUR Birth register p.42");
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();

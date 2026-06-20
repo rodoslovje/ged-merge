@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
+    <title>User's Guide — GED Merge | GEDCOM compare &amp; merge</title>
+    <meta
+      name="description"
+      content="How to compare, edit, and merge GEDCOM files in GED Merge: matching &amp; scoring, reviewing differences, resolving conflicts, and editing names, events, and family relationships — all in your browser."
+    />
+    <link rel="canonical" href="https://gedmerge.com/guide/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="User's Guide — GED Merge" />
+    <meta
+      property="og:description"
+      content="How to compare, edit, and merge GEDCOM files in GED Merge — entirely in your browser."
+    />
+    <meta property="og:url" content="https://gedmerge.com/guide/" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "GED Merge User's Guide",
+        "description": "How to compare, edit, and merge GEDCOM files in GED Merge.",
+        "url": "https://gedmerge.com/guide/",
+        "isPartOf": { "@type": "WebSite", "name": "GED Merge", "url": "https://gedmerge.com/" }
+      }
+    </script>
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with the main app (App.tsx).
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" src="/src/guide-entry.ts"></script>
+  </head>
+  <body>
+    <div class="guide-page">
+      <a class="guide-back" href="../">&larr; GED Merge</a>
+      <header class="guide-header">
+        <h1>GED Merge User's Guide</h1>
+        <p>
+          GED Merge compares, edits, and merges GEDCOM family tree files entirely in your browser — nothing is
+          uploaded. This guide covers the main concepts, the full editing workflow, and how merging works.
+        </p>
+      </header>
+
+      <article class="guide-body">
+        <section>
+          <h2>Main Concepts</h2>
+          <h3>Master &amp; Incoming</h3>
+          <p>
+            The <strong>Master</strong> file is your primary family tree. The <strong>Incoming</strong> file is the
+            tree you want to compare and merge into the Master.
+          </p>
+          <h3>Matching &amp; Scoring</h3>
+          <p>
+            The app automatically compares individuals and families between the two files. It calculates a
+            <strong>match score (0-100%)</strong> based on similarities in names, dates, places, and relationships.
+            The incoming file can be a second GEDCOM, or a matches CSV exported from indeks.rodoslovje.si.
+          </p>
+        </section>
+
+        <section>
+          <h2>Editing Your Master GEDCOM</h2>
+          <h3>Overview</h3>
+          <p>
+            Switch to <strong>Edit</strong> mode to browse and directly modify your Master GEDCOM without needing a
+            second file. Select any person from the jump-to menu at the top, or navigate by clicking a family
+            member's card. Use the <strong>Back</strong> button to return to your previous person. If the current
+            person also has a match in your incoming file, click <strong>Merge</strong> in the toolbar to jump
+            straight to that comparison. All changes stay in memory until you download the file, and can be stepped
+            back with <strong>Undo</strong> / <strong>Redo</strong> (Ctrl+Z / Ctrl+Shift+Z) in the header.
+          </p>
+          <h3>Names &amp; Identity</h3>
+          <p>
+            Given name, surname, sex, and nickname are all editable inline — click a field, type, then click away to
+            save. Use the <strong>&times;</strong> button to clear a field. Click <strong>+ Add Name</strong> to
+            attach alternative name variants (married, maiden, aka, formal, and more); each variant has its own
+            given name, surname, and type selector. Remove a variant with the <strong>&minus;</strong> button.
+          </p>
+          <h3>Events</h3>
+          <div>
+            Birth is always shown. Click <strong>+ Add Event</strong> to reveal additional events grouped by life
+            stage:
+            <ul>
+              <li><strong>Early Life:</strong> Baptism, Christening, Confirmation, Adoption, First Communion</li>
+              <li><strong>Career:</strong> Occupation, Education, Retirement</li>
+              <li>
+                <strong>Residence &amp; Movement:</strong> Residence, Emigration, Immigration, Naturalization, Census
+              </li>
+              <li><strong>Estate:</strong> Will, Probate</li>
+              <li><strong>Death:</strong> Death, Burial, Cremation</li>
+            </ul>
+            Each event row has <strong>date</strong>, <strong>place</strong>, <strong>address</strong>, and
+            <strong>note</strong> fields, plus optional per-event <strong>links</strong>. Use
+            <strong>&times;</strong> to clear a field, or the <strong>&times;</strong> at the end of the row to
+            remove the entire event.
+          </div>
+          <h3>Family Relationships</h3>
+          <div>
+            The edit panel shows three family sections:
+            <ul>
+              <li>
+                <strong>Parents:</strong> Father and mother from each parent family. Use
+                <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> to search for an existing person in
+                your tree or add a new one. The <strong>&minus;</strong> icon detaches the role without deleting the
+                person's record.
+              </li>
+              <li>
+                <strong>Partners:</strong> Use <strong>+ Add Partner</strong> to create a new spouse family the same
+                way — search existing or add new. Each spouse family shows the marriage event and lets you add
+                Engagement, Separation, or Divorce via <strong>+ Add Family Event</strong>. The
+                <strong>&minus;</strong> icon detaches the spouse without deleting them. Families also support their
+                own notes and links.
+              </li>
+              <li>
+                <strong>Children:</strong> Listed under each spouse family. Use <strong>+ Add Child</strong> to
+                search for an existing person or add a new one, or the <strong>&minus;</strong> icon to unlink a
+                child from that family without deleting them.
+              </li>
+            </ul>
+          </div>
+          <h3>Notes &amp; Links</h3>
+          <p>
+            Both individuals and families can carry free-text <strong>notes</strong> and <strong>URL links</strong>.
+            Click <strong>+ Add Note</strong> or <strong>+ Add Link</strong> to reveal the input fields. Once a link
+            is entered, an <strong>&#8599;</strong> icon opens it in a new tab. Click <strong>&times;</strong> to
+            remove any note or link.
+          </p>
+          <h3>Removing Records</h3>
+          <p>
+            <strong>Detach</strong> (the &minus; icon) only removes the family connection — both individual records
+            remain intact and can be re-linked later.
+          </p>
+          <p>
+            <strong>Delete Person</strong> (the trash icon at the bottom of the panel) permanently removes the
+            individual and unlinks them from every family they belong to. A confirmation dialog appears before
+            deletion. <strong>This cannot be undone</strong> — download a backup first if needed.
+          </p>
+          <h3>Saving Your Work</h3>
+          <p>
+            Click <strong>Save GEDCOM</strong> to open a preview listing how many persons and families were changed.
+            Click <strong>Download GEDCOM</strong> to save the edited file to your computer. Your original loaded
+            file is never modified.
+          </p>
+        </section>
+
+        <section>
+          <h2>Features &amp; Workflow</h2>
+          <h3>Reviewing Differences</h3>
+          <p>
+            Select a match from the list to see a side-by-side comparison of their data. Only fields with
+            <strong>new data</strong> or <strong>conflicts</strong> are highlighted.
+          </p>
+          <h3>Compare Tree</h3>
+          <p>
+            Click <strong>Compare Tree</strong> to visually inspect the ancestors and descendants of a matched
+            person to ensure they are exactly who you think they are. Click <strong>Edit</strong> next to it to jump
+            straight to editing the master person in Edit mode.
+          </p>
+          <h3>Resolving Conflicts</h3>
+          <p>
+            For each conflicting field, choose whether to keep the Master value (<strong>M</strong>), take the
+            Incoming value (<strong>I</strong>), or keep both (<strong>B</strong>).
+          </p>
+          <h3>Marking for Merge</h3>
+          <p>
+            Use the decision buttons or keyboard shortcuts to categorize each match as
+            <strong>Confirmed (C)</strong>, <strong>Rejected (R)</strong>, or <strong>Deferred (D)</strong>.
+          </p>
+        </section>
+
+        <section>
+          <h2>How Merging Works</h2>
+          <p>
+            When you click <strong>Save GEDCOM</strong>, the app opens a preview of all confirmed matches and edits.
+            Click <strong>Download GEDCOM</strong> there to apply your field-level choices to a copy of the Master
+            file and download it — seamlessly inserting any new individuals or families from the Incoming file that
+            are connected to those confirmed matches.
+          </p>
+          <p>
+            Your original files remain completely untouched; the merged file is downloaded to your computer
+            securely.
+          </p>
+        </section>
+
+        <section>
+          <h2>Privacy</h2>
+          <p>
+            All parsing, matching, merging, and editing happens locally in your browser via Web Workers. Your family
+            tree is never sent to a server.
+          </p>
+        </section>
+      </article>
+
+      <div class="guide-cta">
+        <p>Ready to compare or edit your own GEDCOM file?</p>
+        <a href="../">Open GED Merge</a>
+      </div>
+    </div>
+  </body>
+</html>

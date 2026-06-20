@@ -1,0 +1,93 @@
+/* Standalone /guide page — same tokens as the app (--bg/--text/--muted/
+   --accent/--border via heritage-pine.css) but its own layout, since it's a
+   plain scrolling document rather than a fixed-height app shell or modal. */
+
+.guide-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  color: var(--text);
+}
+
+.guide-back {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.guide-back:hover {
+  color: var(--accent);
+}
+
+.guide-header h1 {
+  font-size: 2rem;
+  margin: 0 0 8px;
+}
+.guide-header p {
+  color: var(--muted);
+  font-size: 1.1rem;
+  margin: 0 0 40px;
+}
+
+.guide-body h2 {
+  font-size: 1.5rem;
+  margin: 40px 0 16px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.guide-body h2:first-child {
+  margin-top: 0;
+}
+.guide-body h3 {
+  font-size: 1.15rem;
+  margin: 24px 0 8px;
+  color: var(--text);
+}
+.guide-body p,
+.guide-body > section > div {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+.guide-body ul {
+  margin: 0 0 16px;
+  padding-left: 22px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+.guide-body li {
+  margin: 6px 0;
+}
+.guide-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.guide-cta {
+  margin-top: 48px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  text-align: center;
+}
+.guide-cta p {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+.guide-cta a {
+  display: inline-block;
+  padding: 10px 22px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.guide-cta a:hover {
+  opacity: 0.9;
+}
