@@ -20,6 +20,10 @@
 .badge, .nd, .nav-pos,
 .filter-score-val, .dist,
 .comp-score, .gm-data       { font-variant-numeric: tabular-nums; }
+/* Edit mode: the same fields shown as .gm-data in Compare (names, dates,
+   places, notes, links) are edited via .edit-input — keep the font matching
+   so a field doesn't change typeface when you switch from Compare to Edit. */
+.edit-input                 { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ---------------- Match list: N / D / link counts ---------------- */
 .nd.new   { color: var(--state-match); }
