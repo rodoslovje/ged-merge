@@ -202,6 +202,7 @@ interface Row {
   state: string;
   masterLinks?: string[];
   incomingLinks?: string[];
+  isEventHeader?: boolean;
 }
 
 function applyRows(
