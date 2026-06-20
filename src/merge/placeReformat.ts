@@ -63,10 +63,16 @@ export function reformatPlace(
   const facility = p?.facility ?? a?.facility;
 
   // The address detail: a street, or "locality houseNumber", plus any house name.
+  // When the house number came from ADDR and ADDR has a different locality than
+  // PLAC (e.g. ADDR="Gorenja Sava 20", PLAC="Kranj,..."), use the ADDR's own
+  // locality as the prefix so we don't produce "Kranj 20" instead of "Gorenja Sava 20".
   let address: string | undefined;
   if (street) address = street;
-  else if (houseNumber) address = locality ? `${locality} ${houseNumber}` : houseNumber;
-  else if (a && fmt.layout === "structured-addr") address = a.raw; // keep an opaque ADDR
+  else if (houseNumber) {
+    const fromAddr = !!a?.houseNumber;
+    const prefix = (fromAddr && a?.locality && a.locality !== locality) ? a.locality : locality;
+    address = prefix ? `${prefix} ${houseNumber}` : houseNumber;
+  } else if (a && fmt.layout === "structured-addr") address = a.raw; // keep an opaque ADDR
   if (address && houseName) address += ` (pd ${houseName})`;
 
   if (fmt.layout === "packed-plac") {

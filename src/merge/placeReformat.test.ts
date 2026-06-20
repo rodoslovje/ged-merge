@@ -78,6 +78,21 @@ describe("reformatPlace → packed-plac (the reverse direction)", () => {
   });
 });
 
+describe("reformatPlace → ADDR locality differs from PLAC locality", () => {
+  it("uses the ADDR's own locality as prefix when it differs from the PLAC locality", () => {
+    // PLAC="Kranj,Kranj,Slovenia", ADDR="Gorenja Sava 20"
+    // The house number belongs to "Gorenja Sava", not to "Kranj".
+    const r = reformatPlace("Kranj,Kranj,Slovenia", "Gorenja Sava 20", KOVACIC);
+    expect(r.plac).toContain("Gorenja Sava 20");
+    expect(r.plac).not.toContain("Kranj 20");
+  });
+
+  it("still uses PLAC locality when ADDR locality matches it", () => {
+    const r = reformatPlace("Srednje Bitnje,Kranj,Slovenia", "Srednje Bitnje 18 (pd Adam)", KOVACIC);
+    expect(r.plac).toContain("Srednje Bitnje 18 (pd Adam)");
+  });
+});
+
 describe("reformatPlace → country name normalization", () => {
   const countryPreferred = new Map([["slovenia", "Slovenija"], ["austria", "Avstrija"]]);
   const KOVACIC_SL: PlaceTargetFormat = { layout: "packed-plac", separator: ",", countryPreferred };

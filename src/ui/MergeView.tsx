@@ -1,4 +1,4 @@
-import { type Dispatch, type RefObject, type SetStateAction, useEffect } from "react";
+import { type Dispatch, type RefObject, type SetStateAction, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
@@ -95,6 +95,11 @@ export function MergeView({
   onEdit,
 }: Props) {
   const { t } = useTranslation();
+
+  const compareBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    compareBodyRef.current?.scrollTo({ top: 0 });
+  }, [current]);
 
   const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
@@ -255,7 +260,7 @@ export function MergeView({
             <div className="split-pane split-compare" ref={compareRef}>
               <div className="section open">
                 {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
-                <div className="section-body">
+                <div className="section-body" ref={compareBodyRef}>
                   {current && masterDataset && compareDataset ? (
                     <ComparePanel
                       candidate={current}
