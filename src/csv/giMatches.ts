@@ -634,16 +634,33 @@ function node(level: number, tag: string, value: string): GedNode {
   return { level, tag, value, children: [] };
 }
 
+/**
+ * Parse family match rows, merging multiple rows for the same person into one
+ * compare individual with multiple FAMS pointers (one per marriage). This way
+ * a person who married more than once appears as a single match entry rather
+ * than one per marriage.
+ */
 function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, number>): GiMatchesImport {
   const col = (row: string[], field: FamilyField): string => (row[index[field]] ?? "").trim();
 
-  const records: GedNode[] = [];
-  const pairs: GiPair[] = [];
-  let n = 0;
+  /** Normalised dedup key: used to recognise the same person across rows. */
+  function keyStr(key: GiMasterKey): string {
+    return `${key.given.toLowerCase()}|${key.surname.toLowerCase()}|${key.birthYear ?? ""}`;
+  }
+
+  // ── Pass 1: collect all valid family row-pairs ──────────────────────────
+  interface FamilyEntry {
+    famIdx: number;
+    incomingRow: string[];
+    husbandKey: GiMasterKey;
+    wifeKey: GiMasterKey;
+  }
+  const entries: FamilyEntry[] = [];
+  let famCounter = 0;
+
   for (let i = 0; i + 1 < dataRows.length; i += 2) {
     const masterRow = dataRows[i];
     const incomingRow = dataRows[i + 1];
-
     const husbandKey: GiMasterKey = {
       given: col(masterRow, "husbandName"),
       surname: col(masterRow, "husbandSurname"),
@@ -655,71 +672,132 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
       birthYear: parseDate(col(masterRow, "wifeBirth")).year,
     };
     if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
+    famCounter++;
+    entries.push({ famIdx: famCounter, incomingRow, husbandKey, wifeKey });
+  }
 
-    n++;
-    const husbandId = `@${ID_PREFIX}${n}H@`;
-    const wifeId = `@${ID_PREFIX}${n}W@`;
-    records.push(...buildFamilyRecords(n, incomingRow, col, husbandId, wifeId));
+  // ── Pass 2: assign one stable compare ID per unique master-side person ──
+  let personCounter = 0;
+  const personIdByKey = new Map<string, string>();
+  const personMasterKeyByKey = new Map<string, GiMasterKey>();
 
-    if (husbandKey.given || husbandKey.surname) pairs.push({ masterKey: husbandKey, compareId: husbandId });
-    if (wifeKey.given || wifeKey.surname) pairs.push({ masterKey: wifeKey, compareId: wifeId });
+  function getPersonId(key: GiMasterKey): string | undefined {
+    if (!key.given && !key.surname) return undefined;
+    const k = keyStr(key);
+    if (!personIdByKey.has(k)) {
+      personCounter++;
+      personIdByKey.set(k, `@${ID_PREFIX}${personCounter}@`);
+      personMasterKeyByKey.set(k, key);
+    }
+    return personIdByKey.get(k)!;
+  }
+
+  // Pre-assign in encounter order (husband before wife within each row).
+  for (const { husbandKey, wifeKey } of entries) {
+    getPersonId(husbandKey);
+    getPersonId(wifeKey);
+  }
+
+  // ── Pass 3: accumulate per-person data across all rows ──────────────────
+  interface PersonAcc {
+    compareId: string;
+    masterKey: GiMasterKey;
+    given: string;
+    surname: string;
+    birth: string;
+    famsIds: string[];
+    father?: RelativeEntry;
+    mother?: RelativeEntry;
+  }
+  const personAccs = new Map<string, PersonAcc>(); // compareId → acc
+
+  function getAcc(
+    key: GiMasterKey,
+    given: string,
+    surname: string,
+    birth: string,
+  ): PersonAcc | undefined {
+    const compareId = getPersonId(key);
+    if (!compareId) return undefined;
+    if (!personAccs.has(compareId)) {
+      personAccs.set(compareId, {
+        compareId,
+        masterKey: personMasterKeyByKey.get(keyStr(key))!,
+        given: given || key.given,
+        surname: surname || key.surname,
+        birth,
+        famsIds: [],
+      });
+    }
+    return personAccs.get(compareId)!;
+  }
+
+  // Build FAM records while collecting FAMS pointers and parent data.
+  const famRecords: GedNode[] = [];
+
+  for (const { famIdx, incomingRow, husbandKey, wifeKey } of entries) {
+    const famId = `@${ID_PREFIX}FAM${famIdx}@`;
+    const husbandId = getPersonId(husbandKey);
+    const wifeId = getPersonId(wifeKey);
+
+    const famChildren: GedNode[] = [];
+    if (husbandId) famChildren.push(node(1, "HUSB", husbandId));
+    if (wifeId) famChildren.push(node(1, "WIFE", wifeId));
+    pushEvent(famChildren, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"));
+    for (const url of col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
+      famChildren.push(node(1, "WWW", url));
+    }
+    parseRelativeList(col(incomingRow, "children")).forEach((child, i) => {
+      const childId = `@${ID_PREFIX}FAM${famIdx}C${i + 1}@`;
+      famRecords.push(buildRelativeIndi(childId, child, famId, "FAMC"));
+      famChildren.push(node(1, "CHIL", childId));
+    });
+    famRecords.push(famNode(famId, famChildren));
+
+    // Husband accumulator
+    const hacc = getAcc(husbandKey, col(incomingRow, "husbandName"), col(incomingRow, "husbandSurname"), col(incomingRow, "husbandBirth"));
+    if (hacc) {
+      hacc.famsIds.push(famId);
+      if (!hacc.father && !hacc.mother) {
+        hacc.father = parseRelativeList(col(incomingRow, "husbandFather"))[0];
+        hacc.mother = parseRelativeList(col(incomingRow, "husbandMother"))[0];
+      }
+    }
+
+    // Wife accumulator
+    const wacc = getAcc(wifeKey, col(incomingRow, "wifeName"), col(incomingRow, "wifeSurname"), col(incomingRow, "wifeBirth"));
+    if (wacc) {
+      wacc.famsIds.push(famId);
+      if (!wacc.father && !wacc.mother) {
+        wacc.father = parseRelativeList(col(incomingRow, "wifeFather"))[0];
+        wacc.mother = parseRelativeList(col(incomingRow, "wifeMother"))[0];
+      }
+    }
+  }
+
+  // ── Pass 4: emit one INDI per unique person ──────────────────────────────
+  // IDs: person p → @SGI{p}@; their parents prefix → @SGI{p} → @SGI{p}FAM@/@SGI{p}F@/@SGI{p}M@
+  const records: GedNode[] = [...famRecords];
+  const pairs: GiPair[] = [];
+
+  for (const acc of personAccs.values()) {
+    const { compareId, masterKey, given, surname, birth, famsIds, father, mother } = acc;
+
+    const indiChildren: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
+    if (birth && !isAnnotation(birth)) {
+      indiChildren.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", birth)] });
+    }
+    for (const famId of famsIds) indiChildren.push(node(1, "FAMS", famId));
+
+    // Parents prefix derived from compareId ("@SGI{p}@" → "@SGI{p}")
+    const parPrefix = compareId.slice(0, -1);
+    const par = buildParentsRecords(parPrefix, compareId, father, mother);
+    records.push(...par.records);
+    if (par.famc) indiChildren.push(par.famc);
+
+    records.push({ level: 0, xref: compareId, tag: "INDI", children: indiChildren });
+    pairs.push({ masterKey, compareId });
   }
 
   return finish(records, pairs);
-}
-
-/**
- * Build the synthetic FAM record for one couple, plus INDI records for the
- * husband and wife (with their parent families and a source note), and any
- * children listed in the "Children" column.
- */
-function buildFamilyRecords(
-  n: number,
-  row: string[],
-  col: (row: string[], field: FamilyField) => string,
-  husbandId: string,
-  wifeId: string,
-): GedNode[] {
-  const records: GedNode[] = [];
-  const famId = `@${ID_PREFIX}${n}FAM@`;
-
-  const husbandChildren: GedNode[] = [node(1, "NAME", `${col(row, "husbandName")} /${col(row, "husbandSurname")}/`)];
-  pushEvent(husbandChildren, "BIRT", col(row, "husbandBirth"), "");
-  husbandChildren.push(node(1, "FAMS", famId));
-  const husbandParents = buildParentsRecords(
-    `@${ID_PREFIX}${n}H`,
-    husbandId,
-    parseRelativeList(col(row, "husbandFather"))[0],
-    parseRelativeList(col(row, "husbandMother"))[0],
-  );
-  records.push(...husbandParents.records);
-  if (husbandParents.famc) husbandChildren.push(husbandParents.famc);
-
-  const wifeChildren: GedNode[] = [node(1, "NAME", `${col(row, "wifeName")} /${col(row, "wifeSurname")}/`)];
-  pushEvent(wifeChildren, "BIRT", col(row, "wifeBirth"), "");
-  wifeChildren.push(node(1, "FAMS", famId));
-  const wifeParents = buildParentsRecords(
-    `@${ID_PREFIX}${n}W`,
-    wifeId,
-    parseRelativeList(col(row, "wifeFather"))[0],
-    parseRelativeList(col(row, "wifeMother"))[0],
-  );
-  records.push(...wifeParents.records);
-  if (wifeParents.famc) wifeChildren.push(wifeParents.famc);
-
-  const famChildren: GedNode[] = [node(1, "HUSB", husbandId), node(1, "WIFE", wifeId)];
-  pushEvent(famChildren, "MARR", col(row, "marriageDate"), col(row, "marriagePlace"));
-  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
-    famChildren.push(node(1, "WWW", url));
-  }
-  parseRelativeList(col(row, "children")).forEach((child, i) => {
-    const childId = `@${ID_PREFIX}${n}C${i + 1}@`;
-    records.push(buildRelativeIndi(childId, child, famId, "FAMC"));
-    famChildren.push(node(1, "CHIL", childId));
-  });
-  records.push(famNode(famId, famChildren));
-
-  records.push({ level: 0, xref: husbandId, tag: "INDI", children: husbandChildren });
-  records.push({ level: 0, xref: wifeId, tag: "INDI", children: wifeChildren });
-  return records;
 }

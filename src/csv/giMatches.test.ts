@@ -243,12 +243,12 @@ describe("parseGiMatchesCsv", () => {
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
-      { masterKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1H@" },
-      { masterKey: { given: "Frančiška", surname: "Bernard (Tabar)", birthYear: 1904 }, compareId: "@SGI1W@" },
+      { masterKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1@" },
+      { masterKey: { given: "Frančiška", surname: "Bernard (Tabar)", birthYear: 1904 }, compareId: "@SGI2@" },
     ]);
 
-    const husband = dataset.individuals.get("@SGI1H@")!;
-    const wife = dataset.individuals.get("@SGI1W@")!;
+    const husband = dataset.individuals.get("@SGI1@")!;
+    const wife = dataset.individuals.get("@SGI2@")!;
     expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Anton", surname: "Tabar" }));
     expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Bernard" }));
 
@@ -297,21 +297,21 @@ describe("parseGiMatchesCsv", () => {
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
-      { masterKey: { given: "Franc", surname: "Benedik", birthYear: 1875 }, compareId: "@SGI1H@" },
-      { masterKey: { given: "Frančiška", surname: "Volčič", birthYear: 1878 }, compareId: "@SGI1W@" },
+      { masterKey: { given: "Franc", surname: "Benedik", birthYear: 1875 }, compareId: "@SGI1@" },
+      { masterKey: { given: "Frančiška", surname: "Volčič", birthYear: 1878 }, compareId: "@SGI2@" },
     ]);
 
-    const husband = dataset.individuals.get("@SGI1H@")!;
-    const wife = dataset.individuals.get("@SGI1W@")!;
+    const husband = dataset.individuals.get("@SGI1@")!;
+    const wife = dataset.individuals.get("@SGI2@")!;
     expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Franc", surname: "Benedik" }));
     expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Volčič" }));
     expect(husband.notes).toBeUndefined();
     expect(wife.notes).toBeUndefined();
 
     // The shared family carries the marriage event, links, and children.
-    const fam = dataset.families.get("@SGI1FAM@")!;
-    expect(fam.husband).toBe("@SGI1H@");
-    expect(fam.wife).toBe("@SGI1W@");
+    const fam = dataset.families.get("@SGIFAM1@")!;
+    expect(fam.husband).toBe("@SGI1@");
+    expect(fam.wife).toBe("@SGI2@");
     expect(fam.links).toContain("https://en.geneanet.org/cemetery/view/8419923");
     expect(fam.events.find((e) => e.tag === "MARR")?.place?.raw).toBe("Stražišče, Kranj");
 
@@ -325,5 +325,46 @@ describe("parseGiMatchesCsv", () => {
     expect(fatherName(husband, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Benedik" }));
     expect(fatherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Volčič" }));
     expect(motherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jera", surname: "Rakovec" }));
+  });
+
+  it("merges multiple family rows for the same husband into one match entry with multiple FAMS", () => {
+    // Anton Tabar married twice: first to Frančiška, then to Ana.
+    const masterRow1 = row(["Anton", "Tabar", "7 JUN 1904", "Frančiška", "Bernard", "6 MAR 1904", "1 FEB 1931", "", "", "", "", "", "", "", "Renko", "97"]);
+    const incomingRow1 = row(["Anton", "Tabar", "7 JUN 1904", "Frančiška", "Bernard", "6 MAR 1904", "1 FEB 1931", "Kranj", "", "Justina Tabar | 1932", "Franc Tabar | 1870", "Marija Krt | 1875", "", "", "Kovačič", "97"]);
+    const masterRow2 = row(["Anton", "Tabar", "7 JUN 1904", "Ana", "Novak", "12 APR 1910", "5 MAR 1936", "", "", "", "", "", "", "", "Renko", "90"]);
+    const incomingRow2 = row(["Anton", "Tabar", "7 JUN 1904", "Ana", "Novak", "12 APR 1910", "5 MAR 1936", "Ljubljana", "", "", "", "", "", "", "Kovačič", "90"]);
+    const text = `${FAMILY_HEADER}\n${masterRow1}\n${incomingRow1}\n${masterRow2}\n${incomingRow2}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+
+    // Anton appears in two rows but produces only ONE match entry.
+    expect(pairs).toHaveLength(3);
+    const antonPair = pairs.find((p) => p.masterKey.given === "Anton");
+    const franciskaPair = pairs.find((p) => p.masterKey.given === "Frančiška");
+    const anaPair = pairs.find((p) => p.masterKey.given === "Ana");
+    expect(antonPair).toBeDefined();
+    expect(franciskaPair).toBeDefined();
+    expect(anaPair).toBeDefined();
+    // All three should have distinct compare IDs.
+    const ids = [antonPair!.compareId, franciskaPair!.compareId, anaPair!.compareId];
+    expect(new Set(ids).size).toBe(3);
+
+    // Anton's single compare individual has FAMS pointers to both marriages.
+    const anton = dataset.individuals.get(antonPair!.compareId)!;
+    expect(anton.spouseOf).toHaveLength(2);
+
+    // Both marriage families exist and reference Anton.
+    const fam1 = dataset.families.get("@SGIFAM1@")!;
+    const fam2 = dataset.families.get("@SGIFAM2@")!;
+    expect(fam1.husband).toBe(antonPair!.compareId);
+    expect(fam2.husband).toBe(antonPair!.compareId);
+
+    // Parents come from the first row that has them (fam1's incoming row).
+    expect(fatherName(anton, dataset)).toEqual(expect.objectContaining({ given: "Franc", surname: "Tabar" }));
+    expect(motherName(anton, dataset)).toEqual(expect.objectContaining({ given: "Marija", surname: "Krt" }));
+
+    // Child from the first marriage is linked correctly.
+    const children = childrenNames(anton, dataset);
+    expect(children).toEqual([expect.objectContaining({ given: "Justina" })]);
   });
 });
