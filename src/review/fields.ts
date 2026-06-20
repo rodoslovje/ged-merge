@@ -835,9 +835,6 @@ export function dateToSortKey(d: GedDate | undefined): number {
   return base + m * 100 + day;
 }
 
-function eventSortKey(me: GedEvent | undefined, ce: GedEvent | undefined): number {
-  return dateToSortKey(me?.date ?? ce?.date);
-}
 
 /** Minimum score for two events to be considered the same event. Below this they are shown separately. */
 const MIN_EVENT_PAIR_SCORE = 0.35;
