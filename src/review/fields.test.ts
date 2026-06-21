@@ -344,6 +344,21 @@ describe("event ordering", () => {
     expect(keys.indexOf("CHR.header")).toBeLessThan(keys.indexOf("DEAT.header"));
   });
 
+  it("sorts undated BAPM after BIRT even when master/compare birth dates differ", () => {
+    // Master BIRT is 29 Jul 1939, compare BIRT is 20 Jul 1939 (earlier). The BAPM
+    // row only exists on the compare side and is undated. It must still sort
+    // after BIRT, since BIRT's own row uses master's (later) date.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 29 JUL 1939\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 20 JUL 1939\n1 BAPM\n2 PLAC Metlika\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("BAPM.header"));
+  });
+
   it("sorts undated DEAT before undated BURI, both after dated BIRT", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +

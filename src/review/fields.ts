@@ -773,6 +773,10 @@ export function orderedEventTags(
     ...(mByTag.get("CREM") ?? []), ...(cByTag.get("CREM") ?? []),
   ].filter(e => e.date?.year != null).map(e => dateToSortKey(e.date));
   const minBirthKey = birthKeys.length > 0 ? Math.min(...birthKeys) : undefined;
+  // Anchor for undated birth-zone tags (BAPM, CHR, …): the *latest* known birth
+  // date, so they sort after whichever of master/compare's birth date the BIRT
+  // row itself ends up using (effectiveSortKey prefers master's date when present).
+  const maxBirthKey = birthKeys.length > 0 ? Math.max(...birthKeys) : undefined;
   const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
   const midLifeKey =
     minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
@@ -785,8 +789,8 @@ export function orderedEventTags(
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, minBirthKey);
-    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, minBirthKey);
+    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, maxBirthKey);
+    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, maxBirthKey);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -813,13 +817,13 @@ function effectiveSortKey(
   ce: GedEvent | undefined,
   tag: string,
   midLifeKey: number,
-  minBirthKey: number | undefined,
+  maxBirthKey: number | undefined,
 ): number {
   const d = me?.date ?? ce?.date;
   if (d?.year != null) return dateToSortKey(d);
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {
-    return minBirthKey != null ? minBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
+    return maxBirthKey != null ? maxBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
   }
   if (tag === "CREM") return 99_999_999;
   if (tag === "BURI") return 99_999_998;
