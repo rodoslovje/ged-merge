@@ -117,6 +117,13 @@ export function decomposePlace(raw: string): PlaceComponents {
   segments.forEach((seg, i) => {
     const hm = seg.match(HOUSE_TAIL);
     if (i === 0) {
+      // A leading segment that names a facility ("Mestno pokopališče Kranj",
+      // "Splošna bolnišnica Maribor") is itself the address detail, not a
+      // jurisdiction level — the locality comes from the next comma segment.
+      if (FACILITY_WORDS.test(seg)) {
+        out.facility = out.facility ? `${out.facility}; ${seg}` : seg;
+        return;
+      }
       out.locality = hm ? seg.slice(0, hm.index).trim() : seg;
       if (hm) out.houseNumber = normNum(hm[1]);
       if (out.locality) out.jurisdiction.push(out.locality);
@@ -144,5 +151,8 @@ export function decomposePlace(raw: string): PlaceComponents {
   if (out.country && !out.jurisdiction.some((j) => j.toLowerCase() === out.country!.toLowerCase())) {
     out.jurisdiction.push(out.country);
   }
+  // The leading segment was a facility name, not a locality — fall back to the
+  // next jurisdiction level (e.g. "Mestno pokopališče Kranj,Kranj" → "Kranj").
+  out.locality ??= out.jurisdiction[0];
   return out;
 }

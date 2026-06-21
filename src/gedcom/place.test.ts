@@ -62,6 +62,13 @@ describe("decomposePlace", () => {
     expect(p.jurisdiction).toEqual(["Kalce - Naklo", "Slovenija"]);
   });
 
+  it("routes a leading facility segment to facility and the locality from the next segment", () => {
+    const p = decomposePlace("Mestno Pokopališče Kranj,Kranj,Slovenia");
+    expect(p.facility).toBe("Mestno Pokopališče Kranj");
+    expect(p.locality).toBe("Kranj");
+    expect(p.jurisdiction).toEqual(["Kranj", "Slovenia"]);
+  });
+
   it("handles a bare 'Locality (Country)' place", () => {
     const p = decomposePlace("Jesenice (Slovenija)");
     expect(p.locality).toBe("Jesenice");
