@@ -75,6 +75,41 @@ describe("collectLinks CONC/CONT handling", () => {
   });
 });
 
+describe("NOTE text with extracted URLs", () => {
+  it("drops an event NOTE that contains only a URL once it's captured as a link", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BURI
+2 DATE APR 1995
+2 NOTE https://de.geneanet.org/friedhof/view/9833663
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    const buri = indi.events.find((e) => e.tag === "BURI")!;
+    expect(buri.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
+    expect(buri.note).toBeUndefined();
+  });
+
+  it("strips just the URL from a NOTE that has other surrounding text", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE See https://data.matricula-online.eu/sl/test/?pg=1 for the record.
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://data.matricula-online.eu/sl/test/?pg=1"]);
+    expect(indi.notes).toEqual(["See for the record."]);
+  });
+});
+
 describe("family NOTE URL extraction", () => {
   it("extracts a URL embedded in a family-level NOTE into fam.links", () => {
     const text = `0 HEAD

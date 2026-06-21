@@ -78,10 +78,12 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "FAMS":
         if (child.value) spouseOf.push(child.value.trim());
         break;
-      case "NOTE":
-        if (child.value) notes.push(child.value);
+      case "NOTE": {
+        const stripped = child.value && stripNoteLinks(child.value);
+        if (stripped) notes.push(stripped);
         collectLinks(child, media, links);
         break;
+      }
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
@@ -115,10 +117,12 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
       case "CHIL":
         if (child.value) children.push(child.value.trim());
         break;
-      case "NOTE":
-        if (child.value) notes.push(child.value);
+      case "NOTE": {
+        const stripped = child.value && stripNoteLinks(child.value);
+        if (stripped) notes.push(stripped);
         collectLinks(child, media, links);
         break;
+      }
       default:
         if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
         else collectLinks(child, media, links);
@@ -149,7 +153,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext):
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
   const noteNode = node.children.find((c) => c.tag === "NOTE" && !c.xref);
-  if (noteNode?.value) event.note = noteNode.value.trim();
+  const noteStripped = noteNode?.value && stripNoteLinks(noteNode.value);
+  if (noteStripped) event.note = noteStripped;
   const links = collectLinks(node, media);
   if (links.length) event.links = dedupe(links);
   const sources = node.children
@@ -168,6 +173,18 @@ export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FIL
 
 /** Matches one or more http(s) URLs embedded anywhere in a line value. */
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
+
+/**
+ * Drop URLs from note text that `collectLinks` already pulled out into a
+ * `links` array, so the same URL doesn't also surface as a separate note
+ * field to merge. Returns the remaining text, or "" if nothing is left.
+ */
+function stripNoteLinks(text: string): string {
+  return text
+    .replace(URL_RE, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
 
 /**
  * Index every top-level multimedia (OBJE) record by its xref, mapping to the
