@@ -1,7 +1,8 @@
-import { buildDataset } from "../gedcom/builder";
+import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
+import { rewriteLinkLang } from "./links";
 import { inferDateProfile } from "./profile";
 import type { MasterProfile, NormalizationReport, NormChange } from "./types";
 import { walkNodes } from "./walk";
@@ -48,6 +49,12 @@ export function normalizeDataset(
       // Place text is left as-is; only tidy whitespace, and do so silently
       // (whitespace fixes are not interesting enough to count or list).
       node.value = normalizePlaceString(node.value);
+    } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) {
+      // Matricula Online / Geneanet cemetery links carry a UI language in the
+      // URL itself; rewrite to the master's language so the compare/edit
+      // screens already show matching links and no further conversion is
+      // needed at merge or export time.
+      node.value = rewriteLinkLang(node.value, profile.linkLangs);
     }
   });
 

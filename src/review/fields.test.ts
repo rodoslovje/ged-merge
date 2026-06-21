@@ -600,6 +600,47 @@ describe("attached links", () => {
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
   });
 
+  it("treats Geneanet cemetery links as equal regardless of language code", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://en.geneanet.org/cemetery/view/9833663\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://de.geneanet.org/friedhof/view/9833663\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.state).toBe("agree");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+
+  it("treats French Geneanet cemetery links (no subdomain, plural word) as equal to other languages", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://en.geneanet.org/cemetery/view/9833663\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://www.geneanet.org/cimetieres/view/9833663\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.state).toBe("agree");
+  });
+
+  it("treats accented/percent-encoded Geneanet cemetery words (Swedish, Portuguese) as equal to other languages", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://en.geneanet.org/cemetery/view/9833663\n0 TRLR\n`,
+    );
+    const sv = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://sv.geneanet.org/kyrkogård/view/9833663\n0 TRLR\n`,
+    );
+    expect(byKey(individualFieldRows(tr, m.individuals.get("@I1@"), sv.individuals.get("@P1@")), "links")?.state).toBe(
+      "agree",
+    );
+    const pt = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://pt.geneanet.org/cemit%C3%A9rio/view/9833663\n0 TRLR\n`,
+    );
+    expect(byKey(individualFieldRows(tr, m.individuals.get("@I1@"), pt.individuals.get("@P1@")), "links")?.state).toBe(
+      "agree",
+    );
+  });
+
   it("resolves shared OBJE multimedia pointers to their FILE url", () => {
     // Renko.ged stores links as top-level OBJE records referenced by pointer.
     const ds = dataset(

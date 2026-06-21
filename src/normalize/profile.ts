@@ -1,5 +1,6 @@
 import { decomposePlace, parsePlace } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
+import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
   DateFormatProfile,
@@ -8,6 +9,7 @@ import type {
   PlaceFormatProfile,
   PlaceLayout,
 } from "./types";
+import { detectLinkLangs } from "./links";
 import { walkNodes } from "./walk";
 
 const MONTHS_ABBR = [
@@ -42,17 +44,20 @@ const DEFAULT_QUALIFIER_TOKENS: DateFormatProfile["qualifierTokens"] = {
 export function inferMasterProfile(master: Dataset): MasterProfile {
   const dateValues: string[] = [];
   const placeValues: string[] = [];
+  const links: string[] = [];
   let addrCount = 0;
   walkNodes(master.records, (node) => {
     if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
     if (node.value === undefined) return;
     if (node.tag === "DATE") dateValues.push(node.value);
     else if (node.tag === "PLAC") placeValues.push(node.value);
+    else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) links.push(node.value);
   });
 
   return {
     date: inferDateProfile(dateValues),
     place: inferPlaceProfile(placeValues, addrCount),
+    linkLangs: detectLinkLangs(links),
   };
 }
 

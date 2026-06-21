@@ -1,4 +1,5 @@
 import type { DateOrder, DateQualifier } from "../gedcom/types";
+import type { LinkLangs } from "./links";
 
 /**
  * The master GEDCOM's "house style", inferred on load. The compare file is
@@ -8,6 +9,7 @@ import type { DateOrder, DateQualifier } from "../gedcom/types";
 export interface MasterProfile {
   date: DateFormatProfile;
   place: PlaceFormatProfile;
+  linkLangs: LinkLangs;
 }
 
 export interface DateFormatProfile {

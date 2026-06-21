@@ -107,6 +107,44 @@ describe("normalizeDataset", () => {
     const anna = input.individuals.get("@I1@")!;
     expect(anna.events.find((e) => e.tag === "BIRT")?.date?.raw).toBe("5 JAN 1885");
   });
+
+  it("converts a Matricula Online link to the master's language on load", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56
+0 TRLR
+`);
+    const profile = inferMasterProfile(master);
+    const { dataset: out } = normalizeDataset(compare, profile);
+    expect(out.individuals.get("@I1@")!.links).toEqual([
+      "https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56",
+    ]);
+  });
+
+  it("converts a Geneanet cemetery link to the master's language on load", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://de.geneanet.org/friedhof/view/1111111
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://en.geneanet.org/cemetery/view/9833663
+0 TRLR
+`);
+    const profile = inferMasterProfile(master);
+    const { dataset: out } = normalizeDataset(compare, profile);
+    expect(out.individuals.get("@I1@")!.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
+  });
 });
 
 // --- place-layout detection ------------------------------------------------

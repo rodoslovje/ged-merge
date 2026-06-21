@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import type { RelativeCell, RelativePair } from "../review/types";
-import { linkKey } from "../review/fields";
+import { linkKey } from "../normalize/links";
 import { sexClass } from "./sex";
 
 /** A person a value line can link to: its id plus a click handler. */

@@ -5,7 +5,8 @@ import { parseDate } from "../gedcom/date";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
-import { dateToSortKey, individualFieldRows, linkKey, matriculaLangCode, withMatriculaLang } from "../review/fields";
+import { linkKey } from "../normalize/links";
+import { dateToSortKey, individualFieldRows } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 import { reformatPlace, reshapesLayout, type PlaceTargetFormat } from "./placeReformat";
 
@@ -137,9 +138,6 @@ export function mergeDecisions(
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
   const placeFmt = inferPlaceExportFormat(master);
-  // The language code the master's own Matricula Online links already use, so
-  // newly added links can be rewritten to match (e.g. /sl/ vs /de/).
-  const matriculaLang = detectMatriculaLang(master);
   // How the master stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
   const linkFormat = detectLinkFormat(master);
@@ -156,7 +154,7 @@ export function mergeDecisions(
     if (!target || !masterIndi || !incoming) continue;
     report.recordLabels[masterId] = displayName(masterIndi.names[0]);
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare, placeFmt);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, matriculaLang, linkFormat, records, sourXrefMap);
+    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, placeFmt, t, linkFormat, records, sourXrefMap);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     sortEventsByDate(target);
@@ -216,7 +214,6 @@ function applyRows(
   handled: Set<string>,
   placeFmt: PlaceTargetFormat,
   t: Translate,
-  matriculaLang: string | undefined,
   linkFormat: LinkFormat,
   records: GedNode[],
   sourMap: SourXrefMap,
@@ -238,7 +235,7 @@ function applyRows(
     if (choice === "master") continue;
 
     if (row.key === "links") {
-      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], matriculaLang, linkFormat, records);
+      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], linkFormat, records);
       if (added.length) {
         report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice });
         touched.add(recordId);
@@ -307,15 +304,13 @@ export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
 
 /**
  * Append a link node for each incoming link the master doesn't already have
- * (by `linkKey`), shaped to match the master's own link format. Matricula
- * Online links are rewritten to the master's language code, if one is known.
- * Returns the URLs actually added.
+ * (by `linkKey`), shaped to match the master's own link format. Returns the
+ * URLs actually added.
  */
 function applyLinks(
   target: GedNode,
   incomingLinks: string[],
   masterLinks: string[],
-  matriculaLang: string | undefined,
   linkFormat: LinkFormat,
   records: GedNode[],
 ): string[] {
@@ -325,9 +320,8 @@ function applyLinks(
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    const value = matriculaLang && matriculaLangCode(url) ? withMatriculaLang(url, matriculaLang) : url;
-    target.children.push(buildLinkNode(linkFormat, value, records));
-    added.push(value);
+    target.children.push(buildLinkNode(linkFormat, url, records));
+    added.push(url);
   }
   return added;
 }
@@ -392,37 +386,6 @@ function detectLinkFormat(master: Dataset): LinkFormat {
   if (obje === max) return "OBJE";
   if (webtag === max) return "WEBTAG";
   return "WWW";
-}
-
-/**
- * The language code the master file's existing Matricula Online links use
- * most often, so newly added links can be rewritten to match.
- */
-function detectMatriculaLang(master: Dataset): string | undefined {
-  const counts = new Map<string, number>();
-  const consider = (links?: string[]) => {
-    for (const url of links ?? []) {
-      const lang = matriculaLangCode(url);
-      if (lang) counts.set(lang, (counts.get(lang) ?? 0) + 1);
-    }
-  };
-  for (const indi of master.individuals.values()) {
-    consider(indi.links);
-    for (const e of indi.events) consider(e.links);
-  }
-  for (const fam of master.families.values()) {
-    consider(fam.links);
-    for (const e of fam.events) consider(e.links);
-  }
-  let best: string | undefined;
-  let bestCount = 0;
-  for (const [lang, count] of counts) {
-    if (count > bestCount) {
-      best = lang;
-      bestCount = count;
-    }
-  }
-  return best;
 }
 
 /** Replace or (for "both") add the primary NAME line from the incoming record. */

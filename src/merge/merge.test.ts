@@ -350,24 +350,6 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
   });
 
-  it("rewrites a new Matricula link to the language code the master already uses", () => {
-    const master = dataset(
-      wrap(
-        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
-          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n",
-      ),
-    );
-    const compare = dataset(
-      wrap(
-        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
-          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56\n",
-      ),
-    );
-    const { records } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
-    const out = serializeGedcom(records);
-    expect(out).toContain("1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56");
-    expect(out).not.toContain("/de/slovenia/ljubljana/preddvor");
-  });
 });
 
 describe("mergeDecisions — SOUR/REPO import", () => {

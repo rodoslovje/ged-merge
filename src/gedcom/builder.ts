@@ -164,7 +164,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext):
 export type MediaLinks = Map<string, string[]>;
 
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
-const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
+export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
 
 /** Matches one or more http(s) URLs embedded anywhere in a line value. */
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
