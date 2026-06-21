@@ -328,6 +328,26 @@ describe("event ordering", () => {
     expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("DEAT.header"));
   });
 
+  it("sorts a dated OCCU/RESI ending in the death year before BURI", () => {
+    // OCCU/RESI recorded as "FROM ... TO 2024" (still ongoing at death) get a
+    // year-only end-date key, which ranks after any specific same-year date
+    // per dateToSortKey — they must still land before the dated burial.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 OCCU voznik\n2 DATE FROM 1995 TO 2024\n` +
+      `1 RESI\n2 DATE FROM 1970 TO 2024\n2 PLAC Kranj\n` +
+      `1 DEAT\n2 DATE 2024\n` +
+      `1 BURI\n2 DATE 16 JUL 2024\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("OCCU.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+    expect(keys.indexOf("OCCU.header")).toBeLessThan(keys.indexOf("BURI.header"));
+    expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+    expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("BURI.header"));
+  });
+
   it("sorts undated CHR after dated BIRT and before dated DEAT", () => {
     // An undated christening (with a place so it renders) must still appear
     // after a dated birth, not before it, even though both are birth-zone tags.

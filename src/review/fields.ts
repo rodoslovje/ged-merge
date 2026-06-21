@@ -778,6 +778,11 @@ export function orderedEventTags(
   // row itself ends up using (effectiveSortKey prefers master's date when present).
   const maxBirthKey = birthKeys.length > 0 ? Math.max(...birthKeys) : undefined;
   const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
+  // Earliest known death-zone date: dated life-zone events (e.g. an occupation
+  // "FROM 1995 TO 2024") are clamped just before this, so an imprecise,
+  // same-year end date doesn't outrank a same-year death/burial (see
+  // dateToSortKey: a year-only date sorts after any specific date in that year).
+  const minDeathKey = deathKeys.length > 0 ? Math.min(...deathKeys) : undefined;
   const midLifeKey =
     minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
     : minBirthKey != null ? minBirthKey + 30 * 10_000
@@ -789,8 +794,8 @@ export function orderedEventTags(
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, maxBirthKey);
-    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, maxBirthKey);
+    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, maxBirthKey, minDeathKey);
+    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, maxBirthKey, minDeathKey);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -802,6 +807,14 @@ export function orderedEventTags(
 
 /** Birth-adjacent tags that should always sort before any dated event. */
 const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM"]);
+
+/**
+ * Life-zone tags that can only occur while the person is alive, so they must
+ * always sort before a known death/burial/cremation date even when their own
+ * (often imprecise) date would otherwise rank later. WILL/PROB are excluded:
+ * probate routinely happens after death, so their date should be trusted as-is.
+ */
+const LIFE_ZONE_TAGS = new Set(["OCCU", "EDUC", "RETI", "RESI", "EMIG", "IMMI", "NATU", "CENS"]);
 
 /**
  * Sort key for an event instance. When the event has a date, returns the
@@ -818,9 +831,16 @@ function effectiveSortKey(
   tag: string,
   midLifeKey: number,
   maxBirthKey: number | undefined,
+  minDeathKey: number | undefined,
 ): number {
   const d = me?.date ?? ce?.date;
-  if (d?.year != null) return dateToSortKey(d);
+  if (d?.year != null) {
+    const key = dateToSortKey(d);
+    if (LIFE_ZONE_TAGS.has(tag) && minDeathKey != null && key >= minDeathKey) {
+      return minDeathKey - 1;
+    }
+    return key;
+  }
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {
     return maxBirthKey != null ? maxBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
