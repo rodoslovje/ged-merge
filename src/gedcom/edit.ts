@@ -55,6 +55,9 @@ export interface EventFieldUpdate {
   note?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
+  /** Attach a new `SOUR` citation pointer (with optional `PAGE`) — the `SOUR`
+   * (and `OBJE`) records themselves must already exist in the dataset. */
+  addSource?: { sourceXref: string; page?: string };
 }
 
 function findChild(node: GedNode, tag: string): GedNode | undefined {
@@ -126,6 +129,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.note !== undefined) setOrRemoveValue(eventNode, "NOTE", update.note, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(eventNode, update.links);
+  if (update.addSource) attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
     const i = record.children.indexOf(eventNode);
     if (i !== -1) record.children.splice(i, 1);
@@ -142,7 +146,8 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
   let event = findChild(record, tag);
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
-    !!update.address?.trim() || !!update.note?.trim() || !!update.links?.some((l) => l.trim());
+    !!update.address?.trim() || !!update.note?.trim() || !!update.links?.some((l) => l.trim()) ||
+    !!update.addSource;
   if (!event) {
     if (!hasContent) return;
     event = { level: record.level + 1, tag, children: [] };
@@ -610,6 +615,122 @@ export function setFamilyLinks(fam: Family, links: string[]): void {
     const trimmed = link.trim();
     if (!trimmed) continue;
     insertOrdered(fam.raw, { level: fam.raw.level + 1, tag: "WWW", value: trimmed, children: [] }, FAM_CHILD_ORDER);
+  }
+}
+
+/** Fields for a newly authored `SOUR` record — see `createSourceRecord`. */
+export interface NewSourceFields {
+  title?: string;
+  author?: string;
+  periodical?: string;
+  publisher?: string;
+  agency?: string;
+  filingNumber?: string;
+  note?: string;
+  url?: string;
+}
+
+/** Create a new top-level `OBJE` record whose `FILE` is `url`, and add it to the dataset. */
+export function createMediaRecord(dataset: Dataset, url: string): GedNode {
+  const raw: GedNode = {
+    level: 0,
+    xref: nextXref(dataset.records, "O"),
+    tag: "OBJE",
+    children: [{ level: 1, tag: "FILE", value: url, children: [] }],
+  };
+  insertRecord(dataset.records, raw);
+  return raw;
+}
+
+/**
+ * Create a new top-level `SOUR` record from user-entered/parsed fields and,
+ * if `url` is given, a backing `OBJE` record for it — the same shape
+ * `resolveSourceCitation` already resolves for imported "paginated" sources
+ * (a `SOUR` with one linked `OBJE`), so the new citation displays/links
+ * exactly like an imported one.
+ */
+export function createSourceRecord(dataset: Dataset, fields: NewSourceFields): GedNode {
+  const raw: GedNode = { level: 0, xref: nextXref(dataset.records, "S"), tag: "SOUR", children: [] };
+  const push = (tag: string, value: string | undefined) => {
+    if (value) raw.children.push({ level: 1, tag, value, children: [] });
+  };
+  push("TITL", fields.title);
+  push("AUTH", fields.author);
+  push("PERI", fields.periodical);
+  push("PUBL", fields.publisher);
+  push("AGNC", fields.agency);
+  push("FILN", fields.filingNumber);
+  push("NOTE", fields.note);
+  insertRecord(dataset.records, raw);
+  if (fields.url) {
+    const obje = createMediaRecord(dataset, fields.url);
+    raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+  }
+  return raw;
+}
+
+/** Add a new `OBJE` (linking `url`) to an already-existing `SOUR` record —
+ * a new page of a paginated source that's already cited elsewhere. */
+export function addObjeToSource(dataset: Dataset, sourceXref: string, url: string): GedNode {
+  const obje = createMediaRecord(dataset, url);
+  const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  if (sourceNode) sourceNode.children.push({ level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] });
+  return obje;
+}
+
+/** Attach a `SOUR` citation pointer (with optional `PAGE`) to `record` — an
+ * event node, or a top-level INDI/FAM record — in canonical field order. */
+export function attachSourceCitation(record: GedNode, sourceXref: string, page: string | undefined, order: string[]): void {
+  const citation: GedNode = { level: record.level + 1, tag: "SOUR", value: sourceXref, children: [] };
+  if (page) citation.children.push({ level: record.level + 2, tag: "PAGE", value: page, children: [] });
+  insertOrdered(record, citation, order);
+}
+
+function sourceCitationNodes(record: GedNode): GedNode[] {
+  return record.children.filter((c) => c.tag === "SOUR");
+}
+
+/**
+ * Remove the `index`th `SOUR` citation from `record` (an event node, or a
+ * top-level INDI/FAM record), then delete the cited `SOUR`/`OBJE` records if
+ * nothing else in the dataset still references them.
+ */
+export function removeSourceCitationAtIndex(dataset: Dataset, record: GedNode, index: number): void {
+  const node = sourceCitationNodes(record)[index];
+  if (!node) return;
+  const i = record.children.indexOf(node);
+  if (i !== -1) record.children.splice(i, 1);
+  const sourceXref = node.value?.trim();
+  if (sourceXref) pruneUnreferencedSource(dataset, sourceXref);
+}
+
+/**
+ * Delete the top-level `SOUR` record `sourceXref` (and any `OBJE` record it
+ * alone referenced) if no citation anywhere in the dataset still points at it.
+ */
+export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): void {
+  const stack: GedNode[] = [...dataset.records];
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node.tag === "SOUR" && !node.xref && node.value?.trim() === sourceXref) return; // still cited
+    for (const child of node.children) stack.push(child);
+  }
+
+  const sourceIndex = dataset.records.findIndex((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  if (sourceIndex === -1) return;
+  const objeXrefs = dataset.records[sourceIndex].children
+    .filter((c) => c.tag === "OBJE" && c.value)
+    .map((c) => c.value!.trim());
+  dataset.records.splice(sourceIndex, 1);
+
+  for (const objeXref of objeXrefs) {
+    const stillReferenced = dataset.records.some(
+      (r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref),
+    );
+    if (!stillReferenced) {
+      const oi = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
+      if (oi !== -1) dataset.records.splice(oi, 1);
+    }
   }
 }
 

@@ -14,28 +14,41 @@ export function SourceRefs({
   t,
   masterSources,
   incomingSources,
+  onRemove,
 }: {
   t: Translate;
   masterSources?: SourceCitation[];
   incomingSources?: SourceCitation[];
+  /** When given (Edit mode, no `incomingSources`), each icon shows a remove
+   * button keyed by its position in `masterSources`. */
+  onRemove?: (index: number) => void;
 }) {
   const ms = masterSources ?? [];
   const cs = incomingSources ?? [];
   const masterKeys = new Set(ms.map(sourceCitationKey));
   const newOnes = cs.filter((c) => !masterKeys.has(sourceCitationKey(c)));
-  const all = [...ms.map((c) => ({ c, isNew: false })), ...newOnes.map((c) => ({ c, isNew: true }))];
+  const all = [
+    ...ms.map((c, i) => ({ c, isNew: false, index: i })),
+    ...newOnes.map((c) => ({ c, isNew: true, index: -1 })),
+  ];
   if (all.length === 0) return null;
 
   return (
     <span className="source-refs">
-      {all.map(({ c, isNew }, i) => (
-        <SourceRefItem key={i} t={t} citation={c} isNew={isNew} />
+      {all.map(({ c, isNew, index }, i) => (
+        <SourceRefItem
+          key={i}
+          t={t}
+          citation={c}
+          isNew={isNew}
+          onRemove={onRemove && index !== -1 ? () => onRemove(index) : undefined}
+        />
       ))}
     </span>
   );
 }
 
-function SourceRefItem({ t, citation, isNew }: { t: Translate; citation: SourceCitation; isNew: boolean }) {
+function SourceRefItem({ t, citation, isNew, onRemove }: { t: Translate; citation: SourceCitation; isNew: boolean; onRemove?: () => void }) {
   const pageText = citation.page ? t("source.page", { page: citation.page }) : undefined;
   const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
@@ -54,7 +67,10 @@ function SourceRefItem({ t, citation, isNew }: { t: Translate; citation: SourceC
   ]
     .filter(Boolean)
     .join(" ");
-  return citation.url ? (
+  const removeBtn = onRemove && (
+    <button type="button" className="source-ref-remove" title={t("edit.removeLink")} onClick={onRemove}>×</button>
+  );
+  const content = citation.url ? (
     <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={tooltip || t("source.untitled")}>
       {icon}
     </a>
@@ -63,4 +79,10 @@ function SourceRefItem({ t, citation, isNew }: { t: Translate; citation: SourceC
       {icon}
     </span>
   );
+  return onRemove ? (
+    <span className="source-ref-wrap">
+      {content}
+      {removeBtn}
+    </span>
+  ) : content;
 }

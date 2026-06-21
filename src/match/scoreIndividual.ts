@@ -1,6 +1,16 @@
-import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, Individual, PersonName } from "../gedcom/types";
 import { birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
-import { childrenNames, displayName, fatherName, motherName, pairTitle, parentNames, partnerNames, primaryName, findEvent } from "./relatives";
+import { estimatedBirthYear } from "./birthEstimate";
+import { displayName, pairTitle, primaryName } from "./relatives";
+import {
+  cachedChildrenNames,
+  cachedFatherName,
+  cachedFindEvent,
+  cachedMarriageEvents,
+  cachedMotherName,
+  cachedParentNames,
+  cachedPartnerNames,
+} from "./profileCache";
 import {
   dateSimilarity,
   givenSimilarity,
@@ -45,16 +55,16 @@ export function scoreIndividualPair(
   const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
   addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`);
 
-  const mb = findEvent(master, "BIRT");
-  const cb = findEvent(compare, "BIRT");
+  const mb = cachedFindEvent(master, "BIRT");
+  const cb = cachedFindEvent(compare, "BIRT");
   addKey(components, "birthDate", w.birthDate, dateSimilarity(mb?.date, cb?.date), config.missingKeyScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
   add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
   add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
 
   // Death date/place: corroborating evidence, not part of the identity key —
   // absence (e.g. living people) is skipped rather than penalized.
-  const md = findEvent(master, "DEAT");
-  const cd = findEvent(compare, "DEAT");
+  const md = cachedFindEvent(master, "DEAT");
+  const cd = cachedFindEvent(compare, "DEAT");
   add(components, "deathDate", w.deathDate, dateSimilarity(md?.date, cd?.date), `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
 
@@ -62,9 +72,9 @@ export function scoreIndividualPair(
     add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
   }
 
-  add(components, "parents", w.parents, nameSetSimilarity(parentNames(master, masterDs), parentNames(compare, compareDs)), "parents");
-  add(components, "partners", w.partners, nameSetSimilarity(partnerNames(master, masterDs), partnerNames(compare, compareDs)), "partners");
-  add(components, "children", w.children, nameSetSimilarity(childrenNames(master, masterDs), childrenNames(compare, compareDs)), "children");
+  add(components, "parents", w.parents, nameSetSimilarity(cachedParentNames(master, masterDs), cachedParentNames(compare, compareDs)), "parents");
+  add(components, "partners", w.partners, nameSetSimilarity(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs)), "partners");
+  add(components, "children", w.children, nameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
 
   // Marriage corroboration, folded in from the person's spouse family: a matching
   // marriage date/place is strong evidence (and disambiguates same-named people).
@@ -116,16 +126,6 @@ export function scoreIndividualPair(
 /** The identity key: a perfect match on all three earns a 100 score. */
 const KEY_FIELDS = ["surname", "given", "birthDate"] as const;
 
-/** MARR events across all families where the person is a spouse. */
-function marriageEvents(indi: Individual, ds: Dataset): GedEvent[] {
-  const out: GedEvent[] = [];
-  for (const famId of indi.spouseOf) {
-    const m = ds.families.get(famId)?.events.find((e) => e.tag === "MARR");
-    if (m) out.push(m);
-  }
-  return out;
-}
-
 /** Best marriage date/place similarity over the cross-product of both people's
  *  marriages (handles re-marriages; undefined when a side lacks the data). */
 function bestMarriageSimilarity(
@@ -134,8 +134,8 @@ function bestMarriageSimilarity(
   masterDs: Dataset,
   compareDs: Dataset,
 ): { date: number | undefined; place: number | undefined } {
-  const me = marriageEvents(master, masterDs);
-  const ce = marriageEvents(compare, compareDs);
+  const me = cachedMarriageEvents(master, masterDs);
+  const ce = cachedMarriageEvents(compare, compareDs);
   let date: number | undefined;
   let place: number | undefined;
   for (const a of me) {
@@ -161,13 +161,13 @@ function relativeMatchBonus(
   config: MatchConfig,
 ): number {
   let bonus = 0;
-  if (fullNameMatch(fatherName(master, masterDs), fatherName(compare, compareDs))) {
+  if (fullNameMatch(cachedFatherName(master, masterDs), cachedFatherName(compare, compareDs))) {
     bonus += config.parentMatchBonus;
   }
-  if (fullNameMatch(motherName(master, masterDs), motherName(compare, compareDs))) {
+  if (fullNameMatch(cachedMotherName(master, masterDs), cachedMotherName(compare, compareDs))) {
     bonus += config.parentMatchBonus;
   }
-  if (anyFullNameMatch(partnerNames(master, masterDs), partnerNames(compare, compareDs))) {
+  if (anyFullNameMatch(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs))) {
     bonus += config.partnerMatchBonus;
   }
   return bonus;
@@ -228,15 +228,17 @@ export function sexConflicts(a: Individual, b: Individual): boolean {
  * Hard plausibility gate applied before scoring. Rejects pairs that cannot
  * reasonably be the same person:
  *  - names too dissimilar (surname and/or given below threshold),
- *  - representative years more than ~a century apart,
+ *  - representative years too far apart (`gates.maxYearGap`),
  *  - lifespans that don't overlap (one died before the other was born).
  */
 export function plausibleIndividualMatch(
   a: Individual,
   b: Individual,
   gates: MatchConfig["gates"],
+  dsA: Dataset,
+  dsB: Dataset,
 ): boolean {
-  return nameGate(a, b, gates) && temporalGate(a, b, gates);
+  return nameGate(a, b, gates) && temporalGate(a, b, gates, dsA, dsB);
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
@@ -262,10 +264,16 @@ function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): bo
   return true;
 }
 
-function temporalGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
+function temporalGate(
+  a: Individual,
+  b: Individual,
+  gates: MatchConfig["gates"],
+  dsA: Dataset,
+  dsB: Dataset,
+): boolean {
   // Coarse "same era" check using each person's best available year.
-  const ea = eraYear(a);
-  const eb = eraYear(b);
+  const ea = eraYear(a, dsA);
+  const eb = eraYear(b, dsB);
   if (ea !== undefined && eb !== undefined && Math.abs(ea - eb) > gates.maxYearGap) {
     return false;
   }
@@ -281,26 +289,49 @@ function temporalGate(a: Individual, b: Individual, gates: MatchConfig["gates"])
   return true;
 }
 
-/** A representative year placing the person in time, from any dated event. */
-function eraYear(indi: Individual): number | undefined {
+/** A representative year placing the person in time: a recorded date if any,
+ *  else a relative-derived estimate, else death/marriage/residence as a last resort. */
+function eraYear(indi: Individual, ds: Dataset): number | undefined {
   return (
     birthYear(indi) ??
+    estimatedBirthYear(indi, ds) ??
     deathYear(indi) ??
     indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year
   );
 }
 
-/** Stable blocking keys for an individual (recall-oriented, cheap). */
-export function individualBlockKeys(indi: Individual, soundex: (s: string) => string): string[] {
+/**
+ * Stable blocking keys for an individual (recall-oriented, cheap).
+ *
+ * A bare surname-soundex key would make blocking useless for common surnames
+ * in large datasets (thousands of same-surname individuals across centuries)
+ * — every comparison would have to consider the whole bucket. So a known (or
+ * relative-derived estimated) birth year scopes the key to nearby decades
+ * instead of the full surname; the unscoped surname key is only a fallback
+ * for individuals with no usable date at all.
+ */
+export function individualBlockKeys(
+  indi: Individual,
+  soundex: (s: string) => string,
+  ds: Dataset,
+): string[] {
   const n = primaryName(indi);
   const surname = n?.surname;
   const given = n?.given;
   const sdx = soundex(surname ?? given ?? "");
   if (!sdx) return [];
 
-  const keys = [`S:${sdx}`];
-  const birthYear = indi.events.find((e) => e.tag === "BIRT")?.date?.year;
-  if (birthYear) keys.push(`SB:${sdx}:${Math.floor(birthYear / 10)}`);
+  const keys: string[] = [];
+  const realYear = indi.events.find((e) => e.tag === "BIRT")?.date?.year;
+  const year = realYear ?? estimatedBirthYear(indi, ds);
+  if (year !== undefined) {
+    const decade = Math.floor(year / 10);
+    // An estimate is rougher than a recorded date, so widen the window.
+    const spread = realYear !== undefined ? 1 : 2;
+    for (let d = decade - spread; d <= decade + spread; d++) keys.push(`SB:${sdx}:${d}`);
+  } else {
+    keys.push(`S:${sdx}`);
+  }
   if (given) keys.push(`SG:${sdx}:${foldToken(given)[0] ?? ""}`);
   return keys;
 }

@@ -196,6 +196,8 @@ export interface Individual {
   links?: string[];
   /** Free-text NOTE records attached directly to the individual. */
   notes?: string[];
+  /** Source citations (`SOUR`) attached directly to the individual (not to a specific event). */
+  sources?: SourceCitation[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -210,6 +212,8 @@ export interface Family {
   links?: string[];
   /** Free-text NOTE records attached directly to the family. */
   notes?: string[];
+  /** Source citations (`SOUR`) attached directly to the family (not to a specific event). */
+  sources?: SourceCitation[];
   raw: GedNode;
 }
 

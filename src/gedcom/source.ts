@@ -1,5 +1,6 @@
-import type { GedNode, SourceCitation } from "./types";
+import type { Dataset, GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
+import { linkKey } from "../normalize/links";
 
 /**
  * Resolves event-level `SOUR` citations into a displayable, linkable
@@ -206,6 +207,54 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
   else layout = "unknown";
 
   return { layout };
+}
+
+/** `linkKey`, but with any `pg=` page-number query param stripped first, so two
+ * URLs that cite different pages of the same paginated archive book compare equal. */
+function bookKeyOf(url: string): string {
+  const [base, query] = url.split("?");
+  if (!query) return linkKey(url);
+  const params = query.split("&").filter((p) => !/^pg=/i.test(p));
+  return linkKey(params.length ? `${base}?${params.join("&")}` : base);
+}
+
+/** The `pg=` query param of a URL, if any (Matricula-style page number). */
+function pageParamOf(url: string): string | undefined {
+  return /[?&]pg=(\d+)/i.exec(url)?.[1];
+}
+
+/**
+ * Find a `SOUR` record already in the dataset that a new citation for `url`
+ * should reuse, rather than minting a duplicate — paginated archive registers
+ * (Matricula, parish books) are cited page-by-page but share one `SOUR`.
+ * - An existing `OBJE` whose URL matches exactly (mod language/case/slash) ⇒
+ *   reuse that very `OBJE` too (no new records needed at all).
+ * - One whose URL matches only with the page stripped (same book, different
+ *   page) ⇒ reuse the `SOUR`, but the caller must add a new `OBJE` for this page.
+ * - No match ⇒ undefined; caller creates a brand-new `SOUR`+`OBJE`.
+ */
+export function findExistingSource(
+  dataset: Dataset,
+  url: string,
+): { sourceXref: string; objeXref?: string; page?: string } | undefined {
+  const objeIndex = buildObjeIndex(dataset.records);
+  const incomingKey = linkKey(url);
+  const incomingBookKey = bookKeyOf(url);
+  const page = pageParamOf(url);
+
+  let bookMatch: string | undefined;
+  for (const rec of dataset.records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const child of rec.children) {
+      if (child.tag !== "OBJE" || !child.value) continue;
+      const objeXref = child.value.trim();
+      const objeUrl = objeIndex.get(objeXref)?.url;
+      if (!objeUrl) continue;
+      if (linkKey(objeUrl) === incomingKey) return { sourceXref: rec.xref, objeXref, page };
+      if (!bookMatch && bookKeyOf(objeUrl) === incomingBookKey) bookMatch = rec.xref;
+    }
+  }
+  return bookMatch ? { sourceXref: bookMatch, page } : undefined;
 }
 
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */

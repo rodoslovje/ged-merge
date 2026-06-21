@@ -37,18 +37,18 @@ function matchIndividuals(
   config: MatchConfig,
 ): IndividualCandidate[] {
   const index = buildBlockIndex(masterDs.individuals.values(), (i) =>
-    individualBlockKeys(i, soundex),
+    individualBlockKeys(i, soundex, masterDs),
   );
 
   const scored: IndividualCandidate[] = [];
   for (const compare of compareDs.individuals.values()) {
-    const masterIds = collectCandidates(index, individualBlockKeys(compare, soundex));
+    const masterIds = collectCandidates(index, individualBlockKeys(compare, soundex, compareDs));
     for (const mid of masterIds) {
       const master = masterDs.individuals.get(mid)!;
       // Hard plausibility gates: different sex, dissimilar names, or
       // incompatible lifespans => never the same person; skip before scoring.
       if (sexConflicts(master, compare)) continue;
-      if (!plausibleIndividualMatch(master, compare, config.gates)) continue;
+      if (!plausibleIndividualMatch(master, compare, config.gates, masterDs, compareDs)) continue;
       const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }

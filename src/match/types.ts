@@ -137,7 +137,11 @@ export const DEFAULT_CONFIG: MatchConfig = {
   gates: {
     minSurname: 0.8,
     minGiven: 0.5,
-    maxYearGap: 100,
+    // A century-wide gap is no real filter at all — no plausible same-person
+    // pair (even via a remarriage or residence-event fallback year) spans
+    // this much, so tightening it rejects implausible pairs before the
+    // expensive scoring pass instead of after.
+    maxYearGap: 30,
   },
   missingKeyScore: 0.3,
   parentMatchBonus: 1.5,

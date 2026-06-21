@@ -29,8 +29,9 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await birth.locator(".edit-event-place").fill("Ljubljana, Slovenija");
   await birth.locator(".edit-event-addr").fill("Glavni trg 1");
   await birth.locator(".edit-link-add").click();
-  await birth.locator(".edit-link-input").fill("https://example.com/test");
-  await birth.locator(".edit-link-input").press("Tab");
+  const sourceDialog = page.locator(".add-source-dialog");
+  await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
+  await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
 
   await expect(exportBtn).toBeEnabled();
 
@@ -59,8 +60,9 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await marriage.locator(".edit-event-place").fill("Maribor, Slovenija");
   await marriage.locator(".edit-event-addr").fill("Trg 5");
   await marriage.locator(".edit-link-add").click();
-  await marriage.locator(".edit-link-input").fill("https://example.com/marr");
-  await marriage.locator(".edit-link-input").press("Tab");
+  const sourceDialog = page.locator(".add-source-dialog");
+  await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
+  await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
 
   const exportBtn = page.locator(".edit-toolbar button", { hasText: "Export" });
   await expect(exportBtn).toBeEnabled();
@@ -75,4 +77,30 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   expect(content).toContain("Maribor, Slovenija");
   expect(content).toContain("Trg 5");
   expect(content).toContain("https://example.com/marr");
+});
+
+test("edit mode: undoing a removed source citation restores its title, not just a bare link", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.getByRole("button", { name: "Edit" }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // Add a titled source citation at the person level.
+  await page.locator(".edit-name-chip-add", { hasText: "Add Source" }).first().click();
+  const dialog = page.locator(".add-source-dialog");
+  await dialog.locator(".add-source-textarea").fill(
+    "Marta Rendla, »Jožef Celar«, Smrtne žrtve (Ljubljana: INZ, 2026), https://www.sistory.si/ww2/TEST-CASE",
+  );
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+
+  await expect(page.locator(".source-ref").first()).toHaveClass(/source-ref--book/);
+
+  // Remove it, then undo — the citation (and its title) should come back,
+  // not a dangling pointer rendered as a bare 🔗.
+  await page.locator(".source-ref-wrap .source-ref-remove").first().click({ force: true });
+  await expect(page.locator(".source-ref")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.locator(".source-ref").first()).toHaveClass(/source-ref--book/);
 });

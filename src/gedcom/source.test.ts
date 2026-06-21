@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { inferSourceFormat } from "./source";
+import { findExistingSource, inferSourceFormat } from "./source";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -373,5 +373,39 @@ describe("inferSourceFormat", () => {
     const buf = new TextEncoder().encode(text);
     const ds = buildDataset(parseGedcom(buf.buffer));
     expect(inferSourceFormat(ds.records).layout).toBe("unknown");
+  });
+});
+
+describe("findExistingSource", () => {
+  const text = `0 HEAD
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 56
+0 @S1@ SOUR
+1 TITL Krstna knjiga - Šenčur
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56
+0 TRLR
+`;
+
+  it("finds an exact match (mod language/case/slash) and returns its OBJE xref", () => {
+    const ds = buildFromText(text);
+    const match = findExistingSource(ds, "HTTPS://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=56/");
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: "@O1@", page: "56" });
+  });
+
+  it("finds a same-book match for a different page, without an OBJE xref", () => {
+    const ds = buildFromText(text);
+    const match = findExistingSource(ds, "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "58" });
+  });
+
+  it("returns undefined for an unrelated URL", () => {
+    const ds = buildFromText(text);
+    const match = findExistingSource(ds, "https://www.sistory.si/ww2/5046DECC-E88C-4EA6-8B61-82D7A78C8626");
+    expect(match).toBeUndefined();
   });
 });

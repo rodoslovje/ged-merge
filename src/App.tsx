@@ -734,6 +734,9 @@ export function App() {
     (patches: RecordPatch[], direction: "undo" | "redo") => {
       if (!masterDataset) return;
       for (const patch of patches) {
+        // Generic top-level records (e.g. a SOUR/OBJE from "Add Source") ride along
+        // with the citing individual/family's own patch — no dirty-tracking of their own.
+        if (patch.type === "record") continue;
         const appliedState = direction === "undo" ? patch.before : patch.after;
         if (appliedState === null) {
           // Record was removed (undo of creation, or redo of deletion) — clean up.

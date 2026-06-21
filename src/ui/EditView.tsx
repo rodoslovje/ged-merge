@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedEvent, GedNode, Individual, Sex, SourceCitation } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameTypeLabel, primaryName } from "../match/relatives";
@@ -14,13 +14,17 @@ import {
   addChild,
   addEventNode,
   addFamilyEventNode,
+  addObjeToSource,
   addParent,
   addPartner,
+  attachSourceCitation,
   connectExistingChild,
   connectExistingParent,
   connectExistingPartner,
+  createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
+  INDI_CHILD_ORDER,
   insertRecord,
   rebuildFamily,
   rebuildIndividual,
@@ -28,6 +32,7 @@ import {
   removeEventAtIndex,
   removeFamilyEvent,
   removeIndividual,
+  removeSourceCitationAtIndex,
   setAdditionalName,
   setEventField,
   setEventFieldAtIndex,
@@ -40,11 +45,15 @@ import {
   setNotes,
   setSex,
   type EventFieldUpdate,
+  type NewSourceFields,
 } from "../gedcom/edit";
+import { findExistingSource } from "../gedcom/source";
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
 import { SourceRefs } from "./SourceRef";
+import { linkHref } from "./FieldValue";
+import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 
 // Assign a monotonically increasing integer to each GedNode object so React
 // keys remain stable across insertions and removals of sibling events.
@@ -105,12 +114,28 @@ const INDIVIDUAL_EVENT_GROUPS = [
 const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
 
 /** A mutation applied to the selected person's raw record, then rebuilt and
- * re-rendered. */
-type Commit = (mutate: (indi: Individual) => void) => void;
+ * re-rendered. `extraPatches` carries undo/redo entries for any other
+ * top-level record the mutation touched (e.g. a `SOUR`/`OBJE` created or
+ * modified by "Add Source"). */
+type Commit = (mutate: (indi: Individual) => void, extraPatches?: RecordPatch[]) => void;
 
 /** A mutation applied to a family's raw record, then rebuilt and
- * re-rendered. */
-type FamilyCommit = (fam: Family, mutate: (fam: Family) => void) => void;
+ * re-rendered — see `Commit` for `extraPatches`. */
+type FamilyCommit = (fam: Family, mutate: (fam: Family) => void, extraPatches?: RecordPatch[]) => void;
+
+/** Where a confirmed "Add Source" citation should attach: the selected
+ * person's own record, or a specific event (via its already-bound
+ * `commitField`, so the dialog doesn't need to know which row it is). */
+type SourceDialogTarget =
+  | { kind: "individual" }
+  | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void };
+
+/** Which top-level record a removed `SOUR` citation's owner-snapshot should
+ * be filed under — see `commitRemoveSource`. */
+type RemoveSourceOwner = { kind: "individual"; indi: Individual } | { kind: "family"; fam: Family };
+/** Removes the `index`th `SOUR` citation from `node` and commits it (with
+ * undo-safe patches for any pruned `SOUR`/`OBJE`) — see `commitRemoveSource`. */
+type CommitRemoveSource = (node: GedNode, index: number, owner: RemoveSourceOwner) => void;
 
 interface PlaceSuggestions {
   placeSuggestions: string[];
@@ -215,8 +240,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
   const focusNextName = useRef(false);
-  // Whether the user has clicked "+ Add link" or "+ Add note" for the current person.
-  const [linksAdded, setLinksAdded] = useState(false);
+  // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
   const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
@@ -241,10 +265,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         const ri = dataset.records.findIndex((r) => r.xref === patch.id);
         if (ri !== -1) dataset.records.splice(ri, 1);
         if (patch.type === "individual") dataset.individuals.delete(patch.id);
-        else dataset.families.delete(patch.id);
+        else if (patch.type === "family") dataset.families.delete(patch.id);
       }
     }
-    // Second pass: restore or re-add records.
+    // Second pass: restore or re-add generic top-level records (e.g. a
+    // SOUR/OBJE created or pruned by "Add Source") *before* any
+    // individual/family rebuild below — that rebuild re-resolves source
+    // citations via buildSourceContext(dataset.records), so a SOUR/OBJE this
+    // same batch touched must already be back in place, or a citation
+    // pointer resolves dangling (no title/url) until the next edit.
+    for (const patch of patches) {
+      if (patch.type !== "record") continue;
+      const target = patch[pick];
+      if (target === null) continue;
+      const restored = cloneRaw(target);
+      const existing = dataset.records.find((r) => r.xref === patch.id);
+      if (existing) {
+        existing.value = restored.value;
+        existing.children = restored.children;
+      } else {
+        insertRecord(dataset.records, restored);
+      }
+    }
+    // Third pass: restore individual/family records and rebuild them.
     for (const patch of patches) {
       const target = patch[pick];
       if (target === null) continue;
@@ -260,7 +303,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rebuildIndividual(dataset, { raw: restored } as any);
         }
-      } else {
+      } else if (patch.type === "family") {
         const existing = dataset.families.get(patch.id);
         if (existing) {
           existing.raw.value = restored.value;
@@ -282,7 +325,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     if (!pendingApply) return;
     const navId = pendingApply.direction === "undo" ? pendingApply.navigateTo : pendingApply.redoNavigateTo;
     // Always reset local UI state on undo/redo so stale values don't linger.
-    setLinksAdded(false);
     setNotesAdded(false);
     setFamNoteAdd({});
     if (navId !== undefined) {
@@ -324,7 +366,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   function navigate(id: string) {
     if (!id || id === selectedId) return;
     if (selectedId) setHistory((h) => [...h, selectedId]);
-    setLinksAdded(false);
     setNotesAdded(false);
     setPickingSlot(null);
     setSelectedId(id);
@@ -447,28 +488,124 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     }
   }
 
-  const commit: Commit = (mutate) => {
+  const commit: Commit = (mutate, extraPatches) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
     mutate(person);
     const after = cloneRaw(person.raw);
-    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
     rebuildIndividual(dataset, person);
-    onPushEdit([{ type: "individual", id: person.id, before, after }], selectedId);
+    onPushEdit([{ type: "individual", id: person.id, before, after }, ...(extraPatches ?? [])], selectedId);
     onDirty("individual", person.id);
     setTick((v) => v + 1);
   };
 
-  const commitFamily: FamilyCommit = (fam, mutate) => {
+  const commitFamily: FamilyCommit = (fam, mutate, extraPatches) => {
     const before = cloneRaw(fam.raw);
     mutate(fam);
     const after = cloneRaw(fam.raw);
-    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
     rebuildFamily(dataset, fam);
-    onPushEdit([{ type: "family", id: fam.id, before, after }], selectedId);
+    onPushEdit([{ type: "family", id: fam.id, before, after }, ...(extraPatches ?? [])], selectedId);
     onDirty("family", fam.id);
     setTick((v) => v + 1);
   };
+
+  // ── Add Source dialog ────────────────────────────────────────────────────
+  // `sourceDialogTarget` says where the confirmed citation should attach:
+  // the selected person's own record, or a specific event's `commitField`
+  // (already bound to that event's index/tag by the caller).
+  const [sourceDialogTarget, setSourceDialogTarget] = useState<SourceDialogTarget | null>(null);
+
+  /**
+   * Resolve the dataset-level side of "Add Source": reuse an existing
+   * `SOUR`/`OBJE` for the same (or same-book) URL when one exists, otherwise
+   * create new ones. Returns the citation pointer to attach plus any extra
+   * patches for the top-level records it touched, for the caller's `commit`.
+   */
+  function resolveSourceFields(fields: AddSourceResult): { sourceXref: string; page?: string; extraPatches: RecordPatch[] } {
+    const extraPatches: RecordPatch[] = [];
+    if (fields.url) {
+      const match = findExistingSource(dataset, fields.url);
+      if (match) {
+        if (!match.objeXref) {
+          const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
+          const before = cloneRaw(sourceNode);
+          const obje = addObjeToSource(dataset, match.sourceXref, fields.url);
+          extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
+          extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
+        }
+        return { sourceXref: match.sourceXref, page: fields.page ?? match.page, extraPatches };
+      }
+    }
+    const sourceNode = createSourceRecord(dataset, fields as NewSourceFields);
+    extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
+    const objeChild = sourceNode.children.find((c) => c.tag === "OBJE");
+    if (objeChild?.value) {
+      const objeNode = dataset.records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
+      if (objeNode) extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
+    }
+    return { sourceXref: sourceNode.xref!, page: fields.page, extraPatches };
+  }
+
+  function handleAddSource(fields: AddSourceResult) {
+    if (!sourceDialogTarget || !person) return;
+    const { sourceXref, page, extraPatches } = resolveSourceFields(fields);
+    if (sourceDialogTarget.kind === "individual") {
+      commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+    } else {
+      sourceDialogTarget.commitField({ addSource: { sourceXref, page } }, extraPatches);
+    }
+    setSourceDialogTarget(null);
+  }
+
+/**
+   * Remove the `index`th `SOUR` citation from `node` (the individual/family's
+   * own record, or one of its event sub-nodes) and commit it. Snapshots the
+   * cited `SOUR`/`OBJE` first so that — if `removeSourceCitationAtIndex`
+   * prunes them as now-unreferenced — undo gets a `"record"` patch to restore
+   * them too. Without this, undo would put the citation pointer back but
+   * leave it dangling (no title/url to resolve), showing a bare 🔗 instead of
+   * the original 📖. Bypasses the generic `commit`/`commitFamily` helpers
+   * since their `extraPatches` argument must be known before the mutation
+   * runs, but here it's only known *after* (whether pruning actually happened).
+   */
+  const commitRemoveSource: CommitRemoveSource = (node, index, owner) => {
+    const sourceXref = node.children.filter((c) => c.tag === "SOUR")[index]?.value?.trim();
+    const sourceNode = sourceXref ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref) : undefined;
+    const sourceBefore = sourceNode ? cloneRaw(sourceNode) : undefined;
+    const objeBefores = (sourceNode?.children.filter((c) => c.tag === "OBJE" && c.value) ?? [])
+      .map((c) => c.value!.trim())
+      .map((xref) => [xref, dataset.records.find((r) => r.tag === "OBJE" && r.xref === xref)] as const)
+      .filter((entry): entry is readonly [string, GedNode] => !!entry[1])
+      .map(([xref, n]) => [xref, cloneRaw(n)] as const);
+
+    const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
+    const ownerBefore = cloneRaw(ownerRaw);
+    removeSourceCitationAtIndex(dataset, node, index);
+    const ownerAfter = cloneRaw(ownerRaw);
+
+    const extraPatches: RecordPatch[] = [];
+    if (sourceXref && sourceBefore && !dataset.records.some((r) => r.xref === sourceXref)) {
+      extraPatches.push({ type: "record", id: sourceXref, before: sourceBefore, after: null });
+      for (const [objeXref, before] of objeBefores) {
+        if (!dataset.records.some((r) => r.xref === objeXref)) {
+          extraPatches.push({ type: "record", id: objeXref, before, after: null });
+        }
+      }
+    }
+
+    if (owner.kind === "individual") {
+      rebuildIndividual(dataset, owner.indi);
+      onPushEdit([{ type: "individual", id: owner.indi.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
+      onDirty("individual", owner.indi.id);
+    } else {
+      rebuildFamily(dataset, owner.fam);
+      onPushEdit([{ type: "family", id: owner.fam.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
+      onDirty("family", owner.fam.id);
+    }
+    setTick((v) => v + 1);
+  }
 
   function addRelative(kind: "father" | "mother" | "partner" | "child", fam?: Family) {
     if (!person) return;
@@ -656,7 +793,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     onDirty("individual", personId);
     affectedFamilyIds.forEach((fid) => onDirty("family", fid));
     setHistory((prev) => prev.filter((id) => id !== personId));
-    setLinksAdded(false);
     setNotesAdded(false);
     setSelectedId(nextId);
     if (personId === homeId) changeHome(nextId);
@@ -832,8 +968,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               const sameTag = person.raw.children.filter((c) => c.tag === tag);
               if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
             }}
-            showAddLink={!linksAdded && !(person.links ?? []).length}
-            onAddLink={() => setLinksAdded(true)}
+            showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length}
+            onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
           />
@@ -842,6 +978,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             person={person}
             t={t}
             commit={commit}
+            commitRemoveSource={commitRemoveSource}
+            onOpenSourceDialog={setSourceDialogTarget}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -854,16 +992,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
           />
-          {((person.links ?? []).length > 0 || linksAdded) && (
+          {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0) && (
             <div className="edit-record-section">
               <LinksEditor
                 key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.links ?? []}
-                addOnMount={linksAdded && !(person.links ?? []).length}
+                sources={person.sources ?? []}
                 sectionLabel={t("field.sources")}
                 label={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
+                onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
+                onRemoveSource={(idx) => commitRemoveSource(person.raw, idx, { kind: "individual", indi: person })}
               />
             </div>
           )}
@@ -939,9 +1079,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} commitRemoveSource={commitRemoveSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} commitRemoveSource={commitRemoveSource} onOpenSourceDialog={setSourceDialogTarget} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -990,6 +1130,13 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           })}
         </div>
       </div>
+      <AddSourceDialog
+        isOpen={sourceDialogTarget !== null}
+        onClose={() => setSourceDialogTarget(null)}
+        onAdd={handleAddSource}
+        dataset={dataset}
+        t={t}
+      />
     </div>
   );
 }
@@ -1658,6 +1805,8 @@ function EventList({
   person,
   t,
   commit,
+  commitRemoveSource,
+  onOpenSourceDialog,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
@@ -1673,6 +1822,8 @@ function EventList({
   person: Individual;
   t: Translate;
   commit: Commit;
+  commitRemoveSource: CommitRemoveSource;
+  onOpenSourceDialog: (target: SourceDialogTarget) => void;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -1755,8 +1906,10 @@ function EventList({
         label={t("event.BIRT")}
         tag="BIRT"
         t={t}
-        commitField={(update) => commit((indi) => setEventField(indi, "BIRT", update))}
+        commitField={(update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches)}
         onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
+        onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
+        onRemoveSource={birtOriginalIdx >= 0 ? (idx) => commitRemoveSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
@@ -1772,8 +1925,10 @@ function EventList({
             label={t(`event.${row.ev.tag}`)}
             tag={row.ev.tag}
             t={t}
-            commitField={(update) => commit((indi) => setEventFieldAtIndex(indi, row.i, update))}
+            commitField={(update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches)}
             onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
+            onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
+            onRemoveSource={(idx) => commitRemoveSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
             autoFocusDate={row.stableKey === pendingFocusNodeId}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -1789,8 +1944,9 @@ function EventList({
             label={t(`event.${row.tag}`)}
             tag={row.tag}
             t={t}
-            commitField={(update) => commit((indi) => setEventField(indi, row.tag, update))}
+            commitField={(update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches)}
             onRemove={() => onDismissExtraEvent?.(row.keyBase)}
+            onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches) })}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1806,10 +1962,12 @@ function EventList({
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
-  fam, tag, t, commit, onRemove, autoFocusDate,
+  fam, tag, t, commit, commitRemoveSource, onOpenSourceDialog, onRemove, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
+  commitRemoveSource: CommitRemoveSource;
+  onOpenSourceDialog: (target: SourceDialogTarget) => void;
   onRemove?: () => void;
   autoFocusDate?: boolean;
   placeSuggestions: string[];
@@ -1819,6 +1977,7 @@ function FamilyEventRow({
 }) {
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
+  const eventNode = fam.raw.children.find((c) => c.tag === tag);
 
   return (
     <EventFieldsRow
@@ -1826,8 +1985,10 @@ function FamilyEventRow({
       label={label}
       tag={tag}
       t={t}
-      commitField={(update) => commit(fam, (f) => setFamilyEventField(f, tag, update))}
+      commitField={(update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches)}
       onRemove={onRemove}
+      onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
+      onRemoveSource={eventNode ? (idx) => commitRemoveSource(eventNode, idx, { kind: "family", fam }) : undefined}
       autoFocusDate={autoFocusDate}
       placeSuggestions={placeSuggestions}
       placeToAddrs={placeToAddrs}
@@ -1910,6 +2071,8 @@ function EventFieldsRow({
   t,
   commitField,
   onRemove,
+  onAddSource,
+  onRemoveSource,
   autoFocusDate,
   placeSuggestions,
   placeToAddrs,
@@ -1922,8 +2085,10 @@ function EventFieldsRow({
   label: string;
   tag?: string;
   t: Translate;
-  commitField: (update: EventFieldUpdate) => void;
+  commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void;
   onRemove?: () => void;
+  onAddSource: () => void;
+  onRemoveSource?: (index: number) => void;
   autoFocusDate?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -1948,15 +2113,8 @@ function EventFieldsRow({
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
-  const linkFocusRef = useRef<number | null>(null);
-  const linkInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    if (linkFocusRef.current !== null) {
-      linkInputRefs.current[linkFocusRef.current]?.focus();
-      linkFocusRef.current = null;
-    }
-  });
+  // Legacy link rows collapse to a plain icon; clicking one expands it to an editable input.
+  const [expandedLinks, setExpandedLinks] = useState<Set<number>>(new Set());
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -2033,11 +2191,8 @@ function EventFieldsRow({
         />
       )}
       <div className="edit-event-actions">
-        <button
-          type="button"
-          className="edit-link-add"
-          onClick={() => setLinks((prev) => { linkFocusRef.current = prev.length; return [...prev, ""]; })}
-        >
+        {ev?.sources?.length ? <SourceRefs t={t} masterSources={ev.sources} onRemove={onRemoveSource} /> : null}
+        <button type="button" className="edit-link-add" onClick={onAddSource}>
           + {t("edit.addLink")}
         </button>
         {onRemove && (
@@ -2051,45 +2206,48 @@ function EventFieldsRow({
           </button>
         )}
       </div>
-      {links.map((link, i) => (
-        <div className="edit-event-link-row" key={i}>
-          {link.trim() && (
-            <a
-              className="edit-link-open"
-              href={link.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("edit.openLink")}
-            >
-              ↗
-            </a>
-          )}
-          <div className="edit-link-input-wrap">
-            <input
-              ref={(el) => { linkInputRefs.current[i] = el; }}
-              className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
-              value={link}
-              placeholder={t("event.link", { event: label })}
-              title={t("event.link", { event: label })}
-              onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
-              onBlur={() => commitLinks(links)}
-            />
-            <button
-              type="button"
-              className="edit-link-remove"
-              title={t("edit.removeLink")}
-              onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
-            >
-              ×
-            </button>
+      {links.map((link, i) =>
+        expandedLinks.has(i) ? (
+          <div className="edit-event-link-row" key={i}>
+            {link.trim() && (
+              <a className="edit-link-open" href={link.trim()} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
+                ↗
+              </a>
+            )}
+            <div className="edit-link-input-wrap">
+              <input
+                className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
+                value={link}
+                placeholder={t("event.link", { event: label })}
+                title={t("event.link", { event: label })}
+                autoFocus
+                onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
+                onBlur={() => { commitLinks(links); setExpandedLinks((prev) => { const s = new Set(prev); s.delete(i); return s; }); }}
+              />
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeLink")}
+                onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
+              >
+                ×
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
-      {ev?.sources?.length ? (
-        <div className="edit-event-sources">
-          <SourceRefs t={t} masterSources={ev.sources} />
-        </div>
-      ) : null}
+        ) : (
+          <a
+            key={i}
+            className="link-icon edit-link-icon"
+            href={linkHref(link)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={link}
+            onClick={(e) => { e.preventDefault(); setExpandedLinks((prev) => new Set(prev).add(i)); }}
+          >
+            🔗
+          </a>
+        ),
+      )}
     </div>
   );
 }
@@ -2178,29 +2336,28 @@ function NotesEditor({
  * provided it renders its own header row with the label and an add button. */
 function LinksEditor({
   links: initialLinks,
-  addOnMount,
+  sources,
   sectionLabel,
   label,
   t,
   onCommit,
+  onAddSource,
+  onRemoveSource,
 }: {
   links: string[];
-  addOnMount?: boolean;
+  /** Real `SOUR` citations added via "Add Source" — shown as icons alongside the legacy links. */
+  sources?: SourceCitation[];
   sectionLabel?: string;
   label: string;
   t: Translate;
   onCommit: (links: string[]) => void;
+  onAddSource: () => void;
+  onRemoveSource: (index: number) => void;
 }) {
-  const [links, setLinks] = useState(() => addOnMount ? [...initialLinks, ""] : initialLinks);
-  const focusNewRef = useRef<number | null>(addOnMount ? initialLinks.length : null);
+  const [links, setLinks] = useState(initialLinks);
+  // Legacy link rows collapse to a plain icon; clicking one expands it to an editable input.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    if (focusNewRef.current !== null) {
-      inputRefs.current[focusNewRef.current]?.focus();
-      focusNewRef.current = null;
-    }
-  });
 
   function commitLinks(next: string[]) {
     setLinks(next);
@@ -2212,50 +2369,60 @@ function LinksEditor({
       {sectionLabel && (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>
+          {sources && sources.length > 0 && <SourceRefs t={t} masterSources={sources} onRemove={onRemoveSource} />}
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
             title={t("edit.addLinkTooltip")}
-            onClick={() => setLinks((prev) => { focusNewRef.current = prev.length; return [...prev, ""]; })}
+            onClick={onAddSource}
           >
             + {t("edit.addLink")}
           </button>
         </div>
       )}
-      {links.map((link, i) => (
-        <div className="edit-link-row" key={i}>
-          {link.trim() && (
-            <a
-              className="edit-link-open"
-              href={link.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={t("edit.openLink")}
-            >
-              ↗
-            </a>
-          )}
-          <div className="edit-link-input-wrap">
-            <input
-              ref={(el) => { inputRefs.current[i] = el; }}
-              className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
-              value={link}
-              placeholder={t("event.link", { event: label })}
-              title={t("event.link", { event: label })}
-              onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
-              onBlur={() => commitLinks(links)}
-            />
-            <button
-              type="button"
-              className="edit-link-remove"
-              title={t("edit.removeLink")}
-              onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
-            >
-              ×
-            </button>
+      {links.map((link, i) =>
+        expanded.has(i) ? (
+          <div className="edit-link-row" key={i}>
+            {link.trim() && (
+              <a className="edit-link-open" href={link.trim()} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
+                ↗
+              </a>
+            )}
+            <div className="edit-link-input-wrap">
+              <input
+                ref={(el) => { inputRefs.current[i] = el; }}
+                className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
+                value={link}
+                placeholder={t("event.link", { event: label })}
+                title={t("event.link", { event: label })}
+                autoFocus
+                onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
+                onBlur={() => { commitLinks(links); setExpanded((prev) => { const s = new Set(prev); s.delete(i); return s; }); }}
+              />
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeLink")}
+                onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
+              >
+                ×
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ) : (
+          <a
+            key={i}
+            className="link-icon edit-link-icon"
+            href={linkHref(link)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={link}
+            onClick={(e) => { e.preventDefault(); setExpanded((prev) => new Set(prev).add(i)); }}
+          >
+            🔗
+          </a>
+        ),
+      )}
     </div>
   );
 }

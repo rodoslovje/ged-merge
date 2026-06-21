@@ -1,7 +1,10 @@
 import type { GedNode } from "../gedcom/types";
 
 export interface RecordPatch {
-  type: "individual" | "family";
+  /** "record" covers a top-level non-INDI/FAM record (e.g. a `SOUR`/`OBJE`
+   * created or modified by "Add Source") — applied directly against
+   * `dataset.records` by xref, with no typed map to update. */
+  type: "individual" | "family" | "record";
   id: string;
   /** State before the action. null = this record was created by the action (undo removes it). */
   before: GedNode | null;

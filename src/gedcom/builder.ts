@@ -62,6 +62,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const spouseOf: string[] = [];
   const links: string[] = [];
   const notes: string[] = [];
+  const sources: SourceCitation[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -84,6 +85,11 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         collectLinks(child, media, links);
         break;
       }
+      case "SOUR": {
+        const citation = resolveSourceCitation(child, sourceCtx);
+        if (citation) sources.push(citation);
+        break;
+      }
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
@@ -95,6 +101,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (links.length) indi.links = dedupe(links);
   if (notes.length) indi.notes = notes;
+  if (sources.length) indi.sources = sources;
   return indi;
 }
 
@@ -103,6 +110,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   const events: GedEvent[] = [];
   const links: string[] = [];
   const notes: string[] = [];
+  const sources: SourceCitation[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
 
@@ -123,6 +131,11 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         collectLinks(child, media, links);
         break;
       }
+      case "SOUR": {
+        const citation = resolveSourceCitation(child, sourceCtx);
+        if (citation) sources.push(citation);
+        break;
+      }
       default:
         if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
         else collectLinks(child, media, links);
@@ -134,6 +147,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (wife) fam.wife = wife;
   if (links.length) fam.links = dedupe(links);
   if (notes.length) fam.notes = notes;
+  if (sources.length) fam.sources = sources;
   return fam;
 }
 
