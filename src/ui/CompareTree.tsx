@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { FieldValue, RelativeGrid } from "./FieldValue";
+import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
@@ -752,9 +752,11 @@ function NodeCompare({
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
                       <SourceRefs t={t} masterSources={row.masterSources} />
+                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                     </td>
                     <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
                       <SourceRefs t={t} masterSources={row.incomingSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
                     </td>
                   </>
                 ) : (

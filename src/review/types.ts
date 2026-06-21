@@ -27,7 +27,7 @@ export interface FieldRow {
   /** When set, the row holds attached links rendered as icons (not text). */
   masterLinks?: string[];
   incomingLinks?: string[];
-  /** Inline link icons shown alongside the field's text value (used for event-attached links). */
+  /** Event-attached links, rendered as icons alongside the event's source citations. */
   masterLinkIcons?: string[];
   incomingLinkIcons?: string[];
   /** Source citations attached to the event, rendered as badges in this row's value cells. */

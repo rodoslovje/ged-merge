@@ -562,13 +562,37 @@ describe("attached links", () => {
       `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n0 TRLR\n`,
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    // Event links appear as inline icons on the first subrow of the event.
+    // Event links appear as inline icons on the event's Source row.
     expect(byKey(rows, "links")).toBeUndefined(); // no record-level links
     expect(byKey(rows, "BIRT.links")).toBeUndefined(); // no separate links data row
-    const birtDate = byKey(rows, "BIRT.date");
-    expect(birtDate?.incomingLinkIcons).toEqual(["https://example.com/birth"]);
-    expect(birtDate?.masterLinkIcons).toBeUndefined();
+    const birtSources = byKey(rows, "BIRT.sources");
+    expect(birtSources?.incomingLinkIcons).toEqual(["https://example.com/birth"]);
+    expect(birtSources?.masterLinkIcons).toBeUndefined();
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
+  });
+
+  it("drops the link icon when a citation on the same side already links to it", () => {
+    const ds = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n` +
+        `2 SOUR @S1@\n0 @S1@ SOUR\n1 TITL Birth register\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://example.com/birth\n0 TRLR\n`,
+    );
+    const indi = ds.individuals.get("@I1@")!;
+    const rows = individualFieldRows(tr, indi, undefined);
+    const birtSources = byKey(rows, "BIRT.sources");
+    expect(birtSources?.masterSources).toHaveLength(1);
+    expect(birtSources?.masterLinkIcons).toBeUndefined();
+  });
+
+  it("keeps the link icon when it points elsewhere than the citation", () => {
+    const ds = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/elsewhere\n` +
+        `2 SOUR @S1@\n0 @S1@ SOUR\n1 TITL Birth register\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://example.com/birth\n0 TRLR\n`,
+    );
+    const indi = ds.individuals.get("@I1@")!;
+    const rows = individualFieldRows(tr, indi, undefined);
+    const birtSources = byKey(rows, "BIRT.sources");
+    expect(birtSources?.masterSources).toHaveLength(1);
+    expect(birtSources?.masterLinkIcons).toEqual(["https://example.com/elsewhere"]);
   });
 
   it("tallies differing links into linkCount; matching links agree", () => {

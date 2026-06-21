@@ -128,7 +128,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   ]);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
-  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.links")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources")));
 
   return diffs;
 }
@@ -142,7 +142,7 @@ function diffFamilyNodes(id: string, before: GedNode, after: GedNode, t: Transla
   ]);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
-  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.links")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources")));
 
   return diffs;
 }

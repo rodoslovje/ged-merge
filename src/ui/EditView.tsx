@@ -860,8 +860,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                 key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.links ?? []}
                 addOnMount={linksAdded && !(person.links ?? []).length}
-                sectionLabel={t("field.links")}
-                label={t("field.links")}
+                sectionLabel={t("field.sources")}
+                label={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
               />

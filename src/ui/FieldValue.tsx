@@ -38,47 +38,38 @@ export function FieldValue({
   otherLinkIcons?: string[];
 }) {
   if (links && links.length > 0) {
-    const otherKeys = otherLinks && new Set(otherLinks.map(linkKey));
-    return (
-      <span className="links">
-        {links.map((url, i) => (
-          <a
-            key={i}
-            href={linkHref(url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
-            title={url}
-          >
-            🔗
-          </a>
-        ))}
-      </span>
-    );
+    return <LinkIcons urls={links} otherUrls={otherLinks} />;
   }
   if (linkIcons && linkIcons.length > 0) {
-    const otherIconKeys = otherLinkIcons && new Set(otherLinkIcons.map(linkKey));
     return (
       <>
         {renderLines(text, person)}
-        <span className="links">
-          {linkIcons.map((url, i) => (
-            <a
-              key={i}
-              href={linkHref(url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={otherIconKeys && !otherIconKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
-              title={url}
-            >
-              🔗
-            </a>
-          ))}
-        </span>
+        <LinkIcons urls={linkIcons} otherUrls={otherLinkIcons} />
       </>
     );
   }
   return <>{renderLines(text, person)}</>;
+}
+
+/** A row of 🔗 icons, one per attached URL; one not present in `otherUrls` is highlighted as new. */
+export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: string[] }) {
+  const otherKeys = otherUrls && new Set(otherUrls.map(linkKey));
+  return (
+    <span className="links">
+      {urls.map((url, i) => (
+        <a
+          key={i}
+          href={linkHref(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
+          title={url}
+        >
+          🔗
+        </a>
+      ))}
+    </span>
+  );
 }
 
 /**

@@ -4,7 +4,7 @@ import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
 import { individualFieldRows } from "../review/fields";
-import { FieldValue, RelativeGrid } from "./FieldValue";
+import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import {
   defaultChoice,
@@ -110,9 +110,11 @@ export function ComparePanel({
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
                       <SourceRefs t={t} masterSources={row.masterSources} />
+                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                     </td>
                     <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
                       <SourceRefs t={t} masterSources={row.incomingSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
                     </td>
                   </>
                 ) : (

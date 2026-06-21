@@ -54,7 +54,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "children" || key.endsWith(".children")) return t("field.children");
   if (key === "husband") return t("field.husband");
   if (key === "wife") return t("field.wife");
-  if (key === "links") return t("field.links");
+  if (key === "links") return t("field.sources");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
 
   let tag = key;
@@ -150,17 +150,8 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
-    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources);
+    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
     if (subRows.length > 0) {
-      const mLinks = me?.links?.length ? me.links : undefined;
-      const cLinks = ce?.links?.length ? ce.links : undefined;
-      if (mLinks || cLinks) {
-        subRows[0] = {
-          ...subRows[0],
-          ...(mLinks ? { masterLinkIcons: mLinks } : {}),
-          ...(cLinks ? { incomingLinkIcons: cLinks } : {}),
-        };
-      }
       rows.push({
         key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
       });
@@ -215,17 +206,8 @@ export function individualFieldRows(
       pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, cMar?.place?.raw);
       pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, cMar?.address?.raw);
       pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, cMar?.note);
-      pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources);
+      pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
       if (marriageRows.length > 0) {
-        const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
-        const cMarLinks = cMar?.links?.length ? cMar.links : undefined;
-        if (mMarLinks || cMarLinks) {
-          marriageRows[0] = {
-            ...marriageRows[0],
-            ...(mMarLinks ? { masterLinkIcons: mMarLinks } : {}),
-            ...(cMarLinks ? { incomingLinkIcons: cMarLinks } : {}),
-          };
-        }
         rows.push({
           key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
         });
@@ -241,17 +223,8 @@ export function individualFieldRows(
         pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw);
         pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw);
         pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
-        pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources);
+        pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
         if (etagRows.length > 0) {
-          const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
-          const cEvLinks = cEv?.links?.length ? cEv.links : undefined;
-          if (mEvLinks || cEvLinks) {
-            etagRows[0] = {
-              ...etagRows[0],
-              ...(mEvLinks ? { masterLinkIcons: mEvLinks } : {}),
-              ...(cEvLinks ? { incomingLinkIcons: cEvLinks } : {}),
-            };
-          }
           rows.push({
             key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
           });
@@ -641,7 +614,10 @@ function linkState(master: string[], incoming: string[]): FieldState {
 /**
  * A row for an event's source citations, shown under its other fields so each
  * side's sources sit in their own column (like any other field) rather than
- * as badges on the event header.
+ * as badges on the event header. The event's own attached links (`_LINK`/`WWW`,
+ * distinct from `SOUR` citations) ride along as icons on this same row — but a
+ * link already covered by one of that side's citation URLs is dropped, since
+ * the citation itself is already clickable to that URL.
  */
 function pushSourcesRow(
   rows: FieldRow[],
@@ -649,10 +625,14 @@ function pushSourcesRow(
   label: string,
   master: SourceCitation[] | undefined,
   incoming: SourceCitation[] | undefined,
+  masterLinks?: string[],
+  incomingLinks?: string[],
 ): void {
   const m = master ?? [];
   const i = incoming ?? [];
-  if (m.length === 0 && i.length === 0) return;
+  const mIcons = linksNotCitedAsSource(masterLinks, m);
+  const iIcons = linksNotCitedAsSource(incomingLinks, i);
+  if (m.length === 0 && i.length === 0 && mIcons.length === 0 && iIcons.length === 0) return;
   rows.push({
     key,
     label,
@@ -662,7 +642,16 @@ function pushSourcesRow(
     state: sourcesState(m, i),
     masterSources: m.length ? m : undefined,
     incomingSources: i.length ? i : undefined,
+    masterLinkIcons: mIcons.length ? mIcons : undefined,
+    incomingLinkIcons: iIcons.length ? iIcons : undefined,
   });
+}
+
+/** An event's own links, minus any already reachable via one of its source citations' URLs. */
+function linksNotCitedAsSource(links: string[] | undefined, sources: SourceCitation[]): string[] {
+  if (!links?.length) return [];
+  const citedKeys = new Set(sources.filter((c) => c.url).map((c) => linkKey(c.url!)));
+  return links.filter((url) => !citedKeys.has(linkKey(url)));
 }
 
 function sourcesState(master: SourceCitation[], incoming: SourceCitation[]): FieldState {
