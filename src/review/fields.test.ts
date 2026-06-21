@@ -328,6 +328,22 @@ describe("event ordering", () => {
     expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("DEAT.header"));
   });
 
+  it("sorts undated CHR after dated BIRT and before dated DEAT", () => {
+    // An undated christening (with a place so it renders) must still appear
+    // after a dated birth, not before it, even though both are birth-zone tags.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 CHR\n2 PLAC Metlika\n` +
+      `1 BIRT\n2 DATE 10 SEP 1913\n2 PLAC Krasinec\n` +
+      `1 DEAT\n2 DATE 1999\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("CHR.header"));
+    expect(keys.indexOf("CHR.header")).toBeLessThan(keys.indexOf("DEAT.header"));
+  });
+
   it("sorts undated DEAT before undated BURI, both after dated BIRT", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +

@@ -785,8 +785,8 @@ export function orderedEventTags(
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey);
-    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey);
+    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, minBirthKey);
+    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, minBirthKey);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -802,7 +802,9 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM"])
 /**
  * Sort key for an event instance. When the event has a date, returns the
  * precision-aware date key. When undated, uses zone-based placement:
- *  - Birth-zone tags (BIRT, BAPM, …): key 0–5, always before any real date.
+ *  - Birth-zone tags (BIRT, BAPM, …): pinned just after the known birth date
+ *    (so e.g. an undated christening still sorts after a dated birth), or
+ *    key 0–5 when no birth date is known at all.
  *  - Death-zone tags (DEAT, BURI, CREM): key 99_999_997–99_999_999, always last.
  *  - Life-zone tags (RESI, OCCU, …): key near `midLifeKey`, between birth and death.
  */
@@ -811,11 +813,14 @@ function effectiveSortKey(
   ce: GedEvent | undefined,
   tag: string,
   midLifeKey: number,
+  minBirthKey: number | undefined,
 ): number {
   const d = me?.date ?? ce?.date;
   if (d?.year != null) return dateToSortKey(d);
   const pos = EVENT_ORDER.indexOf(tag);
-  if (BIRTH_ZONE_TAGS.has(tag)) return pos >= 0 ? pos : 5;
+  if (BIRTH_ZONE_TAGS.has(tag)) {
+    return minBirthKey != null ? minBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
+  }
   if (tag === "CREM") return 99_999_999;
   if (tag === "BURI") return 99_999_998;
   if (tag === "DEAT") return 99_999_997;
