@@ -1753,43 +1753,8 @@ button:focus-visible {
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
 
-.edit-event-link-row {
-  grid-column: 2 / -1;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.edit-event-link-row .edit-link-input { flex: 1; min-width: 0; }
 .edit-links {
   font-size: 0.88rem;
-}
-.edit-link-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.edit-link-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-.edit-link-input-wrap .edit-link-input {
-  flex: 1;
-  min-width: 0;
-  padding-right: 28px;
-}
-.edit-link-input-wrap .edit-link-remove {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-.edit-link-input {
-  flex: 1;
-  min-width: 160px;
-  color: var(--accent);
 }
 .edit-link-remove {
   flex: none;
@@ -1804,10 +1769,6 @@ button:focus-visible {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.edit-link-row:hover .edit-link-remove,
-.edit-link-row:focus-within .edit-link-remove,
-.edit-event-link-row:hover .edit-link-remove,
-.edit-event-link-row:focus-within .edit-link-remove,
 .edit-note-row:hover .edit-link-remove,
 .edit-note-row:focus-within .edit-link-remove,
 .edit-link-remove:focus-visible { opacity: 1; }
@@ -2342,6 +2303,9 @@ button:focus-visible {
   background: transparent;
 }
 .link-icon:hover { opacity: 1; }
+/* Edit mode: the icon is a <button> (opens the Edit Source dialog) rather
+   than an <a> — reset button chrome so it still looks like a plain icon. */
+button.link-icon { border: none; font: inherit; }
 /* Marks an incoming link that the master doesn't have yet (will be added). */
 .link-icon.link-new {
   background: #93c5fd40;
@@ -2361,7 +2325,10 @@ button:focus-visible {
   padding: 1px 3px;
   border-radius: 4px;
 }
-a.source-ref:hover { opacity: 1; }
+/* In Edit mode the icon is a <button> (opens the edit dialog, not the link
+   directly) — reset button chrome so it still looks like the plain icon. */
+button.source-ref { border: none; background: none; font: inherit; cursor: pointer; }
+a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 /* 📖 sits smaller than 🔗 in most emoji fonts at the same font-size. */
 .source-ref.source-ref--book { font-size: 1.15rem; }
 /* No resolvable link at all — not clickable. */
@@ -2370,27 +2337,6 @@ a.source-ref:hover { opacity: 1; }
 a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* An incoming citation the master doesn't have yet. */
 .source-ref.source-ref--new { background: #93c5fd40; opacity: 1; }
-/* Edit mode: a source icon plus its hover-revealed remove (×) button. */
-.source-ref-wrap { position: relative; display: inline-flex; align-items: center; }
-.source-ref-remove {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 14px;
-  height: 14px;
-  line-height: 14px;
-  font-size: 0.7rem;
-  border-radius: 50%;
-  border: none;
-  background: var(--panel);
-  color: var(--muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-.source-ref-wrap:hover .source-ref-remove,
-.source-ref-remove:focus-visible { opacity: 1; }
-.source-ref-remove:hover { color: var(--text); }
 /* Edit mode: a legacy link row collapsed to its icon (click to edit). */
 .edit-link-icon { cursor: pointer; }
 /* A relative's name rendered as a jump-to-person link. */
@@ -2838,7 +2784,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: var(--bg);
 }
 .add-source-field input::placeholder { opacity: 0.5; }
+.add-source-url-row { display: flex; align-items: flex-end; gap: 6px; }
+.add-source-url-row .add-source-field { flex: 1; }
 .add-source-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+/* Edit Source dialog: Remove sits apart on the left so Cancel/Save (the
+   common path) stay the rightmost, single-click-safe default actions. */
+.add-source-remove { margin-right: auto; }
+.add-source-remove:hover:not(:disabled) { border-color: var(--danger, #c0392b); color: var(--danger, #c0392b); }
 
 /* --- merge preview --- */
 .preview-body {

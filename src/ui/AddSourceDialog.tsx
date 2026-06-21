@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dataset } from "../gedcom/types";
-import type { NewSourceFields } from "../gedcom/edit";
+import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMasterProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageTitle } from "../normalize/urlMetadata";
+import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -18,6 +19,14 @@ interface Props {
   onAdd: (fields: AddSourceResult) => void;
   dataset: Dataset;
   t: Translate;
+  /** When given, the dialog edits an existing citation instead of adding a
+   * new one: no paste-and-parse box, fields are prefilled and all editable,
+   * and the footer offers Remove alongside Save/Cancel. */
+  editing?: {
+    fields: EditSourceFields;
+    onSave: (fields: EditSourceFields) => void;
+    onRemove: () => void;
+  };
 }
 
 interface FormState {
@@ -45,7 +54,7 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
@@ -69,7 +78,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   // Re-seed the editable fields whenever the pasted text (and therefore its
   // parse) changes — but not on every render, so the user's own edits to a
   // field afterward (without touching the textarea again) aren't clobbered.
+  // Skipped while editing an existing citation (no textarea to parse).
   useEffect(() => {
+    if (editing) return;
     setFields({
       title: match ? "" : parsed.title ?? "",
       author: match ? "" : parsed.author ?? "",
@@ -81,11 +92,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       url: normalizedUrl ?? "",
       note: match ? "" : parsed.note ?? "",
     });
-  }, [text, parsed, normalizedUrl, match]);
+  }, [editing, text, parsed, normalizedUrl, match]);
+
+  // Editing an existing citation: seed directly from its current fields.
+  useEffect(() => {
+    if (!editing) return;
+    setFields({
+      title: editing.fields.title ?? "",
+      author: editing.fields.author ?? "",
+      periodical: editing.fields.periodical ?? "",
+      publisher: editing.fields.publisher ?? "",
+      agency: editing.fields.agency ?? "",
+      filingNumber: editing.fields.filingNumber ?? "",
+      page: editing.fields.page ?? "",
+      url: editing.fields.url ?? "",
+      note: editing.fields.note ?? "",
+    });
+  }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
   useEffect(() => {
-    if (!urlOnly || match || !normalizedUrl) {
+    if (editing || !urlOnly || match || !normalizedUrl) {
       setFetching(false);
       return;
     }
@@ -97,7 +124,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       if (title) setFields((f) => (f.url === normalizedUrl && !f.title ? { ...f, title } : f));
     });
     return () => { cancelled = true; };
-  }, [normalizedUrl, urlOnly, match]);
+  }, [editing, normalizedUrl, urlOnly, match]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") handleClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -112,9 +148,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
     onClose();
   }
 
-  function handleAdd() {
+  function trimmedFields(fields: FormState) {
     const trim = (s: string) => s.trim() || undefined;
-    onAdd({
+    return {
       title: trim(fields.title),
       author: trim(fields.author),
       periodical: trim(fields.periodical),
@@ -124,7 +160,23 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       page: trim(fields.page),
       url: trim(fields.url),
       note: trim(fields.note),
-    });
+    };
+  }
+
+  function handleAdd() {
+    onAdd(trimmedFields(fields));
+    reset();
+  }
+
+  function handleSave() {
+    if (!editing) return;
+    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref });
+    reset();
+  }
+
+  function handleRemove() {
+    if (!editing) return;
+    editing.onRemove();
     reset();
   }
 
@@ -144,18 +196,20 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal add-source-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{t("addSource.title")}</h2>
+          <h2>{t(editing ? "editSource.title" : "addSource.title")}</h2>
           <button className="modal-close" onClick={handleClose} title={t("help.close")}>×</button>
         </div>
         <div className="modal-body">
-          <textarea
-            className="edit-input add-source-textarea"
-            rows={3}
-            autoFocus
-            placeholder={t("addSource.placeholder")}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
+          {!editing && (
+            <textarea
+              className="edit-input add-source-textarea"
+              rows={3}
+              autoFocus
+              placeholder={t("addSource.placeholder")}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          )}
           {fetching && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {match && (
             <div className="add-source-hint">
@@ -174,10 +228,24 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
             </>
           )}
           {field("page", "addSource.field.page")}
-          {field("url", "addSource.field.url")}
+          <div className="add-source-url-row">
+            {field("url", "addSource.field.url")}
+            {editing && fields.url.trim() && (
+              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
+                ↗
+              </a>
+            )}
+          </div>
           <div className="add-source-actions">
+            {editing && (
+              <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
+            )}
             <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
-            <button className="tree-open-btn" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
+            {editing ? (
+              <button className="tree-open-btn" onClick={handleSave}>{t("editSource.save")}</button>
+            ) : (
+              <button className="tree-open-btn" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
+            )}
           </div>
         </div>
       </div>

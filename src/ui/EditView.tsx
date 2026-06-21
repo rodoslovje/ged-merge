@@ -44,15 +44,16 @@ import {
   setNickname,
   setNotes,
   setSex,
+  updateSourceCitation,
+  type EditSourceFields,
   type EventFieldUpdate,
   type NewSourceFields,
 } from "../gedcom/edit";
-import { findExistingSource } from "../gedcom/source";
+import { buildSourceContext, childText, findExistingSource, resolveSourceCitation } from "../gedcom/source";
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
 import { SourceRefs } from "./SourceRef";
-import { linkHref } from "./FieldValue";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 
 // Assign a monotonically increasing integer to each GedNode object so React
@@ -125,17 +126,38 @@ type FamilyCommit = (fam: Family, mutate: (fam: Family) => void, extraPatches?: 
 
 /** Where a confirmed "Add Source" citation should attach: the selected
  * person's own record, or a specific event (via its already-bound
- * `commitField`, so the dialog doesn't need to know which row it is). */
+ * `commitField`, so the dialog doesn't need to know which row it is). Or,
+ * for "Edit Source", the existing citation being edited. Or, for a legacy
+ * plain link (Links have been merged into Sources in the UI), its three
+ * possible outcomes — built by whichever component owns that link's local
+ * `links` array, since only it knows how to commit a plain rename/removal. */
 type SourceDialogTarget =
   | { kind: "individual" }
-  | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void };
+  | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void }
+  | { kind: "edit"; node: GedNode; index: number; owner: RemoveSourceOwner; fields: EditSourceFields }
+  | {
+      kind: "edit-link";
+      url: string;
+      /** Just the URL changed — stays a plain link, no `SOUR` record involved. */
+      commitRename: (url: string) => void;
+      /** Drop the link entirely. */
+      commitRemove: () => void;
+      /** Bibliographic fields were filled in too — promote it to a real `SOUR`
+       * citation (using the already-resolved/created record) and drop the old
+       * plain link in the same commit. */
+      commitPromote: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[]) => void;
+    };
 
-/** Which top-level record a removed `SOUR` citation's owner-snapshot should
- * be filed under — see `commitRemoveSource`. */
+/** Which top-level record a removed/edited `SOUR` citation's owner-snapshot
+ * should be filed under — see `commitRemoveSource`/`commitEditSource`. */
 type RemoveSourceOwner = { kind: "individual"; indi: Individual } | { kind: "family"; fam: Family };
 /** Removes the `index`th `SOUR` citation from `node` and commits it (with
  * undo-safe patches for any pruned `SOUR`/`OBJE`) — see `commitRemoveSource`. */
 type CommitRemoveSource = (node: GedNode, index: number, owner: RemoveSourceOwner) => void;
+/** Opens the Edit Source dialog for the `index`th `SOUR` citation on `node` —
+ * see `openEditSource`. Threaded down to event rows the same way
+ * `CommitRemoveSource` used to be, now that removal lives inside that dialog. */
+type OpenEditSource = (node: GedNode, index: number, owner: RemoveSourceOwner) => void;
 
 interface PlaceSuggestions {
   placeSuggestions: string[];
@@ -549,7 +571,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }
 
   function handleAddSource(fields: AddSourceResult) {
-    if (!sourceDialogTarget || !person) return;
+    if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
     const { sourceXref, page, extraPatches } = resolveSourceFields(fields);
     if (sourceDialogTarget.kind === "individual") {
       commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
@@ -605,6 +627,117 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       onDirty("family", owner.fam.id);
     }
     setTick((v) => v + 1);
+  }
+
+  /**
+   * Open the Edit Source dialog for the `index`th `SOUR` citation on `node`,
+   * prefilled from the cited record's own fields (not the resolved
+   * `SourceCitation`, whose `title` may already be an "AUTH, PUBL" fallback —
+   * the raw `TITL`/`AUTH`/... are read separately so each stays in its own
+   * field). `objeXref` (when resolvable) is carried through so saving
+   * retargets only this citation's page image, not a sibling page's.
+   */
+  const openEditSource: OpenEditSource = (node, index, owner) => {
+    const citation = node.children.filter((c) => c.tag === "SOUR")[index];
+    if (!citation) return;
+    const page = childText(citation, "PAGE");
+    const value = citation.value?.trim();
+    const sourceNode = value ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
+    if (!sourceNode) {
+      // Inline (plain-text) citation: just its own value/page, no shared record.
+      setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page } });
+      return;
+    }
+    const resolved = resolveSourceCitation(citation, buildSourceContext(dataset.records));
+    setSourceDialogTarget({
+      kind: "edit",
+      node,
+      index,
+      owner,
+      fields: {
+        title: childText(sourceNode, "TITL"),
+        author: childText(sourceNode, "AUTH"),
+        periodical: childText(sourceNode, "PERI"),
+        publisher: childText(sourceNode, "PUBL"),
+        agency: childText(sourceNode, "AGNC"),
+        filingNumber: childText(sourceNode, "FILN"),
+        note: childText(sourceNode, "NOTE"),
+        url: resolved?.url,
+        objeXref: resolved?.objeXref,
+        page,
+      },
+    });
+  };
+
+  /** Commits an Edit Source dialog save: applies `updateSourceCitation`,
+   * then diffs every top-level `SOUR`/`OBJE` record for undo-safe patches —
+   * simpler than tracking exactly which ones a shared-record edit touched. */
+  function commitEditSource(node: GedNode, index: number, owner: RemoveSourceOwner, fields: EditSourceFields) {
+    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
+    const before = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
+
+    const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
+    const ownerBefore = cloneRaw(ownerRaw);
+    updateSourceCitation(dataset.records, node, index, fields);
+    const ownerAfter = cloneRaw(ownerRaw);
+
+    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
+    const extraPatches: RecordPatch[] = [];
+    for (const xref of new Set([...before.keys(), ...after.keys()])) {
+      const b = before.get(xref) ?? null;
+      const a = after.get(xref);
+      const aClone = a ? cloneRaw(a) : null;
+      if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
+    }
+
+    if (owner.kind === "individual") {
+      rebuildIndividual(dataset, owner.indi);
+      onPushEdit([{ type: "individual", id: owner.indi.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
+      onDirty("individual", owner.indi.id);
+    } else {
+      rebuildFamily(dataset, owner.fam);
+      onPushEdit([{ type: "family", id: owner.fam.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
+      onDirty("family", owner.fam.id);
+    }
+    setTick((v) => v + 1);
+  }
+
+  /** Builds the `editing` prop for the singleton `AddSourceDialog` from
+   * whichever `SourceDialogTarget` is open — "edit" (an existing `SOUR`
+   * citation) or "edit-link" (a legacy plain link, prefilled with just its
+   * URL). A legacy link only gets promoted to a real citation if the user
+   * actually filled in a bibliographic field; a bare URL edit/save just
+   * renames it in place and leaves it a plain link. */
+  function editingSourceDialogProps() {
+    if (!sourceDialogTarget) return undefined;
+    if (sourceDialogTarget.kind === "edit") {
+      const { node, index, owner, fields } = sourceDialogTarget;
+      return {
+        fields,
+        onSave: (saved: EditSourceFields) => { commitEditSource(node, index, owner, saved); setSourceDialogTarget(null); },
+        onRemove: () => { commitRemoveSource(node, index, owner); setSourceDialogTarget(null); },
+      };
+    }
+    if (sourceDialogTarget.kind === "edit-link") {
+      const { url, commitRename, commitRemove, commitPromote } = sourceDialogTarget;
+      return {
+        fields: { url },
+        onSave: (saved: EditSourceFields) => {
+          const hasBiblio = Boolean(
+            saved.title || saved.author || saved.periodical || saved.publisher || saved.agency || saved.filingNumber || saved.note,
+          );
+          if (hasBiblio) {
+            const { sourceXref, page, extraPatches } = resolveSourceFields(saved);
+            commitPromote(sourceXref, page, extraPatches);
+          } else {
+            commitRename(saved.url ?? "");
+          }
+          setSourceDialogTarget(null);
+        },
+        onRemove: () => { commitRemove(); setSourceDialogTarget(null); },
+      };
+    }
+    return undefined;
   }
 
   function addRelative(kind: "father" | "mother" | "partner" | "child", fam?: Family) {
@@ -978,7 +1111,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             person={person}
             t={t}
             commit={commit}
-            commitRemoveSource={commitRemoveSource}
+            openEditSource={openEditSource}
             onOpenSourceDialog={setSourceDialogTarget}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -999,11 +1132,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                 links={person.links ?? []}
                 sources={person.sources ?? []}
                 sectionLabel={t("field.sources")}
-                label={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
-                onRemoveSource={(idx) => commitRemoveSource(person.raw, idx, { kind: "individual", indi: person })}
+                onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
+                onOpenSourceDialog={setSourceDialogTarget}
+                onAttachSource={(sourceXref, page, extraPatches, links) =>
+                  commit((indi) => { attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER); setIndividualLinks(indi, links); }, extraPatches)
+                }
               />
             </div>
           )}
@@ -1079,9 +1215,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} commitRemoveSource={commitRemoveSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
                 {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} commitRemoveSource={commitRemoveSource} onOpenSourceDialog={setSourceDialogTarget} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
+                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
                 ))}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
@@ -1136,6 +1272,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         onAdd={handleAddSource}
         dataset={dataset}
         t={t}
+        editing={editingSourceDialogProps()}
       />
     </div>
   );
@@ -1807,7 +1944,7 @@ function EventList({
   person,
   t,
   commit,
-  commitRemoveSource,
+  openEditSource,
   onOpenSourceDialog,
   placeSuggestions,
   placeToAddrs,
@@ -1824,7 +1961,7 @@ function EventList({
   person: Individual;
   t: Translate;
   commit: Commit;
-  commitRemoveSource: CommitRemoveSource;
+  openEditSource: OpenEditSource;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -1911,7 +2048,8 @@ function EventList({
         commitField={(update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches)}
         onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
-        onRemoveSource={birtOriginalIdx >= 0 ? (idx) => commitRemoveSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
+        onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
+        onOpenSourceDialog={onOpenSourceDialog}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
@@ -1930,7 +2068,8 @@ function EventList({
             commitField={(update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches)}
             onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
-            onRemoveSource={(idx) => commitRemoveSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
+            onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
+            onOpenSourceDialog={onOpenSourceDialog}
             autoFocusDate={row.stableKey === pendingFocusNodeId}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -1949,6 +2088,7 @@ function EventList({
             commitField={(update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches)}
             onRemove={() => onDismissExtraEvent?.(row.keyBase)}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches) })}
+            onOpenSourceDialog={onOpenSourceDialog}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
@@ -1964,11 +2104,11 @@ function EventList({
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
-  fam, tag, t, commit, commitRemoveSource, onOpenSourceDialog, onRemove, autoFocusDate,
+  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
-  commitRemoveSource: CommitRemoveSource;
+  openEditSource: OpenEditSource;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   onRemove?: () => void;
   autoFocusDate?: boolean;
@@ -1990,7 +2130,8 @@ function FamilyEventRow({
       commitField={(update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches)}
       onRemove={onRemove}
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
-      onRemoveSource={eventNode ? (idx) => commitRemoveSource(eventNode, idx, { kind: "family", fam }) : undefined}
+      onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
+      onOpenSourceDialog={onOpenSourceDialog}
       autoFocusDate={autoFocusDate}
       placeSuggestions={placeSuggestions}
       placeToAddrs={placeToAddrs}
@@ -2074,7 +2215,8 @@ function EventFieldsRow({
   commitField,
   onRemove,
   onAddSource,
-  onRemoveSource,
+  onEditSource,
+  onOpenSourceDialog,
   autoFocusDate,
   placeSuggestions,
   placeToAddrs,
@@ -2090,7 +2232,8 @@ function EventFieldsRow({
   commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void;
   onRemove?: () => void;
   onAddSource: () => void;
-  onRemoveSource?: (index: number) => void;
+  onEditSource?: (index: number) => void;
+  onOpenSourceDialog: (target: SourceDialogTarget) => void;
   autoFocusDate?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -2115,8 +2258,6 @@ function EventFieldsRow({
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
-  // Legacy link rows collapse to a plain icon; clicking one expands it to an editable input.
-  const [expandedLinks, setExpandedLinks] = useState<Set<number>>(new Set());
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -2127,6 +2268,22 @@ function EventFieldsRow({
   function commitLinks(next: string[]) {
     setLinks(next);
     commitField({ links: next.map((l) => l.trim()).filter(Boolean) });
+  }
+
+  /** Links have been merged into Sources in the UI: clicking a legacy link's
+   * icon opens the same Edit Source dialog, prefilled with just its URL. */
+  function openEditLink(index: number) {
+    onOpenSourceDialog({
+      kind: "edit-link",
+      url: links[index],
+      commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
+      commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
+      commitPromote: (sourceXref, page, extraPatches) => {
+        const remaining = links.filter((_, i) => i !== index);
+        setLinks(remaining);
+        commitField({ links: remaining, addSource: { sourceXref, page } }, extraPatches);
+      },
+    });
   }
 
   return (
@@ -2197,22 +2354,18 @@ function EventFieldsRow({
         />
       )}
       <div className="edit-event-actions">
-        {ev?.sources?.length ? <SourceRefs t={t} masterSources={ev.sources} onRemove={onRemoveSource} /> : null}
-        {links.map((link, i) =>
-          expandedLinks.has(i) ? null : (
-            <a
-              key={i}
-              className="link-icon edit-link-icon"
-              href={linkHref(link)}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={link}
-              onClick={(e) => { e.preventDefault(); setExpandedLinks((prev) => new Set(prev).add(i)); }}
-            >
-              🔗
-            </a>
-          ),
-        )}
+        {ev?.sources?.length ? <SourceRefs t={t} masterSources={ev.sources} onEdit={onEditSource} /> : null}
+        {links.map((link, i) => (
+          <button
+            key={i}
+            type="button"
+            className="link-icon edit-link-icon"
+            title={link}
+            onClick={() => openEditLink(i)}
+          >
+            🔗
+          </button>
+        ))}
         <button type="button" className="edit-link-add" onClick={onAddSource}>
           + {t("edit.addLink")}
         </button>
@@ -2227,36 +2380,6 @@ function EventFieldsRow({
           </button>
         )}
       </div>
-      {links.map((link, i) =>
-        expandedLinks.has(i) ? (
-          <div className="edit-event-link-row" key={i}>
-            {link.trim() && (
-              <a className="edit-link-open" href={link.trim()} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
-                ↗
-              </a>
-            )}
-            <div className="edit-link-input-wrap">
-              <input
-                className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
-                value={link}
-                placeholder={t("event.link", { event: label })}
-                title={t("event.link", { event: label })}
-                autoFocus
-                onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
-                onBlur={() => { commitLinks(links); setExpandedLinks((prev) => { const s = new Set(prev); s.delete(i); return s; }); }}
-              />
-              <button
-                type="button"
-                className="edit-link-remove"
-                title={t("edit.removeLink")}
-                onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ) : null,
-      )}
     </div>
   );
 }
@@ -2347,30 +2470,47 @@ function LinksEditor({
   links: initialLinks,
   sources,
   sectionLabel,
-  label,
   t,
   onCommit,
   onAddSource,
-  onRemoveSource,
+  onEditSource,
+  onOpenSourceDialog,
+  onAttachSource,
 }: {
   links: string[];
   /** Real `SOUR` citations added via "Add Source" — shown as icons alongside the legacy links. */
   sources?: SourceCitation[];
   sectionLabel?: string;
-  label: string;
   t: Translate;
   onCommit: (links: string[]) => void;
   onAddSource: () => void;
-  onRemoveSource: (index: number) => void;
+  onEditSource: (index: number) => void;
+  onOpenSourceDialog: (target: SourceDialogTarget) => void;
+  /** Attaches an already-resolved `SOUR` citation and replaces the link list
+   * in one commit — used when a legacy link is promoted to a real citation. */
+  onAttachSource: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[], links: string[]) => void;
 }) {
   const [links, setLinks] = useState(initialLinks);
-  // Legacy link rows collapse to a plain icon; clicking one expands it to an editable input.
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   function commitLinks(next: string[]) {
     setLinks(next);
     onCommit(next.map((l) => l.trim()).filter(Boolean));
+  }
+
+  /** Links have been merged into Sources in the UI: clicking a legacy link's
+   * icon opens the same Edit Source dialog, prefilled with just its URL. */
+  function openEditLink(index: number) {
+    onOpenSourceDialog({
+      kind: "edit-link",
+      url: links[index],
+      commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
+      commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
+      commitPromote: (sourceXref, page, extraPatches) => {
+        const remaining = links.filter((_, i) => i !== index);
+        setLinks(remaining);
+        onAttachSource(sourceXref, page, extraPatches, remaining);
+      },
+    });
   }
 
   return (
@@ -2378,7 +2518,7 @@ function LinksEditor({
       {sectionLabel && (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>
-          {sources && sources.length > 0 && <SourceRefs t={t} masterSources={sources} onRemove={onRemoveSource} />}
+          {sources && sources.length > 0 && <SourceRefs t={t} masterSources={sources} onEdit={onEditSource} />}
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
@@ -2389,49 +2529,17 @@ function LinksEditor({
           </button>
         </div>
       )}
-      {links.map((link, i) =>
-        expanded.has(i) ? (
-          <div className="edit-link-row" key={i}>
-            {link.trim() && (
-              <a className="edit-link-open" href={link.trim()} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
-                ↗
-              </a>
-            )}
-            <div className="edit-link-input-wrap">
-              <input
-                ref={(el) => { inputRefs.current[i] = el; }}
-                className={`edit-input edit-link-input${link.trim() ? " edit-input--dirty" : ""}`}
-                value={link}
-                placeholder={t("event.link", { event: label })}
-                title={t("event.link", { event: label })}
-                autoFocus
-                onChange={(e) => setLinks((prev) => prev.map((l, idx) => (idx === i ? e.target.value : l)))}
-                onBlur={() => { commitLinks(links); setExpanded((prev) => { const s = new Set(prev); s.delete(i); return s; }); }}
-              />
-              <button
-                type="button"
-                className="edit-link-remove"
-                title={t("edit.removeLink")}
-                onClick={() => commitLinks(links.filter((_, idx) => idx !== i))}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ) : (
-          <a
-            key={i}
-            className="link-icon edit-link-icon"
-            href={linkHref(link)}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={link}
-            onClick={(e) => { e.preventDefault(); setExpanded((prev) => new Set(prev).add(i)); }}
-          >
-            🔗
-          </a>
-        ),
-      )}
+      {links.map((link, i) => (
+        <button
+          key={i}
+          type="button"
+          className="link-icon edit-link-icon"
+          title={link}
+          onClick={() => openEditLink(i)}
+        >
+          🔗
+        </button>
+      ))}
     </div>
   );
 }

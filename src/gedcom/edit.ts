@@ -1,5 +1,5 @@
 import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS } from "./builder";
-import { buildSourceContext } from "./source";
+import { buildSourceContext, isPointer } from "./source";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -688,6 +688,80 @@ export function attachSourceCitation(record: GedNode, sourceXref: string, page: 
 
 function sourceCitationNodes(record: GedNode): GedNode[] {
   return record.children.filter((c) => c.tag === "SOUR");
+}
+
+/** Fields editable on an existing citation — `NewSourceFields` plus the
+ * citation-local `page` and (when known) the specific `OBJE` its resolved
+ * `url` came from, so a `url` edit retargets only that page's file. */
+export type EditSourceFields = NewSourceFields & { page?: string; objeXref?: string };
+
+/**
+ * Update the `index`th `SOUR` citation on `node` (an event node, or a
+ * top-level INDI/FAM record) in place. For a citation pointing at a shared
+ * `SOUR` record, the bibliographic fields (title/author/.../note) are written
+ * to that record — affecting every other citation of the same source, which
+ * is correct since they describe the source itself, not this citation of it.
+ * `page` is citation-local. `url` retargets `fields.objeXref` (the specific
+ * page image this citation resolved to) when known, the source's sole `OBJE`
+ * when it has exactly one, or otherwise creates a new `OBJE` for this page —
+ * never touching another page's file. For an inline (plain-text) citation,
+ * only its own value/page can change (there's no shared record).
+ */
+export function updateSourceCitation(records: GedNode[], node: GedNode, index: number, fields: EditSourceFields): void {
+  const citation = sourceCitationNodes(node)[index];
+  if (!citation) return;
+
+  const page = fields.page?.trim();
+  citation.children = citation.children.filter((c) => c.tag !== "PAGE");
+  if (page) citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
+
+  const sourceXref = citation.value?.trim();
+  if (!sourceXref || !isPointer(sourceXref)) {
+    const title = fields.title?.trim();
+    if (title) citation.value = title;
+    return;
+  }
+
+  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  if (!sourceNode) return;
+  const setChild = (tag: string, value: string | undefined) => {
+    sourceNode.children = sourceNode.children.filter((c) => c.tag !== tag);
+    const trimmed = value?.trim();
+    if (trimmed) sourceNode.children.push({ level: sourceNode.level + 1, tag, value: trimmed, children: [] });
+  };
+  setChild("TITL", fields.title);
+  setChild("AUTH", fields.author);
+  setChild("PERI", fields.periodical);
+  setChild("PUBL", fields.publisher);
+  setChild("AGNC", fields.agency);
+  setChild("FILN", fields.filingNumber);
+  setChild("NOTE", fields.note);
+
+  const url = fields.url?.trim();
+  const soleObjeXref = sourceNode.children.filter((c) => c.tag === "OBJE" && c.value).length === 1
+    ? sourceNode.children.find((c) => c.tag === "OBJE")?.value?.trim()
+    : undefined;
+  const objeXref = fields.objeXref ?? soleObjeXref;
+
+  if (objeXref) {
+    const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+    if (objeNode && url) {
+      const fileChild = objeNode.children.find((c) => c.tag === "FILE");
+      if (fileChild) fileChild.value = url;
+      else objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
+    } else if (objeNode && !url) {
+      // Cleared: unlink this page's OBJE from the source, prune it if it's now orphaned.
+      sourceNode.children = sourceNode.children.filter((c) => !(c.tag === "OBJE" && c.value?.trim() === objeXref));
+      const stillReferenced = records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref));
+      if (!stillReferenced) {
+        const oi = records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
+        if (oi !== -1) records.splice(oi, 1);
+      }
+    }
+  } else if (url) {
+    const obje = createMediaRecord(records, url);
+    sourceNode.children.push({ level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] });
+  }
 }
 
 /**

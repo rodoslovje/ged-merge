@@ -34,6 +34,7 @@ import {
   setNickname,
   setNotes,
   setSex,
+  updateSourceCitation,
 } from "./edit";
 
 function buildFromText(text: string) {
@@ -926,5 +927,85 @@ describe("removeSourceCitationAtIndex", () => {
 
     removeSourceCitationAtIndex(ds, indi1.raw, 0);
     expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
+  });
+});
+
+describe("updateSourceCitation", () => {
+  it("edits the shared SOUR record's fields, visible from every citation of it", () => {
+    const ds = buildFromText(FAM_BASE);
+    const indi1 = ds.individuals.get("@I1@")!;
+    const indi3 = ds.individuals.get("@I3@")!;
+    const source = createSourceRecord(ds.records, { title: "Old Title", author: "Old Author" });
+    attachSourceCitation(indi1.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    attachSourceCitation(indi3.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+
+    updateSourceCitation(ds.records, indi1.raw, 0, { title: "New Title", author: "New Author" });
+
+    expect(rebuildIndividual(ds, indi1).sources![0]).toMatchObject({ title: "New Title" });
+    expect(rebuildIndividual(ds, indi3).sources![0]).toMatchObject({ title: "New Title" });
+  });
+
+  it("updates the citation-local PAGE without touching the shared record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    attachSourceCitation(indi.raw, source.xref!, "5", INDI_CHILD_ORDER);
+
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "7" });
+
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.sources![0].page).toBe("7");
+    expect(updated.sources![0].title).toBe("Krstna knjiga");
+  });
+
+  it("retargets only this citation's page image, leaving sibling pages of the same source untouched", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Matična knjiga" });
+    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=1");
+    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
+    attachSourceCitation(indi.raw, source.xref!, "1", INDI_CHILD_ORDER);
+    attachSourceCitation(indi.raw, source.xref!, "2", INDI_CHILD_ORDER);
+
+    const before = rebuildIndividual(ds, indi);
+    expect(before.sources![0].url).toBe("https://example.com/book/?pg=1");
+    const objeXref = before.sources![0].objeXref;
+    expect(objeXref).toBeTruthy();
+
+    updateSourceCitation(ds.records, indi.raw, 0, {
+      title: "Matična knjiga",
+      url: "https://example.com/book2/?pg=1",
+      objeXref,
+      page: "1",
+    });
+
+    const after = rebuildIndividual(ds, indi);
+    expect(after.sources![0].url).toBe("https://example.com/book2/?pg=1");
+    expect(after.sources![1].url).toBe("https://example.com/book/?pg=2");
+  });
+
+  it("creates a new OBJE when a url is added to a source that had none", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Listina" });
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Listina", url: "https://example.com/new" });
+
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(true);
+    expect(rebuildIndividual(ds, indi).sources![0].url).toBe("https://example.com/new");
+  });
+
+  it("edits an inline (plain-text) citation's own value, with no shared record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    indi.raw.children.push({ level: indi.raw.level + 1, tag: "SOUR", value: "Family Bible", children: [] });
+
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Family Bible, 2nd ed.", page: "3" });
+
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.sources![0].title).toBe("Family Bible, 2nd ed.");
+    expect(updated.sources![0].page).toBe("3");
   });
 });

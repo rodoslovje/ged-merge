@@ -14,14 +14,15 @@ export function SourceRefs({
   t,
   masterSources,
   incomingSources,
-  onRemove,
+  onEdit,
 }: {
   t: Translate;
   masterSources?: SourceCitation[];
   incomingSources?: SourceCitation[];
-  /** When given (Edit mode, no `incomingSources`), each icon shows a remove
-   * button keyed by its position in `masterSources`. */
-  onRemove?: (index: number) => void;
+  /** When given (Edit mode, no `incomingSources`), clicking an icon opens an
+   * edit dialog for it, keyed by its position in `masterSources`, instead of
+   * opening the link directly. */
+  onEdit?: (index: number) => void;
 }) {
   const ms = masterSources ?? [];
   const cs = incomingSources ?? [];
@@ -41,14 +42,14 @@ export function SourceRefs({
           t={t}
           citation={c}
           isNew={isNew}
-          onRemove={onRemove && index !== -1 ? () => onRemove(index) : undefined}
+          onEdit={onEdit && index !== -1 ? () => onEdit(index) : undefined}
         />
       ))}
     </span>
   );
 }
 
-function SourceRefItem({ t, citation, isNew, onRemove }: { t: Translate; citation: SourceCitation; isNew: boolean; onRemove?: () => void }) {
+function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation: SourceCitation; isNew: boolean; onEdit?: () => void }) {
   const pageText = citation.page ? t("source.page", { page: citation.page }) : undefined;
   const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
@@ -67,22 +68,25 @@ function SourceRefItem({ t, citation, isNew, onRemove }: { t: Translate; citatio
   ]
     .filter(Boolean)
     .join(" ");
-  const removeBtn = onRemove && (
-    <button type="button" className="source-ref-remove" title={t("edit.removeLink")} onClick={onRemove}>×</button>
-  );
-  const content = citation.url ? (
-    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={tooltip || t("source.untitled")}>
+  const title = tooltip || t("source.untitled");
+  // Edit mode: clicking opens the edit dialog (which has its own explicit
+  // Open/Save/Remove actions) rather than navigating straight to the link —
+  // this also removes the old hover-revealed × badge that sat on the icon's
+  // corner and was too easy to hit by mistake while reaching for the link.
+  if (onEdit) {
+    return (
+      <button type="button" className={cls} title={title} onClick={onEdit}>
+        {icon}
+      </button>
+    );
+  }
+  return citation.url ? (
+    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={title}>
       {icon}
     </a>
   ) : (
-    <span className={cls} title={tooltip || t("source.untitled")}>
+    <span className={cls} title={title}>
       {icon}
     </span>
   );
-  return onRemove ? (
-    <span className="source-ref-wrap">
-      {content}
-      {removeBtn}
-    </span>
-  ) : content;
 }

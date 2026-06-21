@@ -158,6 +158,10 @@ export interface SourceCitation {
   url?: string;
   /** True when `url` points at the precise cited page rather than a fallback. */
   exact: boolean;
+  /** The `OBJE` record xref backing `url`, when it's a specific page image
+   *  rather than a repository fallback — lets an edit retarget just that
+   *  page's file without touching any other citation of the same source. */
+  objeXref?: string;
 }
 
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */

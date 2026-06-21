@@ -34,7 +34,7 @@ export interface SourceContext {
   format: SourceFormatProfile;
 }
 
-function isPointer(v: string): boolean {
+export function isPointer(v: string): boolean {
   return /^@[^@]+@$/.test(v);
 }
 
@@ -44,7 +44,7 @@ function looksLikeUrl(v: string): boolean {
   return /^(https?:\/\/|www\.)/i.test(v);
 }
 
-function childText(node: GedNode, tag: string): string | undefined {
+export function childText(node: GedNode, tag: string): string | undefined {
   const v = node.children.find((c) => c.tag === tag)?.value?.trim();
   return v || undefined;
 }
@@ -145,18 +145,20 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
 
   const candidates = sourceNode.children
     .filter((c) => c.tag === "OBJE" && c.value)
-    .map((c) => ctx.objeIndex.get(c.value!.trim()))
-    .filter((c): c is { url?: string; title?: string } => !!c?.url);
+    .map((c) => ({ xref: c.value!.trim(), ...ctx.objeIndex.get(c.value!.trim()) }))
+    .filter((c): c is { xref: string; url?: string; title?: string } => !!c.url);
 
   let url: string | undefined;
   let exact = false;
+  let objeXref: string | undefined;
   if (page) {
     const match = candidates.find((c) => matchesPage(c, page));
-    if (match) { url = match.url; exact = true; }
+    if (match) { url = match.url; exact = true; objeXref = match.xref; }
   }
   if (!url && candidates.length === 1) {
     url = candidates[0].url;
     exact = true;
+    objeXref = candidates[0].xref;
   }
   if (!url) {
     const repoXref = sourceNode.children.find((c) => c.tag === "REPO" && c.value)?.value?.trim();
@@ -164,7 +166,7 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
     if (repo?.url) url = repo.url;
   }
 
-  return { sourceId: value, title, agency, filingNumber, page, url, exact };
+  return { sourceId: value, title, agency, filingNumber, page, url, exact, objeXref };
 }
 
 /**
