@@ -1,4 +1,4 @@
-import type { Dataset, GedNode, SourceCitation } from "./types";
+import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { linkKey } from "../normalize/links";
 
@@ -234,16 +234,16 @@ function pageParamOf(url: string): string | undefined {
  * - No match ⇒ undefined; caller creates a brand-new `SOUR`+`OBJE`.
  */
 export function findExistingSource(
-  dataset: Dataset,
+  records: GedNode[],
   url: string,
 ): { sourceXref: string; objeXref?: string; page?: string } | undefined {
-  const objeIndex = buildObjeIndex(dataset.records);
+  const objeIndex = buildObjeIndex(records);
   const incomingKey = linkKey(url);
   const incomingBookKey = bookKeyOf(url);
   const page = pageParamOf(url);
 
   let bookMatch: string | undefined;
-  for (const rec of dataset.records) {
+  for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     for (const child of rec.children) {
       if (child.tag !== "OBJE" || !child.value) continue;

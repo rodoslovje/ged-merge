@@ -1,5 +1,6 @@
 import { looksLikeUrl } from "../gedcom/builder";
-import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit";
+import { addObjeToSource, attachSourceCitation, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit";
+import { findExistingSource } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import type { MatchResult } from "../match/types";
@@ -292,6 +293,14 @@ export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
  * Append a link node for each incoming link the master doesn't already have
  * (by `linkKey`), shaped to match the master's own link format. Returns the
  * URLs actually added.
+ *
+ * Before minting a plain link, checks whether the URL belongs to a paginated
+ * archive book (Matricula, parish registers, …) the master already cites as
+ * a `SOUR` — same matching `findExistingSource` does for the manual "Add
+ * Source" dialog. If so, the incoming link is attached as a `SOUR` citation
+ * to that book (reusing its existing `OBJE` page, or adding a new one) so it
+ * shows with the book icon and joins that book's page collection, instead of
+ * becoming a disconnected generic link.
  */
 function applyLinks(
   target: GedNode,
@@ -306,7 +315,13 @@ function applyLinks(
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    target.children.push(buildLinkNode(linkFormat, url, records));
+    const sourceMatch = findExistingSource(records, url);
+    if (sourceMatch) {
+      if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
+      attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
+    } else {
+      target.children.push(buildLinkNode(linkFormat, url, records));
+    }
     added.push(url);
   }
   return added;

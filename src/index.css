@@ -1587,7 +1587,14 @@ button:focus-visible {
   border-radius: 6px;
 }
 
-.edit-events { display: flex; flex-direction: column; font-size: 0.88rem; }
+/* The whole table is one grid so every row shares the same column tracks —
+ * otherwise each row sizes its 2fr/1fr columns from its own content only,
+ * and Place/Address/Source drift out of alignment row to row. */
+.edit-events {
+  display: grid;
+  grid-template-columns: 96px 180px 2fr 1fr auto;
+  font-size: 0.88rem;
+}
 
 .edit-event-head {
   display: grid;
@@ -1609,10 +1616,22 @@ button:focus-visible {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
-.edit-event--has-value {
-  grid-template-columns: 96px 180px 2fr 2fr 1fr auto;
+/* Inside .edit-events, subgrid the shared tracks so column widths are
+ * computed once across all rows instead of per row. */
+.edit-events > .edit-event-head,
+.edit-events > .edit-event {
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
 }
-.edit-event-label { flex: none; width: auto; color: var(--muted); }
+.edit-event-label { grid-column: 1; flex: none; width: auto; color: var(--muted); }
+.edit-event-date-cell { grid-column: 2; }
+/* Occupation/Education/Retirement: value reuses the Place column on row 1;
+ * the event's actual Place/Address drop to row 2 underneath it. */
+.edit-event-value-cell,
+.edit-event-place-cell { grid-column: 3; }
+.edit-event-addr-cell { grid-column: 4; }
+.edit-event--has-value .edit-event-place-cell,
+.edit-event--has-value .edit-event-addr-cell { grid-row: 2; }
 .edit-event > .edit-input { width: 100%; }
 .edit-event-value,
 .edit-event-date,
@@ -1818,7 +1837,7 @@ button:focus-visible {
   grid-column: -2;
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 4px;
 }
 .edit-link-add {
   align-self: flex-start;

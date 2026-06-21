@@ -57,7 +57,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
     [parsed.url, masterLinkLangs],
   );
   const match = useMemo(
-    () => (normalizedUrl ? findExistingSource(dataset, normalizedUrl) : undefined),
+    () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),
     [dataset, normalizedUrl],
   );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);

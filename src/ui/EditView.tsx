@@ -526,19 +526,19 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   function resolveSourceFields(fields: AddSourceResult): { sourceXref: string; page?: string; extraPatches: RecordPatch[] } {
     const extraPatches: RecordPatch[] = [];
     if (fields.url) {
-      const match = findExistingSource(dataset, fields.url);
+      const match = findExistingSource(dataset.records, fields.url);
       if (match) {
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneRaw(sourceNode);
-          const obje = addObjeToSource(dataset, match.sourceXref, fields.url);
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url);
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
         }
         return { sourceXref: match.sourceXref, page: fields.page ?? match.page, extraPatches };
       }
     }
-    const sourceNode = createSourceRecord(dataset, fields as NewSourceFields);
+    const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
     extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
     const objeChild = sourceNode.children.find((c) => c.tag === "OBJE");
     if (objeChild?.value) {
@@ -1348,6 +1348,7 @@ function PlaceAutocomplete({
   isDirty,
   isMerge,
   className,
+  wrapClassName,
   placeholder,
   title,
   onChange,
@@ -1360,6 +1361,7 @@ function PlaceAutocomplete({
   isDirty: boolean;
   isMerge?: boolean;
   className?: string;
+  wrapClassName?: string;
   placeholder?: string;
   title?: string;
   onChange: (value: string) => void;
@@ -1412,7 +1414,7 @@ function PlaceAutocomplete({
   }
 
   return (
-    <div ref={containerRef} className="place-autocomplete-wrap" onBlur={handleBlur}>
+    <div ref={containerRef} className={`place-autocomplete-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} onBlur={handleBlur}>
       <ClearableInput
         className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
@@ -2131,6 +2133,7 @@ function EventFieldsRow({
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
       <ClearableInput
+        wrapClassName="edit-event-date-cell"
         className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty)}
         value={dateField.value}
         placeholder={t("event.date", { event: label })}
@@ -2142,6 +2145,7 @@ function EventFieldsRow({
       />
       {showValue && (
         <ClearableInput
+          wrapClassName="edit-event-value-cell"
           className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty)}
           value={valueField.value}
           placeholder={label}
@@ -2158,6 +2162,7 @@ function EventFieldsRow({
         isDirty={placeField.isDirty}
         isMerge={placeField.isMerge}
         className="edit-input edit-event-place"
+        wrapClassName="edit-event-place-cell"
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
         onChange={placeField.set}
@@ -2171,6 +2176,7 @@ function EventFieldsRow({
         isDirty={addrField.isDirty}
         isMerge={addrField.isMerge}
         className="edit-input edit-event-addr"
+        wrapClassName="edit-event-addr-cell"
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
         onChange={addrField.set}
@@ -2192,6 +2198,21 @@ function EventFieldsRow({
       )}
       <div className="edit-event-actions">
         {ev?.sources?.length ? <SourceRefs t={t} masterSources={ev.sources} onRemove={onRemoveSource} /> : null}
+        {links.map((link, i) =>
+          expandedLinks.has(i) ? null : (
+            <a
+              key={i}
+              className="link-icon edit-link-icon"
+              href={linkHref(link)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={link}
+              onClick={(e) => { e.preventDefault(); setExpandedLinks((prev) => new Set(prev).add(i)); }}
+            >
+              🔗
+            </a>
+          ),
+        )}
         <button type="button" className="edit-link-add" onClick={onAddSource}>
           + {t("edit.addLink")}
         </button>
@@ -2234,19 +2255,7 @@ function EventFieldsRow({
               </button>
             </div>
           </div>
-        ) : (
-          <a
-            key={i}
-            className="link-icon edit-link-icon"
-            href={linkHref(link)}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={link}
-            onClick={(e) => { e.preventDefault(); setExpandedLinks((prev) => new Set(prev).add(i)); }}
-          >
-            🔗
-          </a>
-        ),
+        ) : null,
       )}
     </div>
   );

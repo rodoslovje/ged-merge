@@ -393,19 +393,19 @@ describe("findExistingSource", () => {
 
   it("finds an exact match (mod language/case/slash) and returns its OBJE xref", () => {
     const ds = buildFromText(text);
-    const match = findExistingSource(ds, "HTTPS://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=56/");
+    const match = findExistingSource(ds.records, "HTTPS://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=56/");
     expect(match).toEqual({ sourceXref: "@S1@", objeXref: "@O1@", page: "56" });
   });
 
   it("finds a same-book match for a different page, without an OBJE xref", () => {
     const ds = buildFromText(text);
-    const match = findExistingSource(ds, "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
+    const match = findExistingSource(ds.records, "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "58" });
   });
 
   it("returns undefined for an unrelated URL", () => {
     const ds = buildFromText(text);
-    const match = findExistingSource(ds, "https://www.sistory.si/ww2/5046DECC-E88C-4EA6-8B61-82D7A78C8626");
+    const match = findExistingSource(ds.records, "https://www.sistory.si/ww2/5046DECC-E88C-4EA6-8B61-82D7A78C8626");
     expect(match).toBeUndefined();
   });
 });

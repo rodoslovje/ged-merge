@@ -867,7 +867,7 @@ describe("createSourceRecord / attachSourceCitation", () => {
   it("creates a SOUR+OBJE pair that resolves to an exact citation", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const source = createSourceRecord(ds, {
+    const source = createSourceRecord(ds.records, {
       title: "Jožef Celar",
       author: "Marta Rendla",
       url: "https://www.sistory.si/ww2/5046DECC-E88C-4EA6-8B61-82D7A78C8626",
@@ -885,7 +885,7 @@ describe("createSourceRecord / attachSourceCitation", () => {
   it("attaches a PAGE on the citation pointer, not on the SOUR record", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const source = createSourceRecord(ds, { title: "Krstna knjiga", url: "https://example.com/book/?pg=11" });
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=11" });
     attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("11");
@@ -895,8 +895,8 @@ describe("createSourceRecord / attachSourceCitation", () => {
 describe("addObjeToSource", () => {
   it("adds a new OBJE to an already-existing SOUR record", () => {
     const ds = buildFromText(BASE);
-    const source = createSourceRecord(ds, { title: "Krstna knjiga", url: "https://example.com/book/?pg=1" });
-    const obje = addObjeToSource(ds, source.xref!, "https://example.com/book/?pg=2");
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=1" });
+    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
     expect(source.children.filter((c) => c.tag === "OBJE")).toHaveLength(2);
     expect(obje.children[0].value).toBe("https://example.com/book/?pg=2");
   });
@@ -906,7 +906,7 @@ describe("removeSourceCitationAtIndex", () => {
   it("removes the citation and prunes the now-unreferenced SOUR/OBJE", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const source = createSourceRecord(ds, { title: "X", url: "https://example.com/a" });
+    const source = createSourceRecord(ds.records, { title: "X", url: "https://example.com/a" });
     attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
     expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
 
@@ -920,7 +920,7 @@ describe("removeSourceCitationAtIndex", () => {
     const ds = buildFromText(FAM_BASE);
     const indi1 = ds.individuals.get("@I1@")!;
     const indi3 = ds.individuals.get("@I3@")!;
-    const source = createSourceRecord(ds, { title: "Shared", url: "https://example.com/shared" });
+    const source = createSourceRecord(ds.records, { title: "Shared", url: "https://example.com/shared" });
     attachSourceCitation(indi1.raw, source.xref!, undefined, INDI_CHILD_ORDER);
     attachSourceCitation(indi3.raw, source.xref!, undefined, INDI_CHILD_ORDER);
 

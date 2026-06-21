@@ -358,6 +358,30 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
   });
 
+  it("attaches a same-book incoming link as a SOUR citation instead of a plain link", () => {
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).not.toMatch(/^1 WWW/m);
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 58");
+    expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
+    // The new page joins the existing book's SOUR rather than minting a new one.
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+    expect(report.changes.some((c) => c.to.includes("pg=58"))).toBe(true);
+  });
+
 });
 
 describe("mergeDecisions — SOUR/REPO import", () => {

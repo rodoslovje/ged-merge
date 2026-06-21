@@ -630,15 +630,15 @@ export interface NewSourceFields {
   url?: string;
 }
 
-/** Create a new top-level `OBJE` record whose `FILE` is `url`, and add it to the dataset. */
-export function createMediaRecord(dataset: Dataset, url: string): GedNode {
+/** Create a new top-level `OBJE` record whose `FILE` is `url`, and add it to `records`. */
+export function createMediaRecord(records: GedNode[], url: string): GedNode {
   const raw: GedNode = {
     level: 0,
-    xref: nextXref(dataset.records, "O"),
+    xref: nextXref(records, "O"),
     tag: "OBJE",
     children: [{ level: 1, tag: "FILE", value: url, children: [] }],
   };
-  insertRecord(dataset.records, raw);
+  insertRecord(records, raw);
   return raw;
 }
 
@@ -649,8 +649,8 @@ export function createMediaRecord(dataset: Dataset, url: string): GedNode {
  * (a `SOUR` with one linked `OBJE`), so the new citation displays/links
  * exactly like an imported one.
  */
-export function createSourceRecord(dataset: Dataset, fields: NewSourceFields): GedNode {
-  const raw: GedNode = { level: 0, xref: nextXref(dataset.records, "S"), tag: "SOUR", children: [] };
+export function createSourceRecord(records: GedNode[], fields: NewSourceFields): GedNode {
+  const raw: GedNode = { level: 0, xref: nextXref(records, "S"), tag: "SOUR", children: [] };
   const push = (tag: string, value: string | undefined) => {
     if (value) raw.children.push({ level: 1, tag, value, children: [] });
   };
@@ -661,9 +661,9 @@ export function createSourceRecord(dataset: Dataset, fields: NewSourceFields): G
   push("AGNC", fields.agency);
   push("FILN", fields.filingNumber);
   push("NOTE", fields.note);
-  insertRecord(dataset.records, raw);
+  insertRecord(records, raw);
   if (fields.url) {
-    const obje = createMediaRecord(dataset, fields.url);
+    const obje = createMediaRecord(records, fields.url);
     raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
   }
   return raw;
@@ -671,9 +671,9 @@ export function createSourceRecord(dataset: Dataset, fields: NewSourceFields): G
 
 /** Add a new `OBJE` (linking `url`) to an already-existing `SOUR` record —
  * a new page of a paginated source that's already cited elsewhere. */
-export function addObjeToSource(dataset: Dataset, sourceXref: string, url: string): GedNode {
-  const obje = createMediaRecord(dataset, url);
-  const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+export function addObjeToSource(records: GedNode[], sourceXref: string, url: string): GedNode {
+  const obje = createMediaRecord(records, url);
+  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   if (sourceNode) sourceNode.children.push({ level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] });
   return obje;
 }
