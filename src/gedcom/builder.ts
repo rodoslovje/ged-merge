@@ -174,14 +174,35 @@ export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FIL
 /** Matches one or more http(s) URLs embedded anywhere in a line value. */
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
+/** Closing/void tags that represent a line break in rich-text-pasted note markup. */
+const HTML_BLOCK_BREAK_RE = /<\/(?:p|div|li|h[1-6]|blockquote)>|<br\s*\/?>/gi;
+
+/**
+ * Recognized rich-text tags (and their closes), e.g. those a word processor
+ * or note app leaves behind when a note is pasted in. Deliberately a
+ * whitelist rather than "any `<...>`", so a stray "<unknown>" placeholder in
+ * real note text isn't mistaken for markup.
+ */
+const HTML_TAG_RE = /<\/?(?:p|div|span|a|br|b|i|u|em|strong|ul|ol|li|h[1-6]|blockquote)\b[^>]*>/gi;
+
+/** Convert rich-text HTML markup into plain text: block closes/`<br>` become line breaks, then tags are dropped. */
+function stripHtmlMarkup(text: string): string {
+  return text.replace(HTML_BLOCK_BREAK_RE, "\n").replace(HTML_TAG_RE, "");
+}
+
 /**
  * Drop URLs from note text that `collectLinks` already pulled out into a
  * `links` array, so the same URL doesn't also surface as a separate note
- * field to merge. Returns the remaining text, or "" if nothing is left.
+ * field to merge, then strip any HTML markup the note was pasted in with
+ * (its own wrapping, and whatever wrapped the now-removed URL). Returns the
+ * remaining text, or "" if nothing is left.
  */
 function stripNoteLinks(text: string): string {
-  return text
-    .replace(URL_RE, "")
+  return stripHtmlMarkup(text.replace(URL_RE, ""))
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
 }

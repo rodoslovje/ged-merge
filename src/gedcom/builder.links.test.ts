@@ -94,6 +94,35 @@ describe("NOTE text with extracted URLs", () => {
     expect(buri.note).toBeUndefined();
   });
 
+  it("clears the HTML wrapper left around a rich-text-pasted link once its URL is stripped", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE <p style="text-align: left;" dir="ltr">rojstvo</p><p style="text-align: left;" dir="ltr"><a href="https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56">https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56</a></p>
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56"]);
+    expect(indi.notes).toEqual(["rojstvo"]);
+  });
+
+  it("strips rich-text HTML markup from a NOTE that has no link at all", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE <p style="text-align: left;" dir="ltr">rojstvo, smrt</p>
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.notes).toEqual(["rojstvo, smrt"]);
+  });
+
   it("strips just the URL from a NOTE that has other surrounding text", () => {
     const text = `0 HEAD
 1 GEDC
