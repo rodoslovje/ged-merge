@@ -36,30 +36,31 @@ export function SourceRefs({
 }
 
 function SourceRefItem({ t, citation, isNew }: { t: Translate; citation: SourceCitation; isNew: boolean }) {
-  const label = citation.title ? truncate(citation.title, 40) : t("source.untitled");
   const pageText = citation.page ? t("source.page", { page: citation.page }) : undefined;
   const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
     .join("\n");
+  // A title means there's something worth describing; otherwise the citation
+  // is just a bare link, so the icon tells the two apart at a glance.
+  const hasDescription = Boolean(citation.title);
+  const icon = hasDescription ? "📖" : "🔗";
   const cls = [
     "source-ref",
+    // 📖 renders noticeably smaller than 🔗 at the same font-size, so it
+    // gets its own modifier to size up and match.
+    hasDescription ? "source-ref--book" : "",
     citation.url ? (citation.exact ? "" : "source-ref--fallback") : "source-ref--nolink",
     isNew ? "source-ref--new" : "",
   ]
     .filter(Boolean)
     .join(" ");
-  const text = <span className="source-ref-text">{pageText ? `${label}, ${pageText}` : label}</span>;
   return citation.url ? (
-    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={tooltip}>
-      {text}
+    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={tooltip || t("source.untitled")}>
+      {icon}
     </a>
   ) : (
-    <span className={cls} title={tooltip}>
-      {text}
+    <span className={cls} title={tooltip || t("source.untitled")}>
+      {icon}
     </span>
   );
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }

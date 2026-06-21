@@ -1446,19 +1446,39 @@ function OtherNamesEditor({
           {editing === "nick" ? (
             <NicknameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
           ) : primary?.nickname ? (
-            <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
-              {primary.nickname}
-              <span className="muted"> ({nameTypeLabel("nick", t)})</span>
-            </button>
+            <span className="edit-name-chip-wrap">
+              <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
+                {primary.nickname}
+                <span className="muted"> ({nameTypeLabel("nick", t)})</span>
+              </button>
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeName")}
+                onClick={() => commit((indi) => setNickname(indi, ""))}
+              >
+                ×
+              </button>
+            </span>
           ) : null}
           {extraNames.map((n, i) =>
             editing === i ? (
               <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} onDone={() => setEditing(null)} />
             ) : (
-              <button type="button" className="edit-name-chip" key={i} onClick={() => setEditing(i)}>
-                {displayName(n)}
-                {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
-              </button>
+              <span className="edit-name-chip-wrap" key={i}>
+                <button type="button" className="edit-name-chip" onClick={() => setEditing(i)}>
+                  {displayName(n)}
+                  {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
+                </button>
+                <button
+                  type="button"
+                  className="edit-link-remove"
+                  title={t("edit.removeName")}
+                  onClick={() => commit((indi) => removeAdditionalName(indi, i))}
+                >
+                  ×
+                </button>
+              </span>
             ),
           )}
           {addNameBtn}
