@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
+import { inferMasterProfile } from "../normalize/profile";
+import { normalizeDataset } from "../normalize/normalize";
 import { fieldDiffCounts, individualFieldRows } from "./fields";
 import type { FieldRow } from "./types";
 
@@ -505,7 +507,8 @@ describe("place reshaping to packed-plac hides addr row", () => {
 
   it("hides addr row when reshaping structured-addr incoming into packed-plac master", () => {
     const m = dataset(masterGed);
-    const c = dataset(compareGed);
+    // Reshaping now happens on load, not in individualFieldRows itself.
+    const { dataset: c } = normalizeDataset(dataset(compareGed), inferMasterProfile(m));
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
     // Incoming ADDR ("Kranj 15") folds into packed PLAC; neither side has a
     // standalone addr value, so the addr row must be absent.

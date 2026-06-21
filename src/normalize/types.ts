@@ -10,6 +10,8 @@ export interface MasterProfile {
   date: DateFormatProfile;
   place: PlaceFormatProfile;
   linkLangs: LinkLangs;
+  /** How the master writes places, so incoming places can be reshaped to match on load. */
+  placeFmt: PlaceTargetFormat;
 }
 
 export interface DateFormatProfile {
@@ -68,6 +70,27 @@ export interface PlaceFormatProfile {
   fullCanonical: Map<string, string>;
 }
 
+/** How the master wants places written, so incoming places can match it. */
+export interface PlaceTargetFormat {
+  layout: PlaceLayout;
+  /** PLAC jurisdiction-part separator, e.g. "," (Renko) or ", ". */
+  separator: string;
+  /**
+   * Master's preferred display form for each country, keyed by the canonical
+   * country token (e.g. "slovenia" → "Slovenija" or "Slovenia"). When present,
+   * country names in incoming places are rewritten to match the master's spelling.
+   */
+  countryPreferred?: Map<string, string>;
+}
+
+/** A place reshaped into the master's layout: the parts to write back. */
+export interface ReformattedPlace {
+  plac?: string;
+  addr?: string;
+  /** Leftover detail (parish, facility) that the master layout has no slot for. */
+  note?: string;
+}
+
 /**
  * The major source-citation conventions we detect, so citations can be
  * resolved into a display label and a link with the right strategy:
@@ -96,12 +119,19 @@ export interface NormChange {
 }
 
 /**
- * Summary of what the load-time normalization pass altered in the compare file.
- * Only dates are reported: place text is left as-is on load, and place
- * reformatting to the master's layout happens later, at export/merge time.
+ * Summary of what the load-time normalization pass altered in the compare file:
+ * dates converted to the master's style, places reshaped into the master's
+ * PLAC/ADDR/NOTE layout (when the master's layout calls for it), and links
+ * (Matricula Online, Geneanet cemetery) rewritten to the master's language.
  */
 export interface NormalizationReport {
   datesChanged: number;
-  /** A handful of illustrative changes for display. */
+  /** A handful of illustrative date changes for display. */
   dateExamples: NormChange[];
+  placesReshaped: number;
+  /** A handful of illustrative place changes for display. */
+  placeExamples: NormChange[];
+  linksConverted: number;
+  /** A handful of illustrative link changes for display. */
+  linkExamples: NormChange[];
 }

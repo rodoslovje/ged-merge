@@ -11,7 +11,8 @@ import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { linkKey } from "../normalize/links";
-import { reformatPlace, reshapesLayout, type PlaceTargetFormat } from "../merge/placeReformat";
+import { reshapesLayout } from "../normalize/placeReformat";
+import type { PlaceTargetFormat } from "../normalize/types";
 
 /** Friendly labels for the event tags we surface in review. */
 const EVENT_LABELS: Record<string, string> = {
@@ -136,20 +137,19 @@ export function individualFieldRows(
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
     pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
-    const { place: incomingPlace, addr: incomingAddr, note: incomingNote, placeTitle: incomingPlaceTitle, addrTitle: incomingAddrTitle } =
-      reshapeIncomingPlace(ce?.place?.raw, ce?.address?.raw, resolvedPlaceFmt, shouldReshape);
-    // When not reshaping and master uses a structured PLAC+ADDR while incoming has a packed
-    // PLAC, extract the address component for side-by-side comparison.
+    // Places are already reshaped into the master's layout when the incoming
+    // file was loaded (see normalize/normalize.ts), so the raw values can be
+    // shown directly. When the master doesn't enforce a particular layout,
+    // fall back to heuristically extracting a comparable address for display.
     const effectiveIncomingAddr = shouldReshape
-      ? incomingAddr
+      ? ce?.address?.raw
       : extractEffectiveAddr(ce?.address?.raw, ce?.place?.raw, me?.address?.raw);
     const effectiveMAddr = shouldReshape
       ? me?.address?.raw
       : extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
-    pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, incomingPlace, undefined, undefined, incomingPlaceTitle);
-    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, incomingAddrTitle);
-    const incomingNoteAll = [ce?.note, incomingNote].filter(Boolean).join("\n") || undefined;
-    pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, incomingNoteAll);
+    pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw);
+    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr);
+    pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources);
     if (subRows.length > 0) {
       const mLinks = me?.links?.length ? me.links : undefined;
@@ -211,13 +211,10 @@ export function individualFieldRows(
       const mMar = mFam?.events.find((e) => e.tag === "MARR");
       const cMar = cFam?.events.find((e) => e.tag === "MARR");
       const marriageRows: FieldRow[] = [];
-      const { place: incomingMarPlace, addr: incomingMarAddr, note: incomingMarNote, placeTitle: incomingMarPlaceTitle, addrTitle: incomingMarAddrTitle } =
-        reshapeIncomingPlace(cMar?.place?.raw, cMar?.address?.raw, resolvedPlaceFmt, shouldReshape);
       pushRow(marriageRows, `${famKey}.MARR.date`, t("event.colDate"), mMar?.date?.raw, cMar?.date?.raw);
-      pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, incomingMarPlace, undefined, undefined, incomingMarPlaceTitle);
-      pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, incomingMarAddr, undefined, undefined, incomingMarAddrTitle);
-      const incomingMarNoteAll = [cMar?.note, incomingMarNote].filter(Boolean).join("\n") || undefined;
-      pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, incomingMarNoteAll);
+      pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, cMar?.place?.raw);
+      pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, cMar?.address?.raw);
+      pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, cMar?.note);
       pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources);
       if (marriageRows.length > 0) {
         const mMarLinks = mMar?.links?.length ? mMar.links : undefined;
@@ -240,13 +237,10 @@ export function individualFieldRows(
         const cEv = cFam?.events.find((e) => e.tag === etag);
         if (!mEv && !cEv) continue;
         const etagRows: FieldRow[] = [];
-        const { place: incomingEvPlace, addr: incomingEvAddr, note: incomingEvNote, placeTitle: incomingEvPlaceTitle, addrTitle: incomingEvAddrTitle } =
-          reshapeIncomingPlace(cEv?.place?.raw, cEv?.address?.raw, resolvedPlaceFmt, shouldReshape);
         pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
-        pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, incomingEvPlace, undefined, undefined, incomingEvPlaceTitle);
-        pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, incomingEvAddr, undefined, undefined, incomingEvAddrTitle);
-        const incomingEvNoteAll = [cEv?.note, incomingEvNote].filter(Boolean).join("\n") || undefined;
-        pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, incomingEvNoteAll);
+        pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw);
+        pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw);
+        pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
         pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources);
         if (etagRows.length > 0) {
           const mEvLinks = mEv?.links?.length ? mEv.links : undefined;
@@ -942,36 +936,6 @@ function placeContainsAddr(place: string | undefined, addr: string): boolean {
   return foldToken(place ?? "").replace(/\s+/g, "").includes(norm);
 }
 
-/**
- * Reshape incoming PLAC+ADDR into the master's layout for display, so the user
- * sees the decomposed fields before confirming the merge. Stores originals as
- * tooltip text so they remain visible. Returns raw values unchanged when no
- * reshaping layout is in effect.
- */
-function reshapeIncomingPlace(
-  placRaw: string | undefined,
-  addrRaw: string | undefined,
-  placeFmt: PlaceTargetFormat | undefined,
-  shouldReshape: boolean,
-): { place: string | undefined; addr: string | undefined; note: string | undefined; placeTitle: string | undefined; addrTitle: string | undefined } {
-  if (shouldReshape && placeFmt && (placRaw || addrRaw)) {
-    const r = reformatPlace(placRaw, addrRaw, placeFmt);
-    // Build place tooltip: show original PLAC when reshaped, and original ADDR on
-    // a second line when it was absorbed into the PLAC (not emitted as its own row).
-    const placeTitleParts = [
-      placRaw && placRaw !== r.plac ? placRaw : undefined,
-      addrRaw && !r.addr ? addrRaw : undefined,
-    ].filter(Boolean) as string[];
-    return {
-      place: r.plac,
-      addr: r.addr,
-      note: r.note,
-      placeTitle: placeTitleParts.length > 0 ? placeTitleParts.join("\n") : undefined,
-      addrTitle: addrRaw && addrRaw !== r.addr ? addrRaw : undefined,
-    };
-  }
-  return { place: placRaw, addr: addrRaw, note: undefined, placeTitle: undefined, addrTitle: undefined };
-}
 
 /**
  * Compute the effective address for comparison when one side's address may be

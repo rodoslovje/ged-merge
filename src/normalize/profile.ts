@@ -58,6 +58,7 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
     date: inferDateProfile(dateValues),
     place: inferPlaceProfile(placeValues, addrCount),
     linkLangs: detectLinkLangs(links),
+    placeFmt: inferPlaceExportFormat(master),
   };
 }
 

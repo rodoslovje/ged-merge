@@ -3,6 +3,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { decisionKey, type CandidateDecision } from "../review/types";
+import { inferMasterProfile } from "../normalize/profile";
+import { normalizeDataset } from "../normalize/normalize";
 import { mergeDecisions } from "./merge";
 
 function dataset(text: string) {
@@ -73,6 +75,10 @@ describe("mergeDecisions", () => {
 });
 
 describe("mergeDecisions — place reshaping to a structured-addr master", () => {
+  // Place reshaping now happens when the incoming file is loaded (normalizeDataset),
+  // not inside mergeDecisions — so these tests normalize the compare dataset first,
+  // exactly as the app does after loading master + incoming.
+  //
   // Master writes structured PLAC ("A,B,C") + separate ADDR, so its layout is
   // detected as structured-addr. @I1@'s birth has no place yet, so the incoming
   // (packed Brother's Keeper) place fills it — reshaped to the master's layout.
@@ -92,7 +98,8 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
   );
 
   it("splits the packed place into PLAC and ADDR, keeping facility in parens in ADDR", () => {
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { dataset: normalizedCompare } = normalizeDataset(compare, inferMasterProfile(master));
+    const { records } = mergeDecisions(master, normalizedCompare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain(
       "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenia\n2 ADDR Kidričeva 38/a (porodnišnica)",
@@ -118,13 +125,14 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
           "2 PLAC Kranj (Slovenija), Kidričeva 5\n",
       ),
     );
+    const { dataset: normalizedCompareWithAddr } = normalizeDataset(compareWithAddr, inferMasterProfile(masterWithPlac));
     const decisions = new Map<string, CandidateDecision>();
     decisions.set(
       decisionKey("individual", "@I2@", "@P2@"),
       { status: "confirmed", fields: {} },
     );
     const before = serializeGedcom(masterWithPlac.records);
-    const { records } = mergeDecisions(masterWithPlac, compareWithAddr, decisions, NO_MATCHES, tr);
+    const { records } = mergeDecisions(masterWithPlac, normalizedCompareWithAddr, decisions, NO_MATCHES, tr);
     const after = serializeGedcom(records);
     const diff = lineDiff(before, after);
     // Only the new ADDR line should be added; the existing PLAC must stay unchanged.

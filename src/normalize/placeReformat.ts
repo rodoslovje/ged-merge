@@ -1,30 +1,9 @@
 import { decomposePlace } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
-import type { PlaceLayout } from "../normalize/types";
-
-/** How the master wants places written, so incoming places can match it. */
-export interface PlaceTargetFormat {
-  layout: PlaceLayout;
-  /** PLAC jurisdiction-part separator, e.g. "," (Renko) or ", ". */
-  separator: string;
-  /**
-   * Master's preferred display form for each country, keyed by the canonical
-   * country token (e.g. "slovenia" → "Slovenija" or "Slovenia"). When present,
-   * country names in incoming places are rewritten to match the master's spelling.
-   */
-  countryPreferred?: Map<string, string>;
-}
-
-/** A place reshaped into the master's layout: the parts to write back. */
-export interface ReformattedPlace {
-  plac?: string;
-  addr?: string;
-  /** Leftover detail (parish, facility) that the master layout has no slot for. */
-  note?: string;
-}
+import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
 /** Whether a master layout triggers reshaping (others are copied verbatim). */
-export function reshapesLayout(layout: PlaceLayout): boolean {
+export function reshapesLayout(layout: PlaceTargetFormat["layout"]): boolean {
   return layout === "structured-addr" || layout === "packed-plac";
 }
 

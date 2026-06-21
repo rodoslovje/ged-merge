@@ -5,7 +5,7 @@ import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
 import { individualFieldRows } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
-import type { PlaceTargetFormat } from "../merge/placeReformat";
+import type { PlaceTargetFormat } from "../normalize/types";
 
 /** Which direction the tree fans out from the root person. */
 export type TreeMode = "ancestors" | "descendants";

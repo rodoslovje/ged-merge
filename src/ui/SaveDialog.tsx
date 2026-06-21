@@ -88,12 +88,6 @@ export function SaveDialog({
             </p>
           )}
 
-          {report.placesReformatted > 0 && (
-            <p className="preview-note">
-              {t("preview.places", { count: report.placesReformatted, noted: report.placesNoted })}
-            </p>
-          )}
-
           {report.deferred.length > 0 && (
             <section className="preview-section">
               <h3 className="preview-warn">{t("preview.notMerged")}</h3>

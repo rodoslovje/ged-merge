@@ -122,10 +122,12 @@ describe("normalizeDataset", () => {
 0 TRLR
 `);
     const profile = inferMasterProfile(master);
-    const { dataset: out } = normalizeDataset(compare, profile);
+    const { dataset: out, report } = normalizeDataset(compare, profile);
     expect(out.individuals.get("@I1@")!.links).toEqual([
       "https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56",
     ]);
+    expect(report.linksConverted).toBe(1);
+    expect(report.linkExamples).toHaveLength(1);
   });
 
   it("converts a Geneanet cemetery link to the master's language on load", () => {
@@ -142,8 +144,100 @@ describe("normalizeDataset", () => {
 0 TRLR
 `);
     const profile = inferMasterProfile(master);
-    const { dataset: out } = normalizeDataset(compare, profile);
+    const { dataset: out, report } = normalizeDataset(compare, profile);
     expect(out.individuals.get("@I1@")!.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
+    expect(report.linksConverted).toBe(1);
+  });
+});
+
+describe("normalizeDataset (place reshaping)", () => {
+  it("splits a packed incoming place into the master's structured PLAC + ADDR on load", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR Kuželj 22
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija), Kidričeva 38/a (porodnišnica)
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("Kranj,Slovenia");
+    expect(birth.address?.raw).toBe("Kidričeva 38/a (porodnišnica)");
+    expect(report.placesReshaped).toBe(1);
+    expect(report.placeExamples).toHaveLength(1);
+  });
+
+  it("folds a structured incoming PLAC + ADDR into the master's packed PLAC on load", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija)
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj,Slovenija
+2 ADDR Kranj 15
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("Kranj (Slovenija), Kranj 15");
+    expect(birth.address?.raw).toBeUndefined();
+  });
+
+  it("appends a leftover parish detail to an existing NOTE rather than duplicating it", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR Kuželj 22
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija), Tatjane Odrove 4 - župnija Kranj
+2 NOTE Born at home
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.note).toBe("Born at home\nžupnija Kranj");
+  });
+
+  it("does not reshape (or count) places when the master's layout doesn't call for it", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenia
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija), Kidričeva 38/a
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("Kranj (Slovenija), Kidričeva 38/a");
+    expect(report.placesReshaped).toBe(0);
   });
 });
 

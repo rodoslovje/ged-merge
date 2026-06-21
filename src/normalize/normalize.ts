@@ -3,8 +3,9 @@ import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
+import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
-import type { MasterProfile, NormalizationReport, NormChange } from "./types";
+import type { MasterProfile, NormalizationReport, NormChange, PlaceTargetFormat } from "./types";
 import { walkNodes } from "./walk";
 
 const MAX_EXAMPLES = 12;
@@ -25,11 +26,17 @@ export function normalizeDataset(
   const report: NormalizationReport = {
     datesChanged: 0,
     dateExamples: [],
+    placesReshaped: 0,
+    placeExamples: [],
+    linksConverted: 0,
+    linkExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
   // same one many times.
   const seenDate = new Set<string>();
+  const seenPlace = new Set<string>();
+  const seenLink = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -54,9 +61,25 @@ export function normalizeDataset(
       // URL itself; rewrite to the master's language so the compare/edit
       // screens already show matching links and no further conversion is
       // needed at merge or export time.
-      node.value = rewriteLinkLang(node.value, profile.linkLangs);
+      const next = rewriteLinkLang(node.value, profile.linkLangs);
+      if (next !== node.value) {
+        record(report.linkExamples, seenLink, node.value, next);
+        report.linksConverted++;
+        node.value = next;
+      }
     }
   });
+
+  // Reshape PLAC/ADDR/NOTE into the master's layout, e.g. splitting a packed
+  // "Town (Country), Street No" into structured PLAC + ADDR, or folding a
+  // structured PLAC + ADDR into one packed PLAC — so the compare/edit screens
+  // already show places in the master's shape and no reshaping is needed when
+  // the record is later merged or saved.
+  if (reshapesLayout(profile.placeFmt.layout)) {
+    walkNodes(records, (node) => {
+      reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
+    });
+  }
 
   const parsed: ParseResult = {
     version: compare.version,
@@ -67,6 +90,46 @@ export function normalizeDataset(
     finalNewline: compare.finalNewline,
   };
   return { dataset: buildDataset(parsed), report };
+}
+
+/**
+ * Reshape a node's PLAC/ADDR (if any) into the master's layout, recording an
+ * example when the text actually changes. A pre-existing NOTE absorbs any
+ * leftover detail (parish, facility) rather than duplicating it in a second
+ * NOTE node.
+ */
+function reshapePlaceNode(
+  node: GedNode,
+  fmt: PlaceTargetFormat,
+  report: NormalizationReport,
+  seen: Set<string>,
+): void {
+  const placNode = node.children.find((c) => c.tag === "PLAC");
+  const addrNode = node.children.find((c) => c.tag === "ADDR");
+  if (!placNode && !addrNode) return;
+  const placRaw = placNode?.value;
+  const addrRaw = addrNode?.value;
+  const r = reformatPlace(placRaw, addrRaw, fmt);
+
+  const before = [placRaw, addrRaw].filter(Boolean).join(" · ");
+  const after = [r.plac, r.addr, r.note].filter(Boolean).join(" · ");
+  if (before === after) return;
+
+  const existingNote = node.children.find((c) => c.tag === "NOTE");
+  node.children = node.children.filter((c) => c !== placNode && c !== addrNode);
+  if (r.plac !== undefined) node.children.push(plainNode("PLAC", r.plac));
+  if (r.addr !== undefined) node.children.push(plainNode("ADDR", r.addr));
+  if (r.note) {
+    if (existingNote) existingNote.value = existingNote.value ? `${existingNote.value}\n${r.note}` : r.note;
+    else node.children.push(plainNode("NOTE", r.note));
+  }
+
+  report.placesReshaped++;
+  record(report.placeExamples, seen, before, after);
+}
+
+function plainNode(tag: string, value: string): GedNode {
+  return { level: 0, tag, children: [], value };
 }
 
 /** Infer the compare file's own numeric date order, used to parse its dates. */

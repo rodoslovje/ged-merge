@@ -188,9 +188,25 @@ function renderSummary(
         {report && (
           <div className="loader-report">
             <div className="loader-report-head">{t("loader.normalized")}</div>
-            <span className="loader-report-line" title={examplesTooltip(report.dateExamples)}>
-              {t("loader.datesChanged", { count: report.datesChanged })}
-            </span>
+            <dl className="loader-meta">
+              {(
+                [
+                  [t("loader.dates", { count: report.datesChanged }), examplesTooltip(report.dateExamples)],
+                  [t("loader.places", { count: report.placesReshaped }), examplesTooltip(report.placeExamples)],
+                  [t("loader.links", { count: report.linksConverted }), examplesTooltip(report.linkExamples)],
+                ] as [string, string | undefined][]
+              ).map(([line, tooltip]) => {
+                const i = line.indexOf(":");
+                const label = i >= 0 ? line.slice(0, i).trim() : line;
+                const value = i >= 0 ? line.slice(i + 1).trim() : "";
+                return (
+                  <Fragment key={label}>
+                    <dt>{label}</dt>
+                    <dd className="loader-report-line" title={tooltip}>{value}</dd>
+                  </Fragment>
+                );
+              })}
+            </dl>
           </div>
         )}
       </div>

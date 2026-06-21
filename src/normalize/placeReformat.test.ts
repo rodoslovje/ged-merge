@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { reformatPlace, type PlaceTargetFormat } from "./placeReformat";
+import { reformatPlace } from "./placeReformat";
+import type { PlaceTargetFormat } from "./types";
 
 const RENKO: PlaceTargetFormat = { layout: "structured-addr", separator: "," };
 
