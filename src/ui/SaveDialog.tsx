@@ -149,18 +149,20 @@ export function SaveDialog({
                           {headContent}
                         </span>
                       )}
-                      <span className={`preview-badge ${g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
-                        {g.isNew ? t("preview.badge.new") : g.isRemoved ? t("preview.badge.removed") : t("preview.badge.edited")}
+                      <span className="preview-card-head-right">
+                        <span className={`preview-badge ${g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
+                          {g.isNew ? t("preview.badge.new") : g.isRemoved ? t("preview.badge.removed") : t("preview.badge.edited")}
+                        </span>
+                        {canRemove && (
+                          <button
+                            className="preview-item-remove"
+                            title={t("save.preview.removeChange")}
+                            onClick={() => onRemove(g.id, kind)}
+                          >
+                            ×
+                          </button>
+                        )}
                       </span>
-                      {canRemove && (
-                        <button
-                          className="preview-item-remove"
-                          title={t("save.preview.removeChange")}
-                          onClick={() => onRemove(g.id, kind)}
-                        >
-                          ×
-                        </button>
-                      )}
                     </div>
                     {fieldRows.length > 0 && (
                       <ul className="preview-fields">

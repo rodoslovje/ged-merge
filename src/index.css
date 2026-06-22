@@ -2875,6 +2875,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-bottom: 6px;
 }
+.preview-card-head-right { display: flex; align-items: center; gap: 6px; flex: none; }
 .preview-rec { font-weight: 600; color: var(--text); }
 .preview-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
