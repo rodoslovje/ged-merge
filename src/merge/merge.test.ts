@@ -626,6 +626,65 @@ describe("mergeDecisions — event source citations", () => {
   });
 });
 
+describe("mergeDecisions — multi-instance events pair master/incoming by their own array position", () => {
+  // Two RESI events each side, deliberately listed in reversed chronological
+  // order on the incoming side so the best-scoring (date+place) pairing is
+  // {masterIdx:0,compareIdx:1} and {masterIdx:1,compareIdx:0} — i.e. for at
+  // least one pair, masterIdx and compareIdx differ. A row's incoming side
+  // must be read from `compareIdx`, not from whatever sequential "keyIdx"
+  // happens to label the row, or it ends up reading the *other* incoming event.
+  const masterTwoResi = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 RESI\n2 DATE 1990\n2 PLAC Kranj\n2 AGNC Agency-Kranj\n" +
+      "1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana\n",
+  );
+  const compareTwoResiReversed = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana-incoming\n" +
+      "1 RESI\n2 DATE 1990\n2 PLAC Kranj\n2 AGNC Agency-Kranj-incoming\n",
+  );
+
+  it("applies each pair's own incoming agency, not a value crossed over from the other pair", () => {
+    const master = dataset(masterTwoResi);
+    const compare = dataset(compareTwoResiReversed);
+    const { records } = mergeDecisions(
+      master,
+      compare,
+      confirmed({ "RESI.0.agency": "incoming", "RESI.1.agency": "incoming" }),
+      NO_MATCHES,
+      tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 RESI\n2 DATE 1990\n2 PLAC Kranj\n2 AGNC Agency-Kranj-incoming");
+    expect(out).toContain("1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana-incoming");
+  });
+
+  // An incoming-only third RESI (no master counterpart at all) must still get
+  // every one of its fields combined onto one new node, not scattered across
+  // several — exercising the masterIdx===-1 "create once, reuse" path.
+  const compareThreeResi = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana-incoming\n" +
+      "1 RESI\n2 DATE 1990\n2 PLAC Kranj\n2 AGNC Agency-Kranj-incoming\n" +
+      "1 RESI\n2 DATE 1985\n2 PLAC Maribor\n2 ADDR Glavni trg 1\n2 AGNC Agency-Maribor-incoming\n",
+  );
+
+  it("combines a brand-new incoming-only event's fields onto a single node", () => {
+    const master = dataset(masterTwoResi);
+    const compare = dataset(compareThreeResi);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 PLAC Maribor");
+    expect(out).toContain("2 ADDR Glavni trg 1");
+    expect(out).toContain("2 AGNC Agency-Maribor-incoming");
+    // All three landed on one event, not split across separate ones.
+    const maribor = out.split("1 RESI").find((block) => block.includes("Maribor"))!;
+    expect(maribor).toContain("Glavni trg 1");
+    expect(maribor).toContain("Agency-Maribor-incoming");
+    expect(out.match(/1 RESI/g)).toHaveLength(3); // 2 master + 1 new, none duplicated
+  });
+});
+
 describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () => {
   // Master's RESI already has its own CHAN/CREA audit timestamps, typical of
   // exports from RootsMagic/Family Historian/etc. The incoming side adds an

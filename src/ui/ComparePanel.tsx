@@ -48,16 +48,15 @@ export function ComparePanel({
     linkable: (id: string) => canNavigate("incoming", id),
     onNavigate: (id: string) => onNavigate("incoming", id),
   };
+  // Edits rebuild the master Individual in place (new object stored back into
+  // `masterDs.individuals`) without changing `masterDs`'s own identity, so the
+  // memo must key off the looked-up records themselves — keying off `masterDs`
+  // would miss edits made while this panel stays mounted in the background.
+  const masterIndi = masterDs.individuals.get(candidate.masterId);
+  const compareIndi = compareDs.individuals.get(candidate.compareId);
   const rows = useMemo<FieldRow[]>(
-    () =>
-      individualFieldRows(
-        t,
-        masterDs.individuals.get(candidate.masterId),
-        compareDs.individuals.get(candidate.compareId),
-        masterDs,
-        compareDs,
-      ),
-    [candidate, masterDs, compareDs, t],
+    () => individualFieldRows(t, masterIndi, compareIndi, masterDs, compareDs),
+    [masterIndi, compareIndi, masterDs, compareDs, t],
   );
 
   const status = decision?.status ?? "undecided";

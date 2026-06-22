@@ -153,6 +153,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
     pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
+    for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = compareIdx; }
     if (subRows.length > 0) {
       rows.push({
         key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,

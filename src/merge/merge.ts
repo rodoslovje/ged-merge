@@ -221,6 +221,10 @@ interface Row {
   masterLinks?: string[];
   incomingLinks?: string[];
   isEventHeader?: boolean;
+  /** True per-tag-array index of this event row's underlying event on each
+   * side (-1 if absent) — see `FieldRow.eventMasterIdx`/`eventCompareIdx`. */
+  eventMasterIdx?: number;
+  eventCompareIdx?: number;
 }
 
 function applyRows(
@@ -242,6 +246,12 @@ function applyRows(
   // name, so date/place/note/source changes can be grouped under one header
   // in the save preview instead of repeating the event name on every line.
   const eventGroups = new Map<string, string>();
+  // New master events created for an incoming-only event (eventMasterIdx -1),
+  // keyed by `${tag}:${eventCompareIdx}` — that pair uniquely identifies the
+  // incoming event across this record's rows. Without this cache, each of a
+  // new event's sub-fields (date/place/value/…) would create its own separate
+  // node instead of all landing on the one node for that event.
+  const newEventNodes = new Map<string, GedNode>();
   for (const row of rows) {
     if (row.isEventHeader) eventGroups.set(row.key.replace(/\.header$/, ""), row.label);
   }
@@ -281,19 +291,25 @@ function applyRows(
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
     } else {
       const parts = row.key.split(".");
-      const [tag, eventIdx, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
-        ? [parts[0], parseInt(parts[1], 10), parts[2]]
-        : [parts[0], 0, parts[1]];
+      const [tag, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
+        ? [parts[0], parts[2]]
+        : [parts[0], parts[1]];
+      // The row's own true per-side array positions, not a position parsed
+      // back out of `key` — that numeric suffix is an output-order index from
+      // date/place pairing, not necessarily either side's real array index
+      // once a tag has more than one instance (see `FieldRow.eventMasterIdx`).
+      const masterIdx = row.eventMasterIdx ?? 0;
+      const compareIdx = row.eventCompareIdx ?? 0;
       if (sub === "value") {
-        applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER);
+        applied = applyEventValue(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER, sourMap, report.customTags);
+        applied = applyEventSources(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
       } else {
         const subTag = SUB_TAG[sub];
         // Places are already reshaped into the master's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
         // directly like any other field.
-        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx, INDI_CHILD_ORDER, report.customTags);
+        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, report.customTags, newEventNodes);
       }
     }
 
@@ -514,24 +530,49 @@ function applyAdditionalNames(
   return true;
 }
 
+/**
+ * Find the master event a row should write to: `masterEvents[masterIdx]`
+ * when the row has a real master-side event, otherwise the new node created
+ * for this incoming-only event's `(tag, compareIdx)` — reusing it across that
+ * one event's sub-fields via `newEventNodes` instead of minting a separate
+ * node per field.
+ */
+function resolveEventNode(
+  target: GedNode,
+  tag: string,
+  masterIdx: number,
+  compareIdx: number,
+  order: string[],
+  newEventNodes?: Map<string, GedNode>,
+): GedNode {
+  if (masterIdx >= 0) {
+    const existing = target.children.filter((c) => c.tag === tag)[masterIdx];
+    if (existing) return existing;
+  }
+  const cacheKey = `${tag}:${compareIdx}`;
+  const cached = newEventNodes?.get(cacheKey);
+  if (cached) return cached;
+  const created = newNode(tag);
+  insertOrdered(target, created, order);
+  newEventNodes?.set(cacheKey, created);
+  return created;
+}
+
 /** Copy the direct value on an event line (e.g. occupation text) from incoming to master. */
 function applyEventValue(
   target: GedNode,
   incomingRecord: GedNode,
   tag: string,
   choice: FieldChoice,
-  eventIdx = 0,
+  masterIdx: number,
+  compareIdx: number,
   order: string[] = [],
+  newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = incomingRecord.children.filter((c) => c.tag === tag)[eventIdx];
+  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
   if (!incEvent?.value) return false;
-  const masterEvents = target.children.filter((c) => c.tag === tag);
-  let event = masterEvents[eventIdx];
-  if (!event) {
-    event = newNode(tag);
-    insertOrdered(target, event, order);
-  }
   if (choice === "incoming" || choice === "both") {
+    const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
     event.value = incEvent.value;
     return true;
   }
@@ -545,20 +586,16 @@ function applyEventSub(
   tag: string,
   subTag: string,
   choice: FieldChoice,
-  eventIdx = 0,
+  masterIdx: number,
+  compareIdx: number,
   order: string[] = [],
   customTags: Record<string, CustomTagNode[]> = {},
+  newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
-  const incEvent = incEvents[eventIdx];
+  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
   const incSub = incEvent?.children.find((c) => c.tag === subTag);
   if (!incSub) return false;
-  const masterEvents = target.children.filter((c) => c.tag === tag);
-  let event = masterEvents[eventIdx];
-  if (!event) {
-    event = newNode(tag);
-    insertOrdered(target, event, order);
-  }
+  const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub, customTags);
 }
 
@@ -583,22 +620,18 @@ function applyEventSources(
   incomingRecord: GedNode,
   tag: string,
   choice: FieldChoice,
-  eventIdx: number,
+  masterIdx: number,
+  compareIdx: number,
   order: string[],
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]> = {},
+  newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
-  const incEvent = incEvents[eventIdx];
+  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
   const incSours = incEvent?.children.filter((c) => c.tag === "SOUR") ?? [];
   const incLinks = eventLinkUrls(incEvent);
   if (incSours.length === 0 && incLinks.length === 0) return false;
-  const masterEvents = target.children.filter((c) => c.tag === tag);
-  let event = masterEvents[eventIdx];
-  if (!event) {
-    event = newNode(tag);
-    insertOrdered(target, event, order);
-  }
+  const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
     if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
     for (const s of incSours) {
@@ -1104,7 +1137,7 @@ function applyIndividualFamilies(
       if (!subTag) continue;
       const rowKey = `${famKey}.MARR.${sub}`;
       const rowIncoming = rows.find((r) => r.key === rowKey)?.incoming ?? "";
-      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, FAM_CHILD_ORDER, ctx.report.customTags);
+      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
       if (applied) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
@@ -1119,7 +1152,7 @@ function applyIndividualFamilies(
     }
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
       ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR") });
       ctx.touched.add(famNode.xref!);
     }
@@ -1134,7 +1167,7 @@ function applyIndividualFamilies(
         const subTag = SUB_TAG[sub];
         if (!subTag) continue;
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
-        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, FAM_CHILD_ORDER, ctx.report.customTags);
+        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
         if (applied) {
           ctx.report.changes.push({
             recordId: famNode.xref!,
@@ -1150,7 +1183,7 @@ function applyIndividualFamilies(
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
-        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
           ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName });
           ctx.touched.add(famNode.xref!);
         }

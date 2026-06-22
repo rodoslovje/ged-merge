@@ -57,6 +57,17 @@ export interface FieldRow {
   isGroupHeader?: boolean;
   /** When true, styled as a small-caps event sub-header rather than a bold group header. */
   isEventHeader?: boolean;
+  /**
+   * For individual event sub-rows (date/place/addr/note/agency/value/sources):
+   * the row's underlying event's true position in `master.events`/`compare.events`
+   * filtered to this tag (-1 if absent on that side). The merge engine uses
+   * these — not a position parsed back out of `key` — to find the exact event
+   * node to edit, since `key`'s numeric suffix (e.g. "RESI.2") is an output-order
+   * index from date/place pairing that doesn't generally equal either side's
+   * real array position once a tag has more than one instance.
+   */
+  eventMasterIdx?: number;
+  eventCompareIdx?: number;
 }
 
 /** One side of an aligned relative row. */

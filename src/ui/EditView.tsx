@@ -549,7 +549,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       const masterMergeKeyBases = new Map<number, string>();
       const masterMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; incomingNodeId: number }[] = [];
-      const EVENT_SUBS = ["date", "place", "addr", "value"] as const;
+      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency"] as const;
 
       // Index incoming events by tag for sort key lookup.
       const cByTag = new Map<string, typeof incoming.events>();
@@ -575,7 +575,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
           // BIRT is always shown in its own row so exclude it from extras.
-          if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`))) {
+          if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
             if (incomingEv) {
               extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: dateToSortKey(incomingEv.date), incomingNodeId: nodeId(incomingEv) });
@@ -621,11 +621,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "master";
       }
       // Also set any fields not yet explicitly decided (they default to "incoming") to "master".
-      const EVENT_SUBS = ["date", "place", "addr", "value"] as const;
+      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency"] as const;
       for (const sub of EVENT_SUBS) {
         const fkey = `${keyBase}.${sub}`;
         if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
       }
+      if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "master";
       onUpdateDecision({ ...dec, fields: updatedFields });
       break;
     }
