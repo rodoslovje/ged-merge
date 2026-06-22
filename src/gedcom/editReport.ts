@@ -307,6 +307,7 @@ export function buildEditReport(
     recordLabels,
     recordKinds,
     familySpouses,
+    customTags: {},
   };
 }
 
@@ -322,6 +323,7 @@ export function combineReports(a: ChangeReport, b: ChangeReport): ChangeReport {
     recordLabels: { ...a.recordLabels, ...b.recordLabels },
     recordKinds: { ...a.recordKinds, ...b.recordKinds },
     familySpouses: { ...a.familySpouses, ...b.familySpouses },
+    customTags: { ...a.customTags, ...b.customTags },
   };
 }
 

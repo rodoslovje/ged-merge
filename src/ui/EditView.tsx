@@ -2049,6 +2049,7 @@ function EventList({
     if (update.place !== undefined) subs.push("place");
     if (update.address !== undefined) subs.push("addr");
     if (update.note !== undefined) subs.push("note");
+    if (update.agency !== undefined) subs.push("agency");
     return subs;
   }
 
@@ -2336,6 +2337,7 @@ function EventFieldsRow({
   const placeMergeVal = mergeHighlight?.get(`${kBase}.place`);
   const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
   const noteMergeVal = mergeHighlight?.get(`${kBase}.note`);
+  const agencyMergeVal = mergeHighlight?.get(`${kBase}.agency`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
   // showing dirty/bold across the row's one-time "extra"→"master" remount.
@@ -2344,12 +2346,14 @@ function EventFieldsRow({
   const placeForced = resolvedSessionFields?.has(`${kBase}.place`) ?? false;
   const addrForced = resolvedSessionFields?.has(`${kBase}.addr`) ?? false;
   const noteForced = resolvedSessionFields?.has(`${kBase}.note`) ?? false;
+  const agencyForced = resolvedSessionFields?.has(`${kBase}.agency`) ?? false;
 
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
+  const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
@@ -2394,6 +2398,7 @@ function EventFieldsRow({
       place: placeField.value,
       address: addrField.value,
       note: noteField.value,
+      agency: agencyField.value,
       ...override,
     });
   }
@@ -2463,6 +2468,18 @@ function EventFieldsRow({
           onChange={noteField.onChange}
           onBlur={() => commitAll({})}
           onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+        />
+      )}
+      {(agencyField.value || agencyField.isMerge) && (
+        <ClearableInput
+          wrapClassName="edit-event-agency-wrap"
+          className={fieldCls("edit-input edit-event-agency", agencyField.isMerge, agencyField.isDirty || agencyForced)}
+          value={agencyField.value}
+          placeholder={t("event.agency", { event: label })}
+          title={t("event.agency", { event: label })}
+          onChange={agencyField.onChange}
+          onBlur={() => commitAll({})}
+          onClear={() => { agencyField.clear(); commitAll({ agency: "" }); }}
         />
       )}
       <div className="edit-event-actions">

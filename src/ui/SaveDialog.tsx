@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChangeReport, FieldChange } from "../merge/merge";
 import type { Dataset } from "../gedcom/types";
@@ -56,6 +56,31 @@ export function SaveDialog({
 
   const newRecords = report.newPersons + report.newFamilies;
   const finalCount = masterRecordCount != null ? masterRecordCount + newRecords : undefined;
+
+  // Non-standard tags (e.g. _ITALIC) the merge would copy in from the
+  // incoming file, grouped by tag name — unchecking one strips every instance
+  // of it from the merged tree right before the file is downloaded.
+  const customTagEntries = useMemo(() => Object.entries(report.customTags), [report.customTags]);
+  const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set());
+
+  function toggleCustomTag(tag: string) {
+    setExcludedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
+  function handleConfirm() {
+    for (const [tag, nodes] of customTagEntries) {
+      if (!excludedTags.has(tag)) continue;
+      for (const { parent, node } of nodes) {
+        parent.children = parent.children.filter((c) => c !== node);
+      }
+    }
+    onConfirm();
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -196,6 +221,27 @@ export function SaveDialog({
             <p className="preview-empty">{t("preview.nothing")}</p>
           )}
 
+          {customTagEntries.length > 0 && (
+            <section className="preview-section">
+              <h3>{t("preview.customTags")}</h3>
+              <p className="preview-note">{t("preview.customTagsHint")}</p>
+              <ul className="preview-custom-tags">
+                {customTagEntries.map(([tag, nodes]) => (
+                  <li key={tag}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!excludedTags.has(tag)}
+                        onChange={() => toggleCustomTag(tag)}
+                      />
+                      <code>{tag}</code> ({nodes.length})
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="preview-files">
             <p>{t("preview.files")}</p>
             <ul>
@@ -209,7 +255,7 @@ export function SaveDialog({
 
         <div className="preview-actions">
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
-          <button className="export-btn" onClick={onConfirm} disabled={groups.length === 0}>
+          <button className="export-btn" onClick={handleConfirm} disabled={groups.length === 0}>
             {downloadLabel}
           </button>
         </div>

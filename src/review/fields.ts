@@ -79,6 +79,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "place") return t("event.place", { event: name });
   if (sub === "addr") return t("event.addr", { event: name });
   if (sub === "note") return t("event.note", { event: name });
+  if (sub === "agency") return t("event.agency", { event: name });
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -150,6 +151,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
+    pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
     if (subRows.length > 0) {
       rows.push({
@@ -206,6 +208,7 @@ export function individualFieldRows(
       pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, cMar?.place?.raw, undefined, undefined, cMar?.place?.originalRaw);
       pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, cMar?.address?.raw, undefined, undefined, cMar?.address?.originalRaw);
       pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, cMar?.note);
+      pushRow(marriageRows, `${famKey}.MARR.agency`, t("event.colAgency"), mMar?.agency, cMar?.agency);
       pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
       if (marriageRows.length > 0) {
         rows.push({
@@ -223,6 +226,7 @@ export function individualFieldRows(
         pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
         pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
         pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
+        pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
         pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
         if (etagRows.length > 0) {
           rows.push({

@@ -53,6 +53,16 @@ export interface FamilySpouseInfo {
   name: string;
 }
 
+/**
+ * A non-standard (vendor `_TAG`) node copied in from the incoming file as part
+ * of a merge, kept live (with its parent) inside the merged tree so the save
+ * preview can strip it — per tag name — if the user opts out.
+ */
+export interface CustomTagNode {
+  parent: GedNode;
+  node: GedNode;
+}
+
 export interface ChangeReport {
   changes: FieldChange[];
   deferred: DeferredChange[];
@@ -68,6 +78,9 @@ export interface ChangeReport {
   recordKinds: Record<string, "individual" | "family">;
   /** Husband/wife (in that order) for each touched family record. */
   familySpouses: Record<string, FamilySpouseInfo[]>;
+  /** Non-standard tags copied in from the incoming file, grouped by tag name,
+   *  for the save preview's "exclude this tag" list. */
+  customTags: Record<string, CustomTagNode[]>;
 }
 
 export interface MergeResult {
@@ -87,7 +100,7 @@ const INDI_HANDLED = new Set([
 ]);
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
-const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE" };
+const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC" };
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 const SUB_LABEL_KEY: Record<string, string> = {
@@ -95,6 +108,7 @@ const SUB_LABEL_KEY: Record<string, string> = {
   place: "event.colPlace",
   addr: "event.colAddr",
   note: "event.colNote",
+  agency: "event.colAgency",
 };
 
 /**
@@ -138,6 +152,7 @@ export function mergeDecisions(
     recordLabels: {},
     recordKinds: {},
     familySpouses: {},
+    customTags: {},
   };
   const touched = new Set<string>();
   // How the master writes places, so incoming places can be reshaped to match.
@@ -190,7 +205,7 @@ export function mergeDecisions(
 
   // Import any SOUR/REPO records from compare that are now referenced in the
   // merged output but absent from it (e.g. citations on newly-added people).
-  importSourRecords(records, compare, sourXrefMap);
+  importSourRecords(records, compare, sourXrefMap, report.customTags);
 
   report.recordsChanged = touched.size;
   return { records, report };
@@ -253,16 +268,16 @@ function applyRows(
     let applied = false;
     if (row.key === "given" || row.key === "surname") {
       if (nameApplied) continue; // the whole NAME line is taken as a unit
-      applied = applyName(target, incomingRecord, choice, sourMap);
+      applied = applyName(target, incomingRecord, choice, sourMap, report.customTags);
       nameApplied = applied;
     } else if (row.key === "sex") {
-      applied = setChild(target, "SEX", incomingRecord, choice, INDI_CHILD_ORDER);
+      applied = setChild(target, "SEX", incomingRecord, choice, INDI_CHILD_ORDER, undefined, report.customTags);
     } else if (row.key === "nickname") {
-      applied = applyNickname(target, incomingRecord, choice);
+      applied = applyNickname(target, incomingRecord, choice, report.customTags);
     } else if (row.key === "additionalNames") {
-      applied = applyAdditionalNames(target, incomingRecord, choice, sourMap);
+      applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
-      applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER);
+      applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
     } else {
       const parts = row.key.split(".");
       const [tag, eventIdx, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
@@ -271,18 +286,18 @@ function applyRows(
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER, sourMap);
+        applied = applyEventSources(target, incomingRecord, tag, choice, eventIdx, INDI_CHILD_ORDER, sourMap, report.customTags);
       } else {
         const subTag = SUB_TAG[sub];
         // Places are already reshaped into the master's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
         // directly like any other field.
-        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx, INDI_CHILD_ORDER);
+        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, eventIdx, INDI_CHILD_ORDER, report.customTags);
       }
     }
 
     if (applied) {
-      const group = eventGroups.get(row.key.replace(/\.(date|place|addr|note|sources|value)$/, ""));
+      const group = eventGroups.get(row.key.replace(/\.(date|place|addr|note|agency|sources|value)$/, ""));
       report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group });
       touched.add(recordId);
     }
@@ -400,10 +415,17 @@ function detectLinkFormat(master: Dataset): LinkFormat {
 }
 
 /** Replace or (for "both") add the primary NAME line from the incoming record. */
-function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
+function applyName(
+  target: GedNode,
+  incomingRecord: GedNode,
+  choice: FieldChoice,
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]>,
+): boolean {
   const incName = incomingRecord.children.find((c) => c.tag === "NAME");
   if (!incName) return false;
   const clone = cloneNodeRemapped(incName, sourMap);
+  collectCustomTags(clone, customTags);
   const idx = target.children.findIndex((c) => c.tag === "NAME");
   if (choice === "both" || idx < 0) {
     if (idx < 0) insertOrdered(target, clone, INDI_CHILD_ORDER);
@@ -420,16 +442,32 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
  * the matching canonical order so a brand-new NOTE lands before any trailing
  * CHAN/CREA rather than after it.
  */
-function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap, order: string[]): boolean {
+function applyNotes(
+  target: GedNode,
+  incoming: GedNode,
+  choice: FieldChoice,
+  sourMap: SourXrefMap,
+  order: string[],
+  customTags: Record<string, CustomTagNode[]>,
+): boolean {
   const incNotes = incoming.children.filter((c) => c.tag === "NOTE");
   if (!incNotes.length) return false;
   if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "NOTE");
-  for (const n of incNotes) insertOrdered(target, cloneNodeRemapped(n, sourMap), order);
+  for (const n of incNotes) {
+    const clone = cloneNodeRemapped(n, sourMap);
+    collectCustomTags(clone, customTags);
+    insertOrdered(target, clone, order);
+  }
   return true;
 }
 
 /** Set the NICK sub-node on the primary NAME record from the incoming side. */
-function applyNickname(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
+function applyNickname(
+  target: GedNode,
+  incomingRecord: GedNode,
+  choice: FieldChoice,
+  customTags: Record<string, CustomTagNode[]>,
+): boolean {
   const incName = incomingRecord.children.find((c) => c.tag === "NAME");
   if (!incName) return false;
   const incNick = incName.children.find((c) => c.tag === "NICK");
@@ -439,11 +477,17 @@ function applyNickname(target: GedNode, incomingRecord: GedNode, choice: FieldCh
     name = newNode("NAME");
     insertAt(target, 0, name);
   }
-  return setChild(name, "NICK", incName, choice, NAME_CHILD_ORDER, incNick);
+  return setChild(name, "NICK", incName, choice, NAME_CHILD_ORDER, incNick, customTags);
 }
 
 /** Copy the incoming record's additional NAME nodes (everything after the first). */
-function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
+function applyAdditionalNames(
+  target: GedNode,
+  incoming: GedNode,
+  choice: FieldChoice,
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]>,
+): boolean {
   let firstSeen = false;
   const incExtra: GedNode[] = [];
   for (const c of incoming.children) {
@@ -461,7 +505,11 @@ function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldC
       return false;
     });
   }
-  for (const n of incExtra) insertOrdered(target, cloneNodeRemapped(n, sourMap), INDI_CHILD_ORDER);
+  for (const n of incExtra) {
+    const clone = cloneNodeRemapped(n, sourMap);
+    collectCustomTags(clone, customTags);
+    insertOrdered(target, clone, INDI_CHILD_ORDER);
+  }
   return true;
 }
 
@@ -498,6 +546,7 @@ function applyEventSub(
   choice: FieldChoice,
   eventIdx = 0,
   order: string[] = [],
+  customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
   const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
   const incEvent = incEvents[eventIdx];
@@ -509,7 +558,7 @@ function applyEventSub(
     event = newNode(tag);
     insertOrdered(target, event, order);
   }
-  return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub);
+  return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub, customTags);
 }
 
 /**
@@ -526,6 +575,7 @@ function applyEventSources(
   eventIdx: number,
   order: string[],
   sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
   const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
   const incSours = incEvents[eventIdx]?.children.filter((c) => c.tag === "SOUR") ?? [];
@@ -537,7 +587,11 @@ function applyEventSources(
     insertOrdered(target, event, order);
   }
   if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
-  for (const s of incSours) insertOrdered(event, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
+  for (const s of incSours) {
+    const clone = cloneNodeRemapped(s, sourMap);
+    collectCustomTags(clone, customTags);
+    insertOrdered(event, clone, EVENT_CHILD_ORDER);
+  }
   return true;
 }
 
@@ -556,10 +610,12 @@ function setChild(
   choice: FieldChoice,
   order: string[],
   incChildOverride?: GedNode,
+  customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
   const incChild = incChildOverride ?? incomingParent.children.find((c) => c.tag === tag);
   if (!incChild) return false;
   const clone = cloneNode(incChild);
+  collectCustomTags(clone, customTags);
   const idx = parent.children.findIndex((c) => c.tag === tag);
   if (choice === "both" || idx < 0) {
     insertOrdered(parent, clone, order);
@@ -629,6 +685,23 @@ function cloneNode(n: GedNode): GedNode {
   return c;
 }
 
+/**
+ * Walks a subtree just copied in from the incoming file and records any
+ * non-standard tag found within it (the GEDCOM `_TAG` vendor-extension
+ * convention — e.g. `_ITALIC`, `_PAREN`), so the save preview can offer to
+ * drop it. `node` itself is never recorded, only its descendants, since the
+ * caller always passes a known structural node (NAME, SOUR, DATE, …), never a
+ * vendor extension.
+ */
+function collectCustomTags(node: GedNode, registry: Record<string, CustomTagNode[]>): void {
+  for (const child of node.children) {
+    if (child.tag.startsWith("_")) {
+      (registry[child.tag] ??= []).push({ parent: node, node: child });
+    }
+    collectCustomTags(child, registry);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // SOUR / REPO import helpers
 // ---------------------------------------------------------------------------
@@ -685,7 +758,12 @@ function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
  * fixpoint. The `sourMap` ensures imported records land under the correct output
  * xref and that any internal REPO pointers inside a SOUR are also remapped.
  */
-function importSourRecords(records: GedNode[], compare: Dataset, sourMap: SourXrefMap): void {
+function importSourRecords(
+  records: GedNode[],
+  compare: Dataset,
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]>,
+): void {
   // Reverse map: output xref → compare xref (only entries that were renamed).
   const reverseMap = new Map<string, string>();
   for (const [cXref, outXref] of sourMap) reverseMap.set(outXref, cXref);
@@ -717,6 +795,7 @@ function importSourRecords(records: GedNode[], compare: Dataset, sourMap: SourXr
       if (!cRec) continue;
       const imported = cloneNodeRemapped(cRec, sourMap);
       imported.xref = outXref;
+      collectCustomTags(imported, customTags);
       insertRecord(records, imported);
       changed = true;
     }
@@ -801,6 +880,7 @@ function makeContext(
     if (!incIndi) return undefined;
     const newId = allocXref();
     const node = cloneNodeRemapped(incIndi.raw, sourXrefMap);
+    collectCustomTags(node, report.customTags);
     node.xref = newId;
     // Drop incoming family pointers; we re-link only into the family being merged.
     node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
@@ -977,7 +1057,7 @@ function applyIndividualFamilies(
       const key = `${famKey}.MARR.${sub}`;
       return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
     };
-    const wantMarriage = (["date", "place", "addr", "note", "sources"] as const).some((s) => marriageChoice(s));
+    const wantMarriage = (["date", "place", "addr", "note", "agency", "sources"] as const).some((s) => marriageChoice(s));
     if (!takeSpouses && !takeChildren && !wantMarriage) continue;
     ctx.processedFamIds.add(incFamId);
 
@@ -989,14 +1069,14 @@ function applyIndividualFamilies(
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, children: takeChildren });
 
-    for (const sub of ["date", "place", "addr", "note"] as const) {
+    for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
       const choice = marriageChoice(sub);
       if (!choice) continue;
       const subTag = SUB_TAG[sub];
       if (!subTag) continue;
       const rowKey = `${famKey}.MARR.${sub}`;
       const rowIncoming = rows.find((r) => r.key === rowKey)?.incoming ?? "";
-      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, FAM_CHILD_ORDER);
+      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, FAM_CHILD_ORDER, ctx.report.customTags);
       if (applied) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
@@ -1011,7 +1091,7 @@ function applyIndividualFamilies(
     }
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
+    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
       ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR") });
       ctx.touched.add(famNode.xref!);
     }
@@ -1019,14 +1099,14 @@ function applyIndividualFamilies(
     // Engagement, Separation, Divorce — same pattern as MARR.
     for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
       const evName = ctx.t(`event.${evTag}`);
-      for (const sub of ["date", "place", "addr", "note"] as const) {
+      for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = fields[key] ?? "incoming";
         const subTag = SUB_TAG[sub];
         if (!subTag) continue;
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
-        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, FAM_CHILD_ORDER);
+        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, FAM_CHILD_ORDER, ctx.report.customTags);
         if (applied) {
           ctx.report.changes.push({
             recordId: famNode.xref!,
@@ -1042,7 +1122,7 @@ function applyIndividualFamilies(
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
-        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap)) {
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
           ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName });
           ctx.touched.add(famNode.xref!);
         }
@@ -1053,7 +1133,7 @@ function applyIndividualFamilies(
     const famNotesKey = `${famKey}.notes`;
     if (wantsIncoming(rows, fields, famNotesKey)) {
       const choice = fields[famNotesKey] ?? "incoming";
-      if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap, FAM_CHILD_ORDER)) {
+      if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap, FAM_CHILD_ORDER, ctx.report.customTags)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.notes"),

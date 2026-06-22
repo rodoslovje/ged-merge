@@ -472,6 +472,57 @@ describe("mergeDecisions — SOUR/REPO import", () => {
   });
 });
 
+describe("mergeDecisions — custom tag detection", () => {
+  it("records a non-standard tag copied in with an imported SOUR record, keyed by tag name", () => {
+    const compareWithSour = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 _ITALIC Y\n",
+    );
+    const masterFamily = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n0 @F1@ FAM\n1 HUSB @I1@\n",
+    );
+    const master = dataset(masterFamily);
+    const compare = dataset(compareWithSour);
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+    expect(Object.keys(report.customTags)).toEqual(["_ITALIC"]);
+    expect(report.customTags["_ITALIC"]).toHaveLength(1);
+
+    // Simulates the save preview: unchecking "_ITALIC" strips it before download.
+    for (const { parent, node } of report.customTags["_ITALIC"]) {
+      parent.children = parent.children.filter((c) => c !== node);
+    }
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 TITL Matična knjiga rojstev Kranj");
+    expect(out).not.toContain("_ITALIC");
+  });
+
+  it("does not flag a custom tag that already existed in the master file", () => {
+    // @CS1@ is already present in master (with _ITALIC); the merge only adds
+    // a citation pointer to it, so its pre-existing _ITALIC isn't "copied in".
+    const masterWithSour = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 SOUR @CS1@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 _ITALIC Y\n",
+    );
+    const compareWithBirt = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    );
+    const master = dataset(masterWithSour);
+    const compare = dataset(compareWithBirt);
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "BIRT.place": "incoming" } }],
+    ]);
+    const { report } = mergeDecisions(master, compare, decisions, matches, tr);
+    expect(report.customTags).toEqual({});
+  });
+});
+
 describe("mergeDecisions — event source citations", () => {
   // Master's BIRT has no citation; incoming's does.
   const masterNoSour = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");

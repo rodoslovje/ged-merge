@@ -53,6 +53,8 @@ export interface EventFieldUpdate {
   address?: string;
   /** New NOTE value, or `""` to remove the first inline note. Omit to leave unchanged. */
   note?: string;
+  /** New AGNC value (recording agency, e.g. parish), or `""` to remove it. Omit to leave unchanged. */
+  agency?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
   /** Attach a new `SOUR` citation pointer (with optional `PAGE`) — the `SOUR`
@@ -128,6 +130,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.note !== undefined) setOrRemoveValue(eventNode, "NOTE", update.note, EVENT_CHILD_ORDER);
+  if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (update.addSource) attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
@@ -146,8 +149,8 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
   let event = findChild(record, tag);
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
-    !!update.address?.trim() || !!update.note?.trim() || !!update.links?.some((l) => l.trim()) ||
-    !!update.addSource;
+    !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
+    !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!event) {
     if (!hasContent) return;
     event = { level: record.level + 1, tag, children: [] };
