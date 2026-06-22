@@ -85,7 +85,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
 }
 
 /** Order events are displayed in; unknown tags follow, in first-seen order. */
-const EVENT_ORDER = [
+export const EVENT_ORDER = [
   "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "RETI",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",

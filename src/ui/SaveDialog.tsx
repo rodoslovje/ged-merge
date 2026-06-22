@@ -4,6 +4,7 @@ import type { ChangeReport, FieldChange } from "../merge/merge";
 import type { Dataset } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { sexClass } from "./sex";
+import { EVENT_ORDER } from "../review/fields";
 
 interface Props {
   report: ChangeReport;
@@ -48,6 +49,15 @@ export function SaveDialog({
   const { t } = useTranslation();
 
   const groups = useMemo(() => groupByRecord(report), [report]);
+
+  // Maps each event's translated group label (e.g. "Baptism") to its
+  // lifecycle position, so preview cards list events birth-to-death instead
+  // of in whatever order the merge/edit steps happened to record them.
+  const eventOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    EVENT_ORDER.forEach((tag, i) => map.set(t(`event.${tag}`), i));
+    return map;
+  }, [t]);
 
   const fieldCount = useMemo(
     () => report.changes.filter((c) => !c.newRecord && (c.from || c.to)).length,
@@ -194,7 +204,7 @@ export function SaveDialog({
                     </div>
                     {fieldRows.length > 0 && (
                       <ul className="preview-fields">
-                        {groupFieldRows(fieldRows).map((grp, gi) =>
+                        {groupFieldRows(fieldRows, eventOrder).map((grp, gi) =>
                           grp.group ? (
                             <li key={gi} className="preview-field-group">
                               <span className="preview-field-group-label">{grp.group}</span>
@@ -283,8 +293,14 @@ function FieldValue({ c }: { c: FieldChange }) {
  *  shows the event name once, with its date/place/note/source fields indented
  *  underneath instead of repeating the event name each time. Keyed by group
  *  label (not just adjacency) so rows appended later — e.g. from a manual edit
- *  made after the merge step — still land under their existing event header. */
-function groupFieldRows(rows: FieldChange[]): { group?: string; rows: FieldChange[] }[] {
+ *  made after the merge step — still land under their existing event header.
+ *  Groups are then sorted birth-to-death via `eventOrder`; non-event rows
+ *  (notes, sources, …) have no entry in that map and sort after every event,
+ *  keeping their original relative order (stable sort). */
+function groupFieldRows(
+  rows: FieldChange[],
+  eventOrder: Map<string, number>,
+): { group?: string; rows: FieldChange[] }[] {
   const groups: { group?: string; rows: FieldChange[] }[] = [];
   const byGroup = new Map<string, { group?: string; rows: FieldChange[] }>();
   for (const c of rows) {
@@ -300,6 +316,11 @@ function groupFieldRows(rows: FieldChange[]): { group?: string; rows: FieldChang
     }
     g.rows.push(c);
   }
+  groups.sort((a, b) => {
+    const oa = a.group ? eventOrder.get(a.group) ?? Infinity : Infinity;
+    const ob = b.group ? eventOrder.get(b.group) ?? Infinity : Infinity;
+    return oa - ob;
+  });
   return groups;
 }
 
