@@ -2288,6 +2288,11 @@ function useField(initial: string, mergeInitial?: string) {
   const init = useRef(effectiveInitial);
   return {
     value,
+    /** The value this field mounted with (its real saved value, or — for an
+     * unapplied merge suggestion — the incoming value shown but not yet
+     * written). Lets a caller tell "nothing happened here" apart from "this
+     * is merely still showing its starting value". */
+    initial: init.current,
     /** True when the current value still equals the unedited merge-incoming value. */
     isMerge: mergeInitial !== undefined && value === mergeInitial,
     isDirty: value !== init.current,
@@ -2363,6 +2368,12 @@ function EventFieldsRow({
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  const [agencyVisible, setAgencyVisible] = useState(Boolean(ev?.agency) || agencyMergeVal !== undefined);
+  const agencyInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (agencyVisible) agencyInputRef.current?.focus();
+  }, [agencyVisible]);
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -2398,9 +2409,17 @@ function EventFieldsRow({
    * even though none of it has been written to the record yet — committing
    * only the touched field would silently drop the other still-shown values
    * the moment the event node first comes into existence.
+   *
+   * Every field's blur (and the place/addr autocomplete's blur-commit) routes
+   * through here unconditionally, including a field the user never touched —
+   * e.g. tabbing out of a freshly-added event's empty date field to type into
+   * its value field instead. If nothing in the row actually differs from what
+   * it mounted with, skip the commit: for a still-empty new event, committing
+   * here would `applyEventNodeUpdate`-prune it as empty before the user gets a
+   * chance to fill in the field they clicked into.
    */
   function commitAll(override: Partial<EventFieldUpdate>) {
-    commitField({
+    const merged: EventFieldUpdate = {
       date: dateField.value,
       value: valueField.value,
       place: placeField.value,
@@ -2408,7 +2427,16 @@ function EventFieldsRow({
       note: noteField.value,
       agency: agencyField.value,
       ...override,
-    });
+    };
+    const unchanged =
+      (merged.date ?? "") === dateField.initial &&
+      (merged.value ?? "") === valueField.initial &&
+      (merged.place ?? "") === placeField.initial &&
+      (merged.address ?? "") === addrField.initial &&
+      (merged.note ?? "") === noteField.initial &&
+      (merged.agency ?? "") === agencyField.initial;
+    if (unchanged) return;
+    commitField(merged);
   }
 
   return (
@@ -2478,8 +2506,9 @@ function EventFieldsRow({
           onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
         />
       )}
-      {(agencyField.value || agencyField.isMerge) && (
+      {(agencyVisible || agencyField.value || agencyField.isMerge) && (
         <ClearableInput
+          ref={agencyInputRef}
           wrapClassName="edit-event-agency-wrap"
           className={fieldCls("edit-input edit-event-agency", agencyField.isMerge, agencyField.isDirty || agencyForced)}
           value={agencyField.value}
@@ -2487,7 +2516,7 @@ function EventFieldsRow({
           title={t("event.agency", { event: label })}
           onChange={agencyField.onChange}
           onBlur={() => commitAll({})}
-          onClear={() => { agencyField.clear(); commitAll({ agency: "" }); }}
+          onClear={() => { agencyField.clear(); commitAll({ agency: "" }); setAgencyVisible(false); }}
         />
       )}
       <div className="edit-event-actions">
@@ -2506,6 +2535,11 @@ function EventFieldsRow({
         <button type="button" className="edit-link-add" onClick={onAddSource}>
           + {t("edit.addLink")}
         </button>
+        {!agencyVisible && !agencyField.value && !agencyField.isMerge && (
+          <button type="button" className="edit-link-add" onClick={() => setAgencyVisible(true)}>
+            + {t("event.agency", { event: label })}
+          </button>
+        )}
         {onRemove && (
           <button
             type="button"

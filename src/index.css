@@ -1645,6 +1645,10 @@ button:focus-visible {
 }
 .edit-event-note-wrap { grid-column: 2 / -1; margin-top: 2px; }
 .edit-event-agency-wrap { grid-column: 2 / -1; margin-top: 2px; }
+/* Occupation/Education/Retirement: agency (the institution) sits next to
+ * the title on row 1, in the column the address vacated when it dropped to
+ * row 2 alongside place. */
+.edit-event--has-value .edit-event-agency-wrap { grid-column: 4; grid-row: 1; margin-top: 0; }
 .edit-event-sources { grid-column: 2 / -1; margin-top: 2px; }
 .edit-event-sources .source-refs { margin-left: 0; }
 
