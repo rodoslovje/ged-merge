@@ -131,8 +131,7 @@ export function App() {
   const [showLegal, setShowLegal] = useState(false);
   const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
-    /** Cloned + merged records to serialize; null means serialize masterDataset directly (edit-only). */
-    records: GedNode[] | null;
+    records: GedNode[];
     report: ChangeReport;
     title: string;
     files: string[];
@@ -142,10 +141,19 @@ export function App() {
     base: string;
     /** Record IDs from edit mode — show navigate/remove buttons for these. */
     editRecordIds: Set<string>;
+    /** Whether this save includes confirmed merge matches (vs. edits only). */
+    isMerge: boolean;
   } | null>(null);
   const [showMobileWarning, setShowMobileWarning] = useState(
     () => window.innerWidth <= 880 && !localStorage.getItem("mobileWarningDismissed")
   );
+  // Brief confirmation shown after a successful download; auto-dismisses.
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!saveToast) return;
+    const id = setTimeout(() => setSaveToast(null), 4000);
+    return () => clearTimeout(id);
+  }, [saveToast]);
   const compareRef = useRef<HTMLDivElement>(null);
 
   const [openMatches, setOpenMatches] = useState(false);
@@ -833,46 +841,42 @@ export function App() {
     if (!masterDataset || master.status !== "loaded") return;
     const base = master.file.fileName.replace(/\.ged$/i, "");
     const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
+    const isMerge = confirmedCount > 0;
 
-    if (confirmedCount > 0) {
-      const compareDs = compareDataset!;
-      const { records, report: mergeReport } = mergeDecisions(
-        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t,
-      );
-      const masterRecordCount = masterDataset.individuals.size + masterDataset.families.size;
-      let report = mergeReport;
-      if (changedCount > 0) {
-        const editReport = enrichEditReport(
+    const editReport = changedCount > 0
+      ? enrichEditReport(
           buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current, personSnapshots.current, familySnapshots.current),
           masterDataset, personSnapshots.current, familySnapshots.current, t,
-        );
-        report = combineReports(editReport, mergeReport);
-      }
-      setPreview({
-        records,
-        report,
-        title: t("preview.title"),
-        files: [`${base}.merged.ged`, `${base}.merge-report.txt`],
-        downloadLabel: t("preview.download"),
-        masterRecordCount,
-        base,
-        editRecordIds,
-      });
-    } else {
-      const report = enrichEditReport(
-        buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current, personSnapshots.current, familySnapshots.current),
-        masterDataset, personSnapshots.current, familySnapshots.current, t,
+        )
+      : null;
+
+    let records: GedNode[];
+    let report: ChangeReport;
+    let masterRecordCount: number | undefined;
+    if (isMerge) {
+      const compareDs = compareDataset!;
+      const { records: mergedRecords, report: mergeReport } = mergeDecisions(
+        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t,
       );
-      setPreview({
-        records: null,
-        report,
-        title: t("save.preview.title"),
-        files: [master.file.fileName, `${base}.edit-report.txt`],
-        downloadLabel: t("save.preview.download"),
-        base,
-        editRecordIds,
-      });
+      records = mergedRecords;
+      report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
+      masterRecordCount = masterDataset.individuals.size + masterDataset.families.size;
+    } else {
+      records = masterDataset.records;
+      report = editReport!;
     }
+
+    setPreview({
+      records,
+      report,
+      title: t("save.preview.title"),
+      files: [`${base}.gedmerge.ged`, `${base}.gedmerge.report.txt`],
+      downloadLabel: t("save.preview.download"),
+      masterRecordCount,
+      base,
+      editRecordIds,
+      isMerge,
+    });
   }
 
   function handleEditDirty(type: "individual" | "family", id: string) {
@@ -893,21 +897,22 @@ export function App() {
 
   function handleConfirmSave() {
     if (!preview || !masterDataset) return;
-    if (preview.records) {
-      const merged = serializeGedcom(preview.records, {
-        eol: masterDataset.eol,
-        finalNewline: masterDataset.finalNewline,
+    const text = serializeGedcom(preview.records, {
+      eol: masterDataset.eol,
+      finalNewline: masterDataset.finalNewline,
+    });
+    downloadText(`${preview.base}.gedmerge.ged`, text);
+    downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
+    if (preview.isMerge) {
+      // These confirmed decisions are now baked into the downloaded file —
+      // clear them so the pending-changes count doesn't still include them.
+      setDecisions((prev) => {
+        const next = new Map(prev);
+        for (const [key, d] of next) if (d.status === "confirmed") next.delete(key);
+        return next;
       });
-      downloadText(`${preview.base}.merged.ged`, merged);
-      downloadText(`${preview.base}.merge-report.txt`, formatReport(preview.report));
-    } else {
-      const text = serializeGedcom(masterDataset.records, {
-        eol: masterDataset.eol,
-        finalNewline: masterDataset.finalNewline,
-      });
-      downloadText(master.status === "loaded" ? master.file.fileName : `${preview.base}.ged`, text);
-      downloadText(`${preview.base}.edit-report.txt`, formatReport(preview.report, "GED Edit change report"));
     }
+    setSaveToast(t("save.toast", { count: preview.files.length }));
     setPreview(null);
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
@@ -1099,7 +1104,7 @@ export function App() {
                   <button
                     className="export-btn"
                     onClick={handleSave}
-                    title={confirmedCount > 0 ? t("save.gedcom.merge.tooltip") : t("save.gedcom.edit.tooltip")}
+                    title={t("save.gedcom.tooltip")}
                   >
                     {t("save.gedcom")} ({changedCount + confirmedCount})
                   </button>
@@ -1254,6 +1259,11 @@ export function App() {
           onNavigate={(id) => { setPreview(null); setNavigateToId(id); }}
           onRemove={handleRemoveFromSave}
         />
+      )}
+      {saveToast && (
+        <div className="save-toast" role="status" onClick={() => setSaveToast(null)}>
+          {saveToast}
+        </div>
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />

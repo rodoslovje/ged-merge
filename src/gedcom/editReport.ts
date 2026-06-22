@@ -79,11 +79,11 @@ function diffEventSet(
     const fieldLabel = label(tag);
     for (const s of beforeSummaries) {
       if (!afterSummaries.includes(s))
-        diffs.push({ recordId: id, field: fieldLabel, from: s, to: "", action: "incoming" });
+        diffs.push({ recordId: id, field: fieldLabel, from: s, to: "", action: "incoming", group: fieldLabel });
     }
     for (const s of afterSummaries) {
       if (!beforeSummaries.includes(s))
-        diffs.push({ recordId: id, field: fieldLabel, from: "", to: s, action: "both" });
+        diffs.push({ recordId: id, field: fieldLabel, from: "", to: s, action: "both", group: fieldLabel });
     }
   }
   return diffs;

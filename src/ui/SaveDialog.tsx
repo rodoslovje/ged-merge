@@ -228,15 +228,26 @@ function FieldValue({ c }: { c: FieldChange }) {
   );
 }
 
-/** Collapses consecutive fields sharing the same event group (e.g. "Birth") so
- *  the preview shows the event name once, with its date/place/note/source
- *  fields indented underneath instead of repeating the event name each time. */
+/** Collapses fields sharing the same event group (e.g. "Birth") so the preview
+ *  shows the event name once, with its date/place/note/source fields indented
+ *  underneath instead of repeating the event name each time. Keyed by group
+ *  label (not just adjacency) so rows appended later — e.g. from a manual edit
+ *  made after the merge step — still land under their existing event header. */
 function groupFieldRows(rows: FieldChange[]): { group?: string; rows: FieldChange[] }[] {
   const groups: { group?: string; rows: FieldChange[] }[] = [];
+  const byGroup = new Map<string, { group?: string; rows: FieldChange[] }>();
   for (const c of rows) {
-    const last = groups[groups.length - 1];
-    if (c.group && last?.group === c.group) last.rows.push(c);
-    else groups.push({ group: c.group, rows: [c] });
+    if (!c.group) {
+      groups.push({ group: undefined, rows: [c] });
+      continue;
+    }
+    let g = byGroup.get(c.group);
+    if (!g) {
+      g = { group: c.group, rows: [] };
+      byGroup.set(c.group, g);
+      groups.push(g);
+    }
+    g.rows.push(c);
   }
   return groups;
 }
