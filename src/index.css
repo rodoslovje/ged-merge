@@ -1821,7 +1821,7 @@ button:focus-visible {
 }
 .edit-event-toggle:hover,
 .edit-event-toggle:focus-visible { color: var(--text); background: var(--border); }
-.edit-event-extra-sources { grid-column: 2; grid-row: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.edit-event-extra-sources { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
 .edit-event-extra-note { grid-column: 3; }
 .edit-event-extra-agency { grid-column: 4; }
 .edit-event-extra-remove { grid-column: -2; justify-self: end; }
@@ -2659,14 +2659,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-node-decision {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
-/* Confirmed/rejected/deferred fills match .status-chip's colours exactly, so
-   the same decision reads the same whether it's shown in Edit, Merge or Tree. */
-.tree-node-decision.confirmed circle { fill: #14492f; }
-.tree-node-decision.rejected circle { fill: #4a1d1d; }
-.tree-node-decision.deferred circle { fill: #3a3320; }
-.tree-node-decision.confirmed text { fill: #6ee7b7; }
-.tree-node-decision.rejected text { fill: #fca5a5; }
-.tree-node-decision.deferred text { fill: #fcd34d; }
 /* selected-person compare table (top-right overlay) */
 .tree-compare {
   position: absolute;

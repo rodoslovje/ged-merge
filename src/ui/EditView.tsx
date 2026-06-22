@@ -489,6 +489,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       /** master family id → the `fam.<id>` key base used for that family's rows
        * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
       familyMergeKeyBases: new Map<string, string>(),
+      /** Whether the current person still has a confirmed merge decision. */
+      hasMergeDecision: false,
     };
     if (!decisions || !compareDataset || !person) return empty;
     for (const [key, dec] of decisions) {
@@ -560,12 +562,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
 
-      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases };
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return empty;
   }, [decisions, compareDataset, person, dataset, t, tick]);
 
-  const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById } = mergeData;
+  const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById, hasMergeDecision } = mergeData;
+
+  /**
+   * `resolvedSessionFields` deliberately survives the remount that fires when
+   * a field's own commit updates `decisions` (see comment below) so the field
+   * keeps showing bold up to Save. But once the confirmed decision itself
+   * disappears — Save baked it in, or the match got rejected — there's no
+   * more "incoming" value left to be bold about, so clear it then. Without
+   * this it stays forced-bold for the rest of the session since nothing else
+   * ever removes a key from the set.
+   */
+  const hadMergeDecisionRef = useRef(false);
+  useEffect(() => {
+    if (hadMergeDecisionRef.current && !hasMergeDecision) {
+      setResolvedSessionFields(new Set());
+    }
+    hadMergeDecisionRef.current = hasMergeDecision;
+  }, [hasMergeDecision]);
 
   function dismissExtraEvent(keyBase: string) {
     if (!decisions || !person || !onUpdateDecision) return;
