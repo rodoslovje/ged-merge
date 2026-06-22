@@ -125,6 +125,30 @@ describe("setEventField", () => {
     expect(setEventField(indi, "BIRT", {})).toBeUndefined();
   });
 
+  it("clears the note even when a leftover duplicate NOTE remains (e.g. from a 'both' merge choice), instead of letting it resurface", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 BIRT",
+      "2 DATE 12 JAN 1850",
+      "2 NOTE First note",
+      "2 NOTE Second note",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.events[0].note).toBe("First note");
+
+    setEventField(indi, "BIRT", { note: "" });
+
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.events[0].note).toBeUndefined();
+    expect(serializeGedcom(ds.records)).not.toContain("NOTE");
+  });
+
   it("creates a new event with date and place, ordered before FAMC", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;

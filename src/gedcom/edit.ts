@@ -100,14 +100,26 @@ function getOrCreateChild(node: GedNode, tag: string, order: string[]): GedNode 
   return child;
 }
 
-/** Set `node`'s `tag` child to `value`, or remove it when `value` is blank. */
+/**
+ * Set `node`'s `tag` child to `value`, or remove it when `value` is blank.
+ * Treats `tag` as single-valued: collapses every matching child down to (at
+ * most) one, so a leftover duplicate — e.g. left behind by a "both" merge
+ * choice that appended an incoming NOTE alongside the existing one — can't
+ * resurface as the field's value after the first one is edited or cleared.
+ */
 function setOrRemoveValue(node: GedNode, tag: string, value: string, order: string[]): void {
   const trimmed = value.trim();
   if (!trimmed) {
-    removeChild(node, tag);
+    node.children = node.children.filter((c) => c.tag !== tag);
     return;
   }
   getOrCreateChild(node, tag, order).value = trimmed;
+  let seenFirst = false;
+  node.children = node.children.filter((c) => {
+    if (c.tag !== tag) return true;
+    if (!seenFirst) { seenFirst = true; return true; }
+    return false;
+  });
 }
 
 function setLinks(event: GedNode, links: string[]): void {
