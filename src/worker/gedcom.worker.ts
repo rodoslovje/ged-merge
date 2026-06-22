@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
 import type { Dataset } from "../gedcom/types";
-import { inferDateLayout, inferMasterProfile, inferPlaceLayout } from "../normalize/profile";
+import { collectLayoutValues, dateLayoutFromValues, detectPlaceLayout, inferDateLayout, inferMasterProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
@@ -110,17 +110,21 @@ function decodeCsv(buffer: ArrayBuffer): string {
 
 /** Emit the compare slot, normalized to the master profile when available. */
 function emitCompare(fileName: string, rawDataset: Dataset): void {
-  const placeLayout = inferPlaceLayout(rawDataset);
+  // One walk collects DATE and PLAC/ADDR values together, shared below by the
+  // place/date layout reports and (when normalizing) the source date order —
+  // instead of each walking the record tree on its own.
+  const { dateValues, placeValues, addrCount } = collectLayoutValues(rawDataset);
+  const placeLayout = detectPlaceLayout(placeValues, addrCount);
   // Report the format we detected in the incoming file itself (before it is
   // normalized to the master's conventions).
-  const dateFormat = inferDateLayout(rawDataset);
+  const dateFormat = dateLayoutFromValues(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
   if (!profile) {
     compareNormalized = rawDataset;
     post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat, sourceLayout });
     return;
   }
-  const { dataset, report } = normalizeDataset(rawDataset, profile);
+  const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
   post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat, sourceLayout });
 }

@@ -17,10 +17,15 @@ const MAX_EXAMPLES = 12;
  * normalized values) and then rebuilds the typed model so structured fields
  * stay in sync. Returns a fresh dataset plus a report of what changed; the
  * input is not mutated.
+ *
+ * `sourceDateValues`, when the caller already collected the compare file's
+ * DATE values (e.g. for displaying its detected date format), lets the
+ * source-order inference below reuse them instead of walking the tree again.
  */
 export function normalizeDataset(
   compare: Dataset,
   profile: MasterProfile,
+  sourceDateValues?: string[],
 ): { dataset: Dataset; report: NormalizationReport } {
   const records = cloneRecords(compare.records);
   const report: NormalizationReport = {
@@ -41,7 +46,7 @@ export function normalizeDataset(
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
   // re-rendering them in the master's style.
-  const sourceOrder = inferSourceOrder(compare);
+  const sourceOrder = inferSourceOrder(compare, sourceDateValues);
 
   walkNodes(records, (node) => {
     if (node.value === undefined) return;
@@ -148,13 +153,20 @@ function plainNode(tag: string, value: string): GedNode {
   return { level: 0, tag, children: [], value };
 }
 
-/** Infer the compare file's own numeric date order, used to parse its dates. */
-function inferSourceOrder(compare: Dataset) {
+/** Infer the compare file's own numeric date order, used to parse its dates.
+ *  Reuses `dateValues` when the caller already collected them, rather than
+ *  walking the tree again. */
+function inferSourceOrder(compare: Dataset, dateValues?: string[]) {
+  const values = dateValues ?? collectDateValues(compare);
+  return inferDateProfile(values).numeric?.order;
+}
+
+function collectDateValues(compare: Dataset): string[] {
   const dateValues: string[] = [];
   walkNodes(compare.records, (node) => {
     if (node.tag === "DATE" && node.value !== undefined) dateValues.push(node.value);
   });
-  return inferDateProfile(dateValues).numeric?.order;
+  return dateValues;
 }
 
 function record(examples: NormChange[], seen: Set<string>, before: string, after: string): void {

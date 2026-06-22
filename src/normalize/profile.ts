@@ -142,12 +142,46 @@ export function describeDateFormat(profile: DateFormatProfile): string {
 
 /** Detect and describe a dataset's date format; undefined when it has no dates. */
 export function inferDateLayout(dataset: Dataset): string | undefined {
+  return dateLayoutFromValues(collectDateValues(dataset));
+}
+
+/** Pure: describe a date layout from already-collected DATE values (undefined when there are none). */
+export function dateLayoutFromValues(values: string[]): string | undefined {
+  return values.length === 0 ? undefined : describeDateFormat(inferDateProfile(values));
+}
+
+function collectDateValues(dataset: Dataset): string[] {
   const values: string[] = [];
   walkNodes(dataset.records, (node) => {
     if (node.tag === "DATE" && node.value !== undefined) values.push(node.value);
   });
-  if (values.length === 0) return undefined;
-  return describeDateFormat(inferDateProfile(values));
+  return values;
+}
+
+/** DATE and PLAC/ADDR values collected from one walk of a dataset's record tree. */
+export interface LayoutValues {
+  dateValues: string[];
+  placeValues: string[];
+  addrCount: number;
+}
+
+/**
+ * Collect DATE and PLAC/ADDR values in a single tree walk, for callers (the
+ * compare-file load path) that need both the date and place layout — and, for
+ * the normalizer, the date values again to infer the source's numeric date
+ * order — without walking the same tree three separate times.
+ */
+export function collectLayoutValues(dataset: Dataset): LayoutValues {
+  const dateValues: string[] = [];
+  const placeValues: string[] = [];
+  let addrCount = 0;
+  walkNodes(dataset.records, (node) => {
+    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    if (node.value === undefined) return;
+    if (node.tag === "DATE") dateValues.push(node.value);
+    else if (node.tag === "PLAC") placeValues.push(node.value);
+  });
+  return { dateValues, placeValues, addrCount };
 }
 
 /**
@@ -274,17 +308,6 @@ export function detectPlaceLayout(values: string[], addrCount: number): PlaceLay
   // Comma hierarchy with no embedded addresses.
   if (frac(multiPart) > 0.4) return "plain-structured";
   return "unknown";
-}
-
-/** Detect a dataset's place layout directly (used for the compare slot). */
-export function inferPlaceLayout(dataset: Dataset): PlaceLayout {
-  const values: string[] = [];
-  let addrCount = 0;
-  walkNodes(dataset.records, (node) => {
-    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
-    else if (node.tag === "PLAC" && node.value !== undefined) values.push(node.value);
-  });
-  return detectPlaceLayout(values, addrCount);
 }
 
 type PlaceExportFormat = {
