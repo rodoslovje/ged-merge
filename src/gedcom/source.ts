@@ -13,9 +13,11 @@ import { linkKey } from "../normalize/links";
  * at all — just inline text). Resolution is done per-citation from the
  * record's own shape rather than a single global assumption, so a single
  * file that mixes styles (as MacFamilyTree exports do) still resolves each
- * citation correctly. `inferSourceFormat` exists alongside this to *report*
- * the file's dominant convention (shown in the load summary like place/date
- * format), not to gate the per-citation resolution logic.
+ * citation correctly. `inferSourceFormat` is a separate, standalone helper
+ * that *reports* the file's dominant convention (shown in the load summary
+ * like place/date format) — it does a full-dataset scan, so it's called only
+ * once at load time, not as part of this context (which is rebuilt on every
+ * edit and must stay cheap).
  */
 
 /** Map of top-level `SOUR` record xref -> the record itself. */
@@ -31,7 +33,6 @@ export interface SourceContext {
   sourceIndex: SourceIndex;
   objeIndex: ObjeIndex;
   repoIndex: RepoIndex;
-  format: SourceFormatProfile;
 }
 
 export function isPointer(v: string): boolean {
@@ -84,7 +85,6 @@ export function buildSourceContext(records: GedNode[]): SourceContext {
     sourceIndex: buildSourceIndex(records),
     objeIndex: buildObjeIndex(records),
     repoIndex: buildRepoIndex(records),
-    format: inferSourceFormat(records),
   };
 }
 

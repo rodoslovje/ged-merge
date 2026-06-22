@@ -18,12 +18,14 @@ import {
   addParent,
   addPartner,
   attachSourceCitation,
+  bumpSourceCacheVersion,
   connectExistingChild,
   connectExistingParent,
   connectExistingPartner,
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
+  getMediaAndSourceCtx,
   INDI_CHILD_ORDER,
   insertRecord,
   rebuildFamily,
@@ -49,7 +51,7 @@ import {
   type EventFieldUpdate,
   type NewSourceFields,
 } from "../gedcom/edit";
-import { buildSourceContext, childText, findExistingSource, resolveSourceCitation } from "../gedcom/source";
+import { childText, findExistingSource, resolveSourceCitation } from "../gedcom/source";
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
@@ -288,14 +290,17 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (ri !== -1) dataset.records.splice(ri, 1);
         if (patch.type === "individual") dataset.individuals.delete(patch.id);
         else if (patch.type === "family") dataset.families.delete(patch.id);
+        else if (patch.type === "record") bumpSourceCacheVersion(dataset.records);
       }
     }
     // Second pass: restore or re-add generic top-level records (e.g. a
     // SOUR/OBJE created or pruned by "Add Source") *before* any
     // individual/family rebuild below — that rebuild re-resolves source
-    // citations via buildSourceContext(dataset.records), so a SOUR/OBJE this
-    // same batch touched must already be back in place, or a citation
-    // pointer resolves dangling (no title/url) until the next edit.
+    // citations via getMediaAndSourceCtx(dataset.records) (each iteration here
+    // also bumps its cache, so the rebuild can't reuse a stale pre-undo
+    // version), so a SOUR/OBJE this same batch touched must already be back
+    // in place, or a citation pointer resolves dangling (no title/url) until
+    // the next edit.
     for (const patch of patches) {
       if (patch.type !== "record") continue;
       const target = patch[pick];
@@ -308,6 +313,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       } else {
         insertRecord(dataset.records, restored);
       }
+      // A SOUR/OBJE this patch touches may now have a different FILE value or
+      // existence than `getMediaAndSourceCtx`'s cache last saw.
+      bumpSourceCacheVersion(dataset.records);
     }
     // Third pass: restore individual/family records and rebuild them.
     for (const patch of patches) {
@@ -696,7 +704,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page } });
       return;
     }
-    const resolved = resolveSourceCitation(citation, buildSourceContext(dataset.records));
+    const resolved = resolveSourceCitation(citation, getMediaAndSourceCtx(dataset.records).sourceCtx);
     setSourceDialogTarget({
       kind: "edit",
       node,

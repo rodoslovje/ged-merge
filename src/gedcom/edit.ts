@@ -1,5 +1,5 @@
-import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS } from "./builder";
-import { buildSourceContext, isPointer } from "./source";
+import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS, type MediaLinks } from "./builder";
+import { buildSourceContext, isPointer, type SourceContext } from "./source";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -653,6 +653,7 @@ export function createMediaRecord(records: GedNode[], url: string): GedNode {
     children: [{ level: 1, tag: "FILE", value: url, children: [] }],
   };
   insertRecord(records, raw);
+  bumpSourceCacheVersion(records);
   return raw;
 }
 
@@ -676,6 +677,7 @@ export function createSourceRecord(records: GedNode[], fields: NewSourceFields):
   push("FILN", fields.filingNumber);
   push("NOTE", fields.note);
   insertRecord(records, raw);
+  bumpSourceCacheVersion(records);
   if (fields.url) {
     const obje = createMediaRecord(records, fields.url);
     raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
@@ -763,6 +765,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
       const fileChild = objeNode.children.find((c) => c.tag === "FILE");
       if (fileChild) fileChild.value = url;
       else objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
+      bumpSourceCacheVersion(records);
     } else if (objeNode && !url) {
       // Cleared: unlink this page's OBJE from the source, prune it if it's now orphaned.
       sourceNode.children = sourceNode.children.filter((c) => !(c.tag === "OBJE" && c.value?.trim() === objeXref));
@@ -771,6 +774,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
         const oi = records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
         if (oi !== -1) records.splice(oi, 1);
       }
+      bumpSourceCacheVersion(records);
     }
   } else if (url) {
     const obje = createMediaRecord(records, url);
@@ -820,6 +824,40 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
       if (oi !== -1) dataset.records.splice(oi, 1);
     }
   }
+  bumpSourceCacheVersion(dataset.records);
+}
+
+const sourceCacheVersions = new WeakMap<GedNode[], number>();
+const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext }>();
+
+/**
+ * Bump `records`' media/source cache version, forcing the next
+ * `getMediaAndSourceCtx` call to recompute instead of reusing the cached
+ * indexes. Call this from any helper that adds/removes a top-level
+ * `SOUR`/`OBJE`/`REPO` record, or changes an existing `OBJE`'s `FILE` value
+ * in place (the only ways the cached indexes can go stale, since `sourceIndex`
+ * holds live node references and tolerates in-place field edits like a
+ * `SOUR`'s `TITL`/`AUTH`/etc.).
+ */
+export function bumpSourceCacheVersion(records: GedNode[]): void {
+  sourceCacheVersions.set(records, (sourceCacheVersions.get(records) ?? 0) + 1);
+}
+
+/**
+ * Lazily (re)build the shared media-link/source-citation indexes for
+ * `records`, reusing the cached pair unless `bumpSourceCacheVersion` marked
+ * it stale since the last build. These indexes only depend on the dataset's
+ * top-level `SOUR`/`OBJE`/`REPO` records, which most edits (a name, an event,
+ * a note, …) never touch, so recomputing them from scratch on every commit
+ * was pure wasted work scaling with the whole file's size.
+ */
+export function getMediaAndSourceCtx(records: GedNode[]): { media: MediaLinks; sourceCtx: SourceContext } {
+  const version = sourceCacheVersions.get(records) ?? 0;
+  const cached = sourceCaches.get(records);
+  if (cached && cached.version === version) return cached;
+  const fresh = { version, media: buildMediaLinks(records), sourceCtx: buildSourceContext(records) };
+  sourceCaches.set(records, fresh);
+  return fresh;
 }
 
 /**
@@ -827,8 +865,7 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
  * back in `dataset.individuals`. Cheaper than rebuilding the whole dataset.
  */
 export function rebuildIndividual(dataset: Dataset, indi: Individual): Individual {
-  const media = buildMediaLinks(dataset.records);
-  const sourceCtx = buildSourceContext(dataset.records);
+  const { media, sourceCtx } = getMediaAndSourceCtx(dataset.records);
   const rebuilt = buildIndividual(indi.raw, media, sourceCtx);
   dataset.individuals.set(rebuilt.id, rebuilt);
   return rebuilt;
@@ -839,8 +876,7 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
  * in `dataset.families`. Cheaper than rebuilding the whole dataset.
  */
 export function rebuildFamily(dataset: Dataset, fam: Family): Family {
-  const media = buildMediaLinks(dataset.records);
-  const sourceCtx = buildSourceContext(dataset.records);
+  const { media, sourceCtx } = getMediaAndSourceCtx(dataset.records);
   const rebuilt = buildFamily(fam.raw, media, sourceCtx);
   dataset.families.set(rebuilt.id, rebuilt);
   return rebuilt;
