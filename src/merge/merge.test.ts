@@ -685,6 +685,40 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
   });
 });
 
+describe("mergeDecisions — rejectedEvents keeps a deleted master event from being re-added from incoming", () => {
+  // Master and incoming both originally had this OCCU (an "agree" pair, so it
+  // never showed as a merge suggestion) — then the user deleted master's copy.
+  // Without an explicit rejection, the now-unmatched incoming copy looks like
+  // ordinary new data and gets filled back in.
+  const masterNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
+  const compareWithOccu = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "1 OCCU VP Technology\n2 DATE FROM 2011 TO 2018\n",
+  );
+
+  it("re-adds the incoming event by default (no rejection recorded)", () => {
+    const master = dataset(masterNoOccu);
+    const compare = dataset(compareWithOccu);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 OCCU VP Technology");
+  });
+
+  it("never re-adds it once the incoming event is recorded as rejected", () => {
+    const master = dataset(masterNoOccu);
+    const compare = dataset(compareWithOccu);
+    const decisions = confirmed();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), {
+      status: "confirmed",
+      fields: {},
+      rejectedEvents: ["OCCU:0"],
+    });
+    const { records } = mergeDecisions(master, compare, decisions, NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("OCCU");
+  });
+});
+
 describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () => {
   // Master's RESI already has its own CHAN/CREA audit timestamps, typical of
   // exports from RootsMagic/Family Historian/etc. The incoming side adds an

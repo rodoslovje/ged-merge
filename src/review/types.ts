@@ -97,6 +97,21 @@ export interface CandidateDecision {
   status: MatchDecisionStatus;
   /** Per-field overrides; absent keys fall back to the row's default choice. */
   fields: Record<string, FieldChoice>;
+  /**
+   * Incoming events the user has fully rejected — by editing them into a new
+   * master event, or by deleting/dismissing an event that was already paired
+   * with (or created from) them — as `"<tag>:<compareIdx>"`, where `compareIdx`
+   * is that event's position in `compare.events.filter(e => e.tag === tag)`.
+   * That index is stable for the whole session (the incoming dataset is never
+   * mutated), unlike a row's display key, whose numeric suffix is re-derived
+   * from date/place pairing and can point at a different event after any
+   * structural edit (an event added, removed, or re-dated). Listed here, the
+   * incoming event is treated as absent everywhere — both in the live merge
+   * preview and when actually applying the merge on save — so it can never
+   * resurface as a duplicate or get silently re-added after its master
+   * counterpart is deleted.
+   */
+  rejectedEvents?: string[];
 }
 
 /** Stable key for storing a decision against a candidate pair. */

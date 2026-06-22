@@ -105,6 +105,8 @@ export function individualFieldRows(
   masterDs?: Dataset,
   compareDs?: Dataset,
   placeFmt?: PlaceTargetFormat,
+  /** Incoming events to treat as absent — see `CandidateDecision.rejectedEvents`. */
+  rejectedEvents?: Set<string>,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
   const mn = master?.names[0];
@@ -131,8 +133,10 @@ export function individualFieldRows(
   for (const { tag, masterIdx, compareIdx, keyIdx, multi } of orderedEventTags(master, compare)) {
     const masterEvents = master?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
+    const rejected = compareIdx >= 0 && (rejectedEvents?.has(`${tag}:${compareIdx}`) ?? false);
     const me = masterIdx >= 0 ? masterEvents[masterIdx] : undefined;
-    const ce = compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
+    const ce = !rejected && compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
+    const effectiveCompareIdx = rejected ? -1 : compareIdx;
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
@@ -153,7 +157,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
     pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
-    for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = compareIdx; }
+    for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = effectiveCompareIdx; }
     if (subRows.length > 0) {
       rows.push({
         key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,

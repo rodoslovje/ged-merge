@@ -173,7 +173,8 @@ export function mergeDecisions(
     const incoming = compare.individuals.get(compareId);
     if (!target || !masterIndi || !incoming) continue;
     report.recordLabels[masterId] = displayName(masterIndi.names[0]);
-    const rows = individualFieldRows(t, masterIndi, incoming, master, compare, placeFmt);
+    const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
+    const rows = individualFieldRows(t, masterIndi, incoming, master, compare, placeFmt, rejectedEvents);
     applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
