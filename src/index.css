@@ -1643,12 +1643,10 @@ button:focus-visible {
   color: var(--accent);
   word-break: break-all;
 }
-.edit-event-note-wrap { grid-column: 2 / -1; margin-top: 2px; }
-.edit-event-agency-wrap { grid-column: 2 / -1; margin-top: 2px; }
 /* Occupation/Education/Retirement: agency (the institution) sits next to
  * the title on row 1, in the column the address vacated when it dropped to
  * row 2 alongside place. */
-.edit-event--has-value .edit-event-agency-wrap { grid-column: 4; grid-row: 1; margin-top: 0; }
+.edit-event-agency-wrap { grid-column: 4; grid-row: 1; }
 .edit-event-sources { grid-column: 2 / -1; margin-top: 2px; }
 .edit-event-sources .source-refs { margin-left: 0; }
 
@@ -1798,13 +1796,41 @@ button:focus-visible {
   opacity: 1;
 }
 .edit-link-open:hover { color: var(--accent); }
-.edit-event-actions {
+/* Top-right corner of each event row: just the expand/collapse toggle.
+ * Everything else (Sources, Note, Agency, Remove) lives in the collapsible
+ * extra row below, aligned under Date/Place/Address respectively, so it
+ * only appears once the user has expanded the row to see it. */
+.edit-event-toggle {
   grid-row: 1;
   grid-column: -2;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  justify-self: end;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 2px 7px;
+  cursor: pointer;
+  border-radius: 4px;
 }
+.edit-event-toggle:hover,
+.edit-event-toggle:focus-visible { color: var(--text); background: var(--border); }
+.edit-event-extra-sources { grid-column: 2; grid-row: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.edit-event-extra-note { grid-column: 3; }
+.edit-event-extra-agency { grid-column: 4; }
+.edit-event-extra-remove { grid-column: -2; justify-self: end; }
+/* Plain events: row 1 holds label/date/place/addr/toggle, so the rest of the
+ * extra row (Note/Agency/Remove — Sources is pinned to row 2 above) is row 2. */
+.edit-event-extra-note,
+.edit-event-extra-agency,
+.edit-event-extra-remove { grid-row: 2; }
+/* Title events (Occupation/Education/Retirement): row 1 is title+agency,
+ * row 2 is place/address. Sources still fits row 2 (under Date, which row 2
+ * leaves free), but Note/Agency/Remove need their own row 3. */
+.edit-event--has-value .edit-event-extra-note,
+.edit-event--has-value .edit-event-extra-agency,
+.edit-event--has-value .edit-event-extra-remove { grid-row: 3; }
 .edit-link-add {
   align-self: flex-start;
   background: transparent;
@@ -1814,12 +1840,7 @@ button:focus-visible {
   font: inherit;
   padding: 2px 6px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease;
 }
-.edit-event:hover .edit-link-add,
-.edit-link-add:focus-visible { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .edit-link-add { transition: none; } }
 .edit-link-add:hover,
 .edit-link-add:focus-visible { border-color: var(--accent); color: var(--text); }
 .edit-event-remove {
@@ -1831,12 +1852,7 @@ button:focus-visible {
   line-height: 1;
   padding: 2px 6px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease;
 }
-.edit-event:hover .edit-event-remove,
-.edit-event-remove:focus-visible { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .edit-event-remove { transition: none; } }
 .edit-event-remove:hover { color: var(--state-danger, #d9534f); }
 
 .person-card {

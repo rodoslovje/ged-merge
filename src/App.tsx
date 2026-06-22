@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./ui/historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -79,6 +79,14 @@ const THEME_KEY = "gedmerge.theme";
 
 type Mode = "merge" | "edit";
 const MODE_KEY = "gedmerge.mode";
+
+// Both mode views stay mounted (see render below) and are toggled with these
+// styles rather than `hidden`, so the active one keeps the `flex: 1 1 0;
+// min-height: 0` column sizing its content (`.edit-view`/`.main-split`)
+// expects from a direct child of `.app` — `hidden` alone would collapse the
+// wrapper to auto height and break the layout.
+const modeLayerStyle: CSSProperties = { display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 };
+const modeLayerHiddenStyle: CSSProperties = { display: "none" };
 
 /** Current theme from the <html data-theme> the inline boot script set, else
  * the OS preference. */
@@ -1186,64 +1194,76 @@ export function App() {
         />
       )}
 
+      {/* Both modes stay mounted once the master is loaded — toggling visibility
+          instead of conditionally rendering avoids re-mounting the (unvirtualized)
+          match list from scratch on every Edit<->Merge switch, which was very
+          noticeable with thousands of matches. The wrapper must reproduce the
+          flex sizing `.edit-view`/`.main-split` expect from their parent (a
+          `flex: 1 1 0; min-height: 0` column child of `.app`) — a plain
+          `hidden` div would collapse to auto height and break the layout. */}
       {master.status === "loaded" && masterDataset && (
-        mode === "merge" ? (
-          <MergeView
-            matches={matches}
-            sort={sort}
-            onToggleSort={toggleSort}
-            filters={filters}
-            setFilters={handleFilters}
-            visible={visible}
-            visibleIndex={visibleIndex}
-            allSortedIndex={allSortedIndex}
-            allSortedCount={allSorted.length}
-            onSelectPrev={onSelectPrev}
-            onSelectNext={onSelectNext}
-            onSelect={select}
-            decisions={decisions}
-            showFilters={showFilters}
-            setShowFilters={setShowFilters}
-            homeId={homeId}
-            masterDataset={masterDataset}
-            changeHome={changeHome}
-            focusHome={focusHome}
-            setFocusHome={setFocusHome}
-            openMatches={openMatches}
-            setOpenMatches={setOpenMatches}
-            current={current}
-            compareDataset={compareDataset}
-            onUpdateDecision={updateDecision}
-            onOpenTree={openTree}
-            canNavigatePerson={canNavigatePerson}
-            onNavigatePerson={navigatePerson}
-            compareRef={compareRef}
-            onEdit={current ? () => { setNavigateToId(current.masterId); setMode("edit"); } : undefined}
-          />
-        ) : (
-          <EditView
-            dataset={masterDataset}
-            fileName={master.file.fileName}
-            homeId={homeId}
-            changeHome={changeHome}
-            onDirty={handleEditDirty}
-            onShowTree={(id) => openEditTree(id)}
-            navigateToId={navigateToId}
-            onMerge={matches ? (id) => {
-              const c = allSorted.find((c) => c.masterId === id);
-              if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
-              setMode("merge");
-            } : undefined}
-            canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
-            decisions={decisions}
-            compareDataset={compareDataset}
-            onUpdateDecision={updateDecision}
-            onPushEdit={handlePushEdit}
-            onPatchApplied={handlePatchApplied}
-            pendingApply={pendingEditApply}
-            onApplied={() => setPendingEditApply(null)}
-          />
-        )
+        <>
+          <div style={mode === "merge" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <MergeView
+              matches={matches}
+              sort={sort}
+              onToggleSort={toggleSort}
+              filters={filters}
+              setFilters={handleFilters}
+              visible={visible}
+              visibleIndex={visibleIndex}
+              allSortedIndex={allSortedIndex}
+              allSortedCount={allSorted.length}
+              onSelectPrev={onSelectPrev}
+              onSelectNext={onSelectNext}
+              onSelect={select}
+              decisions={decisions}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              homeId={homeId}
+              masterDataset={masterDataset}
+              changeHome={changeHome}
+              focusHome={focusHome}
+              setFocusHome={setFocusHome}
+              openMatches={openMatches}
+              setOpenMatches={setOpenMatches}
+              current={current}
+              compareDataset={compareDataset}
+              onUpdateDecision={updateDecision}
+              onOpenTree={openTree}
+              canNavigatePerson={canNavigatePerson}
+              onNavigatePerson={navigatePerson}
+              compareRef={compareRef}
+              onEdit={current ? () => { setNavigateToId(current.masterId); setMode("edit"); } : undefined}
+              active={mode === "merge"}
+            />
+          </div>
+          <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <EditView
+              dataset={masterDataset}
+              fileName={master.file.fileName}
+              homeId={homeId}
+              changeHome={changeHome}
+              onDirty={handleEditDirty}
+              onShowTree={(id) => openEditTree(id)}
+              navigateToId={navigateToId}
+              onMerge={matches ? (id) => {
+                const c = allSorted.find((c) => c.masterId === id);
+                if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+                setMode("merge");
+              } : undefined}
+              canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
+              decisions={decisions}
+              compareDataset={compareDataset}
+              onUpdateDecision={updateDecision}
+              onPushEdit={handlePushEdit}
+              onPatchApplied={handlePatchApplied}
+              pendingApply={pendingEditApply}
+              onApplied={() => setPendingEditApply(null)}
+              active={mode === "edit"}
+            />
+          </div>
+        </>
       )}
       {preview && (
         <SaveDialog

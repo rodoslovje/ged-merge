@@ -348,6 +348,29 @@ function pairFamilies(
   return pairs;
 }
 
+/**
+ * Master family id → the `fam.<id>` key base used for that family's rows in
+ * `individualFieldRows` (see the `famKey` derivation above: a paired family
+ * is keyed by the *compare* side's id, not the master's). Callers that walk
+ * the master's own family records — e.g. the edit view rendering a confirmed
+ * merge's preview — need this to look up highlight/incoming data by the
+ * master family id they have on hand.
+ */
+export function familyMergeKeyBases(
+  master: Individual | undefined,
+  compare: Individual | undefined,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const pair of pairFamilies(master, compare, masterDs, compareDs)) {
+    if (!pair.masterFam) continue;
+    const key = pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.${pair.masterFam.id}`;
+    map.set(pair.masterFam.id, key);
+  }
+  return map;
+}
+
 /** Sortable birth-date value (YYYYMMDD); +Infinity when no birth year is known. */
 function birthSortKey(indi: Individual): number {
   const d = findEvent(indi, "BIRT")?.date;
@@ -413,9 +436,19 @@ export function fieldDiffCounts(
   let linkCount = 0;
   for (const row of rows) {
     const isLink = row.masterLinks !== undefined || row.incomingLinks !== undefined;
+    const isSources = row.masterSources !== undefined || row.incomingSources !== undefined
+      || row.masterLinkIcons !== undefined || row.incomingLinkIcons !== undefined;
     if (isLink) {
       const masterKeys = new Set((row.masterLinks ?? []).map(linkKey));
       if ((row.incomingLinks ?? []).some((url) => !masterKeys.has(linkKey(url)))) linkCount++;
+    } else if (isSources) {
+      // row.state also folds in icon-only links (for default-choice purposes),
+      // so re-derive the citation-only comparison here to keep those tallied
+      // exclusively via linkCount below, not double-counted into new/diff.
+      const mKeys = new Set((row.masterSources ?? []).map(sourceCitationKey));
+      const iKeys = new Set((row.incomingSources ?? []).map(sourceCitationKey));
+      if (!mKeys.size && iKeys.size) newCount++;
+      else if (mKeys.size && iKeys.size && !(mKeys.size === iKeys.size && [...mKeys].every((k) => iKeys.has(k)))) diffCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
     if (row.masterLinkIcons || row.incomingLinkIcons) {
@@ -640,10 +673,12 @@ function pushSourcesRow(
   rows.push({
     key,
     label,
-    // Keep a text form so the default merge choice (master-if-present) works.
-    master: m.map((c) => c.title ?? c.sourceId).join("\n"),
-    incoming: i.map((c) => c.title ?? c.sourceId).join("\n"),
-    state: sourcesState(m, i),
+    // Keep a text form — including the icon-only links — so the default merge
+    // choice (master-if-present) and the row's agree/conflict state see them
+    // too, not just the citations.
+    master: [...m.map((c) => c.title ?? c.sourceId), ...mIcons].join("\n"),
+    incoming: [...i.map((c) => c.title ?? c.sourceId), ...iIcons].join("\n"),
+    state: sourcesState(m, i, mIcons, iIcons),
     masterSources: m.length ? m : undefined,
     incomingSources: i.length ? i : undefined,
     masterLinkIcons: mIcons.length ? mIcons : undefined,
@@ -658,13 +693,26 @@ function linksNotCitedAsSource(links: string[] | undefined, sources: SourceCitat
   return links.filter((url) => !citedKeys.has(linkKey(url)));
 }
 
-function sourcesState(master: SourceCitation[], incoming: SourceCitation[]): FieldState {
+/** Compares both citations and icon-only links together: a side "has" the
+ * field if either is non-empty, so a links-only difference isn't masked as
+ * "agree" just because the citations happen to match (or both be empty). */
+function sourcesState(
+  master: SourceCitation[],
+  incoming: SourceCitation[],
+  masterIcons: string[] = [],
+  incomingIcons: string[] = [],
+): FieldState {
   const m = new Set(master.map(sourceCitationKey));
   const i = new Set(incoming.map(sourceCitationKey));
-  if (m.size && !i.size) return "master-only";
-  if (!m.size && i.size) return "incoming-only";
-  const same = m.size === i.size && [...m].every((x) => i.has(x));
-  return same ? "agree" : "conflict";
+  const mi = new Set(masterIcons.map(linkKey));
+  const ii = new Set(incomingIcons.map(linkKey));
+  const masterHas = m.size > 0 || mi.size > 0;
+  const incomingHas = i.size > 0 || ii.size > 0;
+  if (masterHas && !incomingHas) return "master-only";
+  if (!masterHas && incomingHas) return "incoming-only";
+  const sameCitations = m.size === i.size && [...m].every((x) => i.has(x));
+  const sameIcons = mi.size === ii.size && [...mi].every((x) => ii.has(x));
+  return sameCitations && sameIcons ? "agree" : "conflict";
 }
 
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {

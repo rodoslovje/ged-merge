@@ -7,8 +7,8 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameTypeLabel, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
-import { dateToSortKey, individualFieldRows, orderedEventTags } from "../review/fields";
-import { defaultChoice, type CandidateDecision } from "../review/types";
+import { dateToSortKey, familyMergeKeyBases, individualFieldRows, orderedEventTags } from "../review/fields";
+import { defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addAdditionalName,
   addChild,
@@ -57,6 +57,8 @@ import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
 import { SourceRefs } from "./SourceRef";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
+import { linkHref } from "./FieldValue";
+import { linkKey } from "../normalize/links";
 
 // Assign a monotonically increasing integer to each GedNode object so React
 // keys remain stable across insertions and removals of sibling events.
@@ -99,6 +101,11 @@ interface Props {
   pendingApply: PendingEditApply | null;
   /** Called after pendingApply has been processed. */
   onApplied: () => void;
+  /** False when Edit is mounted but hidden behind Merge mode — kept mounted
+   * across mode switches so toggling modes with a large match list doesn't
+   * re-render the whole tab from scratch. Gates the global keydown shortcut
+   * so it doesn't fire while another mode is the one actually visible. */
+  active: boolean;
 }
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -115,6 +122,22 @@ const INDIVIDUAL_EVENT_GROUPS = [
 
 /** Family events that are hidden until explicitly added (marriage is always shown). */
 const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
+
+/** Whether a confirmed merge has incoming data for a normally-hidden family
+ * event (`<famMergeKeyBase>.<tag>.*`), so the row should show even though the
+ * family doesn't have that event yet. */
+function familyEventHasMergeData(
+  famMergeKeyBase: string | undefined,
+  tag: string,
+  mergeHighlight: Map<string, string>,
+  mergeIncomingSources: Map<string, SourceCitation[]>,
+): boolean {
+  if (!famMergeKeyBase) return false;
+  const base = `${famMergeKeyBase}.${tag}`;
+  const EVENT_SUBS = ["date", "place", "addr", "note", "agency"] as const;
+  if (EVENT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
+  return (mergeIncomingSources.get(`${base}.sources`)?.length ?? 0) > 0;
+}
 
 /** A mutation applied to the selected person's raw record, then rebuilt and
  * re-rendered. `extraPatches` carries undo/redo entries for any other
@@ -254,7 +277,7 @@ function fieldWidth(value: string, placeholder: string, minLen = 3): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -379,6 +402,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   treeShortcutRef.current = { selectedId, onShowTree };
 
   useEffect(() => {
+    if (!active) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -390,8 +414,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [active]);
 
   function navigate(id: string) {
     if (!id || id === selectedId) return;
@@ -432,12 +455,19 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const mergeData = useMemo(() => {
     const empty = {
       mergeHighlight: new Map<string, string>(),
+      /** Field key → incoming links the merge will add (record-level "links" row). */
+      mergeIncomingLinks: new Map<string, string[]>(),
+      /** Field key → incoming source citations the merge will add (per-event "<tag>.sources" rows). */
+      mergeIncomingSources: new Map<string, SourceCitation[]>(),
       /** master person.events overall index → field key base aligned with orderedEventTags. */
       masterMergeKeyBases: new Map<number, string>(),
       /** master person.events overall index → sort key from incoming date, when master has no date. */
       masterMergeSortKeys: new Map<number, number>(),
       /** Incoming-only events with no master counterpart (BIRT excluded — always shown). */
       extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number }[],
+      /** master family id → the `fam.<id>` key base used for that family's rows
+       * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
+      familyMergeKeyBases: new Map<string, string>(),
     };
     if (!decisions || !compareDataset || !person) return empty;
     for (const [key, dec] of decisions) {
@@ -450,11 +480,16 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       // Field key → incoming value for all fields the merge will add/change.
       const rows = individualFieldRows(t, person, incoming, dataset, compareDataset);
       const mergeHighlight = new Map<string, string>();
+      const mergeIncomingLinks = new Map<string, string[]>();
+      const mergeIncomingSources = new Map<string, SourceCitation[]>();
       for (const row of rows) {
-        if (row.isGroupHeader || !row.incoming) continue;
+        if (row.isGroupHeader) continue;
         if (row.state === "agree" || row.state === "master-only") continue;
         const choice = dec.fields[row.key] ?? defaultChoice(row);
-        if (choice !== "master") mergeHighlight.set(row.key, row.incoming);
+        if (choice === "master") continue;
+        if (row.incoming) mergeHighlight.set(row.key, row.incoming);
+        if (row.incomingLinks?.length) mergeIncomingLinks.set(row.key, row.incomingLinks);
+        if (row.incomingSources?.length) mergeIncomingSources.set(row.key, row.incomingSources);
       }
 
       // Map master overall event index → the key base that orderedEventTags assigned to it.
@@ -502,12 +537,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         }
       }
 
-      return { mergeHighlight, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents };
+      const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
+
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases };
     }
     return empty;
   }, [decisions, compareDataset, person, dataset, t, tick]);
 
-  const { mergeHighlight, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents } = mergeData;
+  const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById } = mergeData;
 
   function dismissExtraEvent(keyBase: string) {
     if (!decisions || !person || !onUpdateDecision) return;
@@ -1032,6 +1069,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     };
   }
 
+  // Decision status (confirmed/rejected/deferred) for relatives shown on the father/mother/
+  // partner/child cards, mirroring the candidate list's status chip. Built once per decisions
+  // change so each card just does an id lookup; a "confirmed" decision wins over any other
+  // stale decision recorded against the same master id.
+  const decisionStatusById = useMemo(() => {
+    const map = new Map<string, Exclude<MatchDecisionStatus, "undecided">>();
+    if (!decisions) return map;
+    for (const [key, dec] of decisions) {
+      if (dec.status === "undecided") continue;
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual") continue;
+      if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
+    }
+    return map;
+  }, [decisions]);
+
+  function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string } {
+    const status = id ? decisionStatusById.get(id) : undefined;
+    if (!status) return {};
+    const tooltip = t(`status.${status}`);
+    return { decisionStatus: status, decisionLetter: tooltip.charAt(0), decisionTooltip: tooltip };
+  }
+
   return (
     <div className="section open edit-view">
       <div className="section-body">
@@ -1101,6 +1161,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
                     removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
                     {...cardKinship(fam?.husband)}
+                    {...cardDecision(fam?.husband)}
                   />
                 )}
                 <div className="edit-connector-h" />
@@ -1124,6 +1185,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
                     removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
                     {...cardKinship(fam?.wife)}
+                    {...cardDecision(fam?.wife)}
                   />
                 )}
               </div>
@@ -1143,6 +1205,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
             mergeHighlight={mergeHighlight}
+            {...cardDecision(person.id)}
           />
           <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           <OtherNamesEditor
@@ -1157,7 +1220,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               const sameTag = person.raw.children.filter((c) => c.tag === tag);
               if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
             }}
-            showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length}
+            showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
@@ -1174,6 +1237,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
+            mergeIncomingSources={mergeIncomingSources}
             masterMergeKeyBases={masterMergeKeyBases}
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
@@ -1183,12 +1247,13 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
           />
-          {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0) && (
+          {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor
                 key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.links ?? []}
                 sources={person.sources ?? []}
+                incomingLinks={mergeIncomingLinks.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
@@ -1220,8 +1285,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             const partnerId = fam && (fam.husband === person.id ? fam.wife : fam.husband);
             const partnerRole = fam && (fam.husband === person.id ? "WIFE" : "HUSB");
             const partnerName = personName(partnerId ?? undefined);
+            const famMergeKeyBase = fam ? familyKeyBaseById.get(fam.id) : undefined;
             const shownFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
-              (tag) => fam?.events.some((e) => e.tag === tag),
+              (tag) => fam?.events.some((e) => e.tag === tag) || familyEventHasMergeData(famMergeKeyBase, tag, mergeHighlight, mergeIncomingSources),
             );
             const emptyFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
               (tag) => !shownFamilyTags.includes(tag),
@@ -1251,12 +1317,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
                         removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
                         {...cardKinship(partnerId)}
+                        {...cardDecision(partnerId)}
                       />
                     )}
                     {fam && (
                       <AddEventSelect
                         tags={emptyFamilyTags}
                         label={t("edit.addFamilyEvent")}
+                        tooltip={t("edit.addFamilyEventTooltip")}
                         t={t}
                         onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
                       />
@@ -1273,10 +1341,30 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />}
-                {fam && shownFamilyTags.map((tag) => (
-                  <FamilyEventRow key={`${fam.id}-${tag}-${undoVersion}`} fam={fam} tag={tag} t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`} onRemove={() => commitFamily(fam, (f) => removeFamilyEvent(f, tag))} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} />
-                ))}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} mergeHighlight={mergeHighlight} mergeIncomingSources={mergeIncomingSources} famMergeKeyBase={famMergeKeyBase} />}
+                {fam && shownFamilyTags.map((tag) => {
+                  const hasRealEvent = fam.events.some((e) => e.tag === tag);
+                  return (
+                    <FamilyEventRow
+                      key={`${fam.id}-${tag}-${undoVersion}`}
+                      fam={fam}
+                      tag={tag}
+                      t={t}
+                      commit={commitFamily}
+                      openEditSource={openEditSource}
+                      onOpenSourceDialog={setSourceDialogTarget}
+                      autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
+                      onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
+                      placeSuggestions={placeSuggestions}
+                      placeToAddrs={placeToAddrs}
+                      placeCanonical={placeCanonical}
+                      addrCanonical={addrCanonical}
+                      mergeHighlight={mergeHighlight}
+                      mergeIncomingSources={mergeIncomingSources}
+                      famMergeKeyBase={famMergeKeyBase}
+                    />
+                  );
+                })}
                 <div className="edit-children-wrap">
                   <div className="person-card-role">{t("field.children")}</div>
                   <div className="edit-children">
@@ -1291,6 +1379,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                           onRemove={() => handleDetachChild(fam, childId, t("edit.detachChildConfirm", { name: childName }))}
                           removeTooltip={t("edit.detachChildTooltip", { name: childName })}
                           {...cardKinship(childId)}
+                          {...cardDecision(childId)}
                         />
                       );
                     })}
@@ -1649,6 +1738,9 @@ function NameEditor({
   focusOnMount,
   onMounted,
   mergeHighlight,
+  decisionStatus,
+  decisionLetter,
+  decisionTooltip,
 }: {
   person: Individual;
   t: Translate;
@@ -1657,6 +1749,9 @@ function NameEditor({
   focusOnMount?: boolean;
   onMounted?: () => void;
   mergeHighlight?: Map<string, string>;
+  decisionStatus?: Exclude<MatchDecisionStatus, "undecided">;
+  decisionLetter?: string;
+  decisionTooltip?: string;
 }) {
   const primary = primaryName(person);
   // Stable merge values from first render (component is keyed per person)
@@ -1703,6 +1798,11 @@ function NameEditor({
         onClear={() => { setSurname(""); commitName(given, ""); }}
       />
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+      {decisionStatus && (
+        <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
+          {decisionLetter}
+        </span>
+      )}
     </div>
   );
 }
@@ -1833,6 +1933,7 @@ function OtherNamesEditor({
         <AddEventSelect
           groups={emptyEventGroups}
           label={t("edit.addEvent")}
+          tooltip={t("edit.addEventTooltip")}
           t={t}
           onAdd={onAddEvent}
           className="edit-name-chip edit-name-chip-add add-chip-select"
@@ -2009,6 +2110,7 @@ function EventList({
   placeCanonical,
   addrCanonical,
   mergeHighlight,
+  mergeIncomingSources,
   masterMergeKeyBases,
   masterMergeSortKeys,
   extraMergeEvents,
@@ -2028,6 +2130,8 @@ function EventList({
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
   mergeHighlight?: Map<string, string>;
+  /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
+  mergeIncomingSources?: Map<string, SourceCitation[]>;
   /** master person.events[i] → field key base aligned with orderedEventTags. */
   masterMergeKeyBases?: Map<number, string>;
   /** master person.events[i] → sort key from incoming date, when master has no date. */
@@ -2117,7 +2221,7 @@ function EventList({
         <span>{t("event.colDate")}</span>
         <span>{t("event.colPlace")}</span>
         <span>{t("event.colAddr")}</span>
-        <span>{t("event.colLink")}</span>
+        <span />
       </div>
       <EventFieldsRow
         key={`${person.id}-BIRT-${undoVersion ?? 0}`}
@@ -2138,6 +2242,7 @@ function EventList({
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
         mergeHighlight={mergeHighlight}
+        mergeIncomingSources={mergeIncomingSources}
         mergeKeyBase={birtMergeKeyBase}
         resolvedSessionFields={resolvedSessionFields}
       />
@@ -2163,6 +2268,7 @@ function EventList({
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
+            mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.mergeKeyBase}
             resolvedSessionFields={resolvedSessionFields}
           />
@@ -2185,6 +2291,7 @@ function EventList({
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
+            mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.keyBase}
             resolvedSessionFields={resolvedSessionFields}
           />
@@ -2198,6 +2305,7 @@ function EventList({
 function FamilyEventRow({
   fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
+  mergeHighlight, mergeIncomingSources, famMergeKeyBase,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   openEditSource: OpenEditSource;
@@ -2208,6 +2316,13 @@ function FamilyEventRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  mergeHighlight?: Map<string, string>;
+  mergeIncomingSources?: Map<string, SourceCitation[]>;
+  /** `fam.<id>` key base resolved against the incoming pairing (see
+   * `familyMergeKeyBases`); falls back to this family's own id when there's
+   * no active merge preview, which is harmless since `mergeHighlight` would
+   * then be empty anyway. */
+  famMergeKeyBase?: string;
 }) {
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
@@ -2229,6 +2344,9 @@ function FamilyEventRow({
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
+      mergeHighlight={mergeHighlight}
+      mergeIncomingSources={mergeIncomingSources}
+      mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
     />
   );
 }
@@ -2239,6 +2357,7 @@ function AddEventSelect({
   tags,
   groups,
   label,
+  tooltip,
   t,
   onAdd,
   className = "add-chip add-chip-select",
@@ -2246,6 +2365,7 @@ function AddEventSelect({
   tags?: string[];
   groups?: { labelKey: string; tags: string[] }[];
   label: string;
+  tooltip?: string;
   t: Translate;
   onAdd: (tag: string) => void;
   className?: string;
@@ -2254,7 +2374,7 @@ function AddEventSelect({
   const hasAny = tags?.length || groups?.some((g) => g.tags.length);
   if (!hasAny) return null;
   return (
-    <label className={className}>
+    <label className={className} title={tooltip}>
       + {label}
       <select
         className="add-chip-select-inner"
@@ -2320,6 +2440,7 @@ function EventFieldsRow({
   placeCanonical,
   addrCanonical,
   mergeHighlight,
+  mergeIncomingSources,
   mergeKeyBase,
   resolvedSessionFields,
 }: {
@@ -2338,6 +2459,8 @@ function EventFieldsRow({
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
   mergeHighlight?: Map<string, string>;
+  /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
+  mergeIncomingSources?: Map<string, SourceCitation[]>;
   mergeKeyBase?: string;
   resolvedSessionFields?: Set<string>;
 }) {
@@ -2351,6 +2474,7 @@ function EventFieldsRow({
   const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
   const noteMergeVal = mergeHighlight?.get(`${kBase}.note`);
   const agencyMergeVal = mergeHighlight?.get(`${kBase}.agency`);
+  const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
   // showing dirty/bold across the row's one-time "extra"→"master" remount.
@@ -2368,12 +2492,17 @@ function EventFieldsRow({
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
-  const [agencyVisible, setAgencyVisible] = useState(Boolean(ev?.agency) || agencyMergeVal !== undefined);
-  const agencyInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (agencyVisible) agencyInputRef.current?.focus();
-  }, [agencyVisible]);
+  // Note/Agency(non-title events)/Sources start tucked behind the expand
+  // toggle to keep the row compact, but auto-expand if any of them already
+  // has content so existing data is never hidden on load.
+  const [expanded, setExpanded] = useState(
+    () =>
+      Boolean(noteField.initial) ||
+      (!showValue && Boolean(agencyField.initial)) ||
+      (ev?.sources?.length ?? 0) > 0 ||
+      (sourcesMergeVal?.length ?? 0) > 0 ||
+      links.length > 0,
+  );
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -2439,6 +2568,21 @@ function EventFieldsRow({
     commitField(merged);
   }
 
+  function agencyInput(wrapClassName: string) {
+    return (
+      <ClearableInput
+        wrapClassName={wrapClassName}
+        className={fieldCls("edit-input edit-event-agency", agencyField.isMerge, agencyField.isDirty || agencyForced)}
+        value={agencyField.value}
+        placeholder={t("event.agency", { event: label })}
+        title={t("event.agency", { event: label })}
+        onChange={agencyField.onChange}
+        onBlur={() => commitAll({})}
+        onClear={() => { agencyField.clear(); commitAll({ agency: "" }); }}
+      />
+    );
+  }
+
   return (
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
@@ -2465,6 +2609,10 @@ function EventFieldsRow({
           onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
         />
       )}
+      {/* Tab order follows DOM order, not visual position: for title events
+       * Agency sits visually right after the title (see CSS), so it must
+       * also come right after it here, ahead of Place/Address. */}
+      {showValue && agencyInput("edit-event-agency-wrap")}
       <PlaceAutocomplete
         value={placeField.value}
         suggestions={placeSuggestions}
@@ -2493,64 +2641,65 @@ function EventFieldsRow({
         onCommit={(val) => commitAll({ address: val })}
         onClear={() => { addrField.clear(); commitAll({ address: "" }); }}
       />
-      {(noteField.value || noteField.isMerge) && (
-        <ClearableTextarea
-          wrapClassName="edit-event-note-wrap"
-          className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-          value={noteField.value}
-          placeholder={t("event.note", { event: label })}
-          title={t("event.note", { event: label })}
-          rows={1}
-          onChange={noteField.onChange}
-          onBlur={() => commitAll({})}
-          onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-        />
+      <button
+        type="button"
+        className="edit-event-toggle"
+        aria-expanded={expanded}
+        title={expanded ? t("edit.collapseEvent") : t("edit.expandEvent")}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? "▾" : "▸"}
+      </button>
+      {expanded && (
+        <>
+          <div className="edit-event-extra-sources">
+            {ev?.sources?.length || sourcesMergeVal?.length ? (
+              <SourceRefs t={t} masterSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
+            ) : null}
+            {links.map((link, i) => (
+              <button
+                key={i}
+                type="button"
+                className="link-icon edit-link-icon"
+                title={link}
+                onClick={() => openEditLink(i)}
+              >
+                🔗
+              </button>
+            ))}
+            <button
+              type="button"
+              className="edit-link-add"
+              title={t("event.addSource", { event: label })}
+              onClick={onAddSource}
+            >
+              + {t("edit.addLink")}
+            </button>
+          </div>
+          <ClearableTextarea
+            wrapClassName="edit-event-extra-note"
+            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+            value={noteField.value}
+            placeholder={t("event.note", { event: label })}
+            title={t("event.note", { event: label })}
+            rows={1}
+            onChange={noteField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+          />
+          {!showValue && agencyInput("edit-event-extra-agency")}
+          {onRemove && (
+            <button
+              type="button"
+              className="edit-event-remove edit-event-extra-remove"
+              title={t("edit.removeEvent")}
+              onClick={onRemove}
+            >
+              ×
+            </button>
+          )}
+        </>
       )}
-      {(agencyVisible || agencyField.value || agencyField.isMerge) && (
-        <ClearableInput
-          ref={agencyInputRef}
-          wrapClassName="edit-event-agency-wrap"
-          className={fieldCls("edit-input edit-event-agency", agencyField.isMerge, agencyField.isDirty || agencyForced)}
-          value={agencyField.value}
-          placeholder={t("event.agency", { event: label })}
-          title={t("event.agency", { event: label })}
-          onChange={agencyField.onChange}
-          onBlur={() => commitAll({})}
-          onClear={() => { agencyField.clear(); commitAll({ agency: "" }); setAgencyVisible(false); }}
-        />
-      )}
-      <div className="edit-event-actions">
-        {ev?.sources?.length ? <SourceRefs t={t} masterSources={ev.sources} onEdit={onEditSource} /> : null}
-        {links.map((link, i) => (
-          <button
-            key={i}
-            type="button"
-            className="link-icon edit-link-icon"
-            title={link}
-            onClick={() => openEditLink(i)}
-          >
-            🔗
-          </button>
-        ))}
-        <button type="button" className="edit-link-add" onClick={onAddSource}>
-          + {t("edit.addLink")}
-        </button>
-        {!agencyVisible && !agencyField.value && !agencyField.isMerge && (
-          <button type="button" className="edit-link-add" onClick={() => setAgencyVisible(true)}>
-            + {t("event.agency", { event: label })}
-          </button>
-        )}
-        {onRemove && (
-          <button
-            type="button"
-            className="edit-event-remove"
-            title={t("edit.removeEvent")}
-            onClick={onRemove}
-          >
-            ×
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -2640,6 +2789,7 @@ function NotesEditor({
 function LinksEditor({
   links: initialLinks,
   sources,
+  incomingLinks,
   sectionLabel,
   t,
   onCommit,
@@ -2651,6 +2801,9 @@ function LinksEditor({
   links: string[];
   /** Real `SOUR` citations added via "Add Source" — shown as icons alongside the legacy links. */
   sources?: SourceCitation[];
+  /** Links a confirmed merge will add that aren't in `links` yet — previewed
+   * read-only with an incoming-themed background until the merge is saved. */
+  incomingLinks?: string[];
   sectionLabel?: string;
   t: Translate;
   onCommit: (links: string[]) => void;
@@ -2662,6 +2815,8 @@ function LinksEditor({
   onAttachSource: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[], links: string[]) => void;
 }) {
   const [links, setLinks] = useState(initialLinks);
+  const existingKeys = new Set(links.map(linkKey));
+  const previewLinks = (incomingLinks ?? []).filter((url) => !existingKeys.has(linkKey(url)));
 
   function commitLinks(next: string[]) {
     setLinks(next);
@@ -2710,6 +2865,18 @@ function LinksEditor({
         >
           🔗
         </button>
+      ))}
+      {previewLinks.map((url, i) => (
+        <a
+          key={`merge-${i}`}
+          href={linkHref(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-icon link-new"
+          title={url}
+        >
+          🔗
+        </a>
       ))}
     </div>
   );

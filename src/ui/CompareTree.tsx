@@ -433,9 +433,13 @@ function TreeSvg({
         {nodes.map((n) => {
           const dec = decisionOf(n);
           const kinship = kinshipOf(n);
-          // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char at 10px).
+          // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char at 10px;
+          // decision badge: a fixed ~22px once the years label has a badge next to it).
           // If they'd overflow the 160px gap, stack kinship on a separate third row.
-          const needsKinshipRow = !!(kinship && n.years && n.years.length * 13 + kinship.length * 11 > 300);
+          const decW = dec ? 22 : 0;
+          const needsKinshipRow = !!(kinship && (n.years || dec) && (n.years?.length ?? 0) * 13 + decW + kinship.length * 11 > 300);
+          const yearsRowY = needsKinshipRow ? 32 : 36;
+          const decBadgeX = 16 + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
           return (
             <g
               key={n.key}
@@ -462,7 +466,7 @@ function TreeSvg({
                 {truncate(n.name, 24)}
               </text>
               {n.years && (
-                <text className="tree-node-year gm-data" x={16} y={needsKinshipRow ? 32 : 36}>
+                <text className="tree-node-year gm-data" x={16} y={yearsRowY}>
                   {n.years}
                 </text>
               )}
@@ -471,16 +475,16 @@ function TreeSvg({
                   {kinship}
                 </text>
               )}
-              {/* Decision badge in the top-right corner (matched, decided nodes). */}
+              {/* Decision badge next to the lifespan (matched, decided nodes). */}
               {dec && (
-                <g className="tree-node-decision" transform={`translate(${NODE_W - 11},11)`}>
-                  <circle r={8.5} fill={dec.color} stroke="var(--panel)" strokeWidth={1.5} />
+                <g className="tree-node-decision" transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
+                  <circle r={7} fill={dec.color} stroke="var(--panel)" strokeWidth={1.5} />
                   <text
                     textAnchor="middle"
                     dominantBaseline="central"
                     x={0}
                     y={0.5}
-                    fontSize={10}
+                    fontSize={9}
                     fontWeight={700}
                     fill="#10231b"
                   >

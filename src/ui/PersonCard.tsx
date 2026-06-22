@@ -20,10 +20,16 @@ interface Props {
   kinship?: string;
   /** Long-form tooltip for the kinship badge, e.g. "Son of Luka Renko". */
   kinshipTooltip?: string;
+  /** Merge-decision status ("confirmed" | "rejected" | "deferred") for this relative's own match, if any. */
+  decisionStatus?: "confirmed" | "rejected" | "deferred";
+  /** Single letter shown in the status chip, e.g. "C" for confirmed (already localized). */
+  decisionLetter?: string;
+  /** Tooltip for the status chip, e.g. "Confirmed". */
+  decisionTooltip?: string;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -53,9 +59,14 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
         >
           <div className={`person-label ${sexClass(individual.sex)}`}>
             <span className="person-name">{displayName(primaryName(individual))}</span>
-            {(lifespan || kinship) && (
+            {(lifespan || kinship || decisionStatus) && (
               <div className="person-card-meta">
                 {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+                {decisionStatus && (
+                  <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
+                    {decisionLetter}
+                  </span>
+                )}
                 {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
               </div>
             )}

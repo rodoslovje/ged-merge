@@ -575,6 +575,55 @@ describe("mergeDecisions — event source citations", () => {
     expect(out).toContain("2 SOUR Krstna knjiga");
     expect(out).toContain("2 SOUR Birth register p.42");
   });
+
+  // An event's own plain link (not a SOUR citation) rides along on the same
+  // ".sources" row/decision as the citations, shown as an icon next to them.
+  const compareWithLink = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/birth\n",
+  );
+
+  it("adds a missing event link by default", () => {
+    const master = dataset(masterNoSour);
+    const compare = dataset(compareWithLink);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 BIRT\n2 DATE 1850\n2 WWW https://example.com/birth");
+  });
+
+  it("leaves master's own event link alone unless explicitly chosen", () => {
+    const masterWithOwnLink = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/old\n",
+    );
+    const master = dataset(masterWithOwnLink);
+    const compare = dataset(compareWithLink);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 WWW https://example.com/old");
+    expect(out).not.toContain("https://example.com/birth");
+  });
+
+  it("keeps both event links when both is chosen", () => {
+    const masterWithOwnLink = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/old\n",
+    );
+    const master = dataset(masterWithOwnLink);
+    const compare = dataset(compareWithLink);
+    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 WWW https://example.com/old");
+    expect(out).toContain("2 WWW https://example.com/birth");
+  });
+
+  it("doesn't duplicate an incoming event link the master already has", () => {
+    const masterWithSameLink = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/birth\n",
+    );
+    const master = dataset(masterWithSameLink);
+    const compare = dataset(compareWithLink);
+    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/2 WWW/g)).toHaveLength(1);
+  });
 });
 
 describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () => {

@@ -40,7 +40,7 @@ export const FAM_CHILD_ORDER = [
 export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE", "NOTE", "SOUR"];
 
 /** Links attached to an event are plain `WWW` lines. */
-const EVENT_LINK_TAG = "WWW";
+export const EVENT_LINK_TAG = "WWW";
 
 export interface EventFieldUpdate {
   /** New direct value on the event line (e.g. occupation text), or `""` to remove. */

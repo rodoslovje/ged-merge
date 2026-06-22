@@ -3,6 +3,7 @@ import {
   addObjeToSource,
   attachSourceCitation,
   EVENT_CHILD_ORDER,
+  EVENT_LINK_TAG,
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
   insertOrdered,
@@ -561,10 +562,20 @@ function applyEventSub(
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub, customTags);
 }
 
+/** Tags an event's own attached link can use (besides a `SOUR` citation). */
+const EVENT_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG"]);
+
+/** An event's own plain links — everything `linksNotCitedAsSource` (review/fields.ts) excludes is already a `SOUR` citation, so this mirrors that by simply reading the raw tags. */
+function eventLinkUrls(event: GedNode | undefined): string[] {
+  if (!event) return [];
+  return event.children.filter((c) => EVENT_LINK_TAGS.has(c.tag) && c.value?.trim()).map((c) => c.value!.trim());
+}
+
 /**
- * Copy an event's `SOUR` citation children from incoming to master: "incoming"
- * replaces the master's citations, "both" appends the incoming ones alongside
- * them. Citation values that point at a compare-file `SOUR`/`REPO` record are
+ * Copy an event's `SOUR` citations and plain attached links (`WWW`/`_LINK`/…,
+ * shown alongside the citations in review) from incoming to master: "incoming"
+ * replaces the master's, "both" appends the incoming ones alongside them.
+ * Citation values that point at a compare-file `SOUR`/`REPO` record are
  * remapped to that record's id in the merged output.
  */
 function applyEventSources(
@@ -578,19 +589,36 @@ function applyEventSources(
   customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
   const incEvents = incomingRecord.children.filter((c) => c.tag === tag);
-  const incSours = incEvents[eventIdx]?.children.filter((c) => c.tag === "SOUR") ?? [];
-  if (incSours.length === 0) return false;
+  const incEvent = incEvents[eventIdx];
+  const incSours = incEvent?.children.filter((c) => c.tag === "SOUR") ?? [];
+  const incLinks = eventLinkUrls(incEvent);
+  if (incSours.length === 0 && incLinks.length === 0) return false;
   const masterEvents = target.children.filter((c) => c.tag === tag);
   let event = masterEvents[eventIdx];
   if (!event) {
     event = newNode(tag);
     insertOrdered(target, event, order);
   }
-  if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
-  for (const s of incSours) {
-    const clone = cloneNodeRemapped(s, sourMap);
-    collectCustomTags(clone, customTags);
-    insertOrdered(event, clone, EVENT_CHILD_ORDER);
+  if (incSours.length) {
+    if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
+    for (const s of incSours) {
+      const clone = cloneNodeRemapped(s, sourMap);
+      collectCustomTags(clone, customTags);
+      insertOrdered(event, clone, EVENT_CHILD_ORDER);
+    }
+  }
+  if (incLinks.length) {
+    const existing = new Set(eventLinkUrls(event).map(linkKey));
+    if (choice !== "both") {
+      event.children = event.children.filter((c) => !EVENT_LINK_TAGS.has(c.tag));
+      existing.clear();
+    }
+    for (const url of incLinks) {
+      const key = linkKey(url);
+      if (existing.has(key)) continue;
+      existing.add(key);
+      insertOrdered(event, newNode(EVENT_LINK_TAG, url), EVENT_CHILD_ORDER);
+    }
   }
   return true;
 }

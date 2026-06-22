@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferMasterProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { fieldDiffCounts, individualFieldRows } from "./fields";
+import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows } from "./fields";
 import type { FieldRow } from "./types";
 
 function dataset(text: string) {
@@ -196,6 +196,56 @@ describe("individual parents and partners rows", () => {
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), m.individuals.get("@C@"));
     expect(byKey(rows, "father")).toBeUndefined();
     expect(byKey(rows, "fam.@F2@.partner")).toBeUndefined();
+  });
+});
+
+describe("familyMergeKeyBases", () => {
+  // Master and compare each assign their own ids to the same real-world family
+  // (@F9@ vs @F2@), as happens when merging two independently-numbered GEDCOM
+  // files — the row keys must key off the compare side's id so the edit view
+  // can resolve the same merge highlight against its own (master-numbered) family.
+  const masterGed = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F9@
+0 @SP@ INDI
+1 NAME Tone /Horvat/
+1 SEX M
+0 @F9@ FAM
+1 HUSB @SP@
+1 WIFE @C@
+1 MARR
+2 DATE 1 JAN 2000
+0 TRLR
+`;
+  const compareGed = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F2@
+0 @SP@ INDI
+1 NAME Tone /Horvat/
+1 SEX M
+0 @F2@ FAM
+1 HUSB @SP@
+1 WIFE @C@
+1 MARR
+2 DATE 1 JAN 2000
+2 PLAC Ljubljana
+0 TRLR
+`;
+
+  it("maps the master family id to the fam.<id> key base used by its paired compare family", () => {
+    const m = dataset(masterGed);
+    const c = dataset(compareGed);
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    // Rows are keyed by the compare (incoming) family id, not the master's.
+    expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Ljubljana", state: "incoming-only" });
+    expect(byKey(rows, "fam.@F9@.MARR.place")).toBeUndefined();
+
+    const bases = familyMergeKeyBases(m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    expect(bases.get("@F9@")).toBe("fam.@F2@");
   });
 });
 

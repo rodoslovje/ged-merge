@@ -56,7 +56,11 @@ interface Props {
   compareRef: RefObject<HTMLDivElement | null>;
   /** When set, shows an Edit button on the compare panel to jump to edit mode. */
   onEdit?: () => void;
-
+  /** False when Merge is mounted but hidden behind Edit mode — kept mounted
+   * across mode switches so toggling modes with a large match list doesn't
+   * re-render the whole tab from scratch. Gates the global keydown shortcut
+   * so it doesn't fire while another mode is the one actually visible. */
+  active: boolean;
 }
 
 /** The merge workflow: incoming loader, matches list, compare panel, and the
@@ -93,6 +97,7 @@ export function MergeView({
   onNavigatePerson,
   compareRef,
   onEdit,
+  active,
 }: Props) {
   const { t } = useTranslation();
 
@@ -140,7 +145,7 @@ export function MergeView({
   }
 
   useEffect(() => {
-    if (!current) return;
+    if (!active || !current) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -152,7 +157,7 @@ export function MergeView({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, onUpdateDecision, status, fields, t]);
+  }, [active, current, onUpdateDecision, status, fields, t]);
 
   const compareHeader = current ? (
     <>
@@ -164,6 +169,11 @@ export function MergeView({
             title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
           >
             {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
+          </span>
+        )}
+        {status !== "undecided" && (
+          <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
+            {t(`status.${status}`).charAt(0)}
           </span>
         )}
         {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
