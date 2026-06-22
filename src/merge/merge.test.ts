@@ -3,9 +3,10 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { decisionKey, type CandidateDecision } from "../review/types";
+import type { GedNode } from "../gedcom/types";
 import { inferMasterProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { mergeDecisions } from "./merge";
+import { materializeEventSources, mergeDecisions } from "./merge";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -781,6 +782,67 @@ describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
     expect(diff.removed).toEqual([]);
     // ASSO stays between BIRT and DEAT, not pushed past DEAT by date sort.
     expect(after).toContain("1 ASSO @I2@\n2 ROLE OTHER\n2 DATE 1979\n1 DEAT");
+  });
+});
+
+describe("materializeEventSources", () => {
+  // Mirrors Edit mode: a direct field edit on an "extra" incoming-only BAPM
+  // row materializes a bare master event node (date/place only, no SOUR yet)
+  // — see EditView's `setEventField` call for an "extra" row.
+  const compareWithSour = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 BAPM\n2 DATE 1850\n2 PLAC Kranj\n2 SOUR @CS1@\n2 PAGE 12\n" +
+      "0 @CS1@ SOUR\n1 TITL Matična knjiga krstov Kranj\n",
+  );
+  const master = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
+
+  it("copies the incoming event's SOUR citation onto the new master event and imports the cited SOUR record", () => {
+    const masterDs = dataset(master);
+    const compareDs = dataset(compareWithSour);
+    const eventNode: GedNode = { level: 1, tag: "BAPM", children: [{ level: 2, tag: "DATE", value: "1850", children: [] }] };
+    // Mirrors `setEventField` inserting the new event into the live master record.
+    masterDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
+
+    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+
+    expect(eventNode.children.some((c) => c.tag === "SOUR" && c.value === "@CS1@")).toBe(true);
+    expect(masterDs.records.some((r) => r.tag === "SOUR" && r.xref === "@CS1@")).toBe(true);
+    expect(imported).toHaveLength(1);
+    expect(imported[0].xref).toBe("@CS1@");
+  });
+
+  it("remaps the cited SOUR to a fresh xref when it collides with an unrelated master record", () => {
+    const masterWithClash = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 @CS1@ SOUR\n1 TITL Unrelated source\n",
+    );
+    const masterDs = dataset(masterWithClash);
+    const compareDs = dataset(compareWithSour);
+    const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
+    masterDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
+
+    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+
+    const citation = eventNode.children.find((c) => c.tag === "SOUR");
+    expect(citation?.value).not.toBe("@CS1@");
+    expect(imported).toHaveLength(1);
+    expect(imported[0].xref).toBe(citation?.value);
+    expect(imported[0].children.some((c) => c.tag === "TITL" && c.value === "Matična knjiga krstov Kranj")).toBe(true);
+    // Master's own unrelated @CS1@ stays untouched.
+    expect(masterDs.records.find((r) => r.xref === "@CS1@")?.children[0]?.value).toBe("Unrelated source");
+  });
+
+  it("returns an empty array and does nothing when the incoming event has no SOUR", () => {
+    const masterDs = dataset(master);
+    const compareDs = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BAPM\n2 DATE 1850\n"));
+    const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
+
+    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+
+    expect(imported).toEqual([]);
+    expect(eventNode.children).toEqual([]);
   });
 });
 

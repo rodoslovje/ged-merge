@@ -8,6 +8,7 @@ import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameT
 import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
 import { dateToSortKey, familyMergeKeyBases, individualFieldRows, orderedEventTags } from "../review/fields";
+import { materializeEventSources } from "../merge/merge";
 import { decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addAdditionalName,
@@ -618,6 +619,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       onUpdateDecision({ ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
       break;
     }
+  }
+
+  /**
+   * Copy an "extra" incoming-only event's `SOUR` citations into `eventNode`
+   * — the master event a direct field edit just materialized for it. Must
+   * run before that event gets `rejectIncomingEvent`'d, since afterward its
+   * sources are gone from comparison everywhere, including the merge engine
+   * on Save. Returns undo patches for any `SOUR`/`REPO` records it imported.
+   */
+  function materializeMergeEventSources(eventNode: GedNode, tag: string, compareIdx: number): RecordPatch[] {
+    if (!decisions || !person || !compareDataset || compareIdx < 0) return [];
+    for (const [key, dec] of decisions) {
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
+      if (dec.status !== "confirmed") continue;
+      const incoming = compareDataset.individuals.get(parts[2]);
+      if (!incoming) break;
+      const incEvent = incoming.raw.children.filter((c) => c.tag === tag)[compareIdx];
+      if (!incEvent) break;
+      const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
+      return imported.map((r) => ({ type: "record", id: r.xref!, before: null, after: cloneRaw(r) }));
+    }
+    return [];
   }
 
   function dismissExtraEvent(keyBase: string) {
@@ -1310,6 +1334,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
             onRejectIncomingEvent={rejectIncomingEvent}
+            onMaterializeIncomingSources={materializeMergeEventSources}
             onResolveMergeField={resolveMergeFields}
             resolvedSessionFields={resolvedSessionFields}
             pendingFocusNodeId={pendingFocusEventNodeId}
@@ -2204,6 +2229,7 @@ function EventList({
   masterMergeSortKeys,
   extraMergeEvents,
   onRejectIncomingEvent,
+  onMaterializeIncomingSources,
   onResolveMergeField,
   resolvedSessionFields,
   pendingFocusNodeId,
@@ -2236,6 +2262,12 @@ function EventList({
    * treated as absent for the rest of the session, on Save too (see
    * `rejectIncomingEvent`). */
   onRejectIncomingEvent?: (tag: string, compareIdx: number) => void;
+  /** Called when an "extra" row's direct field edit is about to materialize a
+   * new master event, to copy that incoming event's `SOUR` citations onto the
+   * just-created node before it's rejected (see `onRejectIncomingEvent`) and
+   * its sources become unreachable. Returns undo patches for any imported
+   * top-level `SOUR`/`REPO` records. */
+  onMaterializeIncomingSources?: (eventNode: GedNode, tag: string, compareIdx: number) => RecordPatch[];
   /** Called after a direct field edit, to resolve the touched merge sub-fields
    * (e.g. "date", "value") to "master" so they stop being treated as pending
    * incoming suggestions. */
@@ -2387,7 +2419,11 @@ function EventList({
             tag={row.tag}
             t={t}
             commitField={(update, extraPatches) => {
-              commit((indi) => setEventField(indi, row.tag, update), extraPatches);
+              const patches = [...(extraPatches ?? [])];
+              commit((indi) => {
+                const eventNode = setEventField(indi, row.tag, update);
+                if (eventNode) patches.push(...(onMaterializeIncomingSources?.(eventNode, row.tag, row.compareIdx) ?? []));
+              }, patches);
               onResolveMergeField?.(row.keyBase, subsOf(update));
               onRejectIncomingEvent?.(row.tag, row.compareIdx);
             }}

@@ -145,24 +145,28 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
  * `2 ADDR`/`2 WWW` children. Fields set to `""`/`[]` remove the corresponding
  * lines; an event left with no children and no value is removed entirely.
  */
-function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): void {
+function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): GedNode | undefined {
   let event = findChild(record, tag);
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
     !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!event) {
-    if (!hasContent) return;
+    if (!hasContent) return undefined;
     event = { level: record.level + 1, tag, children: [] };
     insertOrdered(record, event, order);
   }
   applyEventNodeUpdate(record, event, update);
+  // `applyEventNodeUpdate` removes the node from `record.children` if the
+  // update left it empty — don't hand back a now-detached node.
+  return record.children.includes(event) ? event : undefined;
 }
 
 /** Update an individual event's date, place, address and/or links — see
- * `setRecordEventField`. */
-export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate): void {
-  setRecordEventField(indi.raw, tag, update, INDI_CHILD_ORDER);
+ * `setRecordEventField`. Returns the event node touched (or created), or
+ * `undefined` if there was nothing to set and no event already existed. */
+export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate): GedNode | undefined {
+  return setRecordEventField(indi.raw, tag, update, INDI_CHILD_ORDER);
 }
 
 /** Update an individual event at position `index` in `indi.events` (0-based). */

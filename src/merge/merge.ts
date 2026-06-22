@@ -2,6 +2,7 @@ import { looksLikeUrl } from "../gedcom/builder";
 import {
   addObjeToSource,
   attachSourceCitation,
+  bumpSourceCacheVersion,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
   FAM_CHILD_ORDER,
@@ -825,7 +826,8 @@ function importSourRecords(
   compare: Dataset,
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]>,
-): void {
+): GedNode[] {
+  const importedNodes: GedNode[] = [];
   // Reverse map: output xref → compare xref (only entries that were renamed).
   const reverseMap = new Map<string, string>();
   for (const [cXref, outXref] of sourMap) reverseMap.set(outXref, cXref);
@@ -859,9 +861,41 @@ function importSourRecords(
       imported.xref = outXref;
       collectCustomTags(imported, customTags);
       insertRecord(records, imported);
+      importedNodes.push(imported);
       changed = true;
     }
   }
+  return importedNodes;
+}
+
+/**
+ * Copy an incoming-only event's `SOUR` citations into `eventNode`, importing
+ * whatever top-level `SOUR`/`REPO` records they reference (and those records'
+ * own `REPO` references, transitively) from `compare` into `dataset.records`
+ * under a non-colliding xref. Returns the newly-imported top-level records,
+ * for the caller to build undo patches from.
+ *
+ * Used by Edit mode when a direct field edit (e.g. correcting a place)
+ * materializes a master event from an incoming-only suggestion: once that
+ * happens the event is excluded from all further merge-engine consideration
+ * (see EditView's `rejectIncomingEvent`), so its sources must be brought
+ * across right now via the same xref-import logic `mergeDecisions` uses, or
+ * they're lost for good.
+ */
+export function materializeEventSources(
+  dataset: Dataset,
+  compare: Dataset,
+  eventNode: GedNode,
+  incomingEventNode: GedNode,
+): GedNode[] {
+  const incSours = incomingEventNode.children.filter((c) => c.tag === "SOUR");
+  if (!incSours.length) return [];
+  const masterXrefs = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
+  const sourMap = buildSourXrefMap(compare.records, masterXrefs);
+  for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
+  const imported = importSourRecords(dataset.records, compare, sourMap, {});
+  if (imported.length) bumpSourceCacheVersion(dataset.records);
+  return imported;
 }
 
 // --- family structural merge (spouses & children) --------------------------

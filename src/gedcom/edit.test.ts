@@ -111,6 +111,20 @@ const FAM_BASE = [
 // ─── setEventField ────────────────────────────────────────────────────────────
 
 describe("setEventField", () => {
+  it("returns the new event node, so callers can attach further sub-nodes (e.g. SOUR) right after", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const node = setEventField(indi, "BIRT", { date: "12 JAN 1850" });
+    expect(node?.tag).toBe("BIRT");
+    expect(indi.raw.children).toContain(node);
+  });
+
+  it("returns undefined when there's nothing to set and no event already exists", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(setEventField(indi, "BIRT", {})).toBeUndefined();
+  });
+
   it("creates a new event with date and place, ordered before FAMC", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
