@@ -33,15 +33,6 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
   // 2. Read the declared charset from the header (ASCII-safe peek).
   const declared = sniffDeclaredCharset(bytes);
 
-  // A file's declared charset is often wrong. Whenever the bytes are actually
-  // valid UTF-8 *and* carry a Latin two-byte sequence (as all real Slovenian /
-  // German UTF-8 does), trust the bytes over an 8-bit label. Requiring the Latin
-  // lead avoids treating a short 8-bit run that is coincidentally valid UTF-8
-  // (e.g. a CJK-range 3-byte sequence like 0xE8 0x9A 0x9E = U+689E) as
-  // mislabelled. We also accept the UTF-8 replacement character U+FFFD (EF BF BD)
-  // as an unambiguous UTF-8 signal — it cannot meaningfully appear in 8-bit text.
-  const reallyUtf8 = isValidUtf8(bytes) && (hasLatinMultibyte(bytes) || hasReplacementChar(bytes));
-
   switch (declared) {
     case "UTF-8":
       if (isValidUtf8(bytes)) return utf8Result(bytes, warnings);
@@ -56,16 +47,16 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       });
       return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
     case "ANSEL":
-      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ANSEL");
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ANSEL");
       return { text: decodeAnsel(bytes, warnings), charset: "ANSEL", warnings };
     case "WINDOWS-1250":
-      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "WINDOWS-1250");
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "WINDOWS-1250");
       return { text: decodeWindows1250(bytes), charset: "WINDOWS-1250", warnings };
     case "WINDOWS-1252":
-      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "WINDOWS-1252");
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "WINDOWS-1252");
       return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
     case "ANSI":
-      if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ANSI");
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ANSI");
       // "ANSI" is locale-dependent: it usually means Windows-1252 (Western), but
       // Central-European exporters (Brother's Keeper etc.) emit Windows-1250.
       // Detect which from the byte profile.
@@ -74,7 +65,7 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       // ASCII shouldn't carry high bytes; when it does the label is wrong, so
       // fall back to UTF-8 (if valid) or Windows-codepage detection.
       if (hasHighBytes(bytes)) {
-        if (reallyUtf8) return mislabelledUtf8(bytes, warnings, "ASCII");
+        if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ASCII");
         return decodeWindowsAnsi(bytes, warnings, "CHAR ASCII with non-ASCII bytes");
       }
       return { text: decodeAscii(bytes), charset: "ASCII", warnings };
@@ -241,6 +232,23 @@ function isValidUtf8(bytes: Uint8Array): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether a non-UTF-8 declared charset is actually UTF-8 bytes mislabelled.
+ * Only called from branches that need it, so files declaring (and decoding
+ * as) UTF-8 or UNICODE — the common case — never pay for this check.
+ *
+ * Trusts the bytes over an 8-bit label whenever they're valid UTF-8 *and*
+ * carry a Latin two-byte sequence (as all real Slovenian/German UTF-8 does).
+ * Requiring the Latin lead avoids treating a short 8-bit run that is
+ * coincidentally valid UTF-8 (e.g. a CJK-range 3-byte sequence like 0xE8 0x9A
+ * 0x9E = U+689E) as mislabelled. The UTF-8 replacement character U+FFFD (EF
+ * BF BD) is also accepted as an unambiguous signal — it cannot meaningfully
+ * appear in 8-bit text.
+ */
+function isMislabelledUtf8(bytes: Uint8Array): boolean {
+  return isValidUtf8(bytes) && (hasLatinMultibyte(bytes) || hasReplacementChar(bytes));
 }
 
 /** Peek at the first ~2KB as Latin-1 and look for `1 CHAR <value>`. */
