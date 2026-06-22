@@ -87,8 +87,8 @@ export interface PlaceTargetFormat {
 export interface ReformattedPlace {
   plac?: string;
   addr?: string;
-  /** Leftover detail (parish, facility) that the master layout has no slot for. */
-  note?: string;
+  /** Parish that the master layout has no PLAC/ADDR slot for — goes to AGNC. */
+  agency?: string;
 }
 
 /**

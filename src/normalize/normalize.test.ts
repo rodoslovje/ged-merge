@@ -197,7 +197,7 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(birth.address?.raw).toBeUndefined();
   });
 
-  it("appends a leftover parish detail to an existing NOTE rather than duplicating it", () => {
+  it("appends a leftover parish detail to an existing AGNC rather than duplicating it", () => {
     const master = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -211,12 +211,12 @@ describe("normalizeDataset (place reshaping)", () => {
 0 @P1@ INDI
 1 BIRT
 2 PLAC Kranj (Slovenija), Tatjane Odrove 4 - župnija Kranj
-2 NOTE Born at home
+2 AGNC Maribor hospital
 0 TRLR
 `);
     const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
-    expect(birth.note).toBe("Born at home\nžupnija Kranj");
+    expect(birth.agency).toBe("Maribor hospital; župnija Kranj");
   });
 
   it("does not reshape (or count) places when the master's layout doesn't call for it", () => {

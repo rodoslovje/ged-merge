@@ -94,9 +94,8 @@ export function normalizeDataset(
 
 /**
  * Reshape a node's PLAC/ADDR (if any) into the master's layout, recording an
- * example when the text actually changes. A pre-existing NOTE absorbs any
- * leftover detail (parish, facility) rather than duplicating it in a second
- * NOTE node.
+ * example when the text actually changes. A pre-existing AGNC absorbs a
+ * leftover parish detail rather than duplicating it in a second AGNC node.
  */
 function reshapePlaceNode(
   node: GedNode,
@@ -112,10 +111,10 @@ function reshapePlaceNode(
   const r = reformatPlace(placRaw, addrRaw, fmt);
 
   const before = [placRaw, addrRaw].filter(Boolean).join(" · ");
-  const after = [r.plac, r.addr, r.note].filter(Boolean).join(" · ");
+  const after = [r.plac, r.addr, r.agency].filter(Boolean).join(" · ");
   if (before === after) return;
 
-  const existingNote = node.children.find((c) => c.tag === "NOTE");
+  const existingAgency = node.children.find((c) => c.tag === "AGNC");
   node.children = node.children.filter((c) => c !== placNode && c !== addrNode);
   if (r.plac !== undefined) {
     const placeNode = plainNode("PLAC", r.plac);
@@ -134,9 +133,10 @@ function reshapePlaceNode(
     if (addrRaw && addrRaw !== r.addr) addrNodeOut.reshapedFrom = addrRaw;
     node.children.push(addrNodeOut);
   }
-  if (r.note) {
-    if (existingNote) existingNote.value = existingNote.value ? `${existingNote.value}\n${r.note}` : r.note;
-    else node.children.push(plainNode("NOTE", r.note));
+  if (r.agency) {
+    if (existingAgency) {
+      existingAgency.value = existingAgency.value ? `${existingAgency.value}; ${r.agency}` : r.agency;
+    } else node.children.push(plainNode("AGNC", r.agency));
   }
 
   report.placesReshaped++;

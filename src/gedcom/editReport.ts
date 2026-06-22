@@ -133,8 +133,48 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   return diffs;
 }
 
-function diffFamilyNodes(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
+/** Diffs a family's HUSB/WIFE/CHIL pointers, reporting members added or removed
+ *  (e.g. by deleting a person, or detaching/connecting a relative) by display name. */
+function diffFamilyMembership(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  t: Translate,
+  resolveName: (xref: string) => string,
+): FieldChange[] {
   const diffs: FieldChange[] = [];
+
+  for (const [tag, fieldKey] of [["HUSB", "field.husband"], ["WIFE", "field.wife"]] as const) {
+    const beforeVal = nodeChild(before, tag);
+    const afterVal = nodeChild(after, tag);
+    if (beforeVal === afterVal) continue;
+    const fieldLabel = t(fieldKey);
+    if (beforeVal) diffs.push({ recordId: id, field: fieldLabel, from: resolveName(beforeVal), to: "", action: "incoming" });
+    if (afterVal) diffs.push({ recordId: id, field: fieldLabel, from: "", to: resolveName(afterVal), action: "both" });
+  }
+
+  const beforeChildren = before.children.filter((c) => c.tag === "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
+  const afterChildren = after.children.filter((c) => c.tag === "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
+  for (const cid of beforeChildren) {
+    if (!afterChildren.includes(cid)) diffs.push({ recordId: id, field: t("field.child"), from: resolveName(cid), to: "", action: "incoming" });
+  }
+  for (const cid of afterChildren) {
+    if (!beforeChildren.includes(cid)) diffs.push({ recordId: id, field: t("field.child"), from: "", to: resolveName(cid), action: "both" });
+  }
+
+  return diffs;
+}
+
+function diffFamilyNodes(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  t: Translate,
+  resolveName: (xref: string) => string,
+): FieldChange[] {
+  const diffs: FieldChange[] = [];
+
+  diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
   const evTags = new Set([
     ...before.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
@@ -161,6 +201,13 @@ export function enrichEditReport(
 ): ChangeReport {
   const extra: FieldChange[] = [];
 
+  const resolveIndiName = (xref: string): string => {
+    const indi = dataset.individuals.get(xref);
+    if (indi) return displayName(indi.names[0]) || xref;
+    const snap = personSnapshots.get(xref);
+    return snap ? displayNameFromRaw(snap) || xref : xref;
+  };
+
   for (const [id, kind] of Object.entries(report.recordKinds)) {
     if (kind === "individual") {
       const snapshot = personSnapshots.get(id);
@@ -182,7 +229,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName));
     }
   }
 

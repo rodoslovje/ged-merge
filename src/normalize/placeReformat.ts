@@ -12,7 +12,8 @@ export function reshapesLayout(layout: PlaceTargetFormat["layout"]): boolean {
  * incoming PLAC and ADDR.
  *
  *  - `structured-addr`: jurisdiction → comma-separated PLAC, house number/street
- *    → ADDR, and parish/facility that don't fit → NOTE (preserved, not dropped).
+ *    → ADDR, facility that doesn't fit → ADDR parenthetical, and parish → AGNC
+ *    (the parish was the record-keeping agency; preserved, not dropped).
  *  - `packed-plac`: everything is recomposed into one PLAC
  *    ("Locality (Country), Street No - župnija X (facility)"), the ADDR is folded
  *    in and dropped, and unused middle jurisdiction levels (municipality/region)
@@ -73,7 +74,7 @@ export function reformatPlace(
   let addrOut = address;
   if (facility) addrOut = addrOut ? `${addrOut} (${facility})` : facility;
   out.addr = addrOut;
-  if (parish) out.note = `župnija ${parish}`;
+  if (parish) out.agency = `župnija ${parish}`;
   return out;
 }
 

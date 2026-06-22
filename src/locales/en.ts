@@ -196,6 +196,7 @@ export const en = {
   "field.mother": "Mother",
   "field.partners": "Partner",
   "field.children": "Children",
+  "field.child": "Child",
   "field.husband": "Husband",
   "field.wife": "Wife",
   "field.familyWith": "Family with {{name}}",

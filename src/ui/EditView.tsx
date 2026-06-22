@@ -408,6 +408,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
   const person = selectedId ? dataset.individuals.get(selectedId) : undefined;
 
+  /**
+   * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
+   * a merge suggestion via a direct edit. A field like this starts life on a
+   * row with no real event node yet, so its first commit creates the node —
+   * which changes the row's React key and remounts `EventFieldsRow`, wiping
+   * the local "is this dirty since I started editing" state that ordinary
+   * (already-existing) fields keep for the rest of the session. This set lets
+   * the field keep showing as dirty/bold across that one-time remount.
+   */
+  const [resolvedSessionFields, setResolvedSessionFields] = useState<Set<string>>(new Set());
+  useEffect(() => { setResolvedSessionFields(new Set()); }, [selectedId]);
+
   /** Merge preview data for the currently selected person's confirmed match. */
   const mergeData = useMemo(() => {
     const empty = {
@@ -506,6 +518,42 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
       }
       onUpdateDecision({ ...dec, fields: updatedFields });
+      break;
+    }
+  }
+
+  /**
+   * Mark specific event sub-fields (e.g. "date", "value") as resolved to
+   * "master" once they've been directly edited/committed in Edit mode. Without
+   * this, `mergeHighlight` keeps treating the field as a still-pending incoming
+   * suggestion — on the next render its input would be re-initialized from the
+   * original incoming text, silently reverting the user's own edit and losing
+   * the dirty/bold indicator for it.
+   */
+  function resolveMergeFields(keyBase: string, subs: string[]) {
+    if (!subs.length) return;
+    const touched = subs.map((sub) => `${keyBase}.${sub}`).filter((fkey) => mergeHighlight.has(fkey));
+    if (touched.length) {
+      setResolvedSessionFields((prev) => {
+        const next = new Set(prev);
+        for (const fkey of touched) next.add(fkey);
+        return next;
+      });
+    }
+    if (!decisions || !person || !onUpdateDecision) return;
+    for (const [key, dec] of decisions) {
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
+      if (dec.status !== "confirmed") continue;
+      const updatedFields = { ...dec.fields };
+      let changed = false;
+      for (const fkey of touched) {
+        if (updatedFields[fkey] !== "master") {
+          updatedFields[fkey] = "master";
+          changed = true;
+        }
+      }
+      if (changed) onUpdateDecision({ ...dec, fields: updatedFields });
       break;
     }
   }
@@ -1122,6 +1170,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             masterMergeSortKeys={masterMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
             onDismissExtraEvent={dismissExtraEvent}
+            onResolveMergeField={resolveMergeFields}
+            resolvedSessionFields={resolvedSessionFields}
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
           />
@@ -1955,6 +2005,8 @@ function EventList({
   masterMergeSortKeys,
   extraMergeEvents,
   onDismissExtraEvent,
+  onResolveMergeField,
+  resolvedSessionFields,
   pendingFocusNodeId,
   undoVersion,
 }: {
@@ -1976,10 +2028,29 @@ function EventList({
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
   /** Called when an extra merge event is dismissed, to update the merge decision. */
   onDismissExtraEvent?: (keyBase: string) => void;
+  /** Called after a direct field edit, to resolve the touched merge sub-fields
+   * (e.g. "date", "value") to "master" so they stop being treated as pending
+   * incoming suggestions. */
+  onResolveMergeField?: (keyBase: string, subs: string[]) => void;
+  /** Sub-field keys (e.g. "OCCU.value") resolved from a merge suggestion via a
+   * direct edit earlier this session — kept dirty/bold despite the row's
+   * one-time remount from "extra" to "master" kind. */
+  resolvedSessionFields?: Set<string>;
   pendingFocusNodeId?: number | null;
   undoVersion?: number;
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
+
+  /** Merge sub-field keys (e.g. "date", "addr") touched by `update`, for `onResolveMergeField`. */
+  function subsOf(update: EventFieldUpdate): string[] {
+    const subs: string[] = [];
+    if (update.date !== undefined) subs.push("date");
+    if (update.value !== undefined) subs.push("value");
+    if (update.place !== undefined) subs.push("place");
+    if (update.address !== undefined) subs.push("addr");
+    if (update.note !== undefined) subs.push("note");
+    return subs;
+  }
 
   // Fallback key bases when no merge is active (master-only count-based naming).
   const tagCount = new Map<string, number>();
@@ -2045,7 +2116,10 @@ function EventList({
         label={t("event.BIRT")}
         tag="BIRT"
         t={t}
-        commitField={(update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches)}
+        commitField={(update, extraPatches) => {
+          commit((indi) => setEventField(indi, "BIRT", update), extraPatches);
+          onResolveMergeField?.(birtMergeKeyBase, subsOf(update));
+        }}
         onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
@@ -2056,6 +2130,7 @@ function EventList({
         addrCanonical={addrCanonical}
         mergeHighlight={mergeHighlight}
         mergeKeyBase={birtMergeKeyBase}
+        resolvedSessionFields={resolvedSessionFields}
       />
       {allRows.map((row) =>
         row.kind === "master" ? (
@@ -2065,7 +2140,10 @@ function EventList({
             label={t(`event.${row.ev.tag}`)}
             tag={row.ev.tag}
             t={t}
-            commitField={(update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches)}
+            commitField={(update, extraPatches) => {
+              commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches);
+              onResolveMergeField?.(row.mergeKeyBase, subsOf(update));
+            }}
             onRemove={() => commit((indi) => removeEventAtIndex(indi, row.i))}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
             onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
@@ -2077,6 +2155,7 @@ function EventList({
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.mergeKeyBase}
+            resolvedSessionFields={resolvedSessionFields}
           />
         ) : (
           <EventFieldsRow
@@ -2085,7 +2164,10 @@ function EventList({
             label={t(`event.${row.tag}`)}
             tag={row.tag}
             t={t}
-            commitField={(update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches)}
+            commitField={(update, extraPatches) => {
+              commit((indi) => setEventField(indi, row.tag, update), extraPatches);
+              onResolveMergeField?.(row.keyBase, subsOf(update));
+            }}
             onRemove={() => onDismissExtraEvent?.(row.keyBase)}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches) })}
             onOpenSourceDialog={onOpenSourceDialog}
@@ -2095,6 +2177,7 @@ function EventList({
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
             mergeKeyBase={row.keyBase}
+            resolvedSessionFields={resolvedSessionFields}
           />
         ),
       )}
@@ -2224,6 +2307,7 @@ function EventFieldsRow({
   addrCanonical,
   mergeHighlight,
   mergeKeyBase,
+  resolvedSessionFields,
 }: {
   ev: GedEvent | undefined;
   label: string;
@@ -2241,6 +2325,7 @@ function EventFieldsRow({
   addrCanonical: Map<string, string>;
   mergeHighlight?: Map<string, string>;
   mergeKeyBase?: string;
+  resolvedSessionFields?: Set<string>;
 }) {
   const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
 
@@ -2251,6 +2336,14 @@ function EventFieldsRow({
   const placeMergeVal = mergeHighlight?.get(`${kBase}.place`);
   const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
   const noteMergeVal = mergeHighlight?.get(`${kBase}.note`);
+
+  // A field just materialized from a merge suggestion via a direct edit keeps
+  // showing dirty/bold across the row's one-time "extra"→"master" remount.
+  const dateForced = resolvedSessionFields?.has(`${kBase}.date`) ?? false;
+  const valueForced = resolvedSessionFields?.has(`${kBase}.value`) ?? false;
+  const placeForced = resolvedSessionFields?.has(`${kBase}.place`) ?? false;
+  const addrForced = resolvedSessionFields?.has(`${kBase}.addr`) ?? false;
+  const noteForced = resolvedSessionFields?.has(`${kBase}.note`) ?? false;
 
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
@@ -2286,71 +2379,90 @@ function EventFieldsRow({
     });
   }
 
+  /**
+   * Commit all of this row's current field values together, not just the one
+   * that changed. When the row is still an unapplied merge suggestion (`ev`
+   * undefined), every field's *displayed* text is its incoming-merge value
+   * even though none of it has been written to the record yet — committing
+   * only the touched field would silently drop the other still-shown values
+   * the moment the event node first comes into existence.
+   */
+  function commitAll(override: Partial<EventFieldUpdate>) {
+    commitField({
+      date: dateField.value,
+      value: valueField.value,
+      place: placeField.value,
+      address: addrField.value,
+      note: noteField.value,
+      ...override,
+    });
+  }
+
   return (
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
       <div className="edit-event-label">{label}</div>
       <ClearableInput
         wrapClassName="edit-event-date-cell"
-        className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty)}
+        className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
         value={dateField.value}
         placeholder={t("event.date", { event: label })}
         title={t("event.date", { event: label })}
         autoFocus={autoFocusDate}
         onChange={dateField.onChange}
-        onBlur={() => commitField({ date: dateField.value })}
-        onClear={() => { dateField.clear(); commitField({ date: "" }); }}
+        onBlur={() => commitAll({})}
+        onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
       />
       {showValue && (
         <ClearableInput
           wrapClassName="edit-event-value-cell"
-          className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty)}
+          className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty || valueForced)}
           value={valueField.value}
           placeholder={label}
           title={label}
           onChange={valueField.onChange}
-          onBlur={() => commitField({ value: valueField.value })}
-          onClear={() => { valueField.clear(); commitField({ value: "" }); }}
+          onBlur={() => commitAll({})}
+          onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
         />
       )}
       <PlaceAutocomplete
         value={placeField.value}
         suggestions={placeSuggestions}
         canonical={placeCanonical}
-        isDirty={placeField.isDirty}
+        isDirty={placeField.isDirty || placeForced}
         isMerge={placeField.isMerge}
         className="edit-input edit-event-place"
         wrapClassName="edit-event-place-cell"
         placeholder={t("event.place", { event: label })}
         title={t("event.place", { event: label })}
         onChange={placeField.set}
-        onCommit={(val) => commitField({ place: val })}
-        onClear={() => { placeField.clear(); commitField({ place: "" }); }}
+        onCommit={(val) => commitAll({ place: val })}
+        onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
       />
       <PlaceAutocomplete
         value={addrField.value}
         suggestions={placeToAddrs.get(placeKey(placeField.value)) ?? []}
         canonical={addrCanonical}
-        isDirty={addrField.isDirty}
+        isDirty={addrField.isDirty || addrForced}
         isMerge={addrField.isMerge}
         className="edit-input edit-event-addr"
         wrapClassName="edit-event-addr-cell"
         placeholder={t("event.addr", { event: label })}
         title={t("event.addr", { event: label })}
         onChange={addrField.set}
-        onCommit={(val) => commitField({ address: val })}
-        onClear={() => { addrField.clear(); commitField({ address: "" }); }}
+        onCommit={(val) => commitAll({ address: val })}
+        onClear={() => { addrField.clear(); commitAll({ address: "" }); }}
       />
       {(noteField.value || noteField.isMerge) && (
         <ClearableTextarea
           wrapClassName="edit-event-note-wrap"
-          className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty)}
+          className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
           value={noteField.value}
           placeholder={t("event.note", { event: label })}
           title={t("event.note", { event: label })}
           rows={1}
           onChange={noteField.onChange}
-          onBlur={() => commitField({ note: noteField.value })}
-          onClear={() => { noteField.clear(); commitField({ note: "" }); }}
+          onBlur={() => commitAll({})}
+          onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
         />
       )}
       <div className="edit-event-actions">

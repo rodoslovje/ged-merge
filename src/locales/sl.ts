@@ -196,6 +196,7 @@ export const sl = {
   "field.mother": "Mati",
   "field.partners": "Partner",
   "field.children": "Otroci",
+  "field.child": "Otrok",
   "field.husband": "Mož",
   "field.wife": "Žena",
   "field.familyWith": "Družina z: {{name}}",
