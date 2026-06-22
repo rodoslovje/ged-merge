@@ -241,6 +241,161 @@ describe("normalizeDataset (place reshaping)", () => {
   });
 });
 
+describe("normalizeDataset (master-learned place hierarchy)", () => {
+  // The master attests "Kranj,Kranj,Slovenia" and "Stražišče,Kranj,Slovenia"
+  // elsewhere, plus a parish/street tying Stražišče to "župnija Šmartin" /
+  // "Hafnarjeva pot" — so an incoming place naming only "Kranj" can be
+  // completed and, where the parish/street says more, sharpened.
+  const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj,Kranj,Slovenia
+0 @I2@ INDI
+1 BIRT
+2 PLAC Stražišče,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 5
+2 AGNC župnija Šmartin
+0 TRLR
+`);
+
+  it("inserts the municipality level the master always writes for a known locality", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj,Slovenia
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("Kranj,Kranj,Slovenia");
+  });
+
+  it("sharpens a generic locality using the AGNC parish, keeping the existing ADDR", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Kranj,Slovenia
+2 ADDR Hafnarjeva pot 21/a
+2 AGNC župnija Šmartin
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+    expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
+    // The AGNC was already in its own field — left as-is, not duplicated.
+    expect(resi.agency).toBe("župnija Šmartin");
+  });
+
+  it("sharpens a generic locality when the incoming place is a single packed PLAC (no separate ADDR/AGNC)", () => {
+    // The real-world case: a Brother's Keeper-style source packs locality,
+    // street+number, and parish into one PLAC value — decomposePlace's
+    // `.street` keeps the house number attached ("Hafnarjeva pot 21/a"), so
+    // the street hint must be stripped before it's compared to the learned
+    // (number-free) key.
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Kranj (Slovenija), Hafnarjeva pot 21/a - župnija Šmartin
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+    expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
+  });
+
+  it("prefers a rare, correctly-narrowed locality over many generic ones on the same street", () => {
+    // Realistic noisy data: most family members on "Hafnarjeva pot" were
+    // entered loosely as "Kranj,Kranj,Slovenia"; only one record was ever
+    // corrected to the actual hamlet "Stražišče". A naive majority vote would
+    // pick "Kranj" (it's outnumbered 4 to 1) — the generic ones must be
+    // excluded from the tally instead of just outweighed.
+    const noisyMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 3
+0 @I2@ INDI
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 9
+0 @I3@ INDI
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 12
+0 @I4@ INDI
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 15
+0 @I5@ INDI
+1 RESI
+2 PLAC Stražišče,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 21a / 53
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Kranj,Slovenia
+2 ADDR Hafnarjeva pot 21/a
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(noisyMaster));
+    const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+  });
+
+  it("sharpens a generic locality from a master address using the old/new dual house-number form", () => {
+    // Master's own ADDR for @I2@ uses "21a / 53" (a historical house number
+    // alongside the later official one) — decomposePlace must strip the whole
+    // tail to learn "Hafnarjeva pot" cleanly, not a garbled locality.
+    const masterDual = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj,Kranj,Slovenia
+0 @I2@ INDI
+1 BIRT
+2 PLAC Stražišče,Kranj,Slovenia
+2 ADDR Hafnarjeva pot 21a / 53
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Kranj,Slovenia
+2 ADDR Hafnarjeva pot 21/a
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(masterDual));
+    const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+    expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
+  });
+
+  it("sharpens a generic locality from the street alone when there's no AGNC", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj,Slovenia
+2 ADDR Hafnarjeva pot 7
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+  });
+});
+
 // --- place-layout detection ------------------------------------------------
 
 describe("detectPlaceLayout", () => {

@@ -1,4 +1,4 @@
-import { decomposePlace, parsePlace } from "../gedcom/place";
+import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber, stripParishLabel } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, DateOrder } from "../gedcom/types";
@@ -7,6 +7,7 @@ import type {
   MasterProfile,
   NumericDateFormat,
   PlaceFormatProfile,
+  PlaceHierarchy,
   PlaceLayout,
 } from "./types";
 import { detectLinkLangs } from "./links";
@@ -286,7 +287,12 @@ export function inferPlaceLayout(dataset: Dataset): PlaceLayout {
   return detectPlaceLayout(values, addrCount);
 }
 
-type PlaceExportFormat = { layout: PlaceLayout; separator: string; countryPreferred?: Map<string, string> };
+type PlaceExportFormat = {
+  layout: PlaceLayout;
+  separator: string;
+  countryPreferred?: Map<string, string>;
+  hierarchy: PlaceHierarchy;
+};
 const placeExportFormatCache = new WeakMap<Dataset, PlaceExportFormat>();
 
 /**
@@ -331,9 +337,85 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
     layout: detectPlaceLayout(values, addrCount),
     separator: withoutSpace > withSpace ? "," : ", ",
     ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
+    hierarchy: inferPlaceHierarchy(dataset),
   };
   placeExportFormatCache.set(dataset, result);
   return result;
+}
+
+/** Joins a learned jurisdiction chain for tallying; never appears in place text. */
+const CHAIN_SEP = "\u0001";
+
+/**
+ * Learn place associations from the master's own attested PLAC/ADDR/AGNC, so
+ * reshaping can recognize a more specific locality than an incoming place
+ * names (via a shared parish or street) and fill in jurisdiction levels it
+ * omits (e.g. a municipality) — without an external geographic database, just
+ * what the master tree already shows elsewhere.
+ */
+export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
+  const parentTally = new Map<string, Map<string, number>>();
+  const parishTally = new Map<string, Map<string, number>>();
+  const streetTally = new Map<string, Map<string, number>>();
+
+  walkNodes(dataset.records, (node) => {
+    const placNode = node.children.find((c) => c.tag === "PLAC");
+    if (!placNode?.value) return;
+    const addrNode = node.children.find((c) => c.tag === "ADDR");
+    const agncNode = node.children.find((c) => c.tag === "AGNC");
+    const p = decomposePlace(placNode.value);
+    const a = addrNode?.value ? decomposePlace(addrNode.value) : undefined;
+    if (!p.locality) return;
+
+    if (p.jurisdiction.length >= 2) {
+      bumpStr(getForms(parentTally, p.locality.toLowerCase()), p.jurisdiction.slice(1).join(CHAIN_SEP));
+    }
+
+    // A locality written the same as its own next jurisdiction level
+    // ("Kranj,Kranj,Slovenia") is a generic catch-all, not a real
+    // disambiguation — it's how many records on a street get entered when
+    // nobody pinned down the exact hamlet. Don't let it outvote the rarer,
+    // correctly narrowed entries for that same street/parish (e.g.
+    // "Stražišče,Kranj,Slovenia"); only those are worth learning from here.
+    const isGeneric = p.jurisdiction.length >= 2 && p.locality.toLowerCase() === p.jurisdiction[1].toLowerCase();
+    if (isGeneric) return;
+
+    const parishName = p.parish ?? a?.parish ?? stripParishLabel(agncNode?.value);
+    if (parishName) bumpStr(getForms(parishTally, parishName.toLowerCase()), p.locality);
+
+    // The street may be an inline PLAC segment (packed layout, number still
+    // attached) or a separate ADDR (structured layout, already number-free).
+    const streetName = (p.street && stripHouseNumber(p.street)) || addressStreetName(addrNode?.value);
+    if (streetName && streetName.toLowerCase() !== p.locality.toLowerCase()) {
+      bumpStr(getForms(streetTally, streetName.toLowerCase()), p.locality);
+    }
+  });
+
+  const parentOf = new Map<string, string[]>();
+  for (const [key, forms] of parentTally) {
+    const best = mostFrequentStr(forms);
+    if (best) parentOf.set(key, best.split(CHAIN_SEP));
+  }
+  const localityOfParish = new Map<string, string>();
+  for (const [key, forms] of parishTally) {
+    const best = mostFrequentStr(forms);
+    if (best) localityOfParish.set(key, best);
+  }
+  const localityOfStreet = new Map<string, string>();
+  for (const [key, forms] of streetTally) {
+    const best = mostFrequentStr(forms);
+    if (best) localityOfStreet.set(key, best);
+  }
+  return { parentOf, localityOfParish, localityOfStreet };
+}
+
+function getForms(map: Map<string, Map<string, number>>, key: string): Map<string, number> {
+  let forms = map.get(key);
+  if (!forms) {
+    forms = new Map<string, number>();
+    map.set(key, forms);
+  }
+  return forms;
 }
 
 // --- helpers ---------------------------------------------------------------

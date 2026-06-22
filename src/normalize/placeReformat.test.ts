@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reformatPlace } from "./placeReformat";
-import type { PlaceTargetFormat } from "./types";
+import type { PlaceHierarchy, PlaceTargetFormat } from "./types";
 
 const RENKO: PlaceTargetFormat = { layout: "structured-addr", separator: "," };
 
@@ -118,6 +118,52 @@ describe("reformatPlace → country name normalization", () => {
   it("leaves unknown country names unchanged", () => {
     const r = reformatPlace("New York (USA)", undefined, KOVACIC_SL);
     expect(r.plac).toContain("(USA)");
+  });
+});
+
+describe("reformatPlace → master-learned hierarchy fills in missing detail", () => {
+  const hierarchy: PlaceHierarchy = {
+    parentOf: new Map([
+      ["kranj", ["Kranj", "Slovenia"]],
+      ["stražišče", ["Kranj", "Slovenia"]],
+    ]),
+    localityOfParish: new Map([["šmartin", "Stražišče"]]),
+    localityOfStreet: new Map([["hafnarjeva pot", "Stražišče"]]),
+  };
+  const RENKO_H: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy };
+
+  it("inserts a missing municipality level the master always writes for this locality", () => {
+    const r = reformatPlace("Kranj,Slovenia", undefined, RENKO_H);
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+  });
+
+  it("resolves a more specific locality from the AGNC parish and backfills its municipality", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H, "župnija Šmartin");
+    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
+    expect(r.addr).toBe("Hafnarjeva pot 21/a");
+  });
+
+  it("resolves a more specific locality from the street alone, with no AGNC", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H);
+    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
+  });
+
+  it("does not duplicate an AGNC that's already in its own field", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H, "župnija Šmartin");
+    expect(r.agency).toBeUndefined();
+  });
+
+  it("leaves the locality alone when the street/parish isn't recognized", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Neznana ulica 5", RENKO_H);
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+  });
+
+  it("is a no-op when no hierarchy is supplied", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", {
+      layout: "structured-addr",
+      separator: ",",
+    });
+    expect(r.plac).toBe("Kranj,Slovenia");
   });
 });
 

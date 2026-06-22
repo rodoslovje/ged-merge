@@ -2838,11 +2838,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border: 1px solid var(--border);
   border-radius: 10px;
 }
+.preview-stat-num-row { display: flex; align-items: baseline; gap: 6px; }
 .preview-stat-num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
 .preview-stat-num.is-accent { color: var(--accent); }
 .preview-stat-num.is-warn { color: #d9a441; }
+.preview-stat-delta { font-size: 0.95rem; font-weight: 600; color: var(--accent); }
 .preview-stat-label { font-size: 0.8rem; color: var(--muted); text-align: center; }
-.preview-total { margin: 0 0 8px; color: var(--text); font-size: 0.95rem; }
 .preview-note { margin: 4px 0; color: var(--muted); font-size: 0.85rem; }
 .preview-empty { color: var(--muted); }
 

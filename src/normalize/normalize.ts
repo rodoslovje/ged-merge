@@ -108,7 +108,8 @@ function reshapePlaceNode(
   if (!placNode && !addrNode) return;
   const placRaw = placNode?.value;
   const addrRaw = addrNode?.value;
-  const r = reformatPlace(placRaw, addrRaw, fmt);
+  const agncRaw = node.children.find((c) => c.tag === "AGNC")?.value;
+  const r = reformatPlace(placRaw, addrRaw, fmt, agncRaw);
 
   const before = [placRaw, addrRaw].filter(Boolean).join(" · ");
   const after = [r.plac, r.addr, r.agency].filter(Boolean).join(" · ");

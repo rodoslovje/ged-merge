@@ -1,4 +1,4 @@
-import { decomposePlace } from "../gedcom/place";
+import { addressStreetName, decomposePlace, stripHouseNumber, stripParishLabel } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
@@ -25,6 +25,7 @@ export function reformatPlace(
   placRaw: string | undefined,
   addrRaw: string | undefined,
   fmt: PlaceTargetFormat,
+  agncRaw?: string,
 ): ReformattedPlace {
   if (!reshapesLayout(fmt.layout)) {
     return { plac: clean(placRaw), addr: clean(addrRaw) };
@@ -33,14 +34,45 @@ export function reformatPlace(
   const p = placRaw ? decomposePlace(placRaw) : undefined;
   const a = addrRaw ? decomposePlace(addrRaw) : undefined;
 
-  const jurisdiction = p?.jurisdiction.length ? p.jurisdiction : a?.locality ? [a.locality] : [];
-  const locality = p?.locality ?? a?.locality;
+  let jurisdiction = p?.jurisdiction.length ? p.jurisdiction : a?.locality ? [a.locality] : [];
+  let locality = p?.locality ?? a?.locality;
   const country = normalizeCountry(p?.country ?? a?.country, fmt);
   const houseNumber = a?.houseNumber ?? p?.houseNumber;
   const houseName = a?.houseName ?? p?.houseName;
   const street = p?.street ?? a?.street;
+  // The parish that needs to *move* into AGNC: only when it was written inline
+  // in PLAC/ADDR text (packed layouts). A parish already in its own AGNC field
+  // (structured layouts) is left there untouched by the caller.
   const parish = p?.parish ?? a?.parish;
   const facility = p?.facility ?? a?.facility;
+
+  // Use the master's own attested PLAC/ADDR/AGNC pairings (see PlaceHierarchy)
+  // to recognize a more specific locality than the incoming jurisdiction names
+  // — e.g. a parish or street the master tree already ties to a particular
+  // hamlet — and to fill in jurisdiction levels the incoming place omits
+  // (e.g. a municipality), the way the master itself writes that locality.
+  if (fmt.hierarchy) {
+    // The parish as a read-only *hint*, whether it's inline (above) or already
+    // sitting in its own AGNC field — either way it's a clue to the locality.
+    const parishHint = parish ?? stripParishLabel(agncRaw);
+    // `street` (from a packed PLAC's inline "Hafnarjeva pot 21/a") still has
+    // its house number attached — strip it so it matches the learned key,
+    // the same number-free form inferPlaceHierarchy learned it as.
+    const streetHint = street ? stripHouseNumber(street) : undefined;
+    const addrStreet = addressStreetName(addrRaw);
+    const hinted =
+      (parishHint && fmt.hierarchy.localityOfParish.get(parishHint.toLowerCase())) ||
+      (streetHint && fmt.hierarchy.localityOfStreet.get(streetHint.toLowerCase())) ||
+      (addrStreet && fmt.hierarchy.localityOfStreet.get(addrStreet.toLowerCase()));
+    if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
+      locality = hinted;
+      jurisdiction = [hinted, ...jurisdiction.slice(1)];
+    }
+    const parents = locality && fmt.hierarchy.parentOf.get(locality.toLowerCase());
+    if (parents && parents.length > jurisdiction.length - 1) {
+      jurisdiction = [jurisdiction[0] ?? locality, ...parents];
+    }
+  }
 
   // The address detail: a street, or "locality houseNumber", plus any house name.
   // When the house number came from ADDR and ADDR has a different locality than

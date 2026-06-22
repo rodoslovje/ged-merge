@@ -73,10 +73,43 @@ const COUNTRIES = new Set([
 
 /** "po domače" / "pd" house-name parenthetical. */
 const PD_RE = /^(?:pd|po\s+doma[čc]e)\s+(.+)$/i;
+/** "župnija X" / "župnije X" agency text → the parish name alone. */
+const PARISH_LABEL_RE = /^župnij[ae]\s+(.+)$/i;
+/** Strip a "župnija X" prefix from an AGNC value, leaving just the parish name. */
+export function stripParishLabel(raw: string | undefined): string | undefined {
+  const m = raw ? PARISH_LABEL_RE.exec(raw.trim()) : null;
+  return m ? m[1].trim() : undefined;
+}
+
 /** Trailing "… - župnija <parish>" suffix. */
 const PARISH_RE = /\s*[-,]?\s*župnij[ae]\s+(.+?)\s*$/i;
-/** A house number at the end of a segment: "18", "38/a", "2/b", "12a". */
-const HOUSE_TAIL = /\s+(\d[\d/a-zA-Z]*)$/;
+/**
+ * A house number at the end of a segment: "18", "38/a", "2/b", "12a", or an
+ * old/renumbered pair like "21a / 53" (space around the slash, both sides
+ * numeric) — common where a house kept its historical number alongside a
+ * later official one.
+ */
+const HOUSE_TAIL = /\s+(\d[\d/a-zA-Z]*(?:\s*\/\s*\d[\d/a-zA-Z]*)*)$/;
+
+/** Strip a trailing house number from a street/locality segment, leaving the name alone. */
+export function stripHouseNumber(segment: string): string {
+  return segment.replace(HOUSE_TAIL, "").trim();
+}
+
+/**
+ * A street name with the house number(s) stripped, for matching an address to
+ * a known locality by street alone — independent of which house number is on
+ * it. Decomposes `addrRaw` first: a multi-segment ADDR ("Kidričeva 38/a,
+ * Kranj") names the street in `.street` (number still attached, stripped
+ * here); a single-segment one ("Hafnarjeva pot 21/a") parses its street name
+ * into `.locality` instead, already number-free (see decomposePlace).
+ */
+export function addressStreetName(addrRaw: string | undefined): string | undefined {
+  if (!addrRaw) return undefined;
+  const a = decomposePlace(addrRaw);
+  if (a.street) return stripHouseNumber(a.street);
+  return a.houseNumber ? a.locality : undefined;
+}
 /** Street-type words: a segment with one is an address, even without a number. */
 const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */

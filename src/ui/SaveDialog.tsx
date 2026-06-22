@@ -53,9 +53,14 @@ export function SaveDialog({
     () => report.changes.filter((c) => !c.newRecord && (c.from || c.to)).length,
     [report.changes],
   );
+  // Fields added where the master had nothing before, as opposed to one
+  // existing value replacing another.
+  const newFields = useMemo(
+    () => report.changes.filter((c) => !c.newRecord && !c.from && c.to).length,
+    [report.changes],
+  );
 
   const newRecords = report.newPersons + report.newFamilies;
-  const finalCount = masterRecordCount != null ? masterRecordCount + newRecords : undefined;
 
   // Non-standard tags (e.g. _ITALIC) the merge would copy in from the
   // incoming file, grouped by tag name — unchecking one strips every instance
@@ -92,26 +97,24 @@ export function SaveDialog({
 
         <div className="modal-body preview-body">
           <div className="preview-summary">
-            <Stat value={report.recordsChanged} label={t("preview.stat.records")} />
+            <Stat
+              value={report.recordsChanged}
+              label={t("preview.stat.records")}
+              delta={masterRecordCount != null ? newRecords : undefined}
+              deltaTitle={t("preview.stat.newRecords", { count: newRecords })}
+            />
             {fieldCount > 0 && (
-              <Stat value={fieldCount} label={t("preview.stat.fields")} />
-            )}
-            {report.newPersons > 0 && (
-              <Stat value={report.newPersons} label={t("preview.stat.newPersons")} accent />
-            )}
-            {report.newFamilies > 0 && (
-              <Stat value={report.newFamilies} label={t("preview.stat.newFamilies")} accent />
+              <Stat
+                value={fieldCount}
+                label={t("preview.stat.fields")}
+                delta={newFields}
+                deltaTitle={t("preview.stat.newFields", { count: newFields })}
+              />
             )}
             {report.deferred.length > 0 && (
               <Stat value={report.deferred.length} label={t("preview.stat.deferred")} warn />
             )}
           </div>
-
-          {finalCount != null && (
-            <p className="preview-total">
-              {t("preview.total", { before: masterRecordCount, after: finalCount, delta: newRecords })}
-            </p>
-          )}
 
           {report.deferred.length > 0 && (
             <section className="preview-section">
@@ -300,11 +303,30 @@ function groupFieldRows(rows: FieldChange[]): { group?: string; rows: FieldChang
   return groups;
 }
 
-function Stat({ value, label, accent, warn }: { value: number; label: string; accent?: boolean; warn?: boolean }) {
+function Stat({
+  value,
+  label,
+  accent,
+  warn,
+  delta,
+  deltaTitle,
+}: {
+  value: number;
+  label: string;
+  accent?: boolean;
+  warn?: boolean;
+  /** Newly added count shown as a small "+N" badge next to the main number; hidden when 0. */
+  delta?: number;
+  /** Tooltip for the delta badge. */
+  deltaTitle?: string;
+}) {
   const cls = warn ? "is-warn" : accent ? "is-accent" : "";
   return (
     <div className="preview-stat">
-      <span className={`preview-stat-num ${cls}`}>{value}</span>
+      <span className="preview-stat-num-row">
+        <span className={`preview-stat-num ${cls}`}>{value}</span>
+        {!!delta && <span className="preview-stat-delta" title={deltaTitle}>+{delta}</span>}
+      </span>
       <span className="preview-stat-label">{label}</span>
     </div>
   );

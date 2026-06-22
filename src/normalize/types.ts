@@ -81,6 +81,29 @@ export interface PlaceTargetFormat {
    * country names in incoming places are rewritten to match the master's spelling.
    */
   countryPreferred?: Map<string, string>;
+  /**
+   * Place associations learned from the master's own attested PLAC/ADDR/AGNC,
+   * used to recognize a more specific locality than the incoming place names
+   * and to fill in jurisdiction levels it omits. See {@link PlaceHierarchy}.
+   */
+  hierarchy?: PlaceHierarchy;
+}
+
+/**
+ * Place associations learned from the master tree's own attested records —
+ * not an external gazetteer, just what the master itself already shows. Lets
+ * reshaping recognize that, say, "župnija Šmartin" or "Hafnarjeva pot" names a
+ * more specific locality than a generic "Kranj,Slovenia", and that "Kranj"
+ * the locality sits under "Kranj,Slovenia" the wider jurisdiction — purely
+ * because the master has other records that already spell it out in full.
+ */
+export interface PlaceHierarchy {
+  /** Locality (lowercased) → the master's most-attested jurisdiction chain above it. */
+  parentOf: Map<string, string[]>;
+  /** Parish name (lowercased, "župnija" stripped) → the master's most-attested locality. */
+  localityOfParish: Map<string, string>;
+  /** Street/address name (lowercased) → the master's most-attested locality. */
+  localityOfStreet: Map<string, string>;
 }
 
 /** A place reshaped into the master's layout: the parts to write back. */

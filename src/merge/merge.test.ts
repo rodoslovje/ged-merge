@@ -101,8 +101,10 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
     const { dataset: normalizedCompare } = normalizeDataset(compare, inferMasterProfile(master));
     const { records } = mergeDecisions(master, normalizedCompare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
+    // The master's own DEAT for @I2@ attests "Kranj,Gorenjska,Slovenia" — the
+    // learned place hierarchy fills in that municipality level here too.
     expect(out).toContain(
-      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Slovenia\n2 ADDR Kidričeva 38/a (porodnišnica)",
+      "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Gorenjska,Slovenia\n2 ADDR Kidričeva 38/a (porodnišnica)",
     );
     expect(out).not.toContain("2 NOTE porodnišnica");
   });
