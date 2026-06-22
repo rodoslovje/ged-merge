@@ -1,5 +1,15 @@
 import { looksLikeUrl } from "../gedcom/builder";
-import { addObjeToSource, attachSourceCitation, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit";
+import {
+  addObjeToSource,
+  attachSourceCitation,
+  EVENT_CHILD_ORDER,
+  FAM_CHILD_ORDER,
+  INDI_CHILD_ORDER,
+  insertOrdered,
+  insertRecord,
+  NAME_CHILD_ORDER,
+  nextXref,
+} from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
@@ -246,13 +256,13 @@ function applyRows(
       applied = applyName(target, incomingRecord, choice, sourMap);
       nameApplied = applied;
     } else if (row.key === "sex") {
-      applied = setChild(target, "SEX", incomingRecord, choice);
+      applied = setChild(target, "SEX", incomingRecord, choice, INDI_CHILD_ORDER);
     } else if (row.key === "nickname") {
       applied = applyNickname(target, incomingRecord, choice);
     } else if (row.key === "additionalNames") {
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap);
     } else if (row.key === "notes") {
-      applied = applyNotes(target, incomingRecord, choice, sourMap);
+      applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER);
     } else {
       const parts = row.key.split(".");
       const [tag, eventIdx, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
@@ -320,7 +330,7 @@ function applyLinks(
       if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
       attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
     } else {
-      target.children.push(buildLinkNode(linkFormat, url, records));
+      insertOrdered(target, buildLinkNode(linkFormat, url, records), INDI_CHILD_ORDER);
     }
     added.push(url);
   }
@@ -396,7 +406,8 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
   const clone = cloneNodeRemapped(incName, sourMap);
   const idx = target.children.findIndex((c) => c.tag === "NAME");
   if (choice === "both" || idx < 0) {
-    insertAt(target, idx < 0 ? target.children.length : idx + 1, clone);
+    if (idx < 0) insertOrdered(target, clone, INDI_CHILD_ORDER);
+    else insertAt(target, idx + 1, clone);
   } else {
     target.children[idx] = clone;
   }
@@ -405,13 +416,15 @@ function applyName(target: GedNode, incomingRecord: GedNode, choice: FieldChoice
 
 /**
  * Copy NOTE children from the incoming record. "incoming" replaces any existing
- * notes; "both" appends them. Used for both individual and family notes.
+ * notes; "both" appends them. Used for both individual and family notes — pass
+ * the matching canonical order so a brand-new NOTE lands before any trailing
+ * CHAN/CREA rather than after it.
  */
-function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap): boolean {
+function applyNotes(target: GedNode, incoming: GedNode, choice: FieldChoice, sourMap: SourXrefMap, order: string[]): boolean {
   const incNotes = incoming.children.filter((c) => c.tag === "NOTE");
   if (!incNotes.length) return false;
   if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "NOTE");
-  for (const n of incNotes) target.children.push(cloneNodeRemapped(n, sourMap));
+  for (const n of incNotes) insertOrdered(target, cloneNodeRemapped(n, sourMap), order);
   return true;
 }
 
@@ -426,7 +439,7 @@ function applyNickname(target: GedNode, incomingRecord: GedNode, choice: FieldCh
     name = newNode("NAME");
     insertAt(target, 0, name);
   }
-  return setChild(name, "NICK", incName, choice, incNick);
+  return setChild(name, "NICK", incName, choice, NAME_CHILD_ORDER, incNick);
 }
 
 /** Copy the incoming record's additional NAME nodes (everything after the first). */
@@ -448,7 +461,7 @@ function applyAdditionalNames(target: GedNode, incoming: GedNode, choice: FieldC
       return false;
     });
   }
-  for (const n of incExtra) target.children.push(cloneNodeRemapped(n, sourMap));
+  for (const n of incExtra) insertOrdered(target, cloneNodeRemapped(n, sourMap), INDI_CHILD_ORDER);
   return true;
 }
 
@@ -496,7 +509,7 @@ function applyEventSub(
     event = newNode(tag);
     insertOrdered(target, event, order);
   }
-  return setChild(event, subTag, incEvent!, choice, incSub);
+  return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub);
 }
 
 /**
@@ -524,20 +537,24 @@ function applyEventSources(
     insertOrdered(target, event, order);
   }
   if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
-  for (const s of incSours) event.children.push(cloneNodeRemapped(s, sourMap));
+  for (const s of incSours) insertOrdered(event, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
   return true;
 }
 
 /**
  * Copy a single-valued child (e.g. SEX, or DATE under BIRT) from the incoming
  * side. "incoming" replaces the existing child; "both" appends a second one.
- * Returns false when the incoming side has no such child.
+ * Returns false when the incoming side has no such child. A brand-new child
+ * is inserted per `order` (e.g. `EVENT_CHILD_ORDER`) rather than appended, so
+ * it lands among its siblings — before any trailing CHAN/CREA — instead of
+ * always landing last.
  */
 function setChild(
   parent: GedNode,
   tag: string,
   incomingParent: GedNode,
   choice: FieldChoice,
+  order: string[],
   incChildOverride?: GedNode,
 ): boolean {
   const incChild = incChildOverride ?? incomingParent.children.find((c) => c.tag === tag);
@@ -545,7 +562,7 @@ function setChild(
   const clone = cloneNode(incChild);
   const idx = parent.children.findIndex((c) => c.tag === tag);
   if (choice === "both" || idx < 0) {
-    parent.children.push(clone);
+    insertOrdered(parent, clone, order);
   } else {
     parent.children[idx] = clone;
   }
@@ -1036,7 +1053,7 @@ function applyIndividualFamilies(
     const famNotesKey = `${famKey}.notes`;
     if (wantsIncoming(rows, fields, famNotesKey)) {
       const choice = fields[famNotesKey] ?? "incoming";
-      if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap)) {
+      if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap, FAM_CHILD_ORDER)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.notes"),

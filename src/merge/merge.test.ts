@@ -524,6 +524,41 @@ describe("mergeDecisions — event source citations", () => {
   });
 });
 
+describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () => {
+  // Master's RESI already has its own CHAN/CREA audit timestamps, typical of
+  // exports from RootsMagic/Family Historian/etc. The incoming side adds an
+  // ADDR that master is missing.
+  const masterWithAudit = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 RESI\n2 DATE 1900\n2 PLAC Kranj\n2 CHAN\n3 DATE 17 NOV 2025\n2 CREA\n3 DATE 09 JUL 2025\n",
+  );
+  const compareWithAddr = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 DATE 1900\n2 PLAC Kranj\n2 ADDR Main St.\n",
+  );
+
+  it("inserts a new ADDR before CHAN/CREA, not after", () => {
+    const master = dataset(masterWithAudit);
+    const compare = dataset(compareWithAddr);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 PLAC Kranj\n2 ADDR Main St.\n2 CHAN");
+    expect(out).not.toContain("2 CREA\n3 DATE 09 JUL 2025\n2 ADDR");
+  });
+
+  it("inserts a brand-new NOTE before CHAN/CREA on an event the master already has", () => {
+    const master = dataset(masterWithAudit);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 DATE 1900\n2 PLAC Kranj\n2 NOTE Family home\n",
+      ),
+    );
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 NOTE Family home\n2 CHAN");
+    expect(out).not.toContain("2 CREA\n3 DATE 09 JUL 2025\n2 NOTE");
+  });
+});
+
 describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
   // Master has an ASSO (association to another individual) sitting between
   // BIRT and DEAT, with its own DATE (a validity period, not an event date)

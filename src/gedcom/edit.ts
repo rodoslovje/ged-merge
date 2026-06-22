@@ -12,7 +12,7 @@ import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
  */
 
 /** Canonical sub-tag order within an event (BIRT/DEAT/RESI/…) node. */
-const EVENT_CHILD_ORDER = [
+export const EVENT_CHILD_ORDER = [
   "TYPE", "DATE", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
 ];
 
@@ -37,7 +37,7 @@ export const FAM_CHILD_ORDER = [
 ];
 
 /** Canonical sub-tag order within a `NAME` node. */
-const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE", "NOTE", "SOUR"];
+export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE", "NOTE", "SOUR"];
 
 /** Links attached to an event are plain `WWW` lines. */
 const EVENT_LINK_TAG = "WWW";
@@ -308,8 +308,19 @@ export function nextXref(records: GedNode[], prefix: string): string {
   return `@${prefix}${max + 1}@`;
 }
 
-/** Append a new top-level record just before `TRLR` (or at the end, if there's none). */
+/** Append a new top-level record after the last existing record of the same
+ * tag (so e.g. new `SOUR`/`OBJE` records stay grouped with the others rather
+ * than scattering at the file's end), or just before `TRLR` (or at the very
+ * end, if there's none) when no record of that tag exists yet. */
 export function insertRecord(records: GedNode[], record: GedNode): void {
+  let lastSameTag = -1;
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i].tag === record.tag) { lastSameTag = i; break; }
+  }
+  if (lastSameTag !== -1) {
+    records.splice(lastSameTag + 1, 0, record);
+    return;
+  }
   const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
   if (trlrIndex === -1) records.push(record);
   else records.splice(trlrIndex, 0, record);
