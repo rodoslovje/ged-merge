@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildCompareTree, type TreeMode, type TreeNode } from "../tree/compareTree";
 import { kinshipLabel } from "../match/kinship";
+import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass, sexColorVar } from "./sex";
 
 // ─── Constants (identical to CompareTree so node sizes match) ─────────────────
@@ -66,10 +67,12 @@ interface Props {
   rootId: string;
   homeId?: string;
   changedPersonIds: Set<string>;
+  /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
+  decisions?: Map<string, CandidateDecision>;
   onBack: () => void;
 }
 
-export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }: Props) {
+export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions, onBack }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -110,6 +113,15 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
   const colorOf = useCallback(
     (n: Placed) => isModified(n) ? COLOR_MODIFIED : COLOR_NORMAL,
     [isModified],
+  );
+
+  const decisionStatusById = useMemo(() => decisionStatusByMasterId(decisions), [decisions]);
+  const decisionOf = useCallback(
+    (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
+      const status = n.master ? decisionStatusById.get(n.master.id) : undefined;
+      return status ? { status, letter: t(`status.${status}`).charAt(0) } : undefined;
+    },
+    [decisionStatusById, t],
   );
 
   // ── Viewport sync & scroll ────────────────────────────────────────────────
@@ -274,6 +286,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
                 {flat.nodes.map((n) => {
                   const color = colorOf(n);
                   const modified = isModified(n);
+                  const dec = decisionOf(n);
                   return (
                     <g
                       key={n.key}
@@ -302,11 +315,14 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
                       {(() => {
                         const k = homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
                         // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char
-                        // at 10px; modified badge: a fixed ~22px once it sits next to the years label).
-                        const decW = modified ? 22 : 0;
-                        const needsKinshipRow = !!(k && (n.years || modified) && (n.years?.length ?? 0) * 13 + decW + k.length * 11 > 300);
+                        // at 10px; each badge: a fixed ~22px once it sits next to the years label).
+                        const decW = (modified ? 22 : 0) + (dec ? 22 : 0);
+                        const needsKinshipRow = !!(k && (n.years || decW) && (n.years?.length ?? 0) * 13 + decW + k.length * 11 > 300);
                         const yearsRowY = needsKinshipRow ? 32 : 36;
-                        const decBadgeX = 16 + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+                        const badge1X = 16 + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+                        const badge2X = badge1X + 18;
+                        const decisionBadgeX = badge1X;
+                        const modifiedBadgeX = dec ? badge2X : badge1X;
                         return (
                           <>
                             {n.years && (
@@ -319,8 +335,23 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
                                 {k}
                               </text>
                             )}
+                            {dec && (
+                              <g className={`tree-node-decision ${dec.status}`} transform={`translate(${decisionBadgeX},${yearsRowY - 4})`}>
+                                <circle r={7} />
+                                <text
+                                  textAnchor="middle"
+                                  dominantBaseline="central"
+                                  x={0}
+                                  y={0.5}
+                                  fontSize={9}
+                                  fontWeight={700}
+                                >
+                                  {dec.letter}
+                                </text>
+                              </g>
+                            )}
                             {modified && (
-                              <g className="tree-node-decision" transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
+                              <g className="tree-node-decision" transform={`translate(${modifiedBadgeX},${yearsRowY - 4})`}>
                                 <circle r={7} fill={COLOR_MODIFIED} />
                                 <text
                                   textAnchor="middle"
@@ -363,6 +394,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
           <EditNodePanel
             node={selected}
             isModified={isModified(selected)}
+            decision={decisionOf(selected)}
             onReroot={() => {
               setCurrentRootId(selected.master!.id);
               setSelectedKey(null);
@@ -447,16 +479,19 @@ function EditMinimap({
 function EditNodePanel({
   node,
   isModified,
+  decision,
   onReroot,
   onClose,
 }: {
   node: Placed;
   isModified: boolean;
+  decision?: { status: Exclude<MatchDecisionStatus, "undecided">; letter: string };
   onReroot: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const color = isModified ? COLOR_MODIFIED : COLOR_NORMAL;
+  const hasBadges = isModified || !!decision;
   return (
     <div className="tree-compare">
       <div className="tree-compare-head">
@@ -468,12 +503,17 @@ function EditNodePanel({
         <button className="tree-compare-close" onClick={onClose} title={t("tree.close")}>×</button>
       </div>
       <div style={{ padding: "8px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
+        {decision && (
+          <span className={`status-chip ${decision.status}`} title={t(`status.${decision.status}`)}>
+            {t(`status.${decision.status}`)}
+          </span>
+        )}
         {isModified && (
           <span className="edit-tree-badge">{t("edit.tree.modified")}</span>
         )}
         <button
           className="nav-btn"
-          style={{ marginLeft: isModified ? "auto" : 0 }}
+          style={{ marginLeft: hasBadges ? "auto" : 0 }}
           onClick={onReroot}
         >
           {t("edit.tree.reroot")}

@@ -8,7 +8,7 @@ import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameT
 import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
 import { dateToSortKey, familyMergeKeyBases, individualFieldRows, orderedEventTags } from "../review/fields";
-import { defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addAdditionalName,
   addChild,
@@ -1057,17 +1057,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     () => buildPlaceSuggestions(dataset),
     [dataset],
   );
-  const decisionStatusById = useMemo(() => {
-    const map = new Map<string, Exclude<MatchDecisionStatus, "undecided">>();
-    if (!decisions) return map;
-    for (const [key, dec] of decisions) {
-      if (dec.status === "undecided") continue;
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual") continue;
-      if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
-    }
-    return map;
-  }, [decisions]);
+  const decisionStatusById = useMemo(() => decisionStatusByMasterId(decisions), [decisions]);
 
   if (!person) {
     return (

@@ -93,6 +93,26 @@ export function decisionKey(kind: MatchKind, masterId: string, compareId: string
   return `${kind}:${masterId}:${compareId}`;
 }
 
+/**
+ * Collapses individual-decision keys down to one status per master id, so
+ * callers showing a single person (a relative card, a tree node) can do a
+ * plain id lookup instead of scanning every candidate pair. A "confirmed"
+ * decision wins over any other stale decision recorded against the same id.
+ */
+export function decisionStatusByMasterId(
+  decisions: Map<string, CandidateDecision> | undefined,
+): Map<string, Exclude<MatchDecisionStatus, "undecided">> {
+  const map = new Map<string, Exclude<MatchDecisionStatus, "undecided">>();
+  if (!decisions) return map;
+  for (const [key, dec] of decisions) {
+    if (dec.status === "undecided") continue;
+    const parts = key.split(":");
+    if (parts.length !== 3 || parts[0] !== "individual") continue;
+    if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
+  }
+  return map;
+}
+
 /** Sensible default merge choice: keep the master's value, else take incoming. */
 export function defaultChoice(row: FieldRow): FieldChoice {
   return row.master ? "master" : "incoming";

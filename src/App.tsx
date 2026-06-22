@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./ui/historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
+import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
@@ -948,15 +949,34 @@ export function App() {
     });
     downloadText(`${preview.base}.gedmerge.ged`, text);
     downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
-    if (preview.isMerge) {
-      // These confirmed decisions are now baked into the downloaded file —
-      // clear them so the pending-changes count doesn't still include them.
-      setDecisions((prev) => {
-        const next = new Map(prev);
-        for (const [key, d] of next) if (d.status === "confirmed") next.delete(key);
-        return next;
-      });
-    }
+
+    // The downloaded file is the new master baseline — rebuild the live dataset
+    // from the same records so the app reflects exactly what was saved, instead
+    // of leaving merged-in fields stuck on stale pre-merge data (mergeDecisions
+    // only ever wrote them into a clone for serialization).
+    const rebuilt = buildDataset({
+      version: masterDataset.version,
+      charset: masterDataset.charset,
+      records: preview.records,
+      warnings: masterDataset.warnings,
+      eol: masterDataset.eol,
+      finalNewline: masterDataset.finalNewline,
+    });
+    Object.assign(masterDataset, rebuilt);
+    loadedPersonIds.current = new Set(masterDataset.individuals.keys());
+    loadedFamilyIds.current = new Set(masterDataset.families.keys());
+    personSnapshots.current = new Map();
+    familySnapshots.current = new Map();
+
+    // These confirmed decisions are now baked into the live dataset — clear them
+    // so the pending-changes count doesn't still include them. Always replace the
+    // map (even when nothing was confirmed) so EditView's merge-generation bump
+    // remounts event rows and drops their stale "dirty since edit" highlighting.
+    setDecisions((prev) => {
+      const next = new Map(prev);
+      for (const [key, d] of next) if (d.status === "confirmed") next.delete(key);
+      return next;
+    });
     setSaveToast(t("save.toast", { count: preview.files.length }));
     setPreview(null);
     setChangedPersonIds(new Set());
@@ -1065,6 +1085,7 @@ export function App() {
         rootId={editTreeId}
         homeId={homeId}
         changedPersonIds={changedPersonIds}
+        decisions={decisions}
         onBack={() => window.history.back()}
       />
     );
