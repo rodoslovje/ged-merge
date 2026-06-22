@@ -43,13 +43,6 @@ const DECISION_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = [
   "deferred",
 ];
 
-/** Decision badge / button colours, matching the compare panel's decision bar. */
-const DECISION_COLOR: Record<Exclude<MatchDecisionStatus, "undecided">, string> = {
-  confirmed: "#3ecf8e",
-  rejected: "#ef4444",
-  deferred: "#e2b341",
-};
-
 const NODE_W = 184;
 const NODE_H = 48;
 const COL_GAP = 80;
@@ -119,17 +112,18 @@ export function CompareTree({
 }: Props) {
   const { t } = useTranslation();
 
-  // A matched node (both sides present) carries a decision; resolve its status,
-  // localized letter, and colour for the corner badge. Undecided → no badge.
+  // A matched node (both sides present) carries a decision; resolve its status
+  // and localized letter for the badge next to its lifespan. The badge's colour
+  // comes from CSS (`.status-chip.<status>`), matching the same chip used in
+  // Edit and Merge. Undecided → no badge.
   const decisionOf = useCallback(
-    (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string; color: string } | undefined => {
+    (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
       if (!n.master || !n.incoming) return undefined;
       const d = decisions.get(decisionKey("individual", n.master.id, n.incoming.id));
       if (!d || d.status === "undecided") return undefined;
       return {
         status: d.status,
         letter: t(`status.${d.status}`).charAt(0).toUpperCase(),
-        color: DECISION_COLOR[d.status],
       };
     },
     [decisions, t],
@@ -416,7 +410,7 @@ function TreeSvg({
   height: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  decisionOf: (n: Placed) => { status: string; letter: string; color: string } | undefined;
+  decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
   kinshipOf: (n: Placed) => string | undefined;
 }) {
   const { nodes, edges } = flat;
@@ -475,10 +469,11 @@ function TreeSvg({
                   {kinship}
                 </text>
               )}
-              {/* Decision badge next to the lifespan (matched, decided nodes). */}
+              {/* Decision badge next to the lifespan (matched, decided nodes) — same
+                  colours as the status chip used in Edit and Merge. */}
               {dec && (
-                <g className="tree-node-decision" transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
-                  <circle r={7} fill={dec.color} stroke="var(--panel)" strokeWidth={1.5} />
+                <g className={`tree-node-decision ${dec.status}`} transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
+                  <circle r={7} />
                   <text
                     textAnchor="middle"
                     dominantBaseline="central"
@@ -486,7 +481,6 @@ function TreeSvg({
                     y={0.5}
                     fontSize={9}
                     fontWeight={700}
-                    fill="#10231b"
                   >
                     {dec.letter}
                   </text>

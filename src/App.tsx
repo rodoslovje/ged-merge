@@ -79,6 +79,10 @@ const THEME_KEY = "gedmerge.theme";
 
 type Mode = "merge" | "edit";
 const MODE_KEY = "gedmerge.mode";
+// Matching can finish in under a millisecond once the engine is JIT-warm, far
+// too fast to ever paint a "matching" state — so keep the spinner up for at
+// least this long once it starts.
+const MIN_MATCHING_DISPLAY_MS = 300;
 
 // Both mode views stay mounted (see render below) and are toggled with these
 // styles rather than `hidden`, so the active one keeps the `flex: 1 1 0;
@@ -103,8 +107,17 @@ export function App() {
   // Whether we've already attempted the one-time default home person for the
   // currently loaded master, so a user who clears it isn't re-defaulted.
   const autoHomeRef = useRef(false);
+  // Timestamp the "matching" spinner started, and the pending timer delaying
+  // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
+  const matchingStartRef = useRef<number | null>(null);
+  const matchedTimerRef = useRef<number | null>(null);
   const [master, setMaster] = useState<SlotState>({ status: "empty" });
   const [compare, setCompare] = useState<SlotState>({ status: "empty" });
+  // The most recently *successfully* loaded master file, kept around while a
+  // reload is in progress so the Merge/Edit views stay mounted (showing the
+  // previous data) instead of falling back to the landing page while
+  // `master` is transiently "loading" or "error".
+  const [lastMasterFile, setLastMasterFile] = useState<LoadedFile | null>(null);
   const [matches, setMatches] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
   const [homeId, setHomeId] = useState<string | undefined>(undefined);
@@ -286,15 +299,35 @@ export function App() {
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       const msg = e.data;
       if (msg.type === "matching") {
+        if (matchedTimerRef.current != null) {
+          window.clearTimeout(matchedTimerRef.current);
+          matchedTimerRef.current = null;
+        }
+        if (matchingStartRef.current === null) matchingStartRef.current = performance.now();
         setMatching(true);
         return;
       }
       if (msg.type === "matched") {
-        setMatches(msg.result);
-        setMatching(false);
-        setSelectedId(null);
-        setOpenMatches(true);
-        setShowInfoPanel(false);
+        const applyMatched = () => {
+          matchingStartRef.current = null;
+          matchedTimerRef.current = null;
+          setMatches(msg.result);
+          setMatching(false);
+          setSelectedId(null);
+          setOpenMatches(true);
+          setShowInfoPanel(false);
+        };
+        // matchDatasets can finish in under a millisecond once the engine is
+        // JIT-warm (e.g. re-matching on a master reload), too fast for React to
+        // ever paint the "matching" state. Hold the spinner up for a minimum
+        // stretch so background recomputation stays visible to the user.
+        const elapsed = matchingStartRef.current != null ? performance.now() - matchingStartRef.current : MIN_MATCHING_DISPLAY_MS;
+        const remaining = MIN_MATCHING_DISPLAY_MS - elapsed;
+        if (remaining > 0) {
+          matchedTimerRef.current = window.setTimeout(applyMatched, remaining);
+        } else {
+          applyMatched();
+        }
         return;
       }
       const setter = msg.role === "master" ? setMaster : setCompare;
@@ -305,12 +338,16 @@ export function App() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
         setter({ status: "loaded", file });
+        if (msg.role === "master") setLastMasterFile(file);
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });
       }
     };
 
-    return () => worker.terminate();
+    return () => {
+      if (matchedTimerRef.current != null) window.clearTimeout(matchedTimerRef.current);
+      worker.terminate();
+    };
   }, []);
 
   async function loadSample(role: DatasetRole, fileName: string) {
@@ -720,7 +757,7 @@ export function App() {
     [],
   );
 
-  const masterDataset = master.status === "loaded" ? master.file.dataset : undefined;
+  const masterDataset = lastMasterFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
   // Edit Tree: full-page tree view for the edit mode.
@@ -1094,11 +1131,11 @@ export function App() {
             </div>
           </div>
         </div>
-        {(master.status === "loaded" || compare.status === "loaded") && (
+        {(lastMasterFile || compare.status === "loaded") && (
           <div className="app-head-files">
-            {master.status === "loaded" && (
+            {lastMasterFile && (
               <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={t("load.master")}>
-                {master.file.fileName}
+                {lastMasterFile.fileName}
               </button>
             )}
             {compare.status === "loaded" && (
@@ -1106,7 +1143,7 @@ export function App() {
                 {compare.file.fileName}
               </button>
             )}
-            {master.status === "loaded" && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
+            {lastMasterFile && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
               <div className="app-head-right">
                 {(changedCount > 0 || confirmedCount > 0) && (
                   <button
@@ -1134,7 +1171,7 @@ export function App() {
       </header>
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
-      {infoPanelOpen && master.status === "loaded" && (
+      {infoPanelOpen && lastMasterFile && (
         <div className="info-panel">
           {canClosePanel && (
             <button
@@ -1185,8 +1222,10 @@ export function App() {
         </div>
       )}
 
-      {/* Master landing — shown before any master file is loaded */}
-      {master.status !== "loaded" && (
+      {/* Master landing — shown before any master file has ever loaded; once one
+          has, reloads/errors stay on this page (in the info panel above) instead
+          of bouncing back here. */}
+      {!lastMasterFile && (
         <Landing
           masterState={master}
           onLoadFile={(f) => loadFile("master", f)}
@@ -1201,7 +1240,7 @@ export function App() {
           flex sizing `.edit-view`/`.main-split` expect from their parent (a
           `flex: 1 1 0; min-height: 0` column child of `.app`) — a plain
           `hidden` div would collapse to auto height and break the layout. */}
-      {master.status === "loaded" && masterDataset && (
+      {lastMasterFile && masterDataset && (
         <>
           <div style={mode === "merge" ? modeLayerStyle : modeLayerHiddenStyle}>
             <MergeView
@@ -1241,7 +1280,7 @@ export function App() {
           <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
             <EditView
               dataset={masterDataset}
-              fileName={master.file.fileName}
+              fileName={lastMasterFile.fileName}
               homeId={homeId}
               changeHome={changeHome}
               onDirty={handleEditDirty}

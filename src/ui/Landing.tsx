@@ -139,7 +139,7 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
         {loading ? (
           <div className="lb-drop lb-drop-loading">
             <span className="spinner" aria-hidden="true" />
-            <span className="lb-dz-title">
+            <span className="parsing-status-text">
               {t("loader.parsing", { fileName: (masterState as { status: "loading"; fileName: string }).fileName })}
             </span>
           </div>

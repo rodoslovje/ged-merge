@@ -321,7 +321,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, onBack }:
                             )}
                             {modified && (
                               <g className="tree-node-decision" transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
-                                <circle r={7} fill={COLOR_MODIFIED} stroke="var(--panel)" strokeWidth={1.5} />
+                                <circle r={7} fill={COLOR_MODIFIED} />
                                 <text
                                   textAnchor="middle"
                                   dominantBaseline="central"

@@ -490,6 +490,11 @@ button:focus-visible {
   gap: 10px;
 }
 
+.parsing-status-text {
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .lb-dz-ico {
   color: var(--accent);
   margin-bottom: 4px;
@@ -2649,6 +2654,19 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   fill: var(--accent);
   font-size: 10px;
 }
+/* Decision / modified badge next to a node's lifespan — a drop shadow
+   separates it from the node fill instead of a hard panel-colour ring. */
+.tree-node-decision {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+/* Confirmed/rejected/deferred fills match .status-chip's colours exactly, so
+   the same decision reads the same whether it's shown in Edit, Merge or Tree. */
+.tree-node-decision.confirmed circle { fill: #14492f; }
+.tree-node-decision.rejected circle { fill: #4a1d1d; }
+.tree-node-decision.deferred circle { fill: #3a3320; }
+.tree-node-decision.confirmed text { fill: #6ee7b7; }
+.tree-node-decision.rejected text { fill: #fca5a5; }
+.tree-node-decision.deferred text { fill: #fcd34d; }
 /* selected-person compare table (top-right overlay) */
 .tree-compare {
   position: absolute;

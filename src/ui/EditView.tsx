@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, GedNode, Individual, Sex, SourceCitation } from "../gedcom/types";
@@ -450,6 +450,27 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
    */
   const [resolvedSessionFields, setResolvedSessionFields] = useState<Set<string>>(new Set());
   useEffect(() => { setResolvedSessionFields(new Set()); }, [selectedId]);
+
+  /**
+   * Bumped only when `decisions` itself changes (a match got confirmed,
+   * rejected, or a field choice flipped) — not on every dataset edit, even
+   * though `mergeData` below also recomputes on plain edits (it depends on
+   * `tick`/`dataset` too, to keep displayed values current). Event rows fold
+   * this into their React `key` so they remount and re-read fresh merge
+   * values when a decision changes — without it, a row already mounted
+   * before a match was confirmed keeps the lazy-initialized state (e.g.
+   * `expanded`, field values) it had at mount, since merely changing props
+   * doesn't re-run a `useState(() => ...)` initializer. Tying this to every
+   * `tick` instead would remount rows on every keystroke-commit, dropping
+   * in-progress edits in sibling fields of the same row (e.g. losing focus
+   * right after expanding a row to add a source) — see e2e/edit.spec.ts.
+   */
+  const mergeGenRef = useRef(0);
+  const lastDecisionsRef = useRef(decisions);
+  if (lastDecisionsRef.current !== decisions) {
+    lastDecisionsRef.current = decisions;
+    mergeGenRef.current += 1;
+  }
 
   /** Merge preview data for the currently selected person's confirmed match. */
   const mergeData = useMemo(() => {
@@ -1025,6 +1046,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     setTick((v) => v + 1);
   }
 
+  // These two hooks must run unconditionally (Rules of Hooks) — they're
+  // computed here, above the `!person` early return below, even though
+  // both are only consumed once `person` is known to exist. The second one
+  // builds decision status (confirmed/rejected/deferred) for relatives shown
+  // on the father/mother/partner/child cards, mirroring the candidate list's
+  // status chip; a "confirmed" decision wins over any other stale decision
+  // recorded against the same master id.
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical } = useMemo(
+    () => buildPlaceSuggestions(dataset),
+    [dataset],
+  );
+  const decisionStatusById = useMemo(() => {
+    const map = new Map<string, Exclude<MatchDecisionStatus, "undecided">>();
+    if (!decisions) return map;
+    for (const [key, dec] of decisions) {
+      if (dec.status === "undecided") continue;
+      const parts = key.split(":");
+      if (parts.length !== 3 || parts[0] !== "individual") continue;
+      if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
+    }
+    return map;
+  }, [decisions]);
+
   if (!person) {
     return (
       <div className="section open edit-view">
@@ -1043,11 +1087,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   const spouseFamilies = person.spouseOf
     .map((famId) => dataset.families.get(famId))
     .filter((f): f is NonNullable<typeof f> => !!f);
-
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical } = useMemo(
-    () => buildPlaceSuggestions(dataset),
-    [dataset],
-  );
 
   const lifespan = lifespanOf(person);
   const kinship = homeId
@@ -1068,22 +1107,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       kinshipTooltip: k && homePersonName ? t("kinship.tooltip", { kinship: k, name: homePersonName }) : undefined,
     };
   }
-
-  // Decision status (confirmed/rejected/deferred) for relatives shown on the father/mother/
-  // partner/child cards, mirroring the candidate list's status chip. Built once per decisions
-  // change so each card just does an id lookup; a "confirmed" decision wins over any other
-  // stale decision recorded against the same master id.
-  const decisionStatusById = useMemo(() => {
-    const map = new Map<string, Exclude<MatchDecisionStatus, "undecided">>();
-    if (!decisions) return map;
-    for (const [key, dec] of decisions) {
-      if (dec.status === "undecided") continue;
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual") continue;
-      if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
-    }
-    return map;
-  }, [decisions]);
 
   function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string } {
     const status = id ? decisionStatusById.get(id) : undefined;
@@ -1246,6 +1269,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             resolvedSessionFields={resolvedSessionFields}
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
+            mergeGen={mergeGenRef.current}
           />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
@@ -1341,12 +1365,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} mergeHighlight={mergeHighlight} mergeIncomingSources={mergeIncomingSources} famMergeKeyBase={famMergeKeyBase} />}
+                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}-${mergeGenRef.current}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} mergeHighlight={mergeHighlight} mergeIncomingSources={mergeIncomingSources} famMergeKeyBase={famMergeKeyBase} />}
                 {fam && shownFamilyTags.map((tag) => {
                   const hasRealEvent = fam.events.some((e) => e.tag === tag);
                   return (
                     <FamilyEventRow
-                      key={`${fam.id}-${tag}-${undoVersion}`}
+                      key={`${fam.id}-${tag}-${undoVersion}-${mergeGenRef.current}`}
                       fam={fam}
                       tag={tag}
                       t={t}
@@ -1576,11 +1600,30 @@ const ClearableTextarea = forwardRef<
   // Grow the textarea to fit its content — one line tall when short, taller
   // as it wraps or gains lines — so editing reads like the multi-line text
   // the Compare panel renders, instead of scrolling inside a fixed box.
-  useEffect(() => {
+  //
+  // A ResizeObserver (not just a `[value]` effect) because this row can
+  // mount while its ancestor is the inactive Edit/Merge mode layer (both are
+  // always mounted; the inactive one is hidden, not unmounted, to preserve
+  // state across tab switches — see App.tsx). `scrollHeight` of anything
+  // under `display: none` reads 0, so a mount-time-only measurement bakes in
+  // a collapsed height that never gets recomputed once the tab becomes
+  // visible, since `value` doesn't change again on its own. The observer
+  // re-measures whenever the element's actual box appears/changes.
+  useLayoutEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    const resize = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    resize();
+    // Deferred via rAF: resize() itself changes the observed box, and
+    // calling it straight from the observer callback (synchronously, in the
+    // same notification cycle) is what trips the browser's "ResizeObserver
+    // loop completed with undelivered notifications" warning.
+    const ro = new ResizeObserver(() => requestAnimationFrame(resize));
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [value]);
 
   return (
@@ -2119,6 +2162,7 @@ function EventList({
   resolvedSessionFields,
   pendingFocusNodeId,
   undoVersion,
+  mergeGen,
 }: {
   person: Individual;
   t: Translate;
@@ -2150,6 +2194,10 @@ function EventList({
   resolvedSessionFields?: Set<string>;
   pendingFocusNodeId?: number | null;
   undoVersion?: number;
+  /** Bumped whenever the confirmed-match merge preview recomputes; folded into
+   * row keys so a row already mounted before a match was confirmed remounts
+   * and picks up the now-available incoming values (see `mergeGenRef`). */
+  mergeGen?: number;
 }) {
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
@@ -2224,7 +2272,7 @@ function EventList({
         <span />
       </div>
       <EventFieldsRow
-        key={`${person.id}-BIRT-${undoVersion ?? 0}`}
+        key={`${person.id}-BIRT-${undoVersion ?? 0}-${mergeGen ?? 0}`}
         ev={birtEv}
         label={t("event.BIRT")}
         tag="BIRT"
@@ -2249,7 +2297,7 @@ function EventList({
       {allRows.map((row) =>
         row.kind === "master" ? (
           <EventFieldsRow
-            key={`ev-${row.stableKey}`}
+            key={`ev-${row.stableKey}-${mergeGen ?? 0}`}
             ev={row.ev}
             label={t(`event.${row.ev.tag}`)}
             tag={row.ev.tag}
@@ -2274,7 +2322,7 @@ function EventList({
           />
         ) : (
           <EventFieldsRow
-            key={`${person.id}-merge-${row.keyBase}`}
+            key={`${person.id}-merge-${row.keyBase}-${mergeGen ?? 0}`}
             ev={undefined}
             label={t(`event.${row.tag}`)}
             tag={row.tag}

@@ -35,8 +35,8 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
-  const exportBtn = page.locator(".edit-toolbar button", { hasText: "Export" });
-  await expect(exportBtn).toBeDisabled();
+  const saveBtn = page.locator(".app-head-right .export-btn");
+  await expect(saveBtn).toHaveCount(0);
 
   const given = page.locator(".edit-name-input").first();
   const surname = page.locator(".edit-name-input").nth(1);
@@ -44,7 +44,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await given.fill(`${oldGiven} TEST`);
   await surname.click(); // blur
 
-  await page.locator(".sex-toggle-btn", { hasText: "M" }).click();
+  await page.locator(".sex-select").selectOption("M");
 
   const birth = page.locator(".edit-event").first();
   await birth.locator(".edit-event-date").fill("1 JAN 1900");
@@ -56,10 +56,13 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
 
-  await expect(exportBtn).toBeEnabled();
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();
 
-  const downloadPromise = page.waitForEvent("download");
-  await exportBtn.click();
+  const confirmBtn = page.locator(".preview-actions .export-btn");
+  // Save downloads both the .ged and a .report.txt; only the .ged matters here.
+  const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
+  await confirmBtn.click();
   const download = await downloadPromise;
   const filePath = await download.path();
   const content = readFileSync(filePath!, "utf-8");
@@ -88,11 +91,14 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
 
-  const exportBtn = page.locator(".edit-toolbar button", { hasText: "Export" });
-  await expect(exportBtn).toBeEnabled();
+  const saveBtn = page.locator(".app-head-right .export-btn");
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();
 
-  const downloadPromise = page.waitForEvent("download");
-  await exportBtn.click();
+  const confirmBtn = page.locator(".preview-actions .export-btn");
+  // Save downloads both the .ged and a .report.txt; only the .ged matters here.
+  const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
+  await confirmBtn.click();
   const download = await downloadPromise;
   const filePath = await download.path();
   const content = readFileSync(filePath!, "utf-8");
