@@ -452,6 +452,21 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   useEffect(() => { setResolvedSessionFields(new Set()); }, [selectedId]);
 
   /**
+   * Incoming events (by `nodeId`) that were materialized into a new master
+   * event via a direct edit of an "extra" (incoming-only) row. Once an event
+   * is claimed it's excluded from the master/incoming pairing computed below
+   * — otherwise an edit that pushes the new master event's date far from the
+   * original incoming date (e.g. correcting a year) drops below the pairing
+   * threshold, and the same incoming event reappears as a second "extra" row
+   * alongside the master event it just created.
+   */
+  const [claimedIncomingEvents, setClaimedIncomingEvents] = useState<Set<number>>(new Set());
+  useEffect(() => { setClaimedIncomingEvents(new Set()); }, [selectedId]);
+  function claimIncomingEvent(id: number) {
+    setClaimedIncomingEvents((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }
+
+  /**
    * Bumped only when `decisions` itself changes (a match got confirmed,
    * rejected, or a field choice flipped) — not on every dataset edit, even
    * though `mergeData` below also recomputes on plain edits (it depends on
@@ -485,7 +500,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       /** master person.events overall index → sort key from incoming date, when master has no date. */
       masterMergeSortKeys: new Map<number, number>(),
       /** Incoming-only events with no master counterpart (BIRT excluded — always shown). */
-      extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number }[],
+      extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number; incomingNodeId: number }[],
       /** master family id → the `fam.<id>` key base used for that family's rows
        * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
       familyMergeKeyBases: new Map<string, string>(),
@@ -497,8 +512,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       if (dec.status !== "confirmed") continue;
       const parts = key.split(":");
       if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      const incoming = compareDataset.individuals.get(parts[2]);
-      if (!incoming) continue;
+      const rawIncoming = compareDataset.individuals.get(parts[2]);
+      if (!rawIncoming) continue;
+      // Drop incoming events already claimed by a direct edit (see
+      // `claimIncomingEvent`) so they don't get re-paired against the master
+      // event they created, or reappear as a leftover "extra" suggestion.
+      const incoming = claimedIncomingEvents.size === 0 ? rawIncoming : {
+        ...rawIncoming,
+        events: rawIncoming.events.filter((ev) => !claimedIncomingEvents.has(nodeId(ev))),
+      };
 
       // Field key → incoming value for all fields the merge will add/change.
       const rows = individualFieldRows(t, person, incoming, dataset, compareDataset);
@@ -526,7 +548,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       });
       const masterMergeKeyBases = new Map<number, string>();
       const masterMergeSortKeys = new Map<number, number>();
-      const extraMergeEvents: { tag: string; keyBase: string; sortKey: number }[] = [];
+      const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; incomingNodeId: number }[] = [];
       const EVENT_SUBS = ["date", "place", "addr", "value"] as const;
 
       // Index incoming events by tag for sort key lookup.
@@ -555,7 +577,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           // BIRT is always shown in its own row so exclude it from extras.
           if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`))) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
-            extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: dateToSortKey(incomingEv?.date) });
+            if (incomingEv) {
+              extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: dateToSortKey(incomingEv.date), incomingNodeId: nodeId(incomingEv) });
+            }
           }
         }
       }
@@ -565,7 +589,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return empty;
-  }, [decisions, compareDataset, person, dataset, t, tick]);
+  }, [decisions, compareDataset, person, dataset, t, tick, claimedIncomingEvents]);
 
   const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById, hasMergeDecision } = mergeData;
 
@@ -1275,6 +1299,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             extraMergeEvents={extraMergeEvents}
             onDismissExtraEvent={dismissExtraEvent}
             onResolveMergeField={resolveMergeFields}
+            onClaimIncomingEvent={claimIncomingEvent}
             resolvedSessionFields={resolvedSessionFields}
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
@@ -2168,6 +2193,7 @@ function EventList({
   extraMergeEvents,
   onDismissExtraEvent,
   onResolveMergeField,
+  onClaimIncomingEvent,
   resolvedSessionFields,
   pendingFocusNodeId,
   undoVersion,
@@ -2190,13 +2216,17 @@ function EventList({
   /** master person.events[i] → sort key from incoming date, when master has no date. */
   masterMergeSortKeys?: Map<number, number>;
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
-  extraMergeEvents?: { tag: string; keyBase: string; sortKey: number }[];
+  extraMergeEvents?: { tag: string; keyBase: string; sortKey: number; incomingNodeId: number }[];
   /** Called when an extra merge event is dismissed, to update the merge decision. */
   onDismissExtraEvent?: (keyBase: string) => void;
   /** Called after a direct field edit, to resolve the touched merge sub-fields
    * (e.g. "date", "value") to "master" so they stop being treated as pending
    * incoming suggestions. */
   onResolveMergeField?: (keyBase: string, subs: string[]) => void;
+  /** Called when an "extra" (incoming-only) row's first edit materializes a
+   * new master event, so the source incoming event is excluded from future
+   * pairing/extra-event consideration (see `claimIncomingEvent`). */
+  onClaimIncomingEvent?: (incomingNodeId: number) => void;
   /** Sub-field keys (e.g. "OCCU.value") resolved from a merge suggestion via a
    * direct edit earlier this session — kept dirty/bold despite the row's
    * one-time remount from "extra" to "master" kind. */
@@ -2238,7 +2268,7 @@ function EventList({
 
   // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events.
   type MasterRow  = { kind: "master"; ev: GedEvent; i: number; mergeKeyBase: string; stableKey: number };
-  type ExtraRow   = { kind: "extra";  tag: string; keyBase: string };
+  type ExtraRow   = { kind: "extra";  tag: string; keyBase: string; incomingNodeId: number };
   type AnyRow     = (MasterRow | ExtraRow) & { sortKey: number; tagPos: number };
 
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
@@ -2257,9 +2287,9 @@ function EventList({
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])
-      .map(({ tag, keyBase, sortKey }): AnyRow => ({
+      .map(({ tag, keyBase, sortKey, incomingNodeId }): AnyRow => ({
         kind: "extra",
-        tag, keyBase,
+        tag, keyBase, incomingNodeId,
         sortKey,
         tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
       })),
@@ -2339,6 +2369,7 @@ function EventList({
             commitField={(update, extraPatches) => {
               commit((indi) => setEventField(indi, row.tag, update), extraPatches);
               onResolveMergeField?.(row.keyBase, subsOf(update));
+              onClaimIncomingEvent?.(row.incomingNodeId);
             }}
             onRemove={() => onDismissExtraEvent?.(row.keyBase)}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches) })}
