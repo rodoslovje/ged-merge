@@ -524,6 +524,36 @@ describe("mergeDecisions — event source citations", () => {
   });
 });
 
+describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
+  // Master has an ASSO (association to another individual) sitting between
+  // BIRT and DEAT, with its own DATE (a validity period, not an event date)
+  // that falls outside the BIRT..DEAT range.
+  const masterWithAsso = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "1 BIRT\n2 DATE 1850\n" +
+      "1 ASSO @I2@\n2 ROLE OTHER\n2 DATE 1979\n" +
+      "1 DEAT\n2 DATE 1900\n" +
+      "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n",
+  );
+  const compareFillsBirthPlace = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n1 DEAT\n2 DATE 1900\n",
+  );
+
+  it("leaves the ASSO node in place when another field on the record changes", () => {
+    const master = dataset(masterWithAsso);
+    const compare = dataset(compareFillsBirthPlace);
+    const before = serializeGedcom(master.records);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const after = serializeGedcom(records);
+
+    const diff = lineDiff(before, after);
+    expect(diff.added).toEqual(["2 PLAC Kranj"]);
+    expect(diff.removed).toEqual([]);
+    // ASSO stays between BIRT and DEAT, not pushed past DEAT by date sort.
+    expect(after).toContain("1 ASSO @I2@\n2 ROLE OTHER\n2 DATE 1979\n1 DEAT");
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();

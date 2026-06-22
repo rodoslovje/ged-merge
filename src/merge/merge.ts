@@ -557,11 +557,14 @@ function insertAt(parent: GedNode, index: number, child: GedNode): void {
 }
 
 /**
- * Globally sort all event children of a record by date — matching the order
- * the UI displays them. Tag type is a tiebreaker for same-date events.
- * Structural nodes (NAME, SEX at the front; FAMC, FAMS, NOTE, SOUR, etc. at
- * the back) keep their relative positions. Unknown tags with a DATE child are
- * treated as events; those without stay in the suffix.
+ * Sort the record's chronological event children (BIRT, BAPM, RESI, …) by
+ * date, matching the order the UI displays them; tag type is a tiebreaker for
+ * same-date events. Every other child — NAME/SEX, FAMC/FAMS, NOTE/SOUR/OBJE,
+ * ASSO, and any other non-event structure — is left at its exact original
+ * index, so a decision touching one event never displaces unrelated nodes
+ * elsewhere in the record. Unknown tags with a DATE child are treated as
+ * events (covers custom EVEN-like facts); ASSO is explicitly excluded since
+ * its DATE is a validity period, not an event timestamp.
  */
 function sortEventsByDate(record: GedNode): void {
   const suffixStart = INDI_CHILD_ORDER.indexOf("FAMC");
@@ -570,26 +573,29 @@ function sortEventsByDate(record: GedNode): void {
     return i === -1 ? Infinity : i;
   };
   const isEvent = (node: GedNode) => {
+    if (node.tag === "ASSO") return false;
     const r = tagRank(node.tag);
     return (r >= 2 && r < suffixStart) ||
       (r === Infinity && node.children.some((c) => c.tag === "DATE"));
   };
 
-  const prefix: GedNode[] = [];
+  const eventIndices: number[] = [];
   const events: GedNode[] = [];
-  const suffix: GedNode[] = [];
-  for (const child of record.children) {
-    if (tagRank(child.tag) < 2) prefix.push(child);
-    else if (isEvent(child)) events.push(child);
-    else suffix.push(child);
-  }
+  record.children.forEach((child, i) => {
+    if (isEvent(child)) {
+      eventIndices.push(i);
+      events.push(child);
+    }
+  });
   if (events.length < 2) return;
 
   const dateKey = (node: GedNode): number =>
     dateToSortKey(parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? ""));
 
   events.sort((a, b) => dateKey(a) - dateKey(b) || tagRank(a.tag) - tagRank(b.tag));
-  record.children = [...prefix, ...events, ...suffix];
+  eventIndices.forEach((idx, i) => {
+    record.children[idx] = events[i];
+  });
 }
 
 function newNode(tag: string, value?: string, xref?: string): GedNode {
