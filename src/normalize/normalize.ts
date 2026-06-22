@@ -117,8 +117,23 @@ function reshapePlaceNode(
 
   const existingNote = node.children.find((c) => c.tag === "NOTE");
   node.children = node.children.filter((c) => c !== placNode && c !== addrNode);
-  if (r.plac !== undefined) node.children.push(plainNode("PLAC", r.plac));
-  if (r.addr !== undefined) node.children.push(plainNode("ADDR", r.addr));
+  if (r.plac !== undefined) {
+    const placeNode = plainNode("PLAC", r.plac);
+    // Surface the pre-reshape text as a tooltip: the original PLAC when it
+    // changed, plus the original ADDR when it was absorbed into the PLAC
+    // rather than kept as its own row.
+    const reshapedFromParts = [
+      placRaw && placRaw !== r.plac ? placRaw : undefined,
+      addrRaw && r.addr === undefined ? addrRaw : undefined,
+    ].filter(Boolean) as string[];
+    if (reshapedFromParts.length > 0) placeNode.reshapedFrom = reshapedFromParts.join(" · ");
+    node.children.push(placeNode);
+  }
+  if (r.addr !== undefined) {
+    const addrNodeOut = plainNode("ADDR", r.addr);
+    if (addrRaw && addrRaw !== r.addr) addrNodeOut.reshapedFrom = addrRaw;
+    node.children.push(addrNodeOut);
+  }
   if (r.note) {
     if (existingNote) existingNote.value = existingNote.value ? `${existingNote.value}\n${r.note}` : r.note;
     else node.children.push(plainNode("NOTE", r.note));

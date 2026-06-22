@@ -38,6 +38,12 @@ export interface GedNode {
   /** Line value, with CONT/CONC already folded in. May be an xref pointer. */
   value?: string;
   children: GedNode[];
+  /**
+   * Runtime-only annotation (never serialized): the line's value before a
+   * load-time reshape replaced it, kept so the UI can still show the
+   * original text in a tooltip. See `normalize/normalize.ts`.
+   */
+  reshapedFrom?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */
@@ -135,6 +141,8 @@ export interface GedPlace {
    * places with the same locality but different detail are different locations.
    */
   detail?: string;
+  /** Pre-reshape text, when a load-time reshape changed `raw` (see `GedNode.reshapedFrom`). */
+  originalRaw?: string;
 }
 
 /**

@@ -161,8 +161,14 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext):
   const agncNode = node.children.find((c) => c.tag === "AGNC");
   const causNode = node.children.find((c) => c.tag === "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
-  if (placeNode?.value) event.place = parsePlace(placeNode.value);
-  if (addrNode?.value) event.address = parsePlace(addrNode.value);
+  if (placeNode?.value) {
+    event.place = parsePlace(placeNode.value);
+    if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
+  }
+  if (addrNode?.value) {
+    event.address = parsePlace(addrNode.value);
+    if (addrNode.reshapedFrom) event.address.originalRaw = addrNode.reshapedFrom;
+  }
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
