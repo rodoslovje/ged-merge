@@ -62,7 +62,10 @@ function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Tra
 
 function summarizeEvent(node: GedNode): string {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
-  return [get("DATE"), get("PLAC"), get("ADDR"), get("NOTE")].filter(Boolean).join(" · ") || "…";
+  // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
+  // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
+  // the summary string and the diff silently drops the change.
+  return [node.value?.trim(), get("DATE"), get("PLAC"), get("ADDR"), get("NOTE")].filter(Boolean).join(" · ") || "…";
 }
 
 function diffEventSet(
