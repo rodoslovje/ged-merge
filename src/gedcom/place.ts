@@ -56,7 +56,7 @@ export interface PlaceComponents {
   houseName?: string;
   /** Street + number where the street name differs from the locality, e.g. "Kidričeva 38/a". */
   street?: string;
-  /** Parish from "župnija X" / "- župnija X" (Slovenian Brother's Keeper). */
+  /** Parish from "župnija X" / "- župnija X" (also Croatian "župa" / English "parish"). */
   parish?: string;
   /** Facility/landmark parenthetical, e.g. porodnišnica, bolnica, pokopališče. */
   facility?: string;
@@ -73,16 +73,18 @@ const COUNTRIES = new Set([
 
 /** "po domače" / "pd" house-name parenthetical. */
 const PD_RE = /^(?:pd|po\s+doma[čc]e)\s+(.+)$/i;
-/** "župnija X" / "župnije X" agency text → the parish name alone. */
-const PARISH_LABEL_RE = /^župnij[ae]\s+(.+)$/i;
-/** Strip a "župnija X" prefix from an AGNC value, leaving just the parish name. */
+/** A parish marker word: Slovenian "župnija"/"župnije", Croatian "župa"/"župe", or English "parish". */
+const PARISH_WORD = "(?:župnij[ae]|žup[ae]|parish)";
+/** "župnija X" / "župa X" / "parish X" agency text → the parish name alone. */
+const PARISH_LABEL_RE = new RegExp(`^${PARISH_WORD}\\s+(.+)$`, "i");
+/** Strip a "župnija X" / "župa X" / "parish X" prefix from an AGNC value, leaving just the parish name. */
 export function stripParishLabel(raw: string | undefined): string | undefined {
   const m = raw ? PARISH_LABEL_RE.exec(raw.trim()) : null;
   return m ? m[1].trim() : undefined;
 }
 
-/** Trailing "… - župnija <parish>" suffix. */
-const PARISH_RE = /\s*[-,]?\s*župnij[ae]\s+(.+?)\s*$/i;
+/** Trailing "… - župnija/župa/parish <parish>" suffix. */
+const PARISH_RE = new RegExp(`\\s*[-,]?\\s*${PARISH_WORD}\\s+(.+?)\\s*$`, "i");
 /**
  * A house number at the end of a segment: "18", "38/a", "2/b", "12a", or an
  * old/renumbered pair like "21a / 53" (space around the slash, both sides

@@ -274,8 +274,8 @@ function inferPlaceProfile(values: string[], addrCount: number): PlaceFormatProf
   };
 }
 
-/** Parish marker (Slovenian "župnija"/"župnije"). */
-const PARISH_MARK = /\bžupnij[ae]\b/i;
+/** Parish marker (Slovenian "župnija"/"župnije", Croatian "župa"/"župe", or English "parish"). */
+const PARISH_MARK = /\b(?:župnij[ae]|žup[ae]|parish)\b/i;
 /** A parenthetical on the first comma part — Brother's Keeper "Locality (Country)". */
 const PAREN_ON_FIRST = /^[^,]*\([^)]+\)/;
 

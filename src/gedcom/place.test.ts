@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decomposePlace } from "./place";
+import { decomposePlace, stripParishLabel } from "./place";
 
 describe("decomposePlace", () => {
   it("splits a structured comma place (Renko PLAC)", () => {
@@ -34,6 +34,14 @@ describe("decomposePlace", () => {
     expect(p.country).toBe("Slovenija");
     expect(p.street).toBe("Cesta revolucije 2/b");
     expect(p.parish).toBe("Jesenice");
+  });
+
+  it("also recognizes the Croatian 'župa' and English 'parish' markers", () => {
+    const hr = decomposePlace("Jesenice (Slovenija), Cesta revolucije 2/b - župa Jesenice");
+    expect(hr.parish).toBe("Jesenice");
+
+    const en = decomposePlace("Jesenice (Slovenija), Cesta revolucije 2/b - parish Jesenice");
+    expect(en.parish).toBe("Jesenice");
   });
 
   it("treats 'Locality 52' as a house number, not a street", () => {
@@ -76,5 +84,17 @@ describe("decomposePlace", () => {
     expect(p.jurisdiction).toEqual(["Jesenice", "Slovenija"]);
     expect(p.street).toBeUndefined();
     expect(p.houseNumber).toBeUndefined();
+  });
+});
+
+describe("stripParishLabel", () => {
+  it("strips 'župnija', Croatian 'župa', and English 'parish' prefixes", () => {
+    expect(stripParishLabel("Župnija Kranj")).toBe("Kranj");
+    expect(stripParishLabel("Župa Kranj")).toBe("Kranj");
+    expect(stripParishLabel("Parish Kranj")).toBe("Kranj");
+  });
+
+  it("leaves an unrelated agency value untouched", () => {
+    expect(stripParishLabel("Maribor hospital")).toBeUndefined();
   });
 });
