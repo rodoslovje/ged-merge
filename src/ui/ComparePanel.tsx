@@ -151,7 +151,9 @@ export function ComparePanel({
                   </>
                 )}
                 <td className="f-choice">
-                  {row.state === "conflict" || row.state === "incoming-only" ? (
+                  {forceMaster ? (
+                    <span className="gm-master-tag">{t("compare.keepMaster")}</span>
+                  ) : row.state === "conflict" || row.state === "incoming-only" ? (
                     CHOICES.map((c) => (
                       <button
                         key={c}
