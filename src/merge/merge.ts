@@ -12,7 +12,7 @@ import {
   NAME_CHILD_ORDER,
   nextXref,
 } from "../gedcom/edit";
-import { findExistingSource } from "../gedcom/source";
+import { findExistingSource, sourceContentKey } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import type { MatchResult } from "../match/types";
@@ -135,8 +135,7 @@ export function mergeDecisions(
   t: Translate,
 ): MergeResult {
   const records = master.records.map(cloneNode);
-  const masterXrefs = new Set(records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourXrefMap = buildSourXrefMap(compare.records, masterXrefs);
+  const sourXrefMap = buildSourXrefMap(compare.records, records);
   const indiNodes = new Map<string, GedNode>();
   const famNodes = new Map<string, GedNode>();
   for (const r of records) {
@@ -778,15 +777,33 @@ type SourXrefMap = ReadonlyMap<string, string>;
 
 /**
  * Pre-compute the xref translation table for all compare SOUR/REPO records.
- * Records whose xref does not exist in the master are mapped to themselves;
- * collisions get a fresh xref of the same type (S… / R…) that avoids all
- * existing master xrefs.
+ * A compare record describing the same real-world source as an existing
+ * master one (per `sourceContentKey` — same TITL/ABBR/AUTH/…, regardless of
+ * xref) maps straight to that master xref, so merging never mints a
+ * duplicate record for a source the master already has. Otherwise: records
+ * whose xref does not exist in the master are mapped to themselves; xref
+ * collisions (with an unrelated record) get a fresh xref of the same type
+ * (S… / R…) that avoids all existing master xrefs.
  */
-function buildSourXrefMap(compareRecords: GedNode[], masterXrefs: ReadonlySet<string>): Map<string, string> {
+function buildSourXrefMap(compareRecords: GedNode[], masterRecords: GedNode[]): Map<string, string> {
   const map = new Map<string, string>();
-  const used = new Set(masterXrefs);
+  const used = new Set(masterRecords.filter((r) => r.xref).map((r) => r.xref as string));
+
+  const masterByContent = new Map<string, string>();
+  for (const rec of masterRecords) {
+    if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
+    const key = sourceContentKey(rec);
+    if (key && !masterByContent.has(`${rec.tag}:${key}`)) masterByContent.set(`${rec.tag}:${key}`, rec.xref);
+  }
+
   for (const rec of compareRecords) {
     if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
+    const key = sourceContentKey(rec);
+    const existing = key ? masterByContent.get(`${rec.tag}:${key}`) : undefined;
+    if (existing) {
+      map.set(rec.xref, existing);
+      continue;
+    }
     if (!used.has(rec.xref)) {
       map.set(rec.xref, rec.xref);
       used.add(rec.xref);
@@ -890,8 +907,7 @@ export function materializeEventSources(
 ): GedNode[] {
   const incSours = incomingEventNode.children.filter((c) => c.tag === "SOUR");
   if (!incSours.length) return [];
-  const masterXrefs = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourMap = buildSourXrefMap(compare.records, masterXrefs);
+  const sourMap = buildSourXrefMap(compare.records, dataset.records);
   for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
   const imported = importSourRecords(dataset.records, compare, sourMap, {});
   if (imported.length) bumpSourceCacheVersion(dataset.records);

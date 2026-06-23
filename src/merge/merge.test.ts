@@ -452,6 +452,28 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out).toContain(`0 ${sourXref} SOUR\n1 TITL Matična knjiga rojstev Kranj`);
   });
 
+  it("reuses an existing master SOUR for a compare source with the same content under a different xref", () => {
+    // Master already cites this exact register, just under a different xref.
+    const masterWithSameSource = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
+    );
+    const master = dataset(masterWithSameSource);
+    const compare = dataset(compareWithSour); // compare's @CS1@ has the same TITL/AUTH
+    const matches = {
+      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // No new SOUR record was minted — the import reused master's existing @S9@.
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
+    expect(out).toContain("1 SOUR @S9@");
+  });
+
   it("transitively imports a REPO referenced by an imported SOUR", () => {
     const compareWithRepo = wrap(
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +

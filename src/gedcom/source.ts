@@ -259,6 +259,34 @@ export function findExistingSource(
   return bookMatch ? { sourceXref: bookMatch, page } : undefined;
 }
 
+/** Tags that point to another top-level record rather than describing this
+ * one's own content — excluded from `sourceContentKey` since the pointed-to
+ * record is its own (separately comparable) thing. */
+const SOURCE_RELATIONAL_TAGS = new Set(["OBJE", "REPO"]);
+
+/**
+ * A content-identity key for a top-level `SOUR` or `REPO` record: every
+ * descendant tag/value pair except relational pointers (`OBJE`, `REPO`) and
+ * custom `_`-prefixed tags (cosmetic exporter markup, e.g. `_ITALIC`). Two
+ * records with the same key describe the same real-world source even under
+ * different xrefs — two GEDCOM exports of overlapping family lines routinely
+ * cite the same parish register under unrelated `@S..@` numbering. Empty
+ * string means the record has no identity-bearing content to key on (the
+ * caller should treat that as "no match", not match every other empty one).
+ */
+export function sourceContentKey(node: GedNode): string {
+  const parts: string[] = [];
+  const walk = (n: GedNode): void => {
+    for (const child of n.children) {
+      if (SOURCE_RELATIONAL_TAGS.has(child.tag) || child.tag.startsWith("_")) continue;
+      parts.push(`${child.tag}=${(child.value ?? "").trim()}`);
+      walk(child);
+    }
+  };
+  walk(node);
+  return parts.join("|");
+}
+
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */
 function forEachCitationValue(records: GedNode[], visit: (value: string) => void): void {
   const stack: GedNode[] = [...records];
