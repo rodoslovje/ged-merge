@@ -39,6 +39,15 @@ export interface FieldChange {
   /** Event name (e.g. "Birth", "Marriage") this field belongs to, so the
    *  preview can show it once as a header above its date/place/note/source. */
   group?: string;
+  /** Set when an existing event was modified (not newly added/removed) — the preview
+   *  renders these pieces in place of `from`/`to`, coloring each by whether the edit
+   *  actually touched it, instead of treating the whole line as one new value. */
+  segments?: { text: string; state: "same" | "changed" | "removed" }[];
+  /** True when `to` is a verbatim, un-chosen copy of the incoming file's value (the
+   *  user took "incoming" by default, didn't combine it with master or type it by
+   *  hand) — the preview colors these like other incoming-sourced data rather than
+   *  as an edit. Only meaningful for merge-produced changes. */
+  unedited?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */
@@ -112,6 +121,47 @@ const SUB_LABEL_KEY: Record<string, string> = {
   note: "event.colNote",
   agency: "event.colAgency",
 };
+
+/** Order in which an event's changed sub-fields are joined into one preview line. */
+const SUB_JOIN_ORDER = ["value", "date", "place", "addr", "note", "agency"];
+
+interface EventSubEdit {
+  sub: string;
+  field: string;
+  from: string;
+  to: string;
+  action: FieldChoice;
+}
+
+/**
+ * Combines an event's changed sub-fields (date/value/place/addr/note/agency) into
+ * one preview line — e.g. "Occupation: + šivilja v pokoju · 1998" — instead of a
+ * separate "Date:"/"Occupation:" line each, matching the single-line look already
+ * used when a whole event is added or removed as a unit. Falls back to one row per
+ * sub-field when they don't share the same action (the user picked "incoming" for
+ * one and "both"/"master" for another), since a single from/to pair can't represent that.
+ */
+function combineEventEdits(recordId: string, group: string, entries: EventSubEdit[]): FieldChange[] {
+  if (entries.length === 0) return [];
+  if (entries.length === 1) {
+    const e = entries[0];
+    return [{ recordId, field: e.field, from: e.from, to: e.to, action: e.action, group, unedited: e.action === "incoming" }];
+  }
+  const action = entries[0].action;
+  if (!entries.every((e) => e.action === action)) {
+    return entries.map((e) => ({ recordId, field: e.field, from: e.from, to: e.to, action: e.action, group, unedited: e.action === "incoming" }));
+  }
+  const ordered = [...entries].sort((a, b) => SUB_JOIN_ORDER.indexOf(a.sub) - SUB_JOIN_ORDER.indexOf(b.sub));
+  return [{
+    recordId,
+    field: group,
+    from: ordered.map((e) => e.from).filter(Boolean).join(" · "),
+    to: ordered.map((e) => e.to).filter(Boolean).join(" · "),
+    action,
+    group,
+    unedited: action === "incoming",
+  }];
+}
 
 /**
  * Apply confirmed match decisions to a clone of the master tree, taking each
@@ -256,6 +306,10 @@ function applyRows(
   for (const row of rows) {
     if (row.isEventHeader) eventGroups.set(row.key.replace(/\.header$/, ""), row.label);
   }
+  // Sub-field edits (date/value/place/addr/note/agency) for each event instance,
+  // collected here instead of pushed straight to `report.changes` so they can be
+  // combined into one preview line via `combineEventEdits` once the row loop ends.
+  const eventEdits = new Map<string, EventSubEdit[]>();
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "master-only") continue;
@@ -267,7 +321,7 @@ function applyRows(
     if (row.key === "links") {
       const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], linkFormat, records);
       if (added.length) {
-        report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice });
+        report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice, unedited: choice === "incoming" });
         touched.add(recordId);
       }
       continue;
@@ -315,10 +369,22 @@ function applyRows(
     }
 
     if (applied) {
-      const group = eventGroups.get(row.key.replace(/\.(date|place|addr|note|agency|sources|value)$/, ""));
-      report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group });
+      const subMatch = row.key.match(/\.(date|place|addr|note|agency|sources|value)$/);
+      const eventKey = subMatch ? row.key.slice(0, -subMatch[0].length) : undefined;
+      const group = eventKey ? eventGroups.get(eventKey) : undefined;
+      const sub = subMatch?.[1];
+      if (eventKey && group && sub && sub !== "sources") {
+        let entries = eventEdits.get(eventKey);
+        if (!entries) { entries = []; eventEdits.set(eventKey, entries); }
+        entries.push({ sub, field: row.label, from: row.master, to: row.incoming, action: choice });
+      } else {
+        report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group, unedited: choice === "incoming" });
+      }
       touched.add(recordId);
     }
+  }
+  for (const [eventKey, entries] of eventEdits) {
+    report.changes.push(...combineEventEdits(recordId, eventGroups.get(eventKey)!, entries));
   }
 }
 
@@ -1070,6 +1136,7 @@ function applyFamilyStructure(
           from: "",
           to: ctx.label(targetId),
           action: "incoming",
+          unedited: true,
         });
         ctx.touched.add(famId);
       }
@@ -1094,6 +1161,7 @@ function applyFamilyStructure(
           from: "",
           to: ctx.label(targetId),
           action: "incoming",
+          unedited: true,
         });
         ctx.touched.add(famId);
       }
@@ -1183,6 +1251,7 @@ function applyIndividualFamilies(
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, children: takeChildren });
 
+    const marrEntries: EventSubEdit[] = [];
     for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
       const choice = marriageChoice(sub);
       if (!choice) continue;
@@ -1192,27 +1261,22 @@ function applyIndividualFamilies(
       const rowIncoming = rows.find((r) => r.key === rowKey)?.incoming ?? "";
       const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
       if (applied) {
-        ctx.report.changes.push({
-          recordId: famNode.xref!,
-          field: ctx.t(SUB_LABEL_KEY[sub]),
-          from: "",
-          to: rowIncoming,
-          action: choice,
-          group: ctx.t("event.MARR"),
-        });
+        marrEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
         ctx.touched.add(famNode.xref!);
       }
     }
+    ctx.report.changes.push(...combineEventEdits(famNode.xref!, ctx.t("event.MARR"), marrEntries));
 
     const marrSourcesChoice = marriageChoice("sources");
     if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
-      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR") });
+      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming" });
       ctx.touched.add(famNode.xref!);
     }
 
     // Engagement, Separation, Divorce — same pattern as MARR.
     for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
       const evName = ctx.t(`event.${evTag}`);
+      const evEntries: EventSubEdit[] = [];
       for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
@@ -1222,22 +1286,16 @@ function applyIndividualFamilies(
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
         const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
         if (applied) {
-          ctx.report.changes.push({
-            recordId: famNode.xref!,
-            field: ctx.t(SUB_LABEL_KEY[sub]),
-            from: "",
-            to: rowIncoming,
-            action: choice,
-            group: evName,
-          });
+          evEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
           ctx.touched.add(famNode.xref!);
         }
       }
+      ctx.report.changes.push(...combineEventEdits(famNode.xref!, evName, evEntries));
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
         if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
-          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName });
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming" });
           ctx.touched.add(famNode.xref!);
         }
       }
@@ -1254,6 +1312,7 @@ function applyIndividualFamilies(
           from: "",
           to: incFam.notes?.join("\n") ?? "",
           action: choice,
+          unedited: choice === "incoming",
         });
         ctx.touched.add(famNode.xref!);
       }
@@ -1333,7 +1392,7 @@ function setSpouseSlot(
   }
   addPointer(famNode, role, personId, FAM_CHILD_ORDER);
   linkBack(ctx, personId, "FAMS", famId);
-  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming" });
+  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming", unedited: true });
   ctx.touched.add(famId);
 }
 

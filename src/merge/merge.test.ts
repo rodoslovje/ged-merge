@@ -38,7 +38,11 @@ describe("mergeDecisions", () => {
     const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 BIRT\n2 DATE 1850\n2 PLAC Kranj");
-    expect(report.changes.some((c) => c.to === "Kranj")).toBe(true);
+    const change = report.changes.find((c) => c.to === "Kranj");
+    expect(change).toBeDefined();
+    // A plain, un-chosen copy of the incoming value — the preview should color
+    // this like other incoming-sourced data, not like something the user edited.
+    expect(change!.unedited).toBe(true);
   });
 
   it("leaves a conflicting field on master unless explicitly chosen", () => {
@@ -340,7 +344,11 @@ describe("mergeDecisions — links", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("1 _WEBTAG\n2 URL https://example.com/new");
     expect(out).not.toMatch(/^1 WWW/m);
-    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+    const change = report.changes.find((c) => c.to === "https://example.com/new");
+    expect(change).toBeDefined();
+    // Explicitly chosen "both" (kept alongside master's link) isn't a plain
+    // incoming copy, so it should keep the normal "added" preview color.
+    expect(change!.unedited).toBeFalsy();
   });
 
   it("adds a new incoming link as an OBJE/FILE record when the master uses that format", () => {
@@ -705,6 +713,29 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
     expect(maribor).toContain("Glavni trg 1");
     expect(maribor).toContain("Agency-Maribor-incoming");
     expect(out.match(/1 RESI/g)).toHaveLength(3); // 2 master + 1 new, none duplicated
+  });
+});
+
+describe("mergeDecisions — preview groups a new event's sub-field changes into one line", () => {
+  // Master has no OCCU at all; incoming adds one with both a value and a date.
+  // Before the fix, applyRows pushed one FieldChange per sub-field ("Date",
+  // "Occupation") under the same group, so the preview showed two lines under
+  // one header instead of a single "Occupation: + value · date" line.
+  const masterNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
+  const compareNewOccu = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OCCU šivilja v pokoju\n2 DATE 1998\n",
+  );
+
+  it("combines the new event's date+value into a single FieldChange row", () => {
+    const master = dataset(masterNoOccu);
+    const compare = dataset(compareNewOccu);
+    const { report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const occuChanges = report.changes.filter((c) => c.group === "event.OCCU");
+    expect(occuChanges).toHaveLength(1);
+    expect(occuChanges[0].to).toBe("šivilja v pokoju · 1998");
+    // Default-filled from incoming (master had nothing to begin with), not
+    // something the user typed or combined — preview should color it as such.
+    expect(occuChanges[0].unedited).toBe(true);
   });
 });
 

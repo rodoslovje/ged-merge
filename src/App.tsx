@@ -691,13 +691,17 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
+
   // Mode-switch shortcuts: first letter of each mode label in the active language.
-  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, setMode });
+  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, setMode, current, setNavigateToId });
   modeSwitchRef.current = {
     editKey: t("mode.edit").charAt(0).toLowerCase(),
     mergeKey: t("mode.merge").charAt(0).toLowerCase(),
     mode,
     setMode,
+    current,
+    setNavigateToId,
   };
 
   useEffect(() => {
@@ -706,8 +710,12 @@ export function App() {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
-      const { editKey, mergeKey, mode: cur, setMode: sm } = modeSwitchRef.current;
-      if (key === editKey && cur !== "edit") { e.preventDefault(); sm("edit"); }
+      const { editKey, mergeKey, mode: cur, setMode: sm, current: cand, setNavigateToId: setNav } = modeSwitchRef.current;
+      if (key === editKey && cur !== "edit") {
+        e.preventDefault();
+        if (cand) setNav(cand.masterId);
+        sm("edit");
+      }
       else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sm("merge"); }
     }
     window.addEventListener("keydown", onKey);
@@ -721,6 +729,20 @@ export function App() {
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
     pushUnified({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
+    setDecisions(after);
+  }
+
+  // Same as `updateDecision`, but for EditView: the person being edited there
+  // isn't necessarily Merge's currently selected candidate (`current`) — e.g.
+  // after confirming two matches and navigating from one to the other within
+  // Edit. EditView already knows which decision it means (it found `key` by
+  // matching the decision's own master id against the person on screen), so
+  // it passes that key explicitly instead of relying on `current`.
+  function updateDecisionForKey(key: string, next: CandidateDecision) {
+    const [, masterId, compareId] = key.split(":");
+    const before = new Map(decisions);
+    const after = new Map(decisions).set(key, next);
+    pushUnified({ mode: "merge", before, after, masterId, compareId });
     setDecisions(after);
   }
 
@@ -773,7 +795,6 @@ export function App() {
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
-  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
   // IDs present when the master was loaded (to distinguish edits vs. new additions).
   const loadedPersonIds = useRef<Set<string>>(new Set());
   const loadedFamilyIds = useRef<Set<string>>(new Set());
@@ -1315,7 +1336,7 @@ export function App() {
               canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
               decisions={decisions}
               compareDataset={compareDataset}
-              onUpdateDecision={updateDecision}
+              onUpdateDecision={updateDecisionForKey}
               onPushEdit={handlePushEdit}
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}

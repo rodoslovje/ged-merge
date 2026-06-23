@@ -2936,6 +2936,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .preview-add { color: var(--accent); }
 .preview-from { color: var(--muted); text-decoration: line-through; }
 .preview-to { color: var(--accent); }
+.preview-same { color: var(--state-incoming); }
 
 .preview-files {
   margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);

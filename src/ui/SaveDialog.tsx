@@ -211,7 +211,10 @@ export function SaveDialog({
                               <ul className="preview-fields preview-fields-nested">
                                 {grp.rows.map((c, i) => (
                                   <li key={i}>
-                                    <span className="preview-field">{c.field}</span>: <FieldValue c={c} />
+                                    {c.field !== grp.group && (
+                                      <><span className="preview-field">{c.field}</span>: </>
+                                    )}
+                                    <FieldValue c={c} />
                                   </li>
                                 ))}
                               </ul>
@@ -278,13 +281,27 @@ export function SaveDialog({
 }
 
 function FieldValue({ c }: { c: FieldChange }) {
-  if (c.action === "both" || !c.from) return <span className="preview-add">+ {c.to}</span>;
+  if (c.segments) {
+    return (
+      <>
+        {c.segments.map((s, i) => (
+          <span key={i}>
+            {i > 0 && " · "}
+            <span className={s.state === "changed" ? "preview-add" : s.state === "removed" ? "preview-from" : "preview-same"}>
+              {s.text}
+            </span>
+          </span>
+        ))}
+      </>
+    );
+  }
+  if (c.action === "both" || !c.from) return <span className={c.unedited ? "preview-same" : "preview-add"}>+ {c.to}</span>;
   if (!c.to) return <span className="preview-from">{c.from}</span>;
   return (
     <>
       <span className="preview-from">{c.from}</span>
       {" → "}
-      <span className="preview-to">{c.to}</span>
+      <span className={c.unedited ? "preview-same" : "preview-to"}>{c.to}</span>
     </>
   );
 }

@@ -60,12 +60,47 @@ function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Tra
   return diffs;
 }
 
-function summarizeEvent(node: GedNode): string {
+/** An event's sub-fields kept apart (rather than joined into one display string)
+ *  so a modified — not newly added/removed — event can be diffed field by field. */
+interface EventFields {
+  value: string;
+  date: string;
+  place: string;
+  addr: string;
+  note: string;
+}
+
+const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["value", "date", "place", "addr", "note"];
+
+function eventFields(node: GedNode): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
   // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
-  // the summary string and the diff silently drops the change.
-  return [node.value?.trim(), get("DATE"), get("PLAC"), get("ADDR"), get("NOTE")].filter(Boolean).join(" · ") || "…";
+  // the summary and the diff silently drops the change.
+  return { value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE") };
+}
+
+function eventSummary(f: EventFields): string {
+  return EVENT_FIELD_KEYS.map((k) => f[k]).filter(Boolean).join(" · ") || "…";
+}
+
+/** Count of sub-fields two event instances share — used to recognize a before/after
+ *  pair as "the same event, modified" rather than an unrelated add+remove pair. */
+function eventOverlapScore(a: EventFields, b: EventFields): number {
+  return EVENT_FIELD_KEYS.reduce((n, k) => n + (a[k] && a[k] === b[k] ? 1 : 0), 0);
+}
+
+/** Builds the segmented diff for one event instance that was modified in place:
+ *  each present sub-field is marked "changed" (highlighted), "same" (left in its
+ *  normal incoming-data color), or "removed" (struck through) — instead of treating
+ *  the whole event summary as one freshly added/removed value. */
+function diffEventOccurrence(id: string, before: EventFields, after: EventFields, fieldLabel: string): FieldChange {
+  const segments: { text: string; state: "same" | "changed" | "removed" }[] = [];
+  for (const k of EVENT_FIELD_KEYS) {
+    if (after[k]) segments.push({ text: after[k], state: after[k] === before[k] ? "same" : "changed" });
+    else if (before[k]) segments.push({ text: before[k], state: "removed" });
+  }
+  return { recordId: id, field: fieldLabel, from: eventSummary(before), to: eventSummary(after), action: "both", group: fieldLabel, segments };
 }
 
 function diffEventSet(
@@ -77,16 +112,49 @@ function diffEventSet(
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   for (const tag of tags) {
-    const beforeSummaries = before.children.filter((c) => c.tag === tag).map(summarizeEvent);
-    const afterSummaries  = after.children.filter((c) => c.tag === tag).map(summarizeEvent);
+    const beforeFields = before.children.filter((c) => c.tag === tag).map(eventFields);
+    const afterFields  = after.children.filter((c) => c.tag === tag).map(eventFields);
     const fieldLabel = label(tag);
-    for (const s of beforeSummaries) {
-      if (!afterSummaries.includes(s))
-        diffs.push({ recordId: id, field: fieldLabel, from: s, to: "", action: "incoming", group: fieldLabel });
+    const usedB = new Set<number>();
+    const usedA = new Set<number>();
+
+    // Exact matches are unchanged events — drop them before pairing the rest.
+    for (let bi = 0; bi < beforeFields.length; bi++) {
+      for (let ai = 0; ai < afterFields.length; ai++) {
+        if (usedA.has(ai)) continue;
+        if (eventSummary(beforeFields[bi]) === eventSummary(afterFields[ai])) {
+          usedB.add(bi); usedA.add(ai);
+          break;
+        }
+      }
     }
-    for (const s of afterSummaries) {
-      if (!beforeSummaries.includes(s))
-        diffs.push({ recordId: id, field: fieldLabel, from: "", to: s, action: "both", group: fieldLabel });
+
+    // Among what's left, greedily pair instances that still share a sub-field —
+    // that's the same event with an edit, not an unrelated add+remove.
+    const candidates: { bi: number; ai: number; score: number }[] = [];
+    for (let bi = 0; bi < beforeFields.length; bi++) {
+      if (usedB.has(bi)) continue;
+      for (let ai = 0; ai < afterFields.length; ai++) {
+        if (usedA.has(ai)) continue;
+        const score = eventOverlapScore(beforeFields[bi], afterFields[ai]);
+        if (score >= 1) candidates.push({ bi, ai, score });
+      }
+    }
+    candidates.sort((x, y) => y.score - x.score);
+    for (const { bi, ai } of candidates) {
+      if (usedB.has(bi) || usedA.has(ai)) continue;
+      usedB.add(bi); usedA.add(ai);
+      diffs.push(diffEventOccurrence(id, beforeFields[bi], afterFields[ai], fieldLabel));
+    }
+
+    // Whatever's still unmatched is a genuine removal or a genuine new event.
+    for (let bi = 0; bi < beforeFields.length; bi++) {
+      if (usedB.has(bi)) continue;
+      diffs.push({ recordId: id, field: fieldLabel, from: eventSummary(beforeFields[bi]), to: "", action: "incoming", group: fieldLabel });
+    }
+    for (let ai = 0; ai < afterFields.length; ai++) {
+      if (usedA.has(ai)) continue;
+      diffs.push({ recordId: id, field: fieldLabel, from: "", to: eventSummary(afterFields[ai]), action: "both", group: fieldLabel });
     }
   }
   return diffs;

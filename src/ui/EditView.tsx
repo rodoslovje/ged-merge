@@ -93,8 +93,11 @@ interface Props {
   decisions?: Map<string, CandidateDecision>;
   /** The incoming dataset — needed to resolve confirmed match incoming values. */
   compareDataset?: Dataset;
-  /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision. */
-  onUpdateDecision?: (next: CandidateDecision) => void;
+  /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision.
+   * Takes the decision's own map key (not necessarily the Merge tab's currently selected
+   * candidate — Edit can be showing a different confirmed person, e.g. after navigating to a
+   * spouse) so the caller updates the right entry instead of whichever candidate Merge last had selected. */
+  onUpdateDecision?: (key: string, next: CandidateDecision) => void;
   /** Called with each edit's patches so the parent can push to the unified undo stack. */
   onPushEdit: (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => void;
   /** Called after undo/redo patches are applied so the parent can update dirty tracking. */
@@ -617,7 +620,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
       if (dec.status !== "confirmed") continue;
       if (dec.rejectedEvents?.includes(eventKey)) break;
-      onUpdateDecision({ ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
+      onUpdateDecision(key, { ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
       break;
     }
   }
@@ -662,7 +665,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
       }
       if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "master";
-      onUpdateDecision({ ...dec, fields: updatedFields });
+      onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
   }
@@ -698,7 +701,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           changed = true;
         }
       }
-      if (changed) onUpdateDecision({ ...dec, fields: updatedFields });
+      if (changed) onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
   }
