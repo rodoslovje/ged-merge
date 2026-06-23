@@ -962,7 +962,7 @@ export function dateToSortKey(d: GedDate | undefined): number {
 
 
 /** Minimum score for two events to be considered the same event. Below this they are shown separately. */
-const MIN_EVENT_PAIR_SCORE = 0.35;
+const MIN_EVENT_PAIR_SCORE = 0.6;
 
 /** Greedy bipartite matching of events by date+place similarity. */
 function pairEventsByDatePlace(
@@ -1006,7 +1006,13 @@ function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
   return 0;
 }
 
-/** Place similarity: word overlap plus a bonus when one side's address is embedded in the other's place. */
+/**
+ * Place similarity: word overlap, plus a bonus when one side's address is
+ * embedded in the other's place, plus a bonus when both sides name the same
+ * locality (the first, most specific place component) — two events in
+ * "Kranj" and "Kranj, Slovenia" are more likely the same place than two
+ * events that merely share a shared municipality/country word.
+ */
 function eventPlaceSim(me: GedEvent, ce: GedEvent): number {
   const mWords = new Set([...placeWords(me.place?.raw), ...placeWords(me.address?.raw)]);
   const cWords = new Set([...placeWords(ce.place?.raw), ...placeWords(ce.address?.raw)]);
@@ -1015,10 +1021,13 @@ function eventPlaceSim(me: GedEvent, ce: GedEvent): number {
     (ce.address?.raw && placeContainsAddr(me.place?.raw, ce.address.raw))
       ? 0.4
       : 0;
+  const mLocality = firstPlaceComponent(me.place?.raw);
+  const cLocality = firstPlaceComponent(ce.place?.raw);
+  const localityBonus = mLocality && mLocality === cLocality ? 0.3 : 0;
   if (mWords.size === 0 && cWords.size === 0 && addrBonus === 0) return 0.3;
   const shared = [...mWords].filter(w => cWords.has(w)).length;
   const total = new Set([...mWords, ...cWords]).size;
-  return Math.min(1, (total > 0 ? shared / total : 0) + addrBonus);
+  return Math.min(1, (total > 0 ? shared / total : 0) + addrBonus + localityBonus);
 }
 
 /** Significant words from a place string, with country-name canonicalization. */
@@ -1030,6 +1039,14 @@ function placeWords(place: string | undefined): Set<string> {
       .map(w => canonicalPlaceToken(w))
       .filter(w => w.length >= 3),
   );
+}
+
+/** The most specific (first) component of a comma-separated place string, canonicalized for comparison. */
+function firstPlaceComponent(place: string | undefined): string | undefined {
+  if (!place) return undefined;
+  const first = place.split(",")[0];
+  const canon = canonicalPlaceToken(first);
+  return canon || undefined;
 }
 
 /** True when `addr` (normalized) appears as a substring inside `place` (normalized). */

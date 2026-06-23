@@ -528,6 +528,25 @@ describe("multi-RESI pairing by date", () => {
     expect(dateRows.length).toBe(2); // shown as separate events, not paired
   });
 
+  it("does not pair residences with different locality, address, and agency 2 years apart", () => {
+    // Reproduces a real case: same municipality/country tokens ("Kranj", "Slovenia")
+    // made these look similar enough to pair, even though locality, address, and
+    // agency are all different — they're two distinct residences, not one.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1958\n2 PLAC Stražišče,Kranj,Slovenia\n2 ADDR Kocjanova 16\n2 AGNC župnija Šmartin\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE BEF 1956\n2 PLAC Kranj,Kranj,Slovenia\n2 ADDR Huje 84\n2 AGNC župnija Kranj\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
+    expect(dateRows.length).toBe(2); // shown as separate events, not paired
+  });
+
   it("detects addr-in-place when paired correctly and marks addr as agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
