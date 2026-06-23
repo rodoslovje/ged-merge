@@ -158,6 +158,21 @@ describe("reformatPlace → master-learned hierarchy fills in missing detail", (
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
 
+  it("does not let a parish named after the locality itself override it with a rarer sub-hamlet", () => {
+    // localityOfParish["kranj"] only reflects the rare narrowed entries (e.g.
+    // "Kokrica,Kranj,Slovenia") because inferPlaceHierarchy excludes the
+    // generic "Kranj,Kranj,Slovenia" catch-all from that tally. A record whose
+    // own parish is named "Kranj" — same as its stated locality — must not be
+    // "specialized" into that rarer hamlet.
+    const h: PlaceHierarchy = {
+      ...hierarchy,
+      localityOfParish: new Map([...hierarchy.localityOfParish, ["kranj", "Kokrica"]]),
+    };
+    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy: h };
+    const r = reformatPlace("Kranj (Slovenija)", undefined, fmt, "župnija Kranj");
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+  });
+
   it("is a no-op when no hierarchy is supplied", () => {
     const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", {
       layout: "structured-addr",

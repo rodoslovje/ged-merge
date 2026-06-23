@@ -55,13 +55,20 @@ export function reformatPlace(
     // The parish as a read-only *hint*, whether it's inline (above) or already
     // sitting in its own AGNC field — either way it's a clue to the locality.
     const parishHint = parish ?? stripParishLabel(agncRaw);
+    // But only when it names something *different* from the known locality.
+    // A parish named after the locality itself ("župnija Kranj" in "Kranj")
+    // confirms it rather than hinting at something else — inferPlaceHierarchy
+    // learns this map by excluding exactly that generic case, so it's biased
+    // toward rarer sub-hamlets and would wrongly override an already-correct,
+    // identically-named locality.
+    const parishHintIsNew = parishHint && parishHint.toLowerCase() !== locality?.toLowerCase();
     // `street` (from a packed PLAC's inline "Hafnarjeva pot 21/a") still has
     // its house number attached — strip it so it matches the learned key,
     // the same number-free form inferPlaceHierarchy learned it as.
     const streetHint = street ? stripHouseNumber(street) : undefined;
     const addrStreet = addressStreetName(addrRaw);
     const hinted =
-      (parishHint && fmt.hierarchy.localityOfParish.get(parishHint.toLowerCase())) ||
+      (parishHintIsNew && fmt.hierarchy.localityOfParish.get(parishHint.toLowerCase())) ||
       (streetHint && fmt.hierarchy.localityOfStreet.get(streetHint.toLowerCase())) ||
       (addrStreet && fmt.hierarchy.localityOfStreet.get(addrStreet.toLowerCase()));
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
