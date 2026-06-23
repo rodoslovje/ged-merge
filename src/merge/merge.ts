@@ -19,7 +19,7 @@ import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { linkKey } from "../normalize/links";
-import { dateToSortKey, individualFieldRows } from "../review/fields";
+import { clampBeforeDeathZone, dateToSortKey, individualFieldRows, minDeathZoneKey } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 
 /** A translator (i18next `t`); only used for human-readable field labels. */
@@ -724,8 +724,10 @@ function sortEventsByDate(record: GedNode): void {
   });
   if (events.length < 2) return;
 
+  const eventDate = (node: GedNode) => parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? "");
+  const minDeathKey = minDeathZoneKey(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
   const dateKey = (node: GedNode): number =>
-    dateToSortKey(parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? ""));
+    clampBeforeDeathZone(node.tag, dateToSortKey(eventDate(node)), minDeathKey);
 
   events.sort((a, b) => dateKey(a) - dateKey(b) || tagRank(a.tag) - tagRank(b.tag));
   eventIndices.forEach((idx, i) => {

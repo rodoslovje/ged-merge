@@ -871,7 +871,29 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM"])
  * (often imprecise) date would otherwise rank later. WILL/PROB are excluded:
  * probate routinely happens after death, so their date should be trusted as-is.
  */
-const LIFE_ZONE_TAGS = new Set(["OCCU", "EDUC", "RETI", "RESI", "EMIG", "IMMI", "NATU", "CENS"]);
+export const LIFE_ZONE_TAGS = new Set(["OCCU", "EDUC", "RETI", "RESI", "EMIG", "IMMI", "NATU", "CENS"]);
+
+/** Death/burial/cremation tags — the terminal events a life-zone event must precede. */
+export const DEATH_ZONE_TAGS = new Set(["DEAT", "BURI", "CREM"]);
+
+/** Earliest death-zone sort key among `events` with a known date, or `undefined` if none. */
+export function minDeathZoneKey(events: { tag: string; date?: GedDate }[]): number | undefined {
+  const keys = events
+    .filter((e) => DEATH_ZONE_TAGS.has(e.tag) && e.date?.year != null)
+    .map((e) => dateToSortKey(e.date));
+  return keys.length > 0 ? Math.min(...keys) : undefined;
+}
+
+/**
+ * Clamps a life-zone event's date key to land just before the earliest known
+ * death/burial/cremation date, so an imprecise same-year date (e.g. a
+ * year-only OCCU) never outranks it (see `dateToSortKey`: a year-only date
+ * sorts after any specific date in that year). Other tags pass through.
+ */
+export function clampBeforeDeathZone(tag: string, key: number, minDeathKey: number | undefined): number {
+  if (LIFE_ZONE_TAGS.has(tag) && minDeathKey != null && key >= minDeathKey) return minDeathKey - 1;
+  return key;
+}
 
 /**
  * Sort key for an event instance. When the event has a date, returns the
@@ -892,11 +914,7 @@ function effectiveSortKey(
 ): number {
   const d = me?.date ?? ce?.date;
   if (d?.year != null) {
-    const key = dateToSortKey(d);
-    if (LIFE_ZONE_TAGS.has(tag) && minDeathKey != null && key >= minDeathKey) {
-      return minDeathKey - 1;
-    }
-    return key;
+    return clampBeforeDeathZone(tag, dateToSortKey(d), minDeathKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {

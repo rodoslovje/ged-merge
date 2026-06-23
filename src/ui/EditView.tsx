@@ -7,7 +7,7 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { ADDITIONAL_NAME_TYPES, defaultHomeId, displayName, lifespanLabel, nameTypeLabel, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
-import { dateToSortKey, familyMergeKeyBases, individualFieldRows, orderedEventTags } from "../review/fields";
+import { clampBeforeDeathZone, dateToSortKey, familyMergeKeyBases, individualFieldRows, minDeathZoneKey, orderedEventTags } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
 import { decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
@@ -2320,6 +2320,10 @@ function EventList({
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
   const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
 
+  // Earliest known death/burial/cremation date, so an imprecise life-zone date
+  // (e.g. a year-only OCCU) never sorts after it — see `clampBeforeDeathZone`.
+  const minDeathKey = minDeathZoneKey(person.events);
+
   const allRows: AnyRow[] = [
     ...person.events
       .map((ev, i) => ({ ev, i }))
@@ -2330,14 +2334,14 @@ function EventList({
         mergeKeyBase: masterMergeKeyBases?.get(i) ?? eventKeyBases[i],
         compareKey: masterMergeCompareKeys?.get(i),
         stableKey: nodeId(rawEventNodes[i] ?? ev),
-        sortKey: masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date),
+        sortKey: clampBeforeDeathZone(ev.tag, masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date), minDeathKey),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])
       .map(({ tag, keyBase, sortKey, compareIdx }): AnyRow => ({
         kind: "extra",
         tag, keyBase, compareIdx,
-        sortKey,
+        sortKey: clampBeforeDeathZone(tag, sortKey, minDeathKey),
         tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
       })),
   ];
