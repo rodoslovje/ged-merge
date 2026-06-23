@@ -183,6 +183,12 @@ export function App() {
   // File-info panel: forced open when Merge has no matches yet; otherwise toggleable.
   const [showInfoPanel, setShowInfoPanel] = useState(false);
 
+  // The person Edit is currently showing — reported up by EditView so that
+  // switching to Merge mode (tab click or the "m" shortcut) can jump to that
+  // same person's match candidate instead of leaving Merge on a stale prior
+  // selection.
+  const [editPersonId, setEditPersonId] = useState<string | undefined>(undefined);
+
   // Merge / Edit mode; defaults to "edit" on first use.
   const [mode, setMode] = useState<Mode>(
     () => {
@@ -682,15 +688,32 @@ export function App() {
 
   const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
 
+  // Switch to Edit, pointing it at whichever candidate Merge currently has
+  // selected (so the person carries over instead of Edit staying on whoever
+  // it last showed).
+  function switchToEdit() {
+    if (current) setNavigateToId(current.masterId);
+    setMode("edit");
+  }
+
+  // Switch to Merge, pointing it at the match candidate for whichever person
+  // Edit is currently showing (so the person carries over the other way too) —
+  // falls back to leaving Merge's selection untouched when that person isn't
+  // itself a match candidate.
+  function switchToMerge() {
+    const c = editPersonId ? allSorted.find((c) => c.masterId === editPersonId) : undefined;
+    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+    setMode("merge");
+  }
+
   // Mode-switch shortcuts: first letter of each mode label in the active language.
-  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, setMode, current, setNavigateToId });
+  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, switchToEdit, switchToMerge });
   modeSwitchRef.current = {
     editKey: t("mode.edit").charAt(0).toLowerCase(),
     mergeKey: t("mode.merge").charAt(0).toLowerCase(),
     mode,
-    setMode,
-    current,
-    setNavigateToId,
+    switchToEdit,
+    switchToMerge,
   };
 
   useEffect(() => {
@@ -699,13 +722,9 @@ export function App() {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
-      const { editKey, mergeKey, mode: cur, setMode: sm, current: cand, setNavigateToId: setNav } = modeSwitchRef.current;
-      if (key === editKey && cur !== "edit") {
-        e.preventDefault();
-        if (cand) setNav(cand.masterId);
-        sm("edit");
-      }
-      else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sm("merge"); }
+      const { editKey, mergeKey, mode: cur, switchToEdit: se, switchToMerge: sme } = modeSwitchRef.current;
+      if (key === editKey && cur !== "edit") { e.preventDefault(); se(); }
+      else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sme(); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1144,14 +1163,14 @@ export function App() {
           <div className="mode-tabs">
             <button
               className={`seg-btn ${mode === "edit" ? "active" : ""}`}
-              onClick={() => setMode("edit")}
+              onClick={() => { if (mode !== "edit") switchToEdit(); }}
               title={t("mode.edit.tooltip")}
             >
               {t("mode.edit")}
             </button>
             <button
               className={`seg-btn ${mode === "merge" ? "active" : ""}`}
-              onClick={() => setMode("merge")}
+              onClick={() => { if (mode !== "merge") switchToMerge(); }}
               title={t("mode.merge.tooltip")}
             >
               {t("mode.merge")}
@@ -1318,7 +1337,7 @@ export function App() {
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}
-              onEdit={current ? () => { setNavigateToId(current.masterId); setMode("edit"); } : undefined}
+              onEdit={current ? switchToEdit : undefined}
               active={mode === "merge"}
             />
           </div>
@@ -1331,6 +1350,7 @@ export function App() {
               onDirty={handleEditDirty}
               onShowTree={(id) => openEditTree(id)}
               navigateToId={navigateToId}
+              onPersonChange={setEditPersonId}
               onMerge={matches ? (id) => {
                 const c = allSorted.find((c) => c.masterId === id);
                 if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });

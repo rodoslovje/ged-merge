@@ -87,6 +87,11 @@ interface Props {
   onShowTree: (id: string) => void;
   /** Navigate to this person when it changes (used by the save dialog person links). */
   navigateToId?: string;
+  /** Called whenever the currently-shown person changes, so the parent can
+   * jump Merge to that same person's match candidate when switching modes
+   * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
+   * had selected before. */
+  onPersonChange?: (id: string) => void;
   /** When set, shows a Merge button to switch to merge mode. Called with the current person's ID. */
   onMerge?: (currentPersonId: string) => void;
   /** Returns true when the given person ID has a match in the merge list. */
@@ -303,7 +308,7 @@ function fieldWidth(value: string, placeholder: string, minLen = 3): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onPersonChange, onMerge, canMerge, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -479,6 +484,11 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     if (navigateToId) navigate(navigateToId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateToId]);
+
+  useEffect(() => {
+    if (selectedId) onPersonChange?.(selectedId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   function goBack() {
     setHistory((h) => {
