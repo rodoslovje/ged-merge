@@ -88,9 +88,20 @@ export function buildSourceContext(records: GedNode[]): SourceContext {
   };
 }
 
-/** Identity for de-duplicating/comparing citations across master and incoming. */
+/**
+ * Identity for de-duplicating/comparing citations across master and incoming.
+ * Keyed by title+page rather than `sourceId`: a SOUR record's xref is a
+ * GEDCOM pointer local to its own file (e.g. "@S5@"), so master and incoming
+ * citations describing the exact same archival source never share one even
+ * when every visible detail matches. The resolved title (which mirrors the
+ * citation's own text for inline, pointer-less citations) is comparable
+ * across files; `sourceId` is kept only as a fallback for the rare citation
+ * with no title at all (an unresolved pointer).
+ */
 export function sourceCitationKey(c: SourceCitation): string {
-  return `${c.sourceId.toLowerCase()}#${(c.page ?? "").toLowerCase()}`;
+  const title = (c.title ?? "").trim().toLowerCase();
+  const page = (c.page ?? "").trim().toLowerCase();
+  return title ? `${title}#${page}` : `id:${c.sourceId.toLowerCase()}#${page}`;
 }
 
 /** A 1-2 digit run treated as a page number for comparison (drops leading zeros). */
