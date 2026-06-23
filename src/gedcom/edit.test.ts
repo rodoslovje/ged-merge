@@ -6,6 +6,7 @@ import type { Dataset, GedNode } from "./types";
 import {
   addAdditionalName,
   addChild,
+  addEventField,
   addEventNode,
   addFamilyEventNode,
   addObjeToSource,
@@ -254,6 +255,34 @@ describe("setEventField", () => {
     setEventField(indi, "RESI", { address: "" });
     updated = rebuildIndividual(ds, indi);
     expect(updated.events).toHaveLength(0);
+  });
+});
+
+describe("addEventField", () => {
+  it("creates its own node rather than reusing one just created for another pending row of the same tag", () => {
+    // Mirrors two unresolved incoming-only RESI rows in Edit mode: committing
+    // a field on the first materializes a master node; committing a field on
+    // the second must not overwrite that node (see EditView's extra-row
+    // commitField, which used to call setEventField — tag-only lookup — and
+    // silently clobbered the first row's just-created event).
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    addEventField(indi, "RESI", { date: "Oct 1997", place: "Ljubljana, Slovenia" });
+    addEventField(indi, "RESI", { date: "BEF 1997", place: "Zagreb, Croatia" });
+
+    const updated = rebuildIndividual(ds, indi);
+    const resiEvents = updated.events.filter((e) => e.tag === "RESI");
+    expect(resiEvents).toHaveLength(2);
+    expect(resiEvents[0].place?.raw).toBe("Ljubljana, Slovenia");
+    expect(resiEvents[1].place?.raw).toBe("Zagreb, Croatia");
+  });
+
+  it("returns undefined and adds nothing when there's no content", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(addEventField(indi, "RESI", {})).toBeUndefined();
+    expect(serializeGedcom(ds.records)).toBe(BASE);
   });
 });
 

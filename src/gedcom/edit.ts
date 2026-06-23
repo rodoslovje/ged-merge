@@ -208,6 +208,25 @@ export function restoreEvent(indi: Individual, tag: string, data: EventFieldUpda
   if (newNode) applyEventNodeUpdate(indi.raw, newNode, data);
 }
 
+/** Materialize the first edit to an incoming-only ("extra") merge-preview
+ * row into its own brand-new event node — unlike `setEventField`, this never
+ * reuses an existing same-tag node. Two unresolved incoming events that share
+ * a tag (e.g. two pending RESI rows) get edited independently, so editing one
+ * can't silently overwrite the node just created for the other. Returns the
+ * new node, or `undefined` if there was nothing to set. */
+export function addEventField(indi: Individual, tag: string, update: EventFieldUpdate): GedNode | undefined {
+  const hasContent =
+    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
+    !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
+    !!update.links?.some((l) => l.trim()) || !!update.addSource;
+  if (!hasContent) return undefined;
+  addEventNode(indi, tag);
+  const sameTagNodes = indi.raw.children.filter((c) => c.tag === tag);
+  const newNode = sameTagNodes[sameTagNodes.length - 1];
+  applyEventNodeUpdate(indi.raw, newNode, update);
+  return indi.raw.children.includes(newNode) ? newNode : undefined;
+}
+
 /** Append a new empty event node for `tag` to an individual record, inserting
  * it after the last existing event of the same tag (or in canonical order). */
 export function addEventNode(indi: Individual, tag: string): void {

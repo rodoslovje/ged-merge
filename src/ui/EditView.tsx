@@ -13,6 +13,7 @@ import { decisionStatusByMasterId, defaultChoice, type CandidateDecision, type M
 import {
   addAdditionalName,
   addChild,
+  addEventField,
   addEventNode,
   addFamilyEventNode,
   addObjeToSource,
@@ -2421,14 +2422,14 @@ function EventList({
             commitField={(update, extraPatches) => {
               const patches = [...(extraPatches ?? [])];
               commit((indi) => {
-                const eventNode = setEventField(indi, row.tag, update);
+                const eventNode = addEventField(indi, row.tag, update);
                 if (eventNode) patches.push(...(onMaterializeIncomingSources?.(eventNode, row.tag, row.compareIdx) ?? []));
               }, patches);
               onResolveMergeField?.(row.keyBase, subsOf(update));
               onRejectIncomingEvent?.(row.tag, row.compareIdx);
             }}
             onRemove={() => onRejectIncomingEvent?.(row.tag, row.compareIdx)}
-            onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, row.tag, update), extraPatches) })}
+            onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => addEventField(indi, row.tag, update), extraPatches) })}
             onOpenSourceDialog={onOpenSourceDialog}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
