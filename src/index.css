@@ -2394,7 +2394,7 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 /* A fallback link (repository/source page) rather than the exact cited page. */
 a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* An incoming citation the master doesn't have yet. */
-.source-ref.source-ref--new { background: #93c5fd40; opacity: 1; }
+.source-ref.source-ref--new { background: color-mix(in oklch, var(--state-match) 25%, transparent); opacity: 1; }
 /* Edit mode: a legacy link row collapsed to its icon (click to edit). */
 .edit-link-icon { cursor: pointer; }
 /* A relative's name rendered as a jump-to-person link. */

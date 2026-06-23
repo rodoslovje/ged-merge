@@ -763,12 +763,13 @@ function insertAt(parent: GedNode, index: number, child: GedNode): void {
  * same-date events. Every other child — NAME/SEX, FAMC/FAMS, NOTE/SOUR/OBJE,
  * ASSO, and any other non-event structure — is left at its exact original
  * index, so a decision touching one event never displaces unrelated nodes
- * elsewhere in the record. Unknown tags with a DATE child are treated as
- * events (covers custom EVEN-like facts); ASSO is explicitly excluded since
- * its DATE is a validity period, not an event timestamp, and CHAN/CREA are
- * excluded since their DATE is a record-audit timestamp (last-change/creation),
- * not a genealogical event — sweeping them in here would sort them by that
- * timestamp among the real events, and even reorder CHAN relative to CREA.
+ * elsewhere in the record. A tag the GEDCOM spec defines (ASSO, CHAN, CREA,
+ * REFN, …) is never treated as an event even if it happens to carry its own
+ * DATE child (a validity period for ASSO, a record-audit timestamp for
+ * CHAN/CREA, …) — only a vendor-extension tag (the spec requires those to
+ * start with "_", e.g. a custom `_MILT` military-service fact) gets the
+ * "has a DATE child" fallback, since that's the one case where an unlisted
+ * tag can still be a genuine genealogical event.
  */
 function sortEventsByDate(record: GedNode): void {
   const suffixStart = INDI_CHILD_ORDER.indexOf("FAMC");
@@ -776,12 +777,10 @@ function sortEventsByDate(record: GedNode): void {
     const i = INDI_CHILD_ORDER.indexOf(tag);
     return i === -1 ? Infinity : i;
   };
-  const NON_EVENT_DATED_TAGS = new Set(["ASSO", "CHAN", "CREA"]);
   const isEvent = (node: GedNode) => {
-    if (NON_EVENT_DATED_TAGS.has(node.tag)) return false;
     const r = tagRank(node.tag);
-    return (r >= 2 && r < suffixStart) ||
-      (r === Infinity && node.children.some((c) => c.tag === "DATE"));
+    if (r >= 2 && r < suffixStart) return true;
+    return r === Infinity && node.tag.startsWith("_") && node.children.some((c) => c.tag === "DATE");
   };
 
   const eventIndices: number[] = [];
