@@ -474,6 +474,19 @@ export function App() {
   // Filtered list for display — preserves the sort order of allSorted.
   const visible = useMemo(() => applyFilters(allSorted, filters), [allSorted, filters]);
 
+  // Master ids in `visible`'s order, deduped to one entry per master (first
+  // candidate wins, matching `indexByMaster` below) — lets Edit's Left/Right
+  // step through the same filtered match list Merge's Left/Right/Prev/Next
+  // use, without needing the full candidate objects.
+  const visibleMasterOrder = useMemo(() => {
+    const seen = new Set<string>();
+    const order: string[] = [];
+    for (const c of visible) {
+      if (!seen.has(c.masterId)) { seen.add(c.masterId); order.push(c.masterId); }
+    }
+    return order;
+  }, [visible]);
+
   // Pair-key → position maps rebuilt only when the sorted/filtered list changes,
   // not on every prev/next click — turns the three find/findIndex scans below
   // from O(n) per navigation into O(1).
@@ -598,30 +611,6 @@ export function App() {
     [indexByMaster, indexByCompare, current],
   );
 
-  // Keyboard navigation within the filtered visible list (ignored while typing).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
-        return;
-      }
-      if (visibleRef.current.length === 0) return;
-      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const idx = Math.max(0, visibleIndexRef.current - 1);
-        const c = visibleRef.current[idx];
-        if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
-      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-        e.preventDefault();
-        const idx = Math.min(visibleRef.current.length - 1, visibleIndexRef.current + 1);
-        const c = visibleRef.current[idx];
-        if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [visible.length]);
-
   // Stable ref so useCallback closures with empty deps can call pushUnified.
   const pushUnifiedRef = useRef((_entry: UndoEntry) => {});
 
@@ -722,6 +711,20 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // As soon as a fresh match result lands, point Edit at the first candidate —
+  // same as switching into Edit mode via its "e" shortcut already does for
+  // whichever candidate Merge has selected (see the `editKey` branch above).
+  // Without this, Edit keeps showing whatever person it last had (often not a
+  // match candidate at all, e.g. the home person), so its Left/Right match
+  // navigation silently does nothing until the user manually picks a person
+  // who is on the list.
+  useEffect(() => {
+    if (!matches) return;
+    const first = allSorted[0];
+    if (first) setNavigateToId(first.masterId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
 
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
@@ -1334,6 +1337,7 @@ export function App() {
                 setMode("merge");
               } : undefined}
               canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
+              matchOrder={matches ? visibleMasterOrder : undefined}
               decisions={decisions}
               compareDataset={compareDataset}
               onUpdateDecision={updateDecisionForKey}

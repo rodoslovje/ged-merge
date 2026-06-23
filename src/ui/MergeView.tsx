@@ -150,6 +150,19 @@ export function MergeView({
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // Left/Right move to the previous/next candidate; Up/Down scroll the
+      // compare panel instead (when it actually has something to scroll) —
+      // freed up rather than also navigating, so a long compare table can be
+      // read with the keyboard without losing your place in the match list.
+      if (e.key === "ArrowLeft") { e.preventDefault(); onSelectPrev(); return; }
+      if (e.key === "ArrowRight") { e.preventDefault(); onSelectNext(); return; }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const el = compareBodyRef.current;
+        if (!el || el.scrollHeight <= el.clientHeight) return;
+        e.preventDefault();
+        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        return;
+      }
       const key = e.key.toLowerCase();
       if (key === "t") { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
       const hit = STATUSES.find((s) => shortcutOf(s) === key);
@@ -157,7 +170,7 @@ export function MergeView({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, current, onUpdateDecision, status, fields, t]);
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext]);
 
   const compareHeader = current ? (
     <>

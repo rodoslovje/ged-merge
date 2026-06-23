@@ -91,6 +91,10 @@ interface Props {
   onMerge?: (currentPersonId: string) => void;
   /** Returns true when the given person ID has a match in the merge list. */
   canMerge?: (id: string) => boolean;
+  /** Master ids in the same (filtered) order as Merge's own Left/Right/Prev/Next —
+   * lets Edit's Left/Right step through that same match list. `undefined` when
+   * there's no incoming file loaded, in which case Left/Right do nothing. */
+  matchOrder?: string[];
   /** Merge decisions — used to preview incoming values for confirmed matches. */
   decisions?: Map<string, CandidateDecision>;
   /** The incoming dataset — needed to resolve confirmed match incoming values. */
@@ -293,13 +297,13 @@ function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
  * keep name fields compact instead of stretching to fill the row. */
 function fieldWidth(value: string, placeholder: string, minLen = 3): string {
   const len = value.length > 0 ? value.length : placeholder.length;
-  return `${Math.max(len, minLen) + 2}ch`;
+  return `${Math.max(len, minLen) + 3}ch`;
 }
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onMerge, canMerge, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -419,9 +423,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }, [pendingApply]);
   // ─────────────────────────────────────────────────────────────────────────
 
-  // T shortcut: open tree for the current person.
-  const treeShortcutRef = useRef({ selectedId, onShowTree });
-  treeShortcutRef.current = { selectedId, onShowTree };
+  // T shortcut, Left/Right record navigation, and Up/Down scrolling. Kept as
+  // a ref-fed closure (rather than effect deps) so the listener doesn't need
+  // to be torn down and re-added on every render/edit.
+  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate });
+  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate };
+  // The scrollable person panel — Up/Down scroll this instead of navigating
+  // when it actually has overflow to scroll.
+  const editBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -429,9 +438,29 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav } = shortcutRef.current;
       if (e.key.toLowerCase() === "t") {
-        const { selectedId: id, onShowTree: show } = treeShortcutRef.current;
         if (id) { e.preventDefault(); show(id); }
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // Previous/next person in the same (filtered) match list Merge's own
+        // Left/Right use — does nothing without an incoming file loaded, or
+        // when the current person isn't itself a match candidate.
+        if (!order || !id) return;
+        const idx = order.indexOf(id);
+        if (idx === -1) return;
+        const nextIdx = e.key === "ArrowLeft" ? idx - 1 : idx + 1;
+        if (nextIdx < 0 || nextIdx >= order.length) return;
+        e.preventDefault();
+        nav(order[nextIdx]);
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const el = editBodyRef.current;
+        if (!el || el.scrollHeight <= el.clientHeight) return;
+        e.preventDefault();
+        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);
@@ -1221,7 +1250,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
   return (
     <div className="section open edit-view">
-      <div className="section-body">
+      <div className="section-body" ref={editBodyRef}>
         <div className="edit-toolbar">
           <button className="tree-open-btn" onClick={goBack} disabled={history.length === 0}>
             ← {t("edit.back")}
