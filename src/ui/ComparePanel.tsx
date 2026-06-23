@@ -54,13 +54,18 @@ export function ComparePanel({
   // would miss edits made while this panel stays mounted in the background.
   const masterIndi = masterDs.individuals.get(candidate.masterId);
   const compareIndi = compareDs.individuals.get(candidate.compareId);
-  const rows = useMemo<FieldRow[]>(
-    () => individualFieldRows(t, masterIndi, compareIndi, masterDs, compareDs),
-    [masterIndi, compareIndi, masterDs, compareDs, t],
-  );
+  const rows = useMemo<FieldRow[]>(() => {
+    const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
+    return individualFieldRows(t, masterIndi, compareIndi, masterDs, compareDs, undefined, rejectedEvents);
+  }, [masterIndi, compareIndi, masterDs, compareDs, t, decision]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
+  // A rejected/deferred match never applies any incoming data on save (see
+  // `mergeDecisions`, which skips non-"confirmed" decisions outright) — so the
+  // preview shows every field as kept from master, regardless of any per-field
+  // choice recorded earlier while the match was still confirmed.
+  const forceMaster = status === "rejected" || status === "deferred";
 
   function setField(key: string, choice: FieldChoice) {
     onChange({ status, fields: { ...fields, [key]: choice } });
@@ -90,7 +95,7 @@ export function ComparePanel({
               );
             }
 
-            const choice = fields[row.key] ?? defaultChoice(row);
+            const choice = forceMaster ? "master" : fields[row.key] ?? defaultChoice(row);
             const hasSources = !!(row.masterSources || row.incomingSources);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
