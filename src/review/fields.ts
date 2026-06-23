@@ -785,6 +785,9 @@ function placeCompareKey(value: string): string {
   return parts.join(",");
 }
 
+/** Events that can occur at most once per person — always paired with the incoming side, never score-gated. */
+const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
+
 export function orderedEventTags(
   master?: Individual,
   compare?: Individual,
@@ -810,7 +813,10 @@ export function orderedEventTags(
       const mIdx = mTagEvs.length > 0 ? 0 : -1;
       const cIdx = cTagEvs.length > 0 ? 0 : -1;
       // When both sides have a dated event and the pair scores too low, show them separately.
+      // Birth/death/burial happen at most once per person, so they're always the same
+      // event regardless of score — no splitting for those tags.
       if (mIdx >= 0 && cIdx >= 0
+          && !SINGLE_EVENT_TAGS.has(tag)
           && mTagEvs[0].date?.year != null && cTagEvs[0].date?.year != null
           && eventPairScore(mTagEvs[0], cTagEvs[0]) < MIN_EVENT_PAIR_SCORE) {
         instances.push({ tag, masterIdx: 0, compareIdx: -1, keyIdx: 0, multi: true });
