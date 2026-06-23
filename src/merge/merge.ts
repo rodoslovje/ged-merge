@@ -765,7 +765,10 @@ function insertAt(parent: GedNode, index: number, child: GedNode): void {
  * index, so a decision touching one event never displaces unrelated nodes
  * elsewhere in the record. Unknown tags with a DATE child are treated as
  * events (covers custom EVEN-like facts); ASSO is explicitly excluded since
- * its DATE is a validity period, not an event timestamp.
+ * its DATE is a validity period, not an event timestamp, and CHAN/CREA are
+ * excluded since their DATE is a record-audit timestamp (last-change/creation),
+ * not a genealogical event — sweeping them in here would sort them by that
+ * timestamp among the real events, and even reorder CHAN relative to CREA.
  */
 function sortEventsByDate(record: GedNode): void {
   const suffixStart = INDI_CHILD_ORDER.indexOf("FAMC");
@@ -773,8 +776,9 @@ function sortEventsByDate(record: GedNode): void {
     const i = INDI_CHILD_ORDER.indexOf(tag);
     return i === -1 ? Infinity : i;
   };
+  const NON_EVENT_DATED_TAGS = new Set(["ASSO", "CHAN", "CREA"]);
   const isEvent = (node: GedNode) => {
-    if (node.tag === "ASSO") return false;
+    if (NON_EVENT_DATED_TAGS.has(node.tag)) return false;
     const r = tagRank(node.tag);
     return (r >= 2 && r < suffixStart) ||
       (r === Infinity && node.children.some((c) => c.tag === "DATE"));

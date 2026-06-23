@@ -838,6 +838,30 @@ describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
   });
 });
 
+describe("mergeDecisions — CHAN/CREA are not swept into event-date sorting", () => {
+  // Master has trailing top-level CHAN/CREA audit timestamps (last-change/
+  // creation dates, typical of MyHeritage/Gramps exports) with CHAN's date
+  // later than CREA's. Their DATE children must not make them look like
+  // datable events: that would both reorder CHAN/CREA relative to each other
+  // (sorted by date) and risk sandwiching a real new event between them.
+  const masterWithAudit = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "1 CHAN\n2 DATE 17 NOV 2025\n1 CREA\n2 DATE 09 JUL 2025\n",
+  );
+  const compareAddsResi = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "1 RESI\n2 DATE 1900\n2 PLAC Kranj\n",
+  );
+
+  it("keeps CHAN before CREA and lands the new event before both", () => {
+    const master = dataset(masterWithAudit);
+    const compare = dataset(compareAddsResi);
+    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 RESI\n2 DATE 1900\n2 PLAC Kranj\n1 CHAN\n2 DATE 17 NOV 2025\n1 CREA\n2 DATE 09 JUL 2025\n");
+  });
+});
+
 describe("materializeEventSources", () => {
   // Mirrors Edit mode: a direct field edit on an "extra" incoming-only BAPM
   // row materializes a bare master event node (date/place only, no SOUR yet)

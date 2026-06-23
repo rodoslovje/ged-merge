@@ -117,7 +117,7 @@ export function ComparePanel({
                       {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                     </td>
                     <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.incomingSources} />
+                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
                       {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
                     </td>
                   </>
