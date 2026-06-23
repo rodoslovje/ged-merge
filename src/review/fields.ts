@@ -266,6 +266,7 @@ function partnerToRelative(partner: Individual): Relative {
     text: lifespanLabel(partner),
     full: fullDatesLabel(partner),
     birthYear: findEvent(partner, "BIRT")?.date?.year,
+    birthApprox: findEvent(partner, "BIRT")?.date?.qualifier !== "exact",
     displayName: displayName(partner.names[0]),
     years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
     sex: partner.sex,
@@ -400,6 +401,7 @@ function parentRelative(
       text: lifespanLabel(parent),
       full: fullDatesLabel(parent),
       birthYear: findEvent(parent, "BIRT")?.date?.year,
+      birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
       displayName: displayName(parent.names[0]),
       years: formatLifespan(findEvent(parent, "BIRT")?.date?.year, findEvent(parent, "DEAT")?.date?.year, isDeceased(parent)),
       sex: parent.sex,
@@ -417,6 +419,9 @@ interface Relative {
   full?: string;
   /** Birth year, when known — used to align same-named relatives by birth. */
   birthYear?: number;
+  /** True when the birth year is an estimate (ABT/EST/CAL) rather than an
+   *  exact assertion — widens how much a birth-year gap counts against pairing. */
+  birthApprox?: boolean;
   /** Display name. */
   displayName?: string;
   years?: string;
@@ -596,7 +601,12 @@ function relativeSimilarity(a: Relative, b: Relative): number {
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);
-  const birthAdjust = gap === 0 ? 0.15 : gap <= 1 ? 0.05 : -0.25;
+  // An ABT/EST birth year on either side is an estimate, not an assertion, so
+  // it shouldn't count as heavily against the pairing as a gap between two
+  // exact dates would — mirrors the wider tolerance dateSimilarity gives
+  // approximate dates.
+  const tolerance = a.birthApprox || b.birthApprox ? 10 : 1;
+  const birthAdjust = gap === 0 ? 0.15 : gap <= tolerance ? 0.05 : -0.25;
   return Math.max(0, Math.min(1, nameSim + birthAdjust));
 }
 
