@@ -509,6 +509,25 @@ describe("multi-RESI pairing by date", () => {
     expect(dateRows.length).toBe(2); // shown as separate events, not paired
   });
 
+  it("does not pair residences 20 years apart with different addresses in the same city", () => {
+    // Same locality on both sides ("Kranj"), but a 20-year date gap and unrelated
+    // street addresses (Smledniska 59 vs Trg Rivoli 4) — addr words must count
+    // against the place-similarity score, not just toward a containment bonus.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1972\n2 PLAC Kranj,Kranj,Slovenia\n2 ADDR Smledniska 59\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1992\n2 PLAC Kranj,Kranj,Slovenia\n2 ADDR Trg Rivoli 4\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
+    expect(dateRows.length).toBe(2); // shown as separate events, not paired
+  });
+
   it("detects addr-in-place when paired correctly and marks addr as agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +

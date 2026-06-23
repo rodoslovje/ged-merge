@@ -1337,7 +1337,6 @@ export function App() {
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}
-              onEdit={current ? switchToEdit : undefined}
               active={mode === "merge"}
             />
           </div>
@@ -1351,12 +1350,7 @@ export function App() {
               onShowTree={(id) => openEditTree(id)}
               navigateToId={navigateToId}
               onPersonChange={setEditPersonId}
-              onMerge={matches ? (id) => {
-                const c = allSorted.find((c) => c.masterId === id);
-                if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
-                setMode("merge");
-              } : undefined}
-              canMerge={matches ? (id) => allSorted.some((c) => c.masterId === id) : undefined}
+              matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMasterOrder : undefined}
               decisions={decisions}
               compareDataset={compareDataset}

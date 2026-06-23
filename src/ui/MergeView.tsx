@@ -54,8 +54,6 @@ interface Props {
   canNavigatePerson: (side: "master" | "incoming", id: string) => boolean;
   onNavigatePerson: (side: "master" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
-  /** When set, shows an Edit button on the compare panel to jump to edit mode. */
-  onEdit?: () => void;
   /** False when Merge is mounted but hidden behind Edit mode — kept mounted
    * across mode switches so toggling modes with a large match list doesn't
    * re-render the whole tab from scratch. Gates the global keydown shortcut
@@ -96,7 +94,6 @@ export function MergeView({
   canNavigatePerson,
   onNavigatePerson,
   compareRef,
-  onEdit,
   active,
 }: Props) {
   const { t } = useTranslation();
@@ -175,20 +172,34 @@ export function MergeView({
   const compareHeader = current ? (
     <>
       <div className={`person-label ${sexClass(current.sex)}`}>
-        <span className="person-name">{current.name}</span>
-        {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
-          <span
-            className="person-years gm-data"
-            title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
-          >
-            {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
-          </span>
-        )}
-        {status !== "undecided" && (
-          <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
-            {t(`status.${status}`).charAt(0)}
-          </span>
-        )}
+        <span className="person-name-group">
+          <span className="person-name">{current.name}</span>
+          {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
+            <span
+              className="person-years gm-data"
+              title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
+            >
+              {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
+            </span>
+          )}
+          {status !== "undecided" && (
+            <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
+              {t(`status.${status}`).charAt(0)}
+            </span>
+          )}
+        </span>
+        <div className="decision-bar compare-name-decisions">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
+              onClick={() => toggleStatus(s)}
+            >
+              {t(`status.${s}`)}
+            </button>
+          ))}
+        </div>
         {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
       </div>
       <div className="compare-nav-header">
@@ -213,27 +224,10 @@ export function MergeView({
         </button>
       </div>
       <div className="compare-head-actions">
-        <div className="decision-bar">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              className={status === s ? `decision ${s} active` : "decision"}
-              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
-              onClick={() => toggleStatus(s)}
-            >
-              {t(`status.${s}`)}
-            </button>
-          ))}
-        </div>
         <div className="compare-nav-actions">
           <button className="tree-open-btn" onClick={() => onOpenTree(current.masterId, current.compareId)} title={t("tree.tooltip")}>
             {t("tree.button")}
           </button>
-          {onEdit && (
-            <button className="tree-open-btn" onClick={onEdit} title={t("compare.editTooltip")}>
-              {t("compare.editButton")}
-            </button>
-          )}
         </div>
       </div>
     </>

@@ -1408,8 +1408,18 @@ button:focus-visible {
   color: var(--accent);
   flex: none;
 }
-.person-card-meta .person-kinship,
-.compare-head .person-kinship { margin-left: auto; }
+.person-card-meta .person-kinship { margin-left: auto; }
+.person-name-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.compare-name-decisions {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
 
 .candidate-main .person-label { gap: 2px 8px; }
 .candidate-main .person-name { font-weight: 400; }
@@ -1745,6 +1755,9 @@ button:focus-visible {
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+.edit-name-decisions {
+  margin: 0 auto;
 }
 .edit-name-input {
   font-size: 1.1rem;

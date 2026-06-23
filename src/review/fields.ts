@@ -998,8 +998,8 @@ function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
 
 /** Place similarity: word overlap plus a bonus when one side's address is embedded in the other's place. */
 function eventPlaceSim(me: GedEvent, ce: GedEvent): number {
-  const mWords = placeWords(me.place?.raw);
-  const cWords = placeWords(ce.place?.raw);
+  const mWords = new Set([...placeWords(me.place?.raw), ...placeWords(me.address?.raw)]);
+  const cWords = new Set([...placeWords(ce.place?.raw), ...placeWords(ce.address?.raw)]);
   const addrBonus =
     (me.address?.raw && placeContainsAddr(ce.place?.raw, me.address.raw)) ||
     (ce.address?.raw && placeContainsAddr(me.place?.raw, ce.address.raw))

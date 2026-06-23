@@ -9,7 +9,7 @@ import { kinshipLabel } from "../match/kinship";
 import { INDI_EVENT_TAGS } from "../gedcom/builder";
 import { clampBeforeDeathZone, dateToSortKey, familyMergeKeyBases, individualFieldRows, minDeathZoneKey, orderedEventTags } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
-import { decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addAdditionalName,
   addChild,
@@ -92,10 +92,10 @@ interface Props {
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
    * had selected before. */
   onPersonChange?: (id: string) => void;
-  /** When set, shows a Merge button to switch to merge mode. Called with the current person's ID. */
-  onMerge?: (currentPersonId: string) => void;
-  /** Returns true when the given person ID has a match in the merge list. */
-  canMerge?: (id: string) => boolean;
+  /** Returns the compare id of the given person's best (highest-ranked) match
+   * candidate, if any — lets the name row show Confirm/Reject/Defer buttons
+   * for that pair without switching to Merge mode. */
+  matchCompareIdFor?: (id: string) => string | undefined;
   /** Master ids in the same (filtered) order as Merge's own Left/Right/Prev/Next —
    * lets Edit's Left/Right step through that same match list. `undefined` when
    * there's no incoming file loaded, in which case Left/Right do nothing. */
@@ -308,7 +308,7 @@ function fieldWidth(value: string, placeholder: string, minLen = 3): string {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onPersonChange, onMerge, canMerge, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -428,11 +428,30 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }, [pendingApply]);
   // ─────────────────────────────────────────────────────────────────────────
 
-  // T shortcut, Left/Right record navigation, and Up/Down scrolling. Kept as
-  // a ref-fed closure (rather than effect deps) so the listener doesn't need
-  // to be torn down and re-added on every render/edit.
-  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate });
-  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate };
+  const person = selectedId ? dataset.individuals.get(selectedId) : undefined;
+
+  // The current person's own best match candidate (if any) — lets the name
+  // row offer Confirm/Reject/Defer directly, without switching to Merge mode,
+  // and lets the same C/R/D shortcuts Merge mode uses work here too.
+  const matchCompareId = person ? matchCompareIdFor?.(person.id) : undefined;
+  const matchDecKey = person && matchCompareId ? decisionKey("individual", person.id, matchCompareId) : undefined;
+  const matchDecision = matchDecKey ? decisions?.get(matchDecKey) : undefined;
+  const matchStatus = matchDecision?.status ?? "undecided";
+
+  function toggleMatchStatus(next: MatchDecisionStatus) {
+    if (!matchDecKey || !onUpdateDecision) return;
+    onUpdateDecision(matchDecKey, { status: matchStatus === next ? "undecided" : next, fields: matchDecision?.fields ?? {} });
+  }
+
+  // T shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
+  // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
+  // (rather than effect deps) so the listener doesn't need to be torn down
+  // and re-added on every render/edit.
+  const statusShortcuts = Object.fromEntries(
+    MATCH_STATUSES.map((s) => [t(`status.${s}`).charAt(0).toLowerCase(), s]),
+  ) as Record<string, MatchDecisionStatus>;
+  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus, statusShortcuts });
+  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus, statusShortcuts };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -443,9 +462,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav } = shortcutRef.current;
-      if (e.key.toLowerCase() === "t") {
+      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle, statusShortcuts: shortcuts } = shortcutRef.current;
+      const key = e.key.toLowerCase();
+      if (key === "t") {
         if (id) { e.preventDefault(); show(id); }
+        return;
+      }
+      const statusHit = shortcuts[key];
+      if (statusHit) {
+        if (decKey) { e.preventDefault(); toggle(statusHit); }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -497,8 +522,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       return h.slice(0, -1);
     });
   }
-
-  const person = selectedId ? dataset.individuals.get(selectedId) : undefined;
 
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -1287,15 +1310,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             >
               {t("edit.tree.button")}
             </button>
-            {onMerge && selectedId && canMerge?.(selectedId) && (
-              <button
-                className="tree-open-btn"
-                onClick={() => onMerge(selectedId)}
-                title={t("edit.mergeTooltip")}
-              >
-                {t("edit.mergeButton")}
-              </button>
-            )}
           </div>
         </div>
 
@@ -1371,7 +1385,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             focusOnMount={focusNextName.current}
             onMounted={() => { focusNextName.current = false; }}
             mergeHighlight={mergeHighlight}
-            {...cardDecision(person.id)}
+            hasMatch={!!matchCompareId}
+            matchStatus={matchStatus}
+            onToggleMatchStatus={toggleMatchStatus}
           />
           <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           <OtherNamesEditor
@@ -1956,9 +1972,9 @@ function NameEditor({
   focusOnMount,
   onMounted,
   mergeHighlight,
-  decisionStatus,
-  decisionLetter,
-  decisionTooltip,
+  hasMatch,
+  matchStatus,
+  onToggleMatchStatus,
 }: {
   person: Individual;
   t: Translate;
@@ -1967,9 +1983,10 @@ function NameEditor({
   focusOnMount?: boolean;
   onMounted?: () => void;
   mergeHighlight?: Map<string, string>;
-  decisionStatus?: Exclude<MatchDecisionStatus, "undecided">;
-  decisionLetter?: string;
-  decisionTooltip?: string;
+  /** True when this person has an incoming match candidate. */
+  hasMatch?: boolean;
+  matchStatus?: MatchDecisionStatus;
+  onToggleMatchStatus?: (status: MatchDecisionStatus) => void;
 }) {
   const primary = primaryName(person);
   // Stable merge values from first render (component is keyed per person)
@@ -2016,14 +2033,31 @@ function NameEditor({
         onClear={() => { setSurname(""); commitName(given, ""); }}
       />
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-      {decisionStatus && (
-        <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
-          {decisionLetter}
+      {matchStatus && matchStatus !== "undecided" && (
+        <span className={`status-chip ${matchStatus}`} title={t(`status.${matchStatus}`)}>
+          {t(`status.${matchStatus}`).charAt(0)}
         </span>
+      )}
+      {hasMatch && (
+        <div className="decision-bar edit-name-decisions">
+          {MATCH_STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={matchStatus === s ? `decision ${s} active` : "decision"}
+              title={t(`status.${s}`)}
+              onClick={() => onToggleMatchStatus?.(s)}
+            >
+              {t(`status.${s}`)}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
 }
+
+const MATCH_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
 
 const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
 
