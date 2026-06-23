@@ -1025,6 +1025,12 @@ export function App() {
     setPreview(null);
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+    // The saved file is the new baseline — undo/redo entries refer to a state
+    // that no longer exists, so there's nothing left to meaningfully undo into.
+    undoStack.current = [];
+    redoStack.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
