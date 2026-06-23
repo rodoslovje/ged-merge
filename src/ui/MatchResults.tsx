@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   categorize,
@@ -29,8 +29,6 @@ interface Props {
   selectedIndex: number;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
-  /** Home-person picker, rendered to the right of the tabs. */
-  homeControl?: ReactNode;
   /** Show the relationship-distance column (only meaningful with a home person). */
   showRelation: boolean;
   showFilters: boolean;
@@ -60,7 +58,6 @@ export function MatchResults({
   selectedIndex,
   onSelect,
   decisions,
-  homeControl,
   showRelation,
   showFilters,
 }: Props) {
@@ -117,7 +114,6 @@ export function MatchResults({
                 </button>
               )}
             </div>
-            {homeControl}
           </div>
           <div className="filter-row">
             <label className="filter-score" title={t("filter.scoreTooltip")}>

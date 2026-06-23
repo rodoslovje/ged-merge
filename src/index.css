@@ -92,6 +92,17 @@ button:focus-visible {
 .app-head-files .export-btn {
   font-size: 0.85rem;
 }
+.app-head-home {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+}
+.app-head-home .home-selector {
+  flex: 1;
+  max-width: 320px;
+}
 .app-head-right {
   margin-left: auto;
   display: flex;

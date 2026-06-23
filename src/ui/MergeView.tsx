@@ -6,7 +6,6 @@ import type { MatchResult } from "../match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { kinshipLabel } from "../match/kinship";
 import { displayName, primaryName } from "../match/relatives";
-import { HomePersonSelector } from "./HomePersonSelector";
 import { MatchResults } from "./MatchResults";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
@@ -40,9 +39,6 @@ interface Props {
   setShowFilters: Dispatch<SetStateAction<boolean>>;
   homeId: string | undefined;
   masterDataset: Dataset | undefined;
-  changeHome: (id: string | undefined) => void;
-  focusHome: boolean;
-  setFocusHome: Dispatch<SetStateAction<boolean>>;
   openMatches: boolean;
   setOpenMatches: Dispatch<SetStateAction<boolean>>;
 
@@ -82,9 +78,6 @@ export function MergeView({
   setShowFilters,
   homeId,
   masterDataset,
-  changeHome,
-  focusHome,
-  setFocusHome,
   openMatches,
   setOpenMatches,
   current,
@@ -258,18 +251,6 @@ export function MergeView({
                   decisions={decisions}
                   showFilters={showFilters}
                   showRelation={!!homeId}
-                  homeControl={
-                    masterDataset && (
-                      <HomePersonSelector
-                        individuals={masterDataset.individuals}
-                        homeId={homeId}
-                        onChange={changeHome}
-                        onClear={() => changeHome(undefined)}
-                        autoFocus={focusHome}
-                        onAutoFocused={() => setFocusHome(false)}
-                      />
-                    )
-                  }
                 />
               </Section>
             </div>

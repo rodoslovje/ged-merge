@@ -14,6 +14,7 @@ import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
 import { downloadText } from "./ui/download";
 import { GedcomLoader } from "./ui/GedcomLoader";
+import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { HelpModal } from "./ui/HelpModal";
 import { LegalModal } from "./ui/LegalModal";
@@ -1207,6 +1208,18 @@ export function App() {
                 {compare.file.fileName}
               </button>
             )}
+            {masterDataset && (
+              <div className="app-head-home">
+                <HomePersonSelector
+                  individuals={masterDataset.individuals}
+                  homeId={homeId}
+                  onChange={changeHome}
+                  onClear={() => changeHome(undefined)}
+                  autoFocus={focusHome}
+                  onAutoFocused={() => setFocusHome(false)}
+                />
+              </div>
+            )}
             {lastMasterFile && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
               <div className="app-head-right">
                 {(changedCount > 0 || confirmedCount > 0) && (
@@ -1325,9 +1338,6 @@ export function App() {
               setShowFilters={setShowFilters}
               homeId={homeId}
               masterDataset={masterDataset}
-              changeHome={changeHome}
-              focusHome={focusHome}
-              setFocusHome={setFocusHome}
               openMatches={openMatches}
               setOpenMatches={setOpenMatches}
               current={current}

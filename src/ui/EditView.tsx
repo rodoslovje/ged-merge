@@ -1296,12 +1296,6 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             tooltip={t("edit.selectPerson")}
             icon="search"
           />
-          <HomePersonSelector
-            individuals={dataset.individuals}
-            homeId={homeId}
-            onChange={changeHome}
-            onClear={() => changeHome(undefined)}
-          />
           <div className="toolbar-end">
             <button
               className="tree-open-btn"
