@@ -33,6 +33,7 @@ export const sl = {
   "edit.openLink": "Odpri povezavo v novem zavihku",
   "edit.removeLink": "Odstrani to povezavo",
   "edit.removeEvent": "Odstrani ta dogodek",
+  "edit.changeEventType": "Spremeni vrsto dogodka",
   "edit.expandEvent": "Prikaži opombo, ustanovo in vire",
   "edit.collapseEvent": "Skrij opombo, ustanovo in vire",
   "edit.addName": "Dodaj ime",

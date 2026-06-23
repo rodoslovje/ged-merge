@@ -13,6 +13,8 @@ import {
   addParent,
   addPartner,
   attachSourceCitation,
+  changeEventTagAtIndex,
+  changeFamilyEventTag,
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
@@ -358,6 +360,52 @@ describe("removeEventAtIndex", () => {
   });
 });
 
+describe("changeEventTagAtIndex", () => {
+  it("changes an OCCU event into an EDUC event, keeping its fields", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setEventField(indi, "OCCU", { value: "Farmer", date: "1880" });
+    rebuildIndividual(ds, indi);
+    changeEventTagAtIndex(indi, 0, "EDUC");
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.events).toHaveLength(1);
+    expect(updated.events[0].tag).toBe("EDUC");
+    expect(updated.events[0].value).toBe("Farmer");
+    expect(updated.events[0].date?.raw).toBe("1880");
+  });
+
+  it("keeps the event's original position among siblings rather than moving it to its new tag's canonical position", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 DATE 1850",
+      "1 OCCU Farmer",
+      "1 DEAT",
+      "2 DATE 1920",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    changeEventTagAtIndex(indi, 1, "BURI"); // OCCU at index 1 → BURI, canonically belongs after DEAT
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.events.map((e) => e.tag)).toEqual(["BIRT", "BURI", "DEAT"]);
+  });
+
+  it("is a no-op for an out-of-range index or an unchanged tag", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setEventField(indi, "OCCU", { value: "Farmer" });
+    rebuildIndividual(ds, indi);
+    changeEventTagAtIndex(indi, 5, "EDUC");
+    changeEventTagAtIndex(indi, 0, "OCCU");
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.events.map((e) => e.tag)).toEqual(["OCCU"]);
+  });
+});
+
 // ─── setFamilyEventField ─────────────────────────────────────────────────────
 
 describe("setFamilyEventField", () => {
@@ -444,6 +492,45 @@ describe("removeFamilyEvent", () => {
     const fam = ds.families.get("@F1@")!;
     const before = clone(fam.raw);
     removeFamilyEvent(fam, "DIV");
+    expect(JSON.stringify(fam.raw)).toBe(JSON.stringify(before));
+  });
+});
+
+describe("changeFamilyEventTag", () => {
+  it("changes an ENGA event into a MARR event, keeping its fields and position", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    addFamilyEventNode(fam, "ENGA");
+    setFamilyEventField(fam, "ENGA", { date: "1878", place: "Kranj" });
+    setFamilyEventField(fam, "DIV", { date: "1900" });
+    rebuildFamily(ds, fam);
+
+    changeFamilyEventTag(fam, "ENGA", "MARR");
+    const updated = rebuildFamily(ds, fam);
+    expect(updated.events.map((e) => e.tag)).toEqual(["MARR", "DIV"]);
+    expect(updated.events[0].date?.raw).toBe("1878");
+    expect(updated.events[0].place?.raw).toBe("Kranj");
+  });
+
+  it("is a no-op when the target tag already exists on the family", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    setFamilyEventField(fam, "MARR", { date: "1880" });
+    setFamilyEventField(fam, "DIV", { date: "1900" });
+    const before = clone(fam.raw);
+
+    changeFamilyEventTag(fam, "MARR", "DIV");
+    expect(JSON.stringify(fam.raw)).toBe(JSON.stringify(before));
+  });
+
+  it("is a no-op when the source tag is absent or unchanged", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    setFamilyEventField(fam, "MARR", { date: "1880" });
+    const before = clone(fam.raw);
+
+    changeFamilyEventTag(fam, "ENGA", "DIV");
+    changeFamilyEventTag(fam, "MARR", "MARR");
     expect(JSON.stringify(fam.raw)).toBe(JSON.stringify(before));
   });
 });

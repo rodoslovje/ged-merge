@@ -287,7 +287,7 @@ function FieldValue({ c }: { c: FieldChange }) {
         {c.segments.map((s, i) => (
           <span key={i}>
             {i > 0 && " · "}
-            <span className={s.state === "changed" ? "preview-add" : s.state === "removed" ? "preview-from" : "preview-same"}>
+            <span className={s.state === "changed" ? "preview-add" : s.state === "removed" ? "preview-from" : "preview-unchanged"}>
               {s.text}
             </span>
           </span>

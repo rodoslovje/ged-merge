@@ -188,6 +188,19 @@ export function setEventFieldAtIndex(indi: Individual, index: number, update: Ev
   if (eventNode) applyEventNodeUpdate(indi.raw, eventNode, update);
 }
 
+/** Change the tag of an individual event at position `index` in `indi.events`
+ * (e.g. turn an Occupation into an Education event) in place, keeping its
+ * position among siblings — e.g. an imported file that orders events
+ * chronologically rather than by `INDI_CHILD_ORDER` keeps that order, instead
+ * of the retagged event jumping to its tag's canonical position. No-op if
+ * the event doesn't exist or the tag is unchanged. */
+export function changeEventTagAtIndex(indi: Individual, index: number, newTag: string): void {
+  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const eventNode = eventNodes[index];
+  if (!eventNode || eventNode.tag === newTag) return;
+  eventNode.tag = newTag;
+}
+
 /** Remove an individual event at position `index` in `indi.events` (0-based). */
 export function removeEventAtIndex(indi: Individual, index: number): void {
   const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
@@ -244,6 +257,18 @@ export function addEventNode(indi: Individual, tag: string): void {
  * links — see `setRecordEventField`. */
 export function setFamilyEventField(fam: Family, tag: string, update: EventFieldUpdate): void {
   setRecordEventField(fam.raw, tag, update, FAM_CHILD_ORDER);
+}
+
+/** Change a family event's tag (e.g. turn an Engagement into a Marriage) in
+ * place, keeping its position among siblings (see `changeEventTagAtIndex`).
+ * No-op if the event doesn't exist, the tag is unchanged, or another event
+ * with `newTag` already exists on the family (renaming into it would
+ * silently shadow that other event). */
+export function changeFamilyEventTag(fam: Family, oldTag: string, newTag: string): void {
+  if (oldTag === newTag) return;
+  const eventNode = fam.raw.children.find((c) => c.tag === oldTag);
+  if (!eventNode || fam.raw.children.some((c) => c.tag === newTag)) return;
+  eventNode.tag = newTag;
 }
 
 /** Append a new empty family event node for `tag`. */

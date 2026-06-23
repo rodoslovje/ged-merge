@@ -31,6 +31,7 @@ export const en = {
   "edit.addLink": "Add Source",
   "edit.removeLink": "Remove this link",
   "edit.removeEvent": "Remove this event",
+  "edit.changeEventType": "Change event type",
   "edit.expandEvent": "Show note, agency and sources",
   "edit.collapseEvent": "Hide note, agency and sources",
   "edit.addName": "Add Name",

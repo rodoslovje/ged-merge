@@ -21,6 +21,8 @@ import {
   addPartner,
   attachSourceCitation,
   bumpSourceCacheVersion,
+  changeEventTagAtIndex,
+  changeFamilyEventTag,
   connectExistingChild,
   connectExistingParent,
   connectExistingPartner,
@@ -125,8 +127,23 @@ const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.death",     tags: ["DEAT", "BURI", "CREM"] },
 ] as const;
 
+/** Tags a master individual event's type can be changed to/from (matches
+ * `INDIVIDUAL_EVENT_GROUPS`) — BIRT and the freeform `EVEN` tag are excluded. */
+const ASSIGNABLE_EVENT_TAGS: Set<string> = new Set(INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags));
+
 /** Family events that are hidden until explicitly added (marriage is always shown). */
 const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
+
+/** Family event tags the type-change dropdown can switch between. */
+const FAMILY_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV"];
+
+/** Tags `tag`'s type-change dropdown may switch to: every `FAMILY_EVENT_TAGS`
+ * tag not already used by a different event on `fam` (switching into one
+ * already in use would silently shadow it, since each family event tag maps
+ * to exactly one row), plus `tag` itself. */
+function familyTagChoices(fam: Family, tag: string): string[] {
+  return FAMILY_EVENT_TAGS.filter((tg) => tg === tag || !fam.events.some((e) => e.tag === tg));
+}
 
 /** Whether a confirmed merge has incoming data for a normally-hidden family
  * event (`<famMergeKeyBase>.<tag>.*`), so the row should show even though the
@@ -704,6 +721,21 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       if (changed) onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
+  }
+
+  /**
+   * Flag a family event slot's type as session-dirty right after a
+   * type-change commit moves an event into it. Unlike individual event rows
+   * (kept mounted across a retag, so their own "is this dirty" tracking
+   * survives), family rows are re-keyed by node identity on retag (see the
+   * `FamilyEventRow` call sites) so stale field state can't linger — but that
+   * remount also means the freshly-mounted row's own dirty tracking can't
+   * tell a synthetic vs. genuine match, so it's tracked here instead, reusing
+   * `resolvedSessionFields`'s existing per-person reset.
+   */
+  function markFamilyTagRetagged(keyBase: string, newTag: string) {
+    const key = `${keyBase}.${newTag}.tag`;
+    setResolvedSessionFields((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }
 
   const commit: Commit = (mutate, extraPatches) => {
@@ -1439,12 +1471,40 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
-                {fam && <FamilyEventRow key={`${fam.id}-MARR-${undoVersion}-${mergeGenRef.current}`} fam={fam} tag="MARR" t={t} commit={commitFamily} openEditSource={openEditSource} onOpenSourceDialog={setSourceDialogTarget} onRemove={fam.events.some((e) => e.tag === "MARR") ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined} placeSuggestions={placeSuggestions} placeToAddrs={placeToAddrs} placeCanonical={placeCanonical} addrCanonical={addrCanonical} mergeHighlight={mergeHighlight} mergeIncomingSources={mergeIncomingSources} famMergeKeyBase={famMergeKeyBase} />}
-                {fam && shownFamilyTags.map((tag) => {
-                  const hasRealEvent = fam.events.some((e) => e.tag === tag);
+                {fam && (() => {
+                  const marrNode = fam.raw.children.find((c) => c.tag === "MARR");
                   return (
                     <FamilyEventRow
-                      key={`${fam.id}-${tag}-${undoVersion}-${mergeGenRef.current}`}
+                      key={`${fam.id}-MARR-${marrNode ? nodeId(marrNode) : "empty"}-${undoVersion}-${mergeGenRef.current}`}
+                      fam={fam}
+                      tag="MARR"
+                      t={t}
+                      commit={commitFamily}
+                      openEditSource={openEditSource}
+                      onOpenSourceDialog={setSourceDialogTarget}
+                      onRemove={marrNode ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined}
+                      onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
+                      placeSuggestions={placeSuggestions}
+                      placeToAddrs={placeToAddrs}
+                      placeCanonical={placeCanonical}
+                      addrCanonical={addrCanonical}
+                      mergeHighlight={mergeHighlight}
+                      mergeIncomingSources={mergeIncomingSources}
+                      famMergeKeyBase={famMergeKeyBase}
+                      resolvedSessionFields={resolvedSessionFields}
+                    />
+                  );
+                })()}
+                {fam && shownFamilyTags.map((tag) => {
+                  const eventNode = fam.raw.children.find((c) => c.tag === tag);
+                  const hasRealEvent = eventNode !== undefined;
+                  return (
+                    <FamilyEventRow
+                      // Re-keyed on the underlying node's identity (not just `undoVersion`)
+                      // so that retagging this event away (via the type-change dropdown)
+                      // unmounts this row instead of leaving its local field state (date,
+                      // place, …) stale once `ev` silently becomes undefined underneath it.
+                      key={`${fam.id}-${tag}-${eventNode ? nodeId(eventNode) : "empty"}-${undoVersion}-${mergeGenRef.current}`}
                       fam={fam}
                       tag={tag}
                       t={t}
@@ -1453,6 +1513,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                       onOpenSourceDialog={setSourceDialogTarget}
                       autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
                       onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
+                      onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
                       placeSuggestions={placeSuggestions}
                       placeToAddrs={placeToAddrs}
                       placeCanonical={placeCanonical}
@@ -1460,6 +1521,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                       mergeHighlight={mergeHighlight}
                       mergeIncomingSources={mergeIncomingSources}
                       famMergeKeyBase={famMergeKeyBase}
+                      resolvedSessionFields={resolvedSessionFields}
                     />
                   );
                 })}
@@ -2399,6 +2461,8 @@ function EventList({
               commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches);
               onResolveMergeField?.(row.mergeKeyBase, subsOf(update));
             }}
+            onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}
+            tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? INDIVIDUAL_EVENT_GROUPS : undefined}
             onRemove={() => {
               commit((indi) => removeEventAtIndex(indi, row.i));
               if (row.compareKey) {
@@ -2455,14 +2519,18 @@ function EventList({
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 function FamilyEventRow({
-  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, autoFocusDate,
+  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onRetag, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
-  mergeHighlight, mergeIncomingSources, famMergeKeyBase,
+  mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   openEditSource: OpenEditSource;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   onRemove?: () => void;
+  /** Called (with the new tag) right after a type-change commit, so the
+   * caller can flag the now-occupied slot as session-dirty — see
+   * `resolvedSessionFields`. */
+  onRetag?: (newTag: string) => void;
   autoFocusDate?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -2475,10 +2543,12 @@ function FamilyEventRow({
    * no active merge preview, which is harmless since `mergeHighlight` would
    * then be empty anyway. */
   famMergeKeyBase?: string;
+  resolvedSessionFields?: Set<string>;
 }) {
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
   const eventNode = fam.raw.children.find((c) => c.tag === tag);
+  const tagChoices = familyTagChoices(fam, tag);
 
   return (
     <EventFieldsRow
@@ -2488,6 +2558,11 @@ function FamilyEventRow({
       t={t}
       commitField={(update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches)}
       onRemove={onRemove}
+      onChangeTag={tagChoices.length > 1 ? (newTag) => {
+        commit(fam, (f) => changeFamilyEventTag(f, tag, newTag));
+        onRetag?.(newTag);
+      } : undefined}
+      tagGroups={tagChoices.length > 1 ? [{ tags: tagChoices }] : undefined}
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
       onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
       onOpenSourceDialog={onOpenSourceDialog}
@@ -2499,6 +2574,7 @@ function FamilyEventRow({
       mergeHighlight={mergeHighlight}
       mergeIncomingSources={mergeIncomingSources}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
+      resolvedSessionFields={resolvedSessionFields}
     />
   );
 }
@@ -2583,6 +2659,8 @@ function EventFieldsRow({
   t,
   commitField,
   onRemove,
+  onChangeTag,
+  tagGroups,
   onAddSource,
   onEditSource,
   onOpenSourceDialog,
@@ -2602,6 +2680,14 @@ function EventFieldsRow({
   t: Translate;
   commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void;
   onRemove?: () => void;
+  /** When set (together with `tagGroups`), the type label becomes a dropdown
+   * so the user can change this event's tag in place (e.g. turn an
+   * Occupation into an Education event). */
+  onChangeTag?: (newTag: string) => void;
+  /** Options for the type-change dropdown — grouped under an `<optgroup>`
+   * when `labelKey` is given (individual events), or shown as a flat list
+   * otherwise (family events, which have too few tags to need grouping). */
+  tagGroups?: readonly { labelKey?: string; tags: readonly string[] }[];
   onAddSource: () => void;
   onEditSource?: (index: number) => void;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
@@ -2636,6 +2722,10 @@ function EventFieldsRow({
   const addrForced = resolvedSessionFields?.has(`${kBase}.addr`) ?? false;
   const noteForced = resolvedSessionFields?.has(`${kBase}.note`) ?? false;
   const agencyForced = resolvedSessionFields?.has(`${kBase}.agency`) ?? false;
+  // Family rows remount on a real retag (see the `FamilyEventRow` call
+  // sites), so the freshly-mounted row can't tell a real retag from this
+  // tag having always been here — `markFamilyTagRetagged` flags it instead.
+  const tagForced = resolvedSessionFields?.has(`${kBase}.tag`) ?? false;
 
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
@@ -2643,6 +2733,12 @@ function EventFieldsRow({
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
+  // The row stays mounted (same stable key) when its tag changes via
+  // `onChangeTag`, so — unlike `useField` — track dirtiness against the tag
+  // this row mounted with, not against `ev`'s own value (there's no GedEvent
+  // field to compare against).
+  const initialTagRef = useRef(tag);
+  const tagDirty = tag !== undefined && tag !== initialTagRef.current;
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
   // Note/Agency(non-title events)/Sources start tucked behind the expand
   // toggle to keep the row compact, but auto-expand if any of them already
@@ -2737,7 +2833,40 @@ function EventFieldsRow({
 
   return (
     <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
-      <div className="edit-event-label">{label}</div>
+      <div
+        className={fieldCls(
+          onChangeTag && tag && tagGroups ? "edit-event-label edit-event-label--select" : "edit-event-label",
+          false,
+          tagDirty || tagForced,
+        )}
+      >
+        {label}
+        {onChangeTag && tag && tagGroups && (
+          <>
+            <span className="edit-event-type-caret" aria-hidden="true">▾</span>
+            <select
+              className="edit-event-type-select"
+              value={tag}
+              title={t("edit.changeEventType")}
+              onChange={(e) => { if (e.target.value !== tag) onChangeTag(e.target.value); }}
+            >
+              {tagGroups.map((g, gi) =>
+                g.labelKey ? (
+                  <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                    {g.tags.map((tg) => (
+                      <option key={tg} value={tg}>{t(`event.${tg}`)}</option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  g.tags.map((tg) => (
+                    <option key={`${gi}-${tg}`} value={tg}>{t(`event.${tg}`)}</option>
+                  ))
+                ),
+              )}
+            </select>
+          </>
+        )}
+      </div>
       <ClearableInput
         wrapClassName="edit-event-date-cell"
         className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}

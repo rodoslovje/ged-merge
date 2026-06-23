@@ -1629,6 +1629,25 @@ button:focus-visible {
   grid-column: 1 / -1;
 }
 .edit-event-label { grid-column: 1; flex: none; width: auto; color: var(--muted); }
+/* The type-change control is a native <select> stretched invisibly over the
+ * label (so it picks up the same click target and keyboard handling as a
+ * regular select) with only the small ▾ caret showing — the label text
+ * itself stays a plain, unconstrained string so long labels (e.g.
+ * "Naturalization") keep overflowing exactly as before instead of being
+ * clipped by a select's fixed-width rendering. */
+.edit-event-label--select { position: relative; padding-right: 11px; cursor: pointer; }
+.edit-event-label--select:hover,
+.edit-event-label--select:focus-within { color: var(--text); }
+.edit-event-type-caret { margin-left: 3px; font-size: 0.95em; opacity: 0.85; }
+.edit-event-type-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+}
 .edit-event-date-cell { grid-column: 2; }
 /* Occupation/Education/Retirement: value reuses the Place column on row 1;
  * the event's actual Place/Address drop to row 2 underneath it. */
@@ -2936,7 +2955,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .preview-add { color: var(--accent); }
 .preview-from { color: var(--muted); text-decoration: line-through; }
 .preview-to { color: var(--accent); }
+/* A value taken verbatim from a real incoming GEDCOM file during a merge, not edited. */
 .preview-same { color: var(--state-incoming); }
+/* A sub-field of an edited event that the edit itself didn't touch — plain text,
+ * not the incoming color, since there may be no incoming file involved at all. */
+.preview-unchanged { color: var(--text); }
 
 .preview-files {
   margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
