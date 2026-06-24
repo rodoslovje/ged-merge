@@ -684,7 +684,6 @@ export function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
@@ -729,7 +728,6 @@ export function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // As soon as a fresh match result lands, point Edit at the first candidate —

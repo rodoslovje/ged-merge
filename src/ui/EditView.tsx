@@ -661,7 +661,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeCompareKeys, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return empty;
-  }, [decisions, compareDataset, person, dataset, t, tick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, compareDataset, person, dataset, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
   const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeCompareKeys, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById, hasMergeDecision } = mergeData;
 

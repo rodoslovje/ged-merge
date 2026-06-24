@@ -133,7 +133,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // handleClose intentionally omitted — stable by design, only wraps onClose prop
 
   if (!isOpen) return null;
 
