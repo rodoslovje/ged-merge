@@ -160,7 +160,8 @@ export function MergeView({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
   const compareHeader = current ? (
     <>
