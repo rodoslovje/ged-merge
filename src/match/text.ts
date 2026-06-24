@@ -1,4 +1,4 @@
-/** Low-level string-similarity primitives used across the matcher. */
+/** Low-level string-similarity primitives used across the matcher and review layer. */
 
 /** Lowercase, strip diacritics, collapse whitespace. */
 export function foldToken(s: string): string {
@@ -85,4 +85,13 @@ export function soundex(s: string): string {
     if (ch !== "H" && ch !== "W") prev = code;
   }
   return (result + "000").slice(0, 4);
+}
+
+/**
+ * Canonical comparison key for a plain text field: fold case/diacritics then
+ * strip all whitespace, so spacing differences don't count as conflicts.
+ * Shared between the match engine's agree/conflict detection and the review panel.
+ */
+export function compareKey(value: string): string {
+  return foldToken(value).replace(/\s+/g, "");
 }

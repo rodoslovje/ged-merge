@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
-import { dateSimilarity, placeSimilarity } from "./similarity";
+import { dateSimilarity, dateCompareKey, placeSimilarity } from "./similarity";
+import { compareKey } from "./text";
+import { placeCompareKey } from "./place";
 
 describe("parseDate qualifier variants", () => {
   const q = (s: string) => parseDate(s).qualifier;
@@ -147,5 +149,69 @@ describe("placeSimilarity with house numbers", () => {
       placeSimilarity(p("Krasinec,Metlika,Slovenia"), p("Krasinec, Metlika, Slovenija")),
     ).toBe(1);
     expect(placeSimilarity(p("Wien, Österreich"), p("Wien, Austria"))).toBe(1);
+  });
+});
+
+// ── compareKey ───────────────────────────────────────────────────────────────
+
+describe("compareKey", () => {
+  it("folds case and diacritics", () => {
+    expect(compareKey("Šentvid")).toBe(compareKey("sentvid"));
+  });
+
+  it("strips all whitespace so spacing differences are not conflicts", () => {
+    expect(compareKey("Kranj, Slovenija")).toBe(compareKey("Kranj,Slovenija"));
+    expect(compareKey("  a  b  ")).toBe(compareKey("ab"));
+  });
+
+  it("preserves content differences", () => {
+    expect(compareKey("Alice")).not.toBe(compareKey("Bob"));
+  });
+});
+
+// ── dateCompareKey ───────────────────────────────────────────────────────────
+
+describe("dateCompareKey", () => {
+  it("equates semantically identical date spellings", () => {
+    expect(dateCompareKey("ABT 1900")).toBe(dateCompareKey("Abt. 1900"));
+    expect(dateCompareKey("About 1900")).toBe(dateCompareKey("Circa 1900"));
+  });
+
+  it("equates exact date representations that parse identically", () => {
+    expect(dateCompareKey("1 JAN 1900")).toBe(dateCompareKey("1 Jan 1900"));
+    expect(dateCompareKey("1 JAN 1900")).toBe(dateCompareKey("01 JAN 1900"));
+  });
+
+  it("distinguishes different years", () => {
+    expect(dateCompareKey("1900")).not.toBe(dateCompareKey("1901"));
+  });
+
+  it("distinguishes approximate from exact", () => {
+    expect(dateCompareKey("ABT 1900")).not.toBe(dateCompareKey("1900"));
+  });
+
+  it("falls back to compareKey for unparseable strings", () => {
+    expect(dateCompareKey("unknown date")).toBe(compareKey("unknown date"));
+  });
+});
+
+// ── placeCompareKey ──────────────────────────────────────────────────────────
+
+describe("placeCompareKey", () => {
+  it("equates country-name variants", () => {
+    expect(placeCompareKey("Kranj, Slovenija")).toBe(placeCompareKey("Kranj, Slovenia"));
+    expect(placeCompareKey("Wien, Österreich")).toBe(placeCompareKey("Wien, Austria"));
+  });
+
+  it("deduplicates repeated parts", () => {
+    expect(placeCompareKey("Kranj, Kranj, Slovenija")).toBe(placeCompareKey("Kranj, Slovenija"));
+  });
+
+  it("is case and diacritic insensitive", () => {
+    expect(placeCompareKey("KRANJ, SLOVENIJA")).toBe(placeCompareKey("Kranj, Slovenija"));
+  });
+
+  it("preserves differences in distinct places", () => {
+    expect(placeCompareKey("Maribor, Slovenija")).not.toBe(placeCompareKey("Kranj, Slovenija"));
   });
 });

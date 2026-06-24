@@ -20,7 +20,7 @@ import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { linkKey } from "../normalize/links";
 import { clampBeforeDeathZone, dateToSortKey, individualFieldRows, minDeathZoneKey } from "../review/fields";
-import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
+import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 
 /** A translator (i18next `t`); only used for human-readable field labels. */
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -263,20 +263,7 @@ export function mergeDecisions(
   return { records, report };
 }
 
-interface Row {
-  key: string;
-  label: string;
-  master: string;
-  incoming: string;
-  state: string;
-  masterLinks?: string[];
-  incomingLinks?: string[];
-  isEventHeader?: boolean;
-  /** True per-tag-array index of this event row's underlying event on each
-   * side (-1 if absent) — see `FieldRow.eventMasterIdx`/`eventCompareIdx`. */
-  eventMasterIdx?: number;
-  eventCompareIdx?: number;
-}
+type Row = FieldRow;
 
 function applyRows(
   target: GedNode,
@@ -315,7 +302,7 @@ function applyRows(
     if (row.state === "agree" || row.state === "master-only") continue;
     // Handled elsewhere (family spouses/children go through applyFamilyStructure).
     if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
-    const choice = fields[row.key] ?? defaultChoice(row as never);
+    const choice = fields[row.key] ?? defaultChoice(row);
     if (choice === "master") continue;
 
     if (row.key === "links") {
@@ -1190,7 +1177,7 @@ function applyFamilyStructure(
 function wantsIncoming(rows: Row[], fields: Record<string, FieldChoice>, key: string): boolean {
   const row = rows.find((r) => r.key === key);
   if (!row || row.state === "agree" || row.state === "master-only") return false;
-  return (fields[key] ?? defaultChoice(row as never)) !== "master";
+  return (fields[key] ?? defaultChoice(row)) !== "master";
 }
 
 /**

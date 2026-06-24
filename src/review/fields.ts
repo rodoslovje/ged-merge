@@ -1,10 +1,9 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
 import { sourceCitationKey } from "../gedcom/source";
-import { parseDate } from "../gedcom/date";
 import { decomposePlace } from "../gedcom/place";
-import { foldToken } from "../match/text";
-import { canonicalPlaceToken } from "../match/place";
-import { nameSimilarity } from "../match/similarity";
+import { compareKey, foldToken } from "../match/text";
+import { canonicalPlaceToken, placeCompareKey } from "../match/place";
+import { dateCompareKey, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { formatLifespan, isDeceased } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
@@ -778,44 +777,6 @@ function stateOf(key: string, master: string, incoming: string): FieldState {
   return keyFn(master) === keyFn(incoming) ? "agree" : "conflict";
 }
 
-/**
- * Date comparison is semantic: equivalent expressions agree regardless of
- * spelling ("Abt. 1900" = "ABT 1900" = "About 1900"). Unparseable dates fall
- * back to a whitespace-insensitive text comparison.
- */
-function dateCompareKey(value: string): string {
-  const d = parseDate(value);
-  if (d.qualifier === "unknown") return compareKey(value);
-  return [d.qualifier, d.year, d.month, d.day, d.year2, d.month2, d.day2].join("|");
-}
-
-/**
- * Normalize a value for comparison. Whitespace-only differences (extra spaces,
- * spaces around commas/slashes) are not real conflicts, so all whitespace is
- * removed after folding case and diacritics.
- */
-function compareKey(value: string): string {
-  return foldToken(value).replace(/\s+/g, "");
-}
-
-/**
- * Place comparison maps each jurisdiction part through the shared country-alias
- * canonicalization (Slovenija/Slovenia, Österreich/Austria) and drops repeated
- * parts, so more or less detailed spellings of the same place agree — e.g.
- * "Kranj, Kranj, Slovenia" (town + like-named municipality) equals "Kranj,
- * Slovenia".
- */
-function placeCompareKey(value: string): string {
-  const seen = new Set<string>();
-  const parts: string[] = [];
-  for (const part of value.split(",")) {
-    const canon = canonicalPlaceToken(part);
-    if (!canon || seen.has(canon)) continue;
-    seen.add(canon);
-    parts.push(canon);
-  }
-  return parts.join(",");
-}
 
 /** Events that can occur at most once per person — always paired with the incoming side, never score-gated. */
 const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);

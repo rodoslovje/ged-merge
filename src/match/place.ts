@@ -33,3 +33,22 @@ const COUNTRY_GROUPS: string[][] = [
 const COUNTRY_CANONICAL: Map<string, string> = new Map(
   COUNTRY_GROUPS.flatMap((group) => group.map((variant) => [variant, group[0]] as const)),
 );
+
+/**
+ * Canonical comparison key for a raw place string. Maps each comma-separated
+ * part through country-alias canonicalization and deduplicates repeated parts,
+ * so "Kranj, Kranj, Slovenija" equals "Kranj, Slovenija" and
+ * "Slovenija" equals "Slovenia". Used by the review diff's agree/conflict
+ * detection so it agrees with the matcher's canonicalization.
+ */
+export function placeCompareKey(value: string): string {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const part of value.split(",")) {
+    const canon = canonicalPlaceToken(part);
+    if (!canon || seen.has(canon)) continue;
+    seen.add(canon);
+    parts.push(canon);
+  }
+  return parts.join(",");
+}

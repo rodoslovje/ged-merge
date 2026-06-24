@@ -1,7 +1,8 @@
 import type { GedDate, GedPlace, PersonName } from "../gedcom/types";
+import { parseDate } from "../gedcom/date";
 import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
-import { foldToken, jaroWinkler } from "./text";
+import { compareKey, foldToken, jaroWinkler } from "./text";
 
 /**
  * Field-level similarity functions. Each returns a score in 0..1, or
@@ -175,4 +176,16 @@ export function nameSetSimilarity(
 
 function hasNameContent(n: PersonName): boolean {
   return Boolean(n.surname || n.given || n.full);
+}
+
+/**
+ * Canonical comparison key for a raw date string. Semantic equivalents like
+ * "Abt. 1900" and "ABT 1900" produce the same key; unparseable dates fall back
+ * to `compareKey`. Used by the review diff's agree/conflict detection so it
+ * agrees with `dateSimilarity`'s date parsing.
+ */
+export function dateCompareKey(value: string): string {
+  const d = parseDate(value);
+  if (d.qualifier === "unknown") return compareKey(value);
+  return [d.qualifier, d.year, d.month, d.day, d.year2, d.month2, d.day2].join("|");
 }
