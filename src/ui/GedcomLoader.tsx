@@ -161,7 +161,7 @@ function renderSummary(
 
   return (
     <>
-      <div className={`gm-file ${accent} loader-filename`}>{fileName}</div>
+      <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "master" ? "tree.master" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
       <div className="loader-cols">
         <div className="loader-info">
           <dl className="loader-meta">

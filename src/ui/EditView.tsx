@@ -1042,7 +1042,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     return (
       <div className="section open edit-view">
         <div className="section-body">
-          <p className="gm-file master gm-data">{fileName}</p>
+          <p className="gm-file master gm-data" title={`${t("tree.master")}: ${fileName}`}>{fileName}</p>
           <p className="muted">{t("edit.empty")}</p>
         </div>
       </div>

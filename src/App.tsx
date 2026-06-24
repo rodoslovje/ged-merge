@@ -791,6 +791,14 @@ export function App() {
     return n;
   }, [decisions]);
 
+  const confirmedMasterIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [key, d] of decisions) {
+      if (d.status === "confirmed") ids.add(key.split(":")[1]);
+    }
+    return ids;
+  }, [decisions]);
+
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0;
 
   // Warn before leaving the page when there are unsaved changes.
@@ -1034,12 +1042,12 @@ export function App() {
             {(lastMasterFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
                 {lastMasterFile && (
-                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={lastMasterFile.fileName}>
+                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={`${t("tree.master")}: ${lastMasterFile.fileName}`}>
                     {lastMasterFile.fileName}
                   </button>
                 )}
                 {compare.status === "loaded" && (
-                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={compare.file.fileName}>
+                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName}`}>
                     {compare.file.fileName}
                   </button>
                 )}
@@ -1098,7 +1106,7 @@ export function App() {
                   onClick={handleSave}
                   title={t("save.gedcom.tooltip")}
                 >
-                  {t("save.gedcom")} ({changedCount + confirmedCount})
+                  {t("save.gedcom")} ({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size})
                 </button>
               )}
               {lastMasterFile && (canUndo || canRedo) && (
