@@ -358,7 +358,7 @@ function applyRows(
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
+        applied = applyEventSources(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
       } else {
         const subTag = SUB_TAG[sub];
         // Places are already reshaped into the master's layout when the
@@ -691,6 +691,7 @@ function applyEventSources(
   compareIdx: number,
   order: string[],
   sourMap: SourXrefMap,
+  records: GedNode[],
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
@@ -717,7 +718,17 @@ function applyEventSources(
       const key = linkKey(url);
       if (existing.has(key)) continue;
       existing.add(key);
-      insertOrdered(event, newNode(EVENT_LINK_TAG, url), EVENT_CHILD_ORDER);
+      // A link into a paginated archive book (Matricula, parish registers, …)
+      // the master already cites as a SOUR is attached as a citation to that
+      // book instead of becoming a disconnected plain link — same as `applyLinks`
+      // does for record-level links.
+      const sourceMatch = findExistingSource(records, url);
+      if (sourceMatch) {
+        if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
+        attachSourceCitation(event, sourceMatch.sourceXref, sourceMatch.page, EVENT_CHILD_ORDER);
+      } else {
+        insertOrdered(event, newNode(EVENT_LINK_TAG, url), EVENT_CHILD_ORDER);
+      }
     }
   }
   return true;
@@ -1010,6 +1021,8 @@ interface MergeContext {
   t: Translate;
   /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
   sourXrefMap: SourXrefMap;
+  /** The output record forest, for link-to-SOUR matching (`findExistingSource`). */
+  records: GedNode[];
 }
 
 function makeContext(
@@ -1092,6 +1105,7 @@ function makeContext(
     processedFamIds: new Set<string>(),
     t,
     sourXrefMap,
+    records,
   };
 }
 
@@ -1271,7 +1285,7 @@ function applyIndividualFamilies(
     ctx.report.changes.push(...combineEventEdits(famNode.xref!, ctx.t("event.MARR"), marrEntries));
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
       ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming" });
       ctx.touched.add(famNode.xref!);
     }
@@ -1297,7 +1311,7 @@ function applyIndividualFamilies(
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
-        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
           ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming" });
           ctx.touched.add(famNode.xref!);
         }

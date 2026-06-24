@@ -308,12 +308,13 @@ describe("parseGiMatchesCsv", () => {
     expect(husband.notes).toBeUndefined();
     expect(wife.notes).toBeUndefined();
 
-    // The shared family carries the marriage event, links, and children.
+    // The shared family carries the marriage event (with its link) and children.
     const fam = dataset.families.get("@SGIFAM1@")!;
     expect(fam.husband).toBe("@SGI1@");
     expect(fam.wife).toBe("@SGI2@");
-    expect(fam.links).toContain("https://en.geneanet.org/cemetery/view/8419923");
-    expect(fam.events.find((e) => e.tag === "MARR")?.place?.raw).toBe("Stražišče, Kranj");
+    const marr = fam.events.find((e) => e.tag === "MARR");
+    expect(marr?.links).toContain("https://en.geneanet.org/cemetery/view/8419923");
+    expect(marr?.place?.raw).toBe("Stražišče, Kranj");
 
     const children = childrenNames(husband, dataset);
     expect(children).toEqual([

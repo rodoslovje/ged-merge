@@ -732,7 +732,10 @@ function NodeCompare({
             // Read-only here, but mark the value that would be kept (master, else
             // incoming) in bold — the same emphasis as the main compare screen.
             const choice = defaultChoice(row);
-            const hasSources = !!(row.masterSources || row.incomingSources);
+            // A sources row can be link-icons-only (no actual SOUR citation on
+            // either side yet) — still route it through the icon rendering below
+            // rather than the plain-text branch, which would print the bare URL.
+            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.displayLabel ?? row.label}</td>

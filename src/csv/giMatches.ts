@@ -622,11 +622,15 @@ function buildPairRecords(
   return records;
 }
 
-/** Push a dated/placed event node, omitting it entirely when both are empty/annotations. */
-function pushEvent(into: GedNode[], tag: string, date: string, place: string): void {
+/** Push a dated/placed/linked event node, omitting it entirely when date, place
+ *  and links are all empty/annotations. Links (e.g. a Matricula marriage-book
+ *  URL) are attached as the event's own WWW children so review/merge treats
+ *  them as that event's citation rather than a disconnected record-level link. */
+function pushEvent(into: GedNode[], tag: string, date: string, place: string, links: string[] = []): void {
   const children: GedNode[] = [];
   if (date && !isAnnotation(date)) children.push(node(2, "DATE", date));
   if (place && !isAnnotation(place)) children.push(node(2, "PLAC", place));
+  for (const url of links) children.push(node(2, "WWW", url));
   if (children.length) into.push({ level: 1, tag, children });
 }
 
@@ -743,10 +747,8 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     const famChildren: GedNode[] = [];
     if (husbandId) famChildren.push(node(1, "HUSB", husbandId));
     if (wifeId) famChildren.push(node(1, "WIFE", wifeId));
-    pushEvent(famChildren, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"));
-    for (const url of col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
-      famChildren.push(node(1, "WWW", url));
-    }
+    const marriageLinks = col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean);
+    pushEvent(famChildren, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"), marriageLinks);
     parseRelativeList(col(incomingRow, "children")).forEach((child, i) => {
       const childId = `@${ID_PREFIX}FAM${famIdx}C${i + 1}@`;
       famRecords.push(buildRelativeIndi(childId, child, famId, "FAMC"));

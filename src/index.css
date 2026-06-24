@@ -2352,9 +2352,19 @@ button:focus-visible {
 .compare td.f-rel,
 .tree-compare-table td.f-rel { padding: 0; }
 .rel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* The editable Compare panel repeats the M/I/B choice on every pair's line
+   (there's still only one choice for the whole list — see RelativeGrid). Its
+   grid gains a third column sized like the other three: `table-layout: fixed`
+   never picks up `.f-choice`'s 96px (only a first-row/`<th>` width counts),
+   so the table's real choice column is just as wide as master/incoming — a
+   fixed 96px here would drift out of step with it, as `.f-choice` itself does. */
+.rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
 .rel-cell { padding: 3px 8px; min-width: 0; }
 .rel-cell:nth-child(1), .rel-cell:nth-child(2) { padding-top: 6px; }
 .rel-cell:nth-last-child(1), .rel-cell:nth-last-child(2) { padding-bottom: 6px; }
+.rel-grid.with-choice .rel-cell:nth-child(3) { padding-top: 6px; }
+.rel-grid.with-choice .rel-cell:nth-last-child(3) { padding-bottom: 6px; }
+.rel-cell.rel-choice { white-space: nowrap; }
 /* Divider between the two halves, matching the table's master/incoming border. */
 .compare td.f-rel { border-right: none; }
 .compare .rel-cell.rel-incoming { border-left: 1px solid var(--border); }
@@ -3196,6 +3206,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   }
   .f-choice {
     width: 76px;
+  }
+  .rel-grid.with-choice {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   }
   .choice {
     padding: 2px 4px;

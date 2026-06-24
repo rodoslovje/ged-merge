@@ -97,6 +97,10 @@ export type RelativePerson = Pick<PersonLinks, "linkable" | "onNavigate">;
  * each pair occupies one grid row, so the same person stays lined up across the
  * master and incoming columns even when a name wraps to several lines. The
  * bold/muted emphasis follows the field's chosen side, like single-value rows.
+ * The whole list shares one merge choice (there's no per-child pick), but when
+ * `renderChoice` is supplied (the editable Compare panel, not the read-only tree
+ * popover) it's repeated on every pair's line so the control isn't only visible
+ * next to the first child.
  */
 export function RelativeGrid({
   pairs,
@@ -104,12 +108,14 @@ export function RelativeGrid({
   incomingChosen,
   masterPerson,
   incomingPerson,
+  renderChoice,
 }: {
   pairs: RelativePair[];
   masterChosen: boolean;
   incomingChosen: boolean;
   masterPerson: RelativePerson;
   incomingPerson: RelativePerson;
+  renderChoice?: () => React.ReactNode;
 }) {
   const renderCell = (cell: RelativeCell | undefined, person: RelativePerson) => {
     if (!cell || !cell.text) return " ";
@@ -126,7 +132,7 @@ export function RelativeGrid({
   };
 
   return (
-    <div className="rel-grid">
+    <div className={renderChoice ? "rel-grid with-choice" : "rel-grid"}>
       {pairs.map((p, i) => (
         <Fragment key={i}>
           <div
@@ -141,6 +147,7 @@ export function RelativeGrid({
           >
             {renderCell(p.incoming, incomingPerson)}
           </div>
+          {renderChoice && <div className="rel-cell rel-choice f-choice">{renderChoice()}</div>}
         </Fragment>
       ))}
     </div>

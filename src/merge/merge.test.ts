@@ -655,6 +655,34 @@ describe("mergeDecisions — event source citations", () => {
     const out = serializeGedcom(records);
     expect(out.match(/2 WWW/g)).toHaveLength(1);
   });
+
+  it("attaches a same-book event link as a SOUR citation instead of a plain link (e.g. a marriage record's Matricula link)", () => {
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Poročna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 MARR\n2 DATE 1900\n" +
+          "2 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.MARR.sources": "both" } }],
+    ]);
+    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).not.toMatch(/^2 WWW/m);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
+    expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
 });
 
 describe("mergeDecisions — multi-instance events pair master/incoming by their own array position", () => {

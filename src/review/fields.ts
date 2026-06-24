@@ -680,10 +680,17 @@ function pushSourcesRow(
   masterLinks?: string[],
   incomingLinks?: string[],
 ): void {
-  const m = master ?? [];
-  const i = incoming ?? [];
-  const mIcons = linksNotCitedAsSource(masterLinks, m);
-  const iIcons = linksNotCitedAsSource(incomingLinks, i);
+  const mBase = master ?? [];
+  const iBase = incoming ?? [];
+  // A plain link that resolves to the exact same archival page as a citation
+  // already on the other side is the same record, just not yet itself a
+  // citation on this side — show it as that citation (with the other side's
+  // title/page) instead of a disconnected new link, so an identical source
+  // doesn't read as a conflict needing a merge decision.
+  const { sources: m, remainingLinks: mRemainingLinks } = reconcileLinksAsCitations(masterLinks, mBase, iBase);
+  const { sources: i, remainingLinks: iRemainingLinks } = reconcileLinksAsCitations(incomingLinks, iBase, mBase);
+  const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
+  const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
   if (m.length === 0 && i.length === 0 && mIcons.length === 0 && iIcons.length === 0) return;
   rows.push({
     key,
@@ -706,6 +713,31 @@ function linksNotCitedAsSource(links: string[] | undefined, sources: SourceCitat
   if (!links?.length) return [];
   const citedKeys = new Set(sources.filter((c) => c.url).map((c) => linkKey(c.url!)));
   return links.filter((url) => !citedKeys.has(linkKey(url)));
+}
+
+/**
+ * Match a side's plain links against the *other* side's citations: a link
+ * whose URL resolves (mod case/trailing-slash/Matricula-language) to the same
+ * page as one of the other side's citations is that same archival record, so
+ * it's added to this side's own citation list (reusing the other side's
+ * title/page) and dropped from the plain-link list, rather than staying a
+ * disconnected new link next to a citation that already covers it.
+ */
+function reconcileLinksAsCitations(
+  links: string[] | undefined,
+  ownSources: SourceCitation[],
+  otherSources: SourceCitation[],
+): { sources: SourceCitation[]; remainingLinks: string[] } {
+  if (!links?.length || !otherSources.length) return { sources: ownSources, remainingLinks: links ?? [] };
+  const matched: SourceCitation[] = [];
+  const remainingLinks: string[] = [];
+  for (const url of links) {
+    const key = linkKey(url);
+    const match = otherSources.find((c) => c.url && linkKey(c.url) === key);
+    if (match) matched.push(match);
+    else remainingLinks.push(url);
+  }
+  return matched.length ? { sources: [...ownSources, ...matched], remainingLinks } : { sources: ownSources, remainingLinks };
 }
 
 /** Compares both citations and icon-only links together: a side "has" the

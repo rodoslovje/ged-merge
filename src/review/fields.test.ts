@@ -734,6 +734,22 @@ describe("attached links", () => {
     expect(birtSources?.masterLinkIcons).toEqual(["https://example.com/elsewhere"]);
   });
 
+  it("shows an incoming plain link as the master's own citation when it's the exact same archival page", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE 56\n` +
+        `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/?pg=56\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n` +
+        `2 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/?pg=56\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const birtSources = byKey(rows, "BIRT.sources");
+    expect(birtSources?.incomingLinkIcons).toBeUndefined();
+    expect(birtSources?.incomingSources).toEqual(birtSources?.masterSources);
+    expect(birtSources?.state).toBe("agree");
+  });
+
   it("tallies differing links into linkCount; matching links agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/old\n0 TRLR\n`,

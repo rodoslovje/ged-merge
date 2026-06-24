@@ -71,6 +71,24 @@ export function ComparePanel({
     onChange({ status, fields: { ...fields, [key]: choice } });
   }
 
+  function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
+    if (forceMaster) return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+    if (row.state === "conflict" || row.state === "incoming-only") {
+      return CHOICES.map((c) => (
+        <button
+          key={c}
+          className={`choice ${c}${choice === c ? " active" : ""}`}
+          title={choiceTitle(t, c)}
+          onClick={() => setField(row.key, c)}
+        >
+          {choiceLabel(t, c)}
+        </button>
+      ));
+    }
+    if (row.state === "agree") return <span className="muted">=</span>;
+    return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+  }
+
   return (
     <div className="compare-panel">
       <table className="compare">
@@ -96,18 +114,26 @@ export function ComparePanel({
             }
 
             const choice = forceMaster ? "master" : fields[row.key] ?? defaultChoice(row);
-            const hasSources = !!(row.masterSources || row.incomingSources);
+            // A sources row can be link-icons-only (no actual SOUR citation on
+            // either side yet) — still route it through the icon rendering below
+            // rather than the plain-text branch, which would print the bare URL.
+            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
+            // Children/partners have no per-child pick, only one choice for the
+            // whole list, but a name beneath the first line should still read as
+            // covered by it, so the buttons repeat on every line inside the grid
+            // instead of living in a separate `f-choice` cell.
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.displayLabel ?? row.label}</td>
                 {row.relatives ? (
-                  <td className="f-rel" colSpan={2}>
+                  <td className="f-rel" colSpan={3}>
                     <RelativeGrid
                       pairs={row.relatives}
                       masterChosen={choice !== "incoming"}
                       incomingChosen={choice !== "master"}
                       masterPerson={masterPerson}
                       incomingPerson={incomingPerson}
+                      renderChoice={() => renderChoiceCell(row, choice)}
                     />
                   </td>
                 ) : hasSources ? (
@@ -150,26 +176,7 @@ export function ComparePanel({
                     </td>
                   </>
                 )}
-                <td className="f-choice">
-                  {forceMaster ? (
-                    <span className="gm-master-tag">{t("compare.keepMaster")}</span>
-                  ) : row.state === "conflict" || row.state === "incoming-only" ? (
-                    CHOICES.map((c) => (
-                      <button
-                        key={c}
-                        className={`choice ${c}${choice === c ? " active" : ""}`}
-                        title={choiceTitle(t, c)}
-                        onClick={() => setField(row.key, c)}
-                      >
-                        {choiceLabel(t, c)}
-                      </button>
-                    ))
-                  ) : row.state === "agree" ? (
-                    <span className="muted">=</span>
-                  ) : (
-                    <span className="gm-master-tag">{t("compare.keepMaster")}</span>
-                  )}
-                </td>
+                {row.relatives ? null : <td className="f-choice">{renderChoiceCell(row, choice)}</td>}
               </tr>
             );
           })}
