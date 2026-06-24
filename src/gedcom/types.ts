@@ -44,6 +44,14 @@ export interface GedNode {
    * original text in a tooltip. See `normalize/normalize.ts`.
    */
   reshapedFrom?: string;
+  /**
+   * Runtime-only marker (never serialized, dropped by `cloneNode`): set on an
+   * event node when an edit or merge adds it ("new") or modifies it
+   * ("changed"), so save-time audit stamping (`stampChanCrea`) writes CHAN/CREA
+   * onto exactly the events that changed rather than guessing. Consumed (and
+   * cleared) during stamping.
+   */
+  auditStamp?: "new" | "changed";
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */

@@ -5,6 +5,19 @@ import type { Dataset } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
+import { SourceRefs } from "./SourceRef";
+import { LinkIcons } from "./FieldValue";
+import type { Translate } from "../locales/i18n";
+
+/** A change with no text value — it carries only source/link icons to render inline. */
+function isIconChange(c: FieldChange): boolean {
+  return !c.from && !c.to && !c.segments && !!(c.sources?.length || c.links?.length);
+}
+
+/** Whether a change contributes anything to the preview (text, segments, or icons). */
+function hasContent(c: FieldChange): boolean {
+  return !!(c.from || c.to || c.segments || c.sources?.length || c.links?.length);
+}
 
 interface Props {
   report: ChangeReport;
@@ -60,13 +73,13 @@ export function SaveDialog({
   }, [t]);
 
   const fieldCount = useMemo(
-    () => report.changes.filter((c) => !c.newRecord && (c.from || c.to)).length,
+    () => report.changes.filter((c) => !c.newRecord && hasContent(c)).length,
     [report.changes],
   );
   // Fields added where the master had nothing before, as opposed to one
   // existing value replacing another.
   const newFields = useMemo(
-    () => report.changes.filter((c) => !c.newRecord && !c.from && c.to).length,
+    () => report.changes.filter((c) => !c.newRecord && !c.from && hasContent(c)).length,
     [report.changes],
   );
 
@@ -149,7 +162,7 @@ export function SaveDialog({
                 const kind = report.recordKinds[g.id];
                 const canNavigate = isEditRecord && kind === "individual" && !!onNavigate;
                 const canRemove = isEditRecord && !!onRemove;
-                const fieldRows = g.changes.filter((c) => !c.newRecord && (c.from || c.to));
+                const fieldRows = g.changes.filter((c) => !c.newRecord && hasContent(c));
                 const indi = kind === "individual" ? dataset?.individuals.get(g.id) : undefined;
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
@@ -209,20 +222,14 @@ export function SaveDialog({
                             <li key={gi} className="preview-field-group">
                               <span className="preview-field-group-label">{grp.group}</span>
                               <ul className="preview-fields preview-fields-nested">
-                                {grp.rows.map((c, i) => (
-                                  <li key={i}>
-                                    {c.field !== grp.group && (
-                                      <><span className="preview-field">{c.field}</span>: </>
-                                    )}
-                                    <FieldValue c={c} />
-                                  </li>
-                                ))}
+                                {renderGroupRows(grp.rows, grp.group, t)}
                               </ul>
                             </li>
                           ) : (
                             grp.rows.map((c, i) => (
                               <li key={`${gi}-${i}`}>
-                                <span className="preview-field">{c.field}</span>: <FieldValue c={c} />
+                                <span className="preview-field">{c.field}</span>:{" "}
+                                {isIconChange(c) ? <ChangeIcons changes={[c]} t={t} /> : <FieldValue c={c} />}
                               </li>
                             ))
                           ),
@@ -277,6 +284,39 @@ export function SaveDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Renders one event group's rows: text/segment rows as lines, with any
+ *  source/link icons appended inline to the last data line (so they sit on the
+ *  same row as the event's date/place data) — or on their own line when the
+ *  event has no other change. */
+function renderGroupRows(rows: FieldChange[], group: string, t: Translate) {
+  const iconChanges = rows.filter(isIconChange);
+  const dataRows = rows.filter((c) => !isIconChange(c));
+  const icons = iconChanges.length ? <ChangeIcons changes={iconChanges} t={t} /> : null;
+
+  if (dataRows.length === 0) {
+    return icons ? <li>{icons}</li> : null;
+  }
+  return dataRows.map((c, i) => (
+    <li key={i}>
+      {c.field !== group && <><span className="preview-field">{c.field}</span>: </>}
+      <FieldValue c={c} />
+      {i === dataRows.length - 1 && icons && <> {icons}</>}
+    </li>
+  ));
+}
+
+/** The 📖/🔗 icons (with tooltip) for the citations/links a change added. */
+function ChangeIcons({ changes, t }: { changes: FieldChange[]; t: Translate }) {
+  const sources = changes.flatMap((c) => c.sources ?? []);
+  const links = changes.flatMap((c) => c.links ?? []);
+  return (
+    <>
+      {sources.length > 0 && <SourceRefs t={t} incomingSources={sources} />}
+      {links.length > 0 && <LinkIcons urls={links} otherUrls={[]} />}
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
@@ -52,6 +52,13 @@ export interface FieldChange {
    *  hand) — the preview colors these like other incoming-sourced data rather than
    *  as an edit. Only meaningful for merge-produced changes. */
   unedited?: boolean;
+  /** Source citations this change added, rendered as the same 📖/🔗 icons (with
+   *  tooltip) the main UI uses — inline on the event's data line rather than as a
+   *  separate text row. When set, `from`/`to` carry no display text. */
+  sources?: SourceCitation[];
+  /** Plain attached links (record- or event-level) this change added, rendered as
+   *  🔗 icons inline like `sources`. */
+  links?: string[];
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */
@@ -215,6 +222,12 @@ export function mergeDecisions(
 }
 
 /** Human-readable change report (plain text) to download alongside the merge. */
+/** A one-line, plain-text description of a citation for the change report. */
+function citationText(c: SourceCitation): string {
+  const parts = [c.title, c.page ? `p. ${c.page}` : undefined].filter(Boolean);
+  return parts.join(", ") || c.url || c.sourceId;
+}
+
 export function formatReport(report: ChangeReport, title = "GED Merge change report"): string {
   const lines: string[] = [];
   lines.push(title);
@@ -247,7 +260,13 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
       lines.push(header);
       lines.push("-".repeat(header.length));
       for (const c of group) {
-        if (!c.to && c.from) {
+        if (c.sources?.length || c.links?.length) {
+          const items = [
+            ...(c.sources ?? []).map(citationText),
+            ...(c.links ?? []),
+          ];
+          lines.push(`  ${c.field}: added ${items.map((i) => `"${i}"`).join(", ")}`);
+        } else if (!c.to && c.from) {
           lines.push(`  ${c.field}: removed "${c.from}"`);
         } else {
           const verb = c.action === "both" ? "added" : "set";

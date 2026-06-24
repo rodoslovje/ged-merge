@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { defaultHomeId, displayName, primaryName } from "../match/relatives";
 import { kinshipLabel } from "../match/kinship";
-import { dateToSortKey, familyMergeKeyBases, individualFieldRows, orderedEventTags } from "../review/fields";
+import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
 import { decisionKey, decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
@@ -338,6 +338,22 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   useEffect(() => { setResolvedSessionFields(new Set()); }, [selectedId]);
 
   /**
+   * Stable `nodeId`s of event nodes materialized this session from an
+   * incoming-only ("extra") merge suggestion. Every field of such an event is a
+   * change relative to the saved master (the event didn't exist there), so the
+   * whole row stays bold until Save — independently of `resolvedSessionFields`,
+   * which is per-field and gets cleared once the confirmed decision disappears.
+   * Unlike that set, this one must survive merge-state recomputes (the incoming
+   * counterpart is rejected on materialization, so there's no `mergeHighlight`
+   * entry left to re-derive the marker from); it's reset only on person change.
+   */
+  const [materializedEventIds, setMaterializedEventIds] = useState<Set<number>>(new Set());
+  useEffect(() => { setMaterializedEventIds(new Set()); }, [selectedId]);
+  const markMaterializedEvent = useCallback((id: number) => {
+    setMaterializedEventIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
+  /**
    * Bumped only when `decisions` itself changes (a match got confirmed,
    * rejected, or a field choice flipped) — not on every dataset edit, even
    * though `mergeData` below also recomputes on plain edits (it depends on
@@ -430,6 +446,11 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         cByTag.set(ev.tag, arr);
       });
 
+      // Shared anchors so the Edit event list orders events identically to the
+      // comparison view (`orderedEventTags`), instead of sorting undated
+      // life-zone events before all dated ones.
+      const anchors = lifespanAnchors([...person.events, ...incoming.events]);
+
       for (const inst of orderedEventTags(person, incoming)) {
         const keyBase = inst.multi ? `${inst.tag}.${inst.keyIdx}` : inst.tag;
         if (inst.masterIdx >= 0) {
@@ -439,12 +460,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             if (inst.compareIdx >= 0 && !rejectedEvents?.has(`${inst.tag}:${inst.compareIdx}`)) {
               masterMergeCompareKeys.set(overallIdx, `${inst.tag}:${inst.compareIdx}`);
             }
-            // When master has no date, use incoming date for sort so the row stays in
-            // the right chronological position (e.g. after committing only a place).
-            if (!person.events[overallIdx]?.date && inst.compareIdx >= 0) {
-              const sk = dateToSortKey(cByTag.get(inst.tag)?.[inst.compareIdx]?.date);
-              if (sk !== 0) masterMergeSortKeys.set(overallIdx, sk);
-            }
+            // Authoritative sort key for this master event (zone-aware, falling
+            // back to the paired incoming date when master itself has none), so
+            // the row keeps the same chronological position as the merge preview.
+            const masterDate = person.events[overallIdx]?.date;
+            const incomingDate = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx]?.date : undefined;
+            masterMergeSortKeys.set(overallIdx, zoneSortKey(masterDate ?? incomingDate, inst.tag, anchors));
           }
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
@@ -452,7 +473,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
             if (incomingEv) {
-              extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: dateToSortKey(incomingEv.date), compareIdx: inst.compareIdx });
+              extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: zoneSortKey(incomingEv.date, inst.tag, anchors), compareIdx: inst.compareIdx });
             }
           }
         }
@@ -559,14 +580,24 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
    * suggestion — on the next render its input would be re-initialized from the
    * original incoming text, silently reverting the user's own edit and losing
    * the dirty/bold indicator for it.
+   *
+   * `keyBase` is the *volatile* merge key (e.g. "RESI.1") used to look up the
+   * incoming value and to record the decision's per-field choice. `forcedId` is
+   * a *stable* per-event identity (the raw event node's `nodeId`) used to
+   * persist the dirty/bold marker in `resolvedSessionFields` — these must be
+   * kept separate because `keyBase` is reassigned to a different event whenever
+   * same-tag events or their pairing reshuffle (notably when an incoming-only
+   * "extra" row is materialized into a real master event), which would
+   * otherwise force the bold marker onto the wrong row.
    */
-  function resolveMergeFields(keyBase: string, subs: string[]) {
+  function resolveMergeFields(keyBase: string, forcedId: string, subs: string[]) {
     if (!subs.length) return;
-    const touched = subs.map((sub) => `${keyBase}.${sub}`).filter((fkey) => mergeHighlight.has(fkey));
-    if (touched.length) {
+    // Only sub-fields that actually carry an incoming value become bold.
+    const incomingSubs = subs.filter((sub) => mergeHighlight.has(`${keyBase}.${sub}`));
+    if (incomingSubs.length) {
       setResolvedSessionFields((prev) => {
         const next = new Set(prev);
-        for (const fkey of touched) next.add(fkey);
+        for (const sub of incomingSubs) next.add(`${forcedId}.${sub}`);
         return next;
       });
     }
@@ -577,7 +608,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       if (dec.status !== "confirmed") continue;
       const updatedFields = { ...dec.fields };
       let changed = false;
-      for (const fkey of touched) {
+      for (const sub of incomingSubs) {
+        const fkey = `${keyBase}.${sub}`;
         if (updatedFields[fkey] !== "master") {
           updatedFields[fkey] = "master";
           changed = true;
@@ -1227,6 +1259,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onMaterializeIncomingSources={materializeMergeEventSources}
             onResolveMergeField={resolveMergeFields}
             resolvedSessionFields={resolvedSessionFields}
+            materializedEventIds={materializedEventIds}
+            onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
             mergeGen={mergeGenRef.current}

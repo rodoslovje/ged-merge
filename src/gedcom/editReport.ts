@@ -165,6 +165,7 @@ function diffStringSet(
   after: GedNode,
   tagFilter: (tag: string) => boolean,
   fieldLabel: string,
+  asLinks = false,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   const beforeVals = before.children.filter((c) => tagFilter(c.tag)).map((c) => c.value?.trim() ?? "").filter(Boolean);
@@ -172,8 +173,15 @@ function diffStringSet(
   for (const v of beforeVals) {
     if (!afterVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming" });
   }
-  for (const v of afterVals) {
-    if (!beforeVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both" });
+  const added = afterVals.filter((v) => !beforeVals.includes(v));
+  if (asLinks) {
+    // Render added record-level links as the same 🔗 icons (with the URL as a
+    // tooltip) the main UI uses, rather than a separate "+ url" text row.
+    if (added.length) diffs.push({ recordId: id, field: fieldLabel, from: "", to: "", action: "both", links: added });
+  } else {
+    for (const v of added) {
+      diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both" });
+    }
   }
   return diffs;
 }
@@ -198,7 +206,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   ]);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
-  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
 
   return diffs;
 }
@@ -252,7 +260,7 @@ function diffFamilyNodes(
   ]);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
-  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
 
   return diffs;
 }

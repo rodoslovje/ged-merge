@@ -104,6 +104,15 @@ export function sourceCitationKey(c: SourceCitation): string {
   return title ? `${title}#${page}` : `id:${c.sourceId.toLowerCase()}#${page}`;
 }
 
+/** Incoming citations the master side lacks — the ones a merge would actually add. */
+export function newSourceCitations(
+  masterSources: SourceCitation[] | undefined,
+  incomingSources: SourceCitation[] | undefined,
+): SourceCitation[] {
+  const have = new Set((masterSources ?? []).map(sourceCitationKey));
+  return (incomingSources ?? []).filter((c) => !have.has(sourceCitationKey(c)));
+}
+
 /** A 1-2 digit run treated as a page number for comparison (drops leading zeros). */
 function pageNumOf(s: string): number | undefined {
   const n = parseInt(s.trim(), 10);

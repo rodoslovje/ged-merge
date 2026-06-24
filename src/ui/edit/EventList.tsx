@@ -4,7 +4,7 @@ import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
 import { INDI_EVENT_TAGS } from "../../gedcom/builder";
-import { clampBeforeDeathZone, dateToSortKey, minDeathZoneKey } from "../../review/fields";
+import { lifespanAnchors, zoneSortKey } from "../../review/fields";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
@@ -34,6 +34,8 @@ export function EventList({
   onMaterializeIncomingSources,
   onResolveMergeField,
   resolvedSessionFields,
+  materializedEventIds,
+  onMaterializeEventNode,
   pendingFocusNodeId,
   undoVersion,
   mergeGen,
@@ -72,12 +74,20 @@ export function EventList({
   onMaterializeIncomingSources?: (eventNode: GedNode, tag: string, compareIdx: number) => RecordPatch[];
   /** Called after a direct field edit, to resolve the touched merge sub-fields
    * (e.g. "date", "value") to "master" so they stop being treated as pending
-   * incoming suggestions. */
-  onResolveMergeField?: (keyBase: string, subs: string[]) => void;
+   * incoming suggestions. `forcedId` is the row's stable per-event identity
+   * (used to persist the dirty/bold marker), distinct from the volatile
+   * `keyBase` (used for the incoming-value lookup / decision choice). */
+  onResolveMergeField?: (keyBase: string, forcedId: string, subs: string[]) => void;
   /** Sub-field keys (e.g. "OCCU.value") resolved from a merge suggestion via a
    * direct edit earlier this session — kept dirty/bold despite the row's
    * one-time remount from "extra" to "master" kind. */
   resolvedSessionFields?: Set<string>;
+  /** Stable `nodeId`s of events materialized this session from an incoming-only
+   * suggestion — every field of such an event renders bold (it's all new vs the
+   * saved master). Survives merge-state recomputes, unlike `resolvedSessionFields`. */
+  materializedEventIds?: Set<number>;
+  /** Record an event node (by `nodeId`) as freshly materialized from a merge suggestion. */
+  onMaterializeEventNode?: (id: number) => void;
   pendingFocusNodeId?: number | null;
   undoVersion?: number;
   /** Bumped whenever the confirmed-match merge preview recomputes; folded into
@@ -121,9 +131,10 @@ export function EventList({
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
   const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
 
-  // Earliest known death/burial/cremation date, so an imprecise life-zone date
-  // (e.g. a year-only OCCU) never sorts after it — see `clampBeforeDeathZone`.
-  const minDeathKey = minDeathZoneKey(person.events);
+  // Zone-aware anchors so undated life-zone events (RESI, OCCU, …) sort between
+  // birth and death rather than before all dated events — used only as a
+  // fallback when no merge supplies an authoritative sort key (`masterMergeSortKeys`).
+  const anchors = lifespanAnchors(person.events);
 
   const allRows: AnyRow[] = [
     ...person.events
@@ -135,14 +146,14 @@ export function EventList({
         mergeKeyBase: masterMergeKeyBases?.get(i) ?? eventKeyBases[i],
         compareKey: masterMergeCompareKeys?.get(i),
         stableKey: nodeId(rawEventNodes[i] ?? ev),
-        sortKey: clampBeforeDeathZone(ev.tag, masterMergeSortKeys?.get(i) ?? dateToSortKey(ev.date), minDeathKey),
+        sortKey: masterMergeSortKeys?.get(i) ?? zoneSortKey(ev.date, ev.tag, anchors),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])
       .map(({ tag, keyBase, sortKey, compareIdx }): AnyRow => ({
         kind: "extra",
         tag, keyBase, compareIdx,
-        sortKey: clampBeforeDeathZone(tag, sortKey, minDeathKey),
+        sortKey,
         tagPos: EXTRA_EVENT_ORDER.indexOf(tag),
       })),
   ];
@@ -170,8 +181,9 @@ export function EventList({
         t={t}
         commitField={(update, extraPatches) => {
           commit((indi) => setEventField(indi, "BIRT", update), extraPatches);
-          onResolveMergeField?.(birtMergeKeyBase, subsOf(update));
+          onResolveMergeField?.(birtMergeKeyBase, birtMergeKeyBase, subsOf(update));
         }}
+        forcedKeyBase={birtMergeKeyBase}
         onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
@@ -184,6 +196,8 @@ export function EventList({
         mergeIncomingSources={mergeIncomingSources}
         mergeKeyBase={birtMergeKeyBase}
         resolvedSessionFields={resolvedSessionFields}
+        eventNodeId={birtOriginalIdx >= 0 ? nodeId(rawEventNodes[birtOriginalIdx]) : undefined}
+        materializedEventIds={materializedEventIds}
       />
       {allRows.map((row) =>
         row.kind === "master" ? (
@@ -195,7 +209,7 @@ export function EventList({
             t={t}
             commitField={(update, extraPatches) => {
               commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches);
-              onResolveMergeField?.(row.mergeKeyBase, subsOf(update));
+              onResolveMergeField?.(row.mergeKeyBase, String(row.stableKey), subsOf(update));
             }}
             onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}
             tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? INDIVIDUAL_EVENT_GROUPS : undefined}
@@ -217,7 +231,10 @@ export function EventList({
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.mergeKeyBase}
+            forcedKeyBase={String(row.stableKey)}
             resolvedSessionFields={resolvedSessionFields}
+            eventNodeId={row.stableKey}
+            materializedEventIds={materializedEventIds}
           />
         ) : (
           <EventFieldsRow
@@ -228,11 +245,20 @@ export function EventList({
             t={t}
             commitField={(update, extraPatches) => {
               const patches = [...(extraPatches ?? [])];
+              // The edit materializes this incoming-only suggestion into a real
+              // master event node; capture its stable id so the dirty/bold
+              // marker attaches to that exact node, surviving the row's
+              // "extra"→"master" remount even as merge key bases reshuffle.
+              let materializedId: number | undefined;
               commit((indi) => {
                 const eventNode = addEventField(indi, row.tag, update);
-                if (eventNode) patches.push(...(onMaterializeIncomingSources?.(eventNode, row.tag, row.compareIdx) ?? []));
+                if (eventNode) {
+                  materializedId = nodeId(eventNode);
+                  patches.push(...(onMaterializeIncomingSources?.(eventNode, row.tag, row.compareIdx) ?? []));
+                }
               }, patches);
-              onResolveMergeField?.(row.keyBase, subsOf(update));
+              if (materializedId !== undefined) onMaterializeEventNode?.(materializedId);
+              onResolveMergeField?.(row.keyBase, materializedId !== undefined ? String(materializedId) : row.keyBase, subsOf(update));
               onRejectIncomingEvent?.(row.tag, row.compareIdx);
             }}
             onRemove={() => onRejectIncomingEvent?.(row.tag, row.compareIdx)}
@@ -245,6 +271,7 @@ export function EventList({
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.keyBase}
+            forcedKeyBase={row.keyBase}
             resolvedSessionFields={resolvedSessionFields}
           />
         ),

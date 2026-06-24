@@ -314,7 +314,7 @@ describe("mergeDecisions — links", () => {
     const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 WWW https://example.com/new");
-    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+    expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
   it("doesn't duplicate a link the master already has (even with a trailing slash)", () => {
@@ -344,7 +344,7 @@ describe("mergeDecisions — links", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("1 _WEBTAG\n2 URL https://example.com/new");
     expect(out).not.toMatch(/^1 WWW/m);
-    const change = report.changes.find((c) => c.to === "https://example.com/new");
+    const change = report.changes.find((c) => c.links?.includes("https://example.com/new"));
     expect(change).toBeDefined();
     // Explicitly chosen "both" (kept alongside master's link) isn't a plain
     // incoming copy, so it should keep the normal "added" preview color.
@@ -366,7 +366,7 @@ describe("mergeDecisions — links", () => {
     expect(out).toContain("1 OBJE @O4@");
     expect(out).toContain("0 @O4@ OBJE\n1 FILE https://example.com/new");
     expect(out).not.toMatch(/^1 WWW/m);
-    expect(report.changes.some((c) => c.to === "https://example.com/new")).toBe(true);
+    expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
   it("attaches a same-book incoming link as a SOUR citation instead of a plain link", () => {
@@ -390,7 +390,7 @@ describe("mergeDecisions — links", () => {
     expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     // The new page joins the existing book's SOUR rather than minting a new one.
     expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
-    expect(report.changes.some((c) => c.to.includes("pg=58"))).toBe(true);
+    expect(report.changes.some((c) => c.links?.some((l) => l.includes("pg=58")))).toBe(true);
   });
 
 });

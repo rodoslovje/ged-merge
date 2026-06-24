@@ -831,39 +831,17 @@ export function orderedEventTags(
     }
   }
 
-  // Compute mid-lifespan sort key for placing undated life-zone events (RESI, OCCU, …)
-  // between birth and death rather than before all dated events.
-  const birthKeys = [...(mByTag.get("BIRT") ?? []), ...(cByTag.get("BIRT") ?? [])]
-    .filter(e => e.date?.year != null).map(e => dateToSortKey(e.date));
-  const deathKeys = [
-    ...(mByTag.get("DEAT") ?? []), ...(cByTag.get("DEAT") ?? []),
-    ...(mByTag.get("BURI") ?? []), ...(cByTag.get("BURI") ?? []),
-    ...(mByTag.get("CREM") ?? []), ...(cByTag.get("CREM") ?? []),
-  ].filter(e => e.date?.year != null).map(e => dateToSortKey(e.date));
-  const minBirthKey = birthKeys.length > 0 ? Math.min(...birthKeys) : undefined;
-  // Anchor for undated birth-zone tags (BAPM, CHR, …): the *latest* known birth
-  // date, so they sort after whichever of master/compare's birth date the BIRT
-  // row itself ends up using (effectiveSortKey prefers master's date when present).
-  const maxBirthKey = birthKeys.length > 0 ? Math.max(...birthKeys) : undefined;
-  const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
-  // Earliest known death-zone date: dated life-zone events (e.g. an occupation
-  // "FROM 1995 TO 2024") are clamped just before this, so an imprecise,
-  // same-year end date doesn't outrank a same-year death/burial (see
-  // dateToSortKey: a year-only date sorts after any specific date in that year).
-  const minDeathKey = deathKeys.length > 0 ? Math.min(...deathKeys) : undefined;
-  const midLifeKey =
-    minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
-    : minBirthKey != null ? minBirthKey + 30 * 10_000
-    : maxDeathKey != null ? maxDeathKey - 30 * 10_000
-    : 15_000_000; // ~year 1500 fallback
+  // Anchors for placing undated life-zone events (RESI, OCCU, …) between birth
+  // and death rather than before all dated events — see `lifespanAnchors`.
+  const anchors = lifespanAnchors([...mEvents, ...cEvents]);
 
   instances.sort((a, b) => {
     const me = a.masterIdx >= 0 ? (mByTag.get(a.tag) ?? [])[a.masterIdx] : undefined;
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = effectiveSortKey(me, ce, a.tag, midLifeKey, maxBirthKey, minDeathKey);
-    const dateB = effectiveSortKey(me2, ce2, b.tag, midLifeKey, maxBirthKey, minDeathKey);
+    const dateA = zoneSortKey(me?.date ?? ce?.date, a.tag, anchors);
+    const dateB = zoneSortKey(me2?.date ?? ce2?.date, b.tag, anchors);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -907,34 +885,63 @@ export function clampBeforeDeathZone(tag: string, key: number, minDeathKey: numb
 }
 
 /**
- * Sort key for an event instance. When the event has a date, returns the
- * precision-aware date key. When undated, uses zone-based placement:
+ * Lifespan anchors used to place undated events relative to a person's known
+ * birth/death dates — shared by the comparison view (`orderedEventTags`) and
+ * the Edit view's event list so both order events identically.
+ *  - `maxBirthKey` — latest known BIRT date key (anchors undated birth-zone tags).
+ *  - `minDeathKey` — earliest known death-zone date key (clamps imprecise
+ *    life-zone dates just before it).
+ *  - `midLifeKey` — mid-point between birth and death, where undated life-zone
+ *    events (RESI, OCCU, …) sort.
+ */
+export interface LifespanAnchors {
+  midLifeKey: number;
+  maxBirthKey: number | undefined;
+  minDeathKey: number | undefined;
+}
+
+/** Derive `LifespanAnchors` from a person's (and optionally a compare's) events. */
+export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): LifespanAnchors {
+  const birthKeys = events
+    .filter((e) => e.tag === "BIRT" && e.date?.year != null)
+    .map((e) => dateToSortKey(e.date));
+  const deathKeys = events
+    .filter((e) => DEATH_ZONE_TAGS.has(e.tag) && e.date?.year != null)
+    .map((e) => dateToSortKey(e.date));
+  const minBirthKey = birthKeys.length > 0 ? Math.min(...birthKeys) : undefined;
+  const maxBirthKey = birthKeys.length > 0 ? Math.max(...birthKeys) : undefined;
+  const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
+  const minDeathKey = deathKeys.length > 0 ? Math.min(...deathKeys) : undefined;
+  const midLifeKey =
+    minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
+    : minBirthKey != null ? minBirthKey + 30 * 10_000
+    : maxDeathKey != null ? maxDeathKey - 30 * 10_000
+    : 15_000_000; // ~year 1500 fallback
+  return { midLifeKey, maxBirthKey, minDeathKey };
+}
+
+/**
+ * Sort key for an event with the given date/tag. When the event has a date,
+ * returns the precision-aware date key (clamped before any known death date for
+ * life-zone tags). When undated, uses zone-based placement:
  *  - Birth-zone tags (BIRT, BAPM, …): pinned just after the known birth date
  *    (so e.g. an undated christening still sorts after a dated birth), or
  *    key 0–5 when no birth date is known at all.
  *  - Death-zone tags (DEAT, BURI, CREM): key 99_999_997–99_999_999, always last.
  *  - Life-zone tags (RESI, OCCU, …): key near `midLifeKey`, between birth and death.
  */
-function effectiveSortKey(
-  me: GedEvent | undefined,
-  ce: GedEvent | undefined,
-  tag: string,
-  midLifeKey: number,
-  maxBirthKey: number | undefined,
-  minDeathKey: number | undefined,
-): number {
-  const d = me?.date ?? ce?.date;
+export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnchors): number {
   if (d?.year != null) {
-    return clampBeforeDeathZone(tag, dateToSortKey(d), minDeathKey);
+    return clampBeforeDeathZone(tag, dateToSortKey(d), a.minDeathKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {
-    return maxBirthKey != null ? maxBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
+    return a.maxBirthKey != null ? a.maxBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
   }
   if (tag === "CREM") return 99_999_999;
   if (tag === "BURI") return 99_999_998;
   if (tag === "DEAT") return 99_999_997;
-  return midLifeKey + (pos === -1 ? 500 : pos * 1_000);
+  return a.midLifeKey + (pos === -1 ? 500 : pos * 1_000);
 }
 
 /**

@@ -8,6 +8,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
+import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
 import {
@@ -314,7 +315,8 @@ export function applyIndividualFamilies(
 
     const marrSourcesChoice = marriageChoice("sources");
     if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
-      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming" });
+      const marrRow = rows.find((r) => r.key === `${famKey}.MARR.sources`);
+      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: newSourceCitations(marrRow?.masterSources, marrRow?.incomingSources) });
       ctx.touched.add(famNode.xref!);
     }
 
@@ -340,7 +342,8 @@ export function applyIndividualFamilies(
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
         if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
-          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming" });
+          const evRow = rows.find((r) => r.key === evSourcesKey);
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: newSourceCitations(evRow?.masterSources, evRow?.incomingSources) });
           ctx.touched.add(famNode.xref!);
         }
       }

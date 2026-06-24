@@ -33,7 +33,10 @@ export function EventFieldsRow({
   mergeHighlight,
   mergeIncomingSources,
   mergeKeyBase,
+  forcedKeyBase,
   resolvedSessionFields,
+  eventNodeId,
+  materializedEventIds,
 }: {
   ev: GedEvent | undefined;
   label: string;
@@ -61,7 +64,20 @@ export function EventFieldsRow({
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
   mergeKeyBase?: string;
+  /** Stable per-event identity (e.g. the raw node's `nodeId`) used to look up
+   * the session "this field was edited from a merge" markers in
+   * `resolvedSessionFields`. Distinct from `mergeKeyBase`, which is a volatile
+   * positional key (e.g. "RESI.1") that can be reassigned to a different event
+   * as same-tag events reshuffle. Falls back to `mergeKeyBase`/`tag` for
+   * callers whose key base is already stable (e.g. family events). */
+  forcedKeyBase?: string;
   resolvedSessionFields?: Set<string>;
+  /** This event's stable `nodeId`, matched against `materializedEventIds`. */
+  eventNodeId?: number;
+  /** `nodeId`s of events materialized this session from a merge suggestion;
+   * every field of such an event renders bold (it's all new vs the saved
+   * master), independently of `resolvedSessionFields`. */
+  materializedEventIds?: Set<number>;
 }) {
   const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
 
@@ -77,16 +93,24 @@ export function EventFieldsRow({
 
   // A field just materialized from a merge suggestion via a direct edit keeps
   // showing dirty/bold across the row's one-time "extra"→"master" remount.
-  const dateForced = resolvedSessionFields?.has(`${kBase}.date`) ?? false;
-  const valueForced = resolvedSessionFields?.has(`${kBase}.value`) ?? false;
-  const placeForced = resolvedSessionFields?.has(`${kBase}.place`) ?? false;
-  const addrForced = resolvedSessionFields?.has(`${kBase}.addr`) ?? false;
-  const noteForced = resolvedSessionFields?.has(`${kBase}.note`) ?? false;
-  const agencyForced = resolvedSessionFields?.has(`${kBase}.agency`) ?? false;
+  // Keyed by the *stable* `forcedKeyBase` (not the volatile `kBase`) so the
+  // marker stays attached to the same physical event when same-tag events
+  // reshuffle their merge key bases.
+  const fBase = forcedKeyBase ?? kBase;
+  // A whole event materialized this session from an incoming suggestion is new
+  // vs the saved master, so every field is a change — force them all bold,
+  // regardless of per-field merge resolution (which can be cleared/recomputed).
+  const eventForced = eventNodeId !== undefined && (materializedEventIds?.has(eventNodeId) ?? false);
+  const dateForced = eventForced || (resolvedSessionFields?.has(`${fBase}.date`) ?? false);
+  const valueForced = eventForced || (resolvedSessionFields?.has(`${fBase}.value`) ?? false);
+  const placeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.place`) ?? false);
+  const addrForced = eventForced || (resolvedSessionFields?.has(`${fBase}.addr`) ?? false);
+  const noteForced = eventForced || (resolvedSessionFields?.has(`${fBase}.note`) ?? false);
+  const agencyForced = eventForced || (resolvedSessionFields?.has(`${fBase}.agency`) ?? false);
   // Family rows remount on a real retag (see the `FamilyEventRow` call
   // sites), so the freshly-mounted row can't tell a real retag from this
   // tag having always been here — `markFamilyTagRetagged` flags it instead.
-  const tagForced = resolvedSessionFields?.has(`${kBase}.tag`) ?? false;
+  const tagForced = resolvedSessionFields?.has(`${fBase}.tag`) ?? false;
 
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);

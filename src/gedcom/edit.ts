@@ -42,6 +42,17 @@ export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX",
 /** Links attached to an event are plain `WWW` lines. */
 export const EVENT_LINK_TAG = "WWW";
 
+/**
+ * Flag an event node as added or modified, so save-time audit stamping
+ * (`stampChanCrea`) writes CHAN/CREA onto exactly this event. "new" wins over
+ * "changed": once an event is created in this session, later field edits to it
+ * keep it marked "new" (it still warrants a CREA, not just a CHAN bump).
+ */
+export function markEventTouched(node: GedNode, kind: "new" | "changed"): void {
+  if (node.auditStamp === "new") return;
+  node.auditStamp = kind;
+}
+
 export interface EventFieldUpdate {
   /** New direct value on the event line (e.g. occupation text), or `""` to remove. */
   value?: string;
@@ -159,6 +170,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
  */
 function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): GedNode | undefined {
   let event = findChild(record, tag);
+  const isNewEvent = !event;
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
@@ -171,7 +183,9 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
   applyEventNodeUpdate(record, event, update);
   // `applyEventNodeUpdate` removes the node from `record.children` if the
   // update left it empty — don't hand back a now-detached node.
-  return record.children.includes(event) ? event : undefined;
+  if (!record.children.includes(event)) return undefined;
+  markEventTouched(event, isNewEvent ? "new" : "changed");
+  return event;
 }
 
 /** Update an individual event's date, place, address and/or links — see
@@ -185,7 +199,10 @@ export function setEventField(indi: Individual, tag: string, update: EventFieldU
 export function setEventFieldAtIndex(indi: Individual, index: number, update: EventFieldUpdate): void {
   const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
   const eventNode = eventNodes[index];
-  if (eventNode) applyEventNodeUpdate(indi.raw, eventNode, update);
+  if (eventNode) {
+    applyEventNodeUpdate(indi.raw, eventNode, update);
+    if (indi.raw.children.includes(eventNode)) markEventTouched(eventNode, "changed");
+  }
 }
 
 /** Change the tag of an individual event at position `index` in `indi.events`
@@ -199,6 +216,7 @@ export function changeEventTagAtIndex(indi: Individual, index: number, newTag: s
   const eventNode = eventNodes[index];
   if (!eventNode || eventNode.tag === newTag) return;
   eventNode.tag = newTag;
+  markEventTouched(eventNode, "changed");
 }
 
 /** Remove an individual event at position `index` in `indi.events` (0-based). */
@@ -218,7 +236,10 @@ export function restoreEvent(indi: Individual, tag: string, data: EventFieldUpda
   addEventNode(indi, tag);
   const sameTagNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag) && c.tag === tag);
   const newNode = sameTagNodes[sameTagNodes.length - 1];
-  if (newNode) applyEventNodeUpdate(indi.raw, newNode, data);
+  if (newNode) {
+    applyEventNodeUpdate(indi.raw, newNode, data);
+    if (indi.raw.children.includes(newNode)) markEventTouched(newNode, "new");
+  }
 }
 
 /** Materialize the first edit to an incoming-only ("extra") merge-preview
@@ -237,7 +258,9 @@ export function addEventField(indi: Individual, tag: string, update: EventFieldU
   const sameTagNodes = indi.raw.children.filter((c) => c.tag === tag);
   const newNode = sameTagNodes[sameTagNodes.length - 1];
   applyEventNodeUpdate(indi.raw, newNode, update);
-  return indi.raw.children.includes(newNode) ? newNode : undefined;
+  if (!indi.raw.children.includes(newNode)) return undefined;
+  markEventTouched(newNode, "new");
+  return newNode;
 }
 
 /** Append a new empty event node for `tag` to an individual record, inserting
@@ -245,6 +268,7 @@ export function addEventField(indi: Individual, tag: string, update: EventFieldU
 export function addEventNode(indi: Individual, tag: string): void {
   const same = indi.raw.children.filter((c) => c.tag === tag);
   const event: GedNode = { level: indi.raw.level + 1, tag, children: [] };
+  markEventTouched(event, "new");
   if (same.length > 0) {
     const lastIdx = indi.raw.children.indexOf(same[same.length - 1]);
     indi.raw.children.splice(lastIdx + 1, 0, event);
@@ -269,11 +293,13 @@ export function changeFamilyEventTag(fam: Family, oldTag: string, newTag: string
   const eventNode = fam.raw.children.find((c) => c.tag === oldTag);
   if (!eventNode || fam.raw.children.some((c) => c.tag === newTag)) return;
   eventNode.tag = newTag;
+  markEventTouched(eventNode, "changed");
 }
 
 /** Append a new empty family event node for `tag`. */
 export function addFamilyEventNode(fam: Family, tag: string): void {
   const event: GedNode = { level: fam.raw.level + 1, tag, children: [] };
+  markEventTouched(event, "new");
   insertOrdered(fam.raw, event, FAM_CHILD_ORDER);
 }
 

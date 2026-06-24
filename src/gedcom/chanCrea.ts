@@ -17,35 +17,45 @@ export function todayGedcom(date: Date = new Date()): string {
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+/** Format the current time as GEDCOM standard: `HH:MM:SS` (e.g. `09:05:42`). */
+export function nowGedcomTime(date: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function makeNode(level: number, tag: string, value?: string): GedNode {
   const n: GedNode = { level, tag, children: [] };
   if (value !== undefined) n.value = value;
   return n;
 }
 
-function upsertDateChild(parent: GedNode, today: string): void {
-  const existing = parent.children.find((c) => c.tag === "DATE");
-  if (existing) {
-    existing.value = today;
+function upsertDateChild(parent: GedNode, today: string, now: string): void {
+  let dateNode = parent.children.find((c) => c.tag === "DATE");
+  if (dateNode) {
+    dateNode.value = today;
   } else {
-    parent.children.unshift(makeNode(parent.level + 1, "DATE", today));
+    dateNode = makeNode(parent.level + 1, "DATE", today);
+    parent.children.unshift(dateNode);
   }
+  // Refresh a TIME stamp only when the record already carries one.
+  const time = dateNode.children.find((c) => c.tag === "TIME");
+  if (time) time.value = now;
 }
 
-function upsertChan(record: GedNode, today: string, order: string[]): void {
+function upsertChan(record: GedNode, today: string, now: string, order: string[]): void {
   let chan = record.children.find((c) => c.tag === "CHAN");
   if (!chan) {
     chan = makeNode(record.level + 1, "CHAN");
     insertOrdered(record, chan, order);
   }
-  upsertDateChild(chan, today);
+  upsertDateChild(chan, today, now);
 }
 
-function insertCreaIfAbsent(record: GedNode, today: string, order: string[]): void {
+function insertCreaIfAbsent(record: GedNode, today: string, now: string, order: string[]): void {
   if (record.children.some((c) => c.tag === "CREA")) return;
   const crea = makeNode(record.level + 1, "CREA");
   insertOrdered(record, crea, order);
-  upsertDateChild(crea, today);
+  upsertDateChild(crea, today, now);
 }
 
 /**
@@ -56,10 +66,15 @@ function insertCreaIfAbsent(record: GedNode, today: string, order: string[]): vo
  * - `usage`: which CHAN/CREA variants the master file already uses (detected
  *   on load) — only writes timestamps the master itself already employs.
  * - `today`: GEDCOM-formatted date string (from `todayGedcom()`).
+ * - `now`: GEDCOM-formatted time string (from `nowGedcomTime()`) — only written
+ *   onto DATE nodes that already carry a TIME subordinate.
  *
  * Record-level: updates/adds CHAN on every changed record; adds CREA only to
- * wholly new records. Event-level: updates any existing CHAN on events inside
- * changed records; adds CHAN+CREA to every event on a wholly new record.
+ * wholly new records. Event-level: stamps only the events this save actually
+ * touched — every event on a wholly new record, plus any event the edit/merge
+ * flagged via `auditStamp` (`markEventTouched`). A modified event gets its CHAN
+ * refreshed (added if absent); a newly added event also gets a CREA. Untouched
+ * events are left exactly as they were. The marker is cleared as it's consumed.
  */
 export function stampChanCrea(
   records: GedNode[],
@@ -67,6 +82,7 @@ export function stampChanCrea(
   newIds: Set<string>,
   usage: ChanCreaUsage,
   today: string,
+  now: string,
 ): void {
   if (!usage.recordChan && !usage.recordCrea && !usage.eventChan && !usage.eventCrea) return;
 
@@ -78,22 +94,24 @@ export function stampChanCrea(
     const order = record.tag === "INDI" ? INDI_CHILD_ORDER : FAM_CHILD_ORDER;
     const isNew = newIds.has(xref);
 
-    if (usage.recordChan) upsertChan(record, today, order);
-    if (usage.recordCrea && isNew) insertCreaIfAbsent(record, today, order);
+    if (usage.recordChan) upsertChan(record, today, now, order);
+    if (usage.recordCrea && isNew) insertCreaIfAbsent(record, today, now, order);
 
     if (usage.eventChan || usage.eventCrea) {
       for (const child of record.children) {
         if (!ALL_EVENT_TAGS.has(child.tag)) continue;
+        // A brand-new record's events are all new; otherwise rely on the marker
+        // the edit/merge left on exactly the events it added or modified.
+        const stamp = isNew ? "new" : child.auditStamp;
+        child.auditStamp = undefined; // consume — keeps the live edit tree clean
+        if (!stamp) continue;
         if (usage.eventChan) {
           const existingChan = child.children.find((c) => c.tag === "CHAN");
-          if (existingChan) {
-            upsertDateChild(existingChan, today);
-          } else if (isNew) {
-            upsertChan(child, today, EVENT_CHILD_ORDER);
-          }
+          if (existingChan) upsertDateChild(existingChan, today, now);
+          else upsertChan(child, today, now, EVENT_CHILD_ORDER);
         }
-        if (usage.eventCrea && isNew) {
-          insertCreaIfAbsent(child, today, EVENT_CHILD_ORDER);
+        if (usage.eventCrea && stamp === "new") {
+          insertCreaIfAbsent(child, today, now, EVENT_CHILD_ORDER);
         }
       }
     }

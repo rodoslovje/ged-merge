@@ -16,7 +16,7 @@ import type { NormalizationReport, PlaceLayout, SourceLayout } from "./normalize
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
-import { stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
+import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
@@ -887,7 +887,15 @@ export function App() {
       const newIds = new Set(
         preview.report.changes.filter((c) => c.newRecord).map((c) => c.recordId),
       );
-      stampChanCrea(preview.records, changedIds, newIds, usage, todayGedcom());
+      const stampNow = new Date();
+      stampChanCrea(
+        preview.records,
+        changedIds,
+        newIds,
+        usage,
+        todayGedcom(stampNow),
+        nowGedcomTime(stampNow),
+      );
     }
 
     const text = serializeGedcom(preview.records, {

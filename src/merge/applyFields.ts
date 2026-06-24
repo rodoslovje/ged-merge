@@ -8,15 +8,16 @@ import {
   INDI_CHILD_ORDER,
   insertOrdered,
   insertRecord,
+  markEventTouched,
   NAME_CHILD_ORDER,
   nextXref,
 } from "../gedcom/edit";
-import { findExistingSource, sourceContentKey } from "../gedcom/source";
+import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { linkKey } from "../normalize/links";
-import { clampBeforeDeathZone, dateToSortKey, minDeathZoneKey } from "../review/fields";
+import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
@@ -118,7 +119,7 @@ export function applyRows(
     if (row.key === "links") {
       const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], linkFormat, records);
       if (added.length) {
-        report.changes.push({ recordId, field: row.label, from: row.master, to: added.join("\n"), action: choice, unedited: choice === "incoming" });
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", links: added });
         touched.add(recordId);
       }
       continue;
@@ -174,6 +175,10 @@ export function applyRows(
         let entries = eventEdits.get(eventKey);
         if (!entries) { entries = []; eventEdits.set(eventKey, entries); }
         entries.push({ sub, field: row.label, from: row.master, to: row.incoming, action: choice });
+      } else if (sub === "sources") {
+        // Render added citations as the same 📖/🔗 icons the main UI uses,
+        // inline on the event's line — not as a separate "Source: …" text row.
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.masterSources, row.incomingSources) });
       } else {
         report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group, unedited: choice === "incoming" });
       }
@@ -411,12 +416,16 @@ function resolveEventNode(
 ): GedNode {
   if (masterIdx >= 0) {
     const existing = target.children.filter((c) => c.tag === tag)[masterIdx];
-    if (existing) return existing;
+    if (existing) {
+      markEventTouched(existing, "changed");
+      return existing;
+    }
   }
   const cacheKey = `${tag}:${compareIdx}`;
   const cached = newEventNodes?.get(cacheKey);
   if (cached) return cached;
   const created = newNode(tag);
+  markEventTouched(created, "new");
   insertOrdered(target, created, order);
   newEventNodes?.set(cacheKey, created);
   return created;
@@ -600,9 +609,12 @@ export function sortEventsByDate(record: GedNode): void {
   if (events.length < 2) return;
 
   const eventDate = (node: GedNode) => parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? "");
-  const minDeathKey = minDeathZoneKey(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
-  const dateKey = (node: GedNode): number =>
-    clampBeforeDeathZone(node.tag, dateToSortKey(eventDate(node)), minDeathKey);
+  // Same zone-aware ordering as the Merge comparison and Edit views
+  // (`orderedEventTags` / `EventList`), so the saved file lists events in the
+  // exact order the user saw — undated life-zone events land mid-lifespan
+  // rather than ahead of all dated ones.
+  const anchors = lifespanAnchors(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
+  const dateKey = (node: GedNode): number => zoneSortKey(eventDate(node), node.tag, anchors);
 
   events.sort((a, b) => dateKey(a) - dateKey(b) || tagRank(a.tag) - tagRank(b.tag));
   eventIndices.forEach((idx, i) => {
