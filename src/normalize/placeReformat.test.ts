@@ -127,7 +127,6 @@ describe("reformatPlace → master-learned hierarchy fills in missing detail", (
       ["kranj", ["Kranj", "Slovenia"]],
       ["stražišče", ["Kranj", "Slovenia"]],
     ]),
-    localityOfParish: new Map([["šmartin", "Stražišče"]]),
     localityOfStreet: new Map([["hafnarjeva pot", "Stražišče"]]),
   };
   const RENKO_H: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy };
@@ -137,40 +136,24 @@ describe("reformatPlace → master-learned hierarchy fills in missing detail", (
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
 
-  it("resolves a more specific locality from the AGNC parish and backfills its municipality", () => {
-    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H, "župnija Šmartin");
+  it("resolves a more specific locality from the street and backfills its municipality", () => {
+    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H);
     expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
     expect(r.addr).toBe("Hafnarjeva pot 21/a");
   });
 
-  it("resolves a more specific locality from the street alone, with no AGNC", () => {
-    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H);
-    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
-  });
-
-  it("does not duplicate an AGNC that's already in its own field", () => {
-    const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H, "župnija Šmartin");
-    expect(r.agency).toBeUndefined();
-  });
-
-  it("leaves the locality alone when the street/parish isn't recognized", () => {
+  it("leaves the locality alone when the street isn't recognized", () => {
     const r = reformatPlace("Kranj,Slovenia", "Neznana ulica 5", RENKO_H);
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
 
-  it("does not let a parish named after the locality itself override it with a rarer sub-hamlet", () => {
-    // localityOfParish["kranj"] only reflects the rare narrowed entries (e.g.
-    // "Kokrica,Kranj,Slovenia") because inferPlaceHierarchy excludes the
-    // generic "Kranj,Kranj,Slovenia" catch-all from that tally. A record whose
-    // own parish is named "Kranj" — same as its stated locality — must not be
-    // "specialized" into that rarer hamlet.
-    const h: PlaceHierarchy = {
-      ...hierarchy,
-      localityOfParish: new Map([...hierarchy.localityOfParish, ["kranj", "Kokrica"]]),
-    };
-    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy: h };
-    const r = reformatPlace("Kranj (Slovenija)", undefined, fmt, "župnija Kranj");
+  it("does not sharpen a generic locality from a parish (parishes span many villages)", () => {
+    // A parish is no longer a sharpening hint: "župnija Šmartin" might cover
+    // several hamlets, so a generic "Kranj,Slovenia" with only a parish and no
+    // recognizable street must stay generic rather than be pinned to one village.
+    const r = reformatPlace("Kranj (Slovenija) - župnija Šmartin", undefined, RENKO_H);
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+    expect(r.agency).toBe("župnija Šmartin");
   });
 
   it("is a no-op when no hierarchy is supplied", () => {

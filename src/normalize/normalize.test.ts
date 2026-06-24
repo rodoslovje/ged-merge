@@ -328,9 +328,9 @@ describe("normalizeDataset (place reshaping)", () => {
 
 describe("normalizeDataset (master-learned place hierarchy)", () => {
   // The master attests "Kranj,Kranj,Slovenia" and "Stražišče,Kranj,Slovenia"
-  // elsewhere, plus a parish/street tying Stražišče to "župnija Šmartin" /
-  // "Hafnarjeva pot" — so an incoming place naming only "Kranj" can be
-  // completed and, where the parish/street says more, sharpened.
+  // elsewhere, plus a street tying Stražišče to "Hafnarjeva pot" — so an
+  // incoming place naming only "Kranj" can be completed and, where the street
+  // says more, sharpened. (A parish is not a sharpening hint — it spans villages.)
   const master = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -357,7 +357,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
     expect(birth.place?.raw).toBe("Kranj,Kranj,Slovenia");
   });
 
-  it("sharpens a generic locality using the AGNC parish, keeping the existing ADDR", () => {
+  it("sharpens a generic locality using the street, keeping the existing AGNC", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @P1@ INDI

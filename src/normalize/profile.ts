@@ -1,4 +1,4 @@
-import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber, stripParishLabel } from "../gedcom/place";
+import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, DateOrder } from "../gedcom/types";
@@ -378,16 +378,13 @@ const CHAIN_SEP = "\u0001";
  */
 export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   const parentTally = new Map<string, Map<string, number>>();
-  const parishTally = new Map<string, Map<string, number>>();
   const streetTally = new Map<string, Map<string, number>>();
 
   walkNodes(dataset.records, (node) => {
     const placNode = node.children.find((c) => c.tag === "PLAC");
     if (!placNode?.value) return;
     const addrNode = node.children.find((c) => c.tag === "ADDR");
-    const agncNode = node.children.find((c) => c.tag === "AGNC");
     const p = decomposePlace(placNode.value);
-    const a = addrNode?.value ? decomposePlace(addrNode.value) : undefined;
     if (!p.locality) return;
 
     if (p.jurisdiction.length >= 2) {
@@ -398,16 +395,15 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     // ("Kranj,Kranj,Slovenia") is a generic catch-all, not a real
     // disambiguation — it's how many records on a street get entered when
     // nobody pinned down the exact hamlet. Don't let it outvote the rarer,
-    // correctly narrowed entries for that same street/parish (e.g.
+    // correctly narrowed entries for that same street (e.g.
     // "Stražišče,Kranj,Slovenia"); only those are worth learning from here.
     const isGeneric = p.jurisdiction.length >= 2 && p.locality.toLowerCase() === p.jurisdiction[1].toLowerCase();
     if (isGeneric) return;
 
-    const parishName = p.parish ?? a?.parish ?? stripParishLabel(agncNode?.value);
-    if (parishName) bumpStr(getForms(parishTally, parishName.toLowerCase()), p.locality);
-
     // The street may be an inline PLAC segment (packed layout, number still
     // attached) or a separate ADDR (structured layout, already number-free).
+    // We learn streets only, not parishes: a parish often spans many villages,
+    // so its most-common locality is an unreliable plurality, not a real clue.
     const streetName = (p.street && stripHouseNumber(p.street)) || addressStreetName(addrNode?.value);
     if (streetName && streetName.toLowerCase() !== p.locality.toLowerCase()) {
       bumpStr(getForms(streetTally, streetName.toLowerCase()), p.locality);
@@ -419,17 +415,12 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const best = mostFrequentStr(forms);
     if (best) parentOf.set(key, best.split(CHAIN_SEP));
   }
-  const localityOfParish = new Map<string, string>();
-  for (const [key, forms] of parishTally) {
-    const best = mostFrequentStr(forms);
-    if (best) localityOfParish.set(key, best);
-  }
   const localityOfStreet = new Map<string, string>();
   for (const [key, forms] of streetTally) {
     const best = mostFrequentStr(forms);
     if (best) localityOfStreet.set(key, best);
   }
-  return { parentOf, localityOfParish, localityOfStreet };
+  return { parentOf, localityOfStreet };
 }
 
 function getForms(map: Map<string, Map<string, number>>, key: string): Map<string, number> {

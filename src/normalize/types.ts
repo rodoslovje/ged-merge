@@ -100,8 +100,6 @@ export interface PlaceTargetFormat {
 export interface PlaceHierarchy {
   /** Locality (lowercased) → the master's most-attested jurisdiction chain above it. */
   parentOf: Map<string, string[]>;
-  /** Parish name (lowercased, "župnija" stripped) → the master's most-attested locality. */
-  localityOfParish: Map<string, string>;
   /** Street/address name (lowercased) → the master's most-attested locality. */
   localityOfStreet: Map<string, string>;
 }

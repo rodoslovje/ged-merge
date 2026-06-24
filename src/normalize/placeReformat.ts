@@ -1,4 +1,4 @@
-import { addressStreetName, decomposePlace, stripHouseNumber, stripParishLabel } from "../gedcom/place";
+import { addressStreetName, decomposePlace, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
@@ -25,7 +25,6 @@ export function reformatPlace(
   placRaw: string | undefined,
   addrRaw: string | undefined,
   fmt: PlaceTargetFormat,
-  agncRaw?: string,
 ): ReformattedPlace {
   if (!reshapesLayout(fmt.layout)) {
     return { plac: clean(placRaw), addr: clean(addrRaw) };
@@ -46,22 +45,14 @@ export function reformatPlace(
   const parish = p?.parish ?? a?.parish;
   const facility = p?.facility ?? a?.facility;
 
-  // Use the master's own attested PLAC/ADDR/AGNC pairings (see PlaceHierarchy)
-  // to recognize a more specific locality than the incoming jurisdiction names
-  // — e.g. a parish or street the master tree already ties to a particular
-  // hamlet — and to fill in jurisdiction levels the incoming place omits
-  // (e.g. a municipality), the way the master itself writes that locality.
+  // Use the master's own attested PLAC/ADDR pairings (see PlaceHierarchy) to
+  // recognize a more specific locality than the incoming jurisdiction names —
+  // e.g. a street the master tree already ties to a particular hamlet — and to
+  // fill in jurisdiction levels the incoming place omits (e.g. a municipality),
+  // the way the master itself writes that locality. A parish is deliberately
+  // *not* used as a hint: one parish commonly spans many villages, so the
+  // most-common locality for it is an unreliable plurality, not a real clue.
   if (fmt.hierarchy) {
-    // The parish as a read-only *hint*, whether it's inline (above) or already
-    // sitting in its own AGNC field — either way it's a clue to the locality.
-    const parishHint = parish ?? stripParishLabel(agncRaw);
-    // But only when it names something *different* from the known locality.
-    // A parish named after the locality itself ("župnija Kranj" in "Kranj")
-    // confirms it rather than hinting at something else — inferPlaceHierarchy
-    // learns this map by excluding exactly that generic case, so it's biased
-    // toward rarer sub-hamlets and would wrongly override an already-correct,
-    // identically-named locality.
-    const parishHintIsNew = parishHint && parishHint.toLowerCase() !== locality?.toLowerCase();
     // `street` (from a packed PLAC's inline "Hafnarjeva pot 21/a") still has
     // its house number attached — strip it so it matches the learned key,
     // the same number-free form inferPlaceHierarchy learned it as.
@@ -77,10 +68,7 @@ export function reformatPlace(
       s && s.toLowerCase() !== locality?.toLowerCase()
         ? localityOfStreet.get(s.toLowerCase())
         : undefined;
-    const hinted =
-      (parishHintIsNew && fmt.hierarchy.localityOfParish.get(parishHint.toLowerCase())) ||
-      streetLocality(streetHint) ||
-      streetLocality(addrStreet);
+    const hinted = streetLocality(streetHint) || streetLocality(addrStreet);
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;
       jurisdiction = [hinted, ...jurisdiction.slice(1)];
