@@ -805,12 +805,14 @@ export function orderedEventTags(
     if (!multi) {
       const mIdx = mTagEvs.length > 0 ? 0 : -1;
       const cIdx = cTagEvs.length > 0 ? 0 : -1;
-      // When both sides have a dated event and the pair scores too low, show them separately.
+      // When at least one side has a dated event and the pair scores too low, show them separately.
       // Birth/death/burial happen at most once per person, so they're always the same
       // event regardless of score — no splitting for those tags.
+      // Only require one side to have a date so that a dated master event paired with a
+      // clearly different-place compare event (no date) is still split correctly.
       if (mIdx >= 0 && cIdx >= 0
           && !SINGLE_EVENT_TAGS.has(tag)
-          && mTagEvs[0].date?.year != null && cTagEvs[0].date?.year != null
+          && (mTagEvs[0].date?.year != null || cTagEvs[0].date?.year != null)
           && eventPairScore(mTagEvs[0], cTagEvs[0]) < MIN_EVENT_PAIR_SCORE) {
         instances.push({ tag, masterIdx: 0, compareIdx: -1, keyIdx: 0, multi: true });
         instances.push({ tag, masterIdx: -1, compareIdx: 0, keyIdx: 1, multi: true });

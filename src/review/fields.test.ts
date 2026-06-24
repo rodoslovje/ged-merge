@@ -528,6 +528,28 @@ describe("multi-RESI pairing by date", () => {
     expect(dateRows.length).toBe(2); // shown as separate events, not paired
   });
 
+  it("splits a dated master RESI from a no-date compare RESI in a different place", () => {
+    // Reproduces a real case: master has date+place, compare has only a different place (no date).
+    // Without the fix the date requirement prevented the score check, so they were merged.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1982\n2 PLAC Metlika,Metlika,Slovenia\n2 ADDR Mestni trg 9\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 PLAC Radovljica,Radovljica,Slovenia\n2 ADDR Gorenjska Cesta 33/a\n2 AGNC župnija Radovljica\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // Both events have place data, so count place rows to verify they were split.
+    // (The compare event has no date, so there is only one date row total.)
+    const placeRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.place$/));
+    expect(placeRows.length).toBe(2); // shown as separate events, not paired
+    expect(placeRows.find(r => r.master?.includes("Metlika"))?.state).toBe("master-only");
+    expect(placeRows.find(r => r.incoming?.includes("Radovljica"))?.state).toBe("incoming-only");
+  });
+
   it("does not pair residences with different locality, address, and agency 2 years apart", () => {
     // Reproduces a real case: same municipality/country tokens ("Kranj", "Slovenia")
     // made these look similar enough to pair, even though locality, address, and
