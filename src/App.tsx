@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw } from "./ui/historyTypes";
+import { useUndoRedo } from "./edit-state/useUndoRedo";
+import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { buildDataset } from "./gedcom/builder";
@@ -135,13 +137,11 @@ export function App() {
   const hasUnsavedChangesRef = useRef(false);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
-  type UndoEntry =
-    | { mode: "edit"; patches: RecordPatch[]; navigateTo?: string; redoNavigateTo?: string }
-    | { mode: "merge"; before: Map<string, CandidateDecision>; after: Map<string, CandidateDecision>; masterId: string; compareId: string };
-  const undoStack = useRef<UndoEntry[]>([]);
-  const redoStack = useRef<UndoEntry[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
+  const undoRedo = useUndoRedo();
+  const { canUndo, canRedo } = undoRedo;
+  // ── Edit-mode dirty tracking (changed ids, pre-edit snapshots) ─────────────
+  const dirty = useDirtyTracking();
+  const { changedPersonIds, changedFamilyIds } = dirty;
   // Queued edit-patch apply: consumed by EditView once it is mounted.
   const [pendingEditApply, setPendingEditApply] = useState<PendingEditApply | null>(null);
 
@@ -386,16 +386,8 @@ export function App() {
     setPreview(null);
     setOpenMatches(false);
     if (role === "master") {
-      undoStack.current = [];
-      redoStack.current = [];
-      setCanUndo(false);
-      setCanRedo(false);
-      setChangedPersonIds(new Set());
-      setChangedFamilyIds(new Set());
-      personSnapshots.current = new Map();
-      familySnapshots.current = new Map();
-      loadedPersonIds.current = new Set();
-      loadedFamilyIds.current = new Set();
+      undoRedo.clearAll();
+      dirty.prepareForLoad();
       setEditTreeId(null);
       setHomeId(undefined); // home person is opt-in; reset on (re)load
       setFocusHome(false);
@@ -403,10 +395,7 @@ export function App() {
     } else {
       // Incoming reload: edit entries remain valid (they only touch master data).
       // Drop merge entries whose field comparisons reference the old incoming file.
-      undoStack.current = undoStack.current.filter(e => e.mode === "edit");
-      redoStack.current = redoStack.current.filter(e => e.mode === "edit");
-      setCanUndo(undoStack.current.length > 0);
-      setCanRedo(redoStack.current.length > 0);
+      undoRedo.dropMergeEntries();
     }
     const buffer = await file.arrayBuffer();
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
@@ -425,11 +414,7 @@ export function App() {
   // "modified existing" from "newly added" when reverting via Remove from save.
   useEffect(() => {
     if (master.status !== "loaded") return;
-    const ds = master.file.dataset;
-    loadedPersonIds.current = new Set(ds.individuals.keys());
-    loadedFamilyIds.current = new Set(ds.families.keys());
-    personSnapshots.current = new Map();
-    familySnapshots.current = new Map();
+    dirty.resetOnLoad(master.file.dataset);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [master.status]);
 
@@ -618,24 +603,9 @@ export function App() {
     [indexByMaster, indexByCompare, current],
   );
 
-  // Stable ref so useCallback closures with empty deps can call pushUnified.
-  const pushUnifiedRef = useRef((_entry: UndoEntry) => {});
-
-  function pushUnified(entry: UndoEntry) {
-    if (undoStack.current.length >= 100) undoStack.current.shift();
-    undoStack.current.push(entry);
-    redoStack.current = [];
-    setCanUndo(true);
-    setCanRedo(false);
-  }
-  pushUnifiedRef.current = pushUnified;
-
   function handleUndo() {
-    const entry = undoStack.current.pop();
+    const entry = undoRedo.undo();
     if (!entry) return;
-    redoStack.current.push(entry);
-    setCanUndo(undoStack.current.length > 0);
-    setCanRedo(true);
     if (entry.mode === "edit") {
       if (entry.navigateTo) setNavigateToId(entry.navigateTo);
       setMode("edit");
@@ -650,11 +620,8 @@ export function App() {
   }
 
   function handleRedo() {
-    const entry = redoStack.current.pop();
+    const entry = undoRedo.redo();
     if (!entry) return;
-    undoStack.current.push(entry);
-    setCanUndo(true);
-    setCanRedo(redoStack.current.length > 0);
     if (entry.mode === "edit") {
       const navId = entry.redoNavigateTo ?? entry.navigateTo;
       if (navId) setNavigateToId(navId);
@@ -670,8 +637,8 @@ export function App() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const undoRedoRef = useRef({ undo: handleUndo, redo: handleRedo });
-  undoRedoRef.current = { undo: handleUndo, redo: handleRedo };
+  const handleUndoRedoRef = useRef({ undo: handleUndo, redo: handleRedo });
+  handleUndoRedoRef.current = { undo: handleUndo, redo: handleRedo };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -679,8 +646,8 @@ export function App() {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undoRedoRef.current.undo(); }
-      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); undoRedoRef.current.redo(); }
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndoRedoRef.current.undo(); }
+      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); handleUndoRedoRef.current.redo(); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -749,7 +716,7 @@ export function App() {
     const key = decisionKey("individual", current.masterId, current.compareId);
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
-    pushUnified({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
+    undoRedo.push({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
     setDecisions(after);
   }
 
@@ -763,7 +730,7 @@ export function App() {
     const [, masterId, compareId] = key.split(":");
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
-    pushUnified({ mode: "merge", before, after, masterId, compareId });
+    undoRedo.push({ mode: "merge", before, after, masterId, compareId });
     setDecisions(after);
   }
 
@@ -777,27 +744,19 @@ export function App() {
       const cur = before.get(key);
       const nextStatus = cur?.status === status ? "undecided" : status;
       const after = new Map(before).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
-      pushUnifiedRef.current({ mode: "merge", before: new Map(before), after, masterId, compareId });
+      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, masterId, compareId });
       setDecisions(after);
     },
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
   );
 
   const handlePushEdit = useCallback(
     (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => {
-      // Capture pre-edit snapshot on first dirty for each record (patch.before is the
-      // correct pre-edit state, unlike onDirty which fires after the mutation).
-      for (const patch of patches) {
-        if (patch.before !== null) {
-          if (patch.type === "individual" && !personSnapshots.current.has(patch.id)) {
-            personSnapshots.current.set(patch.id, cloneRaw(patch.before));
-          } else if (patch.type === "family" && !familySnapshots.current.has(patch.id)) {
-            familySnapshots.current.set(patch.id, cloneRaw(patch.before));
-          }
-        }
-      }
-      pushUnifiedRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo });
+      dirty.captureSnapshotsForPush(patches);
+      undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -812,90 +771,16 @@ export function App() {
     setEditTreeId(id);
   }
 
-  // Edit mode change tracking — lifted from EditView so the header Save button can see counts.
-  const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
-  const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
-  // IDs present when the master was loaded (to distinguish edits vs. new additions).
-  const loadedPersonIds = useRef<Set<string>>(new Set());
-  const loadedFamilyIds = useRef<Set<string>>(new Set());
-  // Raw-node snapshots taken at first-dirty time, used to revert "Remove from save".
-  const personSnapshots = useRef<Map<string, GedNode>>(new Map());
-  const familySnapshots = useRef<Map<string, GedNode>>(new Map());
 
   // Called by EditView after undo/redo patches have been applied to the dataset.
-  // Cleans up changedPersonIds/changedFamilyIds for any record that has returned
-  // to its original pre-edit state so the Save button count stays accurate.
+  // Delegates to useDirtyTracking which handles all the case logic as pure ops.
   const handlePatchApplied = useCallback(
     (patches: RecordPatch[], direction: "undo" | "redo") => {
       if (!masterDataset) return;
-      for (const patch of patches) {
-        // Generic top-level records (e.g. a SOUR/OBJE from "Add Source") ride along
-        // with the citing individual/family's own patch — no dirty-tracking of their own.
-        if (patch.type === "record") continue;
-        const appliedState = direction === "undo" ? patch.before : patch.after;
-        if (appliedState === null) {
-          // Record was removed (undo of creation, or redo of deletion) — clean up.
-          if (patch.type === "individual") {
-            personSnapshots.current.delete(patch.id);
-            setChangedPersonIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
-          } else {
-            familySnapshots.current.delete(patch.id);
-            setChangedFamilyIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
-          }
-          continue;
-        }
-        // Record exists — check if it matches the original snapshot.
-        const snapshot = patch.type === "individual"
-          ? personSnapshots.current.get(patch.id)
-          : familySnapshots.current.get(patch.id);
-        if (direction === "redo" && patch.before === null) {
-          // Redo of a creation: re-mark dirty (no snapshot, it's a new record).
-          if (patch.type === "individual") {
-            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          } else {
-            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          }
-          continue;
-        }
-        const record = patch.type === "individual"
-          ? masterDataset.individuals.get(patch.id)?.raw
-          : masterDataset.families.get(patch.id)?.raw;
-        if (snapshot !== undefined && record && JSON.stringify(record) === JSON.stringify(snapshot)) {
-          // Record is back to its pre-edit state — remove from dirty tracking.
-          if (patch.type === "individual") {
-            personSnapshots.current.delete(patch.id);
-            setChangedPersonIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
-          } else {
-            familySnapshots.current.delete(patch.id);
-            setChangedFamilyIds((prev) => { const s = new Set(prev); s.delete(patch.id); return s; });
-          }
-        } else if (direction === "redo") {
-          // Redo of modification: re-mark dirty (it was cleaned by a prior undo).
-          if (patch.type === "individual") {
-            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          } else {
-            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          }
-          // Restore snapshot if it was cleared when the record was cleaned.
-          if (snapshot === undefined && patch.before !== null) {
-            if (patch.type === "individual") {
-              personSnapshots.current.set(patch.id, cloneRaw(patch.before));
-            } else {
-              familySnapshots.current.set(patch.id, cloneRaw(patch.before));
-            }
-          }
-        } else {
-          // Undo restored a record that isn't back to its original state (e.g. undoing a
-          // "Remove from save" revert) — re-add to dirty tracking so the save button reflects it.
-          if (patch.type === "individual") {
-            setChangedPersonIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          } else {
-            setChangedFamilyIds((prev) => prev.has(patch.id) ? prev : new Set(prev).add(patch.id));
-          }
-        }
-      }
+      dirty.onPatchApplied(patches, direction, masterDataset);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [masterDataset],
   );
 
@@ -933,8 +818,8 @@ export function App() {
 
     const editReport = changedCount > 0
       ? enrichEditReport(
-          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, loadedPersonIds.current, loadedFamilyIds.current, personSnapshots.current, familySnapshots.current),
-          masterDataset, personSnapshots.current, familySnapshots.current, t,
+          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, dirty.loadedPersonIds.current, dirty.loadedFamilyIds.current, dirty.personSnapshots.current, dirty.familySnapshots.current),
+          masterDataset, dirty.personSnapshots.current, dirty.familySnapshots.current, t,
         )
       : null;
 
@@ -968,19 +853,8 @@ export function App() {
   }
 
   function handleEditDirty(type: "individual" | "family", id: string) {
-    if (type === "individual") {
-      if (!personSnapshots.current.has(id) && masterDataset) {
-        const indi = masterDataset.individuals.get(id);
-        if (indi) personSnapshots.current.set(id, JSON.parse(JSON.stringify(indi.raw)) as GedNode);
-      }
-      setChangedPersonIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-    } else {
-      if (!familySnapshots.current.has(id) && masterDataset) {
-        const fam = masterDataset.families.get(id);
-        if (fam) familySnapshots.current.set(id, JSON.parse(JSON.stringify(fam.raw)) as GedNode);
-      }
-      setChangedFamilyIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-    }
+    if (!masterDataset) return;
+    dirty.markDirty(type, id, masterDataset);
   }
 
   function handleConfirmSave() {
@@ -1005,10 +879,7 @@ export function App() {
       finalNewline: masterDataset.finalNewline,
     });
     Object.assign(masterDataset, rebuilt);
-    loadedPersonIds.current = new Set(masterDataset.individuals.keys());
-    loadedFamilyIds.current = new Set(masterDataset.families.keys());
-    personSnapshots.current = new Map();
-    familySnapshots.current = new Map();
+    dirty.resetOnSave(masterDataset);
 
     // These confirmed decisions are now baked into the live dataset — clear them
     // so the pending-changes count doesn't still include them. Always replace the
@@ -1021,14 +892,9 @@ export function App() {
     });
     setSaveToast(t("save.toast", { count: preview.files.length }));
     setPreview(null);
-    setChangedPersonIds(new Set());
-    setChangedFamilyIds(new Set());
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
-    undoStack.current = [];
-    redoStack.current = [];
-    setCanUndo(false);
-    setCanRedo(false);
+    undoRedo.clearAll();
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
@@ -1036,11 +902,11 @@ export function App() {
     const patches: RecordPatch[] = [];
 
     if (kind === "individual") {
-      const snapshot = personSnapshots.current.get(id);
+      const snapshot = dirty.personSnapshots.current.get(id);
       const indi = masterDataset.individuals.get(id);
       if (indi) {
         const beforeIndi = cloneRaw(indi.raw);
-        if (loadedPersonIds.current.has(id) && snapshot) {
+        if (dirty.loadedPersonIds.current.has(id) && snapshot) {
           indi.raw.value = snapshot.value;
           indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
           rebuildIndividual(masterDataset, indi);
@@ -1061,13 +927,13 @@ export function App() {
         }
       }
       // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
-      setChangedPersonIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      dirty.removeDirty("individual", id);
     } else {
-      const snapshot = familySnapshots.current.get(id);
+      const snapshot = dirty.familySnapshots.current.get(id);
       const fam = masterDataset.families.get(id);
       if (fam) {
         const beforeFam = cloneRaw(fam.raw);
-        if (loadedFamilyIds.current.has(id) && snapshot) {
+        if (dirty.loadedFamilyIds.current.has(id) && snapshot) {
           fam.raw.value = snapshot.value;
           fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
           rebuildFamily(masterDataset, fam);
@@ -1088,11 +954,11 @@ export function App() {
         }
       }
       // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
-      setChangedFamilyIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      dirty.removeDirty("family", id);
     }
 
     if (patches.length > 0) {
-      pushUnified({ mode: "edit", patches, navigateTo: id });
+      undoRedo.push({ mode: "edit", patches, navigateTo: id });
     }
 
     setPreview((prev) => {
