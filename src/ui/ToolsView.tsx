@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { validateDataset, type ValidationReport, type IssueCategory } from "../tools/validate";
 import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
+import { buildSourceTree, type SourceTree, type SourceUse } from "../tools/sources";
+import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED } from "../tools/places";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 
-type Tool = "validate" | "duplicates" | "normalize";
+type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
-const TOOLS: Tool[] = ["validate", "duplicates", "normalize"];
+const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "sources", "places"];
 
 /** Max issue rows rendered at once — keeps an unvirtualized list responsive on
  *  files with thousands of findings; the rest are summarized as "…and N more". */
@@ -72,6 +74,12 @@ export function ToolsView({ dataset, fileName, onNavigate, active }: Props) {
         )}
         {tool === "normalize" && (
           <NormalizePanel dataset={dataset} fileName={fileName} />
+        )}
+        {tool === "sources" && (
+          <SourcesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "places" && (
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
         )}
       </div>
     </div>
@@ -396,5 +404,317 @@ function NormExamples({ title, examples }: { title: string; examples: { before: 
         ))}
       </ul>
     </div>
+  );
+}
+
+// ── Shared usage list ────────────────────────────────────────────────────────
+
+/** Records that cite a source/media or use a place; each navigates into Edit. */
+function UsageList({ uses, onNavigate }: { uses: SourceUse[]; onNavigate: (id: string) => void }) {
+  const { t } = useTranslation();
+  if (uses.length === 0) return null;
+  return (
+    <ul className="tools-usage">
+      {uses.slice(0, MAX_ROWS).map((u, i) => (
+        <li key={`${u.id}-${i}`}>
+          <button className="tools-issue-link" onClick={() => onNavigate(u.id)} title={u.id}>
+            {u.label}
+          </button>
+        </li>
+      ))}
+      {uses.length > MAX_ROWS && (
+        <li className="tools-more">{t("tools.validate.more", { count: uses.length - MAX_ROWS })}</li>
+      )}
+    </ul>
+  );
+}
+
+/** A collapsible tree row: a ▶ toggle, a label, a usage count, and nested content. */
+function TreeRow({
+  open,
+  onToggle,
+  hasChildren,
+  label,
+  count,
+  href,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  hasChildren: boolean;
+  label: ReactNode;
+  count?: number;
+  href?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="tools-tree-node">
+      <div className="tools-tree-row">
+        {hasChildren ? (
+          <button
+            className={`tools-pair-toggle ${open ? "open" : ""}`}
+            onClick={onToggle}
+            aria-expanded={open}
+          >
+            ▶
+          </button>
+        ) : (
+          <span className="tools-tree-bullet">·</span>
+        )}
+        <span className="tools-tree-label">{label}</span>
+        {href && (
+          <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
+            ↗
+          </a>
+        )}
+        {count != null && <span className="tools-chip-count">{count}</span>}
+      </div>
+      {open && hasChildren && <div className="tools-tree-children">{children}</div>}
+    </li>
+  );
+}
+
+// ── Sources explorer ─────────────────────────────────────────────────────────
+
+function SourcesPanel({
+  dataset,
+  onNavigate,
+  active,
+}: {
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
+  active: boolean;
+}) {
+  const { t } = useTranslation();
+  const [tree, setTree] = useState<SourceTree | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setTree(null);
+    setOpen(new Set());
+  }, [dataset]);
+
+  useEffect(() => {
+    if (active && !tree) setTree(buildSourceTree(dataset));
+  }, [active, tree, dataset]);
+
+  const toggle = (key: string) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
+
+  const empty =
+    tree.repos.length === 0 && tree.unattachedMedia.length === 0;
+
+  return (
+    <>
+      <p className="tools-intro">{t("tools.sources.intro")}</p>
+      <p className="tools-summary">
+        {t("tools.sources.summary", {
+          repos: tree.repoCount,
+          sources: tree.sourceCount,
+          media: tree.mediaCount,
+        })}
+      </p>
+      {empty ? (
+        <p className="tools-clean">{t("tools.sources.none")}</p>
+      ) : (
+        <ul className="tools-tree">
+          {tree.repos.map((repo, ri) => {
+            const repoKey = `r:${repo.xref ?? "none"}:${ri}`;
+            return (
+              <TreeRow
+                key={repoKey}
+                open={open.has(repoKey)}
+                onToggle={() => toggle(repoKey)}
+                hasChildren={repo.sources.length > 0}
+                count={repo.sources.length}
+                href={repo.url}
+                label={repo.xref ? repo.name || repo.xref : t("tools.sources.noRepo")}
+              >
+                <ul className="tools-tree">
+                  {repo.sources.map((src) => {
+                    const srcKey = `s:${src.xref}`;
+                    const hasKids = src.media.length > 0 || src.usedBy.length > 0;
+                    return (
+                      <TreeRow
+                        key={srcKey}
+                        open={open.has(srcKey)}
+                        onToggle={() => toggle(srcKey)}
+                        hasChildren={hasKids}
+                        count={src.usedBy.length}
+                        label={
+                          <>
+                            {src.title || src.xref}
+                            {src.filingNumber && (
+                              <span className="tools-tree-meta"> · {src.filingNumber}</span>
+                            )}
+                          </>
+                        }
+                      >
+                        {src.media.map((m) => (
+                          <TreeRow
+                            key={`m:${m.xref}`}
+                            open={open.has(`m:${m.xref}`)}
+                            onToggle={() => toggle(`m:${m.xref}`)}
+                            hasChildren={m.usedBy.length > 0}
+                            count={m.usedBy.length || undefined}
+                            href={m.url}
+                            label={
+                              <span className="tools-tree-meta">
+                                🖼 {m.title || m.xref}
+                              </span>
+                            }
+                          >
+                            <UsageList uses={m.usedBy} onNavigate={onNavigate} />
+                          </TreeRow>
+                        ))}
+                        {src.usedBy.length > 0 && (
+                          <div className="tools-usage-block">
+                            <div className="tools-usage-title">{t("tools.sources.usedBy")}</div>
+                            <UsageList uses={src.usedBy} onNavigate={onNavigate} />
+                          </div>
+                        )}
+                      </TreeRow>
+                    );
+                  })}
+                </ul>
+              </TreeRow>
+            );
+          })}
+          {tree.unattachedMedia.length > 0 && (
+            <TreeRow
+              open={open.has("unattached")}
+              onToggle={() => toggle("unattached")}
+              hasChildren
+              count={tree.unattachedMedia.length}
+              label={t("tools.sources.unattached")}
+            >
+              <ul className="tools-tree">
+                {tree.unattachedMedia.map((m) => (
+                  <TreeRow
+                    key={`um:${m.xref}`}
+                    open={open.has(`um:${m.xref}`)}
+                    onToggle={() => toggle(`um:${m.xref}`)}
+                    hasChildren={m.usedBy.length > 0}
+                    count={m.usedBy.length || undefined}
+                    href={m.url}
+                    label={<span className="tools-tree-meta">🖼 {m.title || m.xref}</span>}
+                  >
+                    <UsageList uses={m.usedBy} onNavigate={onNavigate} />
+                  </TreeRow>
+                ))}
+              </ul>
+            </TreeRow>
+          )}
+        </ul>
+      )}
+    </>
+  );
+}
+
+// ── Places explorer ──────────────────────────────────────────────────────────
+
+function PlacesPanel({
+  dataset,
+  onNavigate,
+  active,
+}: {
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
+  active: boolean;
+}) {
+  const { t } = useTranslation();
+  const [tree, setTree] = useState<PlaceTree | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setTree(null);
+    setOpen(new Set());
+  }, [dataset]);
+
+  useEffect(() => {
+    if (active && !tree) setTree(buildPlaceTree(dataset));
+  }, [active, tree, dataset]);
+
+  const toggle = (key: string) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
+
+  return (
+    <>
+      <p className="tools-intro">{t("tools.places.intro")}</p>
+      <p className="tools-summary">
+        {t("tools.places.summary", { distinct: tree.distinctCount, uses: tree.totalUses })}
+      </p>
+      {tree.roots.length === 0 ? (
+        <p className="tools-clean">{t("tools.places.none")}</p>
+      ) : (
+        <ul className="tools-tree">
+          {tree.roots.map((node) => (
+            <PlaceTreeRow
+              key={node.name}
+              node={node}
+              path={node.name}
+              open={open}
+              toggle={toggle}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function PlaceTreeRow({
+  node,
+  path,
+  open,
+  toggle,
+  onNavigate,
+}: {
+  node: PlaceNode;
+  path: string;
+  open: Set<string>;
+  toggle: (key: string) => void;
+  onNavigate: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const hasChildren = node.children.length > 0 || node.uses.length > 0;
+  const name = node.name === UNSPECIFIED ? t("tools.places.unspecified") : node.name;
+  return (
+    <TreeRow
+      open={open.has(path)}
+      onToggle={() => toggle(path)}
+      hasChildren={hasChildren}
+      count={node.count}
+      label={name}
+    >
+      <ul className="tools-tree">
+        {node.children.map((child) => (
+          <PlaceTreeRow
+            key={child.name}
+            node={child}
+            path={`${path}/${child.name}`}
+            open={open}
+            toggle={toggle}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </ul>
+      <UsageList uses={node.uses} onNavigate={onNavigate} />
+    </TreeRow>
   );
 }
