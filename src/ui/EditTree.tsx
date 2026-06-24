@@ -32,6 +32,7 @@ const EMPTY_DS = {
   warnings: [],
   eol: "\r\n",
   finalNewline: true,
+  chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false },
 } as Dataset;
 
 const EMPTY_MAPS = {
