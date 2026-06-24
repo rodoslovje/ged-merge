@@ -244,7 +244,7 @@ describe("parseGiMatchesCsv", () => {
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
       { masterKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1@" },
-      { masterKey: { given: "Frančiška", surname: "Bernard (Tabar)", birthYear: 1904 }, compareId: "@SGI2@" },
+      { masterKey: { given: "Frančiška", surname: "Bernard", birthYear: 1904 }, compareId: "@SGI2@" },
     ]);
 
     const husband = dataset.individuals.get("@SGI1@")!;
@@ -254,6 +254,41 @@ describe("parseGiMatchesCsv", () => {
 
     expect(fatherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Bernard" }));
     expect(motherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Frančiška", surname: "Berčič" }));
+  });
+
+  it("strips a parenthetical alternate-spelling/maiden-name annotation from surnames on both rows", () => {
+    // The Matricula-extraction ("Modrijan-matricula") row annotates the
+    // archive's own (German-transliterated) spelling in parens; the master
+    // row can likewise carry a maiden/married-name cross-reference. Neither
+    // should pollute the literal surname used for matching or scoring.
+    const masterRow = row([
+      "Jurij", "Jakopič", "ABT 1795",
+      "Marija", "Babič (Jakopič)", "8 AUG 1794",
+      "BEF 1822", "",
+      "", "",
+      "", "", "", "",
+      "Renko", "87",
+    ]);
+    const incomingRow = row([
+      "Jurij", "Jakopič (Jakopetsch)", "",
+      "Marija", "Babič (Babitsch)", "",
+      "26 FEB 1810", "Dobrepolje - Videm",
+      "", "",
+      "", "", "", "",
+      "Modrijan-matricula", "87",
+    ]);
+    const text = `${FAMILY_HEADER_SL}\n${masterRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { masterKey: { given: "Jurij", surname: "Jakopič", birthYear: 1795 }, compareId: "@SGI1@" },
+      { masterKey: { given: "Marija", surname: "Babič", birthYear: 1794 }, compareId: "@SGI2@" },
+    ]);
+
+    const husband = dataset.individuals.get("@SGI1@")!;
+    const wife = dataset.individuals.get("@SGI2@")!;
+    expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Jurij", surname: "Jakopič" }));
+    expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Marija", surname: "Babič" }));
   });
 
   it("resolves a family match (Husband/Wife header) into husband and wife pairs", () => {

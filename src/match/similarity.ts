@@ -44,6 +44,12 @@ export function givenSimilarity(a: string, b: string): number {
 export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): number | undefined {
   if (!a?.year || !b?.year) return undefined;
 
+  // BEF/AFT/BET..AND/FROM/TO assert a *bound* on the true date, not a fuzzy
+  // point estimate around it (unlike ABT): a date arbitrarily far on the
+  // correct side of the boundary is fully consistent, not a disagreement.
+  const bound = boundSimilarity(a, b);
+  if (bound !== undefined) return bound;
+
   const approx = isApprox(a) || isApprox(b);
   const tolerance = approx ? 10 : 4;
   const diff = Math.abs(a.year - b.year);
@@ -66,6 +72,50 @@ export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): 
 
 function isApprox(d: GedDate): boolean {
   return d.qualifier !== "exact";
+}
+
+/** Qualifiers that assert a bound on the true date rather than a fuzzy point
+ *  estimate around it. */
+const BOUND_QUALIFIERS = new Set<GedDate["qualifier"]>(["before", "after", "between", "range", "from", "to"]);
+
+/** The [lo, hi] year range a date's qualifier asserts the true date falls
+ *  within (a point — [year, year] — for non-bound qualifiers). */
+function boundRange(d: GedDate): [number, number] {
+  switch (d.qualifier) {
+    case "before":
+    case "to":
+      return [-Infinity, d.year!];
+    case "after":
+    case "from":
+      return [d.year!, Infinity];
+    case "between":
+    case "range": {
+      const hi = d.year2 ?? d.year!;
+      return d.year! <= hi ? [d.year!, hi] : [hi, d.year!];
+    }
+    default:
+      return [d.year!, d.year!];
+  }
+}
+
+/**
+ * Similarity for a pair where at least one side asserts a bound (BEF/AFT/
+ * BET..AND/FROM/TO); undefined when neither does, so the caller falls back
+ * to the point-estimate comparison above. A date inside the other side's
+ * asserted bound is fully consistent regardless of how far from the boundary
+ * it sits — short of an exact match (1.0 is reserved for that), but no real
+ * disagreement either. A date outside the bound is a genuine conflict,
+ * scored down by how far outside using the same decay curve as the
+ * point-estimate case.
+ */
+function boundSimilarity(a: GedDate, b: GedDate): number | undefined {
+  if (!BOUND_QUALIFIERS.has(a.qualifier) && !BOUND_QUALIFIERS.has(b.qualifier)) return undefined;
+  const [aLo, aHi] = boundRange(a);
+  const [bLo, bHi] = boundRange(b);
+  if (aLo <= bHi && bLo <= aHi) return 0.9; // ranges overlap (or one is a point inside the other's)
+  const gap = aLo > bHi ? aLo - bHi : bLo - aHi;
+  const tolerance = 10;
+  return gap > tolerance ? 0 : 1 - gap / (tolerance + 1);
 }
 
 export function placeSimilarity(

@@ -210,6 +210,19 @@ function isAnnotation(value: string): boolean {
   return value.includes("🗒");
 }
 
+/**
+ * Strip a trailing "(...)" annotation some exports append to a surname — an
+ * archival spelling variant (e.g. the German transliteration "Jakopič
+ * (Jakopetsch)" in old church-register extracts) or a maiden/married-name
+ * cross-reference (e.g. "Cegnar (Briško)") — so it doesn't pollute the
+ * literal surname used both to look up the master individual and to score
+ * how well the two records match. Returns the value unchanged when there's
+ * no trailing parenthetical.
+ */
+function stripSurnameAnnotation(value: string): string {
+  return value.replace(/\s*\([^()]*\)\s*$/, "").trim();
+}
+
 /** Column fields every export includes, regardless of which "parents" shape it uses. */
 type RequiredField = Exclude<keyof ColumnSet, "parents">;
 
@@ -447,7 +460,7 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
 
     const masterKey: GiMasterKey = {
       given: col(masterRow, "given"),
-      surname: col(masterRow, "surname"),
+      surname: stripSurnameAnnotation(col(masterRow, "surname")),
       birthYear: parseDate(col(masterRow, "birthDate")).year,
     };
     if (!masterKey.given || !masterKey.surname) continue;
@@ -511,9 +524,10 @@ function parseRelativeList(value: string): RelativeEntry[] {
 
 /** Split a "Given Surname" string into NAME parts (last word = surname). */
 function splitName(full: string): { given: string; surname: string } {
-  const idx = full.lastIndexOf(" ");
-  if (idx < 0) return { given: full, surname: "" };
-  return { given: full.slice(0, idx).trim(), surname: full.slice(idx + 1).trim() };
+  const stripped = stripSurnameAnnotation(full);
+  const idx = stripped.lastIndexOf(" ");
+  if (idx < 0) return { given: stripped, surname: "" };
+  return { given: stripped.slice(0, idx).trim(), surname: stripped.slice(idx + 1).trim() };
 }
 
 /** Build a synthetic INDI record for a relative parsed from a "Name | date" cell. */
@@ -580,7 +594,7 @@ function buildPairRecords(
   const records: GedNode[] = [];
 
   const given = col(row, "given");
-  const surname = col(row, "surname");
+  const surname = stripSurnameAnnotation(col(row, "surname"));
   indiChildren.push(node(1, "NAME", `${given} /${surname}/`));
 
   pushEvent(indiChildren, "BIRT", col(row, "birthDate"), col(row, "birthPlace"));
@@ -667,12 +681,12 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     const incomingRow = dataRows[i + 1];
     const husbandKey: GiMasterKey = {
       given: col(masterRow, "husbandName"),
-      surname: col(masterRow, "husbandSurname"),
+      surname: stripSurnameAnnotation(col(masterRow, "husbandSurname")),
       birthYear: parseDate(col(masterRow, "husbandBirth")).year,
     };
     const wifeKey: GiMasterKey = {
       given: col(masterRow, "wifeName"),
-      surname: col(masterRow, "wifeSurname"),
+      surname: stripSurnameAnnotation(col(masterRow, "wifeSurname")),
       birthYear: parseDate(col(masterRow, "wifeBirth")).year,
     };
     if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
@@ -757,7 +771,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     famRecords.push(famNode(famId, famChildren));
 
     // Husband accumulator
-    const hacc = getAcc(husbandKey, col(incomingRow, "husbandName"), col(incomingRow, "husbandSurname"), col(incomingRow, "husbandBirth"));
+    const hacc = getAcc(husbandKey, col(incomingRow, "husbandName"), stripSurnameAnnotation(col(incomingRow, "husbandSurname")), col(incomingRow, "husbandBirth"));
     if (hacc) {
       hacc.famsIds.push(famId);
       if (!hacc.father && !hacc.mother) {
@@ -767,7 +781,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     }
 
     // Wife accumulator
-    const wacc = getAcc(wifeKey, col(incomingRow, "wifeName"), col(incomingRow, "wifeSurname"), col(incomingRow, "wifeBirth"));
+    const wacc = getAcc(wifeKey, col(incomingRow, "wifeName"), stripSurnameAnnotation(col(incomingRow, "wifeSurname")), col(incomingRow, "wifeBirth"));
     if (wacc) {
       wacc.famsIds.push(famId);
       if (!wacc.father && !wacc.mother) {

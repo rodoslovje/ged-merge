@@ -259,6 +259,46 @@ describe("key-field penalty (name, surname, birth year)", () => {
   });
 });
 
+describe("birth date plausibility from marriage date", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  const masterWithMarriage = (marriageDate: string) =>
+    "0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @MF@\n" +
+    `0 @MF@ FAM\n1 HUSB @M@\n1 MARR\n2 DATE ${marriageDate}\n`;
+  // No recorded birth date at all — like a "family matches" CSV import that
+  // only ever carries the marriage date.
+  const compareNoBirth = (marriageDate: string) =>
+    "0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @CF@\n" +
+    `0 @CF@ FAM\n1 HUSB @C@\n1 MARR\n2 DATE ${marriageDate}\n`;
+
+  it("scores the birth-date key well (not the flat missing penalty) when the master's birth year is a plausible age at the matched marriage", () => {
+    // 1850 birth, 1880 marriage: 30 years old — squarely plausible.
+    const master = doc(masterWithMarriage("1880"));
+    const compare = doc(compareNoBirth("1880"));
+    const r = matchDatasets(master, compare).individuals;
+    expect(r).toHaveLength(1);
+    const birth = r[0].components.find((c) => c.key === "birthDate");
+    expect(birth?.missing).toBe(true);
+    expect(birth?.score).toBeGreaterThan(0.3); // well above the flat missingKeyScore
+    // The no-marriage-evidence case (below) scores noticeably lower.
+    const bare = matchDatasets(
+      doc("0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n"),
+      doc("0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"),
+    ).individuals;
+    expect(r[0].score).toBeGreaterThan(bare[0].score);
+  });
+
+  it("falls back to the flat missing-key penalty when the implied age is implausible", () => {
+    // 1850 birth, 1860 marriage: 10 years old — outside the plausible range.
+    const master = doc(masterWithMarriage("1860"));
+    const compare = doc(compareNoBirth("1860"));
+    const r = matchDatasets(master, compare).individuals;
+    expect(r).toHaveLength(1);
+    const birth = r[0].components.find((c) => c.key === "birthDate");
+    expect(birth?.missing).toBe(true);
+    expect(birth?.score).toBe(0.3);
+  });
+});
+
 describe("parent-match bonus", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   // Same child in master and compare with an imperfect key (birth years one

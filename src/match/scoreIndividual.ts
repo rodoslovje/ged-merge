@@ -57,7 +57,19 @@ export function scoreIndividualPair(
 
   const mb = cachedFindEvent(master, "BIRT");
   const cb = cachedFindEvent(compare, "BIRT");
-  addKey(components, "birthDate", w.birthDate, dateSimilarity(mb?.date, cb?.date), config.missingKeyScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
+  const birthSim = dateSimilarity(mb?.date, cb?.date);
+  // Some import formats (e.g. the genealogical-index "family matches" CSV)
+  // never carry a birth date at all — only a marriage date. Rather than
+  // charging the flat `missingKeyScore` penalty for data the source simply
+  // doesn't have, fall back to a marriage-derived plausibility check: if the
+  // side that *does* have a birth year sits within a typical age-at-marriage
+  // range of the marriage date, that's meaningful corroboration.
+  const birthMissingScore = birthSim === undefined
+    ? birthScoreFromMarriage(mb?.date?.year, master, compare, masterDs, compareDs)
+      ?? birthScoreFromMarriage(cb?.date?.year, master, compare, masterDs, compareDs)
+      ?? config.missingKeyScore
+    : config.missingKeyScore;
+  addKey(components, "birthDate", w.birthDate, birthSim, birthMissingScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
   add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
   add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
 
@@ -147,6 +159,41 @@ function bestMarriageSimilarity(
     }
   }
   return { date, place };
+}
+
+/** Typical age-at-marriage range used to sanity-check a birth year against a
+ *  marriage date when there's no actual birth date to compare against. */
+const MARRIAGE_AGE_RANGE = { min: 15, max: 60 };
+
+/** Score given to a birth-date key when one side has no birth date at all
+ *  (see `birthScoreFromMarriage`) but the plausibility check passes. Short of
+ *  a real date match (1), but far better than the flat `missingKeyScore`
+ *  penalty for data the source format simply doesn't carry. */
+const PLAUSIBLE_BIRTH_FROM_MARRIAGE_SCORE = 0.85;
+
+/**
+ * Fallback for the birth-date key when one side has no birth date at all —
+ * common for import formats (e.g. the genealogical-index "family matches"
+ * CSV) that only ever record a marriage date, never a birth date. If
+ * `knownBirthYear` (recorded on whichever side does have one) sits within a
+ * typical age-at-marriage range of either side's marriage date, that's
+ * meaningful corroboration that the identity key likely holds — undefined
+ * (the caller's flat penalty applies) otherwise.
+ */
+function birthScoreFromMarriage(
+  knownBirthYear: number | undefined,
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): number | undefined {
+  if (knownBirthYear === undefined) return undefined;
+  const marriageYear =
+    cachedMarriageEvents(compare, compareDs).map((e) => e.date?.year).find((y): y is number => y !== undefined) ??
+    cachedMarriageEvents(master, masterDs).map((e) => e.date?.year).find((y): y is number => y !== undefined);
+  if (marriageYear === undefined) return undefined;
+  const age = marriageYear - knownBirthYear;
+  return age >= MARRIAGE_AGE_RANGE.min && age <= MARRIAGE_AGE_RANGE.max ? PLAUSIBLE_BIRTH_FROM_MARRIAGE_SCORE : undefined;
 }
 
 /**

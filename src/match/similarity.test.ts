@@ -59,6 +59,42 @@ describe("dateSimilarity", () => {
     expect(dateSimilarity(d("1900"), d("1905"))!).toBeLessThan(1);
     expect(dateSimilarity(d("1900"), d("1990"))).toBe(0);
   });
+
+  describe("bound qualifiers (BEF/AFT/BET..AND/FROM/TO)", () => {
+    it("treats a date well inside a 'before' bound as consistent, not a far-apart mismatch", () => {
+      // "Bef. 1822" asserts the true date is earlier than 1822 — "1810" satisfies
+      // that regardless of the 12-year gap, so this must not be the same as an
+      // unrelated 12-years-apart point-vs-point comparison (which would be 0).
+      const s = dateSimilarity(d("Bef. 1822"), d("26 FEB 1810"))!;
+      expect(s).toBeGreaterThan(0.8);
+      expect(s).toBeLessThan(1); // still short of an actual exact-date match
+    });
+
+    it("penalizes a date on the wrong side of a 'before' bound", () => {
+      // 1830 is after the asserted "before 1822" bound — a genuine conflict.
+      expect(dateSimilarity(d("Bef. 1822"), d("1830"))).toBeLessThan(0.5);
+    });
+
+    it("treats a date inside an 'after' bound as consistent", () => {
+      expect(dateSimilarity(d("Aft. 1900"), d("1950"))!).toBeGreaterThan(0.8);
+    });
+
+    it("penalizes a date before an 'after' bound", () => {
+      expect(dateSimilarity(d("Aft. 1900"), d("1850"))).toBeLessThan(0.5);
+    });
+
+    it("treats a date inside a 'between' range as consistent", () => {
+      expect(dateSimilarity(d("Between 1900 and 1905"), d("1903"))!).toBeGreaterThan(0.8);
+    });
+
+    it("penalizes a date outside a 'between' range", () => {
+      expect(dateSimilarity(d("Between 1900 and 1905"), d("1950"))).toBeLessThan(0.5);
+    });
+
+    it("still scores two overlapping bounds as consistent", () => {
+      expect(dateSimilarity(d("Bef. 1822"), d("Bef. 1810"))!).toBeGreaterThan(0.8);
+    });
+  });
 });
 
 describe("parsePlace place detail", () => {
