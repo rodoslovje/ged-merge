@@ -3,6 +3,7 @@ import { parseName } from "./name";
 import { parsePlace } from "./place";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import type {
+  ChanCreaUsage,
   Dataset,
   Family,
   GedEvent,
@@ -52,7 +53,32 @@ export function buildDataset(parsed: ParseResult): Dataset {
     warnings: parsed.warnings,
     eol: parsed.eol,
     finalNewline: parsed.finalNewline,
+    chanCreaUsage: detectChanCreaUsage(parsed.records),
   };
+}
+
+const ALL_EVENT_TAGS = new Set([
+  ...INDI_EVENT_TAGS,
+  "DIV", "ENGA", "SEPA", "MARB", "MARL",
+]);
+
+function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
+  let recordChan = false, recordCrea = false, eventChan = false, eventCrea = false;
+  outer: for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    for (const child of rec.children) {
+      if (child.tag === "CHAN") recordChan = true;
+      else if (child.tag === "CREA") recordCrea = true;
+      if (ALL_EVENT_TAGS.has(child.tag)) {
+        for (const sub of child.children) {
+          if (sub.tag === "CHAN") eventChan = true;
+          else if (sub.tag === "CREA") eventCrea = true;
+        }
+      }
+      if (recordChan && recordCrea && eventChan && eventCrea) break outer;
+    }
+  }
+  return { recordChan, recordCrea, eventChan, eventCrea };
 }
 
 export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext): Individual {

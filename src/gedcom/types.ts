@@ -229,6 +229,21 @@ export interface Family {
   raw: GedNode;
 }
 
+/**
+ * Whether the master GEDCOM file uses CHAN/CREA audit timestamps, detected on
+ * load. Drives whether `stampChanCrea` writes them into the saved output.
+ */
+export interface ChanCreaUsage {
+  /** Any INDI or FAM record has a direct CHAN child. */
+  recordChan: boolean;
+  /** Any INDI or FAM record has a direct CREA child. */
+  recordCrea: boolean;
+  /** Any event node under an INDI/FAM has a direct CHAN child. */
+  eventChan: boolean;
+  /** Any event node under an INDI/FAM has a direct CREA child. */
+  eventCrea: boolean;
+}
+
 /** Fully-built, version-agnostic dataset ready for matching and display. */
 export interface Dataset {
   version: GedcomVersion;
@@ -241,4 +256,6 @@ export interface Dataset {
   eol: string;
   /** Whether the source ended with a trailing newline. */
   finalNewline: boolean;
+  /** Detected CHAN/CREA usage — governs whether save stamps audit timestamps. */
+  chanCreaUsage: ChanCreaUsage;
 }

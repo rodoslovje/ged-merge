@@ -9,12 +9,14 @@ import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
+import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultHomeId } from "./match/relatives";
 import type { NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
+import { stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
 import { GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
@@ -848,6 +850,13 @@ export function App() {
       report = editReport!;
     }
 
+    // Ensure canonical event order (BIRT → lifespan → DEAT/BURI) for all
+    // edited records. Merge-only targets are already sorted inside mergeDecisions;
+    // edited records that had no confirmed merge decision are not, so sort them here.
+    for (const r of records) {
+      if (r.tag === "INDI" && r.xref && changedPersonIds.has(r.xref)) sortEventsByDate(r);
+    }
+
     setPreview({
       records,
       report,
@@ -868,6 +877,19 @@ export function App() {
 
   function handleConfirmSave() {
     if (!preview || !masterDataset) return;
+
+    const usage = masterDataset.chanCreaUsage;
+    if (usage.recordChan || usage.recordCrea || usage.eventChan || usage.eventCrea) {
+      const changedIds = new Set([
+        ...preview.editRecordIds,
+        ...Object.keys(preview.report.recordKinds),
+      ]);
+      const newIds = new Set(
+        preview.report.changes.filter((c) => c.newRecord).map((c) => c.recordId),
+      );
+      stampChanCrea(preview.records, changedIds, newIds, usage, todayGedcom());
+    }
+
     const text = serializeGedcom(preview.records, {
       eol: masterDataset.eol,
       finalNewline: masterDataset.finalNewline,
