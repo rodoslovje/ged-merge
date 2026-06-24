@@ -1166,6 +1166,20 @@ export function App() {
             <h1 onClick={handleTitleClick} className="brand-clickable">
               <Wordmark />
             </h1>
+            {(lastMasterFile || compare.status === "loaded") && (
+              <div className="app-head-file-pills">
+                {lastMasterFile && (
+                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={lastMasterFile.fileName}>
+                    {lastMasterFile.fileName}
+                  </button>
+                )}
+                {compare.status === "loaded" && (
+                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={compare.file.fileName}>
+                    {compare.file.fileName}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="mode-tabs">
             <button
@@ -1202,53 +1216,37 @@ export function App() {
             </div>
           </div>
         </div>
-        {(lastMasterFile || compare.status === "loaded") && (
-          <div className="app-head-files">
-            {lastMasterFile && (
-              <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={t("load.master")}>
-                {lastMasterFile.fileName}
-              </button>
-            )}
-            {compare.status === "loaded" && (
-              <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={t("load.incoming")}>
-                {compare.file.fileName}
-              </button>
-            )}
-            {masterDataset && (
-              <div className="app-head-home">
-                <HomePersonSelector
-                  individuals={masterDataset.individuals}
-                  homeId={homeId}
-                  onChange={changeHome}
-                  onClear={() => changeHome(undefined)}
-                  autoFocus={focusHome}
-                  onAutoFocused={() => setFocusHome(false)}
-                />
-              </div>
-            )}
-            {lastMasterFile && ((canUndo || canRedo) || (changedCount > 0 || confirmedCount > 0)) && (
-              <div className="app-head-right">
-                {(changedCount > 0 || confirmedCount > 0) && (
-                  <button
-                    className="export-btn"
-                    onClick={handleSave}
-                    title={t("save.gedcom.tooltip")}
-                  >
-                    {t("save.gedcom")} ({changedCount + confirmedCount})
+        {masterDataset && (
+          <div className="app-head-controls">
+            <HomePersonSelector
+              individuals={masterDataset.individuals}
+              homeId={homeId}
+              onChange={changeHome}
+              onClear={() => changeHome(undefined)}
+              autoFocus={focusHome}
+              onAutoFocused={() => setFocusHome(false)}
+            />
+            <div className="app-head-actions">
+              {lastMasterFile && (changedCount > 0 || confirmedCount > 0) && (
+                <button
+                  className="export-btn"
+                  onClick={handleSave}
+                  title={t("save.gedcom.tooltip")}
+                >
+                  {t("save.gedcom")} ({changedCount + confirmedCount})
+                </button>
+              )}
+              {lastMasterFile && (canUndo || canRedo) && (
+                <>
+                  <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
+                    ↩ {t("undo")}
                   </button>
-                )}
-                {(canUndo || canRedo) && (
-                  <>
-                    <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
-                      ↩ {t("undo")}
-                    </button>
-                    <button className="tree-open-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")}>
-                      {t("redo")} ↪
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+                  <button className="tree-open-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")}>
+                    {t("redo")} ↪
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </header>

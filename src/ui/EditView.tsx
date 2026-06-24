@@ -1370,20 +1370,22 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         <div className="edit-connector-v" />
 
         <div className="edit-person">
-          <NameEditor
-            key={`name-${person.id}-${undoVersion}`}
-            person={person}
-            t={t}
-            lifespan={lifespan}
-            commit={commit}
-            focusOnMount={focusNextName.current}
-            onMounted={() => { focusNextName.current = false; }}
-            mergeHighlight={mergeHighlight}
-            hasMatch={!!matchCompareId}
-            matchStatus={matchStatus}
-            onToggleMatchStatus={toggleMatchStatus}
-          />
-          <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
+          <div className="edit-person-header">
+            <NameEditor
+              key={`name-${person.id}-${undoVersion}`}
+              person={person}
+              t={t}
+              lifespan={lifespan}
+              commit={commit}
+              focusOnMount={focusNextName.current}
+              onMounted={() => { focusNextName.current = false; }}
+              mergeHighlight={mergeHighlight}
+              hasMatch={!!matchCompareId}
+              matchStatus={matchStatus}
+              onToggleMatchStatus={toggleMatchStatus}
+            />
+            <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
+          </div>
           <OtherNamesEditor
             key={`names-${person.id}-${undoVersion}`}
             person={person}

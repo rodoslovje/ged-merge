@@ -49,6 +49,18 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;    /* pills group drops to row 2 when brand is squeezed */
+  flex-shrink: 1;     /* brand yields space to mode-tabs / lang-switcher */
+  min-width: 0;
+}
+.app-head-brand h1 {
+  flex-shrink: 0;     /* logo never shrinks */
+}
+.app-head-file-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;     /* pills move as a unit — both or neither wrap */
 }
 .brand-clickable {
   cursor: pointer;
@@ -70,6 +82,7 @@ button:focus-visible {
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
 }
 .header-file-btn::before {
   content: "";
@@ -81,39 +94,32 @@ button:focus-visible {
 }
 .header-file-btn:hover { border-color: var(--border-2); background: var(--panel-2); }
 
-/* Second header row: loaded filenames, one after the other */
-.app-head-files {
+/* Second header row: home selector (grows) + save/undo/redo (right) */
+.app-head-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   margin-top: 6px;
-  flex-wrap: wrap;
 }
-.app-head-files .export-btn {
-  font-size: 0.85rem;
-}
-.app-head-home {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-  padding: 0 8px;
-}
-.app-head-home .home-selector {
+.app-head-controls .home-selector {
   flex: 1;
   max-width: 320px;
 }
-.app-head-right {
+.app-head-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+}
+.app-head-actions .export-btn {
+  font-size: 0.85rem;
 }
 
 .app-head-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 .mode-tabs {
   display: inline-flex;
@@ -939,7 +945,7 @@ button:focus-visible {
 }
 .home-selector input {
   width: 100%;
-  min-width: 180px;
+  min-width: 120px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1139,9 +1145,10 @@ button:focus-visible {
   border: 1px solid var(--accent);
   color: #fff;
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 .export-btn:hover:not(:disabled) { filter: brightness(1.08); }
 .export-btn:focus-visible { outline-color: var(--bg); }
@@ -1760,11 +1767,17 @@ button:focus-visible {
 /* Incoming merge value in an editable field — turns to --dirty style once the user edits it */
 .edit-input--merge { font-weight: 700; color: var(--state-incoming); }
 
+.edit-person-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 .edit-name-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  flex: 1;
   flex-wrap: wrap;
 }
 .edit-name-decisions {
@@ -1779,12 +1792,11 @@ button:focus-visible {
 }
 
 .edit-sex-row {
-  position: absolute;
-  top: 16px;
-  right: 20px;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: none;
+  padding-top: 4px;
 }
 .edit-field-label {
   color: var(--muted);
@@ -2254,7 +2266,8 @@ button:focus-visible {
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
 }
 .nav-btn.icon-only {
   padding: 4px 10px;
@@ -2523,8 +2536,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 .tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
 .tree-open-btn:focus-visible { border-color: var(--accent); }
@@ -3200,6 +3214,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .home-selector input {
     width: 100%;
   }
+  .app-head-controls .home-selector {
+    max-width: none;
+  }
+  .app-head-controls {
+    flex-wrap: wrap;
+  }
+  .app-head-actions {
+    flex-shrink: 1;
+  }
   .f-label {
     width: 76px;
     font-size: 0.75rem;
@@ -3275,6 +3298,20 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .mode-tabs {
     order: 3;
     flex-basis: 100%;
+  }
+  /* At narrow widths brand shrinks naturally — pills wrap below logo */
+  .app-head-brand {
+    gap: 6px;
+  }
+  .app-head-file-pills {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .app-head-file-pills .header-file-btn {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   /* Info panel: stack master and incoming loaders vertically */
