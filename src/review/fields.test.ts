@@ -547,6 +547,44 @@ describe("multi-RESI pairing by date", () => {
     expect(dateRows.length).toBe(2); // shown as separate events, not paired
   });
 
+  it("pairs an exact-year event with a FROM..TO range that contains it", () => {
+    // Master has "1958", compare has "FROM 1958 TO 1982" — the exact year falls
+    // inside the range so they should be paired as the same event, not split.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE 1958\n2 PLAC Stražišče,Kranj,Slovenia\n2 ADDR Kocjanova 16\n2 AGNC župnija Šmartin\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 RESI\n2 DATE FROM 1958 TO 1982\n2 PLAC Stražišče,Kranj,Slovenia\n2 ADDR Kocjanova 16\n2 AGNC župnija Šmartin\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
+    expect(dateRows.length).toBe(1); // paired as one event
+    expect(dateRows[0].master).toBe("1958");
+    expect(dateRows[0].incoming).toBe("FROM 1958 TO 1982");
+    expect(dateRows[0].state).toBe("conflict"); // different assertions, but same event
+  });
+
+  it("pairs an OCCU exact-year with a FROM..TO range starting at that year", () => {
+    // "1956" vs "FROM 1956 TO 1970" — same occupation, different date precision.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 OCCU strojni ključavničar\n2 DATE 1956\n` +
+      `0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+      `1 OCCU strojni ključavničar\n2 DATE FROM 1956 TO 1970\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const dateRows = rows.filter(r => r.key.match(/^OCCU(\.\d+)?\.date$/));
+    expect(dateRows.length).toBe(1); // paired as one event
+  });
+
   it("detects addr-in-place when paired correctly and marks addr as agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +

@@ -992,12 +992,18 @@ function eventPairScore(me: GedEvent, ce: GedEvent): number {
   return datePairSim(me.date, ce.date) * 0.6 + eventPlaceSim(me, ce) * 0.4;
 }
 
-/** Year-based date similarity: 1.0 for gap ≤ 1 year, decays to 0 beyond 10 years. */
+/** Year-based date similarity: 1.0 for gap ≤ 1 year, decays to 0 beyond 10 years.
+ *  Range qualifiers (FROM..TO, BET..AND) use their full span: overlapping ranges
+ *  score 1.0 so an exact year that falls inside a FROM-TO period is a strong match. */
 function datePairSim(a: GedDate | undefined, b: GedDate | undefined): number {
   if (a?.year == null || b?.year == null) return 0.3;
-  const ay = a.year2 != null ? (a.year + a.year2) / 2 : a.year;
-  const by = b.year2 != null ? (b.year + b.year2) / 2 : b.year;
-  const gap = Math.abs(ay - by);
+  const hasRange = (d: GedDate) => (d.qualifier === "range" || d.qualifier === "between") && d.year2 != null;
+  const aLo = a.year;
+  const aHi = hasRange(a) ? a.year2! : a.year;
+  const bLo = b.year;
+  const bHi = hasRange(b) ? b.year2! : b.year;
+  if (aLo <= bHi && bLo <= aHi) return 1.0; // ranges overlap (or one point is inside the other)
+  const gap = Math.max(aLo, bLo) - Math.min(aHi, bHi); // positive gap between non-overlapping ranges
   if (gap <= 1) return 1;
   if (gap <= 3) return 0.7;
   if (gap <= 5) return 0.4;
