@@ -11,6 +11,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
+import { PersonLink } from "./PersonLink";
 
 type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
@@ -158,9 +159,7 @@ function ValidatePanel({
           <ul className="tools-issues">
             {shown.slice(0, MAX_ROWS).map((issue, i) => (
               <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
-                <button className="tools-issue-link" onClick={() => onNavigate(issue.id)} title={issue.id}>
-                  {issue.subject}
-                </button>
+                <PersonLink dataset={dataset} id={issue.id} fallback={issue.subject} onNavigate={onNavigate} />
                 <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
               </li>
             ))}
@@ -228,13 +227,9 @@ function DuplicatesPanel({
                         ▶
                       </button>
                       <span className={`tools-cat cat-${p.category}`}>{Math.round(p.score)}</span>
-                      <button className="tools-issue-link" onClick={() => onNavigate(p.aId)} title={p.aId}>
-                        {p.aLabel}
-                      </button>
+                      <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} />
                       <span className="tools-pair-sep">↔</span>
-                      <button className="tools-issue-link" onClick={() => onNavigate(p.bId)} title={p.bId}>
-                        {p.bLabel}
-                      </button>
+                      <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} />
                     </div>
                     {open && (
                       <DuplicateCompare
@@ -284,6 +279,7 @@ function DuplicateCompare({
         incomingPerson={nav}
         masterLabel={pair.aLabel}
         incomingLabel={pair.bLabel}
+        hideHeader
       />
     </div>
   );
@@ -410,16 +406,19 @@ function NormExamples({ title, examples }: { title: string; examples: { before: 
 // ── Shared usage list ────────────────────────────────────────────────────────
 
 /** Records that cite a source/media or use a place; each navigates into Edit. */
-function UsageList({ uses, onNavigate }: { uses: SourceUse[]; onNavigate: (id: string) => void }) {
+function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: SourceUse[]; onNavigate: (id: string) => void }) {
   const { t } = useTranslation();
   if (uses.length === 0) return null;
   return (
     <ul className="tools-usage">
       {uses.slice(0, MAX_ROWS).map((u, i) => (
-        <li key={`${u.id}-${i}`}>
-          <button className="tools-issue-link" onClick={() => onNavigate(u.id)} title={u.id}>
-            {u.label}
-          </button>
+        <li key={`${u.persons.map((p) => p.id).join("-")}-${i}`}>
+          {u.persons.map((p, j) => (
+            <span key={p.id}>
+              {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+              <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+            </span>
+          ))}
         </li>
       ))}
       {uses.length > MAX_ROWS && (
@@ -437,6 +436,7 @@ function TreeRow({
   label,
   count,
   href,
+  titleText,
   children,
 }: {
   open: boolean;
@@ -445,6 +445,8 @@ function TreeRow({
   label: ReactNode;
   count?: number;
   href?: string;
+  /** Tooltip shown on hover over the label — e.g. a media link or filename. */
+  titleText?: string;
   children?: ReactNode;
 }) {
   return (
@@ -461,7 +463,7 @@ function TreeRow({
         ) : (
           <span className="tools-tree-bullet">·</span>
         )}
-        <span className="tools-tree-label">{label}</span>
+        <span className="tools-tree-label" title={titleText}>{label}</span>
         {href && (
           <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
             ↗
@@ -509,7 +511,37 @@ function SourcesPanel({
   if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const empty =
-    tree.repos.length === 0 && tree.unattachedMedia.length === 0;
+    tree.repos.length === 0 &&
+    tree.unattachedLinks.length === 0 &&
+    tree.unattachedMedia.length === 0;
+
+  const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) =>
+    entries.length > 0 && (
+      <TreeRow
+        open={open.has(key)}
+        onToggle={() => toggle(key)}
+        hasChildren
+        count={entries.length}
+        label={t(labelKey)}
+      >
+        <ul className="tools-tree">
+          {entries.map((m) => (
+            <TreeRow
+              key={`${key}:${m.xref}`}
+              open={open.has(`${key}:${m.xref}`)}
+              onToggle={() => toggle(`${key}:${m.xref}`)}
+              hasChildren={m.usedBy.length > 0}
+              count={m.usedBy.length || undefined}
+              href={m.url}
+              titleText={m.url ?? m.file}
+              label={<span className="tools-tree-meta">{icon} {m.title || m.xref}</span>}
+            >
+              <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
+            </TreeRow>
+          ))}
+        </ul>
+      </TreeRow>
+    );
 
   return (
     <>
@@ -548,6 +580,7 @@ function SourcesPanel({
                         onToggle={() => toggle(srcKey)}
                         hasChildren={hasKids}
                         count={src.usedBy.length}
+                        titleText={src.tooltip || src.xref}
                         label={
                           <>
                             {src.title || src.xref}
@@ -565,19 +598,19 @@ function SourcesPanel({
                             hasChildren={m.usedBy.length > 0}
                             count={m.usedBy.length || undefined}
                             href={m.url}
+                            titleText={m.url ?? m.file}
                             label={
                               <span className="tools-tree-meta">
-                                🖼 {m.title || m.xref}
+                                {m.url ? "🔗" : "🖼"} {m.title || m.xref}
                               </span>
                             }
                           >
-                            <UsageList uses={m.usedBy} onNavigate={onNavigate} />
+                            <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
                           </TreeRow>
                         ))}
                         {src.usedBy.length > 0 && (
                           <div className="tools-usage-block">
-                            <div className="tools-usage-title">{t("tools.sources.usedBy")}</div>
-                            <UsageList uses={src.usedBy} onNavigate={onNavigate} />
+                            <UsageList dataset={dataset} uses={src.usedBy} onNavigate={onNavigate} />
                           </div>
                         )}
                       </TreeRow>
@@ -587,31 +620,8 @@ function SourcesPanel({
               </TreeRow>
             );
           })}
-          {tree.unattachedMedia.length > 0 && (
-            <TreeRow
-              open={open.has("unattached")}
-              onToggle={() => toggle("unattached")}
-              hasChildren
-              count={tree.unattachedMedia.length}
-              label={t("tools.sources.unattached")}
-            >
-              <ul className="tools-tree">
-                {tree.unattachedMedia.map((m) => (
-                  <TreeRow
-                    key={`um:${m.xref}`}
-                    open={open.has(`um:${m.xref}`)}
-                    onToggle={() => toggle(`um:${m.xref}`)}
-                    hasChildren={m.usedBy.length > 0}
-                    count={m.usedBy.length || undefined}
-                    href={m.url}
-                    label={<span className="tools-tree-meta">🖼 {m.title || m.xref}</span>}
-                  >
-                    <UsageList uses={m.usedBy} onNavigate={onNavigate} />
-                  </TreeRow>
-                ))}
-              </ul>
-            </TreeRow>
-          )}
+          {unattachedGroup("unattachedLinks", "tools.sources.unattachedLinks", "🔗", tree.unattachedLinks)}
+          {unattachedGroup("unattached", "tools.sources.unattached", "🖼", tree.unattachedMedia)}
         </ul>
       )}
     </>
@@ -665,6 +675,7 @@ function PlacesPanel({
           {tree.roots.map((node) => (
             <PlaceTreeRow
               key={node.name}
+              dataset={dataset}
               node={node}
               path={node.name}
               open={open}
@@ -679,12 +690,14 @@ function PlacesPanel({
 }
 
 function PlaceTreeRow({
+  dataset,
   node,
   path,
   open,
   toggle,
   onNavigate,
 }: {
+  dataset: Dataset;
   node: PlaceNode;
   path: string;
   open: Set<string>;
@@ -706,6 +719,7 @@ function PlaceTreeRow({
         {node.children.map((child) => (
           <PlaceTreeRow
             key={child.name}
+            dataset={dataset}
             node={child}
             path={`${path}/${child.name}`}
             open={open}
@@ -714,7 +728,7 @@ function PlaceTreeRow({
           />
         ))}
       </ul>
-      <UsageList uses={node.uses} onNavigate={onNavigate} />
+      <UsageList dataset={dataset} uses={node.uses} onNavigate={onNavigate} />
     </TreeRow>
   );
 }

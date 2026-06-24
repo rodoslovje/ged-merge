@@ -4,6 +4,8 @@ import {
   buildRepoIndex,
   childText,
   isPointer,
+  sourceTitle,
+  sourceTooltip,
 } from "../gedcom/source";
 import { label } from "../match/relatives";
 
@@ -17,12 +19,22 @@ import { label } from "../match/relatives";
  * it, so the UI can navigate straight to a using record in Edit mode.
  */
 
+/** A single linkable person within a usage row. */
+export interface PersonRef {
+  /** Individual xref, e.g. "@I1@". */
+  id: string;
+  /** Fallback label, shown only when the individual can't be resolved. */
+  label: string;
+}
+
 /** An `INDI`/`FAM` record that cites a source or media object — a navigate target. */
 export interface SourceUse {
-  /** Record xref, e.g. "@I1@". */
-  id: string;
-  /** Display label (person name + birth, or composed family label). */
-  label: string;
+  /**
+   * The person(s) to display and link: one for an `INDI` record, the spouses
+   * for a `FAM` record. Rendered as standard person links (FAM records have no
+   * individual page of their own to navigate to).
+   */
+  persons: PersonRef[];
 }
 
 export interface MediaEntry {
@@ -30,6 +42,8 @@ export interface MediaEntry {
   title?: string;
   /** Resolvable URL, when the `FILE` is an absolute link rather than a local filename. */
   url?: string;
+  /** The raw `FILE` value (URL or bare local filename), for display as a tooltip. */
+  file?: string;
   /** Records that cite this media object directly (not via its parent source). */
   usedBy: SourceUse[];
 }
@@ -37,6 +51,8 @@ export interface MediaEntry {
 export interface SourceEntry {
   xref: string;
   title?: string;
+  /** Every descriptive field on the record, for a hover tooltip. */
+  tooltip: string;
   agency?: string;
   filingNumber?: string;
   media: MediaEntry[];
@@ -53,21 +69,32 @@ export interface RepoGroup {
 
 export interface SourceTree {
   repos: RepoGroup[];
-  /** Top-level media cited by no source (referenced directly by events). */
+  /** Top-level OBJE links (FILE is a URL) cited by no source. */
+  unattachedLinks: MediaEntry[];
+  /** Top-level OBJE media (FILE is a local filename) cited by no source. */
   unattachedMedia: MediaEntry[];
   sourceCount: number;
   repoCount: number;
   mediaCount: number;
 }
 
-/** Compose a family display label from its spouses' labels. */
-function familyLabel(dataset: Dataset, famId: string): string {
+/** Numeric-aware, case-insensitive collator for sorting tree levels by name. */
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/** Sort sources/media by their display title (falling back to the xref). */
+const byTitle = (a: { title?: string; xref: string }, b: { title?: string; xref: string }) =>
+  collator.compare(a.title ?? a.xref, b.title ?? b.xref);
+
+/** The spouse individuals of a family, each as an independently linkable ref. */
+export function familySpouses(dataset: Dataset, famId: string): PersonRef[] {
   const fam = dataset.families.get(famId);
-  if (!fam) return famId;
-  const h = fam.husband && dataset.individuals.get(fam.husband);
-  const w = fam.wife && dataset.individuals.get(fam.wife);
-  const names = [h && label(h), w && label(w)].filter(Boolean);
-  return names.length ? names.join(" & ") : famId;
+  if (!fam) return [];
+  const refs: PersonRef[] = [];
+  for (const spouseId of [fam.husband, fam.wife]) {
+    const indi = spouseId && dataset.individuals.get(spouseId);
+    if (indi) refs.push({ id: indi.id, label: label(indi) });
+  }
+  return refs;
 }
 
 /** Recursively collect pointer values under a given tag within a record subtree. */
@@ -101,15 +128,15 @@ function buildUsageIndex(dataset: Dataset): {
   for (const rec of dataset.records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
     if (!rec.xref) continue;
-    const use: SourceUse = {
-      id: rec.xref,
-      label:
-        rec.tag === "INDI"
-          ? dataset.individuals.get(rec.xref)
-            ? label(dataset.individuals.get(rec.xref)!)
-            : rec.xref
-          : familyLabel(dataset, rec.xref),
-    };
+    let persons: PersonRef[];
+    if (rec.tag === "INDI") {
+      const indi = dataset.individuals.get(rec.xref);
+      persons = [{ id: rec.xref, label: indi ? label(indi) : rec.xref }];
+    } else {
+      persons = familySpouses(dataset, rec.xref);
+    }
+    if (persons.length === 0) continue;
+    const use: SourceUse = { persons };
     const sourcePtrs = new Set<string>();
     const mediaPtrs = new Set<string>();
     collectPointers(rec, "SOUR", sourcePtrs);
@@ -131,6 +158,7 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
       xref,
       title: info?.title,
       url: info?.url,
+      file: info?.file,
       usedBy: byMedia.get(xref) ?? [],
     };
   };
@@ -150,10 +178,12 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
         const x = c.value!.trim();
         usedMedia.add(x);
         return mediaEntry(x);
-      });
+      })
+      .sort(byTitle);
     const entry: SourceEntry = {
       xref: rec.xref,
-      title: childText(rec, "TITL") ?? childText(rec, "ABBR"),
+      title: sourceTitle(rec),
+      tooltip: sourceTooltip(rec),
       agency: childText(rec, "AGNC"),
       filingNumber: childText(rec, "FILN"),
       media,
@@ -165,29 +195,37 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
     else repoGroups.set(key, [entry]);
   }
 
-  // Order: real repositories (file order) first, then the "no repository" bucket.
+  // Each level sorted by name: repositories alphabetically (the synthetic "no
+  // repository" bucket always last), sources within each repository by title.
   const repos: RepoGroup[] = [];
   for (const rec of dataset.records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
     const sources = repoGroups.get(rec.xref);
     if (!sources) continue;
     const info = repoIndex.get(rec.xref);
-    repos.push({ xref: rec.xref, name: info?.name, url: info?.url, sources });
+    repos.push({ xref: rec.xref, name: info?.name, url: info?.url, sources: sources.sort(byTitle) });
   }
+  repos.sort((a, b) => collator.compare(a.name ?? a.xref ?? "", b.name ?? b.xref ?? ""));
   const noRepo = repoGroups.get(undefined);
-  if (noRepo) repos.push({ sources: noRepo });
+  if (noRepo) repos.push({ sources: noRepo.sort(byTitle) });
 
-  // Top-level media that no source attaches — cited directly by events.
+  // Top-level OBJE records that no source attaches — cited directly by events.
+  // Split by whether the FILE is a URL (a link) or a local filename (media).
+  const unattachedLinks: MediaEntry[] = [];
   const unattachedMedia: MediaEntry[] = [];
   for (const rec of dataset.records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;
     if (usedMedia.has(rec.xref)) continue;
     if (!byMedia.has(rec.xref)) continue;
-    unattachedMedia.push(mediaEntry(rec.xref));
+    const entry = mediaEntry(rec.xref);
+    (entry.url ? unattachedLinks : unattachedMedia).push(entry);
   }
+  unattachedLinks.sort(byTitle);
+  unattachedMedia.sort(byTitle);
 
   return {
     repos,
+    unattachedLinks,
     unattachedMedia,
     sourceCount,
     repoCount: repoIndex.size,

@@ -21,6 +21,9 @@ interface Props {
   incomingLabel: string;
   /** Table class — defaults to the compare-tree styling. */
   className?: string;
+  /** Omit the header row entirely — useful when the column identities are already
+   *  shown just above the table (e.g. the duplicate finder's pair row). */
+  hideHeader?: boolean;
 }
 
 /**
@@ -37,17 +40,20 @@ export function ReadOnlyCompare({
   masterLabel,
   incomingLabel,
   className = "tree-compare-table",
+  hideHeader = false,
 }: Props) {
   const { t } = useTranslation();
   return (
     <table className={className}>
-      <thead>
-        <tr>
-          <th />
-          <th className="compare-col compare-col-master">{masterLabel}</th>
-          <th className="compare-col compare-col-incoming">{incomingLabel}</th>
-        </tr>
-      </thead>
+      {!hideHeader && (
+        <thead>
+          <tr>
+            <th />
+            <th className="compare-col compare-col-master">{masterLabel}</th>
+            <th className="compare-col compare-col-incoming">{incomingLabel}</th>
+          </tr>
+        </thead>
+      )}
       <tbody>
         {rows.map((row) => {
           if (row.isGroupHeader) {

@@ -23,8 +23,10 @@ import { linkKey } from "../normalize/links";
 /** Map of top-level `SOUR` record xref -> the record itself. */
 export type SourceIndex = Map<string, GedNode>;
 
-/** Map of top-level `OBJE` record xref -> its file URL and (nested) title. */
-export type ObjeIndex = Map<string, { url?: string; title?: string }>;
+/** Map of top-level `OBJE` record xref -> its file URL and (nested) title.
+ *  `file` is the raw `FILE` value (URL or bare local filename); `url` is set
+ *  only when that value is a usable link. */
+export type ObjeIndex = Map<string, { url?: string; file?: string; title?: string }>;
 
 /** Map of top-level `REPO` record xref -> its name and website. */
 export type RepoIndex = Map<string, { name?: string; url?: string }>;
@@ -50,6 +52,46 @@ export function childText(node: GedNode, tag: string): string | undefined {
   return v || undefined;
 }
 
+/**
+ * The human-readable display name for a `SOUR` record. Exporters disagree on
+ * which tag holds the title, so this mirrors the precedence used when resolving
+ * event citations: `TITL`, then `PERI` (the periodical title MacFamilyTree's
+ * newspaper templates use instead of `TITL`), then `ABBR` (which names the
+ * actual archive/register when the others are absent), then `AUTH` + `PUBL`.
+ * Returns undefined only when the record carries no descriptive text at all.
+ */
+export function sourceTitle(node: GedNode): string | undefined {
+  const auth = childText(node, "AUTH");
+  const publ = childText(node, "PUBL");
+  const authPubl = [auth, publ].filter(Boolean).join(", ");
+  return (
+    childText(node, "TITL") ??
+    childText(node, "PERI") ??
+    childText(node, "ABBR") ??
+    (authPubl || undefined)
+  );
+}
+
+/** Structural/bookkeeping child tags excluded from the descriptive tooltip. */
+const TOOLTIP_SKIP_TAGS = new Set(["OBJE", "REPO", "_STE", "CHAN", "CREA"]);
+
+/**
+ * Every descriptive scalar field on a `SOUR` record, one `TAG: value` per line,
+ * for a hover tooltip — so a source whose label falls back to its bare xref
+ * (or even a named one) still surfaces all of its detail. Pointers and
+ * bookkeeping tags (media/repo links, edit timestamps) are omitted.
+ */
+export function sourceTooltip(node: GedNode): string {
+  const lines: string[] = [];
+  for (const c of node.children) {
+    if (TOOLTIP_SKIP_TAGS.has(c.tag)) continue;
+    const v = c.value?.trim();
+    if (!v || isPointer(v)) continue;
+    lines.push(`${c.tag}: ${v}`);
+  }
+  return lines.join("\n");
+}
+
 export function buildSourceIndex(records: GedNode[]): SourceIndex {
   const map: SourceIndex = new Map();
   for (const rec of records) {
@@ -66,7 +108,7 @@ export function buildObjeIndex(records: GedNode[]): ObjeIndex {
     const rawFile = fileNode?.value?.trim();
     const url = rawFile && looksLikeUrl(rawFile) ? rawFile : undefined;
     const title = childText(fileNode ?? rec, "TITL") ?? childText(rec, "TITL");
-    map.set(rec.xref, { url, title });
+    map.set(rec.xref, { url, file: rawFile, title });
   }
   return map;
 }
@@ -148,18 +190,7 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   const sourceNode = ctx.sourceIndex.get(value);
   if (!sourceNode) return { sourceId: value, page, exact: false };
 
-  const titl = childText(sourceNode, "TITL");
-  // MacFamilyTree's newspaper/periodical templates (T37/T72) use PERI
-  // ("Kmetski list, 4 Apr 1934") instead of TITL.
-  const peri = childText(sourceNode, "PERI");
-  // ABBR ("NŠAL Rovte P 1816 - 1889") names the actual archive/register when
-  // TITL/PERI are absent — preferred over AUTH, which often just names the
-  // record's compiler/contributor rather than the source itself.
-  const abbr = childText(sourceNode, "ABBR");
-  const auth = childText(sourceNode, "AUTH");
-  const publ = childText(sourceNode, "PUBL");
-  const authPubl = [auth, publ].filter(Boolean).join(", ");
-  const title = titl ?? peri ?? abbr ?? (authPubl || undefined);
+  const title = sourceTitle(sourceNode);
   const agency = childText(sourceNode, "AGNC");
   const filingNumber = childText(sourceNode, "FILN");
 

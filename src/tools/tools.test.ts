@@ -153,13 +153,34 @@ describe("buildSourceTree", () => {
 
     const src = repo!.sources[0];
     expect(src.title).toBe("Krstna knjiga");
-    expect(src.usedBy.map((u) => u.id)).toEqual(["@I1@"]);
+    expect(src.usedBy.map((u) => u.persons.map((p) => p.id))).toEqual([["@I1@"]]);
     expect(src.media[0].url).toBe("https://example.org/scan.jpg");
-    expect(src.media[0].usedBy.map((u) => u.id)).toEqual(["@I1@"]);
+    expect(src.media[0].usedBy.map((u) => u.persons.map((p) => p.id))).toEqual([["@I1@"]]);
 
     // A source with no REPO falls into the synthetic "no repository" bucket.
     const noRepo = tree.repos.find((r) => r.xref === undefined);
     expect(noRepo?.sources.map((s) => s.xref)).toEqual(["@S2@"]);
+  });
+
+  it("names a TITL-less source from PERI and lists every field in the tooltip", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 _STE @T37@
+1 PERI Gorenjski glas, 28 Jan 1970
+1 DATE 28 Jan 1970
+1 REPO @R1@
+0 @R1@ REPO
+1 NAME dLib.si
+0 TRLR`);
+    const src = buildSourceTree(ds).repos.flatMap((r) => r.sources).find((s) => s.xref === "@S1@")!;
+    // Falls back to PERI when there is no TITL/ABBR (no longer the bare xref).
+    expect(src.title).toBe("Gorenjski glas, 28 Jan 1970");
+    // Tooltip carries the descriptive fields; structural tags (REPO, _STE) are omitted.
+    expect(src.tooltip).toBe("PERI: Gorenjski glas, 28 Jan 1970\nDATE: 28 Jan 1970");
   });
 });
 
@@ -187,7 +208,7 @@ describe("buildPlaceTree", () => {
 
     const unspecified = tree.roots.find((r) => r.name === UNSPECIFIED);
     expect(unspecified?.children.map((c) => c.name)).toEqual(["Kranj"]);
-    expect(unspecified?.children[0].uses.map((u) => u.id)).toEqual(["@I2@"]);
+    expect(unspecified?.children[0].uses.map((u) => u.persons.map((p) => p.id))).toEqual([["@I2@"]]);
   });
 
   it("sorts house numbers numerically, not lexicographically", () => {
@@ -224,6 +245,6 @@ describe("buildPlaceTree", () => {
     const kranj = si!.children.find((c) => c.name === "Kranj");
     const addr = kranj!.children.find((c) => c.name === "Kidričeva 38");
     expect(addr).toBeTruthy();
-    expect(addr!.uses.map((u) => u.id)).toEqual(["@I1@"]);
+    expect(addr!.uses.map((u) => u.persons.map((p) => p.id))).toEqual([["@I1@"]]);
   });
 });

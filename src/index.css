@@ -3432,6 +3432,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   text-align: left; font: inherit;
 }
 .tools-issue-link:hover { text-decoration: underline; }
+/* Person references in Tools: name in its sex colour, then a muted lifespan,
+   styled exactly like person labels elsewhere in the app. */
+.person-ref {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font-weight: 400;
+}
 .tools-issue-msg { color: var(--muted); font-size: 0.88rem; }
 .tools-more { color: var(--muted); font-size: 0.85rem; padding-top: 8px; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }
@@ -3459,8 +3465,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tree-link { color: var(--muted); text-decoration: none; }
 .tools-tree-link:hover { color: var(--accent); }
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
+.tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; }
+.tools-usage-amp { color: var(--muted); margin: 0 6px; }
 .tools-usage-block { padding-left: 26px; }
-.tools-usage-title { color: var(--muted); font-size: 0.82rem; padding-top: 4px; }
 .tools-cat {
   min-width: 32px; text-align: center;
   font-weight: 700; font-size: 0.78rem;
