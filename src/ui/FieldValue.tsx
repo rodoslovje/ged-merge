@@ -97,10 +97,13 @@ export type RelativePerson = Pick<PersonLinks, "linkable" | "onNavigate">;
  * each pair occupies one grid row, so the same person stays lined up across the
  * master and incoming columns even when a name wraps to several lines. The
  * bold/muted emphasis follows the field's chosen side, like single-value rows.
- * The whole list shares one merge choice (there's no per-child pick), but when
+ *
+ * Most relative rows (partners) share one merge choice for the whole list; when
  * `renderChoice` is supplied (the editable Compare panel, not the read-only tree
  * popover) it's repeated on every pair's line so the control isn't only visible
- * next to the first child.
+ * next to the first one. The children row instead passes `renderPair`, which
+ * decides the chosen-side emphasis and the take/skip control *per pair*, so each
+ * incoming child can be selected on its own.
  */
 export function RelativeGrid({
   pairs,
@@ -109,6 +112,7 @@ export function RelativeGrid({
   masterPerson,
   incomingPerson,
   renderChoice,
+  renderPair,
 }: {
   pairs: RelativePair[];
   masterChosen: boolean;
@@ -116,7 +120,16 @@ export function RelativeGrid({
   masterPerson: RelativePerson;
   incomingPerson: RelativePerson;
   renderChoice?: () => React.ReactNode;
+  /** Per-pair override: returns this pair's chosen-side emphasis and its own
+   *  choice control. When supplied, takes precedence over the row-level
+   *  `masterChosen`/`incomingChosen`/`renderChoice`. */
+  renderPair?: (pair: RelativePair, index: number) => {
+    masterChosen: boolean;
+    incomingChosen: boolean;
+    choice?: React.ReactNode;
+  };
 }) {
+  const hasChoiceCol = !!renderChoice || !!renderPair;
   const renderCell = (cell: RelativeCell | undefined, person: RelativePerson) => {
     if (!cell || !cell.text) return " ";
     let content: React.ReactNode = cell.text;
@@ -132,24 +145,30 @@ export function RelativeGrid({
   };
 
   return (
-    <div className={renderChoice ? "rel-grid with-choice" : "rel-grid"}>
-      {pairs.map((p, i) => (
-        <Fragment key={i}>
-          <div
-            className={`rel-cell f-val gm-data${masterChosen ? " chosen" : ""}`}
-            title={p.master?.title}
-          >
-            {renderCell(p.master, masterPerson)}
-          </div>
-          <div
-            className={`rel-cell rel-incoming f-val gm-data${incomingChosen ? " chosen" : ""}`}
-            title={p.incoming?.title}
-          >
-            {renderCell(p.incoming, incomingPerson)}
-          </div>
-          {renderChoice && <div className="rel-cell rel-choice f-choice">{renderChoice()}</div>}
-        </Fragment>
-      ))}
+    <div className={hasChoiceCol ? "rel-grid with-choice" : "rel-grid"}>
+      {pairs.map((p, i) => {
+        const per = renderPair?.(p, i);
+        const mChosen = per ? per.masterChosen : masterChosen;
+        const iChosen = per ? per.incomingChosen : incomingChosen;
+        const choice = per ? per.choice : renderChoice?.();
+        return (
+          <Fragment key={i}>
+            <div
+              className={`rel-cell f-val gm-data${mChosen ? " chosen" : ""}`}
+              title={p.master?.title}
+            >
+              {renderCell(p.master, masterPerson)}
+            </div>
+            <div
+              className={`rel-cell rel-incoming f-val gm-data${iChosen ? " chosen" : ""}`}
+              title={p.incoming?.title}
+            >
+              {renderCell(p.incoming, incomingPerson)}
+            </div>
+            {hasChoiceCol && <div className="rel-cell rel-choice f-choice">{choice}</div>}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

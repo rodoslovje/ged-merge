@@ -148,7 +148,7 @@ export function applyFamilyStructure(
   famNode: GedNode,
   incFam: import("../gedcom/types").Family,
   ctx: MergeContext,
-  opts: { spouses: boolean; children: boolean },
+  opts: { spouses: boolean; takenChildren: Set<string> },
 ): void {
   const famId = famNode.xref;
   if (!famId) return;
@@ -189,11 +189,13 @@ export function applyFamilyStructure(
     }
   }
 
-  if (opts.children) {
+  if (opts.takenChildren.size > 0) {
     const existing = new Set(
       famNode.children.filter((c) => c.tag === "CHIL").map((c) => c.value),
     );
     for (const incChild of incFam.children) {
+      // Children are opt-in: only stitch in the ones the user explicitly took.
+      if (!opts.takenChildren.has(incChild)) continue;
       const known = ctx.incToMaster.get(incChild);
       if (known && existing.has(known)) continue;
       const targetId = ctx.resolve(incChild);
@@ -269,6 +271,8 @@ export function applyIndividualFamilies(
   master: Dataset,
   compare: Dataset,
   ctx: MergeContext,
+  /** Incoming child ids the user opted to stitch in (see `CandidateDecision.takenChildren`). */
+  takenChildIds: Set<string>,
 ): void {
   for (const incFamId of incomingIndi.spouseOf) {
     // A family with both spouses confirmed as matches is visited once per
@@ -280,7 +284,9 @@ export function applyIndividualFamilies(
     const famKey = `fam.${incFamId}`;
 
     const takeSpouses = wantsIncoming(rows, fields, `${famKey}.partner`);
-    const takeChildren = wantsIncoming(rows, fields, `${famKey}.children`);
+    // Children this family contributes that the user opted to take.
+    const famTakenChildren = new Set(incFam.children.filter((id) => takenChildIds.has(id)));
+    const takeChildren = famTakenChildren.size > 0;
     const marriageChoice = (sub: string): FieldChoice | undefined => {
       const key = `${famKey}.MARR.${sub}`;
       return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
@@ -295,7 +301,7 @@ export function applyIndividualFamilies(
     let famNode = findMasterSpouseFamily(masterIndi, master, masterId, otherMasterId, ctx);
     if (!famNode) famNode = createPersonFamily(masterId, masterIndi, ctx);
 
-    applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, children: takeChildren });
+    applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren });
 
     const marrEntries: EventSubEdit[] = [];
     for (const sub of ["date", "place", "addr", "note", "agency"] as const) {

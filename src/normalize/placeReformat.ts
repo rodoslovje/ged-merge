@@ -91,7 +91,9 @@ export function reformatPlace(
     const fromAddr = !!a?.houseNumber;
     const prefix = (fromAddr && a?.locality && a.locality !== locality) ? a.locality : locality;
     address = prefix ? `${prefix} ${houseNumber}` : houseNumber;
-  } else if (a && fmt.layout === "structured-addr") address = a.raw; // keep an opaque ADDR
+  } else if (a && fmt.layout === "structured-addr" && !a.facility) address = a.raw; // keep an opaque ADDR
+  // (skip when the ADDR is purely a facility — `a.raw` already holds it and the
+  //  facility branch below re-emits it, which would otherwise duplicate the text)
   if (address && houseName) address += ` (pd ${houseName})`;
 
   if (fmt.layout === "packed-plac") {

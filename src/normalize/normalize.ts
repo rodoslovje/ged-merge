@@ -6,10 +6,13 @@ import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
-import type { MasterProfile, NormalizationReport, NormChange, PlaceTargetFormat } from "./types";
+import type { MasterProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
 import { walkNodes } from "./walk";
 
 const MAX_EXAMPLES = 12;
+
+/** Default: every normalization pass runs (load-time behavior). */
+const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true };
 
 /**
  * Normalize a compare dataset to the master's conventions.
@@ -22,11 +25,15 @@ const MAX_EXAMPLES = 12;
  * `sourceDateValues`, when the caller already collected the compare file's
  * DATE values (e.g. for displaying its detected date format), lets the
  * source-order inference below reuse them instead of walking the tree again.
+ *
+ * `options` selects which passes run; by default all do. The bulk-normalize
+ * tool uses it to let the user apply only some of the transformations.
  */
 export function normalizeDataset(
   compare: Dataset,
   profile: MasterProfile,
   sourceDateValues?: string[],
+  options: NormalizeOptions = ALL_PASSES,
 ): { dataset: Dataset; report: NormalizationReport } {
   const records = cloneRecords(compare.records);
   const report: NormalizationReport = {
@@ -52,6 +59,7 @@ export function normalizeDataset(
   walkNodes(records, (node) => {
     if (node.value === undefined) return;
     if (node.tag === "DATE") {
+      if (!options.dates) return;
       const next = normalizeDateString(node.value, profile.date, sourceOrder);
       if (next !== node.value) {
         record(report.dateExamples, seenDate, node.value, next);
@@ -63,6 +71,7 @@ export function normalizeDataset(
       // (whitespace fixes are not interesting enough to count or list).
       node.value = normalizePlaceString(node.value);
     } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) {
+      if (!options.links) return;
       // Matricula Online / Geneanet cemetery links carry a UI language in the
       // URL itself; rewrite to the master's language so the compare/edit
       // screens already show matching links and no further conversion is
@@ -81,7 +90,7 @@ export function normalizeDataset(
   // structured PLAC + ADDR into one packed PLAC — so the compare/edit screens
   // already show places in the master's shape and no reshaping is needed when
   // the record is later merged or saved.
-  if (reshapesLayout(profile.placeFmt.layout)) {
+  if (options.places && reshapesLayout(profile.placeFmt.layout)) {
     walkNodes(records, (node) => {
       reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
     });
@@ -112,6 +121,11 @@ function reshapePlaceNode(
   const placNode = node.children.find((c) => c.tag === "PLAC");
   const addrNode = node.children.find((c) => c.tag === "ADDR");
   if (!placNode && !addrNode) return;
+  // A PLAC carrying an explicit FORM declares a fixed jurisdiction schema —
+  // each comma part maps to a FORM label (e.g. "Place,Municipality,County,…").
+  // Reshaping could drop empty or middle parts and break that alignment, so
+  // leave such places untouched.
+  if (placNode?.children.some((c) => c.tag === "FORM")) return;
   const placRaw = placNode?.value;
   const addrRaw = addrNode?.value;
   const agncRaw = node.children.find((c) => c.tag === "AGNC")?.value;
@@ -122,9 +136,14 @@ function reshapePlaceNode(
   if (before === after) return;
 
   const existingAgency = node.children.find((c) => c.tag === "AGNC");
-  node.children = node.children.filter((c) => c !== placNode && c !== addrNode);
   if (r.plac !== undefined) {
-    const placeNode = plainNode("PLAC", r.plac);
+    // Reuse the original PLAC node when there is one, keeping its children
+    // (FORM, MAP/LONG/LATI coordinates) and its position among the event's
+    // siblings; only synthesize a fresh node when the PLAC is newly created
+    // out of an ADDR. Dropping it and pushing a replacement would discard
+    // those sub-nodes and move the place to the end of the event.
+    const placeNode = placNode ?? plainNode("PLAC", r.plac);
+    placeNode.value = r.plac;
     // Surface the pre-reshape text as a tooltip: the original PLAC when it
     // changed, plus the original ADDR when it was absorbed into the PLAC
     // rather than kept as its own row.
@@ -133,12 +152,17 @@ function reshapePlaceNode(
       addrRaw && r.addr === undefined ? addrRaw : undefined,
     ].filter(Boolean) as string[];
     if (reshapedFromParts.length > 0) placeNode.reshapedFrom = reshapedFromParts.join(" · ");
-    node.children.push(placeNode);
+    if (!placNode) node.children.push(placeNode);
+  } else if (placNode) {
+    node.children = node.children.filter((c) => c !== placNode);
   }
   if (r.addr !== undefined) {
-    const addrNodeOut = plainNode("ADDR", r.addr);
+    const addrNodeOut = addrNode ?? plainNode("ADDR", r.addr);
+    addrNodeOut.value = r.addr;
     if (addrRaw && addrRaw !== r.addr) addrNodeOut.reshapedFrom = addrRaw;
-    node.children.push(addrNodeOut);
+    if (!addrNode) node.children.push(addrNodeOut);
+  } else if (addrNode) {
+    node.children = node.children.filter((c) => c !== addrNode);
   }
   if (r.agency) {
     if (existingAgency) {

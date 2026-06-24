@@ -185,7 +185,8 @@ export function mergeDecisions(
     const rows = individualFieldRows(t, masterIndi, incoming, master, compare, placeFmt, rejectedEvents);
     applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap);
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
-    applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
+    const takenChildIds = new Set(decision.takenChildren ?? []);
+    applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx, takenChildIds);
     sortEventsByDate(target);
   }
 

@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
-import { SourceRefs } from "./SourceRef";
+import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { ReadOnlyCompare } from "./ReadOnlyCompare";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
@@ -708,88 +707,13 @@ function NodeCompare({
           ))}
         </div>
       )}
-      <table className="tree-compare-table">
-        <thead>
-          <tr>
-            <th />
-            <th className="compare-col compare-col-master">{t("tree.master")}</th>
-            <th className="compare-col compare-col-incoming">{t("tree.incoming")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            if (row.isGroupHeader) {
-              const isEventHeader = !!row.isEventHeader;
-              return (
-                <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
-                  <td colSpan={3} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }}>
-                    {row.label}
-                  </td>
-                </tr>
-              );
-            }
-
-            // Read-only here, but mark the value that would be kept (master, else
-            // incoming) in bold — the same emphasis as the main compare screen.
-            const choice = defaultChoice(row);
-            // A sources row can be link-icons-only (no actual SOUR citation on
-            // either side yet) — still route it through the icon rendering below
-            // rather than the plain-text branch, which would print the bare URL.
-            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
-            return (
-              <tr key={row.key} className={`field ${row.state}`}>
-                <td className="f-label">{row.displayLabel ?? row.label}</td>
-                {row.relatives ? (
-                  <td className="f-rel" colSpan={2}>
-                    <RelativeGrid
-                      pairs={row.relatives}
-                      masterChosen={choice !== "incoming"}
-                      incomingChosen={choice !== "master"}
-                      masterPerson={masterPerson}
-                      incomingPerson={incomingPerson}
-                    />
-                  </td>
-                ) : hasSources ? (
-                  <>
-                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.masterSources} />
-                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
-                    </td>
-                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
-                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td
-                      className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
-                      title={row.masterTitle}
-                    >
-                      <FieldValue
-                        text={row.master}
-                        links={row.masterLinks}
-                        person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
-                      />
-                    </td>
-                    <td
-                      className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
-                      title={row.incomingTitle}
-                    >
-                      <FieldValue
-                        text={row.incoming}
-                        links={row.incomingLinks}
-                        otherLinks={row.masterLinks}
-                        person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
-                      />
-                    </td>
-                  </>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <ReadOnlyCompare
+        rows={rows}
+        masterPerson={masterPerson}
+        incomingPerson={incomingPerson}
+        masterLabel={t("tree.master")}
+        incomingLabel={t("tree.incoming")}
+      />
     </div>
   );
 }

@@ -608,6 +608,22 @@ export function connectExistingChild(
 /** Tags used for record-level links (top-level on INDI/FAM records). */
 const RECORD_LINK_TAGS = ["WWW", "URL", "_URL", "_WEBTAG"];
 
+/**
+ * Remove a family that has fewer than two members — a lone spouse, a single
+ * child, or nothing at all. A family needs at least two members (a couple, or
+ * a parent/sibling group) to mean anything; once a deletion or detach drops it
+ * below that, the now-meaningless `FAM` record (which may still carry only
+ * CREA/CHAN/MARR stubs) is dropped via `removeFamily`, which also unlinks the
+ * `FAMS`/`FAMC` pointer of any sole surviving member. Returns `true` if it was
+ * removed.
+ */
+export function pruneDegenerateFamily(dataset: Dataset, fam: Family): boolean {
+  const memberCount = (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.length;
+  if (memberCount >= 2) return false;
+  removeFamily(dataset, fam);
+  return true;
+}
+
 /** Remove a spouse role (HUSB or WIFE) from a family and the matching FAMS from the individual. */
 export function detachSpouseRole(dataset: Dataset, fam: Family, role: "HUSB" | "WIFE"): void {
   const indiId = role === "HUSB" ? fam.husband : fam.wife;
@@ -619,7 +635,7 @@ export function detachSpouseRole(dataset: Dataset, fam: Family, role: "HUSB" | "
     if (i !== -1) indi.raw.children.splice(i, 1);
     rebuildIndividual(dataset, indi);
   }
-  rebuildFamily(dataset, fam);
+  pruneDegenerateFamily(dataset, rebuildFamily(dataset, fam));
 }
 
 /** Remove a child from a family's CHIL list and the matching FAMC from the child. */
@@ -632,11 +648,15 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
     if (fi !== -1) child.raw.children.splice(fi, 1);
     rebuildIndividual(dataset, child);
   }
-  rebuildFamily(dataset, fam);
+  pruneDegenerateFamily(dataset, rebuildFamily(dataset, fam));
 }
 
-/** Fully remove an individual from the dataset, cleaning up all family pointers. */
+/** Fully remove an individual from the dataset, cleaning up all family pointers.
+ * Families left with fewer than two members once this person is gone are pruned
+ * too (see `pruneDegenerateFamily`), so deleting people out of a family doesn't
+ * leave a lone-member or empty `FAM` record behind. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
+  const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf]);
   for (const famId of indi.spouseOf) {
     const fam = dataset.families.get(famId);
     if (!fam) continue;
@@ -654,6 +674,10 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
   const ri = dataset.records.findIndex((r) => r.xref === indi.id);
   if (ri !== -1) dataset.records.splice(ri, 1);
   dataset.individuals.delete(indi.id);
+  for (const famId of affectedFamilyIds) {
+    const fam = dataset.families.get(famId);
+    if (fam) pruneDegenerateFamily(dataset, fam);
+  }
 }
 
 /** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */

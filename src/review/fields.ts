@@ -251,7 +251,7 @@ export function individualFieldRows(
 
       if (mChildRels.length > 0 || cChildRels.length > 0) {
         rows.push({ key: `${famKey}.children.header`, label: t("field.children"), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
-        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "");
+        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
       }
     });
   }
@@ -501,6 +501,7 @@ function pushRelativesRow(
   master: Relative[],
   incoming: Relative[],
   displayLabel?: string,
+  perChildChoice?: boolean,
 ): void {
   if (master.length === 0 && incoming.length === 0) return;
   const pairs = alignRelatives(master, incoming);
@@ -514,6 +515,7 @@ function pushRelativesRow(
     key,
     label,
     ...(displayLabel !== undefined ? { displayLabel } : {}),
+    ...(perChildChoice ? { perChildChoice: true } : {}),
     master: m,
     incoming: i,
     state,

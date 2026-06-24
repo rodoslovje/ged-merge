@@ -69,6 +69,7 @@ Key state:
 | `src/review/` | Field-comparison rows (`FieldRow`), diff counts for the results table |
 | `src/tree/` | Compare-tree and edit-tree logic |
 | `src/csv/` | Genealogical index CSV import |
+| `src/tools/` | Whole-file maintenance tools (Tools tab): validation/health check, within-file duplicate finder, bulk normalize — pure functions run on the main thread |
 | `src/ui/` | React components |
 | `src/locales/` | i18n strings (English `en`, Slovenian `sl`) via i18next |
 | `src/worker/` | Web Worker entry point + message types |

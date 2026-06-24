@@ -292,6 +292,23 @@ export function enrichEditReport(
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
         extra.push(...diffIndividualNodes(id, snapshot, current.raw, t));
+        // A FAMS/FAMC link lost because its family was pruned (dropped below
+        // two members) surfaces only here: the removed FAM has no
+        // snapshot/current pair for diffFamilyNodes to report. A link to a
+        // family that still exists is already shown on that family's row.
+        for (const tag of ["FAMS", "FAMC"] as const) {
+          const afterLinks = new Set(
+            current.raw.children.filter((c) => c.tag === tag).map((c) => c.value?.trim()),
+          );
+          for (const node of snapshot.children) {
+            if (node.tag !== tag) continue;
+            const famId = node.value?.trim();
+            if (!famId || afterLinks.has(famId) || dataset.families.has(famId)) continue;
+            const famLabel = report.recordLabels[famId] ?? famId;
+            const fieldKey = tag === "FAMC" ? "field.childOf" : "field.spouseOf";
+            extra.push({ recordId: id, field: t(fieldKey), from: famLabel, to: "", action: "incoming" });
+          }
+        }
       } else if (snapshot && !current) {
         // Deleted person: list which families they belonged to
         for (const node of snapshot.children) {
@@ -369,10 +386,11 @@ export function buildEditReport(
       if (name) entries.push({ id: spouseId, name });
     }
     const isNew = !loadedFamilyIds.has(id);
+    const isRemoved = !fam && !isNew;
     recordLabels[id] = entries.map((e) => e.name).join(" + ") || id;
     recordKinds[id] = "family";
     if (entries.length) familySpouses[id] = entries;
-    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew });
+    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew, removedRecord: isRemoved });
     if (isNew) newFamilies++;
   }
 

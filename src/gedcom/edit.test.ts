@@ -815,6 +815,39 @@ describe("detachSpouseRole", () => {
     const wife = ds.individuals.get("@I2@")!;
     expect(wife.spouseOf).not.toContain("@F1@");
   });
+
+  it("prunes the family when detaching its last remaining member", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@",
+      "0 TRLR", "",
+    ].join("\n"));
+    const fam = ds.families.get("@F1@")!;
+
+    detachSpouseRole(ds, fam, "HUSB");
+
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.records.some((r) => r.xref === "@F1@")).toBe(false);
+    expect(ds.individuals.get("@I1@")!.spouseOf).not.toContain("@F1@");
+  });
+
+  it("prunes a childless couple when one spouse is detached, unlinking the other", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 FAMS @F1@",
+      "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@",
+      "0 TRLR", "",
+    ].join("\n"));
+    const fam = ds.families.get("@F1@")!;
+
+    detachSpouseRole(ds, fam, "HUSB");
+
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.individuals.get("@I1@")!.spouseOf).not.toContain("@F1@");
+    expect(ds.individuals.get("@I2@")!.spouseOf).not.toContain("@F1@");
+  });
 });
 
 // ─── detachChildFromFamily ────────────────────────────────────────────────────
@@ -831,6 +864,22 @@ describe("detachChildFromFamily", () => {
     const child = ds.individuals.get("@I3@")!;
     expect(child.childOf).not.toContain("@F1@");
     expect(serializeGedcom(ds.records)).not.toContain("1 CHIL @I3@");
+  });
+
+  it("prunes the family when detaching its only child leaves it empty", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I3@ INDI", "1 NAME Bine /Novak/", "1 FAMC @F1@",
+      "0 @F1@ FAM", "1 CHIL @I3@",
+      "0 TRLR", "",
+    ].join("\n"));
+    const fam = ds.families.get("@F1@")!;
+
+    detachChildFromFamily(ds, fam, "@I3@");
+
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.records.some((r) => r.xref === "@F1@")).toBe(false);
+    expect(ds.individuals.get("@I3@")!.childOf).not.toContain("@F1@");
   });
 });
 
@@ -858,6 +907,35 @@ describe("removeIndividual", () => {
     expect(ds.individuals.has("@I3@")).toBe(false);
     const fam = rebuildFamily(ds, ds.families.get("@F1@")!);
     expect(fam.children).not.toContain("@I3@");
+  });
+
+  it("prunes a childless couple's family on the first spouse delete, unlinking the survivor", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 FAMS @F1@",
+      "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@",
+      "2 DATE 18 JUN 2026",
+      "0 TRLR", "",
+    ].join("\n"));
+
+    // Couple is two members → deleting one leaves a single-member (degenerate)
+    // family, which is pruned, and the surviving spouse's FAMS is cleaned up.
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.records.some((r) => r.xref === "@F1@")).toBe(false);
+    expect(ds.individuals.get("@I2@")!.spouseOf).not.toContain("@F1@");
+  });
+
+  it("keeps a family while two members remain, prunes it when only one is left", () => {
+    const ds = buildFromText(FAM_BASE); // HUSB + WIFE + one CHIL
+
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    expect(ds.families.has("@F1@")).toBe(true); // wife + child remain
+
+    removeIndividual(ds, ds.individuals.get("@I2@")!);
+    expect(ds.families.has("@F1@")).toBe(false); // only the child was left
+    expect(ds.individuals.get("@I3@")!.childOf).not.toContain("@F1@");
   });
 });
 

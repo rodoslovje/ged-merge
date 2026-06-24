@@ -142,6 +142,17 @@ export interface NormChange {
 }
 
 /**
+ * Which normalization passes to apply. Used by the bulk-normalize tool to let
+ * the user opt out of individual transformations (dates / places / links).
+ * All passes run when omitted, so load-time normalization is unaffected.
+ */
+export interface NormalizeOptions {
+  dates: boolean;
+  places: boolean;
+  links: boolean;
+}
+
+/**
  * Summary of what the load-time normalization pass altered in the compare file:
  * dates converted to the master's style, places reshaped into the master's
  * PLAC/ADDR/NOTE layout (when the master's layout calls for it), and links

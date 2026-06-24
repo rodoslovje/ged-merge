@@ -197,6 +197,68 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(birth.address?.raw).toBeUndefined();
   });
 
+  it("leaves a PLAC with an explicit FORM untouched, keeping all its parts", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR Kuželj 22
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Hickory,,Caldwell,North Carolina,United States
+3 FORM Place,Municipality,County,State,Country
+3 MAP
+4 LONG W81.328300055555559
+4 LATI N35.737800122222225
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const resi = out.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "RESI")!;
+    const placNode = resi.children.find((c) => c.tag === "PLAC")!;
+    // FORM declares 5 parts; the empty Municipality slot must be kept so the
+    // comma parts stay aligned with the FORM labels.
+    expect(placNode.value).toBe("Hickory,,Caldwell,North Carolina,United States");
+    expect(report.placesReshaped).toBe(0);
+  });
+
+  it("preserves a reshaped PLAC's MAP children and its position", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR Kuželj 22
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 DATE 21 FEB 2011
+2 PLAC Kranj (Slovenija)
+3 MAP
+4 LONG E14.0
+4 LATI N46.0
+2 NOTE later
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const resi = out.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "RESI")!;
+    const placNode = resi.children.find((c) => c.tag === "PLAC")!;
+    // The reshape changed the value but kept the MAP sub-node...
+    expect(placNode.value).toBe("Kranj,Slovenia");
+    const map = placNode.children.find((c) => c.tag === "MAP")!;
+    expect(map.children.find((c) => c.tag === "LONG")?.value).toBe("E14.0");
+    expect(map.children.find((c) => c.tag === "LATI")?.value).toBe("N46.0");
+    // ...and left PLAC where it was, between DATE and NOTE rather than appended.
+    expect(resi.children.map((c) => c.tag)).toEqual(["DATE", "PLAC", "NOTE"]);
+  });
+
   it("appends a leftover parish detail to an existing AGNC rather than duplicating it", () => {
     const master = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -217,6 +279,29 @@ describe("normalizeDataset (place reshaping)", () => {
     const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.agency).toBe("Maribor hospital; župnija Kranj");
+  });
+
+  it("keeps a facility-only ADDR unchanged instead of duplicating it in parentheses", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR Kuželj 22
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BURI
+2 ADDR Pokopališče Zgornje Bitnje
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const buri = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BURI")!;
+    // The cemetery name is a facility; it must not be echoed as "X (X)".
+    expect(buri.address?.raw).toBe("Pokopališče Zgornje Bitnje");
+    expect(report.placesReshaped).toBe(0);
   });
 
   it("does not reshape (or count) places when the master's layout doesn't call for it", () => {

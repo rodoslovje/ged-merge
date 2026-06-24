@@ -1,0 +1,400 @@
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { Dataset } from "../gedcom/types";
+import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
+import { validateDataset, type ValidationReport, type IssueCategory } from "../tools/validate";
+import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
+import { bulkNormalize } from "../tools/bulkNormalize";
+import { serializeGedcom } from "../gedcom/serialize";
+import { downloadText } from "./download";
+import { individualFieldRows } from "../review/fields";
+import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
+
+type Tool = "validate" | "duplicates" | "normalize";
+
+const TOOLS: Tool[] = ["validate", "duplicates", "normalize"];
+
+/** Max issue rows rendered at once — keeps an unvirtualized list responsive on
+ *  files with thousands of findings; the rest are summarized as "…and N more". */
+const MAX_ROWS = 1000;
+
+interface Props {
+  /** The live master dataset — every tool operates on the whole file. */
+  dataset: Dataset;
+  /** Master file name, used to name the normalized download. */
+  fileName: string;
+  /** Jump to a person/family record in Edit mode. */
+  onNavigate: (id: string) => void;
+  /** True when the Tools tab is the visible mode. */
+  active: boolean;
+}
+
+type AsyncState<T> =
+  | { status: "idle" }
+  | { status: "running" }
+  | { status: "done"; result: T };
+
+/** Let React paint the "working…" state before a blocking computation runs. */
+function nextTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+export function ToolsView({ dataset, fileName, onNavigate, active }: Props) {
+  const { t } = useTranslation();
+  const [tool, setTool] = useState<Tool>("validate");
+
+  return (
+    <div className="tools-view">
+      <div className="tools-head">
+        <h2 className="tools-title">{t("tools.title")}</h2>
+        <p className="tools-subtitle">{t("tools.subtitle")}</p>
+      </div>
+      <div className="tools-subtabs" role="tablist">
+        {TOOLS.map((id) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tool === id}
+            className={`tools-tab ${tool === id ? "active" : ""}`}
+            onClick={() => setTool(id)}
+          >
+            <span className="tools-tab-label">{t(`tools.tool.${id}`)}</span>
+            <span className="tools-tab-desc">{t(`tools.tool.${id}.desc`)}</span>
+          </button>
+        ))}
+      </div>
+      <div className="tools-panel">
+        {tool === "validate" && (
+          <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "duplicates" && (
+          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} />
+        )}
+        {tool === "normalize" && (
+          <NormalizePanel dataset={dataset} fileName={fileName} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Validation ─────────────────────────────────────────────────────────────
+
+const CATEGORIES: IssueCategory[] = [
+  "brokenLink",
+  "deathBeforeBirth",
+  "futureDate",
+  "missingVitals",
+  "missingName",
+  "missingSex",
+  "orphan",
+];
+
+function ValidatePanel({
+  dataset,
+  onNavigate,
+  active,
+}: {
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
+  active: boolean;
+}) {
+  const { t } = useTranslation();
+  // Only compute once the tab is actually shown, then memoize per dataset.
+  const [report, setReport] = useState<ValidationReport | null>(null);
+  const [filter, setFilter] = useState<IssueCategory | "all">("all");
+
+  useEffect(() => {
+    setReport(null);
+    setFilter("all");
+  }, [dataset]);
+
+  useEffect(() => {
+    if (active && !report) setReport(validateDataset(dataset));
+  }, [active, report, dataset]);
+
+  const shown = useMemo(() => {
+    if (!report) return [];
+    return filter === "all" ? report.issues : report.issues.filter((i) => i.category === filter);
+  }, [report, filter]);
+
+  if (!report) return <div className="tools-loading">{t("tools.running")}</div>;
+
+  const total = report.issues.length;
+  return (
+    <>
+      <p className="tools-summary">
+        {t("tools.validate.summary", { indi: report.individualCount, fam: report.familyCount })}
+      </p>
+      {total === 0 ? (
+        <p className="tools-clean">{t("tools.validate.clean")}</p>
+      ) : (
+        <>
+          <div className="tools-chips">
+            <button
+              className={`tools-chip ${filter === "all" ? "active" : ""}`}
+              onClick={() => setFilter("all")}
+            >
+              {t("tools.validate.all")} <span className="tools-chip-count">{total}</span>
+            </button>
+            {CATEGORIES.filter((c) => report.counts[c] > 0).map((c) => (
+              <button
+                key={c}
+                className={`tools-chip ${filter === c ? "active" : ""}`}
+                onClick={() => setFilter(c)}
+              >
+                {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
+              </button>
+            ))}
+          </div>
+          <ul className="tools-issues">
+            {shown.slice(0, MAX_ROWS).map((issue, i) => (
+              <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
+                <button className="tools-issue-link" onClick={() => onNavigate(issue.id)} title={issue.id}>
+                  {issue.subject}
+                </button>
+                <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+              </li>
+            ))}
+          </ul>
+          {shown.length > MAX_ROWS && (
+            <p className="tools-more">{t("tools.validate.more", { count: shown.length - MAX_ROWS })}</p>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── Duplicates ───────────────────────────────────────────────────────────────
+
+function DuplicatesPanel({
+  dataset,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<AsyncState<DuplicatePair[]>>({ status: "idle" });
+  // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    setState({ status: "idle" });
+    setExpanded(null);
+  }, [dataset]);
+
+  async function run() {
+    setState({ status: "running" });
+    setExpanded(null);
+    await nextTick();
+    setState({ status: "done", result: findDuplicates(dataset) });
+  }
+
+  return (
+    <>
+      <p className="tools-intro">{t("tools.duplicates.intro")}</p>
+      <button className="nav-btn primary tools-run" onClick={run} disabled={state.status === "running"}>
+        {state.status === "running" ? t("tools.running") : t("tools.duplicates.run")}
+      </button>
+      {state.status === "done" && (
+        state.result.length === 0 ? (
+          <p className="tools-clean">{t("tools.duplicates.none")}</p>
+        ) : (
+          <>
+            <p className="tools-summary">{t("tools.duplicates.found", { count: state.result.length })}</p>
+            <ul className="tools-pairs">
+              {state.result.map((p) => {
+                const key = `${p.aId}-${p.bId}`;
+                const open = expanded === key;
+                return (
+                  <li key={key} className="tools-pair">
+                    <div className="tools-pair-row">
+                      <button
+                        className={`tools-pair-toggle ${open ? "open" : ""}`}
+                        onClick={() => setExpanded(open ? null : key)}
+                        title={open ? t("tools.duplicates.hideCompare") : t("tools.duplicates.showCompare")}
+                        aria-expanded={open}
+                      >
+                        ▶
+                      </button>
+                      <span className={`tools-cat cat-${p.category}`}>{Math.round(p.score)}</span>
+                      <button className="tools-issue-link" onClick={() => onNavigate(p.aId)} title={p.aId}>
+                        {p.aLabel}
+                      </button>
+                      <span className="tools-pair-sep">↔</span>
+                      <button className="tools-issue-link" onClick={() => onNavigate(p.bId)} title={p.bId}>
+                        {p.bLabel}
+                      </button>
+                    </div>
+                    {open && (
+                      <DuplicateCompare
+                        dataset={dataset}
+                        pair={p}
+                        onNavigate={onNavigate}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )
+      )}
+    </>
+  );
+}
+
+/** Read-only side-by-side field comparison of one duplicate pair — both records
+ *  live in the same master dataset, so each column navigates into Edit mode. */
+function DuplicateCompare({
+  dataset,
+  pair,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  pair: DuplicatePair;
+  onNavigate: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const a = dataset.individuals.get(pair.aId);
+  const b = dataset.individuals.get(pair.bId);
+  const rows = useMemo(
+    () => individualFieldRows(t, a, b, dataset, dataset),
+    [t, a, b, dataset],
+  );
+  const nav: PersonNav = {
+    linkable: (id) => dataset.individuals.has(id),
+    onNavigate,
+  };
+  return (
+    <div className="tools-pair-compare">
+      <ReadOnlyCompare
+        rows={rows}
+        masterPerson={nav}
+        incomingPerson={nav}
+        masterLabel={pair.aLabel}
+        incomingLabel={pair.bLabel}
+      />
+    </div>
+  );
+}
+
+// ── Bulk normalize ───────────────────────────────────────────────────────────
+
+function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: string }) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<AsyncState<{ dataset: Dataset; report: NormalizationReport }>>({ status: "idle" });
+  // Which passes the user wants applied on download; the preview report above
+  // always reflects all three so the counts show what each would change.
+  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true });
+
+  useEffect(() => {
+    setState({ status: "idle" });
+    setSelected({ dates: true, places: true, links: true });
+  }, [dataset]);
+
+  async function run() {
+    setState({ status: "running" });
+    await nextTick();
+    setState({ status: "done", result: bulkNormalize(dataset) });
+  }
+
+  function download() {
+    // Re-run with only the selected passes so the download honors the checkboxes.
+    const { dataset: out } = bulkNormalize(dataset, selected);
+    const base = fileName.replace(/\.ged$/i, "");
+    const text = serializeGedcom(out.records, {
+      eol: dataset.eol,
+      finalNewline: dataset.finalNewline,
+    });
+    downloadText(`${base}.normalized.ged`, text);
+  }
+
+  return (
+    <>
+      <p className="tools-intro">{t("tools.normalize.intro")}</p>
+      <button className="nav-btn primary tools-run" onClick={run} disabled={state.status === "running"}>
+        {state.status === "running" ? t("tools.running") : t("tools.normalize.run")}
+      </button>
+      {state.status === "done" && (() => {
+        const { report } = state.result;
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted;
+        if (changed === 0) return <p className="tools-clean">{t("tools.normalize.none")}</p>;
+        const counts = {
+          dates: report.datesChanged,
+          places: report.placesReshaped,
+          links: report.linksConverted,
+        };
+        const toggle = (key: keyof NormalizeOptions) =>
+          setSelected((s) => ({ ...s, [key]: !s[key] }));
+        // Selected sum guards the download: only passes that are both checked
+        // and actually change something count toward "anything to apply".
+        const selectedChanges =
+          (selected.dates ? counts.dates : 0) +
+          (selected.places ? counts.places : 0) +
+          (selected.links ? counts.links : 0);
+        return (
+          <>
+            <ul className="tools-norm-summary">
+              <NormCheck label={t("tools.normalize.dates", { count: counts.dates })}
+                checked={selected.dates} count={counts.dates} onChange={() => toggle("dates")} />
+              <NormCheck label={t("tools.normalize.places", { count: counts.places })}
+                checked={selected.places} count={counts.places} onChange={() => toggle("places")} />
+              <NormCheck label={t("tools.normalize.links", { count: counts.links })}
+                checked={selected.links} count={counts.links} onChange={() => toggle("links")} />
+            </ul>
+            {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
+            {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
+            {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
+            <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0}>
+              {t("tools.normalize.download")}
+            </button>
+          </>
+        );
+      })()}
+    </>
+  );
+}
+
+/** One selectable normalization-count row: a checkbox in front of the count.
+ *  Passes with nothing to change are disabled — there is nothing to opt into. */
+function NormCheck({
+  label,
+  checked,
+  count,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  count: number;
+  onChange: () => void;
+}) {
+  return (
+    <li>
+      <label className={`tools-norm-check ${count === 0 ? "disabled" : ""}`}>
+        <input type="checkbox" checked={checked && count > 0} disabled={count === 0} onChange={onChange} />
+        <span>{label}</span>
+      </label>
+    </li>
+  );
+}
+
+function NormExamples({ title, examples }: { title: string; examples: { before: string; after: string }[] }) {
+  if (!examples.length) return null;
+  return (
+    <div className="tools-examples">
+      <div className="tools-examples-title">{title}</div>
+      <ul>
+        {examples.map((e, i) => (
+          <li key={i}>
+            <span className="tools-ex-from">{e.before}</span>
+            <span className="tools-pair-sep">→</span>
+            <span className="tools-ex-to">{e.after}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

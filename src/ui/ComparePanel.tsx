@@ -11,6 +11,7 @@ import {
   type CandidateDecision,
   type FieldChoice,
   type FieldRow,
+  type RelativePair,
 } from "../review/types";
 
 /** Which dataset a relative id belongs to. */
@@ -61,14 +62,70 @@ export function ComparePanel({
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
+  const takenChildren = useMemo(() => new Set(decision?.takenChildren ?? []), [decision]);
   // A rejected/deferred match never applies any incoming data on save (see
   // `mergeDecisions`, which skips non-"confirmed" decisions outright) — so the
   // preview shows every field as kept from master, regardless of any per-field
   // choice recorded earlier while the match was still confirmed.
   const forceMaster = status === "rejected" || status === "deferred";
 
+  // Emit a full decision, carrying over the parts of it this panel doesn't touch
+  // (event rejections, per-child picks) so a field edit never wipes them.
+  function emit(patch: Partial<CandidateDecision>) {
+    onChange({
+      status,
+      fields,
+      ...(decision?.rejectedEvents?.length ? { rejectedEvents: decision.rejectedEvents } : {}),
+      ...(takenChildren.size ? { takenChildren: [...takenChildren] } : {}),
+      ...patch,
+    });
+  }
+
   function setField(key: string, choice: FieldChoice) {
-    onChange({ status, fields: { ...fields, [key]: choice } });
+    emit({ fields: { ...fields, [key]: choice } });
+  }
+
+  function setTakenChild(childId: string, taken: boolean) {
+    const next = new Set(takenChildren);
+    if (taken) next.add(childId);
+    else next.delete(childId);
+    emit({ takenChildren: next.size ? [...next] : undefined });
+  }
+
+  /**
+   * Per-pair emphasis and control for the children row. A child the master
+   * family already lists agrees (kept, "="); a master-only child is kept; an
+   * incoming-only child is opt-in — its own take/skip toggle drives whether it's
+   * stitched in (recorded in `decision.takenChildren`).
+   */
+  function renderChildPair(pair: RelativePair) {
+    const hasMaster = !!pair.master?.text;
+    const hasIncoming = !!pair.incoming?.text;
+    const incId = pair.incoming?.id;
+    if (hasMaster) {
+      const choiceNode = hasIncoming
+        ? <span className="muted">=</span>
+        : <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+      return { masterChosen: true, incomingChosen: false, choice: choiceNode };
+    }
+    // Incoming-only child.
+    const taken = !forceMaster && !!incId && takenChildren.has(incId);
+    if (forceMaster || !incId) {
+      return { masterChosen: false, incomingChosen: false, choice: <span className="gm-master-tag">{t("compare.keepMaster")}</span> };
+    }
+    return {
+      masterChosen: false,
+      incomingChosen: taken,
+      choice: (
+        <button
+          className={`choice take${taken ? " active" : ""}`}
+          title={taken ? t("compare.childTaken.title") : t("compare.takeChild.title")}
+          onClick={() => setTakenChild(incId, !taken)}
+        >
+          {taken ? t("compare.childTaken.label") : t("compare.takeChild.label")}
+        </button>
+      ),
+    };
   }
 
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
@@ -118,10 +175,9 @@ export function ComparePanel({
             // either side yet) — still route it through the icon rendering below
             // rather than the plain-text branch, which would print the bare URL.
             const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
-            // Children/partners have no per-child pick, only one choice for the
-            // whole list, but a name beneath the first line should still read as
-            // covered by it, so the buttons repeat on every line inside the grid
-            // instead of living in a separate `f-choice` cell.
+            // Partners share one choice for the whole list, repeated on every
+            // line inside the grid so a name beneath the first reads as covered.
+            // Children instead get a per-child take/skip toggle (`renderPair`).
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.displayLabel ?? row.label}</td>
@@ -133,7 +189,9 @@ export function ComparePanel({
                       incomingChosen={choice !== "master"}
                       masterPerson={masterPerson}
                       incomingPerson={incomingPerson}
-                      renderChoice={() => renderChoiceCell(row, choice)}
+                      {...(row.perChildChoice
+                        ? { renderPair: renderChildPair }
+                        : { renderChoice: () => renderChoiceCell(row, choice) })}
                     />
                   </td>
                 ) : hasSources ? (

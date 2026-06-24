@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
@@ -25,6 +25,7 @@ import { HelpModal } from "./ui/HelpModal";
 import { LegalModal } from "./ui/LegalModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
+import { ToolsView } from "./ui/ToolsView";
 import { SaveDialog } from "./ui/SaveDialog";
 import { EditTree } from "./ui/EditTree";
 import { Landing } from "./ui/Landing";
@@ -84,7 +85,7 @@ const SAMPLE_FILES = [
 type Theme = "light" | "dark";
 const THEME_KEY = "gedmerge.theme";
 
-type Mode = "merge" | "edit";
+type Mode = "merge" | "edit" | "tools";
 const MODE_KEY = "gedmerge.mode";
 // Matching can finish in under a millisecond once the engine is JIT-warm, far
 // too fast to ever paint a "matching" state — so keep the spinner up for at
@@ -257,9 +258,14 @@ export function App() {
         }
         return;
       }
-      const st = e.state as { gedTree?: TreeView; gedSel?: SelRef; gedEditTreeId?: string };
+      const st = e.state as { gedTree?: TreeView; gedSel?: SelRef; gedEditTreeId?: string; gedMode?: Mode; gedNavigateTo?: string };
       setTreeView(st.gedTree ?? null);
       setEditTreeId(st.gedEditTreeId ?? null);
+      // Restore the mode recorded for this entry (e.g. returning to the Tools tab
+      // after opening a person from it). Absent on older/plain entries, in which
+      // case the current mode is left untouched.
+      if (st.gedMode) setMode(st.gedMode);
+      if (st.gedNavigateTo) setNavigateToId(st.gedNavigateTo);
       // Restore a remembered compare selection (set when a person link pushed it).
       if (st.gedSel) {
         const { masterId, compareId } = st.gedSel;
@@ -676,14 +682,22 @@ export function App() {
     setMode("merge");
   }
 
-  // Mode-switch shortcuts: first letter of each mode label in the active language.
-  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, switchToEdit, switchToMerge });
+  // Switch to the maintenance Tools tab, which operates on the whole master file.
+  function switchToTools() {
+    setMode("tools");
+  }
+
+  // Mode-switch shortcuts: first letter of each mode label in the active
+  // language, except Tools which uses a fixed "o" — its label first letter ("t")
+  // is already the Compare-Tree shortcut inside Merge/Edit.
+  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, switchToEdit, switchToMerge, switchToTools });
   modeSwitchRef.current = {
     editKey: t("mode.edit").charAt(0).toLowerCase(),
     mergeKey: t("mode.merge").charAt(0).toLowerCase(),
     mode,
     switchToEdit,
     switchToMerge,
+    switchToTools,
   };
 
   useEffect(() => {
@@ -692,9 +706,10 @@ export function App() {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
-      const { editKey, mergeKey, mode: cur, switchToEdit: se, switchToMerge: sme } = modeSwitchRef.current;
+      const { editKey, mergeKey, mode: cur, switchToEdit: se, switchToMerge: sme, switchToTools: st } = modeSwitchRef.current;
       if (key === editKey && cur !== "edit") { e.preventDefault(); se(); }
       else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sme(); }
+      else if (key === "o" && cur !== "tools") { e.preventDefault(); st(); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -815,7 +830,7 @@ export function App() {
   }, [changedCount, confirmedCount]);
 
   function handleTitleClick() {
-    const hasChanges = mode === "edit" ? changedCount > 0 : confirmedCount > 0;
+    const hasChanges = mode === "merge" ? confirmedCount > 0 : changedCount > 0 || confirmedCount > 0;
     if (!hasChanges || window.confirm(t("app.reloadConfirm"))) {
       window.location.reload();
     }
@@ -951,18 +966,18 @@ export function App() {
           rebuildIndividual(masterDataset, indi);
           patches.push({ type: "individual", id, before: beforeIndi, after: cloneRaw(indi.raw) });
         } else {
+          // Snapshot the person's families and all their members: pruning a
+          // family that drops below two members unlinks its survivors too.
           const affectedFamilyIds = [...indi.spouseOf, ...indi.childOf];
-          const famBefores = new Map<string, GedNode>();
+          const memberIds = new Set<string>();
           for (const famId of affectedFamilyIds) {
             const fam = masterDataset.families.get(famId);
-            if (fam) famBefores.set(famId, cloneRaw(fam.raw));
+            if (fam) for (const m of [fam.husband, fam.wife, ...fam.children]) if (m && m !== id) memberIds.add(m);
           }
+          const before = snapshotRecords(masterDataset, memberIds, affectedFamilyIds);
           removeIndividual(masterDataset, indi);
           patches.push({ type: "individual", id, before: beforeIndi, after: null });
-          for (const [famId, before] of famBefores) {
-            const fam = masterDataset.families.get(famId);
-            patches.push({ type: "family", id: famId, before, after: fam ? cloneRaw(fam.raw) : null });
-          }
+          patches.push(...patchesFromSnapshots(masterDataset, before));
         }
       }
       // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
@@ -1084,22 +1099,31 @@ export function App() {
               </div>
             )}
           </div>
-          <div className="mode-tabs">
-            <button
-              className={`seg-btn ${mode === "edit" ? "active" : ""}`}
-              onClick={() => { if (mode !== "edit") switchToEdit(); }}
-              title={t("mode.edit.tooltip")}
-            >
-              {t("mode.edit")}
-            </button>
-            <button
-              className={`seg-btn ${mode === "merge" ? "active" : ""}`}
-              onClick={() => { if (mode !== "merge") switchToMerge(); }}
-              title={t("mode.merge.tooltip")}
-            >
-              {t("mode.merge")}
-            </button>
-          </div>
+          {lastMasterFile && (
+            <div className="mode-tabs">
+              <button
+                className={`seg-btn ${mode === "edit" ? "active" : ""}`}
+                onClick={() => { if (mode !== "edit") switchToEdit(); }}
+                title={t("mode.edit.tooltip")}
+              >
+                {t("mode.edit")}
+              </button>
+              <button
+                className={`seg-btn ${mode === "merge" ? "active" : ""}`}
+                onClick={() => { if (mode !== "merge") switchToMerge(); }}
+                title={t("mode.merge.tooltip")}
+              >
+                {t("mode.merge")}
+              </button>
+              <button
+                className={`seg-btn ${mode === "tools" ? "active" : ""}`}
+                onClick={() => { if (mode !== "tools") switchToTools(); }}
+                title={t("mode.tools.tooltip")}
+              >
+                {t("mode.tools")}
+              </button>
+            </div>
+          )}
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
@@ -1277,6 +1301,21 @@ export function App() {
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
               active={mode === "edit"}
+            />
+          </div>
+          <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <ToolsView
+              dataset={masterDataset}
+              fileName={lastMasterFile.fileName}
+              onNavigate={(id) => {
+                // Tag the current entry as Tools and push an Edit entry, so the
+                // browser Back button returns to the Tools tab we came from.
+                window.history.replaceState({ ...window.history.state, gedMode: "tools" }, "");
+                window.history.pushState({ gedMode: "edit", gedNavigateTo: id }, "");
+                setNavigateToId(id);
+                setMode("edit");
+              }}
+              active={mode === "tools"}
             />
           </div>
         </>

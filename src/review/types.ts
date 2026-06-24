@@ -53,6 +53,14 @@ export interface FieldRow {
    * wraps. When set, the row is rendered from this instead of `master`/`incoming`.
    */
   relatives?: RelativePair[];
+  /**
+   * When true, this relatives row (children) is selected per item: every
+   * incoming-only child carries its own take/skip toggle instead of one choice
+   * for the whole list, and children are opt-in (skipped unless explicitly
+   * taken). See `CandidateDecision.takenChildren`. Partners stay a single
+   * row-level choice and don't set this.
+   */
+  perChildChoice?: boolean;
   /** When true, this row is a visual separator/header for a group of fields. */
   isGroupHeader?: boolean;
   /** When true, styled as a small-caps event sub-header rather than a bold group header. */
@@ -112,6 +120,16 @@ export interface CandidateDecision {
    * counterpart is deleted.
    */
   rejectedEvents?: string[];
+  /**
+   * Incoming children the user has chosen to stitch into the matched master
+   * family, by incoming individual id. Children are opt-in: an incoming child
+   * the master family doesn't already list is only added when its id appears
+   * here. Like `rejectedEvents`, these are stable incoming ids (the compare
+   * dataset is never mutated), so the selection survives any structural edit.
+   * A child already present in the master family is shown as agreeing and isn't
+   * listed here — it needs no decision.
+   */
+  takenChildren?: string[];
 }
 
 /** Stable key for storing a decision against a candidate pair. */

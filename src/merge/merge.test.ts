@@ -176,9 +176,10 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
     ],
   } as never;
 
-  // Confirming the husband stitches in his whole family from the incoming side.
+  // Confirming the husband stitches in the spouse/marriage; children are opt-in,
+  // so the matched child and the brand-new one are taken explicitly by id.
   const decisions = new Map<string, CandidateDecision>([
-    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P3@", "@P4@"] }],
   ]);
 
   const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
@@ -204,6 +205,28 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
 
   it("keeps unrelated records and the trailer intact", () => {
     expect(out.trimEnd().endsWith("0 TRLR")).toBe(true);
+  });
+
+  it("takes only the children whose ids are listed, leaving the rest out", () => {
+    // Only the brand-new child is opted in; the matched existing child isn't.
+    const partial = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records: recs } = mergeDecisions(master, compare, partial, matches, tr);
+    const text = serializeGedcom(recs);
+    expect(text).toContain("1 CHIL @I4@"); // Tone (@P4@) taken
+    expect(text).not.toContain("1 CHIL @I3@"); // Ana (@P3@) left out
+  });
+
+  it("stitches in no children by default (children are opt-in)", () => {
+    const noKids = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records: recs } = mergeDecisions(master, compare, noKids, matches, tr);
+    const text = serializeGedcom(recs);
+    // The spouse is still linked, but neither child is added to the family.
+    expect(text).toContain("1 WIFE @I2@");
+    expect(text).not.toContain("1 CHIL");
   });
 });
 
@@ -416,7 +439,7 @@ describe("mergeDecisions — SOUR/REPO import", () => {
       individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
-      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
     const { records } = mergeDecisions(master, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
@@ -439,7 +462,7 @@ describe("mergeDecisions — SOUR/REPO import", () => {
       individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
-      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
     const { records } = mergeDecisions(master, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
@@ -473,7 +496,7 @@ describe("mergeDecisions — SOUR/REPO import", () => {
       individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
-      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
     const { records } = mergeDecisions(master, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
@@ -496,7 +519,7 @@ describe("mergeDecisions — SOUR/REPO import", () => {
       individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
-      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
     const { records } = mergeDecisions(master, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
@@ -520,7 +543,7 @@ describe("mergeDecisions — custom tag detection", () => {
     const compare = dataset(compareWithSour);
     const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
-      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
     const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
     expect(Object.keys(report.customTags)).toEqual(["_ITALIC"]);

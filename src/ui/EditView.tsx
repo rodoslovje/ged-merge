@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
@@ -979,42 +979,31 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     return indi ? (primaryName(indi)?.full ?? id) : id;
   }
 
+  // Member ids of a family, for snapshotting before a detach/delete — pruning a
+  // family that drops below two members also unlinks its sole surviving member.
+  function familyMemberIds(fam: Family): string[] {
+    return [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
+  }
+
   function handleDetachSpouseRole(fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) {
     if (!window.confirm(confirmMsg)) return;
-    const indiId = role === "HUSB" ? fam.husband : fam.wife;
-    const beforeFam = cloneRaw(fam.raw);
-    const indi = indiId ? dataset.individuals.get(indiId) : undefined;
-    const beforeIndi = indi ? cloneRaw(indi.raw) : null;
+    const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
     detachSpouseRole(dataset, fam, role);
-    const patches: RecordPatch[] = [
-      { type: "family", id: fam.id, before: beforeFam, after: cloneRaw(fam.raw) },
-    ];
-    if (indiId && beforeIndi) {
-      const updated = dataset.individuals.get(indiId);
-      patches.push({ type: "individual", id: indiId, before: beforeIndi, after: updated ? cloneRaw(updated.raw) : null });
-    }
+    const patches = patchesFromSnapshots(dataset, before);
+    if (patches.length === 0) return;
     onPushEdit(patches);
-    onDirty("family", fam.id);
-    if (indiId) onDirty("individual", indiId);
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     setTick((v) => v + 1);
   }
 
   function handleDetachChild(fam: Family, childId: string, confirmMsg: string) {
     if (!window.confirm(confirmMsg)) return;
-    const beforeFam = cloneRaw(fam.raw);
-    const child = dataset.individuals.get(childId);
-    const beforeChild = child ? cloneRaw(child.raw) : null;
+    const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
     detachChildFromFamily(dataset, fam, childId);
-    const patches: RecordPatch[] = [
-      { type: "family", id: fam.id, before: beforeFam, after: cloneRaw(fam.raw) },
-    ];
-    if (beforeChild) {
-      const updated = dataset.individuals.get(childId);
-      patches.push({ type: "individual", id: childId, before: beforeChild, after: updated ? cloneRaw(updated.raw) : null });
-    }
+    const patches = patchesFromSnapshots(dataset, before);
+    if (patches.length === 0) return;
     onPushEdit(patches);
-    onDirty("family", fam.id);
-    onDirty("individual", childId);
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     setTick((v) => v + 1);
   }
 
@@ -1025,22 +1014,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     const personId = person.id;
     const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
 
-    const beforePerson = cloneRaw(person.raw);
-    const familyBefores = new Map<string, import("../gedcom/types").GedNode>();
+    // Snapshot the person, their families, and all members of those families:
+    // a family pruned for dropping below two members unlinks its survivors too.
+    const memberIds = new Set<string>([personId]);
     for (const famId of affectedFamilyIds) {
       const fam = dataset.families.get(famId);
-      if (fam) familyBefores.set(famId, cloneRaw(fam.raw));
+      if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
     }
+    const before = snapshotRecords(dataset, memberIds, affectedFamilyIds);
 
     removeIndividual(dataset, person);
 
-    const patches: RecordPatch[] = [
-      { type: "individual", id: personId, before: beforePerson, after: null },
-    ];
-    for (const [famId, before] of familyBefores) {
-      const fam = dataset.families.get(famId);
-      patches.push({ type: "family", id: famId, before, after: fam ? cloneRaw(fam.raw) : null });
-    }
+    const patches = patchesFromSnapshots(dataset, before);
 
     const nextId =
       history.filter((id) => id !== personId).pop() ??
@@ -1048,8 +1033,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
     onPushEdit(patches, personId, nextId);
 
-    onDirty("individual", personId);
-    affectedFamilyIds.forEach((fid) => onDirty("family", fid));
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     setHistory((prev) => prev.filter((id) => id !== personId));
     setNotesAdded(false);
     setSelectedId(nextId);
