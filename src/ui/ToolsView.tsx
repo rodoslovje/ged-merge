@@ -7,6 +7,7 @@ import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
 import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
+import { countryCode } from "../gedcom/countryCode";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
@@ -506,7 +507,7 @@ const sourceMatches = (src: SourceEntry, q: string) =>
 function filterRepos(repos: RepoGroup[], q: string): RepoGroup[] {
   const out: RepoGroup[] = [];
   for (const repo of repos) {
-    if (someMatch(q, repo.name, repo.xref)) {
+    if (someMatch(q, repo.name, repo.xref, repo.tooltip)) {
       out.push(repo);
       continue;
     }
@@ -514,6 +515,20 @@ function filterRepos(repos: RepoGroup[], q: string): RepoGroup[] {
     if (sources.length > 0) out.push({ ...repo, sources });
   }
   return out;
+}
+
+/** Keys to also open below a source that funnels into a single medium with no
+ * citations of its own. */
+function srcDescendants(src: SourceEntry): string[] {
+  return src.media.length === 1 && src.usedBy.length === 0 ? [`m:${src.media[0].xref}`] : [];
+}
+
+/** Keys to also open below a repo that holds exactly one source (drilling on
+ * through that source's own single-child chain). */
+function repoDescendants(repo: RepoGroup): string[] {
+  if (repo.sources.length !== 1) return [];
+  const src = repo.sources[0];
+  return [`s:${src.xref}`, ...srcDescendants(src)];
 }
 
 function SourcesPanel({
@@ -545,6 +560,20 @@ function SourcesPanel({
       const next = new Set(s);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+
+  // Expand `key` and, unless it's already open, also open its single-child
+  // chain so one click drills down to the first branching level.
+  const openWith = (key: string, descendants: string[]) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (next.has(key)) {
+        next.delete(key);
+        return next;
+      }
+      next.add(key);
+      for (const k of descendants) next.add(k);
       return next;
     });
 
@@ -620,10 +649,11 @@ function SourcesPanel({
               <TreeRow
                 key={repoKey}
                 open={isOpen(repoKey)}
-                onToggle={() => toggle(repoKey)}
+                onToggle={() => openWith(repoKey, repoDescendants(repo))}
                 hasChildren={repo.sources.length > 0}
                 count={repo.sources.length}
                 href={repo.url}
+                titleText={repo.tooltip || repo.xref}
                 label={repo.xref ? repo.name || repo.xref : t("tools.sources.noRepo")}
               >
                 <ul className="tools-tree">
@@ -634,7 +664,7 @@ function SourcesPanel({
                       <TreeRow
                         key={srcKey}
                         open={isOpen(srcKey)}
-                        onToggle={() => toggle(srcKey)}
+                        onToggle={() => openWith(srcKey, srcDescendants(src))}
                         hasChildren={hasKids}
                         count={src.usedBy.length}
                         titleText={src.tooltip || src.xref}
@@ -725,11 +755,25 @@ function PlacesPanel({
     if (active && !tree) setTree(buildPlaceTree(dataset));
   }, [active, tree, dataset]);
 
-  const toggle = (key: string) =>
+  // Expanding a place opens it and then keeps drilling through any single-child
+  // chain (a node with exactly one sub-place and no usages of its own), so one
+  // click lands on the first level that actually offers a choice. Collapsing
+  // just closes the clicked node.
+  const togglePlace = (node: PlaceNode, path: string) =>
     setOpen((s) => {
       const next = new Set(s);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(path)) {
+        next.delete(path);
+        return next;
+      }
+      let cur: PlaceNode = node;
+      let curPath = path;
+      next.add(curPath);
+      while (cur.children.length === 1 && cur.uses.length === 0) {
+        cur = cur.children[0];
+        curPath = `${curPath}/${cur.name}`;
+        next.add(curPath);
+      }
       return next;
     });
 
@@ -765,8 +809,9 @@ function PlacesPanel({
               dataset={dataset}
               node={node}
               path={node.name}
+              depth={0}
               isOpen={isOpen}
-              toggle={toggle}
+              toggle={togglePlace}
               onNavigate={onNavigate}
             />
           ))}
@@ -780,6 +825,7 @@ function PlaceTreeRow({
   dataset,
   node,
   path,
+  depth,
   isOpen,
   toggle,
   onNavigate,
@@ -787,25 +833,32 @@ function PlaceTreeRow({
   dataset: Dataset;
   node: PlaceNode;
   path: string;
+  depth: number;
   isOpen: (key: string) => boolean;
-  toggle: (key: string) => void;
+  toggle: (node: PlaceNode, path: string) => void;
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const hasChildren = node.children.length > 0 || node.uses.length > 0;
+  const isSynthetic = node.name === UNSPECIFIED || node.name === UNSPECIFIED_PLACE;
   const name =
     node.name === UNSPECIFIED
       ? t("tools.places.unspecified")
       : node.name === UNSPECIFIED_PLACE
         ? t("tools.places.unspecifiedPlace")
         : node.name;
+  const code = depth === 0 && !isSynthetic ? countryCode(node.name) : undefined;
+  const flag = code ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join("") : undefined;
+  const label = flag
+    ? <>{flag} {name}</>
+    : name;
   return (
     <TreeRow
       open={isOpen(path)}
-      onToggle={() => toggle(path)}
+      onToggle={() => toggle(node, path)}
       hasChildren={hasChildren}
       count={node.count}
-      label={name}
+      label={label}
     >
       <ul className="tools-tree">
         {node.children.map((child) => (
@@ -814,6 +867,7 @@ function PlaceTreeRow({
             dataset={dataset}
             node={child}
             path={`${path}/${child.name}`}
+            depth={depth + 1}
             isOpen={isOpen}
             toggle={toggle}
             onNavigate={onNavigate}

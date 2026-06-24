@@ -76,12 +76,12 @@ export function sourceTitle(node: GedNode): string | undefined {
 const TOOLTIP_SKIP_TAGS = new Set(["OBJE", "REPO", "_STE", "CHAN", "CREA"]);
 
 /**
- * Every descriptive scalar field on a `SOUR` record, one `TAG: value` per line,
- * for a hover tooltip — so a source whose label falls back to its bare xref
- * (or even a named one) still surfaces all of its detail. Pointers and
+ * Every descriptive scalar field on a record, one `TAG: value` per line, for a
+ * hover tooltip — so a record whose label falls back to its bare xref (or even
+ * a named one) still surfaces all of its detail. Pointers and the given
  * bookkeeping tags (media/repo links, edit timestamps) are omitted.
  */
-export function sourceTooltip(node: GedNode): string {
+function descriptiveTooltip(node: GedNode): string {
   const lines: string[] = [];
   for (const c of node.children) {
     if (TOOLTIP_SKIP_TAGS.has(c.tag)) continue;
@@ -90,6 +90,16 @@ export function sourceTooltip(node: GedNode): string {
     lines.push(`${c.tag}: ${v}`);
   }
   return lines.join("\n");
+}
+
+/** Descriptive fields of a `SOUR` record, for a hover tooltip. */
+export function sourceTooltip(node: GedNode): string {
+  return descriptiveTooltip(node);
+}
+
+/** Descriptive fields of a `REPO` record (name, address, contact), for a hover tooltip. */
+export function repoTooltip(node: GedNode): string {
+  return descriptiveTooltip(node);
 }
 
 export function buildSourceIndex(records: GedNode[]): SourceIndex {

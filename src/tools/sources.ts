@@ -4,6 +4,7 @@ import {
   buildRepoIndex,
   childText,
   isPointer,
+  repoTooltip,
   sourceTitle,
   sourceTooltip,
 } from "../gedcom/source";
@@ -64,6 +65,8 @@ export interface RepoGroup {
   xref?: string;
   name?: string;
   url?: string;
+  /** Every descriptive field on the REPO record, for a hover tooltip. */
+  tooltip?: string;
   sources: SourceEntry[];
 }
 
@@ -203,7 +206,7 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
     const sources = repoGroups.get(rec.xref);
     if (!sources) continue;
     const info = repoIndex.get(rec.xref);
-    repos.push({ xref: rec.xref, name: info?.name, url: info?.url, sources: sources.sort(byTitle) });
+    repos.push({ xref: rec.xref, name: info?.name, url: info?.url, tooltip: repoTooltip(rec), sources: sources.sort(byTitle) });
   }
   repos.sort((a, b) => collator.compare(a.name ?? a.xref ?? "", b.name ?? b.xref ?? ""));
   const noRepo = repoGroups.get(undefined);
