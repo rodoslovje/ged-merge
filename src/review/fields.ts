@@ -79,6 +79,8 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "addr") return t("event.addr", { event: name });
   if (sub === "note") return t("event.note", { event: name });
   if (sub === "agency") return t("event.agency", { event: name });
+  if (sub === "type") return t("event.type", { event: name });
+  if (sub === "cause") return t("event.cause", { event: name });
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -125,8 +127,10 @@ export function individualFieldRows(
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
 
-  // Record-level links and notes before events.
-  pushLinkRow(rows, "links", formatFieldLabel(t, "links"), gatherLinks(master), gatherLinks(compare));
+  // Record-level sources (SOUR citations) and plain links, combined into one
+  // "Sources" row — same citations-plus-link-icons shape used per event — then
+  // notes, all before the events.
+  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), master?.sources, compare?.sources, gatherLinks(master), gatherLinks(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
 
   for (const { tag, masterIdx, compareIdx, keyIdx, multi } of orderedEventTags(master, compare)) {
@@ -139,6 +143,7 @@ export function individualFieldRows(
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
+    pushRow(subRows, `${keyBase}.type`, t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
     pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     // Places are already reshaped into the master's layout when the incoming
@@ -155,6 +160,7 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
     pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
+    pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
     for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = effectiveCompareIdx; }
     if (subRows.length > 0) {
@@ -208,11 +214,13 @@ export function individualFieldRows(
       const mMar = mFam?.events.find((e) => e.tag === "MARR");
       const cMar = cFam?.events.find((e) => e.tag === "MARR");
       const marriageRows: FieldRow[] = [];
+      pushRow(marriageRows, `${famKey}.MARR.type`, t("event.colType"), mMar?.type, cMar?.type);
       pushRow(marriageRows, `${famKey}.MARR.date`, t("event.colDate"), mMar?.date?.raw, cMar?.date?.raw);
       pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, cMar?.place?.raw, undefined, undefined, cMar?.place?.originalRaw);
       pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, cMar?.address?.raw, undefined, undefined, cMar?.address?.originalRaw);
       pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, cMar?.note);
       pushRow(marriageRows, `${famKey}.MARR.agency`, t("event.colAgency"), mMar?.agency, cMar?.agency);
+      pushRow(marriageRows, `${famKey}.MARR.cause`, t("event.colCause"), mMar?.cause, cMar?.cause);
       pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
       if (marriageRows.length > 0) {
         rows.push({
@@ -226,11 +234,13 @@ export function individualFieldRows(
         const cEv = cFam?.events.find((e) => e.tag === etag);
         if (!mEv && !cEv) continue;
         const etagRows: FieldRow[] = [];
+        pushRow(etagRows, `${famKey}.${etag}.type`, t("event.colType"), mEv?.type, cEv?.type);
         pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
         pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
         pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
         pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
         pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
+        pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
         pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
         if (etagRows.length > 0) {
           rows.push({
@@ -612,33 +622,6 @@ function relativeSimilarity(a: Relative, b: Relative): number {
 }
 
 /**
- * A row whose values are attached links, rendered as clickable icons. The
- * state drives the New/Diff counts: incoming has a link the master lacks =
- * "incoming-only" (New); the two sides' link sets differ = "conflict" (Diff).
- */
-function pushLinkRow(
-  rows: FieldRow[],
-  key: string,
-  label: string,
-  master: string[] | undefined,
-  incoming: string[] | undefined,
-): void {
-  const m = master ?? [];
-  const i = incoming ?? [];
-  if (m.length === 0 && i.length === 0) return;
-  rows.push({
-    key,
-    label,
-    // Keep a text form so the default merge choice (master-if-present) works.
-    master: m.join("\n"),
-    incoming: i.join("\n"),
-    state: linkState(m, i),
-    masterLinks: m,
-    incomingLinks: i,
-  });
-}
-
-/**
  * Record-level links only (event links are shown per-event in their header rows).
  */
 function gatherLinks(record: Individual | Family | undefined): string[] {
@@ -653,15 +636,6 @@ function gatherLinks(record: Individual | Family | undefined): string[] {
     out.push(url);
   }
   return out;
-}
-
-function linkState(master: string[], incoming: string[]): FieldState {
-  const m = new Set(master.map(linkKey));
-  const i = new Set(incoming.map(linkKey));
-  if (m.size && !i.size) return "master-only";
-  if (!m.size && i.size) return "incoming-only";
-  const same = m.size === i.size && [...m].every((x) => i.has(x));
-  return same ? "agree" : "conflict";
 }
 
 /**

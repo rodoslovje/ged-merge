@@ -5,8 +5,8 @@ import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { validateDataset, type ValidationReport, type IssueCategory } from "../tools/validate";
 import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
-import { buildSourceTree, type SourceTree, type SourceUse } from "../tools/sources";
-import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED } from "../tools/places";
+import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
+import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
@@ -476,7 +476,45 @@ function TreeRow({
   );
 }
 
+/** Returns `value` delayed by `delay` ms — updates only after typing pauses,
+ * so the tree isn't re-filtered on every keystroke. */
+function useDebounced<T>(value: T, delay = 200): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 // ── Sources explorer ─────────────────────────────────────────────────────────
+
+/** True when any of the strings contain `q` (already lower-cased). */
+const someMatch = (q: string, ...vals: (string | undefined)[]) =>
+  vals.some((v) => v?.toLowerCase().includes(q));
+
+/** Keep media whose title/xref/file matches `q`. */
+const mediaMatches = (m: MediaEntry, q: string) => someMatch(q, m.title, m.xref, m.file, m.url);
+
+/** Keep sources whose own fields, or any of their media, match `q`. */
+const sourceMatches = (src: SourceEntry, q: string) =>
+  someMatch(q, src.title, src.xref, src.filingNumber, src.tooltip) ||
+  src.media.some((m) => mediaMatches(m, q));
+
+/** Prune the repo list to those matching `q` (whole subtree kept on a repo-level
+ * match; otherwise only matching sources are retained). */
+function filterRepos(repos: RepoGroup[], q: string): RepoGroup[] {
+  const out: RepoGroup[] = [];
+  for (const repo of repos) {
+    if (someMatch(q, repo.name, repo.xref)) {
+      out.push(repo);
+      continue;
+    }
+    const sources = repo.sources.filter((s) => sourceMatches(s, q));
+    if (sources.length > 0) out.push({ ...repo, sources });
+  }
+  return out;
+}
 
 function SourcesPanel({
   dataset,
@@ -490,10 +528,12 @@ function SourcesPanel({
   const { t } = useTranslation();
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
+    setQuery("");
   }, [dataset]);
 
   useEffect(() => {
@@ -508,17 +548,33 @@ function SourcesPanel({
       return next;
     });
 
-  if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
+  const q = useDebounced(query).trim().toLowerCase();
+  const filtering = q.length > 0;
+  // While filtering, every surviving branch is forced open so matches are visible.
+  const isOpen = (key: string) => filtering || open.has(key);
+
+  const filtered = useMemo(() => {
+    if (!tree) return null;
+    if (!filtering) return tree;
+    return {
+      ...tree,
+      repos: filterRepos(tree.repos, q),
+      unattachedLinks: tree.unattachedLinks.filter((m) => mediaMatches(m, q)),
+      unattachedMedia: tree.unattachedMedia.filter((m) => mediaMatches(m, q)),
+    };
+  }, [tree, filtering, q]);
+
+  if (!tree || !filtered) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const empty =
-    tree.repos.length === 0 &&
-    tree.unattachedLinks.length === 0 &&
-    tree.unattachedMedia.length === 0;
+    filtered.repos.length === 0 &&
+    filtered.unattachedLinks.length === 0 &&
+    filtered.unattachedMedia.length === 0;
 
   const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) =>
     entries.length > 0 && (
       <TreeRow
-        open={open.has(key)}
+        open={isOpen(key)}
         onToggle={() => toggle(key)}
         hasChildren
         count={entries.length}
@@ -528,7 +584,7 @@ function SourcesPanel({
           {entries.map((m) => (
             <TreeRow
               key={`${key}:${m.xref}`}
-              open={open.has(`${key}:${m.xref}`)}
+              open={isOpen(`${key}:${m.xref}`)}
               onToggle={() => toggle(`${key}:${m.xref}`)}
               hasChildren={m.usedBy.length > 0}
               count={m.usedBy.length || undefined}
@@ -553,16 +609,17 @@ function SourcesPanel({
           media: tree.mediaCount,
         })}
       </p>
+      <TreeSearch value={query} onChange={setQuery} />
       {empty ? (
-        <p className="tools-clean">{t("tools.sources.none")}</p>
+        <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.sources.none")}</p>
       ) : (
         <ul className="tools-tree">
-          {tree.repos.map((repo, ri) => {
+          {filtered.repos.map((repo, ri) => {
             const repoKey = `r:${repo.xref ?? "none"}:${ri}`;
             return (
               <TreeRow
                 key={repoKey}
-                open={open.has(repoKey)}
+                open={isOpen(repoKey)}
                 onToggle={() => toggle(repoKey)}
                 hasChildren={repo.sources.length > 0}
                 count={repo.sources.length}
@@ -576,7 +633,7 @@ function SourcesPanel({
                     return (
                       <TreeRow
                         key={srcKey}
-                        open={open.has(srcKey)}
+                        open={isOpen(srcKey)}
                         onToggle={() => toggle(srcKey)}
                         hasChildren={hasKids}
                         count={src.usedBy.length}
@@ -593,7 +650,7 @@ function SourcesPanel({
                         {src.media.map((m) => (
                           <TreeRow
                             key={`m:${m.xref}`}
-                            open={open.has(`m:${m.xref}`)}
+                            open={isOpen(`m:${m.xref}`)}
                             onToggle={() => toggle(`m:${m.xref}`)}
                             hasChildren={m.usedBy.length > 0}
                             count={m.usedBy.length || undefined}
@@ -620,8 +677,8 @@ function SourcesPanel({
               </TreeRow>
             );
           })}
-          {unattachedGroup("unattachedLinks", "tools.sources.unattachedLinks", "🔗", tree.unattachedLinks)}
-          {unattachedGroup("unattached", "tools.sources.unattached", "🖼", tree.unattachedMedia)}
+          {unattachedGroup("unattachedLinks", "tools.sources.unattachedLinks", "🔗", filtered.unattachedLinks)}
+          {unattachedGroup("unattached", "tools.sources.unattached", "🖼", filtered.unattachedMedia)}
         </ul>
       )}
     </>
@@ -629,6 +686,20 @@ function SourcesPanel({
 }
 
 // ── Places explorer ──────────────────────────────────────────────────────────
+
+/** Prune a place node to those whose name matches `q` (already lower-cased)
+ * anywhere in the subtree. A node matching by name keeps its whole subtree;
+ * otherwise only matching descendant branches are retained. */
+function filterPlaceNode(node: PlaceNode, q: string): PlaceNode | null {
+  if (node.name.toLowerCase().includes(q)) return node;
+  const children: PlaceNode[] = [];
+  for (const child of node.children) {
+    const kept = filterPlaceNode(child, q);
+    if (kept) children.push(kept);
+  }
+  if (children.length === 0) return null;
+  return { ...node, children };
+}
 
 function PlacesPanel({
   dataset,
@@ -642,10 +713,12 @@ function PlacesPanel({
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
+    setQuery("");
   }, [dataset]);
 
   useEffect(() => {
@@ -660,6 +733,19 @@ function PlacesPanel({
       return next;
     });
 
+  const q = useDebounced(query).trim().toLowerCase();
+  const filtering = q.length > 0;
+  // While filtering, every surviving branch is forced open so matches are visible.
+  const isOpen = (key: string) => filtering || open.has(key);
+
+  const roots = useMemo(() => {
+    if (!tree) return [];
+    if (!filtering) return tree.roots;
+    return tree.roots
+      .map((node) => filterPlaceNode(node, q))
+      .filter((n): n is PlaceNode => n !== null);
+  }, [tree, filtering, q]);
+
   if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
 
   return (
@@ -668,17 +754,18 @@ function PlacesPanel({
       <p className="tools-summary">
         {t("tools.places.summary", { distinct: tree.distinctCount, uses: tree.totalUses })}
       </p>
-      {tree.roots.length === 0 ? (
-        <p className="tools-clean">{t("tools.places.none")}</p>
+      <TreeSearch value={query} onChange={setQuery} />
+      {roots.length === 0 ? (
+        <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.places.none")}</p>
       ) : (
         <ul className="tools-tree">
-          {tree.roots.map((node) => (
+          {roots.map((node) => (
             <PlaceTreeRow
               key={node.name}
               dataset={dataset}
               node={node}
               path={node.name}
-              open={open}
+              isOpen={isOpen}
               toggle={toggle}
               onNavigate={onNavigate}
             />
@@ -693,23 +780,28 @@ function PlaceTreeRow({
   dataset,
   node,
   path,
-  open,
+  isOpen,
   toggle,
   onNavigate,
 }: {
   dataset: Dataset;
   node: PlaceNode;
   path: string;
-  open: Set<string>;
+  isOpen: (key: string) => boolean;
   toggle: (key: string) => void;
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const hasChildren = node.children.length > 0 || node.uses.length > 0;
-  const name = node.name === UNSPECIFIED ? t("tools.places.unspecified") : node.name;
+  const name =
+    node.name === UNSPECIFIED
+      ? t("tools.places.unspecified")
+      : node.name === UNSPECIFIED_PLACE
+        ? t("tools.places.unspecifiedPlace")
+        : node.name;
   return (
     <TreeRow
-      open={open.has(path)}
+      open={isOpen(path)}
       onToggle={() => toggle(path)}
       hasChildren={hasChildren}
       count={node.count}
@@ -722,7 +814,7 @@ function PlaceTreeRow({
             dataset={dataset}
             node={child}
             path={`${path}/${child.name}`}
-            open={open}
+            isOpen={isOpen}
             toggle={toggle}
             onNavigate={onNavigate}
           />
@@ -730,5 +822,21 @@ function PlaceTreeRow({
       </ul>
       <UsageList dataset={dataset} uses={node.uses} onNavigate={onNavigate} />
     </TreeRow>
+  );
+}
+
+/** Shared search box for the Sources/Places explorers. */
+function TreeSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="tools-search">
+      <input
+        type="search"
+        className="tools-search-input"
+        placeholder={t("tools.search.placeholder")}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }

@@ -1879,18 +1879,25 @@ button:focus-visible {
 .edit-event-extra-sources { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
 .edit-event-extra-note { grid-column: 3; }
 .edit-event-extra-agency { grid-column: 4; }
+.edit-event-extra-type { grid-column: 3; }
+.edit-event-extra-cause { grid-column: 4; }
 .edit-event-extra-remove { grid-column: -2; justify-self: end; }
 /* Plain events: row 1 holds label/date/place/addr/toggle, so the rest of the
- * extra row (Note/Agency/Remove — Sources is pinned to row 2 above) is row 2. */
+ * extra row (Note/Agency/Remove — Sources is pinned to row 2 above) is row 2;
+ * Type/Cause stack onto their own row 3. */
 .edit-event-extra-note,
 .edit-event-extra-agency,
 .edit-event-extra-remove { grid-row: 2; }
+.edit-event-extra-type,
+.edit-event-extra-cause { grid-row: 3; }
 /* Title events (Occupation/Education/Retirement): row 1 is title+agency,
  * row 2 is place/address. Sources still fits row 2 (under Date, which row 2
- * leaves free), but Note/Agency/Remove need their own row 3. */
+ * leaves free), but Note/Agency/Remove need their own row 3, Type/Cause row 4. */
 .edit-event--has-value .edit-event-extra-note,
 .edit-event--has-value .edit-event-extra-agency,
 .edit-event--has-value .edit-event-extra-remove { grid-row: 3; }
+.edit-event--has-value .edit-event-extra-type,
+.edit-event--has-value .edit-event-extra-cause { grid-row: 4; }
 .edit-link-add {
   align-self: flex-start;
   background: transparent;
@@ -3398,6 +3405,21 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+.tools-search { margin: 0 0 12px; }
+.tools-search-input {
+  width: 100%;
+  max-width: 340px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.tools-search-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-search-input::placeholder { color: var(--muted); }
 .tools-clean { color: var(--text); font-size: 1rem; padding: 10px 0; }
 .tools-loading { color: var(--muted); padding: 20px 0; }
 .tools-run { margin: 0 0 16px; }

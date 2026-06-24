@@ -13,6 +13,7 @@ export function LinksEditor({
   links: initialLinks,
   sources,
   incomingLinks,
+  incomingSources,
   sectionLabel,
   t,
   onCommit,
@@ -27,6 +28,9 @@ export function LinksEditor({
   /** Links a confirmed merge will add that aren't in `links` yet — previewed
    * read-only with an incoming-themed background until the merge is saved. */
   incomingLinks?: string[];
+  /** `SOUR` citations a confirmed merge will add — previewed read-only with an
+   * incoming-themed background until the merge is saved. */
+  incomingSources?: SourceCitation[];
   sectionLabel?: string;
   t: Translate;
   onCommit: (links: string[]) => void;
@@ -67,7 +71,9 @@ export function LinksEditor({
       {sectionLabel && (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>
-          {sources && sources.length > 0 && <SourceRefs t={t} masterSources={sources} onEdit={onEditSource} />}
+          {((sources?.length ?? 0) > 0 || (incomingSources?.length ?? 0) > 0) && (
+            <SourceRefs t={t} masterSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
+          )}
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"

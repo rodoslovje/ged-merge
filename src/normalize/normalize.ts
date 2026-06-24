@@ -56,7 +56,13 @@ export function normalizeDataset(
   // re-rendering them in the master's style.
   const sourceOrder = inferSourceOrder(compare, sourceDateValues);
 
-  walkNodes(records, (node) => {
+  // Only individuals and families carry the genealogical dates/places/links we
+  // reshape. Repositories, sources, the header, etc. are left untouched so their
+  // institutional addresses (e.g. an archive's "p.p. 114" P.O. box) and other
+  // metadata are not rewritten. The skipped records still pass through to output.
+  const editable = records.filter((r) => r.tag === "INDI" || r.tag === "FAM");
+
+  walkNodes(editable, (node) => {
     if (node.value === undefined) return;
     if (node.tag === "DATE") {
       if (!options.dates) return;
@@ -91,7 +97,7 @@ export function normalizeDataset(
   // already show places in the master's shape and no reshaping is needed when
   // the record is later merged or saved.
   if (options.places && reshapesLayout(profile.placeFmt.layout)) {
-    walkNodes(records, (node) => {
+    walkNodes(editable, (node) => {
       reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
     });
   }

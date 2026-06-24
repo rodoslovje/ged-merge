@@ -904,7 +904,33 @@ describe("attached links", () => {
     );
     const empty = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
     const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), empty.individuals.get("@P1@"));
-    expect(byKey(rows, "links")?.masterLinks).toEqual(["https://example.com/x"]);
+    // Record-level links render as icons on the combined "Sources" row.
+    expect(byKey(rows, "links")?.masterLinkIcons).toEqual(["https://example.com/x"]);
+  });
+
+  it("surfaces a record-level SOUR citation on the combined Sources row", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 SOUR @S1@\n2 PAGE 5\n` +
+        `0 @S1@ SOUR\n1 TITL Družinski arhiv\n0 TRLR\n`,
+    );
+    const c = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const sources = byKey(rows, "links");
+    expect(sources?.masterSources).toHaveLength(1);
+    expect(sources?.masterSources?.[0].title).toBe("Družinski arhiv");
+    expect(sources?.state).toBe("master-only");
+  });
+
+  it("flags an incoming-only record-level citation as new", () => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 SOUR @S1@\n0 @S1@ SOUR\n1 TITL Matična knjiga\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const sources = byKey(rows, "links");
+    expect(sources?.incomingSources).toHaveLength(1);
+    expect(sources?.state).toBe("incoming-only");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 0, linkCount: 0 });
   });
 });
 

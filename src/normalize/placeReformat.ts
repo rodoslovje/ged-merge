@@ -67,10 +67,20 @@ export function reformatPlace(
     // the same number-free form inferPlaceHierarchy learned it as.
     const streetHint = street ? stripHouseNumber(street) : undefined;
     const addrStreet = addressStreetName(addrRaw);
+    // A "street" that is just the locality repeated before a house number
+    // ("Zgornje Bitnje 165") is not a disambiguating street — the locality is
+    // already as specific as it gets. Using it as a hint would relocate the
+    // record to wherever that same name happens to appear as a street under a
+    // *different* locality in the master, overriding an already-correct place.
+    const { localityOfStreet } = fmt.hierarchy;
+    const streetLocality = (s: string | undefined): string | undefined =>
+      s && s.toLowerCase() !== locality?.toLowerCase()
+        ? localityOfStreet.get(s.toLowerCase())
+        : undefined;
     const hinted =
       (parishHintIsNew && fmt.hierarchy.localityOfParish.get(parishHint.toLowerCase())) ||
-      (streetHint && fmt.hierarchy.localityOfStreet.get(streetHint.toLowerCase())) ||
-      (addrStreet && fmt.hierarchy.localityOfStreet.get(addrStreet.toLowerCase()));
+      streetLocality(streetHint) ||
+      streetLocality(addrStreet);
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;
       jurisdiction = [hinted, ...jurisdiction.slice(1)];
@@ -86,15 +96,19 @@ export function reformatPlace(
   // PLAC (e.g. ADDR="Gorenja Sava 20", PLAC="Kranj,..."), use the ADDR's own
   // locality as the prefix so we don't produce "Kranj 20" instead of "Gorenja Sava 20".
   let address: string | undefined;
+  let opaqueAddr = false;
   if (street) address = street;
   else if (houseNumber) {
     const fromAddr = !!a?.houseNumber;
     const prefix = (fromAddr && a?.locality && a.locality !== locality) ? a.locality : locality;
     address = prefix ? `${prefix} ${houseNumber}` : houseNumber;
-  } else if (a && fmt.layout === "structured-addr" && !a.facility) address = a.raw; // keep an opaque ADDR
+  } else if (a && fmt.layout === "structured-addr" && !a.facility) {
+    address = a.raw; // keep an opaque ADDR verbatim — it already holds any house name
+    opaqueAddr = true;
+  }
   // (skip when the ADDR is purely a facility — `a.raw` already holds it and the
   //  facility branch below re-emits it, which would otherwise duplicate the text)
-  if (address && houseName) address += ` (pd ${houseName})`;
+  if (address && houseName && !opaqueAddr) address += ` (pd ${houseName})`;
 
   if (fmt.layout === "packed-plac") {
     // Recompose into a single PLAC; drop unused middle jurisdiction levels.

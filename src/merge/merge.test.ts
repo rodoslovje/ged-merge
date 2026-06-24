@@ -79,6 +79,43 @@ describe("mergeDecisions", () => {
   });
 });
 
+describe("mergeDecisions — event TYPE and CAUS sub-fields", () => {
+  const master = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n",
+  ));
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 TYPE natural\n2 DATE 1900\n2 CAUS Pljučnica\n",
+  ));
+
+  it("fills in an incoming CAUS and TYPE the master lacks (default = incoming)", () => {
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 CAUS Pljučnica");
+    expect(out).toContain("2 TYPE natural");
+    expect(report.changes.some((c) => c.to.includes("Pljučnica"))).toBe(true);
+  });
+
+  it("leaves a conflicting master CAUS unless explicitly chosen", () => {
+    const masterWithCaus = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n2 CAUS Starost\n",
+    ));
+    const { records } = mergeDecisions(masterWithCaus, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 CAUS Starost");
+    expect(out).not.toContain("2 CAUS Pljučnica");
+  });
+
+  it("takes a conflicting CAUS when the user chose incoming", () => {
+    const masterWithCaus = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n2 CAUS Starost\n",
+    ));
+    const { records } = mergeDecisions(masterWithCaus, compare, confirmed({ "DEAT.cause": "incoming" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 CAUS Pljučnica");
+    expect(out).not.toContain("2 CAUS Starost");
+  });
+});
+
 describe("mergeDecisions — place reshaping to a structured-addr master", () => {
   // Place reshaping now happens when the incoming file is loaded (normalizeDataset),
   // not inside mergeDecisions — so these tests normalize the compare dataset first,
@@ -390,6 +427,21 @@ describe("mergeDecisions — links", () => {
     expect(out).toContain("0 @O4@ OBJE\n1 FILE https://example.com/new");
     expect(out).not.toMatch(/^1 WWW/m);
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
+  });
+
+  it("adds an incoming record-level SOUR citation the master lacks (and imports the source)", () => {
+    const master = dataset(MASTER);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @CS9@\n2 PAGE 12\n" +
+          "0 @CS9@ SOUR\n1 TITL Rodbinska kronika\n",
+      ),
+    );
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 SOUR @CS9@\n2 PAGE 12");
+    expect(out).toContain("0 @CS9@ SOUR\n1 TITL Rodbinska kronika");
+    expect(report.changes.some((c) => c.sources && c.sources.length > 0)).toBe(true);
   });
 
   it("attaches a same-book incoming link as a SOUR citation instead of a plain link", () => {

@@ -23,6 +23,7 @@ import {
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
+  FAM_CHILD_ORDER,
   getMediaAndSourceCtx,
   INDI_CHILD_ORDER,
   insertRecord,
@@ -31,6 +32,7 @@ import {
   removeFamilyEvent,
   removeIndividual,
   removeSourceCitationAtIndex,
+  setFamilyLinks,
   setFamilyNotes,
   setIndividualLinks,
   setName,
@@ -419,7 +421,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         const choice = dec.fields[row.key] ?? defaultChoice(row);
         if (choice === "master") continue;
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
-        if (row.incomingLinks?.length) mergeIncomingLinks.set(row.key, row.incomingLinks);
+        // The record-level "Sources" row carries plain links as `incomingLinkIcons`
+        // (other rows, if any, as `incomingLinks`); both preview the same way.
+        const incLinks = row.incomingLinks ?? row.incomingLinkIcons;
+        if (incLinks?.length) mergeIncomingLinks.set(row.key, incLinks);
         if (row.incomingSources?.length) mergeIncomingSources.set(row.key, row.incomingSources);
       }
 
@@ -436,7 +441,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       const masterMergeCompareKeys = new Map<number, string>();
       const masterMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[] = [];
-      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency"] as const;
+      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
 
       // Index incoming events by tag for sort key lookup.
       const cByTag = new Map<string, typeof incoming.events>();
@@ -562,7 +567,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "master";
       }
       // Also set any fields not yet explicitly decided (they default to "incoming") to "master".
-      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency"] as const;
+      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
       for (const sub of EVENT_SUBS) {
         const fkey = `${keyBase}.${sub}`;
         if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
@@ -700,6 +705,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     const { sourceXref, page, extraPatches } = resolveSourceFields(fields);
     if (sourceDialogTarget.kind === "individual") {
       commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+    } else if (sourceDialogTarget.kind === "family") {
+      commitFamily(sourceDialogTarget.fam, (f) => attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER), extraPatches);
     } else {
       sourceDialogTarget.commitField({ addSource: { sourceXref, page } }, extraPatches);
     }
@@ -1217,7 +1224,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               const sameTag = person.raw.children.filter((c) => c.tag === tag);
               if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
             }}
-            showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length}
+            showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
@@ -1249,13 +1256,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             undoVersion={undoVersion}
             mergeGen={mergeGenRef.current}
           />
-          {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0) && (
+          {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor
                 key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.links ?? []}
                 sources={person.sources ?? []}
                 incomingLinks={mergeIncomingLinks.get("links")}
+                incomingSources={mergeIncomingSources.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
@@ -1339,6 +1347,16 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         onClick={() => setFamNoteAdd((prev) => ({ ...prev, [fam.id]: (prev[fam.id] ?? 0) + 1 }))}
                       >
                         + {t("edit.addNote")}
+                      </button>
+                    )}
+                    {fam && !(fam.links ?? []).length && !(fam.sources ?? []).length && (
+                      <button
+                        type="button"
+                        className="edit-name-chip edit-name-chip-add"
+                        title={t("edit.addLink")}
+                        onClick={() => setSourceDialogTarget({ kind: "family", fam })}
+                      >
+                        + {t("edit.addLink")}
                       </button>
                     )}
                   </div>
@@ -1429,6 +1447,24 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     )}
                   </div>
                 </div>
+                {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0) && (
+                  <div className="edit-record-section">
+                    <LinksEditor
+                      key={`flinks-${fam.id}-${undoVersion}`}
+                      links={fam.links ?? []}
+                      sources={fam.sources ?? []}
+                      sectionLabel={t("field.sources")}
+                      t={t}
+                      onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}
+                      onAddSource={() => setSourceDialogTarget({ kind: "family", fam })}
+                      onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
+                      onOpenSourceDialog={setSourceDialogTarget}
+                      onAttachSource={(sourceXref, page, extraPatches, links) =>
+                        commitFamily(fam, (f) => { attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER); setFamilyLinks(f, links); }, extraPatches)
+                      }
+                    />
+                  </div>
+                )}
                 {fam && (
                   <div className="edit-record-section">
                     <NotesEditor

@@ -21,6 +21,7 @@ export type FamilyCommit = (fam: Family, mutate: (fam: Family) => void, extraPat
  * `links` array, since only it knows how to commit a plain rename/removal. */
 export type SourceDialogTarget =
   | { kind: "individual" }
+  | { kind: "family"; fam: Family }
   | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void }
   | { kind: "edit"; node: GedNode; index: number; owner: RemoveSourceOwner; fields: EditSourceFields }
   | {

@@ -291,7 +291,7 @@ export function applyIndividualFamilies(
       const key = `${famKey}.MARR.${sub}`;
       return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
     };
-    const wantMarriage = (["date", "place", "addr", "note", "agency", "sources"] as const).some((s) => marriageChoice(s));
+    const wantMarriage = (["type", "date", "place", "addr", "note", "agency", "cause", "sources"] as const).some((s) => marriageChoice(s));
     if (!takeSpouses && !takeChildren && !wantMarriage) continue;
     ctx.processedFamIds.add(incFamId);
 
@@ -304,7 +304,7 @@ export function applyIndividualFamilies(
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren });
 
     const marrEntries: EventSubEdit[] = [];
-    for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
+    for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
       const choice = marriageChoice(sub);
       if (!choice) continue;
       const subTag = SUB_TAG[sub];
@@ -330,7 +330,7 @@ export function applyIndividualFamilies(
     for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
       const evName = ctx.t(`event.${evTag}`);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["date", "place", "addr", "note", "agency"] as const) {
+      for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = fields[key] ?? "incoming";

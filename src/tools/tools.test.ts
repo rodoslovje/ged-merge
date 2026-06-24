@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { validateDataset } from "./validate";
 import { findDuplicates } from "./duplicates";
 import { buildSourceTree } from "./sources";
-import { buildPlaceTree, UNSPECIFIED } from "./places";
+import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -229,6 +229,26 @@ describe("buildPlaceTree", () => {
       .children.find((c) => c.name === "Kranj")!
       .children.find((c) => c.name === "Vas")!;
     expect(vas.children.map((c) => c.name)).toEqual(["2", "10"]);
+  });
+
+  it("buckets a standalone ADDR (no PLAC) under Unspecified place", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 RESI
+2 ADDR Trg Brolo 11, p.p. 114
+0 TRLR`);
+    const tree = buildPlaceTree(ds);
+    const bucket = tree.roots.find((r) => r.name === UNSPECIFIED_PLACE);
+    expect(bucket).toBeTruthy();
+    const brolo = bucket!.children.find((c) => c.name === "Trg Brolo");
+    expect(brolo).toBeTruthy();
+    expect(brolo!.count).toBe(1);
+    // The standalone address still counts toward the totals.
+    expect(tree.totalUses).toBe(1);
+    // A real PLAC place must not land in the address bucket.
+    expect(tree.roots.some((r) => r.name === UNSPECIFIED)).toBe(false);
   });
 
   it("nests an event's ADDR as a level beneath its place", () => {

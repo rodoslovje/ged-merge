@@ -62,21 +62,23 @@ function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Tra
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 interface EventFields {
+  type: string;
   value: string;
   date: string;
   place: string;
   addr: string;
   note: string;
+  cause: string;
 }
 
-const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["value", "date", "place", "addr", "note"];
+const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "addr", "note", "cause"];
 
 function eventFields(node: GedNode): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
   // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
   // the summary and the diff silently drops the change.
-  return { value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE") };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS") };
 }
 
 function eventSummary(f: EventFields): string {

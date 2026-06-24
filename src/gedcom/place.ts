@@ -62,13 +62,60 @@ export interface PlaceComponents {
   facility?: string;
 }
 
-/** Country names (lowercased) seen in these datasets, in both languages. */
+/**
+ * Country names (lowercased) for recognizing the country part of a place. Holds
+ * the local-language variants (Slovenian/German/Italian/Croatian) common to
+ * these datasets alongside the English names of every sovereign country, so a
+ * place from anywhere groups under its country rather than "Unspecified".
+ */
 const COUNTRIES = new Set([
-  "slovenija", "slovenia", "hrvaška", "hrvaska", "hrvatska", "croatia",
-  "avstrija", "austria", "österreich", "osterreich",
-  "italija", "italy", "italia", "nemčija", "nemcija", "germany", "deutschland",
-  "madžarska", "madzarska", "hungary", "srbija", "serbia", "bosna", "bosnia",
-  "usa", "united states", "zda",
+  // Local-language / historical variants common to these datasets.
+  "slovenija", "hrvaška", "hrvaska", "hrvatska",
+  "avstrija", "österreich", "osterreich",
+  "italija", "italia", "nemčija", "nemcija", "deutschland",
+  "madžarska", "madzarska", "srbija", "bosna", "bosnia",
+  "bosna in hercegovina", "bosnia-herzegovina", "usa", "zda",
+  "jugoslavija", "yugoslavia",
+  // Sovereign countries, English names.
+  "afghanistan", "albania", "algeria", "andorra", "angola",
+  "antigua and barbuda", "argentina", "armenia", "australia", "austria",
+  "azerbaijan", "bahamas", "bahrain", "bangladesh", "barbados", "belarus",
+  "belgium", "belize", "benin", "bhutan", "bolivia",
+  "bosnia and herzegovina", "botswana", "brazil", "brunei", "bulgaria",
+  "burkina faso", "burundi", "cambodia", "cameroon", "canada",
+  "cape verde", "central african republic", "chad", "chile", "china",
+  "colombia", "comoros", "congo", "costa rica", "croatia", "cuba", "cyprus",
+  "czech republic", "czechia", "denmark", "djibouti", "dominica",
+  "dominican republic", "ecuador", "egypt", "el salvador",
+  "equatorial guinea", "eritrea", "estonia", "eswatini", "swaziland",
+  "ethiopia", "fiji", "finland", "france", "gabon", "gambia", "georgia",
+  "germany", "ghana", "greece", "grenada", "guatemala", "guinea",
+  "guinea-bissau", "guyana", "haiti", "honduras", "hungary", "iceland",
+  "india", "indonesia", "iran", "iraq", "ireland", "israel", "italy",
+  "ivory coast", "jamaica", "japan", "jordan", "kazakhstan", "kenya",
+  "kiribati", "kosovo", "kuwait", "kyrgyzstan", "laos", "latvia", "lebanon",
+  "lesotho", "liberia", "libya", "liechtenstein", "lithuania", "luxembourg",
+  "madagascar", "malawi", "malaysia", "maldives", "mali", "malta",
+  "marshall islands", "mauritania", "mauritius", "mexico", "micronesia",
+  "moldova", "monaco", "mongolia", "montenegro", "morocco", "mozambique",
+  "myanmar", "burma", "namibia", "nauru", "nepal", "netherlands",
+  "new zealand", "nicaragua", "niger", "nigeria", "north korea",
+  "north macedonia", "macedonia", "norway", "oman", "pakistan", "palau",
+  "palestine", "panama", "papua new guinea", "paraguay", "peru",
+  "philippines", "poland", "portugal", "qatar", "romania", "russia",
+  "rwanda", "saint kitts and nevis", "saint lucia",
+  "saint vincent and the grenadines", "samoa", "san marino",
+  "sao tome and principe", "saudi arabia", "senegal", "serbia",
+  "seychelles", "sierra leone", "singapore", "slovakia", "slovenia",
+  "solomon islands", "somalia", "south africa", "south korea", "south sudan",
+  "spain", "sri lanka", "sudan", "suriname", "sweden", "switzerland",
+  "syria", "taiwan", "tajikistan", "tanzania", "thailand", "timor-leste",
+  "togo", "tonga", "trinidad and tobago", "tunisia", "turkey", "türkiye",
+  "turkmenistan", "tuvalu", "uganda", "ukraine", "united arab emirates",
+  "united kingdom", "great britain", "england", "scotland", "wales",
+  "united states", "united states of america", "uruguay", "uzbekistan",
+  "vanuatu", "vatican city", "venezuela", "vietnam", "yemen", "zambia",
+  "zimbabwe",
 ]);
 
 /** "po domače" / "pd" house-name parenthetical. */
@@ -119,7 +166,17 @@ const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;
 
 const tidy = (s: string): string => s.replace(/\s+/g, " ").trim();
-const normNum = (s: string): string => s.replace(/\s+/g, "");
+/**
+ * Canonicalize a house-number tail's spacing. A renumbering slash between two
+ * numeric parts ("82/63/11", "21a / 53") gets a single space each side — the
+ * house-style convention; a subdivision-suffix slash ("38/a", "2/b") stays tight.
+ */
+const normNum = (s: string): string =>
+  s
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s*\/\s*(?=\d)/g, " / ")
+    .replace(/\s*\/\s*(?=[a-zA-Z])/g, "/");
 
 /**
  * Decompose a `PLAC` or `ADDR` value into its semantic parts. Handles both the
@@ -146,6 +203,10 @@ export function decomposePlace(raw: string): PlaceComponents {
     else if (content) out.facility = out.facility ? `${out.facility}; ${content}` : content;
     return "";
   });
+  // Removing a trailing parenthetical can leave a dangling separator
+  // ("Zgornje Bitnje 42 - (pd V dolini)" → "Zgornje Bitnje 42 -"); strip it so
+  // the house number stays at the end of the segment and still parses.
+  s = s.replace(/\s*[-–]\s*$/, "").trim();
 
   // 3. Comma segments: locality, further jurisdictions, and any inline address.
   const segments = s.split(",").map(tidy).filter(Boolean);

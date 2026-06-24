@@ -66,6 +66,10 @@ export interface EventFieldUpdate {
   note?: string;
   /** New AGNC value (recording agency, e.g. parish), or `""` to remove it. Omit to leave unchanged. */
   agency?: string;
+  /** New TYPE value (event sub-type, e.g. "religious"), or `""` to remove it. Omit to leave unchanged. */
+  type?: string;
+  /** New CAUS value (cause, e.g. of death), or `""` to remove it. Omit to leave unchanged. */
+  cause?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
   /** Attach a new `SOUR` citation pointer (with optional `PAGE`) — the `SOUR`
@@ -154,6 +158,8 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.note !== undefined) setOrRemoveValue(eventNode, "NOTE", update.note, EVENT_CHILD_ORDER);
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
+  if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
+  if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (update.addSource) attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
@@ -174,6 +180,7 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
+    !!update.type?.trim() || !!update.cause?.trim() ||
     !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!event) {
     if (!hasContent) return undefined;
@@ -252,6 +259,7 @@ export function addEventField(indi: Individual, tag: string, update: EventFieldU
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
+    !!update.type?.trim() || !!update.cause?.trim() ||
     !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!hasContent) return undefined;
   addEventNode(indi, tag);

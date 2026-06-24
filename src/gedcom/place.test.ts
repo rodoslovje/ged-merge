@@ -28,6 +28,14 @@ describe("decomposePlace", () => {
     expect(p.jurisdiction).toEqual(["Kranj", "Slovenija"]);
   });
 
+  it("canonicalizes a renumbering house-number pair to single-spaced slashes", () => {
+    const p = decomposePlace("Gradac (Slovenija), Klošter 82 / 63 / 11");
+    expect(p.houseNumber).toBe("82 / 63 / 11");
+
+    const packed = decomposePlace("Gradac (Slovenija), Klošter 82/63/11");
+    expect(packed.houseNumber).toBe("82 / 63 / 11");
+  });
+
   it("pulls the parish out of a '- župnija X' suffix", () => {
     const p = decomposePlace("Jesenice (Slovenija), Cesta revolucije 2/b - župnija Jesenice");
     expect(p.locality).toBe("Jesenice");

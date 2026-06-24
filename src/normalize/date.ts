@@ -2,6 +2,9 @@ import { parseDate } from "../gedcom/date";
 import type { DateOrder, GedDate } from "../gedcom/types";
 import type { DateFormatProfile } from "./types";
 
+/** A bare year–year range, e.g. "1830-1850" or "1785 / 1810" — see parseDate. */
+const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
+
 /**
  * Render a structured date back into a GEDCOM date string using the master's
  * format. Falls back to the original raw text whenever we cannot faithfully
@@ -22,6 +25,10 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
     case "to":
       return first ? `${q[date.qualifier]} ${first}` : date.raw;
     case "between":
+      // A loose dash/slash year range ("1830-1850", "1785 - 1810") is the
+      // user's shorthand; keep it exactly as written rather than rewriting it
+      // to the formal BET … AND … form.
+      if (DASH_YEAR_RANGE.test(date.raw.trim())) return date.raw;
       return first && second ? `BET ${first} AND ${second}` : date.raw;
     case "range":
       return first && second ? `FROM ${first} TO ${second}` : date.raw;

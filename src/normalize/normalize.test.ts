@@ -466,6 +466,40 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
     expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
   });
 
+  it("does not relocate an already-specific locality whose ADDR just echoes it before a house number", () => {
+    // Master ties the *street* "Zgornje Bitnje" to the hamlet "Stražišče" (people
+    // on that road were filed under Stražišče). An incoming record already named
+    // "Zgornje Bitnje" with ADDR "Zgornje Bitnje 165" must stay put — the ADDR is
+    // "locality + house number", not a disambiguating street.
+    let g = `0 HEAD\n1 CHAR UTF-8\n`;
+    for (let i = 1; i <= 8; i++)
+      g += `0 @S${i}@ INDI\n1 BIRT\n2 PLAC Stražišče,Kranj,Slovenia\n2 ADDR Zgornje Bitnje ${i}\n`;
+    g += `0 TRLR\n`;
+    const master = dataset(g);
+    const compare = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n` +
+      `2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 165\n0 TRLR\n`,
+    );
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.place?.raw).toBe("Zgornje Bitnje,Kranj,Slovenia");
+    expect(birt.address?.raw).toBe("Zgornje Bitnje 165");
+  });
+
+  it("keeps a 'po domače' house name once when a dangling dash precedes it in the ADDR", () => {
+    const master = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n` +
+      `0 @I1@ INDI\n1 BIRT\n2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 7\n0 TRLR\n`,
+    );
+    const compare = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n` +
+      `2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 42 - (pd V dolini)\n0 TRLR\n`,
+    );
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.address?.raw).toBe("Zgornje Bitnje 42 (pd V dolini)");
+  });
+
   it("sharpens a generic locality from the street alone when there's no AGNC", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -619,6 +653,12 @@ describe("date qualifiers", () => {
     expect(formatGedDate(parseDate("BET 1900 AND 1905"), profile)).toBe(
       "BET 1900 AND 1905",
     );
+  });
+
+  it("preserves loose dash/slash year ranges as written", () => {
+    expect(formatGedDate(parseDate("1830-1850"), profile)).toBe("1830-1850");
+    expect(formatGedDate(parseDate("1785 - 1810"), profile)).toBe("1785 - 1810");
+    expect(formatGedDate(parseDate("1770/1785"), profile)).toBe("1770/1785");
   });
 });
 

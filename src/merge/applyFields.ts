@@ -32,19 +32,21 @@ export interface EventSubEdit {
 }
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
-export const SUB_TAG: Record<string, string> = { date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC" };
+export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS" };
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
+  type: "event.colType",
   date: "event.colDate",
   place: "event.colPlace",
   addr: "event.colAddr",
   note: "event.colNote",
   agency: "event.colAgency",
+  cause: "event.colCause",
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["value", "date", "place", "addr", "note", "agency"];
+export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause"];
 
 /**
  * Combines an event's changed sub-fields (date/value/place/addr/note/agency) into
@@ -117,7 +119,13 @@ export function applyRows(
     if (choice === "master") continue;
 
     if (row.key === "links") {
-      const added = applyLinks(target, row.incomingLinks ?? [], row.masterLinks ?? [], linkFormat, records);
+      // The record-level "Sources" row carries both SOUR citations and plain
+      // link icons (same shape as an event's sources row), so apply each.
+      if (applyRecordSources(target, incomingRecord, choice, INDI_CHILD_ORDER, sourMap, report.customTags)) {
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.masterSources, row.incomingSources) });
+        touched.add(recordId);
+      }
+      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.masterLinkIcons ?? [], linkFormat, records);
       if (added.length) {
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", links: added });
         touched.add(recordId);
@@ -167,7 +175,7 @@ export function applyRows(
     }
 
     if (applied) {
-      const subMatch = row.key.match(/\.(date|place|addr|note|agency|sources|value)$/);
+      const subMatch = row.key.match(/\.(type|date|place|addr|note|agency|cause|sources|value)$/);
       const eventKey = subMatch ? row.key.slice(0, -subMatch[0].length) : undefined;
       const group = eventKey ? eventGroups.get(eventKey) : undefined;
       const sub = subMatch?.[1];
@@ -470,6 +478,32 @@ export function applyEventSub(
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub, customTags);
+}
+
+/**
+ * Apply an INDI/FAM record's own (record-level) `SOUR` citations from the
+ * incoming record — its direct `SOUR` children, not those nested under an
+ * event. "incoming" replaces the master's record-level citations; "both"
+ * appends them. Mirrors `applyEventSources` but for the record node itself.
+ * Plain record-level links are handled separately by `applyLinks`.
+ */
+export function applyRecordSources(
+  target: GedNode,
+  incomingRecord: GedNode,
+  choice: FieldChoice,
+  order: string[],
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]> = {},
+): boolean {
+  const incSours = incomingRecord.children.filter((c) => c.tag === "SOUR");
+  if (incSours.length === 0) return false;
+  if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "SOUR");
+  for (const s of incSours) {
+    const clone = cloneNodeRemapped(s, sourMap);
+    collectCustomTags(clone, customTags);
+    insertOrdered(target, clone, order);
+  }
+  return true;
 }
 
 /** Tags an event's own attached link can use (besides a `SOUR` citation). */

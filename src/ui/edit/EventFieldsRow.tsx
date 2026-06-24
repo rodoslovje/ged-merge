@@ -89,6 +89,8 @@ export function EventFieldsRow({
   const addrMergeVal = mergeHighlight?.get(`${kBase}.addr`);
   const noteMergeVal = mergeHighlight?.get(`${kBase}.note`);
   const agencyMergeVal = mergeHighlight?.get(`${kBase}.agency`);
+  const typeMergeVal = mergeHighlight?.get(`${kBase}.type`);
+  const causeMergeVal = mergeHighlight?.get(`${kBase}.cause`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
@@ -107,6 +109,8 @@ export function EventFieldsRow({
   const addrForced = eventForced || (resolvedSessionFields?.has(`${fBase}.addr`) ?? false);
   const noteForced = eventForced || (resolvedSessionFields?.has(`${fBase}.note`) ?? false);
   const agencyForced = eventForced || (resolvedSessionFields?.has(`${fBase}.agency`) ?? false);
+  const typeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.type`) ?? false);
+  const causeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.cause`) ?? false);
   // Family rows remount on a real retag (see the `FamilyEventRow` call
   // sites), so the freshly-mounted row can't tell a real retag from this
   // tag having always been here — `markFamilyTagRetagged` flags it instead.
@@ -118,6 +122,8 @@ export function EventFieldsRow({
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
+  const typeField = useField(ev?.type ?? "", typeMergeVal);
+  const causeField = useField(ev?.cause ?? "", causeMergeVal);
   // The row stays mounted (same stable key) when its tag changes via
   // `onChangeTag`, so — unlike `useField` — track dirtiness against the tag
   // this row mounted with, not against `ev`'s own value (there's no GedEvent
@@ -132,6 +138,8 @@ export function EventFieldsRow({
     () =>
       Boolean(noteField.initial) ||
       (!showValue && Boolean(agencyField.initial)) ||
+      Boolean(typeField.initial) ||
+      Boolean(causeField.initial) ||
       (ev?.sources?.length ?? 0) > 0 ||
       (sourcesMergeVal?.length ?? 0) > 0 ||
       links.length > 0,
@@ -188,6 +196,8 @@ export function EventFieldsRow({
       address: addrField.value,
       note: noteField.value,
       agency: agencyField.value,
+      type: typeField.value,
+      cause: causeField.value,
       ...override,
     };
     const unchanged =
@@ -196,7 +206,9 @@ export function EventFieldsRow({
       (merged.place ?? "") === placeField.initial &&
       (merged.address ?? "") === addrField.initial &&
       (merged.note ?? "") === noteField.initial &&
-      (merged.agency ?? "") === agencyField.initial;
+      (merged.agency ?? "") === agencyField.initial &&
+      (merged.type ?? "") === typeField.initial &&
+      (merged.cause ?? "") === causeField.initial;
     if (unchanged) return;
     commitField(merged);
   }
@@ -354,6 +366,26 @@ export function EventFieldsRow({
             onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
           />
           {!showValue && agencyInput("edit-event-extra-agency")}
+          <ClearableInput
+            wrapClassName="edit-event-extra-type"
+            className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
+            value={typeField.value}
+            placeholder={t("event.type", { event: label })}
+            title={t("event.type", { event: label })}
+            onChange={typeField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
+          />
+          <ClearableInput
+            wrapClassName="edit-event-extra-cause"
+            className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
+            value={causeField.value}
+            placeholder={t("event.cause", { event: label })}
+            title={t("event.cause", { event: label })}
+            onChange={causeField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { causeField.clear(); commitAll({ cause: "" }); }}
+          />
           {onRemove && (
             <button
               type="button"
