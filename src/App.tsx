@@ -4,6 +4,7 @@ import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
+import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
@@ -908,7 +909,7 @@ export function App() {
         const beforeIndi = cloneRaw(indi.raw);
         if (dirty.loadedPersonIds.current.has(id) && snapshot) {
           indi.raw.value = snapshot.value;
-          indi.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+          indi.raw.children = snapshot.children.map(cloneNode);
           rebuildIndividual(masterDataset, indi);
           patches.push({ type: "individual", id, before: beforeIndi, after: cloneRaw(indi.raw) });
         } else {
@@ -935,7 +936,7 @@ export function App() {
         const beforeFam = cloneRaw(fam.raw);
         if (dirty.loadedFamilyIds.current.has(id) && snapshot) {
           fam.raw.value = snapshot.value;
-          fam.raw.children = JSON.parse(JSON.stringify(snapshot.children)) as GedNode[];
+          fam.raw.children = snapshot.children.map(cloneNode);
           rebuildFamily(masterDataset, fam);
           patches.push({ type: "family", id, before: beforeFam, after: cloneRaw(fam.raw) });
         } else {

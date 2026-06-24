@@ -2,8 +2,7 @@ import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { parseName } from "./name";
-
-type Translate = (key: string, opts?: Record<string, unknown>) => string;
+import type { Translate } from "../locales/i18n";
 
 const INDIVIDUAL_EVENT_TAGS = new Set([
   "BIRT", "BAPM", "CHR", "DEAT", "BURI", "CREM", "CONF", "ADOP", "FCOM",

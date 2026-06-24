@@ -1,4 +1,5 @@
 import type { GedNode } from "../gedcom/types";
+import { cloneNode } from "../gedcom/node";
 
 export interface RecordPatch {
   /** "record" covers a top-level non-INDI/FAM record (e.g. a `SOUR`/`OBJE`
@@ -13,7 +14,7 @@ export interface RecordPatch {
 }
 
 export function cloneRaw(raw: GedNode): GedNode {
-  return JSON.parse(JSON.stringify(raw)) as GedNode;
+  return cloneNode(raw);
 }
 
 /** Queued by App.tsx after an undo/redo; consumed by EditView once it is mounted. */

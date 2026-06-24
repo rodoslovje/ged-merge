@@ -14,6 +14,7 @@ import {
 } from "../gedcom/edit";
 import { findExistingSource, sourceContentKey } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
+import { cloneNode } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
@@ -21,9 +22,7 @@ import { inferPlaceExportFormat } from "../normalize/profile";
 import { linkKey } from "../normalize/links";
 import { clampBeforeDeathZone, dateToSortKey, individualFieldRows, minDeathZoneKey } from "../review/fields";
 import { defaultChoice, decisionKey, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
-
-/** A translator (i18next `t`); only used for human-readable field labels. */
-type Translate = (key: string, opts?: Record<string, unknown>) => string;
+import type { Translate } from "../locales/i18n";
 
 /** One field the merge wrote into a master record. */
 export interface FieldChange {
@@ -807,13 +806,6 @@ function newNode(tag: string, value?: string, xref?: string): GedNode {
   if (value !== undefined) node.value = value;
   if (xref !== undefined) node.xref = xref;
   return node;
-}
-
-function cloneNode(n: GedNode): GedNode {
-  const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map(cloneNode) };
-  if (n.xref !== undefined) c.xref = n.xref;
-  if (n.value !== undefined) c.value = n.value;
-  return c;
 }
 
 /**

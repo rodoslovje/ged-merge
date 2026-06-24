@@ -1,5 +1,6 @@
 import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
+import { cloneNode } from "../gedcom/node";
 import { normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
@@ -189,10 +190,4 @@ function shape(value: string): string {
 /** Deep clone the record forest so normalization doesn't mutate the input. */
 function cloneRecords(records: GedNode[]): GedNode[] {
   return records.map(cloneNode);
-}
-function cloneNode(node: GedNode): GedNode {
-  const copy: GedNode = { level: node.level, tag: node.tag, children: node.children.map(cloneNode) };
-  if (node.xref !== undefined) copy.xref = node.xref;
-  if (node.value !== undefined) copy.value = node.value;
-  return copy;
 }
