@@ -141,11 +141,15 @@ export function individualFieldRows(
     const ce = !rejected && compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
     const effectiveCompareIdx = rejected ? -1 : compareIdx;
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
+    // A generic `EVEN` is just labelled "Event"; its descriptive `TYPE` sub-tag
+    // (e.g. "Alt. Birth", "FamilySearch ID") is surfaced under the "Title" label
+    // and its own line value (`1 EVEN <v>`) under the "Agency" label.
+    const isEven = tag === "EVEN";
     const eventLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const subRows: FieldRow[] = [];
-    pushRow(subRows, `${keyBase}.type`, t("event.colType"), me?.type, ce?.type);
+    pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
-    pushRow(subRows, `${keyBase}.value`, formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
+    pushRow(subRows, `${keyBase}.value`, isEven ? t("event.colAgency") : formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
     // Places are already reshaped into the master's layout when the incoming
     // file was loaded (see normalize/normalize.ts), so the raw values can be
     // shown directly. When the master doesn't enforce a particular layout,
@@ -159,7 +163,9 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
-    pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
+    // EVEN's line value already occupies the "Agency" label, so its real AGNC
+    // sub-tag (rare) isn't shown as a second Agency row.
+    if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
     for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = effectiveCompareIdx; }

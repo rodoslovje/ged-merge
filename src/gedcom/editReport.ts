@@ -7,6 +7,7 @@ import type { Translate } from "../locales/i18n";
 const INDIVIDUAL_EVENT_TAGS = new Set([
   "BIRT", "BAPM", "CHR", "DEAT", "BURI", "CREM", "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "RETI", "RESI", "EMIG", "IMMI", "NATU", "CENS", "WILL", "PROB",
+  "EVEN",
 ]);
 
 const FAMILY_EVENT_TAGS = new Set(["MARR", "ENGA", "SEPA", "DIV"]);

@@ -130,6 +130,38 @@ describe("individualFieldRows", () => {
   });
 });
 
+describe("generic EVEN with a TYPE", () => {
+  const even = (body: string, id: string) =>
+    dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n${body}\n0 TRLR\n`)
+      .individuals.get(id);
+
+  it("labels the event 'Event', the TYPE as Title and the line value as Agency", () => {
+    const rows = individualFieldRows(tr,
+      even("1 EVEN LDHD-PNT\n2 TYPE FamilySearch ID", "@I1@"),
+      undefined,
+    );
+    // The heading is the generic "Event" label, not the type value.
+    expect(rows.find((r) => r.isEventHeader && r.key === "EVEN.header")?.label).toBe("event.EVEN");
+    // TYPE → "Title", line value → "Agency".
+    const title = byKey(rows, "EVEN.type");
+    expect(title?.label).toBe("event.colTitle");
+    expect(title?.master).toBe("FamilySearch ID");
+    const agency = byKey(rows, "EVEN.value");
+    expect(agency?.label).toBe("event.colAgency");
+    expect(agency?.master).toBe("LDHD-PNT");
+  });
+
+  it("does not surface a real AGNC as a second Agency row", () => {
+    const rows = individualFieldRows(tr,
+      even("1 EVEN code\n2 TYPE Some Type\n2 AGNC Parish", "@I1@"),
+      undefined,
+    );
+    const agencyRows = rows.filter((r) => r.label === "event.colAgency");
+    expect(agencyRows).toHaveLength(1);
+    expect(agencyRows[0].key).toBe("EVEN.value");
+  });
+});
+
 describe("individual parents and partners rows", () => {
   const masterGed = `0 HEAD
 0 @C@ INDI

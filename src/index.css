@@ -2428,6 +2428,9 @@ button:focus-visible {
   line-height: 1.4;
   font-family: inherit;
 }
+/* Event notes sit in the events grid beside the mono date/place/value fields,
+ * so they read as data (mono) rather than reverting to the prose sans font. */
+.edit-event-extra-note.clearable-wrap--textarea .edit-input { font-family: var(--font-mono); }
 .clearable-wrap--textarea .input-clear { top: 4px; transform: none; }
 
 /* Place / address autocomplete dropdown */

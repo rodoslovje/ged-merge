@@ -4,17 +4,19 @@ import type { MatchDecisionStatus } from "../../review/types";
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
 export const VALUE_EVENT_TAGS = new Set(["OCCU", "EDUC", "RETI"]);
 
-/** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded. */
+/** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded.
+ * The generic `EVEN` ("Event") lives under Estate so it can be added and
+ * switched to/from like any other event. */
 export const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.earlyLife", tags: ["BAPM", "CHR", "CONF", "ADOP", "FCOM"] },
   { labelKey: "eventGroup.career",    tags: ["OCCU", "EDUC", "RETI"] },
   { labelKey: "eventGroup.residence", tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
-  { labelKey: "eventGroup.estate",    tags: ["WILL", "PROB"] },
+  { labelKey: "eventGroup.estate",    tags: ["WILL", "PROB", "EVEN"] },
   { labelKey: "eventGroup.death",     tags: ["DEAT", "BURI", "CREM"] },
 ] as const;
 
 /** Tags a master individual event's type can be changed to/from (matches
- * `INDIVIDUAL_EVENT_GROUPS`) — BIRT and the freeform `EVEN` tag are excluded. */
+ * `INDIVIDUAL_EVENT_GROUPS`) — BIRT is excluded (always shown separately). */
 export const ASSIGNABLE_EVENT_TAGS: Set<string> = new Set(INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags));
 
 /** Family events that are hidden until explicitly added (marriage is always shown). */

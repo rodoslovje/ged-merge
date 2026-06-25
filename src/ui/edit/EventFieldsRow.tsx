@@ -79,7 +79,11 @@ export function EventFieldsRow({
    * master), independently of `resolvedSessionFields`. */
   materializedEventIds?: Set<number>;
 }) {
-  const showValue = tag !== undefined && VALUE_EVENT_TAGS.has(tag);
+  // A generic `EVEN` is labelled "Event"; its descriptive `TYPE` is edited in
+  // the "Title" slot and its own line value (`1 EVEN <v>`) in the "Agency" slot
+  // (see the title/agency field bindings below). The Title slot shows for it too.
+  const isEven = tag === "EVEN";
+  const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
 
   // Compute merge values before hooks so they can be used as initial state.
   const kBase = mergeKeyBase ?? tag ?? "";
@@ -131,6 +135,16 @@ export function EventFieldsRow({
   const initialTagRef = useRef(tag);
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  // EVEN remaps the Title slot to its TYPE and the Agency slot to its line
+  // value; every other event keeps the normal value/agency mapping.
+  const titleField = isEven ? typeField : valueField;
+  const titleForced = isEven ? typeForced : valueForced;
+  const titleLabel = isEven ? t("event.colTitle") : label;
+  const titleClearUpdate: Partial<EventFieldUpdate> = isEven ? { type: "" } : { value: "" };
+  const agencySlotField = isEven ? valueField : agencyField;
+  const agencySlotForced = isEven ? valueForced : agencyForced;
+  const agencySlotLabel = isEven ? t("event.colAgency") : t("event.agency", { event: label });
+  const agencyClearUpdate: Partial<EventFieldUpdate> = isEven ? { value: "" } : { agency: "" };
   // Note/Agency(non-title events)/Sources start tucked behind the expand
   // toggle to keep the row compact, but auto-expand if any of them already
   // has content so existing data is never hidden on load.
@@ -138,7 +152,8 @@ export function EventFieldsRow({
     () =>
       Boolean(noteField.initial) ||
       (!showValue && Boolean(agencyField.initial)) ||
-      Boolean(typeField.initial) ||
+      // For EVEN the type is shown in the always-visible Title slot, not here.
+      (!isEven && Boolean(typeField.initial)) ||
       Boolean(causeField.initial) ||
       (ev?.sources?.length ?? 0) > 0 ||
       (sourcesMergeVal?.length ?? 0) > 0 ||
@@ -217,13 +232,13 @@ export function EventFieldsRow({
     return (
       <ClearableInput
         wrapClassName={wrapClassName}
-        className={fieldCls("edit-input edit-event-agency", agencyField.isMerge, agencyField.isDirty || agencyForced)}
-        value={agencyField.value}
-        placeholder={t("event.agency", { event: label })}
-        title={t("event.agency", { event: label })}
-        onChange={agencyField.onChange}
+        className={fieldCls("edit-input edit-event-agency", agencySlotField.isMerge, agencySlotField.isDirty || agencySlotForced)}
+        value={agencySlotField.value}
+        placeholder={agencySlotLabel}
+        title={agencySlotLabel}
+        onChange={agencySlotField.onChange}
         onBlur={() => commitAll({})}
-        onClear={() => { agencyField.clear(); commitAll({ agency: "" }); }}
+        onClear={() => { agencySlotField.clear(); commitAll(agencyClearUpdate); }}
       />
     );
   }
@@ -278,13 +293,13 @@ export function EventFieldsRow({
       {showValue && (
         <ClearableInput
           wrapClassName="edit-event-value-cell"
-          className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty || valueForced)}
-          value={valueField.value}
-          placeholder={label}
-          title={label}
-          onChange={valueField.onChange}
+          className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
+          value={titleField.value}
+          placeholder={titleLabel}
+          title={titleLabel}
+          onChange={titleField.onChange}
           onBlur={() => commitAll({})}
-          onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
+          onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
         />
       )}
       {/* Tab order follows DOM order, not visual position: for title events
@@ -366,16 +381,19 @@ export function EventFieldsRow({
             onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
           />
           {!showValue && agencyInput("edit-event-extra-agency")}
-          <ClearableInput
-            wrapClassName="edit-event-extra-type"
-            className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
-            value={typeField.value}
-            placeholder={t("event.type", { event: label })}
-            title={t("event.type", { event: label })}
-            onChange={typeField.onChange}
-            onBlur={() => commitAll({})}
-            onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
-          />
+          {/* EVEN shows its TYPE as the heading instead of a hidden extra field. */}
+          {!isEven && (
+            <ClearableInput
+              wrapClassName="edit-event-extra-type"
+              className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
+              value={typeField.value}
+              placeholder={t("event.type", { event: label })}
+              title={t("event.type", { event: label })}
+              onChange={typeField.onChange}
+              onBlur={() => commitAll({})}
+              onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
+            />
+          )}
           <ClearableInput
             wrapClassName="edit-event-extra-cause"
             className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
