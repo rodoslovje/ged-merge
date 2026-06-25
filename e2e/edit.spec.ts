@@ -50,7 +50,6 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await birth.locator(".edit-event-date").fill("1 JAN 1900");
   await birth.locator(".edit-event-place").fill("Ljubljana, Slovenija");
   await birth.locator(".edit-event-addr").fill("Glavni trg 1");
-  await birth.locator(".edit-event-toggle").click();
   await birth.locator(".edit-link-add").click();
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
@@ -85,8 +84,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await marriage.locator(".edit-event-date").fill("3 MAR 1999");
   await marriage.locator(".edit-event-place").fill("Maribor, Slovenija");
   await marriage.locator(".edit-event-addr").fill("Trg 5");
-  await marriage.locator(".edit-event-toggle").click();
-  await marriage.locator(".edit-event-extra-sources .edit-link-add").click();
+  await marriage.locator(".edit-event-sources-cell .edit-link-add").click();
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();

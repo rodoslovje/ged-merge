@@ -1912,18 +1912,6 @@ button:focus-visible {
   font-size: 0.88rem;
 }
 
-.edit-event-head {
-  display: grid;
-  grid-template-columns: 96px 180px 2fr 1fr auto;
-  gap: 14px;
-  padding: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
-  border-bottom: 1px solid var(--border);
-}
 .edit-event {
   display: grid;
   grid-template-columns: 96px 180px 2fr 1fr auto;
@@ -1934,12 +1922,22 @@ button:focus-visible {
 }
 /* Inside .edit-events, subgrid the shared tracks so column widths are
  * computed once across all rows instead of per row. */
-.edit-events > .edit-event-head,
 .edit-events > .edit-event {
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
 }
-.edit-event-label { grid-column: 1; flex: none; width: auto; color: var(--muted); }
+/* The header row that used to sit above the first event is gone, so give the
+ * first event a top border to keep it separated from the content above. */
+.edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
+/* Column 1, row 1: the event-type label with the expand toggle right beside it. */
+.edit-event-type-row {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.edit-event-label { flex: none; width: auto; color: var(--muted); }
 /* The type-change control is a native <select> stretched invisibly over the
  * label (so it picks up the same click target and keyboard handling as a
  * regular select) with only the small ▾ caret showing — the label text
@@ -1949,7 +1947,8 @@ button:focus-visible {
 .edit-event-label--select { position: relative; padding-right: 11px; cursor: pointer; }
 .edit-event-label--select:hover,
 .edit-event-label--select:focus-within { color: var(--text); }
-.edit-event-type-caret { margin-left: 3px; font-size: 0.95em; opacity: 0.85; }
+/* Prominent so the label clearly reads as a clickable dropdown. */
+.edit-event-type-caret { margin-left: 4px; font-size: 1.35em; line-height: 1; opacity: 1; color: var(--accent); }
 .edit-event-type-select {
   position: absolute;
   inset: 0;
@@ -1959,31 +1958,35 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-.edit-event-date-cell { grid-column: 2; }
-/* Occupation/Education/Retirement: value reuses the Place column on row 1;
- * the event's actual Place/Address drop to row 2 underneath it. */
-.edit-event-value-cell,
-.edit-event-place-cell { grid-column: 3; }
-.edit-event-addr-cell { grid-column: 4; }
-.edit-event--has-value .edit-event-place-cell,
-.edit-event--has-value .edit-event-addr-cell { grid-row: 2; }
+/* Column 2 stacks date (row 1), sources (row 2) and — for standard events —
+ * the TYPE sub-tag (row 3) beneath each other. */
+.edit-event-date-cell { grid-column: 2; grid-row: 1; }
+.edit-event-sources-cell {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.edit-event-sources-cell .source-refs { margin-left: 0; }
+.edit-event-type-cell { grid-column: 2; grid-row: 3; }
+/* Columns 3 and 4 hold the field pairs (Place/Address, Title-or-Cause/Agency,
+ * Note/Cause) on rows 1–3; the row is assigned inline per field. */
+.edit-event-c3 { grid-column: 3; }
+.edit-event-c4 { grid-column: 4; }
 .edit-event > .edit-input { width: 100%; }
 .edit-event-value,
 .edit-event-date,
 .edit-event-place,
 .edit-event-addr { width: 100%; min-width: 0; }
-.edit-event-head > :nth-child(2) { text-align: right; }
 .edit-event-date { text-align: right; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
 }
-/* Occupation/Education/Retirement: agency (the institution) sits next to
- * the title on row 1, in the column the address vacated when it dropped to
- * row 2 alongside place. */
-.edit-event-agency-wrap { grid-column: 4; grid-row: 1; }
-.edit-event-sources { grid-column: 2 / -1; margin-top: 2px; }
-.edit-event-sources .source-refs { margin-left: 0; }
 
 .edit-event-add {
   display: flex;
@@ -2158,48 +2161,6 @@ button:focus-visible {
   opacity: 1;
 }
 .edit-link-open:hover { color: var(--accent); }
-/* Top-right corner of each event row: just the expand/collapse toggle.
- * Everything else (Sources, Note, Agency, Remove) lives in the collapsible
- * extra row below, aligned under Date/Place/Address respectively, so it
- * only appears once the user has expanded the row to see it. */
-.edit-event-toggle {
-  grid-row: 1;
-  grid-column: -2;
-  justify-self: end;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 1.05rem;
-  line-height: 1;
-  padding: 2px 7px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.edit-event-toggle:hover,
-.edit-event-toggle:focus-visible { color: var(--text); background: var(--border); }
-.edit-event-extra-sources { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
-.edit-event-extra-note { grid-column: 3; }
-.edit-event-extra-agency { grid-column: 4; }
-.edit-event-extra-type { grid-column: 3; }
-.edit-event-extra-cause { grid-column: 4; }
-.edit-event-extra-remove { grid-column: -2; justify-self: end; }
-/* Plain events: row 1 holds label/date/place/addr/toggle, so the rest of the
- * extra row (Note/Agency/Remove — Sources is pinned to row 2 above) is row 2;
- * Type/Cause stack onto their own row 3. */
-.edit-event-extra-note,
-.edit-event-extra-agency,
-.edit-event-extra-remove { grid-row: 2; }
-.edit-event-extra-type,
-.edit-event-extra-cause { grid-row: 3; }
-/* Title events (Occupation/Education/Retirement): row 1 is title+agency,
- * row 2 is place/address. Sources still fits row 2 (under Date, which row 2
- * leaves free), but Note/Agency/Remove need their own row 3, Type/Cause row 4. */
-.edit-event--has-value .edit-event-extra-note,
-.edit-event--has-value .edit-event-extra-agency,
-.edit-event--has-value .edit-event-extra-remove { grid-row: 3; }
-.edit-event--has-value .edit-event-extra-type,
-.edit-event--has-value .edit-event-extra-cause { grid-row: 4; }
 .edit-link-add {
   align-self: flex-start;
   background: transparent;
@@ -2212,17 +2173,6 @@ button:focus-visible {
 }
 .edit-link-add:hover,
 .edit-link-add:focus-visible { border-color: var(--accent); color: var(--text); }
-.edit-event-remove {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 1.1em;
-  line-height: 1;
-  padding: 2px 6px;
-  cursor: pointer;
-}
-.edit-event-remove:hover { color: var(--state-danger, #d9534f); }
 
 .person-card {
   background: var(--bg);
@@ -2430,7 +2380,7 @@ button:focus-visible {
 }
 /* Event notes sit in the events grid beside the mono date/place/value fields,
  * so they read as data (mono) rather than reverting to the prose sans font. */
-.edit-event-extra-note.clearable-wrap--textarea .edit-input { font-family: var(--font-mono); }
+.clearable-wrap--textarea .edit-event-note { font-family: var(--font-mono); }
 .clearable-wrap--textarea .input-clear { top: 4px; transform: none; }
 
 /* Place / address autocomplete dropdown */
@@ -3747,10 +3697,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   }
 
   /* Event rows: collapse the 5-column desktop grid into a compact two-column
-   * layout — label + toggle on top, then the fields paired two per row. */
-  .edit-event-head {
-    display: none;
-  }
+   * layout — label + toggle on top, then date/sources, then the field pairs
+   * two per row (their inline grid-row is overridden so they flow naturally). */
   .edit-events {
     grid-template-columns: 1fr;
   }
@@ -3761,33 +3709,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     row-gap: 6px;
     padding: 10px 0;
   }
-  .edit-event-label { grid-column: 1; grid-row: 1; justify-self: start; }
-  .edit-event-toggle { grid-column: 2; grid-row: 1; justify-self: end; }
+  .edit-event-type-row { grid-column: 1 / -1; grid-row: 1; }
   .edit-event-date-cell { grid-column: 1; grid-row: 2; }
-  .edit-event-place-cell { grid-column: 2; grid-row: 2; }
-  .edit-event-addr-cell { grid-column: 1 / -1; grid-row: 3; }
-  /* Title events (Occupation/Education/…): title + agency share the first
-   * field row, with place/address paired on the next. */
-  .edit-event--has-value .edit-event-value-cell { grid-column: 1; grid-row: 2; }
-  .edit-event--has-value .edit-event-agency-wrap { grid-column: 2; grid-row: 2; }
-  .edit-event--has-value .edit-event-place-cell { grid-column: 1; grid-row: 3; }
-  .edit-event--has-value .edit-event-addr-cell { grid-column: 2; grid-row: 3; }
-  /* Expanded extras each take a full-width row, stacked below the fields. */
-  .edit-event-extra-sources,
-  .edit-event-extra-note,
-  .edit-event-extra-agency,
-  .edit-event-extra-type,
-  .edit-event-extra-cause,
-  .edit-event-extra-remove,
-  .edit-event--has-value .edit-event-extra-note,
-  .edit-event--has-value .edit-event-extra-agency,
-  .edit-event--has-value .edit-event-extra-type,
-  .edit-event--has-value .edit-event-extra-cause,
-  .edit-event--has-value .edit-event-extra-remove {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
-  .edit-event-extra-remove { justify-self: end; }
+  .edit-event-sources-cell { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+  .edit-event-type-cell { grid-column: 1 / -1; grid-row: auto; }
+  .edit-event-c3 { grid-column: 1; grid-row: auto !important; }
+  .edit-event-c4 { grid-column: 2; grid-row: auto !important; }
   .edit-event > .edit-input { width: 100%; }
 }
 
@@ -3797,21 +3724,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .edit-events > .edit-event {
     grid-template-columns: 1fr;
   }
-  /* Label and toggle still share the header row (left/right), but in the lone
-   * column so no phantom second track is created. */
-  .edit-event-label { grid-column: 1; }
-  .edit-event-toggle { grid-column: 1; }
   .edit-event-date-cell,
-  .edit-event-place-cell,
-  .edit-event-value-cell,
-  .edit-event-addr-cell,
-  .edit-event-agency-wrap,
-  .edit-event--has-value .edit-event-value-cell,
-  .edit-event--has-value .edit-event-agency-wrap,
-  .edit-event--has-value .edit-event-place-cell,
-  .edit-event--has-value .edit-event-addr-cell {
+  .edit-event-sources-cell,
+  .edit-event-type-cell,
+  .edit-event-c3,
+  .edit-event-c4 {
     grid-column: 1;
-    grid-row: auto;
+    grid-row: auto !important;
   }
 }
 

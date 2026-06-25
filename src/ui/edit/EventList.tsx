@@ -166,13 +166,6 @@ export function EventList({
 
   return (
     <div className="edit-events">
-      <div className="edit-event-head">
-        <span />
-        <span>{t("event.colDate")}</span>
-        <span>{t("event.colPlace")}</span>
-        <span>{t("event.colAddr")}</span>
-        <span />
-      </div>
       <EventFieldsRow
         key={`${person.id}-BIRT-${undoVersion ?? 0}-${mergeGen ?? 0}`}
         ev={birtEv}

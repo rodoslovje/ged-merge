@@ -11,6 +11,10 @@ import { VALUE_EVENT_TAGS } from "./editConstants";
 import { placeKey } from "./placeSuggestions";
 import type { SourceDialogTarget } from "./types";
 
+/** Sentinel `<option>` value for the "Remove this event" entry at the end of
+ * the event-type dropdown (distinct from any real tag). */
+const REMOVE_OPTION = "__remove_event__";
+
 /** Editable date/place/address/links for a single event (individual or
  * family), e.g. `1 BIRT` or `1 MARR`. */
 export function EventFieldsRow({
@@ -145,20 +149,41 @@ export function EventFieldsRow({
   const agencySlotForced = isEven ? valueForced : agencyForced;
   const agencySlotLabel = isEven ? t("event.colAgency") : t("event.agency", { event: label });
   const agencyClearUpdate: Partial<EventFieldUpdate> = isEven ? { value: "" } : { agency: "" };
-  // Note/Agency(non-title events)/Sources start tucked behind the expand
-  // toggle to keep the row compact, but auto-expand if any of them already
-  // has content so existing data is never hidden on load.
-  const [expanded, setExpanded] = useState(
-    () =>
-      Boolean(noteField.initial) ||
-      (!showValue && Boolean(agencyField.initial)) ||
-      // For EVEN the type is shown in the always-visible Title slot, not here.
-      (!isEven && Boolean(typeField.initial)) ||
-      Boolean(causeField.initial) ||
-      (ev?.sources?.length ?? 0) > 0 ||
-      (sourcesMergeVal?.length ?? 0) > 0 ||
-      links.length > 0,
-  );
+
+  // Only value events (OCCU/EDUC/RETI) and EVEN expose a Title slot (their line
+  // value / TYPE). Plain events have none — their TYPE lives in the column-2
+  // Type field stacked under Date/Sources instead (EVEN keeps TYPE as Title).
+  const hasTitle = showValue;
+  const showTypeCell = !isEven;
+
+  // Columns 3/4 lay out as three fixed rows, mirroring column 2's
+  // Date / Sources / Type stack:
+  //   1. Place + Address
+  //   2. (Title — or Cause, when the event has no Title slot) + Agency
+  //   3. Note + (Cause, when it wasn't already shown in row 2)
+  // All three rows are always shown, but a row with no data sinks below the
+  // rows that have some (stable order: Place, then mid, then Note), so populated
+  // fields rise to the top. Cause appears exactly once: row 2 (mid) for plain
+  // events, row 3 (note) for events that carry a Title.
+  const causeInMid = !hasTitle;
+  const placeData = Boolean(placeField.value.trim()) || Boolean(addrField.value.trim());
+  const midData =
+    (hasTitle && Boolean(titleField.value.trim())) ||
+    (causeInMid && Boolean(causeField.value.trim())) ||
+    Boolean(agencySlotField.value.trim());
+  const noteData = Boolean(noteField.value.trim()) || (!causeInMid && Boolean(causeField.value.trim()));
+  const rows = [
+    { key: "place", data: placeData },
+    { key: "mid", data: midData },
+    { key: "note", data: noteData },
+  ] as const;
+  const arranged = [...rows.filter((r) => r.data), ...rows.filter((r) => !r.data)];
+  const rowOf = (key: string) => arranged.findIndex((r) => r.key === key) + 1;
+
+  // The event-type label becomes a dropdown when the tag can be reassigned
+  // and/or the event removed — the latter via a "Remove this event" entry
+  // appended to the end of the list.
+  const showSelect = Boolean(tag) && (Boolean(onChangeTag && tagGroups) || Boolean(onRemove));
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -228,84 +253,131 @@ export function EventFieldsRow({
     commitField(merged);
   }
 
-  function agencyInput(wrapClassName: string) {
+  // Cause renders in column 3 (middle row) for plain events, or column 4
+  // (note row) for events that carry a Title — never both.
+  function causeInput(wrapClassName: string, gridRow: number) {
     return (
       <ClearableInput
         wrapClassName={wrapClassName}
-        className={fieldCls("edit-input edit-event-agency", agencySlotField.isMerge, agencySlotField.isDirty || agencySlotForced)}
-        value={agencySlotField.value}
-        placeholder={agencySlotLabel}
-        title={agencySlotLabel}
-        onChange={agencySlotField.onChange}
+        wrapStyle={{ gridRow }}
+        className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
+        value={causeField.value}
+        placeholder={t("event.colCause")}
+        title={t("event.cause", { event: label })}
+        onChange={causeField.onChange}
         onBlur={() => commitAll({})}
-        onClear={() => { agencySlotField.clear(); commitAll(agencyClearUpdate); }}
+        onClear={() => { causeField.clear(); commitAll({ cause: "" }); }}
       />
     );
   }
 
   return (
-    <div className={showValue ? "edit-event edit-event--has-value" : "edit-event"}>
-      <div
-        className={fieldCls(
-          onChangeTag && tag && tagGroups ? "edit-event-label edit-event-label--select" : "edit-event-label",
-          false,
-          tagDirty || tagForced,
-        )}
-      >
-        {label}
-        {onChangeTag && tag && tagGroups && (
-          <>
-            <span className="edit-event-type-caret" aria-hidden="true">▾</span>
-            <select
-              className="edit-event-type-select"
-              value={tag}
-              title={t("edit.changeEventType")}
-              onChange={(e) => { if (e.target.value !== tag) onChangeTag(e.target.value); }}
-            >
-              {tagGroups.map((g, gi) =>
-                g.labelKey ? (
-                  <optgroup key={g.labelKey} label={t(g.labelKey)}>
-                    {g.tags.map((tg) => (
-                      <option key={tg} value={tg}>{t(`event.${tg}`)}</option>
-                    ))}
-                  </optgroup>
+    <div className="edit-event">
+      {/* Column 1, row 1: event-type label with the expand toggle beside it.
+       * When the tag can be reassigned and/or the event removed, a hidden
+       * <select> overlay turns the label into a menu — type choices (if any)
+       * plus a "Remove this event" entry at the end. */}
+      <div className="edit-event-type-row">
+        <div
+          className={fieldCls(
+            showSelect ? "edit-event-label edit-event-label--select" : "edit-event-label",
+            false,
+            tagDirty || tagForced,
+          )}
+        >
+          {label}
+          {showSelect && (
+            <>
+              <span className="edit-event-type-caret" aria-hidden="true">▾</span>
+              <select
+                className="edit-event-type-select"
+                value={tag}
+                title={onChangeTag ? t("edit.changeEventType") : t("edit.removeEvent")}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === REMOVE_OPTION) onRemove?.();
+                  else if (onChangeTag && v !== tag) onChangeTag(v);
+                }}
+              >
+                {onChangeTag && tagGroups ? (
+                  tagGroups.map((g, gi) =>
+                    g.labelKey ? (
+                      <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                        {g.tags.map((tg) => (
+                          <option key={tg} value={tg}>{t(`event.${tg}`)}</option>
+                        ))}
+                      </optgroup>
+                    ) : (
+                      g.tags.map((tg) => (
+                        <option key={`${gi}-${tg}`} value={tg}>{t(`event.${tg}`)}</option>
+                      ))
+                    ),
+                  )
                 ) : (
-                  g.tags.map((tg) => (
-                    <option key={`${gi}-${tg}`} value={tg}>{t(`event.${tg}`)}</option>
-                  ))
-                ),
-              )}
-            </select>
-          </>
-        )}
+                  <option value={tag}>{label}</option>
+                )}
+                {onRemove && (
+                  <option value={REMOVE_OPTION}>{t("edit.removeEvent")}</option>
+                )}
+              </select>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Column 2: date (row 1), sources (row 2), and — for standard events —
+       * the TYPE sub-tag (row 3). */}
       <ClearableInput
         wrapClassName="edit-event-date-cell"
         className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
         value={dateField.value}
-        placeholder={t("event.date", { event: label })}
+        placeholder={t("event.colDate")}
         title={t("event.date", { event: label })}
         autoFocus={autoFocusDate}
         onChange={dateField.onChange}
         onBlur={() => commitAll({})}
         onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
       />
-      {showValue && (
+      <div className="edit-event-sources-cell">
+        {ev?.sources?.length || sourcesMergeVal?.length ? (
+          <SourceRefs t={t} masterSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
+        ) : null}
+        {links.map((link, i) => (
+          <button
+            key={i}
+            type="button"
+            className="link-icon edit-link-icon"
+            title={link}
+            onClick={() => openEditLink(i)}
+          >
+            🔗
+          </button>
+        ))}
+        <button
+          type="button"
+          className="edit-link-add"
+          title={t("event.addSource", { event: label })}
+          onClick={onAddSource}
+        >
+          + {t("edit.addLink")}
+        </button>
+      </div>
+      {showTypeCell && (
         <ClearableInput
-          wrapClassName="edit-event-value-cell"
-          className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
-          value={titleField.value}
-          placeholder={titleLabel}
-          title={titleLabel}
-          onChange={titleField.onChange}
+          wrapClassName="edit-event-type-cell"
+          className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
+          value={typeField.value}
+          placeholder={t("event.colType")}
+          title={t("event.type", { event: label })}
+          onChange={typeField.onChange}
           onBlur={() => commitAll({})}
-          onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
+          onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
         />
       )}
-      {/* Tab order follows DOM order, not visual position: for title events
-       * Agency sits visually right after the title (see CSS), so it must
-       * also come right after it here, ahead of Place/Address. */}
-      {showValue && agencyInput("edit-event-agency-wrap")}
+
+      {/* Columns 3/4 — three rows (Place/Address, Title-or-Cause/Agency,
+       * Note/(Cause)); each lands on the row `rowOf` assigns so empty rows sink
+       * to the bottom. */}
       <PlaceAutocomplete
         value={placeField.value}
         suggestions={placeSuggestions}
@@ -313,8 +385,9 @@ export function EventFieldsRow({
         isDirty={placeField.isDirty || placeForced}
         isMerge={placeField.isMerge}
         className="edit-input edit-event-place"
-        wrapClassName="edit-event-place-cell"
-        placeholder={t("event.place", { event: label })}
+        wrapClassName="edit-event-c3"
+        wrapStyle={{ gridRow: rowOf("place") }}
+        placeholder={t("event.colPlace")}
         title={t("event.place", { event: label })}
         onChange={placeField.set}
         onCommit={(val) => commitAll({ place: val })}
@@ -327,95 +400,52 @@ export function EventFieldsRow({
         isDirty={addrField.isDirty || addrForced}
         isMerge={addrField.isMerge}
         className="edit-input edit-event-addr"
-        wrapClassName="edit-event-addr-cell"
-        placeholder={t("event.addr", { event: label })}
+        wrapClassName="edit-event-c4"
+        wrapStyle={{ gridRow: rowOf("place") }}
+        placeholder={t("event.colAddr")}
         title={t("event.addr", { event: label })}
         onChange={addrField.set}
         onCommit={(val) => commitAll({ address: val })}
         onClear={() => { addrField.clear(); commitAll({ address: "" }); }}
       />
-      <button
-        type="button"
-        className="edit-event-toggle"
-        aria-expanded={expanded}
-        title={expanded ? t("edit.collapseEvent") : t("edit.expandEvent")}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {expanded ? "▾" : "▸"}
-      </button>
-      {expanded && (
-        <>
-          <div className="edit-event-extra-sources">
-            {ev?.sources?.length || sourcesMergeVal?.length ? (
-              <SourceRefs t={t} masterSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
-            ) : null}
-            {links.map((link, i) => (
-              <button
-                key={i}
-                type="button"
-                className="link-icon edit-link-icon"
-                title={link}
-                onClick={() => openEditLink(i)}
-              >
-                🔗
-              </button>
-            ))}
-            <button
-              type="button"
-              className="edit-link-add"
-              title={t("event.addSource", { event: label })}
-              onClick={onAddSource}
-            >
-              + {t("edit.addLink")}
-            </button>
-          </div>
-          <ClearableTextarea
-            wrapClassName="edit-event-extra-note"
-            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-            value={noteField.value}
-            placeholder={t("event.note", { event: label })}
-            title={t("event.note", { event: label })}
-            rows={1}
-            onChange={noteField.onChange}
-            onBlur={() => commitAll({})}
-            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-          />
-          {!showValue && agencyInput("edit-event-extra-agency")}
-          {/* EVEN shows its TYPE as the heading instead of a hidden extra field. */}
-          {!isEven && (
-            <ClearableInput
-              wrapClassName="edit-event-extra-type"
-              className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
-              value={typeField.value}
-              placeholder={t("event.type", { event: label })}
-              title={t("event.type", { event: label })}
-              onChange={typeField.onChange}
-              onBlur={() => commitAll({})}
-              onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
-            />
-          )}
-          <ClearableInput
-            wrapClassName="edit-event-extra-cause"
-            className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
-            value={causeField.value}
-            placeholder={t("event.cause", { event: label })}
-            title={t("event.cause", { event: label })}
-            onChange={causeField.onChange}
-            onBlur={() => commitAll({})}
-            onClear={() => { causeField.clear(); commitAll({ cause: "" }); }}
-          />
-          {onRemove && (
-            <button
-              type="button"
-              className="edit-event-remove edit-event-extra-remove"
-              title={t("edit.removeEvent")}
-              onClick={onRemove}
-            >
-              ×
-            </button>
-          )}
-        </>
+      {hasTitle && (
+        <ClearableInput
+          wrapClassName="edit-event-c3"
+          wrapStyle={{ gridRow: rowOf("mid") }}
+          className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
+          value={titleField.value}
+          placeholder={t("event.colTitle")}
+          title={titleLabel}
+          onChange={titleField.onChange}
+          onBlur={() => commitAll({})}
+          onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
+        />
       )}
+      {causeInMid && causeInput("edit-event-c3", rowOf("mid"))}
+      <ClearableInput
+        wrapClassName="edit-event-c4"
+        wrapStyle={{ gridRow: rowOf("mid") }}
+        className={fieldCls("edit-input edit-event-agency", agencySlotField.isMerge, agencySlotField.isDirty || agencySlotForced)}
+        value={agencySlotField.value}
+        placeholder={t("event.colAgency")}
+        title={agencySlotLabel}
+        onChange={agencySlotField.onChange}
+        onBlur={() => commitAll({})}
+        onClear={() => { agencySlotField.clear(); commitAll(agencyClearUpdate); }}
+      />
+      <ClearableTextarea
+        wrapClassName="edit-event-c3"
+        wrapStyle={{ gridRow: rowOf("note") }}
+        className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+        value={noteField.value}
+        placeholder={t("event.colNote")}
+        title={t("event.note", { event: label })}
+        rows={1}
+        onChange={noteField.onChange}
+        onBlur={() => commitAll({})}
+        onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+      />
+      {!causeInMid && causeInput("edit-event-c4", rowOf("note"))}
     </div>
   );
 }

@@ -12,6 +12,7 @@ export function PlaceAutocomplete({
   isMerge,
   className,
   wrapClassName,
+  wrapStyle,
   placeholder,
   title,
   onChange,
@@ -25,6 +26,7 @@ export function PlaceAutocomplete({
   isMerge?: boolean;
   className?: string;
   wrapClassName?: string;
+  wrapStyle?: React.CSSProperties;
   placeholder?: string;
   title?: string;
   onChange: (value: string) => void;
@@ -77,7 +79,7 @@ export function PlaceAutocomplete({
   }
 
   return (
-    <div ref={containerRef} className={`place-autocomplete-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} onBlur={handleBlur}>
+    <div ref={containerRef} className={`place-autocomplete-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} style={wrapStyle} onBlur={handleBlur}>
       <ClearableInput
         className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
