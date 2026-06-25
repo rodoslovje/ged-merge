@@ -1,6 +1,10 @@
 import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { linkKey } from "../normalize/links";
+import { isPointer, looksLikeUrl } from "./uri";
+
+// Re-exported: callers across the app import these from the source module.
+export { isPointer, looksLikeUrl };
 
 /**
  * Resolves event-level `SOUR` citations into a displayable, linkable
@@ -47,16 +51,6 @@ export interface SourceContext {
   sourceIndex: SourceIndex;
   objeIndex: ObjeIndex;
   repoIndex: RepoIndex;
-}
-
-export function isPointer(v: string): boolean {
-  return /^@[^@]+@$/.test(v);
-}
-
-/** A `FILE` value can be an absolute URL or a bare local filename ("12345.jpg") —
- * only the former is a usable link. */
-function looksLikeUrl(v: string): boolean {
-  return /^(https?:\/\/|www\.)/i.test(v);
 }
 
 export function childText(node: GedNode, tag: string): string | undefined {
@@ -143,24 +137,33 @@ export function objeNodesFor(records: GedNode[]): Map<string, GedNode> {
   return index;
 }
 
+/**
+ * The displayable content of one `OBJE` node — equally a top-level shared media
+ * record or an inline event-level link. `file` is the raw `FILE` value (URL or
+ * bare local filename); `url` is set only when that value is a usable link.
+ * `childText` reads direct children only, so `DATE` here is the level-1 content
+ * date — never a CHAN/CREA edit timestamp nested a level deeper.
+ */
+export function objeInfoOf(node: GedNode): ObjeInfo {
+  const fileNode = node.children.find((c) => c.tag === "FILE");
+  const file = fileNode?.value?.trim();
+  const url = file && looksLikeUrl(file) ? file : undefined;
+  const title = childText(fileNode ?? node, "TITL") ?? childText(node, "TITL");
+  return {
+    url,
+    file,
+    title,
+    date: childText(node, "DATE"),
+    place: childText(node, "PLAC"),
+    description: childText(node, "_DSCR") ?? childText(node, "NOTE"),
+  };
+}
+
 export function buildObjeIndex(records: GedNode[]): ObjeIndex {
   const map: ObjeIndex = new Map();
   for (const rec of records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;
-    const fileNode = rec.children.find((c) => c.tag === "FILE");
-    const rawFile = fileNode?.value?.trim();
-    const url = rawFile && looksLikeUrl(rawFile) ? rawFile : undefined;
-    const title = childText(fileNode ?? rec, "TITL") ?? childText(rec, "TITL");
-    // childText reads direct children only, so `DATE` here is the level-1
-    // content date — never a CHAN/CREA timestamp nested a level deeper.
-    map.set(rec.xref, {
-      url,
-      file: rawFile,
-      title,
-      date: childText(rec, "DATE"),
-      place: childText(rec, "PLAC"),
-      description: childText(rec, "_DSCR") ?? childText(rec, "NOTE"),
-    });
+    map.set(rec.xref, objeInfoOf(rec));
   }
   return map;
 }

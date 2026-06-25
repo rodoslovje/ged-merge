@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { GedNode } from "../gedcom/types";
-import { isPointer, objeNodesFor } from "../gedcom/source";
+import { isPointer, looksLikeUrl, objeNodesFor } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { collectPhotoRefs, usePhotoViewer, type PhotoItem, type PhotoRefContext } from "./PhotoViewer";
@@ -11,10 +11,6 @@ interface Props {
   /** When set, the viewer's info panel lists the records citing each shared
    *  photo and links into Edit (see {@link PhotoRefContext}). */
   refCtx?: PhotoRefContext;
-}
-
-function looksLikeUrl(v: string): boolean {
-  return /^(https?:\/\/|www\.)/i.test(v);
 }
 
 /** Returns the first local file path from a person's OBJE links, or null. */
@@ -175,6 +171,7 @@ export function TreeNodePhoto({
 export interface MediaGalleryItem {
   file: string;
   title?: string;
+  meta?: PhotoItem["meta"];
   details?: PhotoItem["details"];
 }
 
@@ -187,6 +184,7 @@ export function MediaThumb({
   file,
   icon,
   caption,
+  meta,
   details,
   gallery,
   index = 0,
@@ -195,6 +193,8 @@ export function MediaThumb({
   icon: string;
   /** Caption headline shown beside the enlarged image. */
   caption?: string;
+  /** Descriptive caption rows for the info panel (single-photo open only). */
+  meta?: PhotoItem["meta"];
   /** Record metadata + referencing-records list for the info panel.
    *  Receives a `close` callback so links can dismiss the viewer on navigate. */
   details?: PhotoItem["details"];
@@ -217,11 +217,12 @@ export function MediaThumb({
     return () => { cancelled = true; };
   }, [folderName, file, resolveFile]);
 
-  // Open the full sibling tray (resolving every file) when a gallery is given,
-  // else just this one already-resolved photo. Unresolvable siblings are
-  // dropped, and the start index is shifted to keep this photo active.
+  // Open the full sibling tray (resolving every file) when a gallery is given —
+  // even a one-photo gallery, so its caption/details still show — else just this
+  // one already-resolved photo. Unresolvable siblings are dropped, and the start
+  // index is shifted to keep this photo active.
   const open = async () => {
-    if (gallery && gallery.length > 1) {
+    if (gallery && gallery.length > 0) {
       const resolved = await Promise.all(gallery.map((g) => resolveFile(g.file)));
       const items: PhotoItem[] = [];
       let start = 0;
@@ -229,11 +230,11 @@ export function MediaThumb({
         const u = resolved[i];
         if (!u) continue;
         if (i === index) start = items.length;
-        items.push({ url: u, title: gallery[i].title, details: gallery[i].details });
+        items.push({ url: u, title: gallery[i].title, meta: gallery[i].meta, details: gallery[i].details });
       }
       openItems(items, start);
     } else if (url) {
-      openItems([{ url, title: caption, details }]);
+      openItems([{ url, title: caption, meta, details }]);
     }
   };
 

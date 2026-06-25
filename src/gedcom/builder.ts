@@ -2,6 +2,10 @@ import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace } from "./place";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
+import { isPointer, looksLikeUrl } from "./uri";
+
+// Re-exported so existing importers (merge, normalize) keep their import path.
+export { looksLikeUrl };
 import type {
   ChanCreaUsage,
   Dataset,
@@ -294,14 +298,6 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
   }
   for (const child of node.children) collectLinks(child, media, out);
   return out;
-}
-
-function isPointer(v: string): boolean {
-  return /^@[^@]+@$/.test(v);
-}
-
-export function looksLikeUrl(v: string): boolean {
-  return /^(https?:\/\/|www\.)/i.test(v);
 }
 
 /** Drop trailing punctuation a URL regex may swallow from surrounding prose. */

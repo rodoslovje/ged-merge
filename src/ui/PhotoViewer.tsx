@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { childText, isPointer, objeNodesFor } from "../gedcom/source";
+import { isPointer, objeInfoOf, objeNodesFor } from "../gedcom/source";
 import { mediaUsedBy } from "../tools/sources";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -68,13 +68,24 @@ export function usePhotoViewer() {
 
 // ── Person/record photo collection ─────────────────────────────────────────
 
-function looksLikeUrl(v: string): boolean {
-  return /^(https?:\/\/|www\.)/i.test(v);
-}
-
 function basename(path: string): string {
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   return parts[parts.length - 1] || path;
+}
+
+/** The descriptive caption rows (date depicted, place, description, file) for a
+ *  media object — shared by the person-photo and Sources-tree info panels so
+ *  both render an identical block. Absent fields are omitted; order is fixed. */
+export function mediaMetaRows(
+  info: { file?: string; date?: string; place?: string; description?: string },
+  t: (key: string) => string,
+): PhotoMetaRow[] {
+  const rows: PhotoMetaRow[] = [];
+  if (info.date) rows.push({ label: t("tools.sources.mediaDate"), value: info.date });
+  if (info.place) rows.push({ label: t("tools.sources.mediaPlace"), value: info.place });
+  if (info.description) rows.push({ label: t("tools.sources.mediaDesc"), value: info.description });
+  if (info.file) rows.push({ label: t("tools.sources.mediaFile"), value: info.file });
+  return rows;
 }
 
 /** A local photo linked from a record: its file, title, descriptive content
@@ -94,19 +105,17 @@ export interface PhotoRef {
 }
 
 /** Local file, title, and descriptive content for one OBJE node, or null when
- *  it's a URL/has no file. `childText` reads direct children only, so `DATE`
- *  here is the level-1 content date — never a CHAN/CREA edit timestamp. */
+ *  it's a URL/has no file. Reuses the shared OBJE parser; keeps only nodes whose
+ *  `FILE` is a local filename (a displayable photo), dropping URL-only links. */
 function objePhotoRef(objeNode: GedNode): Omit<PhotoRef, "xref"> | null {
-  const fileNode = objeNode.children.find((c) => c.tag === "FILE");
-  const file = fileNode?.value?.trim();
-  if (!file || looksLikeUrl(file)) return null;
-  const title = childText(fileNode ?? objeNode, "TITL") ?? childText(objeNode, "TITL");
+  const info = objeInfoOf(objeNode);
+  if (!info.file || info.url) return null;
   return {
-    file,
-    title,
-    date: childText(objeNode, "DATE"),
-    place: childText(objeNode, "PLAC"),
-    description: childText(objeNode, "_DSCR") ?? childText(objeNode, "NOTE"),
+    file: info.file,
+    title: info.title,
+    date: info.date,
+    place: info.place,
+    description: info.description,
   };
 }
 
@@ -185,15 +194,10 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
         if (!url) continue;
         const ref = refs[i];
         const { xref } = ref;
-        const meta: PhotoMetaRow[] = [];
-        if (ref.date) meta.push({ label: t("tools.sources.mediaDate"), value: ref.date });
-        if (ref.place) meta.push({ label: t("tools.sources.mediaPlace"), value: ref.place });
-        if (ref.description) meta.push({ label: t("tools.sources.mediaDesc"), value: ref.description });
-        meta.push({ label: t("tools.sources.mediaFile"), value: ref.file });
         items.push({
           url,
           title: ref.title || basename(ref.file),
-          meta,
+          meta: mediaMetaRows(ref, t),
           details:
             refCtx && xref
               ? (close) => (

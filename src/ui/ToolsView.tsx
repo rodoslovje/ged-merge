@@ -16,6 +16,7 @@ import { individualFieldRows } from "../review/fields";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { PersonLink } from "./PersonLink";
 import { MediaThumb, type MediaGalleryItem } from "./PersonPhotos";
+import { mediaMetaRows } from "./PhotoViewer";
 
 type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
@@ -434,9 +435,10 @@ function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: Sour
   );
 }
 
-/** Lightbox side panel for a media object: its record id/filename plus every
- *  person/family record that references the image. `onNavigate` closes the
- *  lightbox before jumping to the record in Edit mode. */
+/** Lightbox side panel for a media object: the person/family records that
+ *  reference the image (the descriptive caption rows are supplied separately as
+ *  the photo's `meta`). `onNavigate` closes the lightbox before jumping to the
+ *  record in Edit mode. */
 function MediaDetails({
   dataset,
   media,
@@ -449,34 +451,6 @@ function MediaDetails({
   const { t } = useTranslation();
   return (
     <>
-      {(media.file || media.date || media.place || media.description) && (
-        <dl className="media-lightbox-meta">
-          {media.date && (
-            <div>
-              <dt>{t("tools.sources.mediaDate")}</dt>
-              <dd>{media.date}</dd>
-            </div>
-          )}
-          {media.place && (
-            <div>
-              <dt>{t("tools.sources.mediaPlace")}</dt>
-              <dd>{media.place}</dd>
-            </div>
-          )}
-          {media.description && (
-            <div>
-              <dt>{t("tools.sources.mediaDesc")}</dt>
-              <dd>{media.description}</dd>
-            </div>
-          )}
-          {media.file && (
-            <div>
-              <dt>{t("tools.sources.mediaFile")}</dt>
-              <dd>{media.file}</dd>
-            </div>
-          )}
-        </dl>
-      )}
       <div className="media-lightbox-uses-head">
         {t("tools.sources.referencedBy", { count: media.usedBy.length })}
       </div>
@@ -659,9 +633,10 @@ function SourcesPanel({
   // tray position.
   const mediaGallery = (group: MediaEntry[]): { photos: MediaEntry[]; items: MediaGalleryItem[] } => {
     const photos = group.filter((m) => !m.url && m.file);
-    const items = photos.map((m) => ({
+    const items: MediaGalleryItem[] = photos.map((m) => ({
       file: m.file!,
       title: m.title || m.xref,
+      meta: mediaMetaRows(m, t),
       details: (close: () => void) => (
         <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
       ),
