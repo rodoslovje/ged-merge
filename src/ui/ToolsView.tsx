@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
@@ -7,6 +7,8 @@ import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
 import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
+import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../tools/placeEdit";
+import { collectNodeUseIds } from "../tools/places";
 import { countryCode } from "../gedcom/countryCode";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
@@ -31,6 +33,8 @@ interface Props {
   onNavigate: (id: string) => void;
   /** True when the Tools tab is the visible mode. */
   active: boolean;
+  /** Rename a place segment in the given records and push to the undo stack. */
+  onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
 }
 
 type AsyncState<T> =
@@ -43,7 +47,7 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-export function ToolsView({ dataset, fileName, onNavigate, active }: Props) {
+export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
 
@@ -81,7 +85,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active }: Props) {
           <SourcesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} />
         )}
       </div>
     </div>
@@ -735,10 +739,12 @@ function PlacesPanel({
   dataset,
   onNavigate,
   active,
+  onApplyPlaceRename,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
+  onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);
@@ -790,6 +796,44 @@ function PlacesPanel({
       .filter((n): n is PlaceNode => n !== null);
   }, [tree, filtering, q]);
 
+  // All distinct segments for rename autocomplete — recomputed whenever the tree rebuilds.
+  const allSegments = useMemo(() => tree ? collectPlaceSegments(dataset) : [], [tree, dataset]);
+
+  function handleRename(from: string, to: string, scope: Set<string>) {
+    // Capture the path of `from` in the current tree before rebuild so we can
+    // derive the correct destination path (avoids opening the wrong "Wayne" in
+    // a different state when multiple nodes share the target name).
+    let fromPath: string | null = null;
+    if (tree) {
+      const findFrom = (node: PlaceNode, path: string): boolean => {
+        if (node.name === from) { fromPath = path; return true; }
+        for (const child of node.children) {
+          if (findFrom(child, `${path}/${child.name}`)) return true;
+        }
+        return false;
+      };
+      for (const root of tree.roots) { if (findFrom(root, root.name)) break; }
+    }
+
+    onApplyPlaceRename(from, to, scope);
+    const newTree = buildPlaceTree(dataset);
+    setTree(newTree);
+
+    // Build the expected path: substitute `to` for `from`, or remove the segment when deleting.
+    const expectedPath = fromPath
+      ? to
+        ? (fromPath as string).split("/").map(s => s === from ? to : s).join("/")
+        : (fromPath as string).split("/").filter(s => s !== from).join("/")
+      : null;
+
+    const toOpen = new Set<string>();
+    if (expectedPath) {
+      const parts = expectedPath.split("/");
+      for (let i = 1; i <= parts.length; i++) toOpen.add(parts.slice(0, i).join("/"));
+    }
+    setOpen(toOpen);
+  }
+
   if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
 
   return (
@@ -813,6 +857,8 @@ function PlacesPanel({
               isOpen={isOpen}
               toggle={togglePlace}
               onNavigate={onNavigate}
+              onRename={handleRename}
+              allSegments={allSegments}
             />
           ))}
         </ul>
@@ -829,6 +875,8 @@ function PlaceTreeRow({
   isOpen,
   toggle,
   onNavigate,
+  onRename,
+  allSegments,
 }: {
   dataset: Dataset;
   node: PlaceNode;
@@ -837,9 +885,19 @@ function PlaceTreeRow({
   isOpen: (key: string) => boolean;
   toggle: (node: PlaceNode, path: string) => void;
   onNavigate: (id: string) => void;
+  onRename: (from: string, to: string, scope: Set<string>) => void;
+  allSegments: string[];
 }) {
   const { t } = useTranslation();
+  const uid = useId();
+  const [editing, setEditing] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const debouncedRename = useDebounced(renameValue, 250);
+
+  const nodeScope = useMemo(() => collectNodeUseIds(node), [node]);
+
   const hasChildren = node.children.length > 0 || node.uses.length > 0;
+  const open = isOpen(path);
   const isSynthetic = node.name === UNSPECIFIED || node.name === UNSPECIFIED_PLACE;
   const name =
     node.name === UNSPECIFIED
@@ -849,33 +907,128 @@ function PlaceTreeRow({
         : node.name;
   const code = depth === 0 && !isSynthetic ? countryCode(node.name) : undefined;
   const flag = code ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join("") : undefined;
-  const label = flag
-    ? <>{flag} {name}</>
-    : name;
+  const labelNode = flag ? <>{flag} {name}</> : name;
+
+  // Compute rename preview whenever the value differs from the current name.
+  const preview = useMemo((): PlaceRenamePreview | null => {
+    const target = debouncedRename.trim();
+    if (!editing || target === node.name) return null;
+    return previewPlaceRename(dataset, node.name, target, nodeScope);
+  }, [editing, debouncedRename, node.name, dataset, nodeScope]);
+
+  function openEdit() {
+    setRenameValue(node.name);
+    setEditing(true);
+  }
+
+  function handleApply() {
+    const target = renameValue.trim();
+    if (target === node.name) return;
+    onRename(node.name, target, nodeScope);
+    setEditing(false);
+    setRenameValue("");
+  }
+
+  const datalistId = `place-segs-${uid}`;
+  const targetTrimmed = renameValue.trim();
+  const applyDisabled = targetTrimmed === node.name;
+  // Show "Delete" when target is cleared; "Merge" when it already exists.
+  const isDelete = !applyDisabled && targetTrimmed === "";
+  const isMerge = !applyDisabled && !isDelete && allSegments.includes(targetTrimmed);
+
   return (
-    <TreeRow
-      open={isOpen(path)}
-      onToggle={() => toggle(node, path)}
-      hasChildren={hasChildren}
-      count={node.count}
-      label={label}
-    >
-      <ul className="tools-tree">
-        {node.children.map((child) => (
-          <PlaceTreeRow
-            key={child.name}
-            dataset={dataset}
-            node={child}
-            path={`${path}/${child.name}`}
-            depth={depth + 1}
-            isOpen={isOpen}
-            toggle={toggle}
-            onNavigate={onNavigate}
+    <li className={node.isAddress ? "tools-tree-node tools-tree-addr" : "tools-tree-node"}>
+      <div className="tools-tree-row">
+        {hasChildren ? (
+          <button
+            className={`tools-pair-toggle ${open ? "open" : ""}`}
+            onClick={() => toggle(node, path)}
+            aria-expanded={open}
+          >
+            ▶
+          </button>
+        ) : (
+          <span className="tools-tree-bullet">·</span>
+        )}
+        <span className="tools-tree-label">{labelNode}</span>
+        <span className="tools-chip-count">{node.count}</span>
+        {!isSynthetic && !editing && (
+          <button
+            className="tools-place-edit-btn"
+            onClick={openEdit}
+            title={t("tools.places.rename.open")}
+          >
+            ✏
+          </button>
+        )}
+        {editing && (
+          <button
+            className="tools-place-edit-btn tools-place-edit-cancel"
+            onClick={() => setEditing(false)}
+            title={t("tools.places.rename.cancel")}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <div className="tools-place-rename">
+          <datalist id={datalistId}>
+            {allSegments.map((s) => <option key={s} value={s} />)}
+          </datalist>
+          <input
+            type="text"
+            className="tools-place-rename-input"
+            value={renameValue}
+            list={datalistId}
+            autoFocus
+            placeholder={t("tools.places.rename.placeholder")}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !applyDisabled) handleApply();
+              if (e.key === "Escape") setEditing(false);
+            }}
           />
-        ))}
-      </ul>
-      <UsageList dataset={dataset} uses={node.uses} onNavigate={onNavigate} />
-    </TreeRow>
+          {preview && (
+            <span className="tools-place-rename-hint">
+              {preview.affectedCount > 0
+                ? t("tools.places.rename.count", { count: preview.affectedCount })
+                : t("tools.places.rename.noMatch")}
+            </span>
+          )}
+          <button
+            className="nav-btn primary tools-place-rename-apply"
+            onClick={handleApply}
+            disabled={applyDisabled}
+          >
+            {isDelete ? t("tools.places.rename.delete") : isMerge ? t("tools.places.rename.merge") : t("tools.places.rename.apply")}
+          </button>
+        </div>
+      )}
+
+      {open && hasChildren && (
+        <div className="tools-tree-children">
+          <ul className="tools-tree">
+            {node.children.map((child) => (
+              <PlaceTreeRow
+                key={child.name}
+                dataset={dataset}
+                node={child}
+                path={`${path}/${child.name}`}
+                depth={depth + 1}
+                isOpen={isOpen}
+                toggle={toggle}
+                onNavigate={onNavigate}
+                onRename={onRename}
+                allSegments={allSegments}
+              />
+            ))}
+          </ul>
+          <UsageList dataset={dataset} uses={node.uses} onNavigate={onNavigate} />
+        </div>
+      )}
+    </li>
   );
 }
 

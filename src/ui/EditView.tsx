@@ -58,6 +58,7 @@ import { FamilyEventRow } from "./edit/FamilyEventRow";
 import { AddEventSelect } from "./edit/AddEventSelect";
 import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface Props {
   dataset: Dataset;
@@ -136,6 +137,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // Tracks which individual-event row should auto-focus its date field on mount.
   const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
   useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void } | null>(null);
 
   // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
 
@@ -993,59 +995,74 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }
 
   function handleDetachSpouseRole(fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) {
-    if (!window.confirm(confirmMsg)) return;
-    const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
-    detachSpouseRole(dataset, fam, role);
-    const patches = patchesFromSnapshots(dataset, before);
-    if (patches.length === 0) return;
-    onPushEdit(patches);
-    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
-    setTick((v) => v + 1);
+    setPendingConfirm({
+      message: confirmMsg,
+      confirmLabel: t("confirm.remove"),
+      action: () => {
+        const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
+        detachSpouseRole(dataset, fam, role);
+        const patches = patchesFromSnapshots(dataset, before);
+        if (patches.length === 0) return;
+        onPushEdit(patches);
+        for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        setTick((v) => v + 1);
+      },
+    });
   }
 
   function handleDetachChild(fam: Family, childId: string, confirmMsg: string) {
-    if (!window.confirm(confirmMsg)) return;
-    const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
-    detachChildFromFamily(dataset, fam, childId);
-    const patches = patchesFromSnapshots(dataset, before);
-    if (patches.length === 0) return;
-    onPushEdit(patches);
-    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
-    setTick((v) => v + 1);
+    setPendingConfirm({
+      message: confirmMsg,
+      confirmLabel: t("confirm.remove"),
+      action: () => {
+        const before = snapshotRecords(dataset, familyMemberIds(fam), [fam.id]);
+        detachChildFromFamily(dataset, fam, childId);
+        const patches = patchesFromSnapshots(dataset, before);
+        if (patches.length === 0) return;
+        onPushEdit(patches);
+        for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        setTick((v) => v + 1);
+      },
+    });
   }
 
   function handleDeletePerson() {
     if (!person) return;
     const name = primaryName(person)?.full ?? person.id;
-    if (!window.confirm(t("edit.deletePersonConfirm", { name }))) return;
-    const personId = person.id;
-    const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
+    setPendingConfirm({
+      message: t("edit.deletePersonConfirm", { name }),
+      confirmLabel: t("confirm.delete"),
+      action: () => {
+        const personId = person.id;
+        const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
 
-    // Snapshot the person, their families, and all members of those families:
-    // a family pruned for dropping below two members unlinks its survivors too.
-    const memberIds = new Set<string>([personId]);
-    for (const famId of affectedFamilyIds) {
-      const fam = dataset.families.get(famId);
-      if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
-    }
-    const before = snapshotRecords(dataset, memberIds, affectedFamilyIds);
+        // Snapshot the person, their families, and all members of those families:
+        // a family pruned for dropping below two members unlinks its survivors too.
+        const memberIds = new Set<string>([personId]);
+        for (const famId of affectedFamilyIds) {
+          const fam = dataset.families.get(famId);
+          if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
+        }
+        const before = snapshotRecords(dataset, memberIds, affectedFamilyIds);
 
-    removeIndividual(dataset, person);
+        removeIndividual(dataset, person);
 
-    const patches = patchesFromSnapshots(dataset, before);
+        const patches = patchesFromSnapshots(dataset, before);
 
-    const nextId =
-      history.filter((id) => id !== personId).pop() ??
-      dataset.individuals.keys().next().value;
+        const nextId =
+          history.filter((id) => id !== personId).pop() ??
+          dataset.individuals.keys().next().value;
 
-    onPushEdit(patches, personId, nextId);
+        onPushEdit(patches, personId, nextId);
 
-    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
-    setHistory((prev) => prev.filter((id) => id !== personId));
-    setNotesAdded(false);
-    setSelectedId(nextId);
-    if (personId === homeId) changeHome(nextId);
-    setTick((v) => v + 1);
+        for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        setHistory((prev) => prev.filter((id) => id !== personId));
+        setNotesAdded(false);
+        setSelectedId(nextId);
+        if (personId === homeId) changeHome(nextId);
+        setTick((v) => v + 1);
+      },
+    });
   }
 
   // These two hooks must run unconditionally (Rules of Hooks) — they're
@@ -1489,6 +1506,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         t={t}
         editing={editingSourceDialogProps()}
       />
+      {pendingConfirm && (
+        <ConfirmDialog
+          message={pendingConfirm.message}
+          confirmLabel={pendingConfirm.confirmLabel}
+          onConfirm={() => { pendingConfirm.action(); setPendingConfirm(null); }}
+          onCancel={() => setPendingConfirm(null)}
+        />
+      )}
     </div>
   );
 }

@@ -148,6 +148,23 @@ function diffEventSet(
       diffs.push(diffEventOccurrence(id, beforeFields[bi], afterFields[ai], fieldLabel));
     }
 
+    // Secondary pass: pair place/addr-only events where all other sub-fields
+    // agree (including both empty). eventOverlapScore requires a truthy match,
+    // so place-only events score 0 and miss the first pass — but they are
+    // clearly the same event with an edited location, not a remove+add pair.
+    const nonPlaceKeys = EVENT_FIELD_KEYS.filter(k => k !== "place" && k !== "addr") as (keyof EventFields)[];
+    for (let bi = 0; bi < beforeFields.length; bi++) {
+      if (usedB.has(bi)) continue;
+      for (let ai = 0; ai < afterFields.length; ai++) {
+        if (usedA.has(ai)) continue;
+        if (nonPlaceKeys.every(k => beforeFields[bi][k] === afterFields[ai][k])) {
+          usedB.add(bi); usedA.add(ai);
+          diffs.push(diffEventOccurrence(id, beforeFields[bi], afterFields[ai], fieldLabel));
+          break;
+        }
+      }
+    }
+
     // Whatever's still unmatched is a genuine removal or a genuine new event.
     for (let bi = 0; bi < beforeFields.length; bi++) {
       if (usedB.has(bi)) continue;

@@ -10,25 +10,60 @@
     <title>User's Guide — GED Merge | GEDCOM compare &amp; merge</title>
     <meta
       name="description"
-      content="How to compare, edit, and merge GEDCOM files in GED Merge: matching &amp; scoring, reviewing differences, resolving conflicts, and editing names, events, and family relationships — all in your browser."
+      content="Complete guide to GED Merge: Edit GEDCOM records inline, compare two files side-by-side and merge field by field, find duplicates, run a health check, normalize places and dates, and browse sources."
     />
     <link rel="canonical" href="https://gedmerge.com/guide/" />
-    <meta property="og:type" content="website" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
     <meta property="og:title" content="User's Guide — GED Merge" />
     <meta
       property="og:description"
-      content="How to compare, edit, and merge GEDCOM files in GED Merge — entirely in your browser."
+      content="How to edit, compare, merge, and maintain GEDCOM files in GED Merge — entirely in your browser."
     />
     <meta property="og:url" content="https://gedmerge.com/guide/" />
+    <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:site_name" content="GED Merge" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="User's Guide — GED Merge" />
+    <meta name="twitter:description" content="How to edit, compare, merge, and maintain GEDCOM files in GED Merge — entirely in your browser." />
+    <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
+
+    <!-- Structured data -->
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "TechArticle",
-        "headline": "GED Merge User's Guide",
-        "description": "How to compare, edit, and merge GEDCOM files in GED Merge.",
-        "url": "https://gedmerge.com/guide/",
-        "isPartOf": { "@type": "WebSite", "name": "GED Merge", "url": "https://gedmerge.com/" }
-      }
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "GED Merge User's Guide",
+      "description": "Complete guide to GED Merge: edit GEDCOM records, compare two files side-by-side, merge field by field, find duplicates, run a health check, normalize places and dates, and browse sources.",
+      "url": "https://gedmerge.com/guide/",
+      "isPartOf": { "@type": "WebSite", "name": "GED Merge", "url": "https://gedmerge.com/" },
+      "articleSection": ["Edit", "Merge", "Tools", "Main Concepts", "Privacy"],
+      "hasPart": [
+        {
+          "@type": "WebPageElement",
+          "name": "Edit — Editing Your Master GEDCOM",
+          "url": "https://gedmerge.com/guide/#edit",
+          "description": "Browse and edit individuals, families, events, and relationships inline without needing a second file."
+        },
+        {
+          "@type": "WebPageElement",
+          "name": "Merge — Compare &amp; Merge Workflow",
+          "url": "https://gedmerge.com/guide/#merge",
+          "description": "Load a second GEDCOM or CSV, review side-by-side differences, resolve conflicts field by field, and download a merged file."
+        },
+        {
+          "@type": "WebPageElement",
+          "name": "Tools — Maintenance Tools",
+          "url": "https://gedmerge.com/guide/#tools",
+          "description": "Run a health check, find within-file duplicates, normalize dates and places, and browse sources and places across the whole file."
+        }
+      ]
+    }
     </script>
     <script>
       // Set the theme before first paint to avoid a flash: saved choice, else
@@ -52,28 +87,41 @@
         <h1>GED Merge User's Guide</h1>
         <p>
           GED Merge compares, edits, and merges GEDCOM family tree files entirely in your browser — nothing is
-          uploaded. This guide covers the main concepts, the full editing workflow, and how merging works.
+          uploaded. This guide covers the four main modes: <strong>Edit</strong>, <strong>Merge</strong>,
+          <strong>Tools</strong>, and the underlying concepts.
         </p>
       </header>
 
+      <nav class="guide-toc" aria-label="Contents">
+        <ol>
+          <li><a href="#concepts">Main Concepts</a></li>
+          <li><a href="#edit">Edit — Editing Your Master GEDCOM</a></li>
+          <li><a href="#workflow">Merge — Compare &amp; Merge Workflow</a></li>
+          <li><a href="#tools">Tools — Maintenance Tools</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+        </ol>
+      </nav>
+
       <article class="guide-body">
-        <section>
+        <section id="concepts">
           <h2>Main Concepts</h2>
           <h3>Master &amp; Incoming</h3>
           <p>
             The <strong>Master</strong> file is your primary family tree. The <strong>Incoming</strong> file is the
-            tree you want to compare and merge into the Master.
+            tree you want to compare and merge into the Master — a second GEDCOM file, or a matches CSV exported from
+            indeks.rodoslovje.si.
           </p>
           <h3>Matching &amp; Scoring</h3>
           <p>
             The app automatically compares individuals and families between the two files. It calculates a
-            <strong>match score (0-100%)</strong> based on similarities in names, dates, places, and relationships.
-            The incoming file can be a second GEDCOM, or a matches CSV exported from indeks.rodoslovje.si.
+            <strong>match score (0–100%)</strong> based on similarities in names, dates, places, and relationships.
+            Kinship distance from a chosen home person is used to rank candidates so your closest relatives surface
+            first.
           </p>
         </section>
 
-        <section>
-          <h2>Editing Your Master GEDCOM</h2>
+        <section id="edit">
+          <h2>Edit — Editing Your Master GEDCOM</h2>
           <h3>Overview</h3>
           <p>
             Switch to <strong>Edit</strong> mode to browse and directly modify your Master GEDCOM without needing a
@@ -87,8 +135,8 @@
           <p>
             Given name, surname, sex, and nickname are all editable inline — click a field, type, then click away to
             save. Use the <strong>&times;</strong> button to clear a field. Click <strong>+ Add Name</strong> to
-            attach alternative name variants (married, maiden, aka, formal, and more); each variant has its own
-            given name, surname, and type selector. Remove a variant with the <strong>&minus;</strong> button.
+            attach alternative name variants (married, name at birth, aka, formal, and more); each variant has its
+            own given name, surname, and type selector. Remove a variant with the <strong>&minus;</strong> button.
           </p>
           <h3>Events</h3>
           <div>
@@ -132,12 +180,12 @@
               </li>
             </ul>
           </div>
-          <h3>Notes &amp; Links</h3>
+          <h3>Notes &amp; Sources</h3>
           <p>
             Both individuals and families can carry free-text <strong>notes</strong> and <strong>URL links</strong>.
-            Click <strong>+ Add Note</strong> or <strong>+ Add Link</strong> to reveal the input fields. Once a link
-            is entered, an <strong>&#8599;</strong> icon opens it in a new tab. Click <strong>&times;</strong> to
-            remove any note or link.
+            Click <strong>+ Add Note</strong> or <strong>+ Add Source</strong> to reveal the input fields. Once a
+            link is entered, an <strong>&#8599;</strong> icon opens it in a new tab. Click <strong>&times;</strong>
+            to remove any note or link.
           </p>
           <h3>Removing Records</h3>
           <p>
@@ -157,11 +205,12 @@
           </p>
         </section>
 
-        <section>
-          <h2>Features &amp; Workflow</h2>
+        <section id="workflow">
+          <h2>Merge — Compare &amp; Merge Workflow</h2>
           <h3>Reviewing Differences</h3>
           <p>
-            Select a match from the list to see a side-by-side comparison of their data. Only fields with
+            Load a second GEDCOM (or a matches CSV from indeks.rodoslovje.si) as the Incoming file. Select a match
+            from the list to see a side-by-side comparison of their data. Only fields with
             <strong>new data</strong> or <strong>conflicts</strong> are highlighted.
           </p>
           <h3>Compare Tree</h3>
@@ -180,10 +229,7 @@
             Use the decision buttons or keyboard shortcuts to categorize each match as
             <strong>Confirmed (C)</strong>, <strong>Rejected (R)</strong>, or <strong>Deferred (D)</strong>.
           </p>
-        </section>
-
-        <section>
-          <h2>How Merging Works</h2>
+          <h3>How Merging Works</h3>
           <p>
             When you click <strong>Save GEDCOM</strong>, the app opens a preview of all confirmed matches and edits.
             Click <strong>Download GEDCOM</strong> there to apply your field-level choices to a copy of the Master
@@ -196,7 +242,48 @@
           </p>
         </section>
 
-        <section>
+        <section id="tools">
+          <h2>Tools — Maintenance Tools</h2>
+          <p>
+            The <strong>Tools</strong> tab runs whole-file checks and clean-ups on your Master GEDCOM. All five
+            tools work entirely in your browser — no data is sent to a server.
+          </p>
+          <h3>Health Check</h3>
+          <p>
+            Scans every individual and family for common data problems: missing names or sex, no vital dates, broken
+            internal links, future-dated events, death before birth, and disconnected records not linked to any
+            family. Issues are grouped by category so you can navigate and fix them one by one in Edit mode.
+          </p>
+          <h3>Find Duplicates</h3>
+          <p>
+            Compares every person in the file against every other person using the same scoring engine as the Merge
+            mode. Likely duplicate pairs are listed with their similarity score. Click a name to open it in Edit, or
+            expand a pair to see a side-by-side field comparison before deciding whether to merge or dismiss.
+          </p>
+          <h3>Normalize</h3>
+          <p>
+            Detects the dominant date format, place layout, and link style in your file, then re-renders every
+            record that deviates from it. Typical corrections include reformatting dates (e.g.
+            <em>1 Jan 1900</em> → <em>01.01.1900</em>), reshaping structured place fields, and rewriting Matricula
+            or Geneanet links to a consistent form. A preview lists examples of each change; the original file is
+            untouched until you download the normalized copy.
+          </p>
+          <h3>Sources</h3>
+          <p>
+            Displays all repositories, source records, and media objects in the file, grouped by repository.
+            Clicking a source or media entry shows which individuals and families cite it, with direct links to open
+            each record in Edit. Unattached media and links with no associated source are listed separately.
+          </p>
+          <h3>Places</h3>
+          <p>
+            Lists every place name used in the file, arranged in a country → locality → house → address hierarchy.
+            Each place shows how many records use it. Click a place to see which records refer to it and open them
+            in Edit. Use the <strong>Rename</strong> action on any level to bulk-rename or merge a place segment
+            across every record that mentions it — useful for standardizing spelling variations.
+          </p>
+        </section>
+
+        <section id="privacy">
           <h2>Privacy</h2>
           <p>
             All parsing, matching, merging, and editing happens locally in your browser via Web Workers. Your family

@@ -74,7 +74,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
         </button>
         {onRemove && (
           <button type="button" className="person-card-detach" title={removeTooltip} onClick={onRemove}>
-            ×
+            &minus;
           </button>
         )}
       </div>

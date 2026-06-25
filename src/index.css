@@ -2894,6 +2894,47 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .modal-body strong { color: var(--text); font-weight: 600; }
 
 /* --- Add Source dialog --- */
+/* --- Confirm dialog (small, no scroll) --- */
+.confirm-dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.confirm-dialog-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.confirm-dialog-body {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-dialog-confirm {
+  background: transparent;
+  border: 1px solid var(--danger, #e74c3c);
+  border-radius: 8px;
+  color: var(--danger, #e74c3c);
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.confirm-dialog-confirm:hover {
+  background: color-mix(in oklch, var(--danger, #e74c3c) 12%, transparent);
+}
+
 .add-source-dialog { width: 520px; max-width: 90vw; }
 .add-source-textarea {
   width: 100%;
@@ -3483,9 +3524,48 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tree-row { display: flex; gap: 8px; align-items: center; min-height: 24px; }
 .tools-tree-bullet { flex: none; width: 18px; text-align: center; color: var(--muted); }
 .tools-tree-label { color: var(--text); }
+.tools-tree-addr > .tools-tree-row > .tools-tree-label { color: var(--muted); font-style: italic; }
 .tools-tree-meta { color: var(--muted); font-size: 0.9em; }
 .tools-tree-link { color: var(--muted); text-decoration: none; }
 .tools-tree-link:hover { color: var(--accent); }
+.tools-place-edit-btn {
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.8em;
+  line-height: 1;
+}
+.tools-tree-row:hover .tools-place-edit-btn,
+.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; }
+.tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
+.tools-place-edit-cancel { opacity: 1 !important; }
+.tools-place-rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 5px 0 5px 26px;
+}
+.tools-place-rename-input {
+  flex: 1;
+  min-width: 140px;
+  max-width: 300px;
+  font-size: 0.875rem;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+}
+.tools-place-rename-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
 .tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; }
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }

@@ -26,6 +26,7 @@ import { LegalModal } from "./ui/LegalModal";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
+import { applyPlaceRename } from "./tools/placeEdit";
 import { SaveDialog } from "./ui/SaveDialog";
 import { EditTree } from "./ui/EditTree";
 import { Landing } from "./ui/Landing";
@@ -146,6 +147,11 @@ export function App() {
   // ── Edit-mode dirty tracking (changed ids, pre-edit snapshots) ─────────────
   const dirty = useDirtyTracking();
   const { changedPersonIds, changedFamilyIds } = dirty;
+  // Subset of changedPersonIds: individuals touched by structural edits (date/tag
+  // changes via the edit UI) that may need chronological re-sorting on save.
+  // Place renames mutate only PLAC values in-place and do NOT add here, so a bulk
+  // rename can't silently reorder events that were in a non-canonical position.
+  const sortEligiblePersonIdsRef = useRef(new Set<string>());
   // Queued edit-patch apply: consumed by EditView once it is mounted.
   const [pendingEditApply, setPendingEditApply] = useState<PendingEditApply | null>(null);
 
@@ -397,6 +403,7 @@ export function App() {
     if (role === "master") {
       undoRedo.clearAll();
       dirty.prepareForLoad();
+      sortEligiblePersonIdsRef.current = new Set();
       setEditTreeId(null);
       setHomeId(undefined); // home person is opt-in; reset on (re)load
       setFocusHome(false);
@@ -424,6 +431,7 @@ export function App() {
   useEffect(() => {
     if (master.status !== "loaded") return;
     dirty.resetOnLoad(master.file.dataset);
+    sortEligiblePersonIdsRef.current = new Set();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [master.status]);
 
@@ -868,8 +876,11 @@ export function App() {
     // Ensure canonical event order (BIRT → lifespan → DEAT/BURI) for all
     // edited records. Merge-only targets are already sorted inside mergeDecisions;
     // edited records that had no confirmed merge decision are not, so sort them here.
+    // Only sort individuals that went through structural edits (date/tag changes via
+    // the edit UI) — bulk operations like place rename mutate values in-place and
+    // must not silently reorder events that were already in a non-canonical position.
     for (const r of records) {
-      if (r.tag === "INDI" && r.xref && changedPersonIds.has(r.xref)) sortEventsByDate(r);
+      if (r.tag === "INDI" && r.xref && changedPersonIds.has(r.xref) && sortEligiblePersonIdsRef.current.has(r.xref)) sortEventsByDate(r);
     }
 
     setPreview({
@@ -888,6 +899,7 @@ export function App() {
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!masterDataset) return;
     dirty.markDirty(type, id, masterDataset);
+    if (type === "individual") sortEligiblePersonIdsRef.current.add(id);
   }
 
   function handleConfirmSave() {
@@ -934,6 +946,7 @@ export function App() {
     });
     Object.assign(masterDataset, rebuilt);
     dirty.resetOnSave(masterDataset);
+    sortEligiblePersonIdsRef.current = new Set();
 
     // These confirmed decisions are now baked into the live dataset — clear them
     // so the pending-changes count doesn't still include them. Always replace the
@@ -1316,6 +1329,16 @@ export function App() {
                 setMode("edit");
               }}
               active={mode === "tools"}
+              onApplyPlaceRename={(from, to, scope) => {
+                if (!masterDataset) return;
+                const patches = applyPlaceRename(masterDataset, from, to, scope);
+                if (patches.length > 0) {
+                  handlePushEdit(patches);
+                  for (const p of patches) {
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  }
+                }
+              }}
             />
           </div>
         </>

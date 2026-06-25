@@ -30,6 +30,31 @@
   margin: 0 0 40px;
 }
 
+.guide-toc {
+  margin: 0 0 40px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.guide-toc ol {
+  margin: 0;
+  padding-left: 20px;
+  list-style: decimal;
+}
+.guide-toc li {
+  margin: 4px 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.guide-toc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.guide-toc a:hover {
+  text-decoration: underline;
+}
+
 .guide-body h2 {
   font-size: 1.5rem;
   margin: 40px 0 16px;
