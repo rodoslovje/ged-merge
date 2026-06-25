@@ -768,8 +768,8 @@ function SourcesPanel({
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
-  // While filtering, every surviving branch is forced open so matches are visible.
-  const isOpen = (key: string) => filtering || open.has(key);
+  // Filtering narrows the tree but leaves branches collapsed — the user expands matches.
+  const isOpen = (key: string) => open.has(key);
 
   const filtered = useMemo(() => {
     if (!tree) return null;
@@ -960,8 +960,8 @@ function PlacesPanel({
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
-  // While filtering, every surviving branch is forced open so matches are visible.
-  const isOpen = (key: string) => filtering || open.has(key);
+  // Filtering narrows the tree but leaves branches collapsed — the user expands matches.
+  const isOpen = (key: string) => open.has(key);
 
   const roots = useMemo(() => {
     if (!tree) return [];
