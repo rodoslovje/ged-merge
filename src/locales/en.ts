@@ -160,7 +160,7 @@ export const en = {
   "nav.pos": "{{current}} of {{total}}",
   "loader.load": "Load File...",
   "loader.dropMaster": "Drop your master .ged file here",
-  "loader.dropIncoming": "Drop your incoming .ged or matches .csv file here",
+  "loader.dropIncoming": "Drop your incoming .ged or .csv file here",
   "loader.dropBrowse": "or click to browse",
   "loader.dropReplace": "Drop or click to replace this file",
   "loader.empty": "No file loaded.",
