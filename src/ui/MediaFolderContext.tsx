@@ -196,7 +196,20 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
 
   const openFolder = useCallback(async () => {
     if ("showDirectoryPicker" in window) {
-      // Chrome / Edge path
+      // Chrome / Edge / Brave path. Brave shows the same misleading "upload"
+      // warning as Firefox before the picker, so reassure there first.
+      // Chrome/Edge's native "View files" dialog is unambiguous, so skip it.
+      const brave = (
+        navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
+      ).brave;
+      if (brave?.isBrave && (await brave.isBrave())) {
+        const ok = await askDialog(
+          t("loader.mediaFolder.firefoxWarning"),
+          t("confirm.ok"),
+          t("confirm.cancel"),
+        );
+        if (!ok) return;
+      }
       try {
         const dir = await (
           window as unknown as { showDirectoryPicker(): Promise<FileSystemDirectoryHandle> }
