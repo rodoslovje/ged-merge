@@ -37,6 +37,9 @@ interface Props {
   active: boolean;
   /** Rename a place segment in the given records and push to the undo stack. */
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
+  /** Remove all broken family pointers and push to the undo stack. Returns the
+   *  number of records changed, so the panel can re-validate and report. */
+  onFixBrokenLinks: () => number;
 }
 
 type AsyncState<T> =
@@ -49,7 +52,7 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename }: Props) {
+export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
 
@@ -75,7 +78,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
       </div>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} />
+          <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} />
@@ -110,19 +113,32 @@ function ValidatePanel({
   dataset,
   onNavigate,
   active,
+  onFixBrokenLinks,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
+  onFixBrokenLinks: () => number;
 }) {
   const { t } = useTranslation();
   // Only compute once the tab is actually shown, then memoize per dataset.
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [filter, setFilter] = useState<IssueCategory | "all">("all");
+  // Transient confirmation after a one-button fix: how many records were repaired.
+  const [fixedCount, setFixedCount] = useState<number | null>(null);
+
+  function handleFixLinks() {
+    const changed = onFixBrokenLinks();
+    setFixedCount(changed);
+    // App mutated the live dataset in place — re-validate to refresh the list.
+    setReport(validateDataset(dataset));
+    setFilter("all");
+  }
 
   useEffect(() => {
     setReport(null);
     setFilter("all");
+    setFixedCount(null);
   }, [dataset]);
 
   useEffect(() => {
@@ -142,6 +158,13 @@ function ValidatePanel({
       <p className="tools-summary">
         {t("tools.validate.summary", { indi: report.individualCount, fam: report.familyCount })}
       </p>
+      {fixedCount !== null && (
+        <p className="tools-clean tools-clean--ok">
+          {fixedCount > 0
+            ? t("tools.validate.fixLinksDone", { count: fixedCount })
+            : t("tools.validate.fixLinksNone")}
+        </p>
+      )}
       {total === 0 ? (
         <p className="tools-clean">{t("tools.validate.clean")}</p>
       ) : (
@@ -163,6 +186,14 @@ function ValidatePanel({
               </button>
             ))}
           </div>
+          {report.counts.brokenLink > 0 && (
+            <div className="tools-fix-bar">
+              <button className="nav-btn tools-run" onClick={handleFixLinks}>
+                {t("tools.validate.fixLinks", { count: report.counts.brokenLink })}
+              </button>
+              <span className="tools-fix-hint">{t("tools.validate.fixLinksHint")}</span>
+            </div>
+          )}
           <ul className="tools-issues">
             {shown.slice(0, MAX_ROWS).map((issue, i) => (
               <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>

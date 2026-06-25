@@ -27,6 +27,7 @@ import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
 import { applyPlaceRename } from "./tools/placeEdit";
+import { fixBrokenLinks } from "./tools/fixLinks";
 import { SaveDialog } from "./ui/SaveDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EditTree } from "./ui/EditTree";
@@ -1361,6 +1362,17 @@ function AppContent() {
                     if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
                   }
                 }
+              }}
+              onFixBrokenLinks={() => {
+                if (!masterDataset) return 0;
+                const patches = fixBrokenLinks(masterDataset);
+                if (patches.length > 0) {
+                  handlePushEdit(patches);
+                  for (const p of patches) {
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  }
+                }
+                return patches.length;
               }}
             />
           </div>

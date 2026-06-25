@@ -5,6 +5,7 @@ import { validateDataset } from "./validate";
 import { findDuplicates } from "./duplicates";
 import { buildSourceTree } from "./sources";
 import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
+import { fixBrokenLinks } from "./fixLinks";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -86,6 +87,52 @@ describe("validateDataset", () => {
 0 TRLR`);
     const report = validateDataset(ds, 2026);
     expect(report.issues).toHaveLength(0);
+  });
+});
+
+describe("fixBrokenLinks", () => {
+  it("removes dangling and non-reciprocal pointers, leaving a clean file", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Eva /Horvat/
+1 SEX F
+1 FAMC @F9@
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bo /Horvat/
+1 SEX M
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I1@
+1 CHIL @I7@
+0 @F2@ FAM
+1 HUSB @I9@
+0 TRLR`);
+    // Before: I1 FAMC→missing @F9@; F1 CHIL→missing @I7@; F2 HUSB→missing @I9@.
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(3);
+
+    const patches = fixBrokenLinks(ds);
+    // I1 (dropped FAMC), F1 (dropped CHIL), F2 (dropped HUSB) each changed once.
+    expect(patches.length).toBe(3);
+
+    const after = validateDataset(ds, 2026);
+    expect(after.counts.brokenLink).toBe(0);
+
+    // The valid reciprocal F1 ↔ I1/I2 link is untouched.
+    expect(ds.individuals.get("@I1@")!.spouseOf).toContain("@F1@");
+    expect(ds.families.get("@F1@")!.children).toHaveLength(0);
+  });
+
+  it("returns no patches when there is nothing to fix", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jan /Kos/
+1 SEX M
+0 TRLR`);
+    expect(fixBrokenLinks(ds)).toHaveLength(0);
   });
 });
 

@@ -3738,6 +3738,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-clean--ok { color: var(--state-match); font-weight: 600; }
 .tools-loading { color: var(--muted); padding: 20px 0; }
 .tools-run { margin: 0 0 16px; }
+.tools-fix-bar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+.tools-fix-bar .tools-run { margin: 0; }
+.tools-fix-hint { color: var(--muted); font-size: 0.85rem; }
 .tools-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .tools-chip {
   border: 1px solid var(--border);
