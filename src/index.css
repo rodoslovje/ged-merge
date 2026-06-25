@@ -3803,7 +3803,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tree-link { color: var(--muted); text-decoration: none; }
 .tools-tree-link:hover { color: var(--accent); }
 .tools-place-edit-btn {
-  opacity: 0;
+  opacity: 0.5;
   transition: opacity 0.12s;
   flex: none;
   background: none;
@@ -3812,7 +3812,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 1px 5px;
   border-radius: 4px;
   color: var(--muted);
-  font-size: 0.8em;
+  font-size: 1em;
   line-height: 1;
 }
 .tools-tree-row:hover .tools-place-edit-btn,
