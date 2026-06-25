@@ -8,9 +8,12 @@ interface Props {
   /** Cancel button label. Pass `null` for an acknowledge-only (alert) dialog
    *  with no cancel button. Defaults to the shared "Cancel" string. */
   cancelLabel?: string | null;
+  /** Style the confirm button as destructive (red). Use only for irreversible
+   *  actions like delete/remove; benign prompts keep the neutral accent style. */
+  danger?: boolean;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger }: Props) {
   const { t } = useTranslation();
   const [title, body] = message.split("\n\n");
   return (
@@ -24,7 +27,11 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
               {cancelLabel ?? t("confirm.cancel")}
             </button>
           )}
-          <button type="button" className="confirm-dialog-confirm" onClick={onConfirm}>
+          <button
+            type="button"
+            className={`confirm-dialog-confirm ${danger ? "danger" : ""}`}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </button>
         </div>

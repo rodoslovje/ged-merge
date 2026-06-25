@@ -75,6 +75,12 @@ export const en = {
   "tools.sources.noRepo": "No repository",
   "tools.sources.unattachedLinks": "Unattached links",
   "tools.sources.unattached": "Unattached media",
+  "tools.sources.mediaFile": "File",
+  "tools.sources.mediaDate": "Date",
+  "tools.sources.mediaPlace": "Place",
+  "tools.sources.mediaDesc": "Description",
+  "tools.sources.referencedBy": "Referenced by {{count}} records",
+  "tools.sources.referencedByNone": "Not referenced by any record.",
   "tools.places.intro": "Every place named in the file, arranged country → locality → house → address. Click a name to open the record that uses it in Edit.",
   "tools.places.summary": "{{distinct}} distinct places · {{uses}} mentions.",
   "tools.places.none": "No places found.",
@@ -538,5 +544,7 @@ export const en = {
   "loader.mediaFolder.select": "Select Folder",
   "loader.mediaFolder.later": "Later",
   "photo.enlarge": "Enlarge photo",
-  "photo.enlarged": "Enlarged photo"
+  "photo.enlarged": "Enlarged photo",
+  "photo.prev": "Previous photo",
+  "photo.next": "Next photo"
 };

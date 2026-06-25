@@ -33,6 +33,7 @@ import { EditTree } from "./ui/EditTree";
 import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
+import { PhotoViewerProvider } from "./ui/PhotoViewer";
 import type { TreeMode } from "./tree/compareTree";
 import {
   applyFilters,
@@ -1432,7 +1433,9 @@ function AppContent() {
 export function App() {
   return (
     <MediaFolderProvider>
-      <AppContent />
+      <PhotoViewerProvider>
+        <AppContent />
+      </PhotoViewerProvider>
     </MediaFolderProvider>
   );
 }

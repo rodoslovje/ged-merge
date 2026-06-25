@@ -3,6 +3,7 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { displayName, primaryName } from "../match/relatives";
 import { sexClass } from "./sex";
 import { CardPhoto } from "./PersonPhotos";
+import type { PhotoRefContext } from "./PhotoViewer";
 
 interface Props {
   individual?: Individual;
@@ -29,10 +30,13 @@ interface Props {
   decisionTooltip?: string;
   /** Pass to display a profile photo thumbnail from local media. */
   records?: GedNode[];
+  /** When set, the enlarged photo's info panel lists the records citing each
+   *  shared photo and links into Edit (see {@link PhotoRefContext}). */
+  refCtx?: PhotoRefContext;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, records }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, records, refCtx }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -60,7 +64,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
           title={datesTooltipOf(individual)}
           onClick={() => onSelect?.(individual.id)}
         >
-          {records && <CardPhoto raw={individual.raw} records={records} />}
+          {records && <CardPhoto raw={individual.raw} records={records} refCtx={refCtx} />}
           <div className={`person-label ${sexClass(individual.sex)}`}>
             <span className="person-name">{displayName(primaryName(individual))}</span>
             {(lifespan || kinship || decisionStatus) && (

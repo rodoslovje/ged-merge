@@ -16,6 +16,7 @@ import {
   type TreeNode,
 } from "../tree/compareTree";
 import { TreeNodePhoto } from "./PersonPhotos";
+import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 
 interface Props {
@@ -145,6 +146,17 @@ export function CompareTree({
       return kinshipLabel(masterDs, homeId, n.master.id, t) ?? undefined;
     },
     [homeId, masterDs, t],
+  );
+
+  // A photo's "referenced by" link re-roots the tree on that person, on the
+  // side (master/compare) the photo came from.
+  const masterRefCtx = useMemo(
+    () => ({ dataset: masterDs, onNavigate: (id: string) => onReroot(id, undefined) }),
+    [masterDs, onReroot],
+  );
+  const compareRefCtx = useMemo(
+    () => ({ dataset: compareDs, onNavigate: (id: string) => onReroot(undefined, id) }),
+    [compareDs, onReroot],
   );
 
   const rootMaster = rootMasterId ? masterDs.individuals.get(rootMasterId) : undefined;
@@ -337,6 +349,8 @@ export function CompareTree({
               kinshipOf={kinshipOf}
               masterRecords={masterDs.records}
               compareRecords={compareDs.records}
+              masterRefCtx={masterRefCtx}
+              compareRefCtx={compareRefCtx}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -418,6 +432,8 @@ function TreeSvg({
   kinshipOf,
   masterRecords,
   compareRecords,
+  masterRefCtx,
+  compareRefCtx,
 }: {
   flat: Flat;
   width: number;
@@ -428,6 +444,8 @@ function TreeSvg({
   kinshipOf: (n: Placed) => string | undefined;
   masterRecords: GedNode[];
   compareRecords: GedNode[];
+  masterRefCtx: PhotoRefContext;
+  compareRefCtx: PhotoRefContext;
 }) {
   const { nodes, edges } = flat;
   const { folderName } = useMediaFolder();
@@ -508,6 +526,8 @@ function TreeSvg({
                 node={n}
                 masterRecords={masterRecords}
                 compareRecords={compareRecords}
+                masterRefCtx={masterRefCtx}
+                compareRefCtx={compareRefCtx}
                 x={PHOTO_X}
                 y={PHOTO_Y}
                 size={PHOTO_SIZE}

@@ -15,7 +15,7 @@ import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { PersonLink } from "./PersonLink";
-import { MediaThumb } from "./PersonPhotos";
+import { MediaThumb, type MediaGalleryItem } from "./PersonPhotos";
 
 type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
@@ -434,6 +434,61 @@ function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: Sour
   );
 }
 
+/** Lightbox side panel for a media object: its record id/filename plus every
+ *  person/family record that references the image. `onNavigate` closes the
+ *  lightbox before jumping to the record in Edit mode. */
+function MediaDetails({
+  dataset,
+  media,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  media: MediaEntry;
+  onNavigate: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {(media.file || media.date || media.place || media.description) && (
+        <dl className="media-lightbox-meta">
+          {media.date && (
+            <div>
+              <dt>{t("tools.sources.mediaDate")}</dt>
+              <dd>{media.date}</dd>
+            </div>
+          )}
+          {media.place && (
+            <div>
+              <dt>{t("tools.sources.mediaPlace")}</dt>
+              <dd>{media.place}</dd>
+            </div>
+          )}
+          {media.description && (
+            <div>
+              <dt>{t("tools.sources.mediaDesc")}</dt>
+              <dd>{media.description}</dd>
+            </div>
+          )}
+          {media.file && (
+            <div>
+              <dt>{t("tools.sources.mediaFile")}</dt>
+              <dd>{media.file}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      <div className="media-lightbox-uses-head">
+        {t("tools.sources.referencedBy", { count: media.usedBy.length })}
+      </div>
+      {media.usedBy.length > 0 ? (
+        <UsageList dataset={dataset} uses={media.usedBy} onNavigate={onNavigate} />
+      ) : (
+        <p className="tools-clean">{t("tools.sources.referencedByNone")}</p>
+      )}
+    </>
+  );
+}
+
 /** A collapsible tree row: a ▶ toggle, a label, a usage count, and nested content. */
 function TreeRow({
   open,
@@ -598,6 +653,22 @@ function SourcesPanel({
     };
   }, [tree, filtering, q]);
 
+  // The local-file photos within a media group (a source's media, or an
+  // unattached bucket), as a navigable tray for the viewer. URL-only links have
+  // no thumbnail, so they're excluded; `photos.indexOf(m)` gives each photo's
+  // tray position.
+  const mediaGallery = (group: MediaEntry[]): { photos: MediaEntry[]; items: MediaGalleryItem[] } => {
+    const photos = group.filter((m) => !m.url && m.file);
+    const items = photos.map((m) => ({
+      file: m.file!,
+      title: m.title || m.xref,
+      details: (close: () => void) => (
+        <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
+      ),
+    }));
+    return { photos, items };
+  };
+
   if (!tree || !filtered) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const empty =
@@ -605,8 +676,10 @@ function SourcesPanel({
     filtered.unattachedLinks.length === 0 &&
     filtered.unattachedMedia.length === 0;
 
-  const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) =>
-    entries.length > 0 && (
+  const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) => {
+    if (entries.length === 0) return false;
+    const { photos, items } = mediaGallery(entries);
+    return (
       <TreeRow
         open={isOpen(key)}
         onToggle={() => toggle(key)}
@@ -624,7 +697,7 @@ function SourcesPanel({
               count={m.usedBy.length || undefined}
               href={m.url}
               titleText={m.url ?? m.file}
-              label={<span className="tools-tree-meta">{icon} {m.title || m.xref}{!m.url && m.file && <MediaThumb file={m.file} />}</span>}
+              label={<span className="tools-tree-meta">{!m.url && m.file ? <MediaThumb file={m.file} icon={icon} gallery={items} index={photos.indexOf(m)} /> : icon} {m.title || m.xref}</span>}
             >
               <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
             </TreeRow>
@@ -632,6 +705,7 @@ function SourcesPanel({
         </ul>
       </TreeRow>
     );
+  };
 
   return (
     <>
@@ -682,7 +756,9 @@ function SourcesPanel({
                           </>
                         }
                       >
-                        {src.media.map((m) => (
+                        {(() => {
+                          const { photos, items } = mediaGallery(src.media);
+                          return src.media.map((m) => (
                           <TreeRow
                             key={`m:${m.xref}`}
                             open={isOpen(`m:${m.xref}`)}
@@ -693,14 +769,22 @@ function SourcesPanel({
                             titleText={m.url ?? m.file}
                             label={
                               <span className="tools-tree-meta">
-                                {m.url ? "🔗" : "🖼"} {m.title || m.xref}
-                                {!m.url && m.file && <MediaThumb file={m.file} />}
+                                {!m.url && m.file ? (
+                                  <MediaThumb
+                                    file={m.file}
+                                    icon="🖼"
+                                    gallery={items}
+                                    index={photos.indexOf(m)}
+                                  />
+                                ) : m.url ? "🔗" : "🖼"}{" "}
+                                {m.title || m.xref}
                               </span>
                             }
                           >
                             <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
                           </TreeRow>
-                        ))}
+                        ));
+                        })()}
                         {src.usedBy.length > 0 && (
                           <div className="tools-usage-block">
                             <UsageList dataset={dataset} uses={src.usedBy} onNavigate={onNavigate} />

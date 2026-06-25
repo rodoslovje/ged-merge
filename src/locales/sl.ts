@@ -75,6 +75,12 @@ export const sl = {
   "tools.sources.noRepo": "Brez hrambe",
   "tools.sources.unattachedLinks": "Nepovezane povezave",
   "tools.sources.unattached": "Nepovezani mediji",
+  "tools.sources.mediaFile": "Datoteka",
+  "tools.sources.mediaDate": "Datum",
+  "tools.sources.mediaPlace": "Kraj",
+  "tools.sources.mediaDesc": "Opis",
+  "tools.sources.referencedBy": "Navedeno v {{count}} zapisih",
+  "tools.sources.referencedByNone": "Ni navedeno v nobenem zapisu.",
   "tools.places.intro": "Vsi kraji v datoteki, urejeni država → kraj → hiša → naslov. Kliknite ime za odprtje zapisa, ki ga uporablja, v urejevalniku.",
   "tools.places.summary": "{{distinct}} različnih krajev · {{uses}} omemb.",
   "tools.places.none": "Ni najdenih krajev.",
@@ -538,5 +544,7 @@ export const sl = {
   "loader.mediaFolder.select": "Izberi mapo",
   "loader.mediaFolder.later": "Kasneje",
   "photo.enlarge": "Povečaj fotografijo",
-  "photo.enlarged": "Povečana fotografija"
+  "photo.enlarged": "Povečana fotografija",
+  "photo.prev": "Prejšnja fotografija",
+  "photo.next": "Naslednja fotografija"
 };

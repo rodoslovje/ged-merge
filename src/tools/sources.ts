@@ -45,6 +45,12 @@ export interface MediaEntry {
   url?: string;
   /** The raw `FILE` value (URL or bare local filename), for display as a tooltip. */
   file?: string;
+  /** Date the media depicts (level-1 `DATE`), if recorded. */
+  date?: string;
+  /** Place the media depicts (`PLAC`), if recorded. */
+  place?: string;
+  /** Free-text description (`_DSCR`/`NOTE`), if recorded. */
+  description?: string;
   /** Records that cite this media object directly (not via its parent source). */
   usedBy: SourceUse[];
 }
@@ -150,6 +156,29 @@ function buildUsageIndex(dataset: Dataset): {
   return { bySource, byMedia };
 }
 
+/**
+ * The `INDI`/`FAM` records that cite a single media object directly. Same shape
+ * as one entry of {@link buildUsageIndex}'s `byMedia`, but scoped to one xref so
+ * the photo viewer can show a media object's "referenced by" list without
+ * building the whole source tree.
+ */
+export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
+  const uses: SourceUse[] = [];
+  for (const rec of dataset.records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    if (!rec.xref) continue;
+    const mediaPtrs = new Set<string>();
+    collectPointers(rec, "OBJE", mediaPtrs);
+    if (!mediaPtrs.has(mediaXref)) continue;
+    const persons =
+      rec.tag === "INDI"
+        ? [{ id: rec.xref, label: dataset.individuals.get(rec.xref) ? label(dataset.individuals.get(rec.xref)!) : rec.xref }]
+        : familySpouses(dataset, rec.xref);
+    if (persons.length > 0) uses.push({ persons });
+  }
+  return uses;
+}
+
 export function buildSourceTree(dataset: Dataset): SourceTree {
   const objeIndex = buildObjeIndex(dataset.records);
   const repoIndex = buildRepoIndex(dataset.records);
@@ -162,6 +191,9 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
       title: info?.title,
       url: info?.url,
       file: info?.file,
+      date: info?.date,
+      place: info?.place,
+      description: info?.description,
       usedBy: byMedia.get(xref) ?? [],
     };
   };

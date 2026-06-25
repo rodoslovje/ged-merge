@@ -1181,6 +1181,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     {...cardKinship(fam?.husband)}
                     {...cardDecision(fam?.husband)}
                     records={dataset.records}
+                    refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
                 <div className="edit-connector-h" />
@@ -1206,6 +1207,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     {...cardKinship(fam?.wife)}
                     {...cardDecision(fam?.wife)}
                     records={dataset.records}
+                    refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
               </div>
@@ -1232,7 +1234,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             />
             <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           </div>
-          <PersonPhotos raw={person.raw} records={dataset.records} />
+          <PersonPhotos raw={person.raw} records={dataset.records} refCtx={{ dataset, onNavigate: navigate }} />
           <OtherNamesEditor
             key={`names-${person.id}-${undoVersion}`}
             person={person}
@@ -1350,6 +1352,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         {...cardKinship(partnerId)}
                         {...cardDecision(partnerId)}
                         records={dataset.records}
+                        refCtx={{ dataset, onNavigate: navigate }}
                       />
                     )}
                     {fam && (
@@ -1453,6 +1456,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                           {...cardKinship(childId)}
                           {...cardDecision(childId)}
                           records={dataset.records}
+                          refCtx={{ dataset, onNavigate: navigate }}
                         />
                       );
                     })}
@@ -1516,6 +1520,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         <ConfirmDialog
           message={pendingConfirm.message}
           confirmLabel={pendingConfirm.confirmLabel}
+          danger
           onConfirm={() => { pendingConfirm.action(); setPendingConfirm(null); }}
           onCancel={() => setPendingConfirm(null)}
         />

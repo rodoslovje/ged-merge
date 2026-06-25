@@ -152,10 +152,22 @@ export function ComparePanel({
       {(masterIndi || compareIndi) && (
         <div className="compare-photos">
           <div className="compare-photos-col">
-            {masterIndi && <PersonPhotos raw={masterIndi.raw} records={masterDs.records} />}
+            {masterIndi && (
+              <PersonPhotos
+                raw={masterIndi.raw}
+                records={masterDs.records}
+                refCtx={{ dataset: masterDs, onNavigate: masterPerson.onNavigate }}
+              />
+            )}
           </div>
           <div className="compare-photos-col">
-            {compareIndi && <PersonPhotos raw={compareIndi.raw} records={compareDs.records} />}
+            {compareIndi && (
+              <PersonPhotos
+                raw={compareIndi.raw}
+                records={compareDs.records}
+                refCtx={{ dataset: compareDs, onNavigate: incomingPerson.onNavigate }}
+              />
+            )}
           </div>
         </div>
       )}

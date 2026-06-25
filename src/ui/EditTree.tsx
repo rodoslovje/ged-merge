@@ -386,6 +386,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                       <TreeNodePhoto
                         node={n}
                         masterRecords={masterDs.records}
+                        masterRefCtx={{ dataset: masterDs, onNavigate: setCurrentRootId }}
                         x={PHOTO_X}
                         y={PHOTO_Y}
                         size={PHOTO_SIZE}

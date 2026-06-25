@@ -1663,6 +1663,108 @@ button:focus-visible {
 }
 .person-photo-close:hover { background: rgba(255, 255, 255, 0.1); }
 
+/* Lightbox stage + thumbnail tray for multi-photo navigation */
+.person-photo-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 0 1 auto;
+  max-height: 92vh;
+  cursor: default;
+}
+.person-photo-stage .person-photo-full { max-height: 80vh; max-width: 100%; }
+.person-photo-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  width: 48px;
+  height: 64px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.person-photo-nav:hover { background: rgba(255, 255, 255, 0.15); }
+.person-photo-prev { left: 20px; }
+.person-photo-next { right: 20px; }
+.person-photo-tray {
+  display: flex;
+  gap: 8px;
+  max-width: 92vw;
+  overflow-x: auto;
+  padding: 4px;
+}
+.person-photo-tray-thumb {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0.55;
+  flex: 0 0 auto;
+  transition: opacity 0.12s, border-color 0.12s;
+}
+.person-photo-tray-thumb:hover { opacity: 0.85; }
+.person-photo-tray-thumb.active { opacity: 1; border-color: var(--accent); }
+.person-photo-tray-thumb img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 3px;
+  display: block;
+}
+
+/* Lightbox content: enlarged image (+ tray) on the left, info panel on the right */
+.media-lightbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 95vw;
+  max-height: 92vh;
+  cursor: default;
+}
+.media-lightbox-info {
+  flex: 0 0 280px;
+  max-width: 340px;
+  overflow-y: auto;
+  background: var(--panel, #1e1e1e);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-size: 0.85rem;
+}
+.media-lightbox-caption {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+.media-lightbox-meta { margin: 0 0 12px; }
+.media-lightbox-meta > div { margin-bottom: 6px; }
+.media-lightbox-meta dt { color: var(--muted); font-size: 0.78rem; }
+.media-lightbox-meta dd { margin: 0; word-break: break-word; }
+.media-lightbox-uses-head {
+  font-weight: 600;
+  margin-bottom: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+@media (max-width: 720px) {
+  .media-lightbox { flex-direction: column; align-items: center; }
+  .person-photo-stage .person-photo-full { max-height: 55vh; }
+  .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
+}
+
 /* Compare panel photos strip */
 .compare-photos {
   display: flex;
@@ -1676,16 +1778,24 @@ button:focus-visible {
 }
 .compare-photos-col .person-photos { margin-bottom: 0; }
 
-/* Tools sources panel inline thumbnail */
+/* Tools sources panel inline thumbnail (rendered in place of the media icon) */
+.tools-media-thumb-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+  vertical-align: middle;
+}
 .tools-media-thumb {
   width: 28px;
   height: 28px;
   object-fit: cover;
   border-radius: 3px;
   vertical-align: middle;
-  margin-left: 6px;
   border: 1px solid var(--border);
 }
+.tools-media-thumb-btn:hover .tools-media-thumb { border-color: var(--accent); }
 
 .edit-other-names {
   display: flex;
@@ -2069,6 +2179,17 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
 }
+.card-photo-btn {
+  display: inline-flex;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+  flex-shrink: 0;
+}
+.card-photo-btn:hover { border-color: var(--accent); }
 .card-photo {
   width: 46px;
   height: 46px;
@@ -3066,16 +3187,24 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 8px;
 }
 .confirm-dialog-confirm {
-  background: transparent;
-  border: 1px solid var(--danger, #e74c3c);
+  background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  color: var(--danger, #e74c3c);
+  color: #fff;
   padding: 6px 14px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
-.confirm-dialog-confirm:hover {
+.confirm-dialog-confirm:hover { filter: brightness(1.08); }
+/* Destructive variant — red, for irreversible delete/remove confirmations only. */
+.confirm-dialog-confirm.danger {
+  background: transparent;
+  border-color: var(--danger, #e74c3c);
+  color: var(--danger, #e74c3c);
+}
+.confirm-dialog-confirm.danger:hover {
+  filter: none;
   background: color-mix(in oklch, var(--danger, #e74c3c) 12%, transparent);
 }
 

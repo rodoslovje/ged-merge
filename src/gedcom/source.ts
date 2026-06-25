@@ -23,10 +23,22 @@ import { linkKey } from "../normalize/links";
 /** Map of top-level `SOUR` record xref -> the record itself. */
 export type SourceIndex = Map<string, GedNode>;
 
-/** Map of top-level `OBJE` record xref -> its file URL and (nested) title.
- *  `file` is the raw `FILE` value (URL or bare local filename); `url` is set
- *  only when that value is a usable link. */
-export type ObjeIndex = Map<string, { url?: string; file?: string; title?: string }>;
+/** Map of top-level `OBJE` record xref -> its file URL, (nested) title, and any
+ *  descriptive content fields (date the media depicts, place, free-text
+ *  description). `file` is the raw `FILE` value (URL or bare local filename);
+ *  `url` is set only when that value is a usable link. The `CHAN`/`CREA` edit
+ *  timestamps are deliberately not captured — those are bookkeeping. */
+export interface ObjeInfo {
+  url?: string;
+  file?: string;
+  title?: string;
+  /** A level-1 `DATE` — the date the media depicts (not an edit timestamp). */
+  date?: string;
+  place?: string;
+  /** Free-text description, from `_DSCR` or `NOTE`. */
+  description?: string;
+}
+export type ObjeIndex = Map<string, ObjeInfo>;
 
 /** Map of top-level `REPO` record xref -> its name and website. */
 export type RepoIndex = Map<string, { name?: string; url?: string }>;
@@ -118,7 +130,16 @@ export function buildObjeIndex(records: GedNode[]): ObjeIndex {
     const rawFile = fileNode?.value?.trim();
     const url = rawFile && looksLikeUrl(rawFile) ? rawFile : undefined;
     const title = childText(fileNode ?? rec, "TITL") ?? childText(rec, "TITL");
-    map.set(rec.xref, { url, file: rawFile, title });
+    // childText reads direct children only, so `DATE` here is the level-1
+    // content date — never a CHAN/CREA timestamp nested a level deeper.
+    map.set(rec.xref, {
+      url,
+      file: rawFile,
+      title,
+      date: childText(rec, "DATE"),
+      place: childText(rec, "PLAC"),
+      description: childText(rec, "_DSCR") ?? childText(rec, "NOTE"),
+    });
   }
   return map;
 }

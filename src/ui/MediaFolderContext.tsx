@@ -210,13 +210,17 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       }
     } else if (inputRef.current) {
       // Firefox / Safari fallback — <input webkitdirectory>.
-      // Warn the user before the browser shows its misleading "upload" dialog.
-      const ok = await askDialog(
-        t("loader.mediaFolder.firefoxWarning"),
-        t("confirm.ok"),
-        t("confirm.cancel"),
-      );
-      if (!ok) return;
+      // Only Firefox shows the misleading "upload" dialog, so warn there first.
+      // Safari's picker is unambiguous, so skip the warning.
+      const isFirefox = /firefox/i.test(navigator.userAgent);
+      if (isFirefox) {
+        const ok = await askDialog(
+          t("loader.mediaFolder.firefoxWarning"),
+          t("confirm.ok"),
+          t("confirm.cancel"),
+        );
+        if (!ok) return;
+      }
       inputRef.current.click();
     } else {
       await askDialog(t("loader.mediaFolder.unsupported"), t("confirm.ok"), null);
