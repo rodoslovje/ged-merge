@@ -13,6 +13,7 @@ import { isPointer, objeInfoOf, objeNodesFor } from "../gedcom/source";
 import { mediaUsedBy } from "../tools/sources";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
+import { basename } from "./mediaPath";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -67,11 +68,6 @@ export function usePhotoViewer() {
 }
 
 // ── Person/record photo collection ─────────────────────────────────────────
-
-function basename(path: string): string {
-  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
-  return parts[parts.length - 1] || path;
-}
 
 /** The descriptive caption rows (date depicted, place, description, file) for a
  *  media object — shared by the person-photo and Sources-tree info panels so

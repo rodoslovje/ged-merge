@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { findExistingSource, inferSourceFormat } from "./source";
+import { buildObjeIndex, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor } from "./source";
+import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -407,5 +408,106 @@ describe("findExistingSource", () => {
     const ds = buildFromText(text);
     const match = findExistingSource(ds.records, "https://www.sistory.si/ww2/5046DECC-E88C-4EA6-8B61-82D7A78C8626");
     expect(match).toBeUndefined();
+  });
+});
+
+describe("objeInfoOf", () => {
+  const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @LOCAL@ OBJE
+1 FILE 12345.jpg
+2 TITL Nested Title
+1 DATE 1 JAN 1900
+1 PLAC Kranj, Slovenia
+1 _DSCR A photo of the family
+0 @RECTITLE@ OBJE
+1 FILE sub/photo2.jpg
+1 TITL Record Title
+1 NOTE A note used as description
+0 @URL@ OBJE
+1 FILE https://data.matricula-online.eu/sl/x/?pg=42
+1 TITL Scan
+0 @NOFILE@ OBJE
+1 TITL Has no file
+0 TRLR
+`;
+  const objeBy = (records: GedNode[]) => {
+    const map = new Map<string, GedNode>();
+    for (const r of records) if (r.tag === "OBJE" && r.xref) map.set(r.xref, r);
+    return map;
+  };
+
+  it("reads a local file plus its descriptive content fields", () => {
+    const ds = buildFromText(text);
+    const info = objeInfoOf(objeBy(ds.records).get("@LOCAL@")!);
+    expect(info).toEqual({
+      file: "12345.jpg",
+      url: undefined,
+      title: "Nested Title",
+      date: "1 JAN 1900",
+      place: "Kranj, Slovenia",
+      description: "A photo of the family",
+    });
+  });
+
+  it("sets url (equal to file) only when the FILE value is an absolute URL", () => {
+    const ds = buildFromText(text);
+    const info = objeInfoOf(objeBy(ds.records).get("@URL@")!);
+    expect(info.url).toBe("https://data.matricula-online.eu/sl/x/?pg=42");
+    expect(info.file).toBe(info.url);
+  });
+
+  it("prefers a TITL nested under FILE, else falls back to the record-level TITL", () => {
+    const ds = buildFromText(text);
+    const by = objeBy(ds.records);
+    expect(objeInfoOf(by.get("@LOCAL@")!).title).toBe("Nested Title");
+    expect(objeInfoOf(by.get("@RECTITLE@")!).title).toBe("Record Title");
+  });
+
+  it("falls back to NOTE for the description when there is no _DSCR", () => {
+    const ds = buildFromText(text);
+    expect(objeInfoOf(objeBy(ds.records).get("@RECTITLE@")!).description).toBe("A note used as description");
+  });
+
+  it("leaves file and url undefined when the OBJE has no FILE", () => {
+    const ds = buildFromText(text);
+    const info = objeInfoOf(objeBy(ds.records).get("@NOFILE@")!);
+    expect(info.file).toBeUndefined();
+    expect(info.url).toBeUndefined();
+    expect(info.title).toBe("Has no file");
+  });
+
+  it("buildObjeIndex maps every top-level OBJE xref via objeInfoOf", () => {
+    const ds = buildFromText(text);
+    const index = buildObjeIndex(ds.records);
+    expect([...index.keys()].sort()).toEqual(["@LOCAL@", "@NOFILE@", "@RECTITLE@", "@URL@"]);
+    expect(index.get("@LOCAL@")).toEqual(objeInfoOf(objeBy(ds.records).get("@LOCAL@")!));
+  });
+});
+
+describe("objeNodesFor", () => {
+  const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+0 @O1@ OBJE
+1 FILE a.jpg
+0 @O2@ OBJE
+1 FILE b.jpg
+0 TRLR
+`;
+
+  it("indexes only top-level OBJE records by xref", () => {
+    const ds = buildFromText(text);
+    const map = objeNodesFor(ds.records);
+    expect([...map.keys()].sort()).toEqual(["@O1@", "@O2@"]);
+    expect(map.get("@O1@")!.children.find((c) => c.tag === "FILE")?.value).toBe("a.jpg");
+  });
+
+  it("caches per records-array reference (same array → same map)", () => {
+    const ds = buildFromText(text);
+    expect(objeNodesFor(ds.records)).toBe(objeNodesFor(ds.records));
   });
 });

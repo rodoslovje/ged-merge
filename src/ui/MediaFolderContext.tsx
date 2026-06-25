@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { pathSegments } from "./mediaPath";
 
 const DB_NAME = "gedmerge";
 const STORE_NAME = "mediaFolder";
@@ -77,10 +78,6 @@ async function idbPut(db: IDBDatabase, value: FileSystemDirectoryHandle | null):
 
 // ── File resolution helpers ────────────────────────────────────────────────
 
-function normalizeSegments(filePath: string): string[] {
-  return filePath.replace(/\\/g, "/").split("/").filter(Boolean);
-}
-
 async function tryPath(
   dir: FileSystemDirectoryHandle,
   segments: string[],
@@ -127,7 +124,7 @@ function buildFileMap(files: FileList): { map: Map<string, File>; name: string }
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? file.name;
-    const parts = rel.replace(/\\/g, "/").split("/").filter(Boolean);
+    const parts = pathSegments(rel);
     if (!name && parts.length > 0) name = parts[0];
     // Strip leading folder name for the relative key
     const withoutRoot = parts.slice(1).join("/");
@@ -139,7 +136,7 @@ function buildFileMap(files: FileList): { map: Map<string, File>; name: string }
 }
 
 function lookupInMap(map: Map<string, File>, filePath: string): File | null {
-  const segments = normalizeSegments(filePath);
+  const segments = pathSegments(filePath);
   if (segments.length === 0) return null;
   // Try progressively shorter path suffixes to handle absolute GEDCOM paths
   for (let i = 0; i < segments.length; i++) {
@@ -253,11 +250,18 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
           // they're returned uncached — unlike a genuine "file not in folder".
           if (perm === "denied") return null;
           if (perm === "prompt") {
+            // requestPermission only shows its dialog under transient user
+            // activation. Thumbnail loads run from effects (no activation), so
+            // requesting there is a silent no-op that just leaves perm at
+            // "prompt"; skip it and let the click that opens the viewer — a real
+            // gesture — do the asking. Avoids a confusing first-load state where
+            // the prompt never appears.
+            if (!navigator.userActivation?.isActive) return null;
             const granted = await handle.requestPermission({ mode: "read" });
             if (granted !== "granted") return null;
           }
         }
-        const segments = normalizeSegments(filePath);
+        const segments = pathSegments(filePath);
         if (segments.length === 0) return null;
         const basename = segments[segments.length - 1];
         file = await tryPath(handle, segments);

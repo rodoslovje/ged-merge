@@ -3735,6 +3735,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-search-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .tools-search-input::placeholder { color: var(--muted); }
 .tools-clean { color: var(--text); font-size: 1rem; padding: 10px 0; }
+.tools-clean--ok { color: var(--state-match); font-weight: 600; }
 .tools-loading { color: var(--muted); padding: 20px 0; }
 .tools-run { margin: 0 0 16px; }
 .tools-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }

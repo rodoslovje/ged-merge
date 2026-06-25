@@ -332,7 +332,7 @@ function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: str
       {state.status === "done" && (() => {
         const { report } = state.result;
         const changed = report.datesChanged + report.placesReshaped + report.linksConverted;
-        if (changed === 0) return <p className="tools-clean">{t("tools.normalize.none")}</p>;
+        if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
           places: report.placesReshaped,
@@ -459,6 +459,77 @@ function MediaDetails({
       ) : (
         <p className="tools-clean">{t("tools.sources.referencedByNone")}</p>
       )}
+    </>
+  );
+}
+
+/**
+ * One `TreeRow` per `MediaEntry` in a group (a source's media, or an unattached
+ * bucket). The group's local-file photos form a single navigable tray: each
+ * thumbnail opens the viewer on its own photo with prev/next across the
+ * siblings. URL-only entries show `iconFor(m)` instead. The tray (and each
+ * photo's index in it) is computed once for the whole group.
+ */
+function MediaRows({
+  entries,
+  dataset,
+  onNavigate,
+  isOpen,
+  toggle,
+  rowKey,
+  iconFor,
+}: {
+  entries: MediaEntry[];
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
+  isOpen: (key: string) => boolean;
+  toggle: (key: string) => void;
+  rowKey: (m: MediaEntry) => string;
+  iconFor: (m: MediaEntry) => string;
+}) {
+  const { t } = useTranslation();
+  const { items, indexOf } = useMemo(() => {
+    const photos = entries.filter((m) => !m.url && m.file);
+    const items: MediaGalleryItem[] = photos.map((m) => ({
+      file: m.file!,
+      title: m.title || m.xref,
+      meta: mediaMetaRows(m, t),
+      details: (close: () => void) => (
+        <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
+      ),
+    }));
+    return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
+  }, [entries, dataset, onNavigate, t]);
+
+  return (
+    <>
+      {entries.map((m) => {
+        const photoIndex = indexOf.get(m);
+        const key = rowKey(m);
+        return (
+          <TreeRow
+            key={key}
+            open={isOpen(key)}
+            onToggle={() => toggle(key)}
+            hasChildren={m.usedBy.length > 0}
+            count={m.usedBy.length || undefined}
+            href={m.url}
+            titleText={m.url ?? m.file}
+            label={
+              <span className="tools-tree-meta">
+                {photoIndex !== undefined && m.file ? (
+                  <MediaThumb file={m.file} icon={iconFor(m)} gallery={items} index={photoIndex} />
+                ) : (
+                  iconFor(m)
+                )}{" "}
+                {m.title || m.xref}
+              </span>
+            }
+          >
+            <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
+          </TreeRow>
+        );
+      })}
     </>
   );
 }
@@ -627,23 +698,6 @@ function SourcesPanel({
     };
   }, [tree, filtering, q]);
 
-  // The local-file photos within a media group (a source's media, or an
-  // unattached bucket), as a navigable tray for the viewer. URL-only links have
-  // no thumbnail, so they're excluded; `photos.indexOf(m)` gives each photo's
-  // tray position.
-  const mediaGallery = (group: MediaEntry[]): { photos: MediaEntry[]; items: MediaGalleryItem[] } => {
-    const photos = group.filter((m) => !m.url && m.file);
-    const items: MediaGalleryItem[] = photos.map((m) => ({
-      file: m.file!,
-      title: m.title || m.xref,
-      meta: mediaMetaRows(m, t),
-      details: (close: () => void) => (
-        <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
-      ),
-    }));
-    return { photos, items };
-  };
-
   if (!tree || !filtered) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const empty =
@@ -653,7 +707,6 @@ function SourcesPanel({
 
   const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) => {
     if (entries.length === 0) return false;
-    const { photos, items } = mediaGallery(entries);
     return (
       <TreeRow
         open={isOpen(key)}
@@ -663,20 +716,15 @@ function SourcesPanel({
         label={t(labelKey)}
       >
         <ul className="tools-tree">
-          {entries.map((m) => (
-            <TreeRow
-              key={`${key}:${m.xref}`}
-              open={isOpen(`${key}:${m.xref}`)}
-              onToggle={() => toggle(`${key}:${m.xref}`)}
-              hasChildren={m.usedBy.length > 0}
-              count={m.usedBy.length || undefined}
-              href={m.url}
-              titleText={m.url ?? m.file}
-              label={<span className="tools-tree-meta">{!m.url && m.file ? <MediaThumb file={m.file} icon={icon} gallery={items} index={photos.indexOf(m)} /> : icon} {m.title || m.xref}</span>}
-            >
-              <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
-            </TreeRow>
-          ))}
+          <MediaRows
+            entries={entries}
+            dataset={dataset}
+            onNavigate={onNavigate}
+            isOpen={isOpen}
+            toggle={toggle}
+            rowKey={(m) => `${key}:${m.xref}`}
+            iconFor={() => icon}
+          />
         </ul>
       </TreeRow>
     );
@@ -731,35 +779,15 @@ function SourcesPanel({
                           </>
                         }
                       >
-                        {(() => {
-                          const { photos, items } = mediaGallery(src.media);
-                          return src.media.map((m) => (
-                          <TreeRow
-                            key={`m:${m.xref}`}
-                            open={isOpen(`m:${m.xref}`)}
-                            onToggle={() => toggle(`m:${m.xref}`)}
-                            hasChildren={m.usedBy.length > 0}
-                            count={m.usedBy.length || undefined}
-                            href={m.url}
-                            titleText={m.url ?? m.file}
-                            label={
-                              <span className="tools-tree-meta">
-                                {!m.url && m.file ? (
-                                  <MediaThumb
-                                    file={m.file}
-                                    icon="🖼"
-                                    gallery={items}
-                                    index={photos.indexOf(m)}
-                                  />
-                                ) : m.url ? "🔗" : "🖼"}{" "}
-                                {m.title || m.xref}
-                              </span>
-                            }
-                          >
-                            <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
-                          </TreeRow>
-                        ));
-                        })()}
+                        <MediaRows
+                          entries={src.media}
+                          dataset={dataset}
+                          onNavigate={onNavigate}
+                          isOpen={isOpen}
+                          toggle={toggle}
+                          rowKey={(m) => `m:${m.xref}`}
+                          iconFor={(m) => (m.url ? "🔗" : "🖼")}
+                        />
                         {src.usedBy.length > 0 && (
                           <div className="tools-usage-block">
                             <UsageList dataset={dataset} uses={src.usedBy} onNavigate={onNavigate} />
