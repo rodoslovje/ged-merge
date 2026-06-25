@@ -6,7 +6,7 @@ import { validateDataset, type ValidationReport, type IssueCategory } from "../t
 import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
-import { buildPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
+import { buildPlaceTree, countDistinctPlaces, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../tools/placeEdit";
 import { collectNodeUseIds } from "../tools/places";
 import { countryCode } from "../gedcom/countryCode";
@@ -56,11 +56,20 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
 
+  // Cheap whole-file counts for the header overview; recomputed only per dataset.
+  const stats = useMemo(() => ({
+    indi: dataset.individuals.size,
+    fam: dataset.families.size,
+    sources: dataset.records.filter((r) => r.tag === "SOUR" && r.xref).length,
+    places: countDistinctPlaces(dataset),
+  }), [dataset]);
+
   return (
     <div className="tools-view">
       <div className="tools-head">
         <h2 className="tools-title">{t("tools.title")}</h2>
         <p className="tools-subtitle">{t("tools.subtitle")}</p>
+        <p className="tools-stats">{t("tools.stats", stats)}</p>
       </div>
       <div className="tools-subtabs" role="tablist">
         {TOOLS.map((id) => (
@@ -81,10 +90,10 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
           <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} />
+          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} fileName={fileName} />
+          <NormalizePanel dataset={dataset} fileName={fileName} active={active} />
         )}
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
@@ -124,6 +133,7 @@ function ValidatePanel({
   // Only compute once the tab is actually shown, then memoize per dataset.
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [filter, setFilter] = useState<IssueCategory | "all">("all");
+  const [query, setQuery] = useState("");
   // Transient confirmation after a one-button fix: how many records were repaired.
   const [fixedCount, setFixedCount] = useState<number | null>(null);
 
@@ -138,6 +148,7 @@ function ValidatePanel({
   useEffect(() => {
     setReport(null);
     setFilter("all");
+    setQuery("");
     setFixedCount(null);
   }, [dataset]);
 
@@ -145,19 +156,19 @@ function ValidatePanel({
     if (active && !report) setReport(validateDataset(dataset));
   }, [active, report, dataset]);
 
+  const q = useDebounced(query).trim().toLowerCase();
+
   const shown = useMemo(() => {
     if (!report) return [];
-    return filter === "all" ? report.issues : report.issues.filter((i) => i.category === filter);
-  }, [report, filter]);
+    const byCat = filter === "all" ? report.issues : report.issues.filter((i) => i.category === filter);
+    return q ? byCat.filter((i) => i.subject.toLowerCase().includes(q)) : byCat;
+  }, [report, filter, q]);
 
   if (!report) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const total = report.issues.length;
   return (
     <>
-      <p className="tools-summary">
-        {t("tools.validate.summary", { indi: report.individualCount, fam: report.familyCount })}
-      </p>
       {fixedCount !== null && (
         <p className="tools-clean tools-clean--ok">
           {fixedCount > 0
@@ -169,23 +180,6 @@ function ValidatePanel({
         <p className="tools-clean">{t("tools.validate.clean")}</p>
       ) : (
         <>
-          <div className="tools-chips">
-            <button
-              className={`tools-chip ${filter === "all" ? "active" : ""}`}
-              onClick={() => setFilter("all")}
-            >
-              {t("tools.validate.all")} <span className="tools-chip-count">{total}</span>
-            </button>
-            {CATEGORIES.filter((c) => report.counts[c] > 0).map((c) => (
-              <button
-                key={c}
-                className={`tools-chip ${filter === c ? "active" : ""}`}
-                onClick={() => setFilter(c)}
-              >
-                {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
-              </button>
-            ))}
-          </div>
           {report.counts.brokenLink > 0 && (
             <div className="tools-fix-bar">
               <button className="nav-btn tools-run" onClick={handleFixLinks}>
@@ -194,16 +188,42 @@ function ValidatePanel({
               <span className="tools-fix-hint">{t("tools.validate.fixLinksHint")}</span>
             </div>
           )}
-          <ul className="tools-issues">
-            {shown.slice(0, MAX_ROWS).map((issue, i) => (
-              <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
-                <PersonLink dataset={dataset} id={issue.id} fallback={issue.subject} onNavigate={onNavigate} />
-                <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
-              </li>
-            ))}
-          </ul>
-          {shown.length > MAX_ROWS && (
-            <p className="tools-more">{t("tools.validate.more", { count: shown.length - MAX_ROWS })}</p>
+          <div className="tools-filter-row">
+            <TreeSearch value={query} onChange={setQuery} />
+            <div className="tools-chips">
+              {CATEGORIES.filter((c) => report.counts[c] > 0).map((c) => (
+                <button
+                  key={c}
+                  className={`tools-chip ${filter === c ? "active" : ""}`}
+                  onClick={() => setFilter(c)}
+                >
+                  {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
+                </button>
+              ))}
+              <button
+                className={`tools-chip ${filter === "all" ? "active" : ""}`}
+                onClick={() => setFilter("all")}
+              >
+                {t("tools.validate.all")} <span className="tools-chip-count">{total}</span>
+              </button>
+            </div>
+          </div>
+          {shown.length === 0 ? (
+            <p className="tools-clean">{t("tools.search.noMatch")}</p>
+          ) : (
+            <>
+              <ul className="tools-issues">
+                {shown.slice(0, MAX_ROWS).map((issue, i) => (
+                  <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
+                    <PersonLink dataset={dataset} id={issue.id} fallback={issue.subject} onNavigate={onNavigate} />
+                    <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+                  </li>
+                ))}
+              </ul>
+              {shown.length > MAX_ROWS && (
+                <p className="tools-more">{t("tools.validate.more", { count: shown.length - MAX_ROWS })}</p>
+              )}
+            </>
           )}
         </>
       )}
@@ -216,41 +236,60 @@ function ValidatePanel({
 function DuplicatesPanel({
   dataset,
   onNavigate,
+  active,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
+  active: boolean;
 }) {
   const { t } = useTranslation();
   const [state, setState] = useState<AsyncState<DuplicatePair[]>>({ status: "idle" });
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setState({ status: "idle" });
     setExpanded(null);
+    setQuery("");
   }, [dataset]);
 
-  async function run() {
+  // Run the (potentially heavy) scan the first time the tab is shown, letting
+  // React paint the "working…" state before the blocking computation.
+  useEffect(() => {
+    if (!active || state.status !== "idle") return;
+    let cancelled = false;
     setState({ status: "running" });
-    setExpanded(null);
-    await nextTick();
-    setState({ status: "done", result: findDuplicates(dataset) });
-  }
+    void nextTick().then(() => {
+      if (!cancelled) setState({ status: "done", result: findDuplicates(dataset) });
+    });
+    return () => { cancelled = true; };
+  }, [active, state.status, dataset]);
+
+  const q = useDebounced(query).trim().toLowerCase();
+  const pairs = state.status === "done" ? state.result : null;
+  const shown = useMemo(() => {
+    if (!pairs) return [];
+    return q ? pairs.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : pairs;
+  }, [pairs, q]);
+
+  if (state.status !== "done") return <div className="tools-loading">{t("tools.duplicates.running")}</div>;
 
   return (
     <>
-      <p className="tools-intro">{t("tools.duplicates.intro")}</p>
-      <button className="nav-btn primary tools-run" onClick={run} disabled={state.status === "running"}>
-        {state.status === "running" ? t("tools.running") : t("tools.duplicates.run")}
-      </button>
-      {state.status === "done" && (
-        state.result.length === 0 ? (
-          <p className="tools-clean">{t("tools.duplicates.none")}</p>
-        ) : (
-          <>
+      {state.result.length === 0 ? (
+        <p className="tools-clean">{t("tools.duplicates.none")}</p>
+      ) : (
+        <>
+          <div className="tools-filter-row">
+            <TreeSearch value={query} onChange={setQuery} />
             <p className="tools-summary">{t("tools.duplicates.found", { count: state.result.length })}</p>
+          </div>
+          {shown.length === 0 ? (
+            <p className="tools-clean">{t("tools.search.noMatch")}</p>
+          ) : (
             <ul className="tools-pairs">
-              {state.result.map((p) => {
+              {shown.map((p) => {
                 const key = `${p.aId}-${p.bId}`;
                 const open = expanded === key;
                 return (
@@ -280,8 +319,8 @@ function DuplicatesPanel({
                 );
               })}
             </ul>
-          </>
-        )
+          )}
+        </>
       )}
     </>
   );
@@ -325,7 +364,7 @@ function DuplicateCompare({
 
 // ── Bulk normalize ───────────────────────────────────────────────────────────
 
-function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: string }) {
+function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileName: string; active: boolean }) {
   const { t } = useTranslation();
   const [state, setState] = useState<AsyncState<{ dataset: Dataset; report: NormalizationReport }>>({ status: "idle" });
   // Which passes the user wants applied on download; the preview report above
@@ -337,11 +376,17 @@ function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: str
     setSelected({ dates: true, places: true, links: true });
   }, [dataset]);
 
-  async function run() {
+  // Run the preview the first time the tab is shown, letting React paint the
+  // "working…" state before the blocking computation.
+  useEffect(() => {
+    if (!active || state.status !== "idle") return;
+    let cancelled = false;
     setState({ status: "running" });
-    await nextTick();
-    setState({ status: "done", result: bulkNormalize(dataset) });
-  }
+    void nextTick().then(() => {
+      if (!cancelled) setState({ status: "done", result: bulkNormalize(dataset) });
+    });
+    return () => { cancelled = true; };
+  }, [active, state.status, dataset]);
 
   function download() {
     // Re-run with only the selected passes so the download honors the checkboxes.
@@ -354,12 +399,10 @@ function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: str
     downloadText(`${base}.normalized.ged`, text);
   }
 
+  if (state.status !== "done") return <div className="tools-loading">{t("tools.normalize.running")}</div>;
+
   return (
     <>
-      <p className="tools-intro">{t("tools.normalize.intro")}</p>
-      <button className="nav-btn primary tools-run" onClick={run} disabled={state.status === "running"}>
-        {state.status === "running" ? t("tools.running") : t("tools.normalize.run")}
-      </button>
       {state.status === "done" && (() => {
         const { report } = state.result;
         const changed = report.datesChanged + report.placesReshaped + report.linksConverted;
@@ -379,6 +422,7 @@ function NormalizePanel({ dataset, fileName }: { dataset: Dataset; fileName: str
           (selected.links ? counts.links : 0);
         return (
           <>
+            <p className="tools-intro">{t("tools.normalize.intro")}</p>
             <ul className="tools-norm-summary">
               <NormCheck label={t("tools.normalize.dates", { count: counts.dates })}
                 checked={selected.dates} count={counts.dates} onChange={() => toggle("dates")} />
@@ -772,15 +816,16 @@ function SourcesPanel({
 
   return (
     <>
-      <p className="tools-intro">{t("tools.sources.intro")}</p>
-      <p className="tools-summary">
-        {t("tools.sources.summary", {
-          repos: tree.repoCount,
-          sources: tree.sourceCount,
-          media: tree.mediaCount,
-        })}
-      </p>
-      <TreeSearch value={query} onChange={setQuery} />
+      <div className="tools-filter-row">
+        <TreeSearch value={query} onChange={setQuery} />
+        <p className="tools-summary">
+          {t("tools.sources.summary", {
+            repos: tree.repoCount,
+            sources: tree.sourceCount,
+            media: tree.mediaCount,
+          })}
+        </p>
+      </div>
       {empty ? (
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.sources.none")}</p>
       ) : (
@@ -968,11 +1013,12 @@ function PlacesPanel({
 
   return (
     <>
-      <p className="tools-intro">{t("tools.places.intro")}</p>
-      <p className="tools-summary">
-        {t("tools.places.summary", { distinct: tree.distinctCount, uses: tree.totalUses })}
-      </p>
-      <TreeSearch value={query} onChange={setQuery} />
+      <div className="tools-filter-row">
+        <TreeSearch value={query} onChange={setQuery} />
+        <p className="tools-summary">
+          {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}
+        </p>
+      </div>
       {roots.length === 0 ? (
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.places.none")}</p>
       ) : (
@@ -1167,18 +1213,30 @@ function PlaceTreeRow({
   );
 }
 
-/** Shared search box for the Sources/Places explorers. */
+/** Shared search box for the Sources/Places explorers. A clear button appears
+ *  once there's text to clear. */
 function TreeSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
   return (
     <div className="tools-search">
       <input
-        type="search"
+        type="text"
         className="tools-search-input"
         placeholder={t("tools.search.placeholder")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
+      {value && (
+        <button
+          type="button"
+          className="tools-search-clear"
+          onClick={() => onChange("")}
+          title={t("tools.search.clear")}
+          aria-label={t("tools.search.clear")}
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }

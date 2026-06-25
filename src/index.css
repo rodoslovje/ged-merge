@@ -490,6 +490,8 @@ button:focus-visible {
   justify-content: center;
   gap: 6px;
   padding: 34px 22px;
+  min-height: 192px;
+  box-sizing: border-box;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
 }
@@ -545,6 +547,11 @@ button:focus-visible {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+}
+
+.lb-samples.disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .lb-samples-h {
@@ -3705,6 +3712,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-head { margin-bottom: 18px; }
 .tools-title { font-size: 1.3rem; margin: 0 0 4px; color: var(--text); }
 .tools-subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.tools-stats { margin: 6px 0 0; color: var(--text); font-size: 0.9rem; font-weight: 600; }
 .tools-subtabs { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
 .tools-tab {
   flex: 1 1 220px;
@@ -3724,12 +3732,43 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
-.tools-search { margin: 0 0 12px; }
+.tools-search { position: relative; display: inline-block; width: 100%; max-width: 340px; margin: 0 0 12px; }
+/* Clear (✕) button shown inside the filter input once it has text. */
+.tools-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.tools-search-clear:hover { background: var(--accent); color: #fff; }
+/* Filter box on the left, category chips pushed to the right, in one row. */
+.tools-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+.tools-filter-row .tools-search { flex: 1 1 200px; margin: 0; }
+.tools-filter-row .tools-chips { margin: 0; margin-left: auto; }
+.tools-filter-row .tools-summary { margin: 0; margin-left: auto; }
 .tools-search-input {
   width: 100%;
-  max-width: 340px;
   box-sizing: border-box;
-  padding: 6px 10px;
+  padding: 6px 30px 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--panel-2);

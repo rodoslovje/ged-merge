@@ -190,9 +190,9 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
           </p>
         )}
 
-        {/* Sample tray — only in empty state */}
-        {masterState.status === "empty" && (
-          <div className="lb-samples">
+        {/* Sample tray — kept mounted while loading (disabled) so the layout doesn't shift */}
+        {(masterState.status === "empty" || loading) && (
+          <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
             <p className="lb-samples-h">
               <svg
                 width="14"
@@ -216,6 +216,8 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
                   className="lb-sample-row"
                   onClick={() => onLoadSample(file)}
                   type="button"
+                  disabled={loading}
+                  tabIndex={loading ? -1 : undefined}
                 >
                   <span className="lb-s-ico">
                     <TreeIcon />
