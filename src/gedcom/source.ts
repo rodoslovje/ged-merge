@@ -122,6 +122,27 @@ export function buildSourceIndex(records: GedNode[]): SourceIndex {
   return map;
 }
 
+/**
+ * Cache of a records array → its xref-to-top-level-`OBJE`-node map, for O(1)
+ * pointer resolution. Keyed by the array reference (stable per dataset, rebuilt
+ * only when the dataset changes), so the map is built once and reused across
+ * every photo lookup instead of each collector linearly scanning all records.
+ */
+const objeNodeCache = new WeakMap<GedNode[], Map<string, GedNode>>();
+
+/** xref → top-level `OBJE` node for `records`, built once per array and cached. */
+export function objeNodesFor(records: GedNode[]): Map<string, GedNode> {
+  let index = objeNodeCache.get(records);
+  if (!index) {
+    index = new Map();
+    for (const rec of records) {
+      if (rec.tag === "OBJE" && rec.xref) index.set(rec.xref, rec);
+    }
+    objeNodeCache.set(records, index);
+  }
+  return index;
+}
+
 export function buildObjeIndex(records: GedNode[]): ObjeIndex {
   const map: ObjeIndex = new Map();
   for (const rec of records) {

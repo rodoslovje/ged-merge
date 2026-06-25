@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { childText, isPointer } from "../gedcom/source";
+import { childText, isPointer, objeNodesFor } from "../gedcom/source";
 import { mediaUsedBy } from "../tools/sources";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -112,12 +112,13 @@ function objePhotoRef(objeNode: GedNode): Omit<PhotoRef, "xref"> | null {
 
 /** Every local photo (file + title) linked from a record's OBJE children. */
 export function collectPhotoRefs(raw: GedNode, records: GedNode[]): PhotoRef[] {
+  const objeNodes = objeNodesFor(records);
   const refs: PhotoRef[] = [];
   for (const child of raw.children) {
     if (child.tag !== "OBJE") continue;
     const val = child.value?.trim();
     const xref = val && isPointer(val) ? val : undefined;
-    const objeNode = xref ? records.find((r) => r.xref === xref && r.tag === "OBJE") : child;
+    const objeNode = xref ? objeNodes.get(xref) : child;
     if (!objeNode) continue;
     const ref = objePhotoRef(objeNode);
     if (ref) refs.push({ ...ref, xref });

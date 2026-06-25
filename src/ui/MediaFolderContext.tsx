@@ -156,7 +156,10 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   const { t } = useTranslation();
   const [folder, setFolder] = useState<FolderState>(null);
   const dbRef = useRef<IDBDatabase | null>(null);
-  const blobCache = useRef(new Map<string, string>());
+  // Resolved object URLs, plus negative entries (null) for paths known to be
+  // absent in the current folder — without the latter, every unresolvable file
+  // re-runs the full path probe + recursive basename scan on each lookup.
+  const blobCache = useRef(new Map<string, string | null>());
   // Hidden <input webkitdirectory> for Firefox fallback
   const inputRef = useRef<HTMLInputElement | null>(null);
   // App-styled confirm/alert dialog (replaces native window.confirm/alert).
@@ -171,7 +174,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   );
 
   function revokeAll() {
-    for (const url of blobCache.current.values()) URL.revokeObjectURL(url);
+    for (const url of blobCache.current.values()) if (url) URL.revokeObjectURL(url);
     blobCache.current = new Map();
   }
 
@@ -238,7 +241,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       if (!folder || !filePath) return null;
 
       const cached = blobCache.current.get(filePath);
-      if (cached) return cached;
+      if (cached !== undefined) return cached; // hit, including a known-miss (null)
 
       let file: File | null = null;
 
@@ -246,6 +249,8 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
         const { handle } = folder;
         if (hasPermApi(handle)) {
           const perm = await handle.queryPermission({ mode: "read" });
+          // Permission failures are transient (the user may grant later), so
+          // they're returned uncached — unlike a genuine "file not in folder".
           if (perm === "denied") return null;
           if (perm === "prompt") {
             const granted = await handle.requestPermission({ mode: "read" });
@@ -262,7 +267,10 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
         file = lookupInMap(folder.map, filePath);
       }
 
-      if (!file) return null;
+      if (!file) {
+        blobCache.current.set(filePath, null); // remember the miss
+        return null;
+      }
       const url = URL.createObjectURL(file);
       blobCache.current.set(filePath, url);
       return url;

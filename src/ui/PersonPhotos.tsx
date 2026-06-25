@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { GedNode } from "../gedcom/types";
-import { isPointer } from "../gedcom/source";
+import { isPointer, objeNodesFor } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { collectPhotoRefs, usePhotoViewer, type PhotoItem, type PhotoRefContext } from "./PhotoViewer";
@@ -19,16 +19,12 @@ function looksLikeUrl(v: string): boolean {
 
 /** Returns the first local file path from a person's OBJE links, or null. */
 export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string | null {
+  const objeNodes = objeNodesFor(records);
   for (const child of raw.children) {
     if (child.tag !== "OBJE") continue;
     const val = child.value?.trim();
-    let file: string | undefined;
-    if (val && isPointer(val)) {
-      const objeRec = records.find((r) => r.xref === val && r.tag === "OBJE");
-      file = objeRec?.children.find((c) => c.tag === "FILE")?.value?.trim();
-    } else {
-      file = child.children.find((c) => c.tag === "FILE")?.value?.trim();
-    }
+    const objeNode = val && isPointer(val) ? objeNodes.get(val) : child;
+    const file = objeNode?.children.find((c) => c.tag === "FILE")?.value?.trim();
     if (file && !looksLikeUrl(file)) return file;
   }
   return null;
