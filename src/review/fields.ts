@@ -861,6 +861,24 @@ export function clampBeforeDeathZone(tag: string, key: number, minDeathKey: numb
 }
 
 /**
+ * Symmetric to `clampBeforeDeathZone`: a birth-adjacent event (BAPM, CHR, …)
+ * can only occur at/after birth, so it must never sort before a known birth
+ * date — even when its own date is genuinely earlier. This happens when the
+ * date being sorted comes from the *other* side of a comparison (e.g. a compare
+ * record's precise 1859 christening ranked against a master's fuzzy `ABT 1862`
+ * birth) or when a precise christening outranks a year-only birth in the same
+ * record (a year-only date sorts to the end of its year; see `dateToSortKey`).
+ * Clamps to just after the birth key, keeping birth-zone tags in `EVENT_ORDER`.
+ */
+export function clampAfterBirthZone(tag: string, key: number, maxBirthKey: number | undefined): number {
+  if (BIRTH_ZONE_TAGS.has(tag) && maxBirthKey != null && key < maxBirthKey) {
+    const pos = EVENT_ORDER.indexOf(tag);
+    return maxBirthKey + (pos >= 0 ? pos : 5);
+  }
+  return key;
+}
+
+/**
  * Lifespan anchors used to place undated events relative to a person's known
  * birth/death dates — shared by the comparison view (`orderedEventTags`) and
  * the Edit view's event list so both order events identically.
@@ -899,7 +917,8 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
 /**
  * Sort key for an event with the given date/tag. When the event has a date,
  * returns the precision-aware date key (clamped before any known death date for
- * life-zone tags). When undated, uses zone-based placement:
+ * life-zone tags, and after any known birth date for birth-zone tags). When
+ * undated, uses zone-based placement:
  *  - Birth-zone tags (BIRT, BAPM, …): pinned just after the known birth date
  *    (so e.g. an undated christening still sorts after a dated birth), or
  *    key 0–5 when no birth date is known at all.
@@ -908,7 +927,8 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
  */
 export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnchors): number {
   if (d?.year != null) {
-    return clampBeforeDeathZone(tag, dateToSortKey(d), a.minDeathKey);
+    const key = clampBeforeDeathZone(tag, dateToSortKey(d), a.minDeathKey);
+    return clampAfterBirthZone(tag, key, a.maxBirthKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {

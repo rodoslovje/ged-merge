@@ -429,6 +429,39 @@ describe("event ordering", () => {
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("BAPM.header"));
   });
 
+  it("sorts a dated CHR after BIRT even when the christening date predates the birth", () => {
+    // Reported case: master birth is ABT 1862, compare has a precise christening
+    // 25 Aug 1859 and birth 25 Aug 1859. The CHR row uses the compare's 1859 date
+    // while the BIRT row uses master's (later) 1862 date, so a naive date sort
+    // ranks christening before birth. Birth-zone clamping must keep BIRT first.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME Marija /Fijaski/\n1 BIRT\n2 DATE ABT 1862\n2 PLAC Ravna Gora\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME Marija /Fijaski/\n` +
+      `1 CHR\n2 DATE 25 AUG 1859\n2 PLAC Ravna Gora\n` +
+      `1 BIRT\n2 DATE 25 AUG 1859\n2 PLAC Ravna Gora\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("CHR.header"));
+  });
+
+  it("sorts a precise CHR after a year-only BIRT in the same record", () => {
+    // A precise christening date sorts to mid-year, while a year-only birth sorts
+    // to the end of its year (dateToSortKey +9000). Without clamping, the
+    // christening would precede the birth even on one person.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
+      `1 CHR\n2 DATE 15 MAR 1862\n` +
+      `1 BIRT\n2 DATE 1862\n` +
+      `0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("CHR.header"));
+  });
+
   it("sorts undated DEAT before undated BURI, both after dated BIRT", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +

@@ -165,6 +165,193 @@ describe("findDuplicates", () => {
     expect(pair.aId).not.toBe(pair.bId);
     expect(pair.score).toBeGreaterThanOrEqual(70);
   });
+
+  it("does not flag cousins with the same surname, town and era but different parents", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Margaret Frances /Sustarich/
+1 SEX F
+1 BIRT
+2 DATE 9 JUL 1904
+2 PLAC Calumet,,Houghton,Michigan,United States
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Agnes Rose /Sustarich/
+1 SEX F
+1 BIRT
+2 DATE 14 FEB 1903
+2 PLAC Calumet,,Houghton,Michigan,United States
+1 FAMC @F2@
+0 @I3@ INDI
+1 NAME Jacob Jack /Sustarich/
+1 SEX M
+0 @I4@ INDI
+1 NAME Margaret /Butala/
+1 SEX F
+0 @I5@ INDI
+1 NAME John /Sustarich/
+1 SEX M
+0 @I6@ INDI
+1 NAME Annie /Sedlar/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds).some((p) => [p.aId, p.bId].includes("@I1@"))).toBe(false);
+  });
+
+  it("does not flag two siblings (shared parents, born different years)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 12 JAN 1850
+2 PLAC Ljubljana
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Jozef /Novak/
+1 SEX M
+1 BIRT
+2 DATE 3 MAR 1853
+2 PLAC Ljubljana
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Anton /Novak/
+1 SEX M
+0 @I4@ INDI
+1 NAME Marija /Kovac/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
+  it("does not flag twins (shared parents, same birth year, different given names)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Anton /Rogelj/
+1 SEX M
+1 BIRT
+2 DATE 2 JUN 1888
+2 PLAC Žablje,Kranj,Slovenia
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Alojz /Rogelj/
+1 SEX M
+1 BIRT
+2 DATE 2 JUN 1888
+2 PLAC Žablje,Kranj,Slovenia
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Valentin /Rogelj/
+1 SEX M
+0 @I4@ INDI
+1 NAME Jera /Vrtnik/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
+  it("does not flag different given names sharing only a surname and era", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Franjo /Troha/
+1 SEX M
+1 BIRT
+2 DATE ABT 1880
+0 @I2@ INDI
+1 NAME Jakov /Troha/
+1 SEX M
+1 BIRT
+2 DATE 30 APR 1879
+2 PLAC Stara Sušica,Primorje-Gorski Kotar,Croatia
+0 TRLR`);
+    expect(findDuplicates(ds).some((p) => [p.aId, p.bId].includes("@I1@"))).toBe(false);
+  });
+
+  it("does not flag a namesake child (same name and parents, born after a dead sibling)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 12 JAN 1850
+1 DEAT
+2 DATE 1852
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 4 MAY 1853
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Anton /Novak/
+1 SEX M
+0 @I4@ INDI
+1 NAME Marija /Kovac/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
+  it("still flags a true duplicate that shares parents and birth year", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 12 JAN 1850
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 12 JAN 1850
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Anton /Novak/
+1 SEX M
+0 @I4@ INDI
+1 NAME Marija /Kovac/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    const pairs = findDuplicates(ds);
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0].aId, pairs[0].bId].sort()).toEqual(["@I1@", "@I2@"]);
+  });
 });
 
 describe("buildSourceTree", () => {

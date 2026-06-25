@@ -2752,7 +2752,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .choice.take.active { border-color: var(--state-incoming); color: var(--state-incoming); }
 
 .group-header-row {
-  background: color-mix(in srgb, var(--panel) 60%, var(--bg));
+  background: var(--panel-2);
 }
 .group-header-cell {
   font-weight: 600;
@@ -3041,8 +3041,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tree-compare-close:hover { color: var(--text); }
 .tree-compare-table {
-  display: block;
-  overflow: auto;
+  display: table;
   border-collapse: collapse;
   width: 100%;
   font-size: 0.82rem;
@@ -3061,14 +3060,20 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border-top: 1px solid var(--border);
   vertical-align: top;
 }
-.tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: auto; text-align: left; }
+.tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: 1%; text-align: left; }
+/* Split the remaining width evenly between the two value columns so the
+   compare fills its container instead of shrink-wrapping to content. */
+.tree-compare-table .f-val { width: 50%; }
 /* Bold the kept value, mute the other — same emphasis as the main compare table
    (.f-val.chosen / .f-val:not(.chosen)). */
 /* Match the Compare screen's row highlights for new (incoming-only) and
-   conflicting (difference) fields. Applied to cells because the table is
-   display:block, where a <tr> background doesn't paint reliably. */
+   conflicting (difference) fields. Applied to cells, not the <tr>, so the
+   highlight stays put under border-collapse. */
 .tree-compare-table .field.conflict td { background: rgba(226, 179, 65, 0.08); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
+/* Group headers paint on the cell too (same reason as the field highlights). */
+.tree-compare-table .group-header-cell { background: var(--panel-2); }
+.tree-compare-table .event-header-cell { background: transparent; }
 /* Master | Incoming headers: source-coloured uppercase mono, like the compare
    panel. Scoped to beat the muted `.tree-compare-table th` base colour. */
 .tree-compare-table th.compare-col {
