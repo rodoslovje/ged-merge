@@ -3729,6 +3729,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tools-tab:hover { border-color: var(--accent); }
 .tools-tab.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-tab.active .tools-tab-label { color: var(--accent); }
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
@@ -3837,6 +3838,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-pair-toggle:hover { color: var(--text); }
 .tools-pair-toggle.open { transform: rotate(90deg); }
 .tools-pair-compare { margin: 8px 0 4px; overflow-x: auto; }
+.tools-merge-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 10px 0 4px; flex-wrap: wrap; }
+.tools-merge-hint { color: var(--muted); font-size: 0.85rem; margin-right: auto; }
+.tools-merge-bar .tools-run { margin: 0; }
 
 /* Explorer trees (Sources, Places) */
 .tools-tree { list-style: none; margin: 0; padding: 0; }

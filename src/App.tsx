@@ -28,6 +28,7 @@ import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { fixBrokenLinks } from "./tools/fixLinks";
+import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { SaveDialog } from "./ui/SaveDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EditTree } from "./ui/EditTree";
@@ -1373,6 +1374,16 @@ function AppContent() {
                   }
                 }
                 return patches.length;
+              }}
+              onMergeDuplicate={(survivorId, removedId, decision) => {
+                if (!masterDataset) return false;
+                const patches = mergeDuplicate(masterDataset, survivorId, removedId, decision, t);
+                if (patches.length === 0) return false;
+                handlePushEdit(patches);
+                for (const p of patches) {
+                  if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                }
+                return true;
               }}
             />
           </div>

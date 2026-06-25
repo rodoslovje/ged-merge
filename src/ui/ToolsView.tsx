@@ -13,7 +13,12 @@ import { countryCode } from "../gedcom/countryCode";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
-import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
+import { duplicateDefaults } from "../tools/mergeDuplicate";
+import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
+import { type PersonNav } from "./ReadOnlyCompare";
+import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
+import { SourceRefs } from "./SourceRef";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonLink } from "./PersonLink";
 import { MediaThumb, type MediaGalleryItem } from "./PersonPhotos";
 import { mediaMetaRows } from "./PhotoViewer";
@@ -40,6 +45,10 @@ interface Props {
   /** Remove all broken family pointers and push to the undo stack. Returns the
    *  number of records changed, so the panel can re-validate and report. */
   onFixBrokenLinks: () => number;
+  /** Merge a duplicate pair: fold the removed record into the survivor (kept)
+   *  per the field choices, mutating the dataset in place and pushing to undo.
+   *  Returns true when the merge applied (records changed). */
+  onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
 }
 
 type AsyncState<T> =
@@ -52,7 +61,7 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks }: Props) {
+export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onMergeDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
 
@@ -90,7 +99,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
           <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
+          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} />
         )}
         {tool === "normalize" && (
           <NormalizePanel dataset={dataset} fileName={fileName} active={active} />
@@ -237,16 +246,30 @@ function DuplicatesPanel({
   dataset,
   onNavigate,
   active,
+  onMergeDuplicate,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
+  onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
 }) {
   const { t } = useTranslation();
   const [state, setState] = useState<AsyncState<DuplicatePair[]>>({ status: "idle" });
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+
+  // Apply a merge, then drop from the list the merged pair and any other pair
+  // that referenced the now-removed record (it no longer exists).
+  function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
+    if (!onMergeDuplicate(survivorId, removedId, decision)) return;
+    setExpanded(null);
+    setState((s) =>
+      s.status === "done"
+        ? { status: "done", result: s.result.filter((p) => p.aId !== removedId && p.bId !== removedId) }
+        : s,
+    );
+  }
 
   useEffect(() => {
     setState({ status: "idle" });
@@ -313,6 +336,7 @@ function DuplicatesPanel({
                         dataset={dataset}
                         pair={p}
                         onNavigate={onNavigate}
+                        onMerge={handleMerge}
                       />
                     )}
                   </li>
@@ -326,16 +350,26 @@ function DuplicatesPanel({
   );
 }
 
-/** Read-only side-by-side field comparison of one duplicate pair — both records
- *  live in the same master dataset, so each column navigates into Edit mode. */
+const CHOICES: FieldChoice[] = ["master", "incoming", "both"];
+
+/**
+ * Editable side-by-side comparison of one duplicate pair. Both records live in
+ * the same master dataset, so each column navigates into Edit mode. The left
+ * (master) record is the survivor; per-field M/I/B controls choose what it keeps
+ * — seeded by `duplicateDefaults` (more precise dates win, one-sided fields are
+ * combined). The Merge button (behind a confirmation) folds the right record
+ * into the left and deletes it.
+ */
 function DuplicateCompare({
   dataset,
   pair,
   onNavigate,
+  onMerge,
 }: {
   dataset: Dataset;
   pair: DuplicatePair;
   onNavigate: (id: string) => void;
+  onMerge: (survivorId: string, removedId: string, decision: CandidateDecision) => void;
 }) {
   const { t } = useTranslation();
   const a = dataset.individuals.get(pair.aId);
@@ -344,20 +378,131 @@ function DuplicateCompare({
     () => individualFieldRows(t, a, b, dataset, dataset),
     [t, a, b, dataset],
   );
+  const [fields, setFields] = useState<Record<string, FieldChoice>>(() => duplicateDefaults(rows));
+  const [confirming, setConfirming] = useState(false);
+  // Re-seed defaults if the underlying rows change (e.g. dataset edited elsewhere).
+  useEffect(() => { setFields(duplicateDefaults(rows)); }, [rows]);
+
   const nav: PersonNav = {
     linkable: (id) => dataset.individuals.has(id),
     onNavigate,
   };
+  const setChoice = (key: string, c: FieldChoice) => setFields((f) => ({ ...f, [key]: c }));
+
+  function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
+    if (row.state === "conflict" || row.state === "incoming-only") {
+      return CHOICES.map((c) => (
+        <button
+          key={c}
+          className={`choice ${c}${choice === c ? " active" : ""}`}
+          title={t(`choice.${c}.title`)}
+          onClick={() => setChoice(row.key, c)}
+        >
+          {t(`choice.${c}.label`)}
+        </button>
+      ));
+    }
+    if (row.state === "agree") return <span className="muted">=</span>;
+    return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+  }
+
   return (
     <div className="tools-pair-compare">
-      <ReadOnlyCompare
-        rows={rows}
-        masterPerson={nav}
-        incomingPerson={nav}
-        masterLabel={pair.aLabel}
-        incomingLabel={pair.bLabel}
-        hideHeader
-      />
+      <table className="compare">
+        <thead>
+          <tr className="compare-head">
+            <th />
+            <th className="compare-col compare-col-master">{t("tools.duplicates.surviving")}</th>
+            <th className="compare-col compare-col-incoming">{t("tools.duplicates.candidate")}</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            if (row.isGroupHeader) {
+              const isEventHeader = !!row.isEventHeader;
+              return (
+                <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
+                  <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>
+                    {row.label}
+                  </td>
+                </tr>
+              );
+            }
+            const choice = fields[row.key] ?? defaultChoice(row);
+            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
+            return (
+              <tr key={row.key} className={`field ${row.state}`}>
+                <td className="f-label">{row.displayLabel ?? row.label}</td>
+                {row.relatives ? (
+                  <td className="f-rel" colSpan={3}>
+                    <RelativeGrid
+                      pairs={row.relatives}
+                      masterChosen={choice !== "incoming"}
+                      incomingChosen={choice !== "master"}
+                      masterPerson={nav}
+                      incomingPerson={nav}
+                      renderChoice={() => renderChoiceCell(row, choice)}
+                    />
+                  </td>
+                ) : hasSources ? (
+                  <>
+                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} masterSources={row.masterSources} />
+                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
+                    </td>
+                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.masterTitle}>
+                      <FieldValue
+                        text={row.master}
+                        links={row.masterLinks}
+                        linkIcons={row.masterLinkIcons}
+                        otherLinkIcons={row.incomingLinkIcons}
+                        person={row.masterRefs ? { refs: row.masterRefs, ...nav } : undefined}
+                      />
+                    </td>
+                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.incomingTitle}>
+                      <FieldValue
+                        text={row.incoming}
+                        links={row.incomingLinks}
+                        otherLinks={row.masterLinks}
+                        linkIcons={row.incomingLinkIcons}
+                        otherLinkIcons={row.masterLinkIcons}
+                        person={row.incomingRefs ? { refs: row.incomingRefs, ...nav } : undefined}
+                      />
+                    </td>
+                  </>
+                )}
+                {row.relatives ? null : <td className="f-choice">{renderChoiceCell(row, choice)}</td>}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="tools-merge-bar">
+        <span className="tools-merge-hint">{t("tools.duplicates.survivorHint", { name: pair.aLabel })}</span>
+        <button className="nav-btn primary tools-run" onClick={() => setConfirming(true)}>
+          {t("tools.duplicates.merge")}
+        </button>
+      </div>
+      {confirming && (
+        <ConfirmDialog
+          danger
+          message={t("tools.duplicates.mergeConfirm", { survivor: pair.aLabel, removed: pair.bLabel })}
+          confirmLabel={t("tools.duplicates.merge")}
+          onConfirm={() => {
+            setConfirming(false);
+            onMerge(pair.aId, pair.bId, { status: "confirmed", fields });
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }
@@ -692,18 +837,33 @@ const sourceMatches = (src: SourceEntry, q: string) =>
   src.media.some((m) => mediaMatches(m, q));
 
 /** Prune the repo list to those matching `q` (whole subtree kept on a repo-level
- * match; otherwise only matching sources are retained). */
-function filterRepos(repos: RepoGroup[], q: string): RepoGroup[] {
+ * match; otherwise only matching sources are retained). Repos/sources that
+ * survive solely as ancestors of a deeper match are collected in `openRepos` /
+ * `openSources` so they expand down to (not past) the matching entries. */
+function filterRepos(repos: RepoGroup[], q: string): {
+  repos: RepoGroup[];
+  openRepos: Set<RepoGroup>;
+  openSources: Set<SourceEntry>;
+} {
   const out: RepoGroup[] = [];
+  const openRepos = new Set<RepoGroup>();
+  const openSources = new Set<SourceEntry>();
   for (const repo of repos) {
     if (someMatch(q, repo.name, repo.xref, repo.tooltip)) {
       out.push(repo);
       continue;
     }
     const sources = repo.sources.filter((s) => sourceMatches(s, q));
-    if (sources.length > 0) out.push({ ...repo, sources });
+    if (sources.length === 0) continue;
+    const kept = { ...repo, sources };
+    out.push(kept);
+    openRepos.add(kept);
+    for (const s of sources) {
+      // Source kept only because one of its media matched → open it to reveal that medium.
+      if (!someMatch(q, s.title, s.xref, s.filingNumber, s.tooltip)) openSources.add(s);
+    }
   }
-  return out;
+  return { repos: out, openRepos, openSources };
 }
 
 /** Keys to also open below a source that funnels into a single medium with no
@@ -768,32 +928,38 @@ function SourcesPanel({
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
-  // Filtering narrows the tree but leaves branches collapsed — the user expands matches.
-  const isOpen = (key: string) => open.has(key);
 
   const filtered = useMemo(() => {
     if (!tree) return null;
-    if (!filtering) return tree;
+    if (!filtering) return { tree, openRepos: new Set<RepoGroup>(), openSources: new Set<SourceEntry>() };
+    const { repos, openRepos, openSources } = filterRepos(tree.repos, q);
     return {
-      ...tree,
-      repos: filterRepos(tree.repos, q),
-      unattachedLinks: tree.unattachedLinks.filter((m) => mediaMatches(m, q)),
-      unattachedMedia: tree.unattachedMedia.filter((m) => mediaMatches(m, q)),
+      tree: {
+        ...tree,
+        repos,
+        unattachedLinks: tree.unattachedLinks.filter((m) => mediaMatches(m, q)),
+        unattachedMedia: tree.unattachedMedia.filter((m) => mediaMatches(m, q)),
+      },
+      openRepos,
+      openSources,
     };
   }, [tree, filtering, q]);
+
+  // Filtering expands ancestors down to (not past) the matches; the user expands further.
+  const isOpen = (key: string) => open.has(key);
 
   if (!tree || !filtered) return <div className="tools-loading">{t("tools.running")}</div>;
 
   const empty =
-    filtered.repos.length === 0 &&
-    filtered.unattachedLinks.length === 0 &&
-    filtered.unattachedMedia.length === 0;
+    filtered.tree.repos.length === 0 &&
+    filtered.tree.unattachedLinks.length === 0 &&
+    filtered.tree.unattachedMedia.length === 0;
 
   const unattachedGroup = (key: string, labelKey: string, icon: string, entries: typeof tree.unattachedMedia) => {
     if (entries.length === 0) return false;
     return (
       <TreeRow
-        open={isOpen(key)}
+        open={isOpen(key) || filtering}
         onToggle={() => toggle(key)}
         hasChildren
         count={entries.length}
@@ -830,12 +996,12 @@ function SourcesPanel({
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.sources.none")}</p>
       ) : (
         <ul className="tools-tree">
-          {filtered.repos.map((repo, ri) => {
+          {filtered.tree.repos.map((repo, ri) => {
             const repoKey = `r:${repo.xref ?? "none"}:${ri}`;
             return (
               <TreeRow
                 key={repoKey}
-                open={isOpen(repoKey)}
+                open={isOpen(repoKey) || filtered.openRepos.has(repo)}
                 onToggle={() => openWith(repoKey, repoDescendants(repo))}
                 hasChildren={repo.sources.length > 0}
                 count={repo.sources.length}
@@ -851,7 +1017,7 @@ function SourcesPanel({
                     return (
                       <TreeRow
                         key={srcKey}
-                        open={isOpen(srcKey)}
+                        open={isOpen(srcKey) || filtered.openSources.has(src)}
                         onToggle={() => openWith(srcKey, srcDescendants(src))}
                         hasChildren={hasKids}
                         count={src.usedBy.length}
@@ -886,8 +1052,8 @@ function SourcesPanel({
               </TreeRow>
             );
           })}
-          {unattachedGroup("unattachedLinks", "tools.sources.unattachedLinks", "🔗", filtered.unattachedLinks)}
-          {unattachedGroup("unattached", "tools.sources.unattached", "🖼", filtered.unattachedMedia)}
+          {unattachedGroup("unattachedLinks", "tools.sources.unattachedLinks", "🔗", filtered.tree.unattachedLinks)}
+          {unattachedGroup("unattached", "tools.sources.unattached", "🖼", filtered.tree.unattachedMedia)}
         </ul>
       )}
     </>
@@ -898,15 +1064,18 @@ function SourcesPanel({
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
- * otherwise only matching descendant branches are retained. */
-function filterPlaceNode(node: PlaceNode, q: string): PlaceNode | null {
+ * otherwise only matching descendant branches are retained. Paths of nodes that
+ * survive solely as ancestors of a match are collected in `autoOpen` so they can
+ * be expanded down to (but not past) the matching entries. */
+function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set<string>): PlaceNode | null {
   if (node.name.toLowerCase().includes(q)) return node;
   const children: PlaceNode[] = [];
   for (const child of node.children) {
-    const kept = filterPlaceNode(child, q);
+    const kept = filterPlaceNode(child, q, `${path}/${child.name}`, autoOpen);
     if (kept) children.push(kept);
   }
   if (children.length === 0) return null;
+  autoOpen.add(path);
   return { ...node, children };
 }
 
@@ -960,16 +1129,19 @@ function PlacesPanel({
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
-  // Filtering narrows the tree but leaves branches collapsed — the user expands matches.
-  const isOpen = (key: string) => open.has(key);
 
-  const roots = useMemo(() => {
-    if (!tree) return [];
-    if (!filtering) return tree.roots;
-    return tree.roots
-      .map((node) => filterPlaceNode(node, q))
+  const { roots, autoOpen } = useMemo(() => {
+    const ao = new Set<string>();
+    if (!tree) return { roots: [] as PlaceNode[], autoOpen: ao };
+    if (!filtering) return { roots: tree.roots, autoOpen: ao };
+    const r = tree.roots
+      .map((node) => filterPlaceNode(node, q, node.name, ao))
       .filter((n): n is PlaceNode => n !== null);
+    return { roots: r, autoOpen: ao };
   }, [tree, filtering, q]);
+
+  // Filtering expands ancestors down to (not past) the matches; the user expands further.
+  const isOpen = (key: string) => autoOpen.has(key) || open.has(key);
 
   // All distinct segments for rename autocomplete — recomputed whenever the tree rebuilds.
   const allSegments = useMemo(() => tree ? collectPlaceSegments(dataset) : [], [tree, dataset]);

@@ -76,11 +76,15 @@ export function findDuplicates(
       const cand = scoreIndividualPair(a, b, ds, ds, config);
       if (cand.score / 100 < minScore) continue;
 
+      // Orient the pair so the left/survivor is the record with more linked
+      // relatives. Merging keeps the left record and re-points the right's links
+      // onto it, so leading with the richer record minimizes the changes.
+      const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
       out.push({
-        aId: a.id,
-        bId,
-        aLabel: label(a),
-        bLabel: label(b),
+        aId: left.id,
+        bId: right.id,
+        aLabel: label(left),
+        bLabel: label(right),
         score: cand.score,
         category: cand.category,
       });
@@ -89,6 +93,24 @@ export function findDuplicates(
 
   out.sort((x, y) => y.score - x.score);
   return out;
+}
+
+/** Number of distinct linked relatives (parents, partners, children) a person
+ *  has — used to pick which of a duplicate pair leads as the survivor, so the
+ *  merge re-points as few relationships as possible. */
+function relationshipCount(indi: Individual, ds: Dataset): number {
+  const rel = new Set<string>();
+  for (const famId of indi.childOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const p of [fam.husband, fam.wife]) if (p && p !== indi.id) rel.add(p);
+  }
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const m of [fam.husband, fam.wife, ...fam.children]) if (m && m !== indi.id) rel.add(m);
+  }
+  return rel.size;
 }
 
 /**
