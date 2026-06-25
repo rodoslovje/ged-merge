@@ -285,6 +285,53 @@ function diffFamilyNodes(
 }
 
 /**
+ * When a FAMS/FAMC link is lost because its family was removed, find the
+ * surviving family the relationship was folded into (during a duplicate merge,
+ * two records for the same couple collapse into one). The fold target is the
+ * surviving family — of the same role — that absorbed the most of the dropped
+ * family's other members. Returns undefined for a genuine loss (no replacement).
+ */
+function findFoldTarget(
+  id: string,
+  droppedSnap: GedNode | undefined,
+  tag: "FAMS" | "FAMC",
+  dataset: Dataset,
+): string | undefined {
+  if (!droppedSnap) return undefined;
+  const indi = dataset.individuals.get(id);
+  if (!indi) return undefined;
+  const others = new Set(
+    droppedSnap.children
+      .filter((c) => c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL")
+      .map((c) => c.value?.trim())
+      .filter((v): v is string => !!v && v !== id),
+  );
+  if (others.size === 0) return undefined;
+  let best: string | undefined;
+  let bestScore = 0;
+  for (const node of indi.raw.children) {
+    if (node.tag !== tag) continue;
+    const fid = node.value?.trim();
+    if (!fid) continue;
+    const fam = dataset.families.get(fid);
+    if (!fam) continue;
+    const members = new Set([fam.husband, fam.wife, ...fam.children].filter((m): m is string => !!m));
+    let score = 0;
+    for (const m of others) if (members.has(m)) score++;
+    if (score > bestScore) { bestScore = score; best = fid; }
+  }
+  return best;
+}
+
+/** "Husband + Wife" label for a current family, resolving names from the dataset. */
+function currentFamilyLabel(famId: string, dataset: Dataset, resolveName: (xref: string) => string): string {
+  const fam = dataset.families.get(famId);
+  if (!fam) return famId;
+  const names = [fam.husband, fam.wife].filter((m): m is string => !!m).map(resolveName).filter(Boolean);
+  return names.join(" + ") || famId;
+}
+
+/**
  * Adds field-level diffs to an edit-mode ChangeReport by comparing pre-edit
  * snapshots against the current dataset. Only existing records have snapshots;
  * newly added records get no field detail (the "New" badge is enough).
@@ -311,21 +358,36 @@ export function enrichEditReport(
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
         extra.push(...diffIndividualNodes(id, snapshot, current.raw, t));
-        // A FAMS/FAMC link lost because its family was pruned (dropped below
-        // two members) surfaces only here: the removed FAM has no
-        // snapshot/current pair for diffFamilyNodes to report. A link to a
-        // family that still exists is already shown on that family's row.
+        // Family-membership changes on the individual. A detach from a family
+        // that still exists is shown on that family's row, so only removed
+        // families (pruned, or folded away by a duplicate merge) surface as a
+        // loss here. Gained memberships are reported too — otherwise a survivor
+        // that only absorbed a re-pointed relationship is flagged "changed" with
+        // nothing listed.
         for (const tag of ["FAMS", "FAMC"] as const) {
-          const afterLinks = new Set(
-            current.raw.children.filter((c) => c.tag === tag).map((c) => c.value?.trim()),
-          );
-          for (const node of snapshot.children) {
-            if (node.tag !== tag) continue;
-            const famId = node.value?.trim();
-            if (!famId || afterLinks.has(famId) || dataset.families.has(famId)) continue;
+          const fieldKey = tag === "FAMC" ? "field.childOf" : "field.spouseOf";
+          const linkVals = (node: GedNode) =>
+            node.children.filter((c) => c.tag === tag).map((c) => c.value?.trim()).filter((v): v is string => !!v);
+          const beforeLinks = linkVals(snapshot);
+          const afterSet = new Set(linkVals(current.raw));
+          const beforeSet = new Set(beforeLinks);
+          const gained = new Set([...afterSet].filter((f) => !beforeSet.has(f)));
+          for (const famId of beforeLinks) {
+            if (afterSet.has(famId) || dataset.families.has(famId)) continue;
             const famLabel = report.recordLabels[famId] ?? famId;
-            const fieldKey = tag === "FAMC" ? "field.childOf" : "field.spouseOf";
-            extra.push({ recordId: id, field: t(fieldKey), from: famLabel, to: "", action: "incoming" });
+            // If the relationship survived in another family (a duplicate merge
+            // folded two records for the same couple into one), report it as a
+            // move so the preview doesn't read as the relationship vanishing.
+            const target = findFoldTarget(id, familySnapshots.get(famId), tag, dataset);
+            if (target) {
+              gained.delete(target); // the move already accounts for this new membership
+              extra.push({ recordId: id, field: t(fieldKey), from: famLabel, to: currentFamilyLabel(target, dataset, resolveIndiName), action: "incoming" });
+            } else {
+              extra.push({ recordId: id, field: t(fieldKey), from: famLabel, to: "", action: "incoming" });
+            }
+          }
+          for (const famId of gained) {
+            extra.push({ recordId: id, field: t(fieldKey), from: "", to: currentFamilyLabel(famId, dataset, resolveIndiName), action: "both" });
           }
         }
       } else if (snapshot && !current) {

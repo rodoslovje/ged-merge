@@ -1,9 +1,9 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { validateDataset, type ValidationReport, type IssueCategory } from "../tools/validate";
-import { findDuplicates, type DuplicatePair } from "../tools/duplicates";
+import { findDuplicates, makeDuplicatePair, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
 import { buildPlaceTree, countDistinctPlaces, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
@@ -13,7 +13,7 @@ import { countryCode } from "../gedcom/countryCode";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
-import { duplicateDefaults } from "../tools/mergeDuplicate";
+import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { type PersonNav } from "./ReadOnlyCompare";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
@@ -76,8 +76,6 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
   return (
     <div className="tools-view">
       <div className="tools-head">
-        <h2 className="tools-title">{t("tools.title")}</h2>
-        <p className="tools-subtitle">{t("tools.subtitle")}</p>
         <p className="tools-stats">{t("tools.stats", stats)}</p>
       </div>
       <div className="tools-subtabs" role="tablist">
@@ -258,6 +256,15 @@ function DuplicatesPanel({
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Keyboard-highlighted pair (index into the currently shown list).
+  const [selected, setSelected] = useState(0);
+  const selectedRef = useRef(0);
+  selectedRef.current = selected;
+  const listRef = useRef<HTMLUListElement>(null);
+  // Mirror `expanded` so the keydown handler (which doesn't re-subscribe on
+  // every open/close) can read the live value.
+  const expandedRef = useRef<string | null>(null);
+  expandedRef.current = expanded;
 
   // Apply a merge, then drop from the list the merged pair and any other pair
   // that referenced the now-removed record (it no longer exists).
@@ -271,10 +278,34 @@ function DuplicatesPanel({
     );
   }
 
+  // Open a related pair surfaced from inside an open comparison (a spouse/parent
+  // that is a separate record on each side). Reuse the pair if it's already in
+  // the list, otherwise synthesize and prepend it, then clear any filter and
+  // expand it so the user can complete that merge too.
+  function openPair(aId: string, bId: string) {
+    if (state.status !== "done") return;
+    const pair = state.result.find(
+      (p) => (p.aId === aId && p.bId === bId) || (p.aId === bId && p.bId === aId),
+    );
+    if (!pair) {
+      const made = makeDuplicatePair(dataset, aId, bId);
+      if (!made) return;
+      setState({ status: "done", result: [made, ...state.result] });
+      setQuery("");
+      setSelected(0); // prepended → top of the (unfiltered) list
+      setExpanded(`${made.aId}-${made.bId}`);
+      return;
+    }
+    setQuery("");
+    setSelected(state.result.indexOf(pair));
+    setExpanded(`${pair.aId}-${pair.bId}`);
+  }
+
   useEffect(() => {
     setState({ status: "idle" });
     setExpanded(null);
     setQuery("");
+    setSelected(0);
   }, [dataset]);
 
   // Run the (potentially heavy) scan the first time the tab is shown, letting
@@ -296,6 +327,60 @@ function DuplicatesPanel({
     return q ? pairs.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : pairs;
   }, [pairs, q]);
 
+  // Keep the highlight inside the (re)filtered list: a new filter starts at the
+  // top; merging out a pair clamps to the last remaining one.
+  useEffect(() => { setSelected(0); }, [q]);
+  useEffect(() => {
+    setSelected((i) => (shown.length === 0 ? 0 : Math.min(i, shown.length - 1)));
+  }, [shown.length]);
+
+  // Bring the keyboard-highlighted pair into view as it moves.
+  useEffect(() => {
+    (listRef.current?.children[selected] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
+  // Left/Right step the highlight between candidate pairs; Up/Down scroll the
+  // surrounding list (when it overflows) so a long list can be read without
+  // moving the selection. Mirrors the Merge view's compare-panel shortcuts.
+  useEffect(() => {
+    if (!active || shown.length === 0) return;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // Step the highlight; if a candidate is already open, keep the compare
+      // open and stick it to the one we land on.
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const next = e.key === "ArrowLeft"
+          ? Math.max(0, selectedRef.current - 1)
+          : Math.min(shown.length - 1, selectedRef.current + 1);
+        setSelected(next);
+        if (expandedRef.current !== null) {
+          const p = shown[next];
+          if (p) setExpanded(`${p.aId}-${p.bId}`);
+        }
+        return;
+      }
+      if (e.key === "Enter") {
+        const p = shown[selectedRef.current];
+        if (!p) return;
+        e.preventDefault();
+        const key = `${p.aId}-${p.bId}`;
+        setExpanded((cur) => (cur === key ? null : key));
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const el = listRef.current?.closest(".tools-view") as HTMLElement | null;
+        if (!el || el.scrollHeight <= el.clientHeight) return;
+        e.preventDefault();
+        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, shown]);
+
   if (state.status !== "done") return <div className="tools-loading">{t("tools.duplicates.running")}</div>;
 
   return (
@@ -311,13 +396,13 @@ function DuplicatesPanel({
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
-            <ul className="tools-pairs">
-              {shown.map((p) => {
+            <ul className="tools-pairs" ref={listRef}>
+              {shown.map((p, i) => {
                 const key = `${p.aId}-${p.bId}`;
                 const open = expanded === key;
                 return (
-                  <li key={key} className="tools-pair">
-                    <div className="tools-pair-row">
+                  <li key={key} className={`tools-pair ${i === selected ? "selected" : ""}`}>
+                    <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                       <button
                         className={`tools-pair-toggle ${open ? "open" : ""}`}
                         onClick={() => setExpanded(open ? null : key)}
@@ -337,6 +422,7 @@ function DuplicatesPanel({
                         pair={p}
                         onNavigate={onNavigate}
                         onMerge={handleMerge}
+                        onOpenPair={openPair}
                       />
                     )}
                   </li>
@@ -365,11 +451,13 @@ function DuplicateCompare({
   pair,
   onNavigate,
   onMerge,
+  onOpenPair,
 }: {
   dataset: Dataset;
   pair: DuplicatePair;
   onNavigate: (id: string) => void;
   onMerge: (survivorId: string, removedId: string, decision: CandidateDecision) => void;
+  onOpenPair: (aId: string, bId: string) => void;
 }) {
   const { t } = useTranslation();
   const a = dataset.individuals.get(pair.aId);
@@ -378,6 +466,9 @@ function DuplicateCompare({
     () => individualFieldRows(t, a, b, dataset, dataset),
     [t, a, b, dataset],
   );
+  // Relatives (spouses/parents) that are a separate record on each side: until
+  // they're merged too, this merge can't fold their shared families/children.
+  const related = useMemo(() => relatedSeparateRecords(rows), [rows]);
   const [fields, setFields] = useState<Record<string, FieldChoice>>(() => duplicateDefaults(rows));
   const [confirming, setConfirming] = useState(false);
   // Re-seed defaults if the underlying rows change (e.g. dataset edited elsewhere).
@@ -485,6 +576,23 @@ function DuplicateCompare({
           })}
         </tbody>
       </table>
+      {related.length > 0 && (
+        <div className="tools-related-hint">
+          <span>{t("tools.duplicates.relatedHint")}</span>{" "}
+          {related.map((r, i) => (
+            <span key={`${r.aId}-${r.bId}`}>
+              {i > 0 && ", "}
+              <button
+                className="tools-issue-link"
+                title={t("tools.duplicates.relatedOpen")}
+                onClick={() => onOpenPair(r.aId, r.bId)}
+              >
+                {r.label}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="tools-merge-bar">
         <span className="tools-merge-hint">{t("tools.duplicates.survivorHint", { name: pair.aLabel })}</span>
         <button className="nav-btn primary tools-run" onClick={() => setConfirming(true)}>

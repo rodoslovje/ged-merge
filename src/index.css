@@ -301,9 +301,12 @@ button:focus-visible {
   flex-direction: column;
   overflow: hidden;
 }
-/* Compare: the whole panel scrolls. */
+/* Compare: the whole panel scrolls. Trim the side padding so the
+   master/incoming data columns get more width. */
 .split-compare > .section > .section-body {
   overflow: auto;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .loaders {
@@ -440,7 +443,7 @@ button:focus-visible {
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
-  padding-top: 8px;
+  padding: 8px 16px 0;
   min-height: 0;
   overflow-y: auto;
 }
@@ -2598,9 +2601,15 @@ button:focus-visible {
   table-layout: fixed;
 }
 .compare td {
-  padding: 6px 8px;
+  padding: 6px 6px;
   vertical-align: top;
 }
+/* With `table-layout: fixed` the column widths are taken from the FIRST row
+   only — the header. Pin the narrow label/choice columns here (the body
+   `.f-label`/`.f-choice` widths would otherwise be ignored), leaving the two
+   unwidthed master/incoming headers to split the rest. */
+.compare-head th:first-child { width: 110px; }
+.compare-head th:last-child { width: 110px; }
 /* Master | Incoming column headers: small uppercase mono, source-coloured. */
 .compare-col {
   font-family: var(--font-mono);
@@ -2609,7 +2618,7 @@ button:focus-visible {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: left;
-  padding: 2px 8px 8px;
+  padding: 2px 6px 8px;
   color: var(--muted);
 }
 .compare-col-master { color: var(--state-master); }
@@ -2628,11 +2637,14 @@ button:focus-visible {
 }
 .field.conflict { background: rgba(226, 179, 65, 0.08); }
 .field.incoming-only { background: rgba(62, 207, 142, 0.07); }
-.f-label { color: var(--muted); width: 96px; text-align: right; }
+.f-label { color: var(--muted); width: 110px; white-space: nowrap; text-align: right; }
 .f-val { white-space: pre-wrap; overflow-wrap: anywhere; }
 .f-val.chosen { color: var(--text); font-weight: 600; }
 .f-val:not(.chosen) { color: var(--muted); }
-.f-choice { width: 96px; white-space: nowrap; }
+.f-choice { width: 110px; white-space: nowrap; }
+/* The choice cell packs three G/V/O buttons; trim its own padding so the
+   column can stay narrow without wrapping them. */
+.compare td.f-choice { padding-left: 2px; padding-right: 2px; }
 
 /* Aligned relatives (children, partners): a two-column grid spanning the Master
    and Incoming columns. Each pair is one grid row, so the same person lines up
@@ -2646,12 +2658,15 @@ button:focus-visible {
 .rel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 /* The editable Compare panel repeats the M/I/B choice on every pair's line
    (there's still only one choice for the whole list — see RelativeGrid). Its
-   grid gains a third column sized like the other three: `table-layout: fixed`
-   never picks up `.f-choice`'s 96px (only a first-row/`<th>` width counts),
-   so the table's real choice column is just as wide as master/incoming — a
-   fixed 96px here would drift out of step with it, as `.f-choice` itself does. */
+   grid gains a third column for the choice. */
 .rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
-.rel-cell { padding: 3px 8px; min-width: 0; }
+/* Inside the main Compare table the choice column is a fixed 110px (see the
+   `.compare-head` widths), and the relatives grid spans master+incoming+choice.
+   Mirror that split here — two equal halves plus a 110px choice — so the relatives
+   rows line up with the scalar rows above (divider and G/V/O column both align). */
+.compare .rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px; }
+.compare .rel-grid.with-choice .rel-choice { padding-left: 2px; padding-right: 2px; }
+.rel-cell { padding: 3px 6px; min-width: 0; }
 .rel-cell:nth-child(1), .rel-cell:nth-child(2) { padding-top: 6px; }
 .rel-cell:nth-last-child(1), .rel-cell:nth-last-child(2) { padding-bottom: 6px; }
 .rel-grid.with-choice .rel-cell:nth-child(3) { padding-top: 6px; }
@@ -2751,8 +2766,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: 6px;
-  padding: 2px 7px;
-  margin-right: 3px;
+  padding: 2px 5px;
+  margin-right: 2px;
 }
 .choice.active { border-color: var(--accent); color: var(--text); }
 /* An added incoming child reads in the incoming colour, like the incoming choice. */
@@ -3558,12 +3573,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .app-head-actions {
     flex-shrink: 1;
   }
+  /* On small screens shrink the outer columns and let the labels wrap rather
+     than forcing a wide fixed column. The compare table is `table-layout: fixed`,
+     so its column widths come from the header `th`s — set those, not just the
+     body cells. */
+  .compare-head th:first-child,
+  .compare-head th:last-child {
+    width: 64px;
+  }
   .f-label {
-    width: 76px;
+    width: 64px;
+    white-space: normal;
     font-size: 0.75rem;
   }
   .f-choice {
-    width: 76px;
+    width: 64px;
+  }
+  /* Keep the relatives grid in step with the narrowed choice column (this beats
+     the wider `.compare .rel-grid.with-choice` rule on specificity). */
+  .compare .rel-grid.with-choice {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px;
   }
   .rel-grid.with-choice {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -3630,18 +3659,30 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     flex-wrap: wrap;
     row-gap: 8px;
   }
-  .mode-tabs {
-    order: 3;
-    flex-basis: 100%;
-  }
-  /* At narrow widths brand shrinks naturally — pills wrap below logo */
+  /* Flatten the brand so the wordmark, file pills, and lang/theme switcher
+     become direct flex items of the header row. This lets the pills drop to
+     their own full-width row while the theme + language controls stay up on
+     the first row beside the wordmark. */
   .app-head-brand {
-    gap: 6px;
+    display: contents;
+  }
+  .app-head-brand h1 {
+    order: 0;
+  }
+  .lang-switcher {
+    order: 1;
+    margin-left: auto;
   }
   .app-head-file-pills {
+    order: 2;
+    flex-basis: 100%;
     flex-shrink: 1;
     min-width: 0;
     overflow: hidden;
+  }
+  .mode-tabs {
+    order: 3;
+    flex-basis: 100%;
   }
   .app-head-file-pills .header-file-btn {
     flex-shrink: 1;
@@ -3710,9 +3751,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin: 0 auto;
 }
 .tools-head { margin-bottom: 18px; }
-.tools-title { font-size: 1.3rem; margin: 0 0 4px; color: var(--text); }
-.tools-subtitle { margin: 0; color: var(--muted); font-size: 0.9rem; }
-.tools-stats { margin: 6px 0 0; color: var(--text); font-size: 0.9rem; font-weight: 600; }
+.tools-stats { margin: 0; color: var(--text); font-size: 0.9rem; font-weight: 600; }
 .tools-subtabs { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
 .tools-tab {
   flex: 1 1 220px;
@@ -3826,6 +3865,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-issue-msg { color: var(--muted); font-size: 0.88rem; }
 .tools-more { color: var(--muted); font-size: 0.85rem; padding-top: 8px; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }
+.tools-pair.selected { box-shadow: inset 0 0 0 1px var(--accent); }
 .tools-pair-row { display: flex; gap: 10px; align-items: center; }
 .tools-pair-sep { color: var(--muted); }
 .tools-pair-toggle {
@@ -3838,6 +3878,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-pair-toggle:hover { color: var(--text); }
 .tools-pair-toggle.open { transform: rotate(90deg); }
 .tools-pair-compare { margin: 8px 0 4px; overflow-x: auto; }
+.tools-related-hint {
+  margin: 10px 0 0; padding: 8px 10px; border-radius: 7px;
+  background: color-mix(in oklch, var(--state-minor) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--state-minor);
+  color: var(--text); font-size: 0.85rem; line-height: 1.5;
+}
+.tools-related-hint .tools-issue-link { font-size: inherit; }
 .tools-merge-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 10px 0 4px; flex-wrap: wrap; }
 .tools-merge-hint { color: var(--muted); font-size: 0.85rem; margin-right: auto; }
 .tools-merge-bar .tools-run { margin: 0; }

@@ -95,6 +95,35 @@ export function findDuplicates(
   return out;
 }
 
+/**
+ * Build a {@link DuplicatePair} for an arbitrary couple of records — e.g. a
+ * related pair surfaced by another merge (see `relatedSeparateRecords`) that
+ * `findDuplicates` did not flag on its own. Scored and oriented (richer record
+ * leads as the survivor) exactly like the pairs from `findDuplicates`, so it can
+ * be dropped straight into the same list. Returns undefined if either record is
+ * missing or both ids are the same.
+ */
+export function makeDuplicatePair(
+  ds: Dataset,
+  aId: string,
+  bId: string,
+  config: MatchConfig = DEFAULT_CONFIG,
+): DuplicatePair | undefined {
+  const a = ds.individuals.get(aId);
+  const b = ds.individuals.get(bId);
+  if (!a || !b || aId === bId) return undefined;
+  const cand = scoreIndividualPair(a, b, ds, ds, config);
+  const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
+  return {
+    aId: left.id,
+    bId: right.id,
+    aLabel: label(left),
+    bLabel: label(right),
+    score: cand.score,
+    category: cand.category,
+  };
+}
+
 /** Number of distinct linked relatives (parents, partners, children) a person
  *  has — used to pick which of a duplicate pair leads as the survivor, so the
  *  merge re-points as few relationships as possible. */

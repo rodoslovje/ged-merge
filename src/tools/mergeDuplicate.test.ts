@@ -5,7 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
-import { mergeDuplicate, duplicateDefaults } from "./mergeDuplicate";
+import { mergeDuplicate, duplicateDefaults, relatedSeparateRecords } from "./mergeDuplicate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -112,6 +112,60 @@ describe("mergeDuplicate", () => {
     const survivor = ds.individuals.get("@I1@")!;
     // Survivor keeps only its own parent family @F1@; @I4@ was not brought in.
     expect(survivor.childOf).toEqual(["@F1@"]);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  // Each Pavel is married to his *own* Barbara record (a duplicate pair the user
+  // hasn't merged yet). Merging only the Pavels can't fold their families because
+  // the two Barbaras are distinct records — so the children stay split.
+  const twoBarbaras = wrap(
+    "0 @I1@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1770\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1770\n1 FAMS @F2@\n" +
+    "0 @I3@ INDI\n1 NAME Barbara /Gorjanc/\n1 SEX F\n1 BIRT\n2 DATE 1775\n1 FAMS @F1@\n" +
+    "0 @I4@ INDI\n1 NAME Barbara /Gorjanc/\n1 SEX F\n1 BIRT\n2 DATE 1775\n1 FAMS @F2@\n" +
+    "0 @I5@ INDI\n1 NAME Ivana /Fabjan/\n1 SEX F\n1 BIRT\n2 DATE 1800\n1 FAMC @F1@\n" +
+    "0 @I6@ INDI\n1 NAME Franc /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1798\n1 FAMC @F2@\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 CHIL @I5@\n" +
+    "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I4@\n1 CHIL @I6@\n",
+  );
+
+  it("flags a spouse that is a separate record on each side", () => {
+    const ds = dataset(twoBarbaras);
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    const related = relatedSeparateRecords(rows);
+    expect(related).toEqual([
+      { aId: "@I3@", bId: "@I4@", label: "Barbara Gorjanc", relation: "partner" },
+    ]);
+  });
+
+  it("does not flag a spouse that is already a single shared record", () => {
+    // Same couple modelled as two families but one Barbara record (@I3@): nothing
+    // to also-merge, so no related-record hint.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Barbara /Gorjanc/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    expect(relatedSeparateRecords(rows)).toEqual([]);
+  });
+
+  it("combines the children once both the couple's duplicates are merged", () => {
+    const ds = dataset(twoBarbaras);
+    // Merge the Pavels first: families stay split because the two Barbaras differ.
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    expect(ds.individuals.get("@I1@")!.spouseOf.length).toBe(2);
+
+    // Now merge the Barbaras: the families collapse and the children come together.
+    mergeDuplicate(ds, "@I3@", "@I4@", decide({}), tr);
+    const pavel = ds.individuals.get("@I1@")!;
+    expect(pavel.spouseOf.length).toBe(1);
+    const fam = ds.families.get(pavel.spouseOf[0])!;
+    expect(fam.wife).toBe("@I3@");
+    expect(fam.children).toContain("@I5@"); // Ivana
+    expect(fam.children).toContain("@I6@"); // Franc
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
   });
 

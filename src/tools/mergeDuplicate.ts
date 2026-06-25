@@ -124,6 +124,54 @@ function wantsRelative(fields: Record<string, FieldChoice>, key: string): boolea
   return (fields[key] ?? "both") !== "master";
 }
 
+/** A relative that aligns across the two duplicate records but is itself two
+ *  separate records — see {@link relatedSeparateRecords}. */
+export interface RelatedSeparateRecord {
+  /** The survivor-side relative's record id. */
+  aId: string;
+  /** The removed-side relative's record id (a distinct record). */
+  bId: string;
+  /** Display name for the hint. */
+  label: string;
+  /** Which relation surfaced it, for the message wording. */
+  relation: "partner" | "father" | "mother";
+}
+
+/**
+ * Relatives that align *by name* across the two records being merged but are
+ * themselves **distinct records** — e.g. each "Pavel Fabjan" is married to his
+ * own "Barbara Gorjanc" record. Merging only the Pavels can't tell those two
+ * Barbaras are one person, so their families (and the children under them) won't
+ * be folded together. The duplicates panel surfaces these so the user merges
+ * them too, completing the collapse.
+ *
+ * Derived from the already-computed comparison rows so it matches exactly what
+ * the panel aligns side-by-side (a pair with both an `id` on the master side and
+ * a *different* `id` on the incoming side is one such relative).
+ */
+export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[] {
+  const out: RelatedSeparateRecord[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const relation: RelatedSeparateRecord["relation"] | undefined =
+      row.key === "father" ? "father"
+      : row.key === "mother" ? "mother"
+      : row.key.endsWith(".partner") ? "partner"
+      : undefined;
+    if (!relation || !row.relatives) continue;
+    for (const p of row.relatives) {
+      const aId = p.master?.id;
+      const bId = p.incoming?.id;
+      if (!aId || !bId || aId === bId) continue;
+      const key = aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ aId, bId, label: p.master?.name || p.master?.text || p.incoming?.name || "?", relation });
+    }
+  }
+  return out;
+}
+
 /** True for the relationship rows (parents/partners/children). */
 function isRelationship(key: string): boolean {
   return key === "father" || key === "mother" || key.endsWith(".partner") || key.endsWith(".children");
