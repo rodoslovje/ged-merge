@@ -1136,9 +1136,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             individuals={dataset.individuals}
             homeId={selectedId}
             onChange={navigate}
-            placeholder={t("edit.selectPerson")}
+            placeholder={t("filter.search")}
             tooltip={t("edit.selectPerson")}
             icon="search"
+            selectedAsPlaceholder={false}
           />
           <div className="toolbar-end">
             <button
@@ -1231,8 +1232,19 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               hasMatch={!!matchCompareId}
               matchStatus={matchStatus}
               onToggleMatchStatus={toggleMatchStatus}
+              kinship={kinship}
+              kinshipTooltip={kinshipTooltip}
+              controls={
+                <button
+                  type="button"
+                  className="edit-delete-btn"
+                  title={t("edit.deletePersonTooltip")}
+                  onClick={handleDeletePerson}
+                >
+                  🗑
+                </button>
+              }
             />
-            <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           </div>
           <PersonPhotos raw={person.raw} records={dataset.records} refCtx={{ dataset, onNavigate: navigate }} />
           <OtherNamesEditor
@@ -1251,6 +1263,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
+            leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
           />
           <EventList
             key={person.id}

@@ -1137,31 +1137,6 @@ function AppContent() {
               </div>
             )}
           </div>
-          {lastMasterFile && (
-            <div className="mode-tabs">
-              <button
-                className={`seg-btn ${mode === "edit" ? "active" : ""}`}
-                onClick={() => { if (mode !== "edit") switchToEdit(); }}
-                title={t("mode.edit.tooltip")}
-              >
-                {t("mode.edit")}
-              </button>
-              <button
-                className={`seg-btn ${mode === "merge" ? "active" : ""}`}
-                onClick={() => { if (mode !== "merge") switchToMerge(); }}
-                title={t("mode.merge.tooltip")}
-              >
-                {t("mode.merge")}
-              </button>
-              <button
-                className={`seg-btn ${mode === "tools" ? "active" : ""}`}
-                onClick={() => { if (mode !== "tools") switchToTools(); }}
-                title={t("mode.tools.tooltip")}
-              >
-                {t("mode.tools")}
-              </button>
-            </div>
-          )}
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
@@ -1198,7 +1173,9 @@ function AppContent() {
                   onClick={handleSave}
                   title={t("save.gedcom.tooltip")}
                 >
-                  {t("save.gedcom")} ({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size})
+                  <span className="export-btn-label-full">{t("save.gedcom")}</span>
+                  <span className="export-btn-label-short">{t("save")}</span>
+                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size})
                 </button>
               )}
               {lastMasterFile && (canUndo || canRedo) && (
@@ -1211,6 +1188,29 @@ function AppContent() {
                   </button>
                 </>
               )}
+            </div>
+            <div className="mode-tabs">
+              <button
+                className={`seg-btn ${mode === "edit" ? "active" : ""}`}
+                onClick={() => { if (mode !== "edit") switchToEdit(); }}
+                title={t("mode.edit.tooltip")}
+              >
+                {t("mode.edit")}
+              </button>
+              <button
+                className={`seg-btn ${mode === "merge" ? "active" : ""}`}
+                onClick={() => { if (mode !== "merge") switchToMerge(); }}
+                title={t("mode.merge.tooltip")}
+              >
+                {t("mode.merge")}
+              </button>
+              <button
+                className={`seg-btn ${mode === "tools" ? "active" : ""}`}
+                onClick={() => { if (mode !== "tools") switchToTools(); }}
+                title={t("mode.tools.tooltip")}
+              >
+                {t("mode.tools")}
+              </button>
             </div>
           </div>
         )}

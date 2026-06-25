@@ -39,12 +39,15 @@ export function buildDataset(parsed: ParseResult): Dataset {
   // Likewise, source (SOUR) and repository (REPO) records are shared and
   // referenced by pointer from event-level citations.
   const sourceCtx = buildSourceContext(parsed.records);
+  // Shared NOTE records hold their text; records reference them by pointer
+  // (`1 NOTE @xref@`), so resolve those to real text up front.
+  const notes = buildNoteIndex(parsed.records);
 
   for (const record of parsed.records) {
     if (record.tag === "INDI" && record.xref) {
-      individuals.set(record.xref, buildIndividual(record, media, sourceCtx));
+      individuals.set(record.xref, buildIndividual(record, media, sourceCtx, notes));
     } else if (record.tag === "FAM" && record.xref) {
-      families.set(record.xref, buildFamily(record, media, sourceCtx));
+      families.set(record.xref, buildFamily(record, media, sourceCtx, notes));
     }
   }
 
@@ -85,7 +88,7 @@ function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
   return { recordChan, recordCrea, eventChan, eventCrea };
 }
 
-export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext): Individual {
+export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): Individual {
   const names: Individual["names"] = [];
   const events: GedEvent[] = [];
   const childOf: string[] = [];
@@ -110,9 +113,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         if (child.value) spouseOf.push(child.value.trim());
         break;
       case "NOTE": {
-        const stripped = child.value && stripNoteLinks(child.value);
-        if (stripped) notes.push(stripped);
-        collectLinks(child, media, links);
+        collectNote(child, noteIndex, media, notes, links);
         break;
       }
       case "SOUR": {
@@ -123,7 +124,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
-        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
+        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx, noteIndex));
         else collectLinks(child, media, links);
     }
   }
@@ -135,7 +136,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   return indi;
 }
 
-export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: SourceContext): Family {
+export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): Family {
   const children: string[] = [];
   const events: GedEvent[] = [];
   const links: string[] = [];
@@ -156,9 +157,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         if (child.value) children.push(child.value.trim());
         break;
       case "NOTE": {
-        const stripped = child.value && stripNoteLinks(child.value);
-        if (stripped) notes.push(stripped);
-        collectLinks(child, media, links);
+        collectNote(child, noteIndex, media, notes, links);
         break;
       }
       case "SOUR": {
@@ -167,7 +166,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         break;
       }
       default:
-        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx));
+        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx, noteIndex));
         else collectLinks(child, media, links);
     }
   }
@@ -181,7 +180,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   return fam;
 }
 
-function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext): GedEvent {
+function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
   const dateNode = node.children.find((c) => c.tag === "DATE");
@@ -202,10 +201,13 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext):
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
-  const noteNode = node.children.find((c) => c.tag === "NOTE" && !c.xref);
-  const noteStripped = noteNode?.value && stripNoteLinks(noteNode.value);
-  if (noteStripped) event.note = noteStripped;
   const links = collectLinks(node, media);
+  const noteNode = node.children.find((c) => c.tag === "NOTE");
+  if (noteNode) {
+    const text = resolveNoteText(noteNode, noteIndex, links);
+    const noteStripped = text && stripNoteLinks(text);
+    if (noteStripped) event.note = noteStripped;
+  }
   if (links.length) event.links = dedupe(links);
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
@@ -217,6 +219,9 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext):
 
 /** Map of OBJE record xref -> the URLs that record holds. */
 export type MediaLinks = Map<string, string[]>;
+
+/** Map of top-level NOTE record xref -> its (CONT/CONC-folded) text. */
+export type NoteIndex = Map<string, string>;
 
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
@@ -270,6 +275,47 @@ export function buildMediaLinks(records: GedNode[]): MediaLinks {
     if (links.length) map.set(rec.xref, links);
   }
   return map;
+}
+
+/**
+ * Index every top-level NOTE record by its xref, mapping to the text it holds
+ * (CONT/CONC continuations are already folded into the record's value by the
+ * parser). Records reference these by pointer (`1 NOTE @xref@`), so this lets
+ * `resolveNoteText` turn that pointer back into real text instead of leaking
+ * the raw `@N@` id into the UI.
+ */
+export function buildNoteIndex(records: GedNode[]): NoteIndex {
+  const map: NoteIndex = new Map();
+  for (const rec of records) {
+    if (rec.tag === "NOTE" && rec.xref && rec.value !== undefined) map.set(rec.xref, rec.value);
+  }
+  return map;
+}
+
+/**
+ * Resolve a NOTE line's text: an inline note returns its own value, while a
+ * `@N@` pointer is dereferenced through the shared note index. A pointer's URLs
+ * live in the referenced record (not under this node), so when `links` is given
+ * any URLs in the resolved text are collected into it.
+ */
+function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): string | undefined {
+  const v = node.value?.trim();
+  if (!(v && isPointer(v))) return node.value;
+  const text = notes.get(v);
+  if (text && links) for (const m of text.match(URL_RE) ?? []) links.push(stripTrailingPunct(m));
+  return text;
+}
+
+/** Collect one record-level NOTE's stripped text and any URLs it carries. */
+function collectNote(node: GedNode, notes: NoteIndex, media: MediaLinks, out: string[], links: string[]): void {
+  const isPtr = isPointer(node.value?.trim() ?? "");
+  const text = resolveNoteText(node, notes, links);
+  const stripped = text && stripNoteLinks(text);
+  if (stripped) out.push(stripped);
+  // An inline note may also carry sub-tags / embedded media; let collectLinks
+  // walk it. A pointer note has no such children, and its URLs were already
+  // pulled from the resolved text above.
+  if (!isPtr) collectLinks(node, media, links);
 }
 
 /**

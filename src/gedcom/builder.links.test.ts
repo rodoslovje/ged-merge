@@ -167,6 +167,101 @@ describe("family NOTE URL extraction", () => {
   });
 });
 
+describe("shared NOTE record resolution", () => {
+  it("resolves an individual NOTE pointer to the shared record's text", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME George /Washington/
+1 NOTE @N1@
+0 @N1@ NOTE First President of the United States
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.notes).toEqual(["First President of the United States"]);
+  });
+
+  it("resolves a multi-line shared NOTE record folded from CONT lines", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE @N1@
+0 @N1@ NOTE First line
+1 CONT Second line
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.notes).toEqual(["First line\nSecond line"]);
+  });
+
+  it("resolves a family NOTE pointer to the shared record's text", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @F1@ FAM
+1 NOTE @N2@
+0 @N2@ NOTE Married in 1759
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.notes).toEqual(["Married in 1759"]);
+  });
+
+  it("resolves an event NOTE pointer to the shared record's text", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 DATE 1732
+2 NOTE @N1@
+0 @N1@ NOTE Born at Pope's Creek
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    const birt = indi.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.note).toBe("Born at Pope's Creek");
+  });
+
+  it("pulls a URL out of a pointer note's resolved text into links", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE @N1@
+0 @N1@ NOTE See https://example.com/x for details
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.com/x"]);
+    expect(indi.notes).toEqual(["See for details"]);
+  });
+
+  it("leaves the raw pointer out of notes when the record is missing", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE @NMISSING@
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.notes).toBeUndefined();
+  });
+});
+
 describe("EVEN custom event extraction", () => {
   it("extracts a custom EVEN with TYPE, date and place into the events array", () => {
     const text = `0 HEAD

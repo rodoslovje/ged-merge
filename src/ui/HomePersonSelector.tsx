@@ -19,6 +19,10 @@ interface Props {
   tooltip?: string;
   /** Icon to show left of the input. Defaults to "home". */
   icon?: "home" | "search";
+  /** When true (default), the selected person's name is shown as the input
+   * placeholder. Set false for a pure search field that should always show the
+   * generic `placeholder` hint instead (e.g. Edit's "jump to person" search). */
+  selectedAsPlaceholder?: boolean;
 }
 
 const MAX_RESULTS = 50;
@@ -39,6 +43,7 @@ export function HomePersonSelector({
   placeholder,
   tooltip,
   icon = "home",
+  selectedAsPlaceholder = true,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -148,7 +153,7 @@ export function HomePersonSelector({
         <input
           ref={inputRef}
           type="text"
-          placeholder={current ? current.text : placeholder ?? t("home.set")}
+          placeholder={selectedAsPlaceholder && current ? current.text : placeholder ?? t("home.set")}
           title={tooltip ?? t("home.tooltip")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

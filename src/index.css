@@ -49,7 +49,6 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;    /* pills group drops to row 2 when brand is squeezed */
   flex-shrink: 1;     /* brand yields space to mode-tabs / lang-switcher */
   min-width: 0;
 }
@@ -60,7 +59,13 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;     /* pills move as a unit — both or neither wrap */
+  flex: 0 1 auto;     /* pills shrink (truncate) before forcing a wrap */
+  min-width: 0;
+}
+.app-head-file-pills .header-file-btn {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand-clickable {
   cursor: pointer;
@@ -102,11 +107,24 @@ button:focus-visible {
   margin-top: 6px;
 }
 .app-head-controls .home-selector {
-  flex: 1;
-  max-width: 320px;
+  /* Compact: prefer a narrow ~190px and shrink to a small floor rather than
+     filling the row, so the mode tabs stay on this line — they wrap to a new
+     row only when the selector is squeezed to its minimum. */
+  /* Default width matches the Edit-toolbar search-person field (max-width 360px). */
+  flex: 0 1 360px;
+  min-width: 84px;
+}
+/* Let the input shrink with the selector (the wrapper's min-width is the real
+   floor) instead of holding a wide 120px minimum. */
+.app-head-controls .home-selector input {
+  min-width: 0;
+}
+/* Push the save/undo group (and the mode tabs after them) to the right edge of
+   the controls row, away from the compact home selector on the left. */
+.app-head-controls .app-head-actions {
+  margin-left: auto;
 }
 .app-head-actions {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -114,6 +132,11 @@ button:focus-visible {
 }
 .app-head-actions .export-btn {
   font-size: 0.85rem;
+}
+/* The Save button shows "Save GEDCOM" by default and the short "Save" on small
+   screens (toggled in the 880px header media query below). */
+.export-btn-label-short {
+  display: none;
 }
 
 .app-head-top {
@@ -1489,16 +1512,20 @@ button:focus-visible {
   flex: none;
 }
 .person-card-meta .person-kinship { margin-left: auto; }
+/* Push the kinship label to the right edge of the compare header's name row —
+   the decision buttons that used to spacer it there now live on the actions row. */
+.compare-head .person-kinship { margin-left: auto; }
 .person-name-group {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 2px 6px;
 }
+/* In the compare header the decision buttons share the actions row with the
+   Compare Tree button (which is pushed right via `.compare-nav-actions`
+   margin-left:auto) — left-aligned beneath the name. */
 .compare-name-decisions {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+  flex: none;
 }
 
 .candidate-main .person-label { gap: 2px 8px; }
@@ -1536,6 +1563,10 @@ button:focus-visible {
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 12px;
+  /* Match the families/children block's type scale so the parent cards
+     (and their "+ Add Father/Mother" placeholders) render at the same size
+     as "+ Add Child" rather than the larger default 1rem. */
+  font-size: 0.88rem;
 }
 
 .edit-families {
@@ -2021,8 +2052,13 @@ button:focus-visible {
 
 .edit-person-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
+  /* When the name + Sex/Delete controls don't fit on one line, the controls
+     wrap onto a new row BELOW the name, and the name keeps its own full-width
+     line instead of breaking. */
+  flex-wrap: wrap;
+  row-gap: 8px;
   margin-bottom: 12px;
 }
 .edit-name-row {
@@ -2032,8 +2068,29 @@ button:focus-visible {
   flex: 1;
   flex-wrap: wrap;
 }
+/* The given + surname (+ lifespan) never wrap relative to each other, so the
+   name row can't shrink below the full name — that forces the Sex/Delete row
+   to wrap off instead. */
+.edit-name-fields {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+/* Drop the Confirm/Reject/Defer buttons onto their own line beneath the name
+   inputs, left-aligned (rather than wrapping centered into the name row). */
 .edit-name-decisions {
-  margin: 0 auto;
+  flex-basis: 100%;
+  margin: 0;
+  align-items: center;
+}
+/* Sex/Delete controls ride at the right end of the decision row (or the name
+   row, when there is no match and no decision bar). */
+.edit-name-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .edit-name-input {
   font-size: 1.1rem;
@@ -2043,13 +2100,6 @@ button:focus-visible {
   border-radius: 6px 6px 0 0;
 }
 
-.edit-sex-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-  padding-top: 4px;
-}
 .edit-field-label {
   color: var(--muted);
   font-size: 0.85rem;
@@ -3564,14 +3614,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .home-selector input {
     width: 100%;
   }
-  .app-head-controls .home-selector {
-    max-width: none;
-  }
-  .app-head-controls {
-    flex-wrap: wrap;
-  }
+  /* Keep the controls on one line (no wrap) so the home selector shrinks from
+     its 240px default to keep the mode tabs alongside it, instead of the tabs
+     wrapping to a row below while the selector stays full-width. */
   .app-head-actions {
     flex-shrink: 1;
+  }
+  /* Shorten the Save button to just "Save" to save horizontal space. */
+  .export-btn-label-full {
+    display: none;
+  }
+  .export-btn-label-short {
+    display: inline;
   }
   /* On small screens shrink the outer columns and let the labels wrap rather
      than forcing a wide fixed column. The compare table is `table-layout: fixed`,
@@ -3654,42 +3708,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     max-height: 55vh;
   }
 
-  /* Mode tabs: move to second row, below title + lang switcher */
-  .app-head-top {
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-  /* Flatten the brand so the wordmark, file pills, and lang/theme switcher
-     become direct flex items of the header row. This lets the pills drop to
-     their own full-width row while the theme + language controls stay up on
-     the first row beside the wordmark. */
-  .app-head-brand {
-    display: contents;
-  }
-  .app-head-brand h1 {
-    order: 0;
-  }
-  .lang-switcher {
-    order: 1;
-    margin-left: auto;
-  }
-  .app-head-file-pills {
-    order: 2;
-    flex-basis: 100%;
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .mode-tabs {
-    order: 3;
-    flex-basis: 100%;
-  }
-  .app-head-file-pills .header-file-btn {
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-  }
-
   /* Info panel: stack master and incoming loaders vertically */
   .info-panel-cols {
     grid-template-columns: 1fr;
@@ -3725,18 +3743,129 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     width: 100%;
   }
 
-  /* Event rows: switch from multi-column grid to stacked fields */
+  /* Event rows: collapse the 5-column desktop grid into a compact two-column
+   * layout — label + toggle on top, then the fields paired two per row. */
   .edit-event-head {
     display: none;
   }
-  .edit-event {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  .edit-events {
+    grid-template-columns: 1fr;
+  }
+  .edit-events > .edit-event {
+    grid-template-columns: 1fr 1fr;
+    grid-column: 1 / -1;
+    column-gap: 12px;
+    row-gap: 6px;
     padding: 10px 0;
   }
-  .edit-event > .edit-input {
-    width: 100%;
+  .edit-event-label { grid-column: 1; grid-row: 1; justify-self: start; }
+  .edit-event-toggle { grid-column: 2; grid-row: 1; justify-self: end; }
+  .edit-event-date-cell { grid-column: 1; grid-row: 2; }
+  .edit-event-place-cell { grid-column: 2; grid-row: 2; }
+  .edit-event-addr-cell { grid-column: 1 / -1; grid-row: 3; }
+  /* Title events (Occupation/Education/…): title + agency share the first
+   * field row, with place/address paired on the next. */
+  .edit-event--has-value .edit-event-value-cell { grid-column: 1; grid-row: 2; }
+  .edit-event--has-value .edit-event-agency-wrap { grid-column: 2; grid-row: 2; }
+  .edit-event--has-value .edit-event-place-cell { grid-column: 1; grid-row: 3; }
+  .edit-event--has-value .edit-event-addr-cell { grid-column: 2; grid-row: 3; }
+  /* Expanded extras each take a full-width row, stacked below the fields. */
+  .edit-event-extra-sources,
+  .edit-event-extra-note,
+  .edit-event-extra-agency,
+  .edit-event-extra-type,
+  .edit-event-extra-cause,
+  .edit-event-extra-remove,
+  .edit-event--has-value .edit-event-extra-note,
+  .edit-event--has-value .edit-event-extra-agency,
+  .edit-event--has-value .edit-event-extra-type,
+  .edit-event--has-value .edit-event-extra-cause,
+  .edit-event--has-value .edit-event-extra-remove {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .edit-event-extra-remove { justify-self: end; }
+  .edit-event > .edit-input { width: 100%; }
+}
+
+/* Really narrow: one field per full-width row (label + toggle stay paired on
+ * the header line). */
+@media (max-width: 560px) {
+  .edit-events > .edit-event {
+    grid-template-columns: 1fr;
+  }
+  /* Label and toggle still share the header row (left/right), but in the lone
+   * column so no phantom second track is created. */
+  .edit-event-label { grid-column: 1; }
+  .edit-event-toggle { grid-column: 1; }
+  .edit-event-date-cell,
+  .edit-event-place-cell,
+  .edit-event-value-cell,
+  .edit-event-addr-cell,
+  .edit-event-agency-wrap,
+  .edit-event--has-value .edit-event-value-cell,
+  .edit-event--has-value .edit-event-agency-wrap,
+  .edit-event--has-value .edit-event-place-cell,
+  .edit-event--has-value .edit-event-addr-cell {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
+   fit comfortably on one line (especially with two files loaded). Flatten the
+   brand so the wordmark, pills, tabs, and lang/theme switcher become direct flex
+   items of the header row. The pills (flex-basis 0) yield space first, so the
+   tabs and switcher stay on row 1 as long as they fit; the pills just truncate.
+   This avoids the awkward state where the pills wrapped beneath the wordmark
+   while the tabs floated off to the right. */
+@media (max-width: 1100px) {
+  .app-head-top {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    column-gap: 12px;
+    align-items: center;
+  }
+  .app-head-brand {
+    display: contents;
+  }
+  .app-head-brand h1 {
+    order: 0;
+  }
+  /* flex-basis 0 so the pills never bump the tabs or switcher to the next line:
+     the wordmark, mode tabs, and switcher always reserve their space first and
+     the pills take only the leftover — growing to fill it when there's room and
+     truncating when the names are long. This keeps the tabs (and theme +
+     language) up on the first row whenever they fit. */
+  .app-head-file-pills {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .lang-switcher {
+    order: 3;
+    margin-left: auto;
+  }
+  /* When file pills are present they already grow to push the tabs + switcher
+     right, so drop the auto margin (which would otherwise starve the pills'
+     growth). With no files the auto margin keeps the switcher pinned right. */
+  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
+    margin-left: 0;
+  }
+}
+
+/* On phone-sized widths there's no longer room for the pills beside the
+   wordmark, so the pills drop to their own row while the wordmark keeps the
+   theme/language switcher. (The mode tabs live on the home-selector row below.) */
+@media (max-width: 720px) {
+  .app-head-file-pills {
+    order: 4;
+    flex: 0 1 100%;
+  }
+  /* Pills no longer grow on their own row, so re-pin the switcher to the right. */
+  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
+    margin-left: auto;
   }
 }
 
@@ -3752,9 +3881,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tools-head { margin-bottom: 18px; }
 .tools-stats { margin: 0; color: var(--text); font-size: 0.9rem; font-weight: 600; }
-.tools-subtabs { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+.tools-subtabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 22px; }
 .tools-tab {
-  flex: 1 1 220px;
   text-align: left;
   border: 1px solid var(--border);
   background: var(--panel);

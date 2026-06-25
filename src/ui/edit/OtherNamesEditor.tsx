@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { addAdditionalName, removeAdditionalName, setNickname } from "../../gedcom/edit";
@@ -21,6 +21,7 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
+  leadingControl,
 }: {
   person: Individual;
   t: Translate;
@@ -31,6 +32,8 @@ export function OtherNamesEditor({
   onAddLink: () => void;
   showAddNote: boolean;
   onAddNote: () => void;
+  /** Rendered at the start of the actions row, before "+ Add event" (the sex picker). */
+  leadingControl?: ReactNode;
 }) {
   const [editing, setEditing] = useState<"nick" | number | null>(null);
   const primary = primaryName(person);
@@ -99,6 +102,7 @@ export function OtherNamesEditor({
       )}
       {/* Action chips row — always present */}
       <div className="edit-other-names-row edit-other-names-actions">
+        {leadingControl}
         <AddEventSelect
           groups={emptyEventGroups}
           label={t("edit.addEvent")}

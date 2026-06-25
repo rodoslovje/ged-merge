@@ -1,4 +1,4 @@
-import { buildFamily, buildIndividual, buildMediaLinks, INDI_EVENT_TAGS, type MediaLinks } from "./builder";
+import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
 import { buildSourceContext, isPointer, type SourceContext } from "./source";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
@@ -946,7 +946,7 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
 }
 
 const sourceCacheVersions = new WeakMap<GedNode[], number>();
-const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext }>();
+const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext; noteIndex: NoteIndex }>();
 
 /**
  * Bump `records`' media/source cache version, forcing the next
@@ -969,11 +969,11 @@ export function bumpSourceCacheVersion(records: GedNode[]): void {
  * a note, …) never touch, so recomputing them from scratch on every commit
  * was pure wasted work scaling with the whole file's size.
  */
-export function getMediaAndSourceCtx(records: GedNode[]): { media: MediaLinks; sourceCtx: SourceContext } {
+export function getMediaAndSourceCtx(records: GedNode[]): { media: MediaLinks; sourceCtx: SourceContext; noteIndex: NoteIndex } {
   const version = sourceCacheVersions.get(records) ?? 0;
   const cached = sourceCaches.get(records);
   if (cached && cached.version === version) return cached;
-  const fresh = { version, media: buildMediaLinks(records), sourceCtx: buildSourceContext(records) };
+  const fresh = { version, media: buildMediaLinks(records), sourceCtx: buildSourceContext(records), noteIndex: buildNoteIndex(records) };
   sourceCaches.set(records, fresh);
   return fresh;
 }
@@ -983,8 +983,8 @@ export function getMediaAndSourceCtx(records: GedNode[]): { media: MediaLinks; s
  * back in `dataset.individuals`. Cheaper than rebuilding the whole dataset.
  */
 export function rebuildIndividual(dataset: Dataset, indi: Individual): Individual {
-  const { media, sourceCtx } = getMediaAndSourceCtx(dataset.records);
-  const rebuilt = buildIndividual(indi.raw, media, sourceCtx);
+  const { media, sourceCtx, noteIndex } = getMediaAndSourceCtx(dataset.records);
+  const rebuilt = buildIndividual(indi.raw, media, sourceCtx, noteIndex);
   dataset.individuals.set(rebuilt.id, rebuilt);
   return rebuilt;
 }
@@ -994,8 +994,8 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
  * in `dataset.families`. Cheaper than rebuilding the whole dataset.
  */
 export function rebuildFamily(dataset: Dataset, fam: Family): Family {
-  const { media, sourceCtx } = getMediaAndSourceCtx(dataset.records);
-  const rebuilt = buildFamily(fam.raw, media, sourceCtx);
+  const { media, sourceCtx, noteIndex } = getMediaAndSourceCtx(dataset.records);
+  const rebuilt = buildFamily(fam.raw, media, sourceCtx, noteIndex);
   dataset.families.set(rebuilt.id, rebuilt);
   return rebuilt;
 }

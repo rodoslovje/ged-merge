@@ -182,18 +182,6 @@ export function MergeView({
             </span>
           )}
         </span>
-        <div className="decision-bar compare-name-decisions">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              className={status === s ? `decision ${s} active` : "decision"}
-              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
-              onClick={() => toggleStatus(s)}
-            >
-              {t(`status.${s}`)}
-            </button>
-          ))}
-        </div>
         {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
       </div>
       <div className="compare-nav-header">
@@ -218,6 +206,18 @@ export function MergeView({
         </button>
       </div>
       <div className="compare-head-actions">
+        <div className="decision-bar compare-name-decisions">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={status === s ? `decision ${s} active` : "decision"}
+              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
+              onClick={() => toggleStatus(s)}
+            >
+              {t(`status.${s}`)}
+            </button>
+          ))}
+        </div>
         <div className="compare-nav-actions">
           <button className="tree-open-btn" onClick={() => onOpenTree(current.masterId, current.compareId)} title={t("tree.tooltip")}>
             {t("tree.button")}
