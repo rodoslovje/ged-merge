@@ -5,10 +5,21 @@ import { buildCompareTree, type TreeMode, type TreeNode } from "../tree/compareT
 import { kinshipLabel } from "../match/kinship";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass, sexColorVar } from "./sex";
+import { TreeNodePhoto } from "./PersonPhotos";
+import { useMediaFolder } from "./MediaFolderContext";
 
 // ─── Constants (identical to CompareTree so node sizes match) ─────────────────
-const NODE_W = 184;
-const NODE_H = 48;
+const NODE_W = 220;
+// Box height matches the Edit-mode person card (a ~46px photo + padding).
+const NODE_H = 56;
+const PHOTO_SIZE = 46;
+// Photo sits on the left, vertically centred.
+const PHOTO_X = 5;
+const PHOTO_Y = (NODE_H - PHOTO_SIZE) / 2;
+// Text begins right of the photo column when a media folder is loaded (photos
+// then occupy the reserved space); otherwise it starts at the left padding.
+const TEXT_X_PHOTO = PHOTO_X + PHOTO_SIZE + 8;
+const TEXT_X_PLAIN = 16;
 const COL_GAP = 80;
 const ROW_GAP = 18;
 const COL_STEP = NODE_W + COL_GAP;
@@ -75,6 +86,8 @@ interface Props {
 
 export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions, onBack }: Props) {
   const { t } = useTranslation();
+  const { folderName } = useMediaFolder();
+  const textX = folderName ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -307,8 +320,8 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                       />
                       <text
                         className="tree-node-name"
-                        x={16}
-                        y={19}
+                        x={textX}
+                        y={23}
                         style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
                       >
                         {truncate(n.name, 24)}
@@ -319,20 +332,20 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                         // at 10px; each badge: a fixed ~22px once it sits next to the years label).
                         const decW = (modified ? 22 : 0) + (dec ? 22 : 0);
                         const needsKinshipRow = !!(k && (n.years || decW) && (n.years?.length ?? 0) * 13 + decW + k.length * 11 > 300);
-                        const yearsRowY = needsKinshipRow ? 32 : 36;
-                        const badge1X = 16 + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+                        const yearsRowY = needsKinshipRow ? 36 : 40;
+                        const badge1X = textX + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
                         const badge2X = badge1X + 18;
                         const decisionBadgeX = badge1X;
                         const modifiedBadgeX = dec ? badge2X : badge1X;
                         return (
                           <>
                             {n.years && (
-                              <text className="tree-node-year gm-data" x={16} y={yearsRowY}>
+                              <text className="tree-node-year gm-data" x={textX} y={yearsRowY}>
                                 {n.years}
                               </text>
                             )}
                             {k && (
-                              <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 44 : 36} textAnchor="end">
+                              <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 48 : 40} textAnchor="end">
                                 {k}
                               </text>
                             )}
@@ -370,6 +383,13 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                           </>
                         );
                       })()}
+                      <TreeNodePhoto
+                        node={n}
+                        masterRecords={masterDs.records}
+                        x={PHOTO_X}
+                        y={PHOTO_Y}
+                        size={PHOTO_SIZE}
+                      />
                     </g>
                   );
                 })}

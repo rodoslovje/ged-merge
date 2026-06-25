@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
@@ -15,6 +15,8 @@ import {
   type TreeMode,
   type TreeNode,
 } from "../tree/compareTree";
+import { TreeNodePhoto } from "./PersonPhotos";
+import { useMediaFolder } from "./MediaFolderContext";
 
 interface Props {
   masterDs: Dataset;
@@ -42,8 +44,17 @@ const DECISION_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = [
   "deferred",
 ];
 
-const NODE_W = 184;
-const NODE_H = 48;
+const NODE_W = 220;
+// Box height matches the Edit-mode person card (a ~46px photo + padding).
+const NODE_H = 56;
+const PHOTO_SIZE = 46;
+// Photo sits on the left, vertically centred.
+const PHOTO_X = 5;
+const PHOTO_Y = (NODE_H - PHOTO_SIZE) / 2;
+// Text begins right of the photo column when a media folder is loaded (photos
+// then occupy the reserved space); otherwise it starts at the left padding.
+const TEXT_X_PHOTO = PHOTO_X + PHOTO_SIZE + 8;
+const TEXT_X_PLAIN = 16;
 const COL_GAP = 80;
 const ROW_GAP = 18;
 const COL_STEP = NODE_W + COL_GAP;
@@ -324,6 +335,8 @@ export function CompareTree({
               onSelect={setSelectedKey}
               decisionOf={decisionOf}
               kinshipOf={kinshipOf}
+              masterRecords={masterDs.records}
+              compareRecords={compareDs.records}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -403,6 +416,8 @@ function TreeSvg({
   onSelect,
   decisionOf,
   kinshipOf,
+  masterRecords,
+  compareRecords,
 }: {
   flat: Flat;
   width: number;
@@ -411,8 +426,12 @@ function TreeSvg({
   onSelect: (key: string) => void;
   decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
   kinshipOf: (n: Placed) => string | undefined;
+  masterRecords: GedNode[];
+  compareRecords: GedNode[];
 }) {
   const { nodes, edges } = flat;
+  const { folderName } = useMediaFolder();
+  const textX = folderName ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   return (
     <svg className="tree-svg" width={width} height={height} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -431,8 +450,8 @@ function TreeSvg({
           // If they'd overflow the 160px gap, stack kinship on a separate third row.
           const decW = dec ? 22 : 0;
           const needsKinshipRow = !!(kinship && (n.years || dec) && (n.years?.length ?? 0) * 13 + decW + kinship.length * 11 > 300);
-          const yearsRowY = needsKinshipRow ? 32 : 36;
-          const decBadgeX = 16 + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+          const yearsRowY = needsKinshipRow ? 36 : 40;
+          const decBadgeX = textX + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
           return (
             <g
               key={n.key}
@@ -452,19 +471,19 @@ function TreeSvg({
               />
               <text
                 className="tree-node-name"
-                x={16}
-                y={19}
+                x={textX}
+                y={23}
                 style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
               >
                 {truncate(n.name, 24)}
               </text>
               {n.years && (
-                <text className="tree-node-year gm-data" x={16} y={yearsRowY}>
+                <text className="tree-node-year gm-data" x={textX} y={yearsRowY}>
                   {n.years}
                 </text>
               )}
               {kinship && (
-                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 44 : 36} textAnchor="end">
+                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 48 : 40} textAnchor="end">
                   {kinship}
                 </text>
               )}
@@ -485,6 +504,14 @@ function TreeSvg({
                   </text>
                 </g>
               )}
+              <TreeNodePhoto
+                node={n}
+                masterRecords={masterRecords}
+                compareRecords={compareRecords}
+                x={PHOTO_X}
+                y={PHOTO_Y}
+                size={PHOTO_SIZE}
+              />
             </g>
           );
         })}

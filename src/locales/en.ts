@@ -127,6 +127,10 @@ export const en = {
   "confirm.cancel": "Cancel",
   "confirm.remove": "Remove",
   "confirm.delete": "Delete",
+  "confirm.continue": "Continue",
+  "confirm.leave": "Leave",
+  "confirm.reload": "Reload",
+  "confirm.ok": "OK",
   "edit.detachRoleConfirm": "Remove {{name}} as {{role}}?\n\nThis only removes the family link — their individual record will not be deleted.",
   "edit.detachPartnerTooltip": "Remove {{name}} as partner (keeps their record)",
   "edit.detachPartnerConfirm": "Remove {{name}} as partner?\n\nThis only removes the family link — their individual record will not be deleted.",
@@ -523,5 +527,16 @@ export const en = {
   "legal.terms.5.title": "5. Governing Law",
   "legal.terms.5.text": "These terms and any disputes arising from your use of the website shall be governed by and construed in accordance with the laws of Slovenia (European Union), without regard to its conflict of law principles.",
   "legal.terms.6.title": "6. Contact Information",
-  "legal.terms.6.text": "If you have questions regarding this legal framework, please contact the operator directly at <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>."
+  "legal.terms.6.text": "If you have questions regarding this legal framework, please contact the operator directly at <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>.",
+  "loader.mediaFolder": "Photos",
+  "loader.mediaFolder.tooltip": "Photos folder: {{name}}",
+  "loader.mediaFolder.tooltip.empty": "Select a folder containing the photos referenced in this GEDCOM",
+  "loader.mediaFolder.clear": "Remove photos folder",
+  "loader.mediaFolder.firefoxWarning": "Your browser will show an \"upload\" warning — don't worry, your photos never leave your device. All processing happens locally in your browser.\n\nClick OK to select your photos folder.",
+  "loader.mediaFolder.unsupported": "Photo folders require a modern browser.\n\nPlease try Chrome, Firefox, or Edge.",
+  "loader.mediaFolder.autoOffer": "This file references {{count}} local photo(s). Would you like to select the media folder so they can be displayed?",
+  "loader.mediaFolder.select": "Select Folder",
+  "loader.mediaFolder.later": "Later",
+  "photo.enlarge": "Enlarge photo",
+  "photo.enlarged": "Enlarged photo"
 };

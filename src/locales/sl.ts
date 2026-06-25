@@ -127,6 +127,10 @@ export const sl = {
   "confirm.cancel": "Prekliči",
   "confirm.remove": "Odstrani",
   "confirm.delete": "Izbriši",
+  "confirm.continue": "Nadaljuj",
+  "confirm.leave": "Zapusti",
+  "confirm.reload": "Ponovno naloži",
+  "confirm.ok": "V redu",
   "edit.detachRoleConfirm": "Odstrani {{name}} kot {{role}}?\n\nOdstranjena bo le družinska vez — individualni zapis se ne izbriše.",
   "edit.detachPartnerTooltip": "Odstrani {{name}} kot partnerja (zapis se ohrani)",
   "edit.detachPartnerConfirm": "Odstrani {{name}} kot partnerja?\n\nOdstranjena bo le družinska vez — individualni zapis se ne izbriše.",
@@ -523,5 +527,16 @@ export const sl = {
   "legal.terms.5.title": "5. Veljavno pravo",
   "legal.terms.5.text": "Ti pogoji in vsi spori, ki izhajajo iz vaše uporabe spletnega mesta, se urejajo in razlagajo v skladu z zakonodajo Slovenije (Evropska unija), brez upoštevanja načel kolizijskega prava.",
   "legal.terms.6.title": "6. Kontaktni podatki",
-  "legal.terms.6.text": "Če imate vprašanja v zvezi s tem pravnim okvirom, se obrnite neposredno na upravljavca na <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>."
+  "legal.terms.6.text": "Če imate vprašanja v zvezi s tem pravnim okvirom, se obrnite neposredno na upravljavca na <a href=\"mailto:support@gedmerge.com\">support@gedmerge.com</a>.",
+  "loader.mediaFolder": "Fotografije",
+  "loader.mediaFolder.tooltip": "Mapa s fotografijami: {{name}}",
+  "loader.mediaFolder.tooltip.empty": "Izberite mapo s fotografijami, na katere se sklicuje ta GEDCOM",
+  "loader.mediaFolder.clear": "Odstrani mapo s fotografijami",
+  "loader.mediaFolder.firefoxWarning": "Brskalnik bo prikazal opozorilo o »nalaganju« – vaše fotografije nikoli ne zapustijo vaše naprave. Vsa obdelava poteka lokalno v brskalniku.\n\nKliknite V redu za izbiro mape s fotografijami.",
+  "loader.mediaFolder.unsupported": "Mape s fotografijami zahtevajo sodoben brskalnik.\n\nUporabite Chrome, Firefox ali Edge.",
+  "loader.mediaFolder.autoOffer": "Ta datoteka vsebuje {{count}} lokalno shranjenih fotografij. Želite izbrati mapo z mediji, da se prikažejo?",
+  "loader.mediaFolder.select": "Izberi mapo",
+  "loader.mediaFolder.later": "Kasneje",
+  "photo.enlarge": "Povečaj fotografijo",
+  "photo.enlarged": "Povečana fotografija"
 };

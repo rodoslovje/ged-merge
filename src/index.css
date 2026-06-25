@@ -887,6 +887,58 @@ button:focus-visible {
 .loader-warn.ok    { color: var(--state-match); }
 .loader-warn.alert { color: var(--state-minor); cursor: help; }
 .loader-warn svg   { width: 15px; height: 15px; flex: none; }
+
+/* Media folder column — sits where the incoming file shows its normalization
+   report, aligned with the first metadata row (GEDCOM Version). */
+.loader-media-col {
+  display: flex;
+  flex-direction: column;
+}
+.loader-media-col .loader-media-folder,
+.loader-media-col .loader-media-folder-btn {
+  margin-top: 8px;
+}
+
+/* Media folder button — sized to fit longer folder names. */
+.loader-media-folder-btn {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.loader-media-folder-btn:hover { border-color: var(--accent); color: var(--accent); }
+.loader-media-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+  min-width: 0;
+}
+.loader-media-folder-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+.loader-media-folder-clear {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.loader-media-folder-clear:hover { color: var(--text); }
+
 .loader-report {
   flex: 1;
   padding-left: 20px;
@@ -1555,6 +1607,86 @@ button:focus-visible {
 }
 .edit-person .person-label { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
 
+/* Photo strip — edit panel and compare panel */
+.person-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.person-photo-btn {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: zoom-in;
+  overflow: hidden;
+  line-height: 0;
+}
+.person-photo-btn:hover { border-color: var(--accent); }
+.person-photo-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+  border-radius: 5px;
+}
+.person-photo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+.person-photo-full {
+  max-width: min(90vw, 1200px);
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+.person-photo-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 1.1rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.person-photo-close:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* Compare panel photos strip */
+.compare-photos {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.compare-photos-col {
+  flex: 1;
+  padding: 8px 12px;
+}
+.compare-photos-col .person-photos { margin-bottom: 0; }
+
+/* Tools sources panel inline thumbnail */
+.tools-media-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+}
+
 .edit-other-names {
   display: flex;
   flex-direction: column;
@@ -1926,12 +2058,24 @@ button:focus-visible {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 5px 8px;
   cursor: pointer;
   text-align: left;
   color: var(--text);
   font: inherit;
-  width: 200px;
+  width: 240px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.card-photo {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 .person-card .person-label {
   display: flex;

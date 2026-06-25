@@ -1,7 +1,50 @@
-import { Fragment, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
+import type { GedNode } from "../gedcom/types";
 import type { SlotState } from "../App";
+import { useMediaFolder } from "./MediaFolderContext";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+function countLocalMedia(records: GedNode[]): number {
+  let n = 0;
+  for (const rec of records) {
+    if (rec.tag !== "OBJE") continue;
+    const val = rec.children.find((c) => c.tag === "FILE")?.value?.trim();
+    if (val && !/^(https?:\/\/|www\.)/i.test(val)) n++;
+  }
+  return n;
+}
+
+/** Always-mounted companion to GedcomLoader: detects local media in the master file
+ *  and offers the photo-folder picker as soon as the file loads, regardless of
+ *  whether the info panel (which contains GedcomLoader) is currently visible. */
+export function AutoMediaOffer({ master }: { master: SlotState }) {
+  const { t } = useTranslation();
+  const { folderName, openFolder } = useMediaFolder();
+  const offeredForRef = useRef<string | null>(null);
+  const [offerCount, setOfferCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (master.status !== "loaded" || folderName) return;
+    const { fileName, dataset } = master.file;
+    if (offeredForRef.current === fileName) return;
+    offeredForRef.current = fileName;
+    const n = countLocalMedia(dataset.records);
+    if (n > 0) setOfferCount(n);
+  }, [master, folderName]);
+
+  if (offerCount === null) return null;
+  return (
+    <ConfirmDialog
+      message={t("loader.mediaFolder.autoOffer", { count: offerCount })}
+      confirmLabel={t("loader.mediaFolder.select")}
+      cancelLabel={t("loader.mediaFolder.later")}
+      onConfirm={() => { setOfferCount(null); openFolder(); }}
+      onCancel={() => setOfferCount(null)}
+    />
+  );
+}
 
 interface Props {
   title: string;
@@ -19,6 +62,7 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip,
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { t } = useTranslation();
+  const { folderName, openFolder, clearFolder } = useMediaFolder();
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -42,6 +86,33 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip,
   }
 
   const loaded = state.status === "loaded";
+  const showFolderButton = accent === "master" && loaded;
+
+  const folderUi = showFolderButton ? (
+    folderName ? (
+      <span className="loader-media-folder">
+        <span className="loader-media-folder-name" title={t("loader.mediaFolder.tooltip", { name: folderName })}>
+          📁 {folderName}
+        </span>
+        <button
+          className="loader-media-folder-clear"
+          onClick={clearFolder}
+          title={t("loader.mediaFolder.clear")}
+          aria-label={t("loader.mediaFolder.clear")}
+        >
+          ✕
+        </button>
+      </span>
+    ) : (
+      <button
+        className="loader-media-folder-btn"
+        onClick={() => openFolder()}
+        title={t("loader.mediaFolder.tooltip.empty")}
+      >
+        📁 {t("loader.mediaFolder")}
+      </button>
+    )
+  ) : null;
 
   return (
     <section className="loader">
@@ -62,7 +133,7 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip,
       )}
 
       {(state.status === "loaded" || state.status === "error") && (
-        <div className="summary">{renderSummary(state, accent, t)}</div>
+        <div className="summary">{renderSummary(state, accent, t, folderUi)}</div>
       )}
 
       {state.status !== "loading" && (
@@ -122,6 +193,7 @@ function renderSummary(
   state: Extract<SlotState, { status: "loaded" | "error" }>,
   accent: "master" | "incoming",
   t: Translate,
+  folderUi: React.ReactNode,
 ): React.ReactNode {
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
@@ -185,6 +257,12 @@ function renderSummary(
             {t("loader.warnings", { count: warnings.length })}
           </span>
         </div>
+        {!report && folderUi && (
+          <div className="loader-report loader-media-col">
+            <div className="loader-report-head">{t("loader.mediaFolder")}</div>
+            {folderUi}
+          </div>
+        )}
         {report && (
           <div className="loader-report">
             <div className="loader-report-head">{t("loader.normalized")}</div>

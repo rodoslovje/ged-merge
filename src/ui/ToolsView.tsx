@@ -15,6 +15,7 @@ import { downloadText } from "./download";
 import { individualFieldRows } from "../review/fields";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { PersonLink } from "./PersonLink";
+import { MediaThumb } from "./PersonPhotos";
 
 type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
@@ -623,7 +624,7 @@ function SourcesPanel({
               count={m.usedBy.length || undefined}
               href={m.url}
               titleText={m.url ?? m.file}
-              label={<span className="tools-tree-meta">{icon} {m.title || m.xref}</span>}
+              label={<span className="tools-tree-meta">{icon} {m.title || m.xref}{!m.url && m.file && <MediaThumb file={m.file} />}</span>}
             >
               <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
             </TreeRow>
@@ -693,6 +694,7 @@ function SourcesPanel({
                             label={
                               <span className="tools-tree-meta">
                                 {m.url ? "🔗" : "🖼"} {m.title || m.xref}
+                                {!m.url && m.file && <MediaThumb file={m.file} />}
                               </span>
                             }
                           >

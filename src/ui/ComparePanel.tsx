@@ -13,6 +13,7 @@ import {
   type FieldRow,
   type RelativePair,
 } from "../review/types";
+import { PersonPhotos } from "./PersonPhotos";
 
 /** Which dataset a relative id belongs to. */
 export type RelativeSide = "master" | "incoming";
@@ -148,6 +149,16 @@ export function ComparePanel({
 
   return (
     <div className="compare-panel">
+      {(masterIndi || compareIndi) && (
+        <div className="compare-photos">
+          <div className="compare-photos-col">
+            {masterIndi && <PersonPhotos raw={masterIndi.raw} records={masterDs.records} />}
+          </div>
+          <div className="compare-photos-col">
+            {compareIndi && <PersonPhotos raw={compareIndi.raw} records={compareDs.records} />}
+          </div>
+        </div>
+      )}
       <table className="compare">
         <thead>
           <tr className="compare-head">

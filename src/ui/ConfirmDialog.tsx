@@ -5,9 +5,12 @@ interface Props {
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Cancel button label. Pass `null` for an acknowledge-only (alert) dialog
+   *  with no cancel button. Defaults to the shared "Cancel" string. */
+  cancelLabel?: string | null;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel }: Props) {
   const { t } = useTranslation();
   const [title, body] = message.split("\n\n");
   return (
@@ -16,9 +19,11 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: Pr
         <p className="confirm-dialog-title">{title}</p>
         {body && <p className="confirm-dialog-body">{body}</p>}
         <div className="confirm-dialog-actions">
-          <button type="button" className="btn-secondary" onClick={onCancel}>
-            {t("confirm.cancel")}
-          </button>
+          {cancelLabel !== null && (
+            <button type="button" className="btn-secondary" onClick={onCancel}>
+              {cancelLabel ?? t("confirm.cancel")}
+            </button>
+          )}
           <button type="button" className="confirm-dialog-confirm" onClick={onConfirm}>
             {confirmLabel}
           </button>

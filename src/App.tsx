@@ -18,7 +18,7 @@ import type { MatchResult } from "./match/types";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
-import { GedcomLoader } from "./ui/GedcomLoader";
+import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { HelpModal } from "./ui/HelpModal";
@@ -28,9 +28,11 @@ import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { SaveDialog } from "./ui/SaveDialog";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EditTree } from "./ui/EditTree";
 import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
+import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import type { TreeMode } from "./tree/compareTree";
 import {
   applyFilters,
@@ -109,7 +111,12 @@ function detectTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
-export function App() {
+// MediaFolderProvider is mounted by the `App` wrapper below, *above* the
+// full-page tree early-returns — so navigating into the Compare/Edit tree and
+// back doesn't unmount it. In Firefox the picked folder is an in-memory
+// Map<string,File> that can't be persisted to IndexedDB, so a remount there
+// would silently lose it and force the user to re-pick the folder.
+function AppContent() {
   const { t, i18n } = useTranslation();
 
   const workerRef = useRef<Worker | null>(null);
@@ -162,6 +169,9 @@ export function App() {
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { message: string; confirmLabel: string; resolve: (ok: boolean) => void } | null
+  >(null);
   const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
     records: GedNode[];
@@ -257,10 +267,12 @@ export function App() {
       // Re-push a sentinel and ask for confirmation if there are unsaved changes.
       if (e.state === null) {
         if (hasUnsavedChangesRef.current) {
+          // Re-push the sentinel so we stay put, then ask asynchronously. If the
+          // user confirms, go back for real (past the re-pushed entry).
           window.history.pushState({ gedPage: "main" }, "");
-          if (!window.confirm(t("app.navLeaveConfirm"))) return;
-          // User confirmed leaving — actually go back now.
-          window.history.back();
+          confirmDialog(t("app.navLeaveConfirm"), t("confirm.leave")).then((ok) => {
+            if (ok) window.history.back();
+          });
         }
         return;
       }
@@ -282,6 +294,14 @@ export function App() {
     return () => window.removeEventListener("popstate", onPop);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Show the app-styled confirmation dialog and resolve true/false on the user's
+   *  choice. Replaces native window.confirm so all prompts share the app's look. */
+  const confirmDialog = useCallback(
+    (message: string, confirmLabel: string) =>
+      new Promise<boolean>((resolve) => setPendingConfirm({ message, confirmLabel, resolve })),
+    []
+  );
 
   /** Record the current compare selection in the current history entry so the
    *  browser Back button returns here after a person-link or tree push. */
@@ -381,10 +401,10 @@ export function App() {
 
   async function loadFile(role: DatasetRole, file: File) {
     if (role === "master" && (changedCount > 0 || confirmedCount > 0)) {
-      if (!window.confirm(t("load.masterReplaceConfirm"))) return;
+      if (!(await confirmDialog(t("load.masterReplaceConfirm"), t("confirm.continue")))) return;
     }
     if (role === "compare" && confirmedCount > 0) {
-      if (!window.confirm(t("load.incomingReplaceConfirm"))) return;
+      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
 
     const setter = role === "master" ? setMaster : setCompare;
@@ -837,9 +857,9 @@ export function App() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [changedCount, confirmedCount]);
 
-  function handleTitleClick() {
+  async function handleTitleClick() {
     const hasChanges = mode === "merge" ? confirmedCount > 0 : changedCount > 0 || confirmedCount > 0;
-    if (!hasChanges || window.confirm(t("app.reloadConfirm"))) {
+    if (!hasChanges || (await confirmDialog(t("app.reloadConfirm"), t("confirm.reload")))) {
       window.location.reload();
     }
   }
@@ -1084,6 +1104,8 @@ export function App() {
   }
 
   return (
+    <>
+    <AutoMediaOffer master={master} />
     <div className="app">
       {showMobileWarning && (
         <div className="mobile-warning">
@@ -1365,6 +1387,14 @@ export function App() {
       )}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+      {pendingConfirm && (
+        <ConfirmDialog
+          message={pendingConfirm.message}
+          confirmLabel={pendingConfirm.confirmLabel}
+          onConfirm={() => { pendingConfirm.resolve(true); setPendingConfirm(null); }}
+          onCancel={() => { pendingConfirm.resolve(false); setPendingConfirm(null); }}
+        />
+      )}
       <footer className="app-footer">
         <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
           © 2026 Luka Renko
@@ -1395,6 +1425,15 @@ export function App() {
         <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
       </footer>
     </div>
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <MediaFolderProvider>
+      <AppContent />
+    </MediaFolderProvider>
   );
 }
 

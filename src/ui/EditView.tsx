@@ -59,6 +59,7 @@ import { AddEventSelect } from "./edit/AddEventSelect";
 import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { PersonPhotos } from "./PersonPhotos";
 
 interface Props {
   dataset: Dataset;
@@ -1179,6 +1180,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
                     {...cardKinship(fam?.husband)}
                     {...cardDecision(fam?.husband)}
+                    records={dataset.records}
                   />
                 )}
                 <div className="edit-connector-h" />
@@ -1203,6 +1205,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                     removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
                     {...cardKinship(fam?.wife)}
                     {...cardDecision(fam?.wife)}
+                    records={dataset.records}
                   />
                 )}
               </div>
@@ -1229,6 +1232,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             />
             <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} onDelete={handleDeletePerson} kinship={kinship} kinshipTooltip={kinshipTooltip} />
           </div>
+          <PersonPhotos raw={person.raw} records={dataset.records} />
           <OtherNamesEditor
             key={`names-${person.id}-${undoVersion}`}
             person={person}
@@ -1345,6 +1349,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                         removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
                         {...cardKinship(partnerId)}
                         {...cardDecision(partnerId)}
+                        records={dataset.records}
                       />
                     )}
                     {fam && (
@@ -1447,6 +1452,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
                           removeTooltip={t("edit.detachChildTooltip", { name: childName })}
                           {...cardKinship(childId)}
                           {...cardDecision(childId)}
+                          records={dataset.records}
                         />
                       );
                     })}
