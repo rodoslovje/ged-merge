@@ -3798,12 +3798,16 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-tree-row { display: flex; gap: 8px; align-items: center; min-height: 24px; }
 .tools-tree-bullet { flex: none; width: 18px; text-align: center; color: var(--muted); }
 .tools-tree-label { color: var(--text); }
+.tools-tree-label.clickable { cursor: pointer; }
+.tools-tree-label.clickable:hover { color: var(--accent); }
+/* Top-level groupings (repository / country) stand out from nested levels. */
+.tools-tree-label.lead { font-weight: 600; font-size: 1.08em; letter-spacing: 0.01em; }
 .tools-tree-addr > .tools-tree-row > .tools-tree-label { color: var(--muted); font-style: italic; }
 .tools-tree-meta { color: var(--muted); font-size: 0.9em; }
 .tools-tree-link { color: var(--muted); text-decoration: none; }
 .tools-tree-link:hover { color: var(--accent); }
 .tools-place-edit-btn {
-  opacity: 0.5;
+  opacity: 0;
   transition: opacity 0.12s;
   flex: none;
   background: none;
@@ -3811,7 +3815,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: pointer;
   padding: 1px 5px;
   border-radius: 4px;
-  color: var(--muted);
+  color: var(--text);
   font-size: 1em;
   line-height: 1;
 }

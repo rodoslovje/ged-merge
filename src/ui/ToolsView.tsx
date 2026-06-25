@@ -543,6 +543,7 @@ function TreeRow({
   count,
   href,
   titleText,
+  prominent,
   children,
 }: {
   open: boolean;
@@ -553,6 +554,8 @@ function TreeRow({
   href?: string;
   /** Tooltip shown on hover over the label — e.g. a media link or filename. */
   titleText?: string;
+  /** Emphasize the label as a top-level grouping (e.g. a repository). */
+  prominent?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -569,7 +572,13 @@ function TreeRow({
         ) : (
           <span className="tools-tree-bullet">·</span>
         )}
-        <span className="tools-tree-label" title={titleText}>{label}</span>
+        <span
+          className={`tools-tree-label${hasChildren ? " clickable" : ""}${prominent ? " lead" : ""}`}
+          title={titleText}
+          onClick={hasChildren ? onToggle : undefined}
+        >
+          {label}
+        </span>
         {href && (
           <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
             ↗
@@ -756,6 +765,7 @@ function SourcesPanel({
                 count={repo.sources.length}
                 href={repo.url}
                 titleText={repo.tooltip || repo.xref}
+                prominent
                 label={repo.xref ? repo.name || repo.xref : t("tools.sources.noRepo")}
               >
                 <ul className="tools-tree">
@@ -1039,7 +1049,12 @@ function PlaceTreeRow({
         ) : (
           <span className="tools-tree-bullet">·</span>
         )}
-        <span className="tools-tree-label">{labelNode}</span>
+        <span
+          className={`tools-tree-label${hasChildren ? " clickable" : ""}${depth === 0 ? " lead" : ""}`}
+          onClick={hasChildren ? () => toggle(node, path) : undefined}
+        >
+          {labelNode}
+        </span>
         <span className="tools-chip-count">{node.count}</span>
         {!isSynthetic && !editing && (
           <button
@@ -1047,7 +1062,7 @@ function PlaceTreeRow({
             onClick={openEdit}
             title={t("tools.places.rename.open")}
           >
-            ✏️
+            ✏︎
           </button>
         )}
         {editing && (

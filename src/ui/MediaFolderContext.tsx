@@ -169,6 +169,28 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       new Promise<boolean>((resolve) => setDialog({ message, confirmLabel, cancelLabel, resolve })),
     []
   );
+  // Like askDialog, but runs `onConfirm` synchronously the moment OK is clicked,
+  // so it executes inside the user gesture. showDirectoryPicker() requires
+  // transient activation and rejects with a SecurityError when called from a
+  // later promise continuation (notably in Brave); invoking it here keeps the
+  // gesture alive. Resolves to the action's result, or null if the user cancels.
+  const askDialogThen = useCallback(
+    <T,>(
+      message: string,
+      confirmLabel: string,
+      cancelLabel: string | null,
+      onConfirm: () => Promise<T>,
+    ) =>
+      new Promise<T | null>((resolve, reject) =>
+        setDialog({
+          message,
+          confirmLabel,
+          cancelLabel,
+          resolve: (ok) => (ok ? onConfirm().then(resolve, reject) : resolve(null)),
+        }),
+      ),
+    [],
+  );
 
   function revokeAll() {
     for (const url of blobCache.current.values()) if (url) URL.revokeObjectURL(url);
@@ -195,38 +217,47 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const openFolder = useCallback(async () => {
+    // Brave shows the same misleading "upload" warning as Firefox before the
+    // folder picker — on both the showDirectoryPicker and the webkitdirectory
+    // fallback path — so reassure there first. Chrome/Edge's native "View files"
+    // dialog is unambiguous, so they skip it. Detect Brave once up front, since
+    // we don't know yet which path Brave will take (its File System Access
+    // support has historically been gated, dropping it to the fallback).
+    const brave = (
+      navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
+    ).brave;
+    const isBrave = brave?.isBrave ? await brave.isBrave() : false;
+
     if ("showDirectoryPicker" in window) {
-      // Chrome / Edge / Brave path. Brave shows the same misleading "upload"
-      // warning as Firefox before the picker, so reassure there first.
-      // Chrome/Edge's native "View files" dialog is unambiguous, so skip it.
-      const brave = (
-        navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
-      ).brave;
-      if (brave?.isBrave && (await brave.isBrave())) {
-        const ok = await askDialog(
-          t("loader.mediaFolder.firefoxWarning"),
-          t("confirm.ok"),
-          t("confirm.cancel"),
-        );
-        if (!ok) return;
-      }
-      try {
-        const dir = await (
+      const pick = () =>
+        (
           window as unknown as { showDirectoryPicker(): Promise<FileSystemDirectoryHandle> }
         ).showDirectoryPicker();
+      try {
+        // On Brave the picker must fire from inside the warning's OK click to
+        // keep the user gesture alive; elsewhere call it directly.
+        const dir = isBrave
+          ? await askDialogThen(
+              t("loader.mediaFolder.firefoxWarning"),
+              t("confirm.ok"),
+              t("confirm.cancel"),
+              pick,
+            )
+          : await pick();
+        if (!dir) return; // warning dialog cancelled
         revokeAll();
         const next: FolderState = { kind: "handle", handle: dir, name: dir.name };
         setFolder(next);
         if (dbRef.current) await idbPut(dbRef.current, dir);
       } catch {
-        // user cancelled
+        // user cancelled the native picker
       }
     } else if (inputRef.current) {
-      // Firefox / Safari fallback — <input webkitdirectory>.
-      // Only Firefox shows the misleading "upload" dialog, so warn there first.
+      // Firefox / Safari / gated-Brave fallback — <input webkitdirectory>.
+      // Firefox and Brave show the misleading "upload" dialog, so warn first.
       // Safari's picker is unambiguous, so skip the warning.
       const isFirefox = /firefox/i.test(navigator.userAgent);
-      if (isFirefox) {
+      if (isFirefox || isBrave) {
         const ok = await askDialog(
           t("loader.mediaFolder.firefoxWarning"),
           t("confirm.ok"),
@@ -238,7 +269,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     } else {
       await askDialog(t("loader.mediaFolder.unsupported"), t("confirm.ok"), null);
     }
-  }, [askDialog, t]);
+  }, [askDialog, askDialogThen, t]);
 
   const clearFolder = useCallback(() => {
     revokeAll();
