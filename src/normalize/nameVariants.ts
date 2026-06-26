@@ -66,17 +66,21 @@ export function inferNameVariants(dataset: Dataset): NameProfile {
   return profile;
 }
 
-/** The married variant mapped to the loader's headline {@link NameLayout}. */
-export function nameLayoutOf(profile: NameProfile): NameLayout {
-  const married = profile.married;
-  if (married.form === "tag") return "marnm";
-  if (married.form === "record") return "married-name";
-  return "none";
+/** The dominant storage style across all variants — the loader's {@link NameLayout}. */
+export function storageStyleOf(profile: NameProfile): NameLayout {
+  let tags = 0;
+  let records = 0;
+  for (const kind of KINDS) {
+    if (profile[kind].form === "tag") tags++;
+    else if (profile[kind].form === "record") records++;
+  }
+  if (tags === 0 && records === 0) return "none";
+  return tags > records ? "tags" : "records"; // ties favor the standard record form
 }
 
-/** Married convention of a dataset, for the loader's "Name format" line. */
+/** A dataset's name-storage style, for the loader's "Name format" line. */
 export function inferNameLayout(dataset: Dataset): NameLayout {
-  return nameLayoutOf(inferNameVariants(dataset));
+  return storageStyleOf(inferNameVariants(dataset));
 }
 
 /**

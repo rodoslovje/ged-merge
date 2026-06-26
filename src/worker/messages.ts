@@ -40,8 +40,11 @@ export interface ParseSuccess {
   dateFormat?: string;
   /** Detected source-citation convention of this file. */
   sourceLayout?: SourceLayout;
-  /** Detected married-surname convention of this file. */
+  /** Detected name-storage style of this file. */
   nameLayout?: NameLayout;
+  /** Master only: true when married surnames are stored inline as `_MARNM`, so
+   * the name editor folds an added "married" name into that tag. */
+  marriedNameTag?: boolean;
 }
 
 export interface ParseFailure {

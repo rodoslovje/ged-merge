@@ -151,7 +151,7 @@ describe("normalizeDataset", () => {
 });
 
 describe("inferNameLayout", () => {
-  it("detects the inline _MARNM convention", () => {
+  it("detects the inline-tag storage style", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -162,10 +162,10 @@ describe("inferNameLayout", () => {
 2 _MARNM Kovač
 0 TRLR
 `);
-    expect(inferNameLayout(ds)).toBe("marnm");
+    expect(inferNameLayout(ds)).toBe("tags");
   });
 
-  it("detects the separate TYPE married record convention", () => {
+  it("detects the typed-record storage style", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -174,10 +174,10 @@ describe("inferNameLayout", () => {
 2 TYPE married
 0 TRLR
 `);
-    expect(inferNameLayout(ds)).toBe("married-name");
+    expect(inferNameLayout(ds)).toBe("records");
   });
 
-  it("returns none when no married names are recorded", () => {
+  it("returns none when no alternate names are recorded", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI

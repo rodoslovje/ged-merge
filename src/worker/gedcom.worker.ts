@@ -82,6 +82,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         dateFormat: inferDateLayout(dataset),
         sourceLayout: inferSourceFormat(dataset.records).layout,
         nameLayout: inferNameLayout(dataset),
+        marriedNameTag: profile.nameVariants.married.form === "tag",
       });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);

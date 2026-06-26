@@ -58,6 +58,7 @@ interface LoadedFile {
   dateFormat?: string;
   sourceLayout?: SourceLayout;
   nameLayout?: NameLayout;
+  marriedNameTag?: boolean;
 }
 
 type SlotState =
@@ -392,6 +393,7 @@ function AppContent() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
+        if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
         setter({ status: "loaded", file });
         if (msg.role === "master") setLastMasterFile(file);
       } else {
@@ -1374,7 +1376,7 @@ function AppContent() {
               changeHome={changeHome}
               onDirty={handleEditDirty}
               onShowTree={(id) => openEditTree(id)}
-              marriedNameTag={lastMasterFile.nameLayout === "marnm"}
+              marriedNameTag={lastMasterFile.marriedNameTag}
               navigateToId={navigateToId}
               onPersonChange={setEditPersonId}
               matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}

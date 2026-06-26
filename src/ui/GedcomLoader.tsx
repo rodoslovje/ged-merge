@@ -291,10 +291,10 @@ function renderSummary(
             <dl className="loader-meta">
               {(
                 [
+                  [t("loader.names", { count: report.nameVariantsReshaped }), examplesTooltip(report.nameVariantExamples)],
                   [t("loader.dates", { count: report.datesChanged }), examplesTooltip(report.dateExamples)],
                   [t("loader.places", { count: report.placesReshaped }), examplesTooltip(report.placeExamples)],
                   [t("loader.links", { count: report.linksConverted }), examplesTooltip(report.linkExamples)],
-                  [t("loader.names", { count: report.nameVariantsReshaped }), examplesTooltip(report.nameVariantExamples)],
                 ] as [string, string | undefined][]
               ).map(([line, tooltip]) => {
                 const i = line.indexOf(":");

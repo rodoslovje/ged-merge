@@ -17,15 +17,14 @@ export interface MasterProfile {
 }
 
 /**
- * The headline married-surname convention, used only for the loader's
- * "Name format" line:
- *  - `marnm`        : inline `2 _MARNM Surname` on the primary `NAME` (Gramps,
- *                     PAF, Brother's Keeper).
- *  - `married-name` : a separate `1 NAME /Surname/` record with `2 TYPE married`
- *                     (GEDCOM 5.5.1 standard).
- *  - `none`         : married surnames are not recorded.
+ * A file's overall alternate-name storage style, for the loader's "Name format"
+ * line — how it records married/birth/aka/nick names across the board:
+ *  - `tags`    : inline sub-tags on the primary `NAME` (`_MARNM`, `_BIRN`, `NICK`…
+ *                — Gramps, PAF, Brother's Keeper).
+ *  - `records` : separate `1 NAME` records with a `2 TYPE` (GEDCOM 5.5.1 standard).
+ *  - `none`    : no alternate names recorded.
  */
-export type NameLayout = "marnm" | "married-name" | "none";
+export type NameLayout = "tags" | "records" | "none";
 
 /**
  * The alternate-name variants we normalize. Each names the *same logical name*
