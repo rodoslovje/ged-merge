@@ -48,6 +48,54 @@ describe("validateDataset", () => {
     expect(cats).toContain("futureDate");
   });
 
+  it("flags implausible ages across the family", () => {
+    // Father born 1800, child born 1900 → father aged 100 at birth (> 80).
+    // Mother born 1880 → mother aged 20 (ok). Spouse gap 80 (> 32).
+    // Husband married 1899 at age 99 (> 90). Person who lived 1700–1850 → 150 (> 99).
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 SEX M
+1 BIRT
+2 DATE 1800
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 BIRT
+2 DATE 1880
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Otrok /Novak/
+1 SEX M
+1 BIRT
+2 DATE 1900
+1 FAMC @F1@
+0 @I4@ INDI
+1 NAME Star /Methuselah/
+1 SEX M
+1 BIRT
+2 DATE 1700
+1 DEAT
+2 DATE 1850
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 1899
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const cats = report.issues.map((i) => i.category);
+    expect(cats).toContain("ageAtDeath"); // I4: 150 years
+    expect(cats).toContain("ageAtMarriage"); // I1: married at 99
+    expect(cats).toContain("parentAge"); // I3: father was 100
+    expect(cats).toContain("spouseAgeGap"); // 80-year gap
+    // The father-age finding is reported on the child record.
+    expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
+  });
+
   it("detects broken and non-reciprocal family links", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

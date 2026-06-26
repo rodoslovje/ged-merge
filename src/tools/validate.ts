@@ -34,6 +34,10 @@ export type IssueCategory =
   | "missingVitals"
   | "orphan"
   | "deathBeforeBirth"
+  | "ageAtDeath"
+  | "ageAtMarriage"
+  | "parentAge"
+  | "spouseAgeGap"
   | "futureDate";
 
 export type IssueSeverity = "error" | "warning";
@@ -67,6 +71,10 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingVitals: 0,
   orphan: 0,
   deathBeforeBirth: 0,
+  ageAtDeath: 0,
+  ageAtMarriage: 0,
+  parentAge: 0,
+  spouseAgeGap: 0,
   futureDate: 0,
 };
 
@@ -125,6 +133,8 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     }
     if (by !== undefined && dy !== undefined && dy < by) {
       add("deathBeforeBirth", "error", "tools.validate.issue.deathBeforeBirth", { birth: by, death: dy });
+    } else if (by !== undefined && dy !== undefined && dy - by > AGE_LIMITS.death.max) {
+      add("ageAtDeath", "warning", "tools.validate.issue.ageAtDeath", { age: dy - by, max: AGE_LIMITS.death.max });
     }
 
     // Future dates
@@ -153,6 +163,64 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         add("brokenLink", "error", "tools.validate.issue.famsMissing", { fam: famId });
       } else if (fam.husband !== indi.id && fam.wife !== indi.id) {
         add("brokenLink", "error", "tools.validate.issue.famsNotReciprocal", { fam: famId });
+      }
+    }
+  }
+
+  // Age plausibility across family relationships (marriage age, parent age at a
+  // child's birth, spouse age gap). All compared from recorded birth/marriage
+  // years, so a finding means the years imply an unlikely age — likely a data error.
+  for (const fam of ds.families.values()) {
+    const husband = fam.husband ? ds.individuals.get(fam.husband) : undefined;
+    const wife = fam.wife ? ds.individuals.get(fam.wife) : undefined;
+    const hb = birthYear(husband);
+    const wb = birthYear(wife);
+    const marrYear = fam.events.find((e) => e.tag === "MARR")?.date?.year;
+
+    // Age at marriage, per spouse.
+    if (marrYear !== undefined) {
+      for (const sp of [husband, wife]) {
+        const sb = birthYear(sp);
+        if (!sp || sb === undefined) continue;
+        const age = marrYear - sb;
+        if (age < AGE_LIMITS.marriage.min || age > AGE_LIMITS.marriage.max) {
+          push({
+            scope: "individual", id: sp.id, category: "ageAtMarriage", severity: "warning",
+            subject: subjectOf(sp), messageKey: "tools.validate.issue.ageAtMarriage",
+            messageVars: { age, min: AGE_LIMITS.marriage.min, max: AGE_LIMITS.marriage.max },
+          });
+        }
+      }
+    }
+
+    // Age difference between spouses — reported on the older partner.
+    if (hb !== undefined && wb !== undefined && Math.abs(hb - wb) > AGE_LIMITS.spouseGap.max) {
+      const older = (hb <= wb ? husband : wife)!;
+      push({
+        scope: "individual", id: older.id, category: "spouseAgeGap", severity: "warning",
+        subject: subjectOf(older), messageKey: "tools.validate.issue.spouseAgeGap",
+        messageVars: { gap: Math.abs(hb - wb), max: AGE_LIMITS.spouseGap.max },
+      });
+    }
+
+    // Father/mother age at each child's birth — reported on the child.
+    for (const childId of fam.children) {
+      const child = ds.individuals.get(childId);
+      const cb = birthYear(child);
+      if (!child || cb === undefined) continue;
+      if (hb !== undefined && (cb - hb < AGE_LIMITS.fatherAtBirth.min || cb - hb > AGE_LIMITS.fatherAtBirth.max)) {
+        push({
+          scope: "individual", id: child.id, category: "parentAge", severity: "warning",
+          subject: subjectOf(child), messageKey: "tools.validate.issue.fatherAge",
+          messageVars: { age: cb - hb, min: AGE_LIMITS.fatherAtBirth.min, max: AGE_LIMITS.fatherAtBirth.max },
+        });
+      }
+      if (wb !== undefined && (cb - wb < AGE_LIMITS.motherAtBirth.min || cb - wb > AGE_LIMITS.motherAtBirth.max)) {
+        push({
+          scope: "individual", id: child.id, category: "parentAge", severity: "warning",
+          subject: subjectOf(child), messageKey: "tools.validate.issue.motherAge",
+          messageVars: { age: cb - wb, min: AGE_LIMITS.motherAtBirth.min, max: AGE_LIMITS.motherAtBirth.max },
+        });
       }
     }
   }

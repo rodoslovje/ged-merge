@@ -118,6 +118,10 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
   "deathBeforeBirth",
+  "ageAtDeath",
+  "ageAtMarriage",
+  "parentAge",
+  "spouseAgeGap",
   "futureDate",
   "missingVitals",
   "missingName",
