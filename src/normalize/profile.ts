@@ -12,10 +12,17 @@ import type {
 } from "./types";
 import { detectLinkLangs } from "./links";
 import { inferNameVariants } from "./nameVariants";
+import { analyzeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
 
 // Re-exported so existing importers (worker, tests) keep getting it from here.
 export { inferNameLayout, inferNameVariants } from "./nameVariants";
+
+/** The placeholder token a file uses for unknown names (e.g. "NN"), or undefined
+ *  when it leaves unknown name parts blank. Shown on the loader summary. */
+export function detectUnknownNameToken(dataset: Dataset): string | undefined {
+  return analyzeUnknownNames(dataset).token;
+}
 
 const MONTHS_ABBR = [
   "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -65,6 +72,7 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
     linkLangs: detectLinkLangs(links),
     placeFmt: inferPlaceExportFormat(master),
     nameVariants: inferNameVariants(master),
+    unknownName: analyzeUnknownNames(master).target,
   };
 }
 

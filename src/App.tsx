@@ -58,6 +58,7 @@ interface LoadedFile {
   dateFormat?: string;
   sourceLayout?: SourceLayout;
   nameLayout?: NameLayout;
+  unknownNameStyle?: string;
   marriedNameTag?: boolean;
 }
 
@@ -393,6 +394,7 @@ function AppContent() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
+        if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
         setter({ status: "loaded", file });
         if (msg.role === "master") setLastMasterFile(file);

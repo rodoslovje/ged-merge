@@ -1358,6 +1358,9 @@ button:focus-visible {
 .nd.new { color: #6ee7b7; }
 .nd.diff { color: #fcd34d; }
 .nd.link { color: #93c5fd; }
+/* Import counts span a whole subtree, so they can be several digits — give the
+   column room (header icon and body number share the width to stay aligned). */
+.nd.import { flex-basis: 44px; width: 44px; color: #c4b5fd; }
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
 /* Name colouring by sex: cyan male, pink female. */

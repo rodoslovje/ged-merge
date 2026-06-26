@@ -658,13 +658,14 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
     <>
       {state.status === "done" && (() => {
         const { report } = state.result;
-        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped;
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped;
         if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
           places: report.placesReshaped,
           links: report.linksConverted,
-          names: report.nameVariantsReshaped,
+          // The "names" pass also cleans unknown-name placeholders (NN, ____).
+          names: report.nameVariantsReshaped + report.unknownNamesReshaped,
         };
         const toggle = (key: keyof NormalizeOptions) =>
           setSelected((s) => ({ ...s, [key]: !s[key] }));
@@ -691,7 +692,7 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
             {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
             {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
             {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
-            {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={report.nameVariantExamples} />}
+            {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={[...report.nameVariantExamples, ...report.unknownNameExamples]} />}
             <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0}>
               {t("tools.normalize.download")}
             </button>

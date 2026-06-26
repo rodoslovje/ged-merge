@@ -51,6 +51,10 @@ export interface IndividualCandidate {
   diffCount?: number;
   /** Attached-link rows the compare adds or that differ. */
   linkCount?: number;
+  /** Incoming-only ancestors this match would bring in (importable, see countImportable). */
+  ancestorCount?: number;
+  /** Incoming-only descendants this match would bring in. */
+  descendantCount?: number;
   /**
    * Set when this pair was connected by the relationship pass (the two records
    * are each a parent of the same matched children) rather than by name/date
@@ -60,8 +64,24 @@ export interface IndividualCandidate {
   relationshipLinked?: boolean;
 }
 
+/**
+ * A set of incoming (compare) records that are the same person split across
+ * duplicates — detected because they all match the *same* master person. The
+ * worker consolidates each cluster (merging the extras into `keepId`) before the
+ * compare dataset is used for the tree/merge, so the master matches one clean
+ * record carrying all the data instead of stranding the other copies.
+ */
+export interface IncomingDuplicateCluster {
+  /** The matched incoming record kept as the merge survivor. */
+  keepId: string;
+  /** Other incoming records (the same person) to merge into `keepId`. */
+  mergeIds: string[];
+}
+
 export interface MatchResult {
   individuals: IndividualCandidate[];
+  /** Incoming duplicate clusters for the worker to consolidate (see the type). */
+  incomingDuplicates?: IncomingDuplicateCluster[];
 }
 
 /** Per-field weights and acceptance thresholds. All tunable. */

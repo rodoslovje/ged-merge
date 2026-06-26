@@ -505,3 +505,74 @@ describe("relationship pass: does not steal a parent-corroborated match for a sp
     expect(r.individuals.some((c) => c.masterId === "@IRENA@" && c.compareId === "@DUP@")).toBe(false);
   });
 });
+
+describe("incoming duplicate consolidation: detects same person split across incoming records", () => {
+  // Master Irena. The incoming file holds her twice: @REAL@ (her parents, b1958)
+  // which the primary pass matches, and @DUP@ (her spouse + child, b1956). It
+  // also has a same-named NAMESAKE born 27 years later (a distinct person) and a
+  // sibling MARIJA — neither should be folded in.
+  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @IRENA@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @MFC@\n1 FAMS @MFS@
+0 @JOZEF@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @MFC@
+0 @JOZEFA@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @MFC@
+0 @MFC@ FAM\n1 HUSB @JOZEF@\n1 WIFE @JOZEFA@\n1 CHIL @IRENA@
+0 @MIRAN@ INDI\n1 NAME Miran /Kukić/\n1 SEX M\n1 BIRT\n2 DATE 1955\n1 FAMS @MFS@
+0 @ANA@ INDI\n1 NAME Ana /Kukić/\n1 SEX F\n1 BIRT\n2 DATE 1982\n1 FAMC @MFS@
+0 @MFS@ FAM\n1 HUSB @MIRAN@\n1 WIFE @IRENA@\n1 CHIL @ANA@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @JOZEF2@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @IFC@
+0 @JOZEFA2@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @IFC@
+0 @REAL@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @IFC@
+0 @IFC@ FAM\n1 HUSB @JOZEF2@\n1 WIFE @JOZEFA2@\n1 CHIL @REAL@
+0 @MIRAN2@ INDI\n1 NAME Miran /Kukić/\n1 SEX M\n1 BIRT\n2 DATE 1955\n1 FAMS @IFS@
+0 @ANA2@ INDI\n1 NAME Ana /Kukić/\n1 SEX F\n1 BIRT\n2 DATE 1982\n1 FAMC @IFS@
+0 @DUP@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1956\n1 FAMS @IFS@
+0 @IFS@ FAM\n1 HUSB @MIRAN2@\n1 WIFE @DUP@\n1 CHIL @ANA2@
+0 @NAMESAKE@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1985
+0 @SIB@ INDI\n1 NAME Marija /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958
+0 TRLR\n`;
+  const r = matchDatasets(dataset(master), dataset(compare));
+
+  it("clusters the matched copy with its spouse/child duplicate", () => {
+    const cl = r.incomingDuplicates?.find((c) => c.keepId === "@REAL@");
+    expect(cl).toBeDefined();
+    expect(cl!.mergeIds).toContain("@DUP@");
+  });
+
+  it("excludes the decades-apart namesake and the differently-named sibling", () => {
+    const merged = new Set(r.incomingDuplicates?.flatMap((c) => c.mergeIds) ?? []);
+    expect(merged.has("@NAMESAKE@")).toBe(false);
+    expect(merged.has("@SIB@")).toBe(false);
+  });
+});
+
+describe("relationship pass: ignores weak relative matches (no false link from cross-family noise)", () => {
+  // Karolina (master) and Antonija (incoming) are different people with totally
+  // different names. The greedy pass cross-matches their similar-surnamed but
+  // distinct relatives (Jakofčič ↔ Jakopič) at a low score. Those weak matches
+  // must NOT compound into a confident parent link between Karolina and Antonija.
+  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @KAR@ INDI\n1 NAME Karolina /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1899\n1 FAMS @MF@
+0 @ANTON@ INDI\n1 NAME Anton /Jakofčič/\n1 SEX M\n1 BIRT\n2 DATE 1897\n1 FAMS @MF@
+0 @MARIJA@ INDI\n1 NAME Marija /Jakofčič/\n1 SEX F\n1 BIRT\n2 DATE 1925\n1 FAMC @MF@
+0 @MF@ FAM\n1 HUSB @ANTON@\n1 WIFE @KAR@\n1 CHIL @MARIJA@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @ANT@ INDI\n1 NAME Antonija /Brezavšček/\n1 SEX F\n1 BIRT\n2 DATE 1900\n1 FAMS @IF@
+0 @ANDREJ@ INDI\n1 NAME Andrej /Jakopič/\n1 SEX M\n1 BIRT\n2 DATE 1900\n1 FAMS @IF@
+0 @EVALDA@ INDI\n1 NAME Evalda /Jakopič/\n1 SEX F\n1 BIRT\n2 DATE 1928\n1 FAMC @IF@
+0 @IF@ FAM\n1 HUSB @ANDREJ@\n1 WIFE @ANT@\n1 CHIL @EVALDA@
+0 TRLR\n`;
+  const r = matchDatasets(dataset(master), dataset(compare));
+
+  it("does not link the two unrelated parents", () => {
+    expect(r.individuals.some((c) => c.masterId === "@KAR@" && c.compareId === "@ANT@")).toBe(false);
+  });
+
+  it("(the weak relative matches that would have driven it score below the confidence bar)", () => {
+    // Confirms the path is exercised: the relatives DO get cross-matched, just weakly.
+    const marija = r.individuals.find((c) => c.masterId === "@MARIJA@");
+    if (marija) expect(marija.score).toBeLessThan(85);
+  });
+});

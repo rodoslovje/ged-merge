@@ -22,8 +22,14 @@ export type SortKey =
   | "newCount"
   | "diffCount"
   | "linkCount"
+  | "importCount"
   | "label"
   | "status";
+
+/** Total incoming-only relatives a match would bring in (ancestors + descendants). */
+export function importTotal(c: Candidate): number {
+  return (c.ancestorCount ?? 0) + (c.descendantCount ?? 0);
+}
 
 export interface SortState {
   key: SortKey;
@@ -36,6 +42,7 @@ export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   newCount: "desc",
   diffCount: "desc",
   linkCount: "desc",
+  importCount: "desc",
   label: "asc",
   status: "asc",
 };
@@ -142,6 +149,8 @@ function compareBy(
       return (a.diffCount ?? 0) - (b.diffCount ?? 0);
     case "linkCount":
       return (a.linkCount ?? 0) - (b.linkCount ?? 0);
+    case "importCount":
+      return importTotal(a) - importTotal(b);
     case "label":
       // Sort by the displayed person name (what the row shows), not the
       // master-centric diff title.

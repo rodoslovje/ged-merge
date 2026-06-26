@@ -14,7 +14,7 @@ import {
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
-import { formatScore, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { sexClass } from "./sex";
 
 interface Props {
@@ -245,6 +245,13 @@ export function MatchResults({
               >
                 🔗{arrow("linkCount")}
               </button>
+              <button
+                className={cls("importCount", "nd import")}
+                title={t("list.importTooltip")}
+                onClick={() => onToggleSort("importCount")}
+              >
+                👪{arrow("importCount")}
+              </button>
             </span>
           </li>
           {list.map((c, i) => (
@@ -351,6 +358,15 @@ const CandidateRow = memo(function CandidateRow({
               title={t("list.linkTooltip")}
             >
               {candidate.linkCount ?? 0}
+            </span>
+            <span
+              className={`nd import ${importTotal(candidate) ? "" : "zero"}`}
+              title={t("list.importBreakdown", {
+                anc: candidate.ancestorCount ?? 0,
+                desc: candidate.descendantCount ?? 0,
+              })}
+            >
+              {importTotal(candidate)}
             </span>
           </span>
         </button>

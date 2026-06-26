@@ -2,6 +2,20 @@ import type { Dataset, Individual } from "../gedcom/types";
 import { birthYear, deathYear } from "../gedcom/lifespan";
 
 /**
+ * Plausibility limits for age-based sanity checks, in whole years. Computed from
+ * recorded years (so they can be ±1 of the true age), these flag likely data
+ * errors — a child older than a parent, a 120-year lifespan — as warnings, not
+ * errors, since rare legitimate outliers exist.
+ */
+export const AGE_LIMITS = {
+  marriage: { min: 12, max: 90 },
+  death: { max: 99 },
+  fatherAtBirth: { min: 14, max: 80 },
+  motherAtBirth: { min: 14, max: 50 },
+  spouseGap: { max: 32 },
+} as const;
+
+/**
  * Master-file health check.
  *
  * Pure, synchronous validation over the typed domain model — fast enough to run

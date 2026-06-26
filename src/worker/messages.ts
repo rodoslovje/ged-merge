@@ -42,6 +42,9 @@ export interface ParseSuccess {
   sourceLayout?: SourceLayout;
   /** Detected name-storage style of this file. */
   nameLayout?: NameLayout;
+  /** Placeholder token this file uses for unknown names (e.g. "NN"); absent when
+   * it leaves unknown name parts blank. */
+  unknownNameStyle?: string;
   /** Master only: true when married surnames are stored inline as `_MARNM`, so
    * the name editor folds an added "married" name into that tag. */
   marriedNameTag?: boolean;

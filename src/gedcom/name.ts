@@ -1,6 +1,26 @@
 import type { PersonName } from "./types";
 
 /**
+ * A whole name part used as a stand-in for an *unknown* given or surname:
+ *  - runs of placeholder punctuation — `____`, `????`, `---`, `...`, `…`;
+ *  - the Latin "nomen nescio" marker — `NN`, `N.N.`, `N N`;
+ *  - the word "unknown" (and German/Slovenian/Croatian unbekannt/neznano/
+ *    nepoznato, plus the phrases "priimek neznan" / "ime neznano").
+ *
+ * Deliberately conservative: a single ambiguous letter (`N`, `X`) is *not*
+ * treated as a placeholder, since it is far more often a real initial. A blank
+ * slot is the absence of a token, not a token — callers handle it separately.
+ */
+const UNKNOWN_NAME_RE =
+  /^(?:[_?\-–—.·*…]+|n\.?\s*n\.?|unknown|unbekannt|neznan[oa]?|nepoznat[oa]?|priimek\s+neznan|ime\s+neznano)$/i;
+
+/** Whether a given/surname slot is a placeholder for an unknown name. */
+export function isUnknownNameToken(text: string | undefined): boolean {
+  const t = text?.trim();
+  return !!t && UNKNOWN_NAME_RE.test(t);
+}
+
+/**
  * Parse a `NAME` line into structured parts.
  *
  * GEDCOM stores the surname between slashes in the value (e.g.

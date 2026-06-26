@@ -8,6 +8,7 @@ import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MasterProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
 import { reshapeNameVariants } from "./nameVariants";
+import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
 
 const MAX_EXAMPLES = 12;
@@ -46,6 +47,8 @@ export function normalizeDataset(
     linkExamples: [],
     nameVariantsReshaped: 0,
     nameVariantExamples: [],
+    unknownNamesReshaped: 0,
+    unknownNameExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
@@ -54,6 +57,7 @@ export function normalizeDataset(
   const seenPlace = new Set<string>();
   const seenLink = new Set<string>();
   const seenName = new Set<string>();
+  const seenUnknown = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -117,6 +121,12 @@ export function normalizeDataset(
       for (const change of reshapeNameVariants(rec, profile.nameVariants)) {
         report.nameVariantsReshaped++;
         record(report.nameVariantExamples, seenName, change.before, change.after);
+      }
+      // Rewrite unknown-name placeholders (NN, ____, ????) to the master's
+      // convention, so the user's file never inherits a foreign placeholder.
+      for (const change of reshapeUnknownNames(rec, profile.unknownName)) {
+        report.unknownNamesReshaped++;
+        record(report.unknownNameExamples, seenUnknown, change.before, change.after);
       }
     }
   }

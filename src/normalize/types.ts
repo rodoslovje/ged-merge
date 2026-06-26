@@ -14,6 +14,23 @@ export interface MasterProfile {
   placeFmt: PlaceTargetFormat;
   /** How the master records each alternate-name variant, so incoming names can be reshaped to match. */
   nameVariants: NameProfile;
+  /** How the master marks an unknown given/surname, so incoming placeholder
+   * tokens (`NN`, `____`, `????`) can be reshaped to match. */
+  unknownName: UnknownNameTarget;
+}
+
+/**
+ * How the master records an *unknown* name part, so incoming placeholder tokens
+ * are reshaped to the same convention:
+ *  - `blank` : the master leaves an unknown given/surname empty — strip incoming
+ *              placeholders (`____` → nothing). This is the default.
+ *  - `token` : the master writes a literal marker (kept in {@link token}, e.g.
+ *              `NN`) — rewrite incoming placeholders to that marker.
+ */
+export interface UnknownNameTarget {
+  form: "blank" | "token";
+  /** For `form: "token"`, the master's marker spelling, e.g. "NN" or "N.N.". */
+  token?: string;
 }
 
 /**
@@ -209,4 +226,12 @@ export interface NormalizationReport {
   nameVariantsReshaped: number;
   /** A handful of illustrative name-variant changes for display. */
   nameVariantExamples: NormChange[];
+  /** Unknown-name placeholders (`NN`, `____`, `????`) rewritten to the master's convention. */
+  unknownNamesReshaped: number;
+  /** A handful of illustrative unknown-name changes for display. */
+  unknownNameExamples: NormChange[];
+  /** Incoming records merged away as same-person duplicates (detected because
+   *  they matched the same master). Set by the worker after matching, so it's
+   *  absent until then. */
+  consolidatedDuplicates?: number;
 }

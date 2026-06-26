@@ -947,3 +947,154 @@ ${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
     expect(events.find((e) => e.tag === "DEAT")?.date?.raw).toBe("6 May 1950");
   });
 });
+
+describe("normalizeDataset (unknown-name placeholders)", () => {
+  // A master that leaves unknown name parts blank (Marija has no surname slot).
+  const blankMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija //
+0 @I2@ INDI
+1 NAME Janez /Novak/
+0 TRLR
+`);
+
+  // A master that marks unknown surnames with the literal token "NN".
+  const nnMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /NN/
+0 @I2@ INDI
+1 NAME Ana /NN/
+0 @I3@ INDI
+1 NAME Janez /Novak/
+0 TRLR
+`);
+
+  it("strips placeholder surnames when the master leaves unknown parts blank", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /____/
+2 GIVN Jožef
+2 SURN ____
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const indi = out.individuals.get("@I1@")!;
+    const nameNode = indi.raw.children.find((c) => c.tag === "NAME")!;
+    expect(indi.names[0].surname).toBeUndefined();
+    expect(indi.names[0].given).toBe("Jožef");
+    // The empty surname slot is preserved, but the placeholder text is gone.
+    expect(nameNode.value).toBe("Jožef //");
+    expect(nameNode.children.some((c) => c.tag === "SURN")).toBe(false);
+    expect(report.unknownNamesReshaped).toBe(1);
+    expect(report.unknownNameExamples[0]).toEqual({ before: "____", after: "(blank)" });
+  });
+
+  it("rewrites placeholders to the master's token when it uses one", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /????/
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(nnMaster));
+    expect(out.individuals.get("@I1@")!.names[0].surname).toBe("NN");
+    expect(report.unknownNamesReshaped).toBe(1);
+  });
+
+  it("cleans an unknown given name too", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME ??? /Novak/
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const indi = out.individuals.get("@I1@")!;
+    const name = indi.names[0];
+    expect(name.given).toBeUndefined();
+    expect(name.surname).toBe("Novak");
+    expect(indi.raw.children.find((c) => c.tag === "NAME")!.value).toBe("/Novak/");
+  });
+
+  it("leaves a real one-letter initial untouched", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME N /Novak/
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    expect(out.individuals.get("@I1@")!.names[0].given).toBe("N");
+    expect(report.unknownNamesReshaped).toBe(0);
+  });
+
+  it("strips a placeholder SURN sub-tag shadowed by a real slash surname", () => {
+    // The displayed surname is real, but a stale placeholder lingers in SURN.
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /Novak/
+2 SURN ____
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
+    expect(nameNode.value).toBe("Jožef /Novak/");
+    expect(nameNode.children.some((c) => c.tag === "SURN")).toBe(false);
+    expect(report.unknownNamesReshaped).toBe(1);
+  });
+
+  it("cleans a placeholder surname carried only in a SURN sub-tag (no slash)", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef
+2 GIVN Jožef
+2 SURN NN
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const indi = out.individuals.get("@I1@")!;
+    expect(indi.names[0].given).toBe("Jožef");
+    expect(indi.names[0].surname).toBeUndefined();
+    expect(indi.raw.children.find((c) => c.tag === "NAME")!.children.some((c) => c.tag === "SURN")).toBe(false);
+    expect(report.unknownNamesReshaped).toBe(1);
+  });
+
+  it("counts a redundant value+SURN placeholder pair once", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /NN/
+2 SURN NN
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
+    expect(nameNode.value).toBe("Jožef //");
+    expect(nameNode.children.some((c) => c.tag === "SURN")).toBe(false);
+    expect(report.unknownNamesReshaped).toBe(1);
+  });
+
+  it("rewrites a placeholder SURN sub-tag to the master's token", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /____/
+2 SURN ____
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(nnMaster));
+    const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
+    expect(nameNode.value).toBe("Jožef /NN/");
+    expect(nameNode.children.find((c) => c.tag === "SURN")!.value).toBe("NN");
+  });
+
+  it("detects the master's NN token convention", () => {
+    expect(inferMasterProfile(nnMaster).unknownName).toEqual({ form: "token", token: "NN" });
+    expect(inferMasterProfile(blankMaster).unknownName).toEqual({ form: "blank" });
+  });
+});

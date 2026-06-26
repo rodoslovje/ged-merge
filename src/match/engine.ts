@@ -5,10 +5,15 @@ import {
   scoreIndividualPair,
   sexConflicts,
 } from "./scoreIndividual";
+import { birthYear } from "../gedcom/lifespan";
+import { cachedFatherName, cachedMotherName } from "./profileCache";
+import { givenSimilarity } from "./similarity";
+import { primaryName } from "./relatives";
 import { soundex } from "./text";
 import {
   categorize,
   DEFAULT_CONFIG,
+  type IncomingDuplicateCluster,
   type IndividualCandidate,
   type MatchConfig,
   type MatchResult,
@@ -27,16 +32,14 @@ export function matchDatasets(
   compareDs: Dataset,
   config: MatchConfig = DEFAULT_CONFIG,
 ): MatchResult {
-  return {
-    individuals: matchIndividuals(masterDs, compareDs, config),
-  };
+  return matchIndividuals(masterDs, compareDs, config);
 }
 
 function matchIndividuals(
   masterDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
-): IndividualCandidate[] {
+): MatchResult {
   const index = buildBlockIndex(masterDs.individuals.values(), (i) =>
     individualBlockKeys(i, soundex, masterDs),
   );
@@ -55,7 +58,118 @@ function matchIndividuals(
     }
   }
   const linked = linkByRelationships(assignOneToOne(scored), masterDs, compareDs, config);
-  return boostByMatchedRelatives(linked, masterDs, compareDs, config);
+  const individuals = boostByMatchedRelatives(linked, masterDs, compareDs, config);
+  const incomingDuplicates = findIncomingDuplicateClusters(scored, individuals, compareDs, config);
+  return incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals };
+}
+
+/**
+ * Minimum direct similarity (0..100) between the matched record and a runner-up
+ * before they're consolidated. The shared-master signal only *surfaces* the
+ * candidate; this is the real gate. Set high so a same-named look-alike a common
+ * master also attracts — a different surname (soundex collision) or a birth year
+ * many years off — stays below it, while a true duplicate (same surname, birth
+ * within a year or two) clears it. Erring high means missed consolidations
+ * (harmless — the duplicate just shows in the tree as before), never wrong merges.
+ */
+const DUP_PAIR_SCORE = 85;
+/** Min given-name similarity for two records to be one person, not siblings —
+ *  the within-pair score is a weighted average where surname/birth/place can
+ *  drown out a clear given-name conflict, so this is a separate hard veto. */
+const SAME_PERSON_GIVEN = 0.85;
+/** Max birth-year gap tolerated between duplicate copies. Small enough to reject
+ *  a namesake parent/child (decades apart) but to allow a transcription slip. */
+const DUP_MAX_YEAR_DIFF = 3;
+/** Min given-name similarity for two parents (one role) to count as the same. */
+const PARENT_GIVEN_MATCH = 0.6;
+
+/** Given names too dissimilar to be one person (e.g. siblings sharing a surname). */
+function differentGiven(a: Individual, b: Individual): boolean {
+  const ga = primaryName(a)?.given;
+  const gb = primaryName(b)?.given;
+  if (!ga || !gb) return false;
+  return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
+}
+
+/** Birth years known on both sides and too far apart to be one person. */
+function birthYearsTooFar(a: Individual, b: Individual): boolean {
+  const ya = birthYear(a);
+  const yb = birthYear(b);
+  if (ya === undefined || yb === undefined) return false;
+  return Math.abs(ya - yb) > DUP_MAX_YEAR_DIFF;
+}
+
+/** True when both records have comparable parents and every comparable role
+ *  disagrees — same-named cousins, not one person twice. */
+function parentsConflict(a: Individual, b: Individual, ds: Dataset): boolean {
+  const roles: Array<[string | undefined, string | undefined]> = [
+    [cachedFatherName(a, ds)?.given, cachedFatherName(b, ds)?.given],
+    [cachedMotherName(a, ds)?.given, cachedMotherName(b, ds)?.given],
+  ];
+  let comparable = false;
+  let agree = false;
+  for (const [x, y] of roles) {
+    if (!x || !y) continue;
+    comparable = true;
+    if (givenSimilarity(x, y) >= PARENT_GIVEN_MATCH) agree = true;
+  }
+  return comparable && !agree;
+}
+
+/**
+ * Find incoming records that are the same person split across duplicates. The
+ * reliable signal is that several incoming records all match the *same* master
+ * person: the runner-ups that lost the one-to-one assignment to the matched
+ * record are its duplicates. (A within-file pass can't catch these — duplicate
+ * copies in an index export often differ in birth year and share no relatives;
+ * only the common master ties them together.) Vetoes obvious distinct relatives
+ * (different given name, conflicting parents) but, unlike the within-file finder,
+ * tolerates a birth-year difference — the whole point here.
+ */
+function findIncomingDuplicateClusters(
+  scored: IndividualCandidate[],
+  matches: IndividualCandidate[],
+  compareDs: Dataset,
+  config: MatchConfig,
+): IncomingDuplicateCluster[] {
+  const matchedCompare = new Set(matches.map((m) => m.compareId));
+  const winnerOf = new Map(matches.map((m) => [m.masterId, m.compareId]));
+  const byMaster = new Map<string, IndividualCandidate[]>();
+  for (const s of scored) {
+    const arr = byMaster.get(s.masterId);
+    if (arr) arr.push(s);
+    else byMaster.set(s.masterId, [s]);
+  }
+
+  const consumed = new Set<string>(); // each incoming id consolidated at most once
+  const clusters: IncomingDuplicateCluster[] = [];
+  for (const [masterId, keepId] of winnerOf) {
+    if (consumed.has(keepId)) continue;
+    const cands = byMaster.get(masterId);
+    const keep = compareDs.individuals.get(keepId);
+    if (!cands || !keep) continue;
+    const mergeIds: string[] = [];
+    for (const s of cands) {
+      if (s.compareId === keepId || consumed.has(s.compareId)) continue;
+      if (matchedCompare.has(s.compareId)) continue; // matched to another master → distinct
+      const cand = compareDs.individuals.get(s.compareId);
+      if (!cand) continue;
+      // Hard vetoes a weighted-average score can't be trusted to enforce:
+      // a distinct sibling (given name), a namesake (birth years far apart), or
+      // a same-named cousin (conflicting parents) is never one person.
+      if (differentGiven(keep, cand) || birthYearsTooFar(keep, cand) || parentsConflict(keep, cand, compareDs)) continue;
+      // The strong gate: the two incoming records must be a direct duplicate of
+      // each other, not merely two look-alikes of the same master.
+      if (scoreIndividualPair(keep, cand, compareDs, compareDs, config).score < DUP_PAIR_SCORE) continue;
+      mergeIds.push(s.compareId);
+      consumed.add(s.compareId);
+    }
+    if (mergeIds.length) {
+      clusters.push({ keepId, mergeIds });
+      consumed.add(keepId);
+    }
+  }
+  return clusters;
 }
 
 /**
@@ -69,6 +183,7 @@ function matchedRelativeCount(
   m: Individual,
   c: Individual,
   masterToCompare: Map<string, string>,
+  scoreOf: Map<string, number>,
   masterDs: Dataset,
   compareDs: Dataset,
 ): number {
@@ -79,7 +194,8 @@ function matchedRelativeCount(
     let n = 0;
     for (const id of masterIds) {
       const mapped = masterToCompare.get(id);
-      if (mapped && set.has(mapped)) n++;
+      // Only a confidently-matched relative corroborates (see the threshold).
+      if (mapped && set.has(mapped) && (scoreOf.get(id) ?? 0) >= CONFIDENT_RELATIVE_SCORE) n++;
     }
     return n;
   };
@@ -116,6 +232,16 @@ function relativeIds(
 
 /** Below this many shared matched relatives, no corroboration boost is applied. */
 const STRONG_RELATIVE_COUNT = 2;
+/**
+ * Minimum score a relative's *own* match must have for it to count as
+ * corroboration. Relationship evidence is only as trustworthy as the relative
+ * matches it builds on: two different families with similar surnames (e.g.
+ * Jakofčič ↔ Jakopič, scoring ~75) can get cross-matched by the greedy pass, and
+ * without this gate those weak matches would compound into a confident-looking
+ * (but wrong) parent link. Genuine relative matches score 95–100, so this cleanly
+ * keeps them while dropping the ~75 noise.
+ */
+const CONFIDENT_RELATIVE_SCORE = 85;
 
 /**
  * Raise the score of any pair whose relatives are themselves matched, so a
@@ -135,7 +261,11 @@ function boostByMatchedRelatives(
   config: MatchConfig,
 ): IndividualCandidate[] {
   const masterToCompare = new Map<string, string>();
-  for (const a of matches) masterToCompare.set(a.masterId, a.compareId);
+  const scoreOf = new Map<string, number>();
+  for (const a of matches) {
+    masterToCompare.set(a.masterId, a.compareId);
+    scoreOf.set(a.masterId, a.score);
+  }
   for (const a of matches) {
     if (a.score >= 98) continue; // already at/above the corroboration ceiling
     const m = masterDs.individuals.get(a.masterId);
@@ -144,7 +274,7 @@ function boostByMatchedRelatives(
     // A relationship-linked pair was connected on >=2 conclusive evidence, so it
     // always earns the floor — even if an override cascade displaced one of the
     // relatives that the post-hoc recount looks at.
-    const counted = matchedRelativeCount(m, c, masterToCompare, masterDs, compareDs);
+    const counted = matchedRelativeCount(m, c, masterToCompare, scoreOf, masterDs, compareDs);
     const n = a.relationshipLinked ? Math.max(STRONG_RELATIVE_COUNT, counted) : counted;
     if (n < STRONG_RELATIVE_COUNT) continue;
     const floor = Math.min(97, 89 + n); // 2 → 91, 3 → 92, … capped at 97
@@ -204,17 +334,23 @@ function linkByRelationships(
 ): IndividualCandidate[] {
   const masterToCompare = new Map<string, string>();
   const compareToMaster = new Map<string, string>();
+  const scoreOf = new Map<string, number>();
   for (const a of assigned) {
     masterToCompare.set(a.masterId, a.compareId);
     compareToMaster.set(a.compareId, a.masterId);
+    scoreOf.set(a.masterId, a.score);
   }
 
-  const matched = (m: Individual | undefined, c: Individual | undefined) =>
-    !!m && !!c && masterToCompare.get(m.id) === c.id;
+  // A relative only corroborates if its own match is confident (see threshold) —
+  // otherwise weak greedy mis-matches (different families, similar surnames) would
+  // compound into confident-looking but wrong parent links.
+  const confident = (masterId: string) => (scoreOf.get(masterId) ?? 0) >= CONFIDENT_RELATIVE_SCORE;
+  const matchedConfident = (m: Individual | undefined, c: Individual | undefined) =>
+    !!m && !!c && masterToCompare.get(m.id) === c.id && confident(m.id);
 
-  // For every matched child, line up its master and compare parent families and,
-  // per role, tally a co-parent pair: +1 for the shared child, and remember
-  // whether the family's *other* parent is itself matched (the spouse signal).
+  // For every confidently-matched child, line up its master and compare parent
+  // families and, per role, tally a co-parent pair: +1 for the shared child, and
+  // remember whether the family's *other* parent is itself confidently matched.
   const votes = new Map<string, { children: number; spouse: boolean; master: Individual; compare: Individual }>();
   const note = (pM: Individual | undefined, pC: Individual | undefined, spouse: boolean) => {
     if (!pM || !pC || sexConflicts(pM, pC)) return;
@@ -225,13 +361,14 @@ function linkByRelationships(
     votes.set(key, rec);
   };
   for (const [masterChildId, compareChildId] of masterToCompare) {
+    if (!confident(masterChildId)) continue; // a weak child match is not evidence
     const mChild = masterDs.individuals.get(masterChildId);
     const cChild = compareDs.individuals.get(compareChildId);
     if (!mChild || !cChild) continue;
     for (const mf of parentFamilies(mChild, masterDs)) {
       for (const cf of parentFamilies(cChild, compareDs)) {
-        note(mf.father, cf.father, matched(mf.mother, cf.mother));
-        note(mf.mother, cf.mother, matched(mf.father, cf.father));
+        note(mf.father, cf.father, matchedConfident(mf.mother, cf.mother));
+        note(mf.mother, cf.mother, matchedConfident(mf.father, cf.father));
       }
     }
   }
@@ -249,7 +386,7 @@ function linkByRelationships(
   // relationally-corroborated (e.g. a record already paired by matching parents
   // must not be stolen by a same-named duplicate that merely shares the spouse).
   const corrob = (m: Individual, c: Individual) =>
-    matchedRelativeCount(m, c, masterToCompare, masterDs, compareDs);
+    matchedRelativeCount(m, c, masterToCompare, scoreOf, masterDs, compareDs);
   for (const { master, compare } of strongestFirst) {
     if (masterToCompare.get(master.id) === compare.id) continue; // already linked
     if (usedMaster.has(master.id) || usedCompare.has(compare.id)) continue;

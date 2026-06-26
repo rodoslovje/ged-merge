@@ -317,21 +317,28 @@ export function removeFamilyEvent(fam: Family, tag: string): void {
   if (i !== -1) fam.raw.children.splice(i, 1);
 }
 
+/**
+ * Write `given`/`surname` into a NAME node's slash-form value and drop any
+ * `GIVN`/`SURN` sub-tags. The slash value is the single source of truth (it's
+ * what `parseName` reads first), so leaving the structured sub-tags behind would
+ * let them go stale and contradict the edited name — always remove them.
+ */
+function writeNameValue(node: GedNode, given: string, surname: string): void {
+  node.value = surname ? `${given} /${surname}/`.trim() : given;
+  node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
+}
+
 /** Set (or clear) the individual's primary `NAME` line. */
 export function setName(indi: Individual, name: { given?: string; surname?: string }): void {
   const record = indi.raw;
   const given = (name.given ?? "").trim();
   const surname = (name.surname ?? "").trim();
-  const value = surname ? `${given} /${surname}/`.trim() : given;
 
-  if (!value) {
+  if (!given && !surname) {
     removeChild(record, "NAME");
     return;
   }
-  const node = getOrCreateChild(record, "NAME", INDI_CHILD_ORDER);
-  node.value = value;
-  // The slash-form value is now the source of truth; drop stale sub-tags.
-  node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
+  writeNameValue(getOrCreateChild(record, "NAME", INDI_CHILD_ORDER), given, surname);
 }
 
 function nameNodes(indi: Individual): GedNode[] {
@@ -373,8 +380,7 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
     const current = indi.names[index + 1];
     const given = (update.given ?? current?.given ?? "").trim();
     const surname = (update.surname ?? current?.surname ?? "").trim();
-    node.value = surname ? `${given} /${surname}/`.trim() : given;
-    node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
+    writeNameValue(node, given, surname);
   }
   if (update.type !== undefined) setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
 }

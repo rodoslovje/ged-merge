@@ -2,12 +2,14 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
-import type { Dataset } from "../gedcom/types";
-import { collectLayoutValues, dateLayoutFromValues, detectPlaceLayout, inferDateLayout, inferMasterProfile, inferNameLayout } from "../normalize/profile";
+import type { Dataset, Individual } from "../gedcom/types";
+import { buildCompareTree, buildMatchMaps, countImportable, type TreeMode } from "../tree/compareTree";
+import { collectLayoutValues, dateLayoutFromValues, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferMasterProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
+import { mergeDuplicate } from "../tools/mergeDuplicate";
 import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
 import { parseGiMatchesCsv, type GiPair } from "../csv/giMatches";
@@ -33,6 +35,12 @@ let compareNormalized: Dataset | undefined;
 let compareCsvPairs: GiPair[] | undefined;
 let homeId: string | undefined;
 let lastResult: MatchResult | undefined;
+/** The last compare `parsed` payload (minus the dataset), so the consolidated
+ *  compare can be re-emitted with the same format reports after duplicates are
+ *  merged in. */
+let lastCompareMeta:
+  | Omit<Extract<WorkerResponse, { type: "parsed" }>, "type" | "role" | "dataset">
+  | undefined;
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
@@ -82,6 +90,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         dateFormat: inferDateLayout(dataset),
         sourceLayout: inferSourceFormat(dataset.records).layout,
         nameLayout: inferNameLayout(dataset),
+        unknownNameStyle: detectUnknownNameToken(dataset),
         marriedNameTag: profile.nameVariants.married.form === "tag",
       });
       // A compare loaded earlier can now be normalized against this master.
@@ -122,14 +131,19 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   const dateFormat = dateLayoutFromValues(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
   const nameLayout = inferNameLayout(rawDataset);
+  // Detected on the raw file, so the summary reports the placeholder the incoming
+  // file actually used (before it's reshaped to the master's convention).
+  const unknownNameStyle = detectUnknownNameToken(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat, sourceLayout, nameLayout });
+    lastCompareMeta = { fileName, placeLayout, dateFormat, sourceLayout, nameLayout, unknownNameStyle };
+    post({ type: "parsed", role: "compare", dataset: rawDataset, ...lastCompareMeta });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat, sourceLayout, nameLayout });
+  lastCompareMeta = { fileName, report, placeLayout, dateFormat, sourceLayout, nameLayout, unknownNameStyle };
+  post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
 }
 
 /** Run matching once both sides are available, ranked if a home person is set. */
@@ -139,6 +153,20 @@ function maybeMatch(): void {
   let result = compareCsvPairs
     ? matchGiPairs(masterDataset, compareNormalized, compareCsvPairs)
     : matchDatasets(masterDataset, compareNormalized);
+  // Consolidate incoming records that are the same person split across duplicates
+  // (detected by matching the same master) into one, then re-emit the cleaned
+  // compare so the merge and tree see a single record carrying all the data.
+  if (result.incomingDuplicates?.length) {
+    for (const { keepId, mergeIds } of result.incomingDuplicates) {
+      for (const id of mergeIds) {
+        mergeDuplicate(compareNormalized, keepId, id, { status: "confirmed", fields: {} }, rawLabel);
+      }
+    }
+    const consolidated = result.incomingDuplicates.reduce((n, c) => n + c.mergeIds.length, 0);
+    result = { individuals: result.individuals };
+    if (lastCompareMeta?.report) lastCompareMeta.report.consolidatedDuplicates = consolidated;
+    if (lastCompareMeta) post({ type: "parsed", role: "compare", dataset: compareNormalized, ...lastCompareMeta });
+  }
   result = annotateCounts(result, masterDataset, compareNormalized);
   if (homeId) result = applyDistanceRanking(result, masterDataset, homeId);
   lastResult = result;
@@ -149,23 +177,28 @@ function maybeMatch(): void {
  * translator (the worker has no i18n context). */
 const rawLabel = (key: string) => key;
 
-/** Attach per-candidate "new" and "differing" field counts for the results table. */
+/** Attach per-candidate "new" and "differing" field counts plus the importable
+ *  ancestor/descendant counts for the results table. */
 function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset): MatchResult {
   const placeFmt = inferPlaceExportFormat(master);
+  const maps = buildMatchMaps(result);
+  const importable = (masterInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
+    const tree = buildCompareTree(rawLabel, masterInd, compareInd, master, compare, maps, mode);
+    return tree ? countImportable(tree) : 0;
+  };
   return {
-    individuals: result.individuals.map((c) => ({
-      ...c,
-      ...fieldDiffCounts(
-        individualFieldRows(
-          rawLabel,
-          master.individuals.get(c.masterId),
-          compare.individuals.get(c.compareId),
-          master,
-          compare,
-          placeFmt,
+    individuals: result.individuals.map((c) => {
+      const masterInd = master.individuals.get(c.masterId);
+      const compareInd = compare.individuals.get(c.compareId);
+      return {
+        ...c,
+        ...fieldDiffCounts(
+          individualFieldRows(rawLabel, masterInd, compareInd, master, compare, placeFmt),
         ),
-      ),
-    })),
+        ancestorCount: importable(masterInd, compareInd, "ancestors"),
+        descendantCount: importable(masterInd, compareInd, "descendants"),
+      };
+    }),
   };
 }
 
