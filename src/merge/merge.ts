@@ -14,10 +14,14 @@ import {
   sortEventsByDate,
 } from "./applyFields";
 import {
+  applyImportBranches,
   applyIndividualFamilies,
   applyIndividualRelations,
   makeContext,
+  type ImportBranchRequest,
 } from "./applyRelations";
+
+export type { ImportBranchRequest } from "./applyRelations";
 
 export {
   combineEventEdits,
@@ -38,6 +42,10 @@ export interface FieldChange {
   action: FieldChoice;
   /** Marks the placeholder change for a freshly added person/family record. */
   newRecord?: boolean;
+  /** Set on a `newRecord` change when the record was brought in by a whole-branch
+   *  graft (import ancestors/descendants) rather than a confirmed match's
+   *  stitching — lets the preview flag it as "Incoming". */
+  viaGraft?: boolean;
   /** Marks the placeholder change for a deleted person/family record. */
   removedRecord?: boolean;
   /** Event name (e.g. "Birth", "Marriage") this field belongs to, so the
@@ -141,6 +149,10 @@ export function mergeDecisions(
   decisions: Map<string, CandidateDecision>,
   matches: MatchResult,
   t: Translate,
+  /** Opt-in "graft this whole branch from the incoming file" requests, made from
+   *  the compare tree. Applied after the confirmed-decision loop so matched
+   *  anchors (and any families those decisions stitched) exist to graft onto. */
+  importBranches: Iterable<ImportBranchRequest> = [],
 ): MergeResult {
   const records = master.records.map(cloneNode);
   const sourXrefMap = buildSourXrefMap(compare.records, records);
@@ -189,6 +201,12 @@ export function mergeDecisions(
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx, takenChildIds);
     sortEventsByDate(target);
   }
+
+  // Graft any whole subtrees the user asked for from the compare tree, now that
+  // confirmed matches and their families exist to anchor onto. Records added from
+  // here on are reported as imported (preview flags them "Incoming").
+  ctx.beginGraftPhase();
+  applyImportBranches(importBranches, master, compare, ctx);
 
   // Derive record kinds from node maps built during merge.
   for (const c of report.changes) {

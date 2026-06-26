@@ -2873,33 +2873,50 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.85rem;
   font-weight: 400;
 }
-.tree-mode {
+.tree-controls {
+  flex: 0 0 auto;
   display: flex;
-  gap: 4px;
-  background: var(--bg);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.tree-mode {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+  background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2px;
+  border-radius: 9px;
+  padding: 3px;
 }
 .tree-mode button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
   background: none;
   border: none;
   color: var(--muted);
   border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 0.85rem;
+  padding: 5px 16px;
+  cursor: pointer;
 }
+.tree-mode button:hover { color: var(--text); }
 .tree-mode button.active {
   background: var(--panel);
-  color: var(--text);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
 }
 
 .tree-legend {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
-  margin-bottom: 12px;
   font-size: 0.82rem;
 }
 .tree-legend-item {
@@ -2922,7 +2939,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-legend-list {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
   margin: 4px 0 0;
   padding: 4px;
   min-width: 240px;
@@ -3115,6 +3132,54 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
+.tree-compare-import {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tree-import-btn {
+  width: 100%;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+}
+/* Marks a match the relationship pass connected via shared children rather than
+   name/date — its name/birth year may differ, so it's worth a glance. */
+.rel-tree-badge {
+  font-size: 0.78em;
+  margin-left: 4px;
+  cursor: help;
+  opacity: 0.85;
+}
+.tree-import-btn:hover { color: var(--text); border-color: var(--node-incoming); }
+.tree-import-btn.active {
+  border-style: solid;
+  border-color: var(--node-incoming);
+  color: var(--node-incoming);
+  background: color-mix(in srgb, var(--node-incoming) 12%, var(--bg));
+}
+/* Compact "▲n ▼n" importable-candidate counts on the merge-panel tree button. */
+.tree-import-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tree-import-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--node-incoming);
+  background: color-mix(in srgb, var(--node-incoming) 16%, var(--bg));
+}
 
 /* --- save toast --- */
 .save-toast {
@@ -3210,6 +3275,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.9rem;
   color: var(--muted);
   line-height: 1.5;
+}
+.confirm-dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.confirm-dialog-check input {
+  cursor: pointer;
 }
 .confirm-dialog-actions {
   display: flex;
@@ -3642,13 +3719,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   .tree-open-btn {
     padding: 4px 10px;
   }
+  .tree-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
   .tree-mode button {
     padding: 4px 8px;
     font-size: 0.8rem;
   }
   .tree-legend {
     gap: 6px;
-    margin-bottom: 8px;
+    justify-content: flex-start;
   }
   .tree-legend-btn {
     padding: 4px 8px;

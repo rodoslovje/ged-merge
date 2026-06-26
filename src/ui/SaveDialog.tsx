@@ -42,6 +42,8 @@ interface RecordGroup {
   id: string;
   label: string;
   isNew: boolean;
+  /** A new record brought in by a whole-branch graft (import ancestors/descendants). */
+  isImported: boolean;
   isRemoved: boolean;
   changes: FieldChange[];
 }
@@ -201,8 +203,8 @@ export function SaveDialog({
                         </span>
                       )}
                       <span className="preview-card-head-right">
-                        <span className={`preview-badge ${g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
-                          {g.isNew ? t("preview.badge.new") : g.isRemoved ? t("preview.badge.removed") : t("preview.badge.edited")}
+                        <span className={`preview-badge ${g.isImported ? "is-incoming" : g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
+                          {g.isImported ? t("preview.badge.incoming") : g.isNew ? t("preview.badge.new") : g.isRemoved ? t("preview.badge.removed") : t("preview.badge.edited")}
                         </span>
                         {canRemove && (
                           <button
@@ -415,10 +417,11 @@ function groupByRecord(report: ChangeReport): RecordGroup[] {
   for (const c of report.changes) {
     let g = map.get(c.recordId);
     if (!g) {
-      g = { id: c.recordId, label: report.recordLabels[c.recordId] ?? c.recordId, isNew: false, isRemoved: false, changes: [] };
+      g = { id: c.recordId, label: report.recordLabels[c.recordId] ?? c.recordId, isNew: false, isImported: false, isRemoved: false, changes: [] };
       map.set(c.recordId, g);
     }
     if (c.newRecord) g.isNew = true;
+    if (c.viaGraft) g.isImported = true;
     if (c.removedRecord) g.isRemoved = true;
     g.changes.push(c);
   }

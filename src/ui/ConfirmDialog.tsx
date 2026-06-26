@@ -11,9 +11,14 @@ interface Props {
   /** Style the confirm button as destructive (red). Use only for irreversible
    *  actions like delete/remove; benign prompts keep the neutral accent style. */
   danger?: boolean;
+  /** When set, renders a checkbox above the actions. `checked`/`onCheckedChange`
+   *  let the caller persist the choice (e.g. a "Never ask again" preference). */
+  checkboxLabel?: string;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange }: Props) {
   const { t } = useTranslation();
   const [title, body] = message.split("\n\n");
   return (
@@ -21,6 +26,16 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
       <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <p className="confirm-dialog-title">{title}</p>
         {body && <p className="confirm-dialog-body">{body}</p>}
+        {checkboxLabel && (
+          <label className="confirm-dialog-check">
+            <input
+              type="checkbox"
+              checked={checked ?? false}
+              onChange={(e) => onCheckedChange?.(e.target.checked)}
+            />
+            {checkboxLabel}
+          </label>
+        )}
         <div className="confirm-dialog-actions">
           {cancelLabel !== null && (
             <button type="button" className="btn-secondary" onClick={onCancel}>

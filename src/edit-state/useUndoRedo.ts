@@ -15,6 +15,13 @@ export type UndoEntry =
       after: Map<string, CandidateDecision>;
       masterId: string;
       compareId: string;
+    }
+  | {
+      // A compare-tree "bring in this branch" toggle. Holds the before/after of
+      // the import-branch key set, like `merge` holds the decisions map.
+      mode: "import";
+      before: Set<string>;
+      after: Set<string>;
     };
 
 const MAX_STACK = 100;

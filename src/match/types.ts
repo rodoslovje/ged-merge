@@ -51,6 +51,13 @@ export interface IndividualCandidate {
   diffCount?: number;
   /** Attached-link rows the compare adds or that differ. */
   linkCount?: number;
+  /**
+   * Set when this pair was connected by the relationship pass (the two records
+   * are each a parent of the same matched children) rather than by name/date
+   * score — so the UI can flag it, since such a pair may legitimately differ in
+   * name (maiden vs married) or birth year.
+   */
+  relationshipLinked?: boolean;
 }
 
 export interface MatchResult {

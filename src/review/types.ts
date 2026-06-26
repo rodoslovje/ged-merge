@@ -137,6 +137,27 @@ export function decisionKey(kind: MatchKind, masterId: string, compareId: string
   return `${kind}:${masterId}:${compareId}`;
 }
 
+/** Which way a "bring in this branch" request fans out from its anchor person. */
+export type ImportDirection = "ancestors" | "descendants";
+
+/**
+ * Stable key for a requested subtree import, by direction + the anchor's
+ * incoming individual id. The set of these keys (an opt-in "graft this branch
+ * on save" selection) is held in app state and threaded into the merge engine.
+ */
+export function importKey(direction: ImportDirection, incomingId: string): string {
+  return `${direction}:${incomingId}`;
+}
+
+/** Inverse of {@link importKey}; undefined for a malformed key. */
+export function parseImportKey(
+  key: string,
+): { direction: ImportDirection; incomingId: string } | undefined {
+  const i = key.indexOf(":");
+  if (i < 0) return undefined;
+  return { direction: key.slice(0, i) as ImportDirection, incomingId: key.slice(i + 1) };
+}
+
 /**
  * Collapses individual-decision keys down to one status per master id, so
  * callers showing a single person (a relative card, a tree node) can do a

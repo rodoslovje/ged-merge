@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { ReadOnlyCompare } from "./ReadOnlyCompare";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
+  countImportable,
   type MatchMaps,
   type NodeStatus,
   type TreeMode,
@@ -34,6 +35,10 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Toggle a matched node's decision status (confirm / reject / defer). */
   onDecide: (masterId: string, compareId: string, status: MatchDecisionStatus) => void;
+  /** Keys (`importKey(direction, incomingId)`) of incoming branches marked to graft on save. */
+  importBranches: Set<string>;
+  /** Toggle "bring in this incoming person's ancestors/descendants on save". */
+  onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   /** Home person ID in the master dataset, used to show kinship labels on nodes. */
   homeId?: string;
 }
@@ -119,6 +124,8 @@ export function CompareTree({
   onBack,
   decisions,
   onDecide,
+  importBranches,
+  onToggleImport,
   homeId,
 }: Props) {
   const { t } = useTranslation();
@@ -168,8 +175,56 @@ export function CompareTree({
     [t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode],
   );
 
+  // Incoming-only people each direction could graft, shown on the mode buttons —
+  // the same counts the Compare Tree button surfaces in Merge mode. Built for
+  // both directions (independent of the current mode) so switching reflects them.
+  const importCounts = useMemo(() => {
+    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors");
+    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants");
+    return {
+      ancestors: ancestors ? countImportable(ancestors) : 0,
+      descendants: descendants ? countImportable(descendants) : 0,
+    };
+  }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps]);
+
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
   const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
+
+  // Keys of incoming-only nodes that an active "import ancestors/descendants"
+  // branch would bring in as new records: a node is covered once it, or any of
+  // its render-tree ancestors, has its import toggled on for the current mode.
+  // The rendered tree is exactly the graft direction, so coverage = subtree.
+  const willImport = useMemo(() => {
+    const set = new Set<string>();
+    if (!laid) return set;
+    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(mode, n.incoming.id));
+    (function walk(n: Placed, covered: boolean) {
+      const active = covered || isAnchor(n);
+      if (active && n.status === "incoming-only") set.add(n.key);
+      for (const p of n.partners) {
+        const pActive = active || isAnchor(p);
+        if (pActive && p.status === "incoming-only") set.add(p.key);
+        for (const c of p.children) walk(c, pActive);
+      }
+      for (const c of n.children) walk(c, active);
+    })(laid.root, false);
+    return set;
+  }, [laid, importBranches, mode]);
+
+  // The badge a node shows next to its lifespan: a decided match's C/D/R, or "I"
+  // (Incoming) for an incoming-only person an active graft will bring in.
+  const badgeOf = useCallback(
+    (n: Placed): { status: string; letter: string } | undefined => {
+      const dec = decisionOf(n);
+      if (dec) return dec;
+      if (n.status === "incoming-only" && willImport.has(n.key)) {
+        return { status: "incoming", letter: t("status.incoming").charAt(0).toUpperCase() };
+      }
+      return undefined;
+    },
+    [decisionOf, willImport, t],
+  );
+
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
 
@@ -309,23 +364,31 @@ export function CompareTree({
             </span>
           )}
         </h2>
+      </div>
+
+      <div className="tree-controls">
         <div className="tree-mode">
           <button
             className={mode === "ancestors" ? "active" : ""}
             onClick={() => onModeChange("ancestors")}
           >
             {t("tree.ancestors")}
+            {importCounts.ancestors > 0 && (
+              <span className="tree-import-count">▲{importCounts.ancestors}</span>
+            )}
           </button>
           <button
             className={mode === "descendants" ? "active" : ""}
             onClick={() => onModeChange("descendants")}
           >
             {t("tree.descendants")}
+            {importCounts.descendants > 0 && (
+              <span className="tree-import-count">▼{importCounts.descendants}</span>
+            )}
           </button>
         </div>
+        <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
       </div>
-
-      <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
 
       <div className="tree-canvas-wrap">
         <div
@@ -345,7 +408,7 @@ export function CompareTree({
               height={laid.height}
               selectedKey={selectedKey}
               onSelect={setSelectedKey}
-              decisionOf={decisionOf}
+              decisionOf={badgeOf}
               kinshipOf={kinshipOf}
               masterRecords={masterDs.records}
               compareRecords={compareDs.records}
@@ -371,6 +434,9 @@ export function CompareTree({
             masterDs={masterDs}
             compareDs={compareDs}
             maps={maps}
+            mode={mode}
+            importActive={!!selected.incoming && importBranches.has(importKey(mode, selected.incoming.id))}
+            onToggleImport={onToggleImport}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
             decision={
@@ -695,6 +761,9 @@ function NodeCompare({
   masterDs,
   compareDs,
   maps,
+  mode,
+  importActive,
+  onToggleImport,
   onReroot,
   onClose,
   decision,
@@ -704,6 +773,9 @@ function NodeCompare({
   masterDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;
+  mode: TreeMode;
+  importActive: boolean;
+  onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   onReroot: (masterId?: string, compareId?: string) => void;
   onClose: () => void;
   decision: CandidateDecision | undefined;
@@ -713,6 +785,12 @@ function NodeCompare({
   // Both sides present → an actionable match the user can confirm/reject/defer.
   const decidable = !!node.master && !!node.incoming;
   const status = decision?.status ?? "undecided";
+  // Anything with an incoming side has a subtree we can graft in the current
+  // tree direction (ancestors or descendants of this person). The subtree shown
+  // under this node *is* what the import would bring, so count its incoming-only
+  // people up front — the number a "bring …" import would add as new records.
+  const importableId = node.incoming?.id;
+  const importCount = useMemo(() => countImportable(node), [node]);
   const rows = useMemo(
     () => individualFieldRows(t, node.master, node.incoming, masterDs, compareDs),
     [t, node, masterDs, compareDs],
@@ -752,6 +830,17 @@ function NodeCompare({
               {t(`status.${s}`)}
             </button>
           ))}
+        </div>
+      )}
+      {importableId && (importCount > 0 || importActive) && (
+        <div className="tree-compare-import">
+          <button
+            className={`tree-import-btn${importActive ? " active" : ""}`}
+            onClick={() => onToggleImport(mode, importableId)}
+            title={t(`tree.import.${mode}.title`)}
+          >
+            {t(`tree.import.${mode}${importActive ? ".active" : ""}`)} ({importCount})
+          </button>
         </div>
       )}
       <ReadOnlyCompare

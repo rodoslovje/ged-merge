@@ -14,6 +14,8 @@ import {
   type RelativePair,
 } from "../review/types";
 import { PersonPhotos } from "./PersonPhotos";
+import { useMediaFolder } from "./MediaFolderContext";
+import { collectPhotoRefs } from "./PhotoViewer";
 
 /** Which dataset a relative id belongs to. */
 export type RelativeSide = "master" | "incoming";
@@ -56,6 +58,16 @@ export function ComparePanel({
   // would miss edits made while this panel stays mounted in the background.
   const masterIndi = masterDs.individuals.get(candidate.masterId);
   const compareIndi = compareDs.individuals.get(candidate.compareId);
+  // Only show the photos tray (and its divider line) when a media folder is
+  // loaded and at least one side actually references a photo — otherwise the
+  // empty tray leaves a stray separator under the header.
+  const { folderName } = useMediaFolder();
+  const hasPhotos = useMemo(() => {
+    if (!folderName) return false;
+    const m = masterIndi ? collectPhotoRefs(masterIndi.raw, masterDs.records).length : 0;
+    const c = compareIndi ? collectPhotoRefs(compareIndi.raw, compareDs.records).length : 0;
+    return m + c > 0;
+  }, [folderName, masterIndi, compareIndi, masterDs.records, compareDs.records]);
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     return individualFieldRows(t, masterIndi, compareIndi, masterDs, compareDs, undefined, rejectedEvents);
@@ -149,7 +161,7 @@ export function ComparePanel({
 
   return (
     <div className="compare-panel">
-      {(masterIndi || compareIndi) && (
+      {hasPhotos && (
         <div className="compare-photos">
           <div className="compare-photos-col">
             {masterIndi && (

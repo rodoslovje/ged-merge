@@ -438,7 +438,8 @@ describe("buildPlaceTree", () => {
     const si = tree.roots.find((r) => r.name === "Slovenija");
     expect(si?.children.map((c) => c.name)).toEqual(["Ljubljana"]);
     const lj = si!.children[0];
-    expect(lj.children[0].name).toBe("Šentvid");
+    // A locality with a house number is kept combined as one address node.
+    expect(lj.children[0].name).toBe("Šentvid 23");
 
     const unspecified = tree.roots.find((r) => r.name === UNSPECIFIED);
     expect(unspecified?.children.map((c) => c.name)).toEqual(["Kranj"]);
@@ -458,11 +459,12 @@ describe("buildPlaceTree", () => {
 2 PLAC Vas 2, Kranj, Slovenija
 0 TRLR`);
     const tree = buildPlaceTree(ds);
-    const vas = tree.roots
+    // House numbers stay combined with the locality ("Vas 2" / "Vas 10"); the
+    // numeric-aware collator must still order them 2 before 10, not lexically.
+    const kranj = tree.roots
       .find((r) => r.name === "Slovenija")!
-      .children.find((c) => c.name === "Kranj")!
-      .children.find((c) => c.name === "Vas")!;
-    expect(vas.children.map((c) => c.name)).toEqual(["2", "10"]);
+      .children.find((c) => c.name === "Kranj")!;
+    expect(kranj.children.map((c) => c.name)).toEqual(["Vas 2", "Vas 10"]);
   });
 
   it("buckets a standalone ADDR (no PLAC) under Unspecified place", () => {

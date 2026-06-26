@@ -72,8 +72,10 @@ describe("enrichEditReport — event diffing", () => {
   });
 
   it("does not pair two unrelated events of the same tag (no shared sub-field)", () => {
-    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Kranj\n"));
-    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Maribor\n"));
+    // Different date AND place, so the events share no sub-field and aren't a
+    // place-only edit — they must stay separate (a removal plus an addition).
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 DATE 1900\n2 PLAC Kranj\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 DATE 2000\n2 PLAC Maribor\n"));
     const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
     const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
 

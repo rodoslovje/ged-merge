@@ -267,6 +267,93 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   });
 });
 
+describe("mergeDecisions — import whole subtrees from the compare tree", () => {
+  const NO_DECISIONS = new Map<string, CandidateDecision>();
+
+  it("grafts a person's descendants (spouse, child, and the child's own family) recursively", () => {
+    // Master has only the anchor; everything below comes from the incoming file.
+    const master = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 FAMC @G1@\n1 FAMS @G2@\n" +
+          "0 @P4@ INDI\n1 NAME Ema /Hribar/\n1 SEX F\n1 FAMS @G2@\n" +
+          "0 @P5@ INDI\n1 NAME Mojca /Novak/\n1 SEX F\n1 FAMC @G2@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n" +
+          "0 @G2@ FAM\n1 HUSB @P3@\n1 WIFE @P4@\n1 CHIL @P5@\n",
+      ),
+    );
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+
+    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    const out = serializeGedcom(records);
+
+    // Spouse + child of the anchor's union, and the grandchild two hops down.
+    expect(out).toContain("Marija /Kos/");
+    expect(out).toContain("Tone /Novak/");
+    expect(out).toContain("Ema /Hribar/");
+    expect(out).toContain("Mojca /Novak/"); // proves the recursion went a second generation deep
+    expect(report.newPersons).toBe(4);
+    // The anchor is now wired into a family (spouse + child) without being duplicated.
+    expect(out.match(/0 @I1@ INDI/g)).toHaveLength(1);
+    expect(out).toMatch(/0 @I1@ INDI[\s\S]*1 FAMS/);
+  });
+
+  it("grafts a person's ancestors and reuses a matched ancestor as a join point", () => {
+    // Master already has the anchor and a father that matches an incoming person.
+    const master = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "0 @I2@ INDI\n1 NAME Oce /Novak/\n1 SEX M\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Oce /Novak/\n1 SEX M\n1 FAMS @G1@\n1 FAMC @G2@\n" +
+          "0 @P3@ INDI\n1 NAME Mati /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @P4@ INDI\n1 NAME Ded /Novak/\n1 SEX M\n1 FAMS @G2@\n" +
+          "0 @G1@ FAM\n1 HUSB @P2@\n1 WIFE @P3@\n1 CHIL @P1@\n" +
+          "0 @G2@ FAM\n1 HUSB @P4@\n1 CHIL @P2@\n",
+      ),
+    );
+    // Both the anchor and the father are matched to existing master people.
+    const matches = {
+      individuals: [
+        { masterId: "@I1@", compareId: "@P1@" },
+        { masterId: "@I2@", compareId: "@P2@" },
+      ],
+    } as never;
+
+    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, [
+      { incomingId: "@P1@", direction: "ancestors" },
+    ]);
+    const out = serializeGedcom(records);
+
+    // The matched father is reused (not duplicated); mother and grandfather are new.
+    expect(out.match(/0 @I2@ INDI/g)).toHaveLength(1);
+    expect(out).not.toMatch(/Oce \/Novak\/[\s\S]*Oce \/Novak\//); // father appears once
+    expect(out).toContain("Mati /Kos/");
+    expect(out).toContain("Ded /Novak/"); // grandfather, one hop above the matched father
+    expect(report.newPersons).toBe(2); // mother + grandfather only
+    // The anchor sits in a child family with the matched father as husband.
+    expect(out).toMatch(/0 @I1@ INDI[\s\S]*1 FAMC/);
+    expect(out).toContain("1 HUSB @I2@");
+  });
+
+  it("does nothing when there are no import requests", () => {
+    const master = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, []);
+    expect(report.newPersons).toBe(0);
+    expect(serializeGedcom(records)).toBe(serializeGedcom(master.records));
+  });
+});
+
 describe("mergeDecisions — family touched via both confirmed spouses", () => {
   // Both spouses already exist in master and are independently confirmed as
   // matches to the incoming pair, so the shared family is visited twice (once

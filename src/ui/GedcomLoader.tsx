@@ -16,23 +16,39 @@ function countLocalMedia(records: GedNode[]): number {
   return n;
 }
 
+// Survives remounts: this component is torn down whenever the full-page
+// Compare/Edit tree takes over, so a component ref would reset and re-offer
+// each time the user returns to Merge. A module-level slot persists for the
+// session instead, so each loaded file is offered at most once.
+let offeredFor: string | null = null;
+
+// Persisted across sessions: when the user ticks "Never ask again" we stop
+// auto-offering the photo folder entirely (they can still open it manually).
+const NEVER_OFFER_KEY = "mediaFolderNeverOffer";
+
 /** Always-mounted companion to GedcomLoader: detects local media in the master file
  *  and offers the photo-folder picker as soon as the file loads, regardless of
  *  whether the info panel (which contains GedcomLoader) is currently visible. */
 export function AutoMediaOffer({ master }: { master: SlotState }) {
   const { t } = useTranslation();
   const { folderName, openFolder } = useMediaFolder();
-  const offeredForRef = useRef<string | null>(null);
   const [offerCount, setOfferCount] = useState<number | null>(null);
+  const [neverAsk, setNeverAsk] = useState(false);
 
   useEffect(() => {
     if (master.status !== "loaded" || folderName) return;
+    if (localStorage.getItem(NEVER_OFFER_KEY) === "true") return;
     const { fileName, dataset } = master.file;
-    if (offeredForRef.current === fileName) return;
-    offeredForRef.current = fileName;
+    if (offeredFor === fileName) return;
+    offeredFor = fileName;
     const n = countLocalMedia(dataset.records);
     if (n > 0) setOfferCount(n);
   }, [master, folderName]);
+
+  function dismiss() {
+    if (neverAsk) localStorage.setItem(NEVER_OFFER_KEY, "true");
+    setOfferCount(null);
+  }
 
   if (offerCount === null) return null;
   return (
@@ -40,8 +56,11 @@ export function AutoMediaOffer({ master }: { master: SlotState }) {
       message={t("loader.mediaFolder.autoOffer", { count: offerCount })}
       confirmLabel={t("loader.mediaFolder.select")}
       cancelLabel={t("loader.mediaFolder.later")}
-      onConfirm={() => { setOfferCount(null); openFolder(); }}
-      onCancel={() => setOfferCount(null)}
+      checkboxLabel={t("loader.mediaFolder.neverAsk")}
+      checked={neverAsk}
+      onCheckedChange={setNeverAsk}
+      onConfirm={() => { dismiss(); openFolder(); }}
+      onCancel={dismiss}
     />
   );
 }

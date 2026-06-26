@@ -7,7 +7,7 @@ import {
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
-import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
+import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
@@ -46,6 +46,10 @@ export interface MergeContext {
   /** Incoming family ids already stitched in by applyIndividualFamilies, so a
    *  family shared by two confirmed spouses isn't merged in twice. */
   processedFamIds: Set<string>;
+  /** Switch new-record changes from here on to "via graft" — called once the
+   *  whole-branch import phase begins, so addNewIndividual/createFamily tag the
+   *  records they add as imported subtrees (the preview shows them as "Incoming"). */
+  beginGraftPhase: () => void;
   /** Translator for human-readable change/deferred labels. */
   t: Translate;
   /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
@@ -89,11 +93,15 @@ export function makeContext(
     node.xref = id;
     insertRecord(records, node);
     famNodes.set(id, node);
-    report.changes.push({ recordId: id, field: t("merge.field.newFamily"), from: "", to: "", action: "incoming", newRecord: true });
+    report.changes.push({ recordId: id, field: t("merge.field.newFamily"), from: "", to: "", action: "incoming", newRecord: true, viaGraft: graftPhase || undefined });
     report.newFamilies++;
     touched.add(id);
     return { id, node };
   };
+
+  // Flipped on by beginGraftPhase() once whole-branch imports start, so records
+  // added during that phase are reported as imported subtrees, not match stitching.
+  let graftPhase = false;
 
   const addedLabels = new Map<string, string>();
   const addedFromIncoming = new Map<string, string>(); // incomingId → new master id
@@ -115,7 +123,7 @@ export function makeContext(
     const name = displayName(incIndi.names[0]);
     addedLabels.set(newId, name);
     report.recordLabels[newId] = name;
-    report.changes.push({ recordId: newId, field: t("merge.field.newPerson"), from: "", to: name, action: "incoming", newRecord: true });
+    report.changes.push({ recordId: newId, field: t("merge.field.newPerson"), from: "", to: name, action: "incoming", newRecord: true, viaGraft: graftPhase || undefined });
     report.newPersons++;
     touched.add(newId);
     return newId;
@@ -129,6 +137,9 @@ export function makeContext(
     resolve: (incomingId) => incToMaster.get(incomingId) ?? addNewIndividual(incomingId),
     label: (id) =>
       addedLabels.get(id) ?? displayName(master.individuals.get(id)?.names[0]),
+    beginGraftPhase: () => {
+      graftPhase = true;
+    },
     report,
     touched,
     processedFamIds: new Set<string>(),
@@ -299,7 +310,7 @@ export function applyIndividualFamilies(
     const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
 
     let famNode = findMasterSpouseFamily(masterIndi, master, masterId, otherMasterId, ctx);
-    if (!famNode) famNode = createPersonFamily(masterId, masterIndi, ctx);
+    if (!famNode) famNode = createPersonFamily(masterId, masterIndi.sex, ctx);
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren });
 
@@ -396,11 +407,11 @@ function findMasterSpouseFamily(
 /** Create a new family with the master person placed in their sex's slot. */
 function createPersonFamily(
   masterId: string,
-  masterIndi: import("../gedcom/types").Individual,
+  sex: import("../gedcom/types").Sex,
   ctx: MergeContext,
 ): GedNode {
   const fam = ctx.createFamily();
-  const role = masterIndi.sex === "F" ? "WIFE" : "HUSB";
+  const role = sex === "F" ? "WIFE" : "HUSB";
   addPointer(fam.node, role, masterId, FAM_CHILD_ORDER);
   linkBack(ctx, masterId, "FAMS", fam.id);
   return fam.node;
@@ -474,4 +485,117 @@ function addPointer(parent: GedNode, tag: string, id: string, order: string[]): 
   if (parent.children.some((c) => c.tag === tag && c.value === id)) return false;
   insertOrdered(parent, newNode(tag, id), order);
   return true;
+}
+
+/** One "bring in this person's whole branch" request from the compare tree. */
+export interface ImportBranchRequest {
+  /** The incoming individual whose subtree should be grafted into the master. */
+  incomingId: string;
+  direction: ImportDirection;
+}
+
+/**
+ * Graft entire incoming subtrees onto the master, beyond the single-person and
+ * immediate-relative stitching the confirmed-match flow does. Each request walks
+ * the incoming tree in one direction (ancestors or descendants) from its anchor
+ * person, importing every person and family along the way. Persons that match a
+ * master record (via `ctx.incToMaster`) are reused as join points rather than
+ * duplicated; genuinely new persons are added as fresh records. A visited guard
+ * (keyed by direction + incoming id) stops cycles and pedigree collapse from
+ * expanding forever.
+ *
+ * Run after the confirmed-decision loop so matched anchors, and any families
+ * those decisions already stitched, exist to graft onto.
+ */
+export function applyImportBranches(
+  requests: Iterable<ImportBranchRequest>,
+  master: Dataset,
+  compare: Dataset,
+  ctx: MergeContext,
+): void {
+  const visited = new Set<string>();
+  for (const req of requests) {
+    if (req.direction === "ancestors") importAncestors(req.incomingId, master, compare, ctx, visited);
+    else importDescendants(req.incomingId, master, compare, ctx, visited);
+  }
+}
+
+/** Recursively import an incoming person's father/mother (and their ancestors). */
+function importAncestors(
+  incId: string,
+  master: Dataset,
+  compare: Dataset,
+  ctx: MergeContext,
+  visited: Set<string>,
+): void {
+  const vkey = `ancestors:${incId}`;
+  if (visited.has(vkey)) return;
+  visited.add(vkey);
+
+  const incIndi = compare.individuals.get(incId);
+  if (!incIndi) return;
+  const masterId = ctx.resolve(incId);
+  if (!masterId) return;
+  const childFamId = incIndi.childOf[0];
+  const incFam = childFamId ? compare.families.get(childFamId) : undefined;
+  if (!incFam) return;
+
+  let childFam: { id: string; node: GedNode } | undefined;
+  const parents: Array<["HUSB" | "WIFE", string | undefined, string]> = [
+    ["HUSB", incFam.husband, "merge.field.father"],
+    ["WIFE", incFam.wife, "merge.field.mother"],
+  ];
+  for (const [role, incParentId, labelKey] of parents) {
+    if (!incParentId) continue;
+    const parentMasterId = ctx.resolve(incParentId);
+    if (!parentMasterId) continue;
+    childFam ??= ensureChildFamily(masterId, master, ctx);
+    setSpouseSlot(childFam.node, role, parentMasterId, ctx.t(labelKey), ctx);
+    importAncestors(incParentId, master, compare, ctx, visited);
+  }
+}
+
+/** Recursively import an incoming person's spouses, children, and their descendants. */
+function importDescendants(
+  incId: string,
+  master: Dataset,
+  compare: Dataset,
+  ctx: MergeContext,
+  visited: Set<string>,
+): void {
+  const vkey = `descendants:${incId}`;
+  if (visited.has(vkey)) return;
+  visited.add(vkey);
+
+  const incIndi = compare.individuals.get(incId);
+  if (!incIndi) return;
+  const masterId = ctx.resolve(incId);
+  if (!masterId) return;
+  // The anchor may be an existing master person or one just added by `resolve`;
+  // the latter has no master `Individual`, so fall back to the incoming sex.
+  const masterIndi = master.individuals.get(masterId);
+  const sex = masterIndi?.sex ?? incIndi.sex;
+
+  for (const incFamId of incIndi.spouseOf) {
+    const incFam = compare.families.get(incFamId);
+    if (!incFam) continue;
+    const otherIncId = incFam.husband === incId ? incFam.wife : incFam.husband;
+    const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
+
+    let famNode = masterIndi
+      ? findMasterSpouseFamily(masterIndi, master, masterId, otherMasterId, ctx)
+      : undefined;
+    if (!famNode) famNode = createPersonFamily(masterId, sex, ctx);
+
+    // Bring the spouse and every child of this union; `applyFamilyStructure`
+    // skips slots/children already present, so re-running on a family a confirmed
+    // decision touched only fills the gaps rather than duplicating.
+    applyFamilyStructure(famNode, incFam, ctx, {
+      spouses: true,
+      takenChildren: new Set(incFam.children),
+    });
+    for (const childId of incFam.children) {
+      importDescendants(childId, master, compare, ctx, visited);
+    }
+  }
 }

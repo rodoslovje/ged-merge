@@ -224,6 +224,24 @@ function nodeKey(master: Individual | undefined, incoming: Individual | undefine
   return `${master?.id ?? ""}|${incoming?.id ?? ""}`;
 }
 
+/**
+ * Count the incoming-only people in a node's subtree — the ones a "bring
+ * ancestors/descendants" import would add as fresh records. Matched nodes are
+ * reused as join points and master-only nodes aren't touched, so neither counts.
+ * The node itself is excluded (the import is about its ancestors/descendants).
+ */
+export function countImportable(node: TreeNode): number {
+  let n = 0;
+  const visit = (x: TreeNode) => {
+    if (x.status === "incoming-only") n++;
+    x.children.forEach(visit);
+    x.partners.forEach(visit);
+  };
+  node.children.forEach(visit);
+  node.partners.forEach(visit);
+  return n;
+}
+
 function firstParent(
   indi: Individual,
   ds: Dataset,

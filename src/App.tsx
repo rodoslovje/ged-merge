@@ -8,14 +8,14 @@ import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { serializeGedcom } from "./gedcom/serialize";
-import { mergeDecisions, formatReport, type ChangeReport } from "./merge/merge";
+import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultHomeId } from "./match/relatives";
 import type { NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
-import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -147,6 +147,13 @@ function AppContent() {
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
+
+  // Opt-in "graft this whole incoming branch on save" selections, made from the
+  // compare tree. Each entry is an `importKey(direction, incomingId)`. Kept
+  // outside `decisions` because it's a bulk-add, not a per-candidate decision.
+  const [importBranches, setImportBranches] = useState<Set<string>>(new Set());
+  const importBranchesRef = useRef(importBranches);
+  importBranchesRef.current = importBranches;
   // Tracks whether there are unsaved changes — updated each render so the
   // stable popstate handler can check without stale-closure issues.
   const hasUnsavedChangesRef = useRef(false);
@@ -403,10 +410,10 @@ function AppContent() {
   }
 
   async function loadFile(role: DatasetRole, file: File) {
-    if (role === "master" && (changedCount > 0 || confirmedCount > 0)) {
+    if (role === "master" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.masterReplaceConfirm"), t("confirm.continue")))) return;
     }
-    if (role === "compare" && confirmedCount > 0) {
+    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
 
@@ -420,6 +427,7 @@ function AppContent() {
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
     setDecisions(new Map());
+    setImportBranches(new Set());
     setPendingEditApply(null);
     setPreview(null);
     setOpenMatches(false);
@@ -650,6 +658,8 @@ function AppContent() {
       if (entry.navigateTo) setNavigateToId(entry.navigateTo);
       setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "undo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
+    } else if (entry.mode === "import") {
+      setImportBranches(entry.before);
     } else {
       setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
       setMode("merge");
@@ -667,6 +677,8 @@ function AppContent() {
       if (navId) setNavigateToId(navId);
       setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "redo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
+    } else if (entry.mode === "import") {
+      setImportBranches(entry.after);
     } else {
       setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
       setMode("merge");
@@ -800,6 +812,23 @@ function AppContent() {
     [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
   );
 
+  // Toggle a "bring in this incoming person's ancestors/descendants on save"
+  // request from the compare tree. Like `setPairStatus`, it's undoable and reads
+  // current state from a ref so the callback stays stable.
+  const toggleImportBranch = useCallback(
+    (direction: ImportDirection, incomingId: string) => {
+      const key = importKey(direction, incomingId);
+      const before = importBranchesRef.current;
+      const after = new Set(before);
+      if (after.has(key)) after.delete(key);
+      else after.add(key);
+      undoRedo.pushRef.current({ mode: "import", before: new Set(before), after });
+      setImportBranches(after);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [], // undoRedo.pushRef/importBranchesRef are stable refs — no re-registration needed
+  );
+
   const handlePushEdit = useCallback(
     (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => {
       dirty.captureSnapshotsForPush(patches);
@@ -847,21 +876,33 @@ function AppContent() {
     return ids;
   }, [decisions]);
 
-  hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0;
+  const importCount = importBranches.size;
+
+  // Decode the import-branch key set into engine requests for the merge.
+  const importRequests = useMemo<ImportBranchRequest[]>(() => {
+    const out: ImportBranchRequest[] = [];
+    for (const key of importBranches) {
+      const parsed = parseImportKey(key);
+      if (parsed) out.push({ incomingId: parsed.incomingId, direction: parsed.direction });
+    }
+    return out;
+  }, [importBranches]);
+
+  hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
 
   // Warn before leaving the page when there are unsaved changes.
   useEffect(() => {
-    if (changedCount === 0 && confirmedCount === 0) return;
+    if (changedCount === 0 && confirmedCount === 0 && importCount === 0) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
       e.returnValue = "";
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [changedCount, confirmedCount]);
+  }, [changedCount, confirmedCount, importCount]);
 
   async function handleTitleClick() {
-    const hasChanges = mode === "merge" ? confirmedCount > 0 : changedCount > 0 || confirmedCount > 0;
+    const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
     if (!hasChanges || (await confirmDialog(t("app.reloadConfirm"), t("confirm.reload")))) {
       window.location.reload();
     }
@@ -871,7 +912,7 @@ function AppContent() {
     if (!masterDataset || master.status !== "loaded") return;
     const base = master.file.fileName.replace(/\.ged$/i, "");
     const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
-    const isMerge = confirmedCount > 0;
+    const isMerge = confirmedCount > 0 || importCount > 0;
 
     const editReport = changedCount > 0
       ? enrichEditReport(
@@ -886,7 +927,7 @@ function AppContent() {
     if (isMerge) {
       const compareDs = compareDataset!;
       const { records: mergedRecords, report: mergeReport } = mergeDecisions(
-        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t,
+        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t, importRequests,
       );
       records = mergedRecords;
       report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
@@ -980,6 +1021,8 @@ function AppContent() {
       for (const [key, d] of next) if (d.status === "confirmed") next.delete(key);
       return next;
     });
+    // Imported branches are now baked into the live dataset — clear the requests.
+    setImportBranches(new Set());
     setSaveToast(t("save.toast", { count: preview.files.length }));
     setPreview(null);
     // The saved file is the new baseline — undo/redo entries refer to a state
@@ -1076,6 +1119,8 @@ function AppContent() {
         onBack={() => window.history.back()}
         decisions={decisions}
         onDecide={setPairStatus}
+        importBranches={importBranches}
+        onToggleImport={toggleImportBranch}
         homeId={homeId}
       />
     );
@@ -1167,7 +1212,7 @@ function AppContent() {
               onAutoFocused={() => setFocusHome(false)}
             />
             <div className="app-head-actions">
-              {lastMasterFile && (changedCount > 0 || confirmedCount > 0) && (
+              {lastMasterFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0) && (
                 <button
                   className="export-btn"
                   onClick={handleSave}
@@ -1175,7 +1220,7 @@ function AppContent() {
                 >
                   <span className="export-btn-label-full">{t("save.gedcom")}</span>
                   <span className="export-btn-label-short">{t("save")}</span>
-                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size})
+                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size + importCount})
                 </button>
               )}
               {lastMasterFile && (canUndo || canRedo) && (

@@ -314,6 +314,9 @@ const CandidateRow = memo(function CandidateRow({
                 {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}
               </span>
             )}
+            {candidate.relationshipLinked && (
+              <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
+            )}
           </span>
           {status && status !== "undecided" ? (
             <span className={`status-chip ${status}`} title={t(`status.${status}`)}>

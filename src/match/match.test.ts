@@ -392,3 +392,78 @@ describe("marriage corroboration (folded into individual scoring)", () => {
     expect(same!.components.some((c) => c.key === "marriageDate")).toBe(true);
   });
 });
+
+describe("relationship pass: links co-parents of shared matched children, overriding name/date", () => {
+  // Master mother "Ana Nuša Cegnar" (1939) with two children. The incoming file
+  // holds the same woman as "Anica Cegnar" (1935) — a different given name and
+  // birth year, but the SAME two children — plus a decoy "Ana Nuša Cegnar"
+  // (1939) with no children whose identical name+date scores a perfect 100 and
+  // would steal the mother in the primary pass.
+  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @AM@ INDI\n1 NAME Ana Nuša /Cegnar/\n1 SEX F\n1 BIRT\n2 DATE 1939\n1 FAMS @MF@
+0 @MC1@ INDI\n1 NAME Zoran /Jekovec/\n1 SEX M\n1 BIRT\n2 DATE 1962\n1 FAMC @MF@
+0 @MC2@ INDI\n1 NAME Dunja /Jekovec/\n1 SEX F\n1 BIRT\n2 DATE 1964\n1 FAMC @MF@
+0 @MF@ FAM\n1 WIFE @AM@\n1 CHIL @MC1@\n1 CHIL @MC2@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @AC@ INDI\n1 NAME Anica /Cegnar/\n1 SEX F\n1 BIRT\n2 DATE 1935\n1 FAMS @IF@
+0 @IC1@ INDI\n1 NAME Zoran /Jekovec/\n1 SEX M\n1 BIRT\n2 DATE 1962\n1 FAMC @IF@
+0 @IC2@ INDI\n1 NAME Dunja /Jekovec/\n1 SEX F\n1 BIRT\n2 DATE 1964\n1 FAMC @IF@
+0 @IF@ FAM\n1 WIFE @AC@\n1 CHIL @IC1@\n1 CHIL @IC2@
+0 @DUP@ INDI\n1 NAME Ana Nuša /Cegnar/\n1 SEX F\n1 BIRT\n2 DATE 1939
+0 TRLR\n`;
+  const r = matchDatasets(dataset(master), dataset(compare));
+
+  it("links the mother to her child-sharing counterpart, not the identical-name decoy", () => {
+    const am = r.individuals.find((c) => c.masterId === "@AM@");
+    expect(am).toBeDefined();
+    expect(am!.compareId).toBe("@AC@");
+    expect(am!.relationshipLinked).toBe(true);
+  });
+
+  it("drops the name/date decoy that the override displaced", () => {
+    expect(r.individuals.some((c) => c.compareId === "@DUP@")).toBe(false);
+  });
+
+  it("keeps the children matched", () => {
+    expect(r.individuals.find((c) => c.masterId === "@MC1@")?.compareId).toBe("@IC1@");
+    expect(r.individuals.find((c) => c.masterId === "@MC2@")?.compareId).toBe("@IC2@");
+  });
+});
+
+describe("relationship pass: completes a couple from one shared child + a matched spouse", () => {
+  // The mother is recorded under wildly different names — master "Slavka" (a
+  // nickname, no surname) vs incoming "Stanislava Marija Ribič" — so she never
+  // blocks or scores. But her husband Rudolf Volčič and their son Boris Volčič
+  // both match across the files, so the couple can be completed: a child of a
+  // known couple has exactly one mother.
+  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @RU@ INDI\n1 NAME Rudolf /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1934\n1 FAMS @MF@
+0 @SL@ INDI\n1 NAME Slavka\n1 SEX F\n1 BIRT\n2 DATE 1934\n1 FAMS @MF@
+0 @BO@ INDI\n1 NAME Boris /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1957\n1 FAMC @MF@
+0 @MF@ FAM\n1 HUSB @RU@\n1 WIFE @SL@\n1 CHIL @BO@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @RU2@ INDI\n1 NAME Rudolf /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1934\n1 FAMS @IF@
+0 @ST@ INDI\n1 NAME Stanislava Marija /Ribič/\n1 SEX F\n1 BIRT\n2 DATE 1934\n1 FAMS @IF@
+0 @BO2@ INDI\n1 NAME Boris /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1957\n1 FAMC @IF@
+0 @IF@ FAM\n1 HUSB @RU2@\n1 WIFE @ST@\n1 CHIL @BO2@
+0 TRLR\n`;
+  const r = matchDatasets(dataset(master), dataset(compare));
+
+  it("links the two mothers despite no name or score overlap", () => {
+    const sl = r.individuals.find((c) => c.masterId === "@SL@");
+    expect(sl).toBeDefined();
+    expect(sl!.compareId).toBe("@ST@");
+    expect(sl!.relationshipLinked).toBe(true);
+    expect(sl!.score).toBeGreaterThanOrEqual(90); // corroboration boost surfaces it
+  });
+
+  it("does not link on the shared child alone when the spouse isn't matched", () => {
+    // Same as above but the husbands differ (no matched spouse) and there's only
+    // one shared child — below the bar, so the mothers stay unlinked.
+    const m2 = master.replace("Rudolf /Volčič/", "Anton /Kovač/");
+    const r2 = matchDatasets(dataset(m2), dataset(compare));
+    expect(r2.individuals.some((c) => c.masterId === "@SL@" && c.compareId === "@ST@")).toBe(false);
+  });
+});

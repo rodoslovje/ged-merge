@@ -1,8 +1,9 @@
-import { type Dispatch, type RefObject, type SetStateAction, useEffect, useRef } from "react";
+import { type Dispatch, type RefObject, type SetStateAction, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
+import { buildCompareTree, buildMatchMaps, countImportable } from "../tree/compareTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { kinshipLabel } from "../match/kinship";
 import { displayName, primaryName } from "../match/relatives";
@@ -95,6 +96,23 @@ export function MergeView({
   useEffect(() => {
     compareBodyRef.current?.scrollTo({ top: 0 });
   }, [current]);
+
+  // Incoming-only people the current candidate could graft via the Compare Tree,
+  // shown on the tree button so the user knows whether opening it is worthwhile.
+  // The same subtree the tree page would draw is built here and its incoming-only
+  // nodes counted, in each direction. Memoized so it only runs on (re)selection.
+  const importCounts = useMemo(() => {
+    if (!current || !masterDataset || !compareDataset || !matches) return undefined;
+    const maps = buildMatchMaps(matches);
+    const rootMaster = masterDataset.individuals.get(current.masterId);
+    const rootIncoming = compareDataset.individuals.get(current.compareId);
+    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors");
+    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants");
+    return {
+      ancestors: ancestors ? countImportable(ancestors) : 0,
+      descendants: descendants ? countImportable(descendants) : 0,
+    };
+  }, [current, masterDataset, compareDataset, matches, t]);
 
   const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
@@ -221,6 +239,19 @@ export function MergeView({
         <div className="compare-nav-actions">
           <button className="tree-open-btn" onClick={() => onOpenTree(current.masterId, current.compareId)} title={t("tree.tooltip")}>
             {t("tree.button")}
+            {importCounts && (importCounts.ancestors > 0 || importCounts.descendants > 0) && (
+              <span
+                className="tree-import-counts"
+                title={t("tree.importCounts.tooltip", { anc: importCounts.ancestors, desc: importCounts.descendants })}
+              >
+                {importCounts.ancestors > 0 && (
+                  <span className="tree-import-count">▲{importCounts.ancestors}</span>
+                )}
+                {importCounts.descendants > 0 && (
+                  <span className="tree-import-count">▼{importCounts.descendants}</span>
+                )}
+              </span>
+            )}
           </button>
         </div>
       </div>
