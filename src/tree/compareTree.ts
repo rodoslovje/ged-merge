@@ -60,6 +60,11 @@ export function buildMatchMaps(matches: MatchResult): MatchMaps {
  * and one mother); descendants are paired through the match map and any unpaired
  * child on either side becomes a one-sided node. A visited guard stops cycles
  * and pedigree collapse from expanding forever.
+ *
+ * `isRejected` lets a decided "these are not the same person" pruning the tree:
+ * when a paired node has been rejected, its incoming side is dropped so the node
+ * becomes master-only and only the master lineage continues — the incoming person
+ * and every incoming-only relative above/below them disappear from the tree.
  */
 export function buildCompareTree(
   t: Translate,
@@ -69,12 +74,19 @@ export function buildCompareTree(
   compareDs: Dataset,
   maps: MatchMaps,
   mode: TreeMode,
+  isRejected?: (masterId: string, compareId: string) => boolean,
 ): TreeNode | undefined {
   const seen = new Set<string>();
   const placeFmt = inferPlaceExportFormat(masterDs);
 
   const build = (master?: Individual, incoming?: Individual): TreeNode | undefined => {
     if (!master && !incoming) return undefined;
+    // A rejected pairing means the two records are different people: keep the
+    // master and drop the incoming side here, so neither it nor its relatives
+    // are walked any further.
+    if (master && incoming && isRejected?.(master.id, incoming.id)) {
+      incoming = undefined;
+    }
     const key = `${master?.id ?? ""}|${incoming?.id ?? ""}`;
     const node = makeNode(t, key, master, incoming, masterDs, compareDs, placeFmt);
     if (seen.has(key)) return node; // already expanded elsewhere: stop here

@@ -179,22 +179,31 @@ export function CompareTree({
   const rootIncoming = rootCompareId ? compareDs.individuals.get(rootCompareId) : undefined;
 
   const maps = useMemo(() => buildMatchMaps(matches), [matches]);
+
+  // A rejected pairing prunes the incoming side from the tree (see
+  // buildCompareTree): the two records are declared different people.
+  const isRejected = useCallback(
+    (masterId: string, compareId: string) =>
+      decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected",
+    [decisions],
+  );
+
   const tree = useMemo(
-    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode],
+    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode, isRejected),
+    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode, isRejected],
   );
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode. Built for
   // both directions (independent of the current mode) so switching reflects them.
   const importCounts = useMemo(() => {
-    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors");
-    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants");
+    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
+    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected);
     return {
       ancestors: ancestors ? countImportable(ancestors) : 0,
       descendants: descendants ? countImportable(descendants) : 0,
     };
-  }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps]);
+  }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
 
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
   const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);

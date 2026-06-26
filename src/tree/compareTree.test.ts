@@ -81,6 +81,28 @@ describe("buildCompareTree (ancestors)", () => {
     const grandfather = find(root, "Jakob Novak")!;
     expect(grandfather.status).toBe("master-only");
   });
+
+  it("drops the incoming side when a pairing is rejected", () => {
+    const rejected = buildCompareTree(
+      tr,
+      masterDs.individuals.get("@I1@"),
+      compareDs.individuals.get("@P1@"),
+      masterDs,
+      compareDs,
+      buildMatchMaps(matches),
+      "ancestors",
+      (masterId, compareId) => masterId === "@I2@" && compareId === "@P2@",
+    )!;
+    const father = rejected.children.find((c) => c.sex === "M")!;
+    // The rejected father keeps his master record and loses the incoming one,
+    // turning the conflicted node into a clean master-only node.
+    expect(father.name).toBe("Anton Novak");
+    expect(father.status).toBe("master-only");
+    expect(father.master?.id).toBe("@I2@");
+    expect(father.incoming).toBeUndefined();
+    // The master lineage above him still continues.
+    expect(find(rejected, "Jakob Novak")?.status).toBe("master-only");
+  });
 });
 
 describe("buildCompareTree (descendants)", () => {

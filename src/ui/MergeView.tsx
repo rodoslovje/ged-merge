@@ -106,13 +106,15 @@ export function MergeView({
     const maps = buildMatchMaps(matches);
     const rootMaster = masterDataset.individuals.get(current.masterId);
     const rootIncoming = compareDataset.individuals.get(current.compareId);
-    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors");
-    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants");
+    const isRejected = (masterId: string, compareId: string) =>
+      decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected";
+    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors", isRejected);
+    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants", isRejected);
     return {
       ancestors: ancestors ? countImportable(ancestors) : 0,
       descendants: descendants ? countImportable(descendants) : 0,
     };
-  }, [current, masterDataset, compareDataset, matches, t]);
+  }, [current, masterDataset, compareDataset, matches, t, decisions]);
 
   const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
