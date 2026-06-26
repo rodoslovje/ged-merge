@@ -18,8 +18,10 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const finalNewline = /[\r\n]$/.test(text);
 
-  // Normalize line endings; drop a trailing empty line.
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  // Split on any line ending (\r\n, lone \r, or \n) in a single pass. Doing the
+  // split directly avoids allocating a full normalized copy of the text first —
+  // a meaningful saving on large (tens-of-MB) files.
+  const lines = text.split(/\r\n?|\n/);
 
   const roots: GedNode[] = [];
   // stack[level] holds the most recent node opened at that level.

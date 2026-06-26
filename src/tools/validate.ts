@@ -109,13 +109,25 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
   };
 
   for (const indi of ds.individuals.values()) {
-    const subject = subjectOf(indi);
+    // The display subject (name + lifespan) costs two event scans and a string
+    // build, but only a small fraction of individuals have any issue. Compute it
+    // lazily on first use so clean records don't pay for it.
+    let subject: string | undefined;
     const add = (
       category: IssueCategory,
       severity: IssueSeverity,
       messageKey: string,
       messageVars?: Record<string, string | number>,
-    ) => push({ scope: "individual", id: indi.id, category, severity, subject, messageKey, messageVars });
+    ) =>
+      push({
+        scope: "individual",
+        id: indi.id,
+        category,
+        severity,
+        subject: (subject ??= subjectOf(indi)),
+        messageKey,
+        messageVars,
+      });
 
     // Name / sex completeness
     if (!indi.names.length || !indi.names[0]?.full?.trim()) {
