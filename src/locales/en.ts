@@ -27,7 +27,6 @@ export const en = {
   "tools.tool.normalize.desc": "Enforce one consistent date/place/link style",
   "tools.validate.clean": "No issues found. 🎉",
   "tools.validate.all": "All",
-  "tools.validate.more": "…and {{count}} more not shown.",
   "tools.validate.cat.brokenLink": "Broken links",
   "tools.validate.fixLinks": "Fix all broken links ({{count}})",
   "tools.validate.fixLinksHint": "Removes dead and one-way family pointers.",

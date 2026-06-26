@@ -27,10 +27,6 @@ type Tool = "validate" | "duplicates" | "normalize" | "sources" | "places";
 
 const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "sources", "places"];
 
-/** Max issue rows rendered at once — keeps an unvirtualized list responsive on
- *  files with thousands of findings; the rest are summarized as "…and N more". */
-const MAX_ROWS = 1000;
-
 interface Props {
   /** The live master dataset — every tool operates on the whole file. */
   dataset: Dataset;
@@ -235,19 +231,14 @@ function ValidatePanel({
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
-            <>
-              <ul className="tools-issues">
-                {shown.slice(0, MAX_ROWS).map((issue, i) => (
-                  <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
-                    <PersonLink dataset={dataset} id={issue.id} fallback={issue.subject} onNavigate={onNavigate} />
-                    <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
-                  </li>
-                ))}
-              </ul>
-              {shown.length > MAX_ROWS && (
-                <p className="tools-more">{t("tools.validate.more", { count: shown.length - MAX_ROWS })}</p>
-              )}
-            </>
+            <ul className="tools-issues">
+              {shown.map((issue, i) => (
+                <li key={`${issue.id}-${issue.category}-${i}`} className={`tools-issue sev-${issue.severity}`}>
+                  <PersonLink dataset={dataset} id={issue.id} fallback={issue.subject} onNavigate={onNavigate} />
+                  <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </>
       )}
@@ -765,11 +756,10 @@ function NormExamples({ title, examples }: { title: string; examples: { before: 
 
 /** Records that cite a source/media or use a place; each navigates into Edit. */
 function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: SourceUse[]; onNavigate: (id: string) => void }) {
-  const { t } = useTranslation();
   if (uses.length === 0) return null;
   return (
     <ul className="tools-usage">
-      {uses.slice(0, MAX_ROWS).map((u, i) => (
+      {uses.map((u, i) => (
         <li key={`${u.persons.map((p) => p.id).join("-")}-${i}`}>
           {u.persons.map((p, j) => (
             <span key={p.id}>
@@ -779,9 +769,6 @@ function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: Sour
           ))}
         </li>
       ))}
-      {uses.length > MAX_ROWS && (
-        <li className="tools-more">{t("tools.validate.more", { count: uses.length - MAX_ROWS })}</li>
-      )}
     </ul>
   );
 }

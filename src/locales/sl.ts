@@ -27,7 +27,6 @@ export const sl = {
   "tools.tool.normalize.desc": "Uveljavi enoten slog datumov/krajev/povezav",
   "tools.validate.clean": "Ni najdenih težav. 🎉",
   "tools.validate.all": "Vse",
-  "tools.validate.more": "…in še {{count}}, ki niso prikazane.",
   "tools.validate.cat.brokenLink": "Pokvarjene povezave",
   "tools.validate.fixLinks": "Popravi vse pokvarjene povezave ({{count}})",
   "tools.validate.fixLinksHint": "Odstrani mrtve in enosmerne družinske kazalce.",
