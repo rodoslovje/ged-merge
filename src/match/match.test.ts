@@ -467,3 +467,41 @@ describe("relationship pass: completes a couple from one shared child + a matche
     expect(r2.individuals.some((c) => c.masterId === "@SL@" && c.compareId === "@ST@")).toBe(false);
   });
 });
+
+describe("relationship pass: does not steal a parent-corroborated match for a spouse/child duplicate", () => {
+  // Master Irena is the child of Jožef + Jožefa and the wife of Miran (mother of
+  // Ana). The incoming file has TWO Irenas: the real one (@REAL@, same parents,
+  // b1958) which the primary pass matches at 100, and a stray duplicate (@DUP@,
+  // no parents, b1956) that shares only the spouse + child. The relationship
+  // pass must NOT override the parent-corroborated match with the duplicate.
+  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @IRENA@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @MFC@\n1 FAMS @MFS@
+0 @JOZEF@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @MFC@
+0 @JOZEFA@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @MFC@
+0 @MFC@ FAM\n1 HUSB @JOZEF@\n1 WIFE @JOZEFA@\n1 CHIL @IRENA@
+0 @MIRAN@ INDI\n1 NAME Miran /Kukić/\n1 SEX M\n1 BIRT\n2 DATE 1955\n1 FAMS @MFS@
+0 @ANA@ INDI\n1 NAME Ana /Kukić/\n1 SEX F\n1 BIRT\n2 DATE 1982\n1 FAMC @MFS@
+0 @MFS@ FAM\n1 HUSB @MIRAN@\n1 WIFE @IRENA@\n1 CHIL @ANA@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @JOZEF2@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @IFC@
+0 @JOZEFA2@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @IFC@
+0 @REAL@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @IFC@
+0 @IFC@ FAM\n1 HUSB @JOZEF2@\n1 WIFE @JOZEFA2@\n1 CHIL @REAL@
+0 @MIRAN2@ INDI\n1 NAME Miran /Kukić/\n1 SEX M\n1 BIRT\n2 DATE 1955\n1 FAMS @IFS@
+0 @ANA2@ INDI\n1 NAME Ana /Kukić/\n1 SEX F\n1 BIRT\n2 DATE 1982\n1 FAMC @IFS@
+0 @DUP@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1956\n1 FAMS @IFS@
+0 @IFS@ FAM\n1 HUSB @MIRAN2@\n1 WIFE @DUP@\n1 CHIL @ANA2@
+0 TRLR\n`;
+  const r = matchDatasets(dataset(master), dataset(compare));
+
+  it("keeps the parents-matched record, ignoring the spouse/child duplicate", () => {
+    const irena = r.individuals.find((c) => c.masterId === "@IRENA@");
+    expect(irena).toBeDefined();
+    expect(irena!.compareId).toBe("@REAL@");
+  });
+
+  it("leaves the duplicate unmatched to the master Irena", () => {
+    expect(r.individuals.some((c) => c.masterId === "@IRENA@" && c.compareId === "@DUP@")).toBe(false);
+  });
+});

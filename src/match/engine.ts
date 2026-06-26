@@ -203,7 +203,11 @@ function linkByRelationships(
   config: MatchConfig,
 ): IndividualCandidate[] {
   const masterToCompare = new Map<string, string>();
-  for (const a of assigned) masterToCompare.set(a.masterId, a.compareId);
+  const compareToMaster = new Map<string, string>();
+  for (const a of assigned) {
+    masterToCompare.set(a.masterId, a.compareId);
+    compareToMaster.set(a.compareId, a.masterId);
+  }
 
   const matched = (m: Individual | undefined, c: Individual | undefined) =>
     !!m && !!c && masterToCompare.get(m.id) === c.id;
@@ -239,9 +243,24 @@ function linkByRelationships(
   const strongestFirst = [...votes.values()]
     .filter((r) => evidence(r) >= MIN_RELATIONSHIP_EVIDENCE)
     .sort((a, b) => evidence(b) - evidence(a));
+  // How many of this pair's own relatives are matched — the corroboration the
+  // link would carry. Override an existing assignment only when this is strictly
+  // greater, so the pass never displaces a match that is itself as
+  // relationally-corroborated (e.g. a record already paired by matching parents
+  // must not be stolen by a same-named duplicate that merely shares the spouse).
+  const corrob = (m: Individual, c: Individual) =>
+    matchedRelativeCount(m, c, masterToCompare, masterDs, compareDs);
   for (const { master, compare } of strongestFirst) {
     if (masterToCompare.get(master.id) === compare.id) continue; // already linked
     if (usedMaster.has(master.id) || usedCompare.has(compare.id)) continue;
+    const linkCorrob = corrob(master, compare);
+    const oldCompareId = masterToCompare.get(master.id);
+    const oldMasterId = compareToMaster.get(compare.id);
+    const oldCompare = oldCompareId ? compareDs.individuals.get(oldCompareId) : undefined;
+    const oldMaster = oldMasterId ? masterDs.individuals.get(oldMasterId) : undefined;
+    // Skip if either record's current match is at least as corroborated.
+    if (oldCompare && corrob(master, oldCompare) >= linkCorrob) continue;
+    if (oldMaster && corrob(oldMaster, compare) >= linkCorrob) continue;
     const cand = scoreIndividualPair(master, compare, masterDs, compareDs, config);
     links.push({ ...cand, relationshipLinked: true });
     usedMaster.add(master.id);
