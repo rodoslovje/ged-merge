@@ -267,6 +267,62 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   });
 });
 
+describe("mergeDecisions — second partner becomes its own family", () => {
+  // Master: Janez (@I1@) is already married to Marija (@I2@) in @F1@. Ana (@I3@)
+  // exists but is single. The incoming file marries the same Janez to Ana.
+  const master = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P5@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P5@\n",
+    ),
+  );
+
+  it("creates a new family for a confirmed second partner instead of colliding", () => {
+    // Ana is a confirmed match to the existing single @I3@, so the incoming
+    // marriage is a genuine second union for Janez.
+    const matches = {
+      individuals: [
+        { masterId: "@I1@", compareId: "@P1@" },
+        { masterId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+
+    // Janez's first marriage is untouched...
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@");
+    // ...and the second union pairs Janez with Ana in a brand-new family.
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I3@/);
+    expect(report.newFamilies).toBe(1);
+    // No "different spouse" conflict was raised.
+    expect(report.deferred).toHaveLength(0);
+  });
+
+  it("still defers (no duplicate family) when the second partner is an unmatched person", () => {
+    // Ana is NOT matched, so it can't be confirmed as a distinct individual —
+    // the conflict is surfaced for the user rather than silently spawning a family.
+    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { report } = mergeDecisions(master, compare, decisions, matches, tr);
+    expect(report.newFamilies).toBe(0);
+    expect(report.deferred.length).toBeGreaterThan(0);
+  });
+});
+
 describe("mergeDecisions — import whole subtrees from the compare tree", () => {
   const NO_DECISIONS = new Map<string, CandidateDecision>();
 

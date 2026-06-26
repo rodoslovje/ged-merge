@@ -217,7 +217,7 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat, sourceLayout, nameLayout, unknownNameStyle } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, nameLayout, unknownNameStyle } = state.file;
   // Each row is one "Label: value" line; format rows carry a tooltip explaining
   // the (deliberately short) format label in detail.
   const info: { text: string; tooltip?: string }[] = [
@@ -225,7 +225,11 @@ function renderSummary(
     { text: t("loader.encoding", { charset: dataset.charset }) },
   ];
   if (dateFormat) {
-    info.push({ text: t("loader.dateFormat", { format: dateFormat }), tooltip: t("loader.dateFormat.tip") });
+    // The unknown-component marker (e.g. "__") is appended to the tooltip rather
+    // than the short label, mirroring how the name placeholder is explained.
+    const tips = [t("loader.dateFormat.tip")];
+    if (datePlaceholder) tips.push(t("loader.dateFormat.placeholderTip", { marker: datePlaceholder.repeat(2) }));
+    info.push({ text: t("loader.dateFormat", { format: dateFormat }), tooltip: tips.join("\n") });
   }
   // Name format folds in the unknown-name convention: "inline"/"typed", plus
   // "+ placeholder" when the file marks unknown given/surnames with a token. The

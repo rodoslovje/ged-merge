@@ -406,8 +406,19 @@ function findMasterSpouseFamily(
     const other = fam.husband === masterId ? fam.wife : fam.husband;
     if (otherMasterId ? other === otherMasterId : !other) return ctx.famNode(famId);
   }
-  // Single marriage on each side: pair the lone families even without a match id.
-  if (masterIndi.spouseOf.length === 1) return ctx.famNode(masterIndi.spouseOf[0]);
+  // Single marriage on each side: pair the lone families even without a match id
+  // — but not when the incoming partner is a *different* confirmed individual
+  // than the one already in the lone family. That's a genuine second union, so
+  // it gets its own new family instead of colliding with this one. (An unmatched
+  // partner keeps collapsing here, so a missed match still surfaces as a
+  // "different spouse" conflict rather than silently spawning a duplicate.)
+  if (masterIndi.spouseOf.length === 1) {
+    const fam = master.families.get(masterIndi.spouseOf[0]);
+    const other = fam && (fam.husband === masterId ? fam.wife : fam.husband);
+    if (!(otherMasterId && other && other !== otherMasterId)) {
+      return ctx.famNode(masterIndi.spouseOf[0]);
+    }
+  }
   return undefined;
 }
 

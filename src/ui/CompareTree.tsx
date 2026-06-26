@@ -31,6 +31,8 @@ interface Props {
   /** Re-root the tree on another person (clicked from a node's relative links). */
   onReroot: (masterId?: string, compareId?: string) => void;
   onBack: () => void;
+  /** Leave the tree and open this match pair back in the Matches list. */
+  onShowInMatches: (masterId: string, compareId: string) => void;
   /** Decisions by pair key, so matched nodes can show + set their status. */
   decisions: Map<string, CandidateDecision>;
   /** Toggle a matched node's decision status (confirm / reject / defer). */
@@ -128,6 +130,7 @@ export function CompareTree({
   onModeChange,
   onReroot,
   onBack,
+  onShowInMatches,
   decisions,
   onDecide,
   importBranches,
@@ -445,6 +448,7 @@ export function CompareTree({
             onToggleImport={onToggleImport}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
+            onShowInMatches={onShowInMatches}
             decision={
               selected.master && selected.incoming
                 ? decisions.get(decisionKey("individual", selected.master.id, selected.incoming.id))
@@ -778,6 +782,7 @@ function NodeCompare({
   onToggleImport,
   onReroot,
   onClose,
+  onShowInMatches,
   decision,
   onDecide,
 }: {
@@ -790,6 +795,7 @@ function NodeCompare({
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   onReroot: (masterId?: string, compareId?: string) => void;
   onClose: () => void;
+  onShowInMatches: (masterId: string, compareId: string) => void;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
 }) {
@@ -819,14 +825,30 @@ function NodeCompare({
     onNavigate: (id: string) => onReroot(maps.compareToMaster.get(id), id),
   };
 
+  // When both sides are present the pair is a real candidate in the match list,
+  // so the title doubles as a link that opens it back in the Matches view.
+  const matchLink = decidable && node.master && node.incoming
+    ? () => onShowInMatches(node.master!.id, node.incoming!.id)
+    : undefined;
+
+  const titleContent = (
+    <>
+      <span className={`tree-compare-name ${sexClass(node.sex)}`}>{node.name}</span>
+      {node.years && <span className="tree-compare-years gm-data">{node.years}</span>}
+    </>
+  );
+
   return (
     <div className="tree-compare">
       <div className="tree-compare-head">
         <span className="tree-swatch" style={{ background: STATUS_COLOR[node.status] }} />
-        <span className="tree-compare-title">
-          {node.name}
-          {node.years && <span className="muted"> · {node.years}</span>}
-        </span>
+        {matchLink ? (
+          <button className="tree-compare-title tree-compare-title-link" onClick={matchLink} title={t("tree.openInMatches")}>
+            {titleContent}
+          </button>
+        ) : (
+          <span className="tree-compare-title">{titleContent}</span>
+        )}
         <button className="tree-compare-close" onClick={onClose} title={t("tree.close")}>
           ×
         </button>
@@ -855,13 +877,15 @@ function NodeCompare({
           </button>
         </div>
       )}
-      <ReadOnlyCompare
-        rows={rows}
-        masterPerson={masterPerson}
-        incomingPerson={incomingPerson}
-        masterLabel={t("tree.master")}
-        incomingLabel={t("tree.incoming")}
-      />
+      <div className="tree-compare-body">
+        <ReadOnlyCompare
+          rows={rows}
+          masterPerson={masterPerson}
+          incomingPerson={incomingPerson}
+          masterLabel={t("tree.master")}
+          incomingLabel={t("tree.incoming")}
+        />
+      </div>
     </div>
   );
 }

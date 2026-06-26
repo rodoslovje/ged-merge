@@ -56,6 +56,7 @@ interface LoadedFile {
   report?: NormalizationReport;
   placeLayout?: PlaceLayout;
   dateFormat?: string;
+  datePlaceholder?: string;
   sourceLayout?: SourceLayout;
   nameLayout?: NameLayout;
   unknownNameStyle?: string;
@@ -337,6 +338,13 @@ function AppContent() {
       return view;
     });
   }
+  /** Leave the open tree and select this pair back in the Matches list. Pushes a
+   *  fresh matches entry so the browser Back button returns to the tree. */
+  function showInMatches(masterId: string, compareId: string) {
+    window.history.pushState({ gedSel: { masterId, compareId } }, "");
+    setSelectedId({ masterId, compareId });
+    setTreeView(null);
+  }
   function changeTreeMode(mode: TreeMode) {
     setTreeView((cur) => {
       if (!cur) return cur;
@@ -392,6 +400,7 @@ function AppContent() {
         if (msg.report) file.report = msg.report;
         if (msg.placeLayout) file.placeLayout = msg.placeLayout;
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
+        if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
@@ -1123,6 +1132,7 @@ function AppContent() {
         onModeChange={changeTreeMode}
         onReroot={rerootTree}
         onBack={() => window.history.back()}
+        onShowInMatches={showInMatches}
         decisions={decisions}
         onDecide={setPairStatus}
         importBranches={importBranches}

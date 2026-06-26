@@ -1254,8 +1254,8 @@ button:focus-visible {
 }
 
 .dist {
-  flex: 0 0 34px;
-  width: 34px;
+  flex: 0 0 26px;
+  width: 26px;
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1305,7 +1305,7 @@ button:focus-visible {
   background: var(--panel);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   /* left/right match the body row's content offsets so columns line up */
   padding: 4px 9px 6px 11px;
   font-size: 0.72rem;
@@ -1316,8 +1316,8 @@ button:focus-visible {
 /* Header columns share fixed widths with the body (below). min-width:0 lets the
    sort arrow overflow into the gap instead of widening the column. */
 .candidate-list-head .badge-h {
-  flex: 0 0 50px;
-  width: 50px;
+  flex: 0 0 42px;
+  width: 42px;
   box-sizing: border-box;
   text-align: center;
 }
@@ -1356,8 +1356,8 @@ button:focus-visible {
 }
 
 .nd {
-  flex: 0 0 28px;
-  width: 28px;
+  flex: 0 0 22px;
+  width: 22px;
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1368,7 +1368,7 @@ button:focus-visible {
 .nd.link { color: #93c5fd; }
 /* Import counts span a whole subtree, so they can be several digits — give the
    column room (header icon and body number share the width to stay aligned). */
-.nd.import { flex-basis: 44px; width: 44px; color: #c4b5fd; }
+.nd.import { flex-basis: 34px; width: 34px; color: #c4b5fd; }
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
 /* Name colouring by sex: cyan male, pink female. */
@@ -1401,7 +1401,7 @@ button:focus-visible {
 .candidate-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   background: none;
   border: none;
@@ -1422,7 +1422,7 @@ button:focus-visible {
      a single compact row. */
   .candidate-main {
     flex-wrap: wrap;
-    column-gap: 12px;
+    column-gap: 8px;
     row-gap: 1px;
     padding-top: 4px;
     padding-bottom: 4px;
@@ -1439,21 +1439,29 @@ button:focus-visible {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 8px;
   }
-  /* Header stays one row but mirrors the body's spatial layout: Person on the
+  /* Header stays one row but mirrors the body's spatial layout: Name on the
      left, the metric columns centered, the status marker last on the right.
-     Equal flex on Person and status keeps the metrics group centered. */
+     Equal flex on Name and status keeps the metrics group centered. The whole
+     row must fit the fixed ~304px pane, so keep gaps tight and let the name
+     column ellipsize as a last resort so the trailing import (👪) column
+     stays visible. */
   .candidate-list-head .candidate-metrics {
     order: 1;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
   .candidate-list-head .status-h {
     order: 2;
     flex: 1 1 0;
     justify-content: flex-end;
+  }
+  .candidate-list-head .sortbtn.person-col {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 .status-chip {
@@ -1485,8 +1493,8 @@ button:focus-visible {
 .status-chip.deferred { background: #3a3320; color: #fcd34d; }
 
 .badge {
-  flex: 0 0 50px;
-  width: 50px;
+  flex: 0 0 42px;
+  width: 42px;
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -3076,12 +3084,37 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
+/* The head/decisions/import stay pinned; only the field table scrolls when the
+   record is taller than the panel's max-height. */
+.tree-compare-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 .tree-compare-title {
   font-weight: 600;
   font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.tree-compare-title-link {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.tree-compare-title-link:hover .tree-compare-name { text-decoration: underline; }
+/* Name coloured by sex (.sex-m/.sex-f); lifespan in the muted monospace data
+   style used for years elsewhere. */
+.tree-compare-name { font-weight: 600; }
+.tree-compare-years {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
 }
 .tree-compare-close {
   margin-left: auto;

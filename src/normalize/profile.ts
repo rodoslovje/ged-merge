@@ -161,13 +161,13 @@ export function detectDatePlaceholder(values: string[]): string | undefined {
  */
 export function describeDateFormat(profile: DateFormatProfile): string {
   if (profile.numeric) {
-    const { order, separator, padDay, padMonth, placeholder } = profile.numeric;
+    const { order, separator, padDay, padMonth } = profile.numeric;
     const d = padDay ? "DD" : "D";
     const m = padMonth ? "MM" : "M";
     const fields = order === "YMD" ? ["YYYY", m, d] : order === "MDY" ? [m, d, "YYYY"] : [d, m, "YYYY"];
-    const layout = fields.join(separator);
-    // Note the unknown-component marker when the master uses one (e.g. "__").
-    return placeholder ? `${layout} (unknown: ${placeholder.repeat(2)})` : layout;
+    // The unknown-component marker (e.g. "__") is reported separately so it can
+    // live in the format row's tooltip instead of cluttering the short label.
+    return fields.join(separator);
   }
   const d = profile.padDay ? "DD" : "D";
   const token = profile.monthTokens[1] || "JAN";
@@ -180,6 +180,11 @@ export function describeDateFormat(profile: DateFormatProfile): string {
 /** Detect and describe a dataset's date format; undefined when it has no dates. */
 export function inferDateLayout(dataset: Dataset): string | undefined {
   return dateLayoutFromValues(collectDateValues(dataset));
+}
+
+/** Detect a dataset's unknown-date placeholder marker ("_"/"?"), or undefined. */
+export function inferDatePlaceholder(dataset: Dataset): string | undefined {
+  return detectDatePlaceholder(collectDateValues(dataset));
 }
 
 /** Pure: describe a date layout from already-collected DATE values (undefined when there are none). */

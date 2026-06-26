@@ -38,6 +38,9 @@ export interface ParseSuccess {
   placeLayout?: PlaceLayout;
   /** Detected date format pattern of this file, e.g. "DD.MM.YYYY". */
   dateFormat?: string;
+  /** Marker this file uses for an unknown date component (e.g. "_"); absent when
+   * it has no placeholder-date convention. */
+  datePlaceholder?: string;
   /** Detected source-citation convention of this file. */
   sourceLayout?: SourceLayout;
   /** Detected name-storage style of this file. */
