@@ -12,7 +12,46 @@ export interface MasterProfile {
   linkLangs: LinkLangs;
   /** How the master writes places, so incoming places can be reshaped to match on load. */
   placeFmt: PlaceTargetFormat;
+  /** How the master records each alternate-name variant, so incoming names can be reshaped to match. */
+  nameVariants: NameProfile;
 }
+
+/**
+ * The headline married-surname convention, used only for the loader's
+ * "Name format" line:
+ *  - `marnm`        : inline `2 _MARNM Surname` on the primary `NAME` (Gramps,
+ *                     PAF, Brother's Keeper).
+ *  - `married-name` : a separate `1 NAME /Surname/` record with `2 TYPE married`
+ *                     (GEDCOM 5.5.1 standard).
+ *  - `none`         : married surnames are not recorded.
+ */
+export type NameLayout = "marnm" | "married-name" | "none";
+
+/**
+ * The alternate-name variants we normalize. Each names the *same logical name*
+ * that different programs store in incompatible ways — a separate `2 TYPE x`
+ * NAME record vs. an inline sub-tag on the primary name:
+ *  - `married` : `TYPE married` record  ⇄  `_MARNM` (surname)
+ *  - `birth`   : `TYPE birth`/`maiden`  ⇄  `_BIRN` (surname)
+ *  - `aka`     : `TYPE aka` record      ⇄  `_AKA`/`_AKAN` (given)
+ *  - `nick`    : `TYPE nick` record     ⇄  `NICK` sub-tag (given)
+ */
+export type NameVariantKind = "married" | "birth" | "aka" | "nick";
+
+/** How the master writes one name variant, so incoming names are reshaped to it. */
+export interface NameVariantTarget {
+  /** `record` = a separate `2 TYPE` NAME record; `tag` = an inline sub-tag on the
+   * primary name; `none` = the master doesn't use this variant (leave incoming as-is). */
+  form: "record" | "tag" | "none";
+  /** For `form: "tag"`, the sub-tag to write (e.g. `_MARNM`, `_BIRN`, `_AKA`, `NICK`). */
+  tag?: string;
+  /** For `form: "record"`, the master's preferred `2 TYPE` token, with its own
+   * casing/spelling (e.g. `married`, `Birth`, `maiden`) — so incoming records
+   * are also recased/unified to it. */
+  type?: string;
+}
+
+export type NameProfile = Record<NameVariantKind, NameVariantTarget>;
 
 export interface DateFormatProfile {
   /**
@@ -148,6 +187,7 @@ export interface NormalizeOptions {
   dates: boolean;
   places: boolean;
   links: boolean;
+  names: boolean;
 }
 
 /**
@@ -166,4 +206,8 @@ export interface NormalizationReport {
   linksConverted: number;
   /** A handful of illustrative link changes for display. */
   linkExamples: NormChange[];
+  /** Alternate names (married/birth/aka/nick) rewritten into the master's convention. */
+  nameVariantsReshaped: number;
+  /** A handful of illustrative name-variant changes for display. */
+  nameVariantExamples: NormChange[];
 }

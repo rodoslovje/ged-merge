@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { detectPlaceLayout, inferDateProfile, inferMasterProfile } from "./profile";
+import { detectPlaceLayout, inferDateProfile, inferMasterProfile, inferNameLayout } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
@@ -147,6 +147,235 @@ describe("normalizeDataset", () => {
     const { dataset: out, report } = normalizeDataset(compare, profile);
     expect(out.individuals.get("@I1@")!.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
     expect(report.linksConverted).toBe(1);
+  });
+});
+
+describe("inferNameLayout", () => {
+  it("detects the inline _MARNM convention", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+2 _MARNM Maček
+0 @I2@ INDI
+1 NAME Ana /Novak/
+2 _MARNM Kovač
+0 TRLR
+`);
+    expect(inferNameLayout(ds)).toBe("marnm");
+  });
+
+  it("detects the separate TYPE married record convention", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Težak/
+1 NAME /Simonič/
+2 TYPE married
+0 TRLR
+`);
+    expect(inferNameLayout(ds)).toBe("married-name");
+  });
+
+  it("returns none when no married names are recorded", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+0 TRLR
+`);
+    expect(inferNameLayout(ds)).toBe("none");
+  });
+});
+
+describe("normalizeDataset (married-name reshaping)", () => {
+  const marnmMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+2 _MARNM Maček
+0 TRLR
+`);
+  const recordMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Težak/
+1 NAME /Simonič/
+2 TYPE married
+0 TRLR
+`);
+
+  it("converts a separate TYPE married record into inline _MARNM when the master uses _MARNM", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 NAME /Kovač/
+2 TYPE married
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(marnmMaster));
+    const name = out.individuals.get("@I1@")!.names;
+    expect(name).toHaveLength(1);
+    expect(name[0].married).toBe("Kovač");
+    expect(report.nameVariantsReshaped).toBe(1);
+    expect(report.nameVariantExamples).toHaveLength(1);
+  });
+
+  it("converts inline _MARNM into a separate TYPE married record when the master uses records", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+2 _MARNM Kovač
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const names = out.individuals.get("@I1@")!.names;
+    expect(names).toHaveLength(2);
+    expect(names[0].married).toBeUndefined();
+    expect(names[1].type).toBe("married");
+    expect(names[1].surname).toBe("Kovač");
+    expect(report.nameVariantsReshaped).toBe(1);
+  });
+
+  it("leaves married names untouched when the master records none", () => {
+    const noneMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+2 _MARNM Kovač
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(noneMaster));
+    expect(out.individuals.get("@I1@")!.names[0].married).toBe("Kovač");
+    expect(report.nameVariantsReshaped).toBe(0);
+  });
+});
+
+describe("normalizeDataset (name-variant reshaping)", () => {
+  // Master uses separate, lowercase TYPE records for every variant.
+  const recordMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Težak/
+1 NAME /Simonič/
+2 TYPE married
+1 NAME Marija /Kovač/
+2 TYPE birth
+1 NAME Betty //
+2 TYPE aka
+1 NAME Bea //
+2 TYPE nick
+0 TRLR
+`);
+  // Master uses inline custom tags.
+  const tagMaster = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+2 _MARNM Maček
+2 _BIRN Zelzer
+2 _AKA Mojca
+0 TRLR
+`);
+
+  it("folds inline _BIRN into a TYPE birth record when the master uses records", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Franc /Celcer/
+2 _BIRN Zelzer
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const names = out.individuals.get("@I1@")!.names;
+    expect(names).toHaveLength(2);
+    expect(names[1].type).toBe("birth");
+    expect(names[1].surname).toBe("Zelzer");
+  });
+
+  it("folds a TYPE birth record into inline _BIRN when the master uses tags", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Franc /Celcer/
+1 NAME Franc /Zelzer/
+2 TYPE birth
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const indi = out.individuals.get("@I1@")!;
+    expect(indi.names).toHaveLength(1);
+    expect(indi.raw.children.find((c) => c.tag === "NAME")!.children.some((c) => c.tag === "_BIRN" && c.value === "Zelzer")).toBe(true);
+  });
+
+  it("renames a sibling AKA tag (_AKAN) to the master's preferred tag (_AKA)", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Davor /Gregorc/
+2 _AKAN Cic
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
+    expect(nameNode.children.some((c) => c.tag === "_AKA" && c.value === "Cic")).toBe(true);
+    expect(nameNode.children.some((c) => c.tag === "_AKAN")).toBe(false);
+    expect(report.nameVariantsReshaped).toBe(1);
+  });
+
+  it("keeps an AKA record that has a surname as a record (no lossy fold to a tag)", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Alphonse /Mivez/
+1 NAME Betty /Blevins/
+2 TYPE aka
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const names = out.individuals.get("@I1@")!.names;
+    expect(names).toHaveLength(2);
+    expect(names[1].type).toBe("aka");
+  });
+
+  it("recases and unifies TYPE tokens to the master's spelling (MARRIED→married, maiden→birth)", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 NAME /Kovač/
+2 TYPE MARRIED
+1 NAME Ana /Pirc/
+2 TYPE maiden
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const names = out.individuals.get("@I1@")!.names;
+    expect(names[1].type).toBe("married");
+    expect(names[2].type).toBe("birth");
+    expect(report.nameVariantsReshaped).toBe(2);
+  });
+
+  it("converts a NICK sub-tag into a TYPE nick record when the master uses records", () => {
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Kovač/
+2 NICK Mimi
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const names = out.individuals.get("@I1@")!.names;
+    expect(names[0].nickname).toBeUndefined();
+    expect(names.some((n) => n.type === "nick" && n.given === "Mimi")).toBe(true);
   });
 });
 

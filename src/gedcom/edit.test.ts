@@ -18,6 +18,7 @@ import {
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
+  foldAdditionalNameToMarnm,
   INDI_CHILD_ORDER,
   insertRecord,
   rebuildFamily,
@@ -33,6 +34,7 @@ import {
   setFamilyEventField,
   setFamilyNotes,
   setIndividualLinks,
+  setMarriedName,
   setName,
   setNickname,
   setNotes,
@@ -617,6 +619,35 @@ describe("additional names", () => {
     removeAdditionalName(indi, 0);
     updated = rebuildIndividual(ds, indi);
     expect(updated.names).toHaveLength(1);
+  });
+
+  it("sets and clears the primary name's inline _MARNM married surname", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    setMarriedName(indi, "Kovač");
+    let updated = rebuildIndividual(ds, indi);
+    expect(updated.names[0].married).toBe("Kovač");
+    expect(serializeGedcom(ds.records)).toContain("2 _MARNM Kovač");
+
+    setMarriedName(indi, "");
+    updated = rebuildIndividual(ds, indi);
+    expect(updated.names[0].married).toBeUndefined();
+    expect(serializeGedcom(ds.records)).not.toContain("_MARNM");
+  });
+
+  it("folds an additional married NAME record into the primary name's _MARNM", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+
+    addAdditionalName(indi, "married");
+    setAdditionalName(indi, 0, { surname: "Kovač" });
+    const withMarried = rebuildIndividual(ds, indi);
+
+    foldAdditionalNameToMarnm(withMarried, 0);
+    const updated = rebuildIndividual(ds, withMarried);
+    expect(updated.names).toHaveLength(1);
+    expect(updated.names[0].married).toBe("Kovač");
   });
 });
 

@@ -98,6 +98,9 @@ export interface PersonName {
   nickname?: string;
   /** `2 TYPE` value (e.g. "married", "maiden", "aka", "nick") for non-primary names. */
   type?: string;
+  /** Married surname carried inline on the primary name as a `2 _MARNM` sub-tag
+   * (the alternative to a separate `1 NAME` + `2 TYPE married` record). */
+  married?: string;
 }
 
 /**

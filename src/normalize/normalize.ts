@@ -7,12 +7,13 @@ import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MasterProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
+import { reshapeNameVariants } from "./nameVariants";
 import { walkNodes } from "./walk";
 
 const MAX_EXAMPLES = 12;
 
 /** Default: every normalization pass runs (load-time behavior). */
-const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true };
+const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true };
 
 /**
  * Normalize a compare dataset to the master's conventions.
@@ -43,6 +44,8 @@ export function normalizeDataset(
     placeExamples: [],
     linksConverted: 0,
     linkExamples: [],
+    nameVariantsReshaped: 0,
+    nameVariantExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
@@ -50,6 +53,7 @@ export function normalizeDataset(
   const seenDate = new Set<string>();
   const seenPlace = new Set<string>();
   const seenLink = new Set<string>();
+  const seenName = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -100,6 +104,21 @@ export function normalizeDataset(
     walkNodes(editable, (node) => {
       reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
     });
+  }
+
+  // Rewrite alternate names (married/birth/aka/nick) into the master's
+  // convention — an inline sub-tag on the primary NAME vs. a separate `TYPE`
+  // record — and recase `TYPE` tokens to the master's spelling, so the styles
+  // match for comparison/merge and stay consistent in the export. Variants the
+  // master doesn't use are left untouched (never dropped).
+  if (options.names) {
+    for (const rec of editable) {
+      if (rec.tag !== "INDI") continue;
+      for (const change of reshapeNameVariants(rec, profile.nameVariants)) {
+        report.nameVariantsReshaped++;
+        record(report.nameVariantExamples, seenName, change.before, change.after);
+      }
+    }
   }
 
   const parsed: ParseResult = {

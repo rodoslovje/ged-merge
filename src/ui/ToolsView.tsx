@@ -622,11 +622,11 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
   const [state, setState] = useState<AsyncState<{ dataset: Dataset; report: NormalizationReport }>>({ status: "idle" });
   // Which passes the user wants applied on download; the preview report above
   // always reflects all three so the counts show what each would change.
-  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true });
+  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true });
 
   useEffect(() => {
     setState({ status: "idle" });
-    setSelected({ dates: true, places: true, links: true });
+    setSelected({ dates: true, places: true, links: true, names: true });
   }, [dataset]);
 
   // Run the preview the first time the tab is shown, letting React paint the
@@ -658,12 +658,13 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
     <>
       {state.status === "done" && (() => {
         const { report } = state.result;
-        const changed = report.datesChanged + report.placesReshaped + report.linksConverted;
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped;
         if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
           places: report.placesReshaped,
           links: report.linksConverted,
+          names: report.nameVariantsReshaped,
         };
         const toggle = (key: keyof NormalizeOptions) =>
           setSelected((s) => ({ ...s, [key]: !s[key] }));
@@ -672,7 +673,8 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
         const selectedChanges =
           (selected.dates ? counts.dates : 0) +
           (selected.places ? counts.places : 0) +
-          (selected.links ? counts.links : 0);
+          (selected.links ? counts.links : 0) +
+          (selected.names ? counts.names : 0);
         return (
           <>
             <p className="tools-intro">{t("tools.normalize.intro")}</p>
@@ -683,10 +685,13 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
                 checked={selected.places} count={counts.places} onChange={() => toggle("places")} />
               <NormCheck label={t("tools.normalize.links", { count: counts.links })}
                 checked={selected.links} count={counts.links} onChange={() => toggle("links")} />
+              <NormCheck label={t("tools.normalize.names", { count: counts.names })}
+                checked={selected.names} count={counts.names} onChange={() => toggle("names")} />
             </ul>
             {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
             {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
             {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
+            {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={report.nameVariantExamples} />}
             <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0}>
               {t("tools.normalize.download")}
             </button>

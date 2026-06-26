@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { setAdditionalName, removeAdditionalName } from "../../gedcom/edit";
+import { setAdditionalName, removeAdditionalName, foldAdditionalNameToMarnm } from "../../gedcom/edit";
 import { ADDITIONAL_NAME_TYPES, nameTypeLabel } from "../../match/relatives";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
@@ -14,12 +14,17 @@ export function NameVariantEditor({
   index,
   t,
   commit,
+  marriedNameTag,
   onDone,
 }: {
   person: Individual;
   index: number;
   t: Translate;
   commit: Commit;
+  /** When set, choosing the "married" type stores the surname inline as the
+   * primary name's `_MARNM` (the master's convention) rather than keeping a
+   * separate `TYPE married` record. */
+  marriedNameTag?: boolean;
   onDone: () => void;
 }) {
   const name = person.names[index + 1];
@@ -63,7 +68,17 @@ export function NameVariantEditor({
         className="edit-input edit-name-type-select"
         value={name?.type ?? "aka"}
         title={t("field.nameType")}
-        onChange={(e) => commit((indi) => setAdditionalName(indi, index, { type: e.target.value }))}
+        onChange={(e) => {
+          const next = e.target.value;
+          // Master stores married surnames inline as `_MARNM`: fold this record
+          // into it instead of keeping a separate `TYPE married` NAME record.
+          if (next === "married" && marriedNameTag) {
+            commit((indi) => foldAdditionalNameToMarnm(indi, index));
+            onDone();
+          } else {
+            commit((indi) => setAdditionalName(indi, index, { type: next }));
+          }
+        }}
       >
         {ADDITIONAL_NAME_TYPES.map((opt) => (
           <option key={opt} value={opt}>

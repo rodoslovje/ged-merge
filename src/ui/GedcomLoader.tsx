@@ -217,13 +217,16 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat, sourceLayout } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, sourceLayout, nameLayout } = state.file;
   const info = [
     t("loader.version", { version: dataset.version }),
     t("loader.encoding", { charset: dataset.charset }),
   ];
   if (dateFormat) {
     info.push(t("loader.dateFormat", { format: dateFormat }));
+  }
+  if (nameLayout && nameLayout !== "none") {
+    info.push(t("loader.nameFormat", { format: t(`nameLayout.${nameLayout}`) }));
   }
   if (placeLayout && placeLayout !== "unknown") {
     info.push(t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }));
@@ -291,6 +294,7 @@ function renderSummary(
                   [t("loader.dates", { count: report.datesChanged }), examplesTooltip(report.dateExamples)],
                   [t("loader.places", { count: report.placesReshaped }), examplesTooltip(report.placeExamples)],
                   [t("loader.links", { count: report.linksConverted }), examplesTooltip(report.linkExamples)],
+                  [t("loader.names", { count: report.nameVariantsReshaped }), examplesTooltip(report.nameVariantExamples)],
                 ] as [string, string | undefined][]
               ).map(([line, tooltip]) => {
                 const i = line.indexOf(":");

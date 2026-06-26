@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { addAdditionalName, removeAdditionalName, setNickname } from "../../gedcom/edit";
+import { addAdditionalName, removeAdditionalName, setNickname, setMarriedName } from "../../gedcom/edit";
 import { primaryName, displayName, nameTypeLabel } from "../../match/relatives";
 import { NicknameEditor } from "./NicknameEditor";
+import { MarriedNameEditor } from "./MarriedNameEditor";
 import { NameVariantEditor } from "./NameVariantEditor";
 import { AddEventSelect } from "./AddEventSelect";
 import type { Commit } from "./types";
@@ -21,6 +22,7 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
+  marriedNameTag,
   leadingControl,
 }: {
   person: Individual;
@@ -32,13 +34,17 @@ export function OtherNamesEditor({
   onAddLink: () => void;
   showAddNote: boolean;
   onAddNote: () => void;
+  /** True when the master file records married surnames inline as `_MARNM`, so
+   * choosing the "married" type on an added name stores it there instead of as a
+   * separate `TYPE married` NAME record. */
+  marriedNameTag?: boolean;
   /** Rendered at the start of the actions row, before "+ Add event" (the sex picker). */
   leadingControl?: ReactNode;
 }) {
-  const [editing, setEditing] = useState<"nick" | number | null>(null);
+  const [editing, setEditing] = useState<"nick" | "married" | number | null>(null);
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
-  const hasNamesContent = editing !== null || !!primary?.nickname || extraNames.length > 0;
+  const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0;
 
   const addNameBtn = (
     <button
@@ -77,9 +83,27 @@ export function OtherNamesEditor({
               </button>
             </span>
           ) : null}
+          {editing === "married" ? (
+            <MarriedNameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
+          ) : primary?.married ? (
+            <span className="edit-name-chip-wrap">
+              <button type="button" className="edit-name-chip" onClick={() => setEditing("married")}>
+                {primary.married}
+                <span className="muted"> ({nameTypeLabel("married", t)})</span>
+              </button>
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeName")}
+                onClick={() => commit((indi) => setMarriedName(indi, ""))}
+              >
+                ×
+              </button>
+            </span>
+          ) : null}
           {extraNames.map((n, i) =>
             editing === i ? (
-              <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} onDone={() => setEditing(null)} />
+              <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} marriedNameTag={marriedNameTag} onDone={() => setEditing(null)} />
             ) : (
               <span className="edit-name-chip-wrap" key={i}>
                 <button type="button" className="edit-name-chip" onClick={() => setEditing(i)}>

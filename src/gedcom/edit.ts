@@ -37,7 +37,7 @@ export const FAM_CHILD_ORDER = [
 ];
 
 /** Canonical sub-tag order within a `NAME` node. */
-export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "TYPE", "NOTE", "SOUR"];
+export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "_MARNM", "NSFX", "TYPE", "NOTE", "SOUR"];
 
 /** Links attached to an event are plain `WWW` lines. */
 export const EVENT_LINK_TAG = "WWW";
@@ -345,6 +345,15 @@ export function setNickname(indi: Individual, nickname: string): void {
   setOrRemoveValue(node, "NICK", nickname, NAME_CHILD_ORDER);
 }
 
+/** Set (or clear) the primary `NAME`'s `_MARNM` (married surname) sub-tag — the
+ * inline alternative to a separate `TYPE married` NAME record, used when the
+ * master file follows the `_MARNM` convention. */
+export function setMarriedName(indi: Individual, surname: string): void {
+  const node = nameNodes(indi)[0];
+  if (!node) return;
+  setOrRemoveValue(node, "_MARNM", surname, NAME_CHILD_ORDER);
+}
+
 export interface NameVariantUpdate {
   given?: string;
   surname?: string;
@@ -368,6 +377,20 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
     node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
   }
   if (update.type !== undefined) setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+}
+
+/**
+ * Fold an additional `1 NAME` record into the primary name's inline `_MARNM`
+ * married-surname sub-tag — used when the master follows the `_MARNM` convention
+ * and the user marks an added name as "married". The additional record is
+ * removed and its surname moved onto `_MARNM`; a name with no surname is just
+ * dropped (an empty married name is meaningless). See `setAdditionalName` for
+ * indexing.
+ */
+export function foldAdditionalNameToMarnm(indi: Individual, index: number): void {
+  const surname = indi.names[index + 1]?.surname?.trim();
+  removeAdditionalName(indi, index);
+  if (surname) setMarriedName(indi, surname);
 }
 
 /** Append a new additional `1 NAME` record with the given `2 TYPE`. */

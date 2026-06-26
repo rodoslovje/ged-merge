@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
 import type { Dataset } from "../gedcom/types";
-import { collectLayoutValues, dateLayoutFromValues, detectPlaceLayout, inferDateLayout, inferMasterProfile } from "../normalize/profile";
+import { collectLayoutValues, dateLayoutFromValues, detectPlaceLayout, inferDateLayout, inferMasterProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
@@ -81,6 +81,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         placeLayout: profile.place.layout,
         dateFormat: inferDateLayout(dataset),
         sourceLayout: inferSourceFormat(dataset.records).layout,
+        nameLayout: inferNameLayout(dataset),
       });
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
@@ -119,14 +120,15 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   // normalized to the master's conventions).
   const dateFormat = dateLayoutFromValues(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
+  const nameLayout = inferNameLayout(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat, sourceLayout });
+    post({ type: "parsed", role: "compare", fileName, dataset: rawDataset, placeLayout, dateFormat, sourceLayout, nameLayout });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat, sourceLayout });
+  post({ type: "parsed", role: "compare", fileName, dataset, report, placeLayout, dateFormat, sourceLayout, nameLayout });
 }
 
 /** Run matching once both sides are available, ranked if a home person is set. */

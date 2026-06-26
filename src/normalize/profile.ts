@@ -11,7 +11,11 @@ import type {
   PlaceLayout,
 } from "./types";
 import { detectLinkLangs } from "./links";
+import { inferNameVariants } from "./nameVariants";
 import { walkNodes } from "./walk";
+
+// Re-exported so existing importers (worker, tests) keep getting it from here.
+export { inferNameLayout, inferNameVariants } from "./nameVariants";
 
 const MONTHS_ABBR = [
   "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -60,6 +64,7 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
     place: inferPlaceProfile(placeValues, addrCount),
     linkLangs: detectLinkLangs(links),
     placeFmt: inferPlaceExportFormat(master),
+    nameVariants: inferNameVariants(master),
   };
 }
 

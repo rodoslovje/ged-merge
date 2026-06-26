@@ -12,6 +12,10 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   const suffix = subTags.get("NSFX");
   const nickname = subTags.get("NICK");
   const type = subTags.get("TYPE");
+  // Married surname stored inline (Gramps/PAF/Brother's Keeper style). The
+  // value is a bare surname; tolerate a slash-wrapped form too.
+  const marnm = subTags.get("_MARNM");
+  const married = marnm?.match(/\/([^/]*)\//)?.[1].trim() ?? marnm;
 
   const raw = (value ?? "").trim();
 
@@ -41,5 +45,6 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   if (suffix) name.suffix = suffix;
   if (nickname) name.nickname = nickname;
   if (type) name.type = type;
+  if (married) name.married = married;
   return name;
 }

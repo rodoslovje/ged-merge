@@ -72,6 +72,9 @@ interface Props {
   onDirty: (type: "individual" | "family", id: string) => void;
   /** Open the edit tree rooted on the currently selected person. */
   onShowTree: (id: string) => void;
+  /** True when the master file records married surnames inline as `_MARNM`, so
+   * the name editor offers a married-name field. */
+  marriedNameTag?: boolean;
   /** Navigate to this person when it changes (used by the save dialog person links). */
   navigateToId?: string;
   /** Called whenever the currently-shown person changes, so the parent can
@@ -114,7 +117,7 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -1263,6 +1266,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
+            marriedNameTag={marriedNameTag}
             leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
           />
           <EventList

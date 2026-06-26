@@ -12,7 +12,7 @@ import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchReque
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultHomeId } from "./match/relatives";
-import type { NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
+import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
@@ -57,6 +57,7 @@ interface LoadedFile {
   placeLayout?: PlaceLayout;
   dateFormat?: string;
   sourceLayout?: SourceLayout;
+  nameLayout?: NameLayout;
 }
 
 type SlotState =
@@ -390,6 +391,7 @@ function AppContent() {
         if (msg.placeLayout) file.placeLayout = msg.placeLayout;
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
+        if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         setter({ status: "loaded", file });
         if (msg.role === "master") setLastMasterFile(file);
       } else {
@@ -1372,6 +1374,7 @@ function AppContent() {
               changeHome={changeHome}
               onDirty={handleEditDirty}
               onShowTree={(id) => openEditTree(id)}
+              marriedNameTag={lastMasterFile.nameLayout === "marnm"}
               navigateToId={navigateToId}
               onPersonChange={setEditPersonId}
               matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}
