@@ -45,6 +45,22 @@ const AND = "AND|&";
 
 const kw = (alts: string) => `(?:${alts})\\.?`;
 
+// Qualifier-prefix patterns, compiled once. They're built from the constant
+// keyword strings above, so they never vary per call — and `parseDate` runs
+// once per DATE line (~1M on a large file), where re-compiling these every
+// time dominated build time.
+const RE_BETWEEN = new RegExp(`^${kw(BETWEEN)}\\s+(.+?)\\s+(?:${AND})\\s+(.+)$`);
+const RE_ABOUT = new RegExp(`^${kw(ABOUT)}\\s+(.+)$`);
+const RE_BEFORE = new RegExp(`^${kw(BEFORE)}\\s+(.+)$`);
+const RE_AFTER = new RegExp(`^${kw(AFTER)}\\s+(.+)$`);
+const RE_INTERPRETED = new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`);
+
+// Month-word date atoms, compiled once from the constant MON token (see above).
+const RE_DAY_MON_YEAR = new RegExp(`^([\\d_?<>-]{1,2})[.\\s]\\s*(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`);
+const RE_MON_DAY_YEAR = new RegExp(`^(${MON})\\.?\\s+(\\d{1,2})\\s+(\\d{2,4})$`);
+const RE_DAY_MON_YEAR_HYPHEN = new RegExp(`^(\\d{1,2})-(${MON})-(\\d{2,4})$`);
+const RE_MON_YEAR = new RegExp(`^(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`);
+
 /**
  * Parse a `DATE` value into a structured `GedDate`, preserving the raw text.
  *
@@ -62,7 +78,7 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   const upper = trimmed.toUpperCase();
 
   // Range / period forms (two endpoints).
-  let m = upper.match(new RegExp(`^${kw(BETWEEN)}\\s+(.+?)\\s+(?:${AND})\\s+(.+)$`));
+  let m = upper.match(RE_BETWEEN);
   if (m) return withSecond("between", m[1], m[2], raw, order);
 
   m = upper.match(/^FROM\s+(.+?)\s+TO\s+(.+)$/);
@@ -84,16 +100,16 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   m = upper.match(/^>\s*(.+)$/);
   if (m) return withFirst("after", m[1], raw, order);
 
-  m = upper.match(new RegExp(`^${kw(ABOUT)}\\s+(.+)$`));
+  m = upper.match(RE_ABOUT);
   if (m) return withFirst("about", m[1], raw, order);
 
-  m = upper.match(new RegExp(`^${kw(BEFORE)}\\s+(.+)$`));
+  m = upper.match(RE_BEFORE);
   if (m) return withFirst("before", m[1], raw, order);
 
-  m = upper.match(new RegExp(`^${kw(AFTER)}\\s+(.+)$`));
+  m = upper.match(RE_AFTER);
   if (m) return withFirst("after", m[1], raw, order);
 
-  m = upper.match(new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`));
+  m = upper.match(RE_INTERPRETED);
   if (m) return withFirst("interpreted", m[1], raw, order);
 
   // Year–year range/period: "1790-1803", "1770/1785".
@@ -170,19 +186,19 @@ function parseSimple(s: string, order?: DateOrder): SimpleDate | undefined {
   let m: RegExpMatchArray | null;
 
   // [DD|placeholder] MON YYYY[/YY] — "5 JAN 1885", "21. marca 2011", "_.maj 2019"
-  m = t.match(new RegExp(`^([\\d_?<>-]{1,2})[.\\s]\\s*(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`));
+  m = t.match(RE_DAY_MON_YEAR);
   if (m && mon(m[2])) {
     const day = /^\d{1,2}$/.test(m[1]) ? +m[1] : undefined;
     return { day, month: mon(m[2]), year: toYear(m[3]) };
   }
   // MON DD YYYY (month-first) — "AVG 31 1897", "okt 7 2019"
-  m = t.match(new RegExp(`^(${MON})\\.?\\s+(\\d{1,2})\\s+(\\d{2,4})$`));
+  m = t.match(RE_MON_DAY_YEAR);
   if (m && mon(m[1])) return { day: +m[2], month: mon(m[1]), year: toYear(m[3]) };
   // DD-MON-YYYY (hyphenated) — "10-JUL-2016"
-  m = t.match(new RegExp(`^(\\d{1,2})-(${MON})-(\\d{2,4})$`));
+  m = t.match(RE_DAY_MON_YEAR_HYPHEN);
   if (m && mon(m[2])) return { day: +m[1], month: mon(m[2]), year: toYear(m[3]) };
   // MON YYYY[/YY]
-  m = t.match(new RegExp(`^(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`));
+  m = t.match(RE_MON_YEAR);
   if (m && mon(m[1])) return { month: mon(m[1]), year: toYear(m[2]) };
   // Numeric, three components: DD.MM.YYYY / MM/DD/YYYY / YYYY-MM-DD, etc.
   m = t.match(/^(\d{1,4})([./-])(\d{1,4})\2(\d{1,4})$/);
