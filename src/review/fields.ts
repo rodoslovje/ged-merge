@@ -888,6 +888,9 @@ export function clampAfterBirthZone(tag: string, key: number, maxBirthKey: numbe
  * Lifespan anchors used to place undated events relative to a person's known
  * birth/death dates — shared by the comparison view (`orderedEventTags`) and
  * the Edit view's event list so both order events identically.
+ *  - `minBirthKey` — earliest known BIRT date key (anchors the BIRT row itself, so
+ *    a life-zone event that's after the *earliest* birth never slips before the
+ *    birth row just because the other side's record carries a later birth date).
  *  - `maxBirthKey` — latest known BIRT date key (anchors undated birth-zone tags).
  *  - `minDeathKey` — earliest known death-zone date key (clamps imprecise
  *    life-zone dates just before it).
@@ -896,6 +899,7 @@ export function clampAfterBirthZone(tag: string, key: number, maxBirthKey: numbe
  */
 export interface LifespanAnchors {
   midLifeKey: number;
+  minBirthKey: number | undefined;
   maxBirthKey: number | undefined;
   minDeathKey: number | undefined;
 }
@@ -917,7 +921,7 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
     : minBirthKey != null ? minBirthKey + 30 * 10_000
     : maxDeathKey != null ? maxDeathKey - 30 * 10_000
     : 15_000_000; // ~year 1500 fallback
-  return { midLifeKey, maxBirthKey, minDeathKey };
+  return { midLifeKey, minBirthKey, maxBirthKey, minDeathKey };
 }
 
 /**
@@ -934,6 +938,13 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
 export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnchors): number {
   if (d?.year != null) {
     const key = clampBeforeDeathZone(tag, dateToSortKey(d), a.minDeathKey);
+    // The BIRT row anchors at the earliest birth evidence across the compared
+    // pair: when the two records disagree (e.g. master `ABT 1820` vs compare
+    // `1 NOV 1818`), the comparator picks the master date for the row, which can
+    // let a contemporaneous life-zone event from the other side (a `1818`
+    // residence) sort ahead of the birth. Clamping down to `minBirthKey` keeps
+    // the birth row first while still letting a genuinely pre-birth event lead.
+    if (tag === "BIRT" && a.minBirthKey != null && key > a.minBirthKey) return a.minBirthKey;
     return clampAfterBirthZone(tag, key, a.maxBirthKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);

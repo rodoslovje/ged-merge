@@ -395,6 +395,24 @@ describe("event ordering", () => {
     expect(keys.indexOf("RESI.header")).toBeLessThan(keys.indexOf("BIRT.header"));
   });
 
+  it("keeps BIRT before a compare-side RESI dated after the earliest birth", () => {
+    // Master birth `ABT 1820` (year-only → sorts to end of year); compare birth
+    // `1 NOV 1818` plus a `1818` residence. The residence is after the compare's
+    // own birth, so the birth row must stay first — it should anchor at the
+    // earliest birth (1818), not the master's later `ABT 1820`.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME Janez /Stariha/\n1 BIRT\n2 DATE ABT 1820\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME Janez /Stariha/\n` +
+      `1 RESI\n2 DATE 1818\n2 PLAC Sadinja Vas\n` +
+      `1 BIRT\n2 DATE 1 NOV 1818\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.header"));
+  });
+
   it("sorts undated RESI between dated BIRT and DEAT", () => {
     // An undated RESI (with a place so it renders) must appear after dated BIRT and before dated DEAT.
     const m = dataset(
