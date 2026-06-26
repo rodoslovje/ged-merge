@@ -1,5 +1,5 @@
 import { parseDate } from "../gedcom/date";
-import type { DateOrder, GedDate } from "../gedcom/types";
+import type { DateOrder, GedDate, GedNode } from "../gedcom/types";
 import type { DateFormatProfile } from "./types";
 
 /** A bare year–year range, e.g. "1830-1850" or "1785 / 1810" — see parseDate. */
@@ -33,9 +33,50 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
     case "range":
       return first && second ? `FROM ${first} TO ${second}` : date.raw;
     case "interpreted":
-    case "unknown":
       return date.raw;
+    case "unknown":
+      // A flagged all-unknown placeholder date (".__.____") is re-rendered in the
+      // master's placeholder layout when it has one; otherwise kept verbatim.
+      return formatAllUnknown(date.placeholder === true, profile) ?? date.raw;
   }
+}
+
+/**
+ * Render a fully-unknown placeholder date ("__.__.____") in the master's numeric
+ * layout. Returns undefined when the value isn't a flagged placeholder or the
+ * master has no placeholder convention — the caller then keeps the raw text.
+ */
+function formatAllUnknown(isPlaceholder: boolean, profile: DateFormatProfile): string | undefined {
+  const fmt = profile.numeric;
+  if (!isPlaceholder || !fmt?.placeholder) return undefined;
+  const ph = fmt.placeholder;
+  return joinNumeric(ph.repeat(2), ph.repeat(2), ph.repeat(4), fmt);
+}
+
+/**
+ * Strip all-placeholder `DATE` nodes (".__.____", "__.__.____") from a record
+ * tree, returning each removed raw value (for the report). Such a date carries
+ * no information — a deliberate "date unknown" marker, not a real value — so
+ * when the master has no placeholder-date convention of its own we drop it
+ * entirely rather than carry a foreign "__.__.____" into the compare/merge
+ * views and the merged file. This is the date analog of how
+ * {@link reshapeUnknownNames} blanks placeholder names under the master's blank
+ * convention; callers gate it on the master having no placeholder layout (when
+ * it *does*, {@link formatGedDate} reshapes these to that layout and keeps them).
+ */
+export function dropPlaceholderDates(node: GedNode): string[] {
+  const removed: string[] = [];
+  const kept: GedNode[] = [];
+  for (const child of node.children) {
+    if (child.tag === "DATE" && child.value !== undefined && parseDate(child.value).placeholder) {
+      removed.push(child.value.trim());
+      continue; // drop this DATE node
+    }
+    removed.push(...dropPlaceholderDates(child));
+    kept.push(child);
+  }
+  node.children = kept;
+  return removed;
 }
 
 /**
@@ -57,8 +98,8 @@ function formatParts(
   day: number | undefined,
   profile: DateFormatProfile,
 ): string {
-  if (year === undefined) return "";
   if (profile.numeric) return formatNumeric(year, month, day, profile.numeric);
+  if (year === undefined) return "";
   if (month === undefined) return String(year);
   const mon = profile.monthTokens[month] ?? String(month);
   if (day === undefined) return `${mon} ${year}`;
@@ -67,19 +108,45 @@ function formatParts(
 }
 
 function formatNumeric(
-  year: number,
+  year: number | undefined,
   month: number | undefined,
   day: number | undefined,
   fmt: NonNullable<DateFormatProfile["numeric"]>,
 ): string {
   const sep = fmt.separator;
-  const y = String(year);
-  if (month === undefined) return y; // year-only: numeric layout can't add more.
+  const ph = fmt.placeholder;
+
+  // Year-only (or coarser): a numeric layout has no finer fields to add, so we
+  // emit the bare year. We keep year-only dates bare even under a placeholder
+  // convention — padding every approximate year to "__.__.1900" would rewrite a
+  // huge share of dates for no real gain. Placeholders only fill a slot beneath
+  // a *known* month (below) or a fully-unknown date (see formatAllUnknown).
+  if (month === undefined) return year === undefined ? "" : String(year);
+
   const mm = fmt.padMonth ? String(month).padStart(2, "0") : String(month);
+  // A known month needs a year slot; without a year and without a placeholder
+  // we can't render it numerically, so signal "give up" (caller keeps raw).
+  const y = year !== undefined ? String(year) : ph ? ph.repeat(4) : undefined;
+  if (y === undefined) return "";
+
   if (day === undefined) {
-    return fmt.order === "YMD" ? `${y}${sep}${mm}` : `${mm}${sep}${y}`;
+    // Unknown day: fill it with a placeholder if the master uses one, otherwise
+    // drop the slot ("MM.YYYY" / "YYYY.MM").
+    if (!ph) return fmt.order === "YMD" ? `${y}${sep}${mm}` : `${mm}${sep}${y}`;
+    return joinNumeric(ph.repeat(2), mm, y, fmt);
   }
   const dd = fmt.padDay ? String(day).padStart(2, "0") : String(day);
+  return joinNumeric(dd, mm, y, fmt);
+}
+
+/** Join day/month/year field strings (already formatted) in the layout's order. */
+function joinNumeric(
+  dd: string,
+  mm: string,
+  y: string,
+  fmt: NonNullable<DateFormatProfile["numeric"]>,
+): string {
+  const sep = fmt.separator;
   switch (fmt.order) {
     case "DMY": return `${dd}${sep}${mm}${sep}${y}`;
     case "MDY": return `${mm}${sep}${dd}${sep}${y}`;

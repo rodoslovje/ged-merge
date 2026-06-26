@@ -9,7 +9,7 @@ import { birthYear } from "../gedcom/lifespan";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
 import { givenSimilarity } from "./similarity";
 import { primaryName } from "./relatives";
-import { soundex } from "./text";
+import { clearTextCaches, soundex } from "./text";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -32,6 +32,9 @@ export function matchDatasets(
   compareDs: Dataset,
   config: MatchConfig = DEFAULT_CONFIG,
 ): MatchResult {
+  // Reset the fold/jaro-winkler memo caches so the (per-run) jaro-winkler pair
+  // cache can't accumulate across reloads; both fill back up within this run.
+  clearTextCaches();
   return matchIndividuals(masterDs, compareDs, config);
 }
 

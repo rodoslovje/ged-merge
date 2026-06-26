@@ -218,28 +218,42 @@ function renderSummary(
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
   const { dataset, fileName, report, placeLayout, dateFormat, sourceLayout, nameLayout, unknownNameStyle } = state.file;
-  const info = [
-    t("loader.version", { version: dataset.version }),
-    t("loader.encoding", { charset: dataset.charset }),
+  // Each row is one "Label: value" line; format rows carry a tooltip explaining
+  // the (deliberately short) format label in detail.
+  const info: { text: string; tooltip?: string }[] = [
+    { text: t("loader.version", { version: dataset.version }) },
+    { text: t("loader.encoding", { charset: dataset.charset }) },
   ];
   if (dateFormat) {
-    info.push(t("loader.dateFormat", { format: dateFormat }));
+    info.push({ text: t("loader.dateFormat", { format: dateFormat }), tooltip: t("loader.dateFormat.tip") });
   }
+  // Name format folds in the unknown-name convention: "inline"/"typed", plus
+  // "+ placeholder" when the file marks unknown given/surnames with a token. The
+  // layout and the exact marker are spelled out in the tooltip.
   if (nameLayout && nameLayout !== "none") {
-    info.push(t("loader.nameFormat", { format: t(`nameLayout.${nameLayout}`) }));
-  }
-  if (unknownNameStyle) {
-    info.push(t("loader.unknownNameFormat", { format: unknownNameStyle }));
+    const parts = [t(`nameLayout.${nameLayout}`)];
+    const tips = [t(`nameLayout.${nameLayout}.tip`)];
+    if (unknownNameStyle) {
+      parts.push(t("loader.placeholderSuffix"));
+      tips.push(t("loader.unknownNameTip", { token: unknownNameStyle }));
+    }
+    info.push({ text: t("loader.nameFormat", { format: parts.join(" + ") }), tooltip: tips.join("\n") });
+  } else if (unknownNameStyle) {
+    // No alternate names, but unknown names are still marked with a placeholder.
+    info.push({
+      text: t("loader.nameFormat", { format: t("loader.placeholderSuffix") }),
+      tooltip: t("loader.unknownNameTip", { token: unknownNameStyle }),
+    });
   }
   if (placeLayout && placeLayout !== "unknown") {
-    info.push(t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }));
+    info.push({ text: t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }), tooltip: t(`placeLayout.${placeLayout}.tip`) });
   }
   if (sourceLayout && sourceLayout !== "unknown") {
-    info.push(t("loader.sourceFormat", { format: t(`sourceLayout.${sourceLayout}`) }));
+    info.push({ text: t("loader.sourceFormat", { format: t(`sourceLayout.${sourceLayout}`) }), tooltip: t(`sourceLayout.${sourceLayout}.tip`) });
   }
   info.push(
-    t("loader.individuals", { count: dataset.individuals.size }),
-    t("loader.families", { count: dataset.families.size }),
+    { text: t("loader.individuals", { count: dataset.individuals.size }) },
+    { text: t("loader.families", { count: dataset.families.size }) },
   );
 
   const warnings = dataset.warnings;
@@ -251,9 +265,11 @@ function renderSummary(
   const examplesTooltip = (changes: { before: string; after: string }[]): string | undefined =>
     changes.length > 0 ? changes.map((ex) => `${ex.before} → ${ex.after}`).join("\n") : undefined;
 
-  const kv = info.map((s): [string, string] => {
-    const i = s.indexOf(":");
-    return i >= 0 ? [s.slice(0, i).trim(), s.slice(i + 1).trim()] : [s, ""];
+  const kv = info.map(({ text, tooltip }) => {
+    const i = text.indexOf(":");
+    const label = i >= 0 ? text.slice(0, i).trim() : text;
+    const value = i >= 0 ? text.slice(i + 1).trim() : "";
+    return { label, value, tooltip };
   });
 
   return (
@@ -262,10 +278,10 @@ function renderSummary(
       <div className="loader-cols">
         <div className="loader-info">
           <dl className="loader-meta">
-            {kv.map(([label, value]) => (
+            {kv.map(({ label, value, tooltip }) => (
               <Fragment key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
+                <dt title={tooltip}>{label}</dt>
+                <dd title={tooltip}>{value}</dd>
               </Fragment>
             ))}
           </dl>

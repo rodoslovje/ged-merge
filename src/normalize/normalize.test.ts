@@ -835,6 +835,87 @@ describe("formatGedDate (numeric output)", () => {
   });
 });
 
+describe("unknown-date placeholders", () => {
+  // A master that pads unknown components ("__.05.1900", ".__.____").
+  const profile = inferDateProfile(["20.02.1989", "__.05.1888", ".__.____"]);
+
+  it("detects the master's placeholder character", () => {
+    expect(profile.numeric).toMatchObject({ order: "DMY", separator: ".", placeholder: "_" });
+  });
+
+  it("fills a missing day beneath a known month", () => {
+    expect(formatGedDate(parseDate("FEB 1900"), profile)).toBe("__.02.1900");
+    expect(formatGedDate(parseDate("_.9.1911"), profile)).toBe("__.09.1911");
+  });
+
+  it("re-renders a fully-unknown date in the master's placeholder layout", () => {
+    expect(formatGedDate(parseDate(".__.____"), profile)).toBe("__.__.____");
+    expect(formatGedDate(parseDate("__.__.____"), profile)).toBe("__.__.____");
+  });
+
+  it("keeps year-only and full dates unchanged", () => {
+    expect(formatGedDate(parseDate("1900"), profile)).toBe("1900");
+    expect(formatGedDate(parseDate(".__.1945"), profile)).toBe("1945");
+    expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("12.02.1900");
+  });
+
+  it("without a placeholder convention, drops unknown parts and keeps raw", () => {
+    const plain = inferDateProfile(["20.02.1989"]);
+    expect(formatGedDate(parseDate("FEB 1900"), plain)).toBe("02.1900");
+    expect(formatGedDate(parseDate(".__.____"), plain)).toBe(".__.____");
+  });
+});
+
+describe("normalizeDataset (placeholder-date dropping)", () => {
+  const COMPARE_PH = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /Porenta/
+1 BIRT
+2 DATE ABT 1745
+1 DEAT
+2 DATE .__.____
+2 PLAC Spodnje Bitnje
+0 TRLR
+`;
+
+  it("strips an all-placeholder DATE when the master has no placeholder convention", () => {
+    // Master writes real numeric dates only — no "__.__.____" house style.
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 20.02.1989
+0 TRLR
+`);
+    const { dataset: out, report } = normalizeDataset(dataset(COMPARE_PH), inferMasterProfile(master));
+    const death = out.individuals.get("@I1@")!.events.find((e) => e.tag === "DEAT")!;
+    expect(death.date).toBeUndefined();
+    expect(death.place?.raw).toBe("Spodnje Bitnje"); // the rest of the event is untouched
+    expect(report.dateExamples).toContainEqual({ before: ".__.____", after: "(blank)" });
+  });
+
+  it("keeps and reshapes a placeholder DATE when the master uses one", () => {
+    // Master pads unknown components ("__.__.____") — two such values establish
+    // it as a house convention, so the incoming placeholder is kept, not dropped.
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE __.05.1888
+1 DEAT
+2 DATE .__.____
+0 @I2@ INDI
+1 BIRT
+2 DATE 20.02.1989
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(dataset(COMPARE_PH), inferMasterProfile(master));
+    const death = out.individuals.get("@I1@")!.events.find((e) => e.tag === "DEAT")!;
+    expect(death.date?.raw).toBe("__.__.____");
+  });
+});
+
 describe("parseDate (2-digit years)", () => {
   it("expands 2-digit years in numeric dates (window picks the 1900s for 32–99)", () => {
     expect(parseDate("20.02.89", "DMY")).toMatchObject({ day: 20, month: 2, year: 1989 });
@@ -1096,5 +1177,37 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
   it("detects the master's NN token convention", () => {
     expect(inferMasterProfile(nnMaster).unknownName).toEqual({ form: "token", token: "NN" });
     expect(inferMasterProfile(blankMaster).unknownName).toEqual({ form: "blank" });
+  });
+
+  it("keeps the NN convention despite many half-known names", () => {
+    // Ordinary incomplete data (known surname, blank given) is not blank-convention
+    // evidence: it must not drown out the explicit NN token.
+    const halfKnown = Array.from({ length: 20 }, (_, i) =>
+      `0 @H${i}@ INDI\n1 NAME /Novak${i}/`,
+    ).join("\n");
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /NN/
+0 @I2@ INDI
+1 NAME Ana /NN/
+${halfKnown}
+0 TRLR
+`);
+    expect(inferMasterProfile(master).unknownName).toEqual({ form: "token", token: "NN" });
+  });
+
+  it("uses the blank convention when fully-blank names outnumber tokens", () => {
+    const master = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME //
+0 @I2@ INDI
+1 NAME //
+0 @I3@ INDI
+1 NAME Janez /NN/
+0 TRLR
+`);
+    expect(inferMasterProfile(master).unknownName).toEqual({ form: "blank" });
   });
 });

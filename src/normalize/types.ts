@@ -93,6 +93,15 @@ export interface NumericDateFormat {
   padDay: boolean;
   /** Whether the month is zero-padded ("02" vs "2"). */
   padMonth: boolean;
+  /**
+   * Character the master writes for an unknown date component (e.g. "_"), or
+   * undefined when it omits unknown parts instead. When set, reshaping fills a
+   * missing field with a run of this character padded to the field's width
+   * ("__" for day/month, "____" for year) rather than dropping the slot — so an
+   * incoming "FEB 1900" becomes "__.02.1900" and ".__.____" becomes
+   * "__.__.____", matching the master's house style.
+   */
+  placeholder?: string;
 }
 
 /**

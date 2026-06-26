@@ -139,6 +139,15 @@ export interface GedDate {
   year2?: number;
   month2?: number;
   day2?: number;
+  /**
+   * The raw value was a deliberate all-unknown placeholder date (e.g.
+   * ".__.____" / "__.__.____"): no component is known, but it is an intentional
+   * "date unknown" marker, not uninterpretable text. Lets reshaping re-render it
+   * in the master's placeholder layout instead of preserving a foreign marker
+   * verbatim. (Partial placeholder dates that keep a real year/month are parsed
+   * into those components and don't need this flag.)
+   */
+  placeholder?: boolean;
 }
 
 /** A place, kept raw plus split into its comma-separated hierarchy. */

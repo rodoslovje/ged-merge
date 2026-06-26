@@ -1,7 +1,7 @@
 import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
-import { normalizeDateString } from "./date";
+import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout } from "./placeReformat";
@@ -98,6 +98,20 @@ export function normalizeDataset(
       }
     }
   });
+
+  // An all-placeholder date (".__.____") carries no information. When the master
+  // has no placeholder-date convention of its own, strip it entirely rather than
+  // keep a foreign "__.__.____" marker — the date analog of reshapeUnknownNames'
+  // blank default for names. (When the master *does* use placeholder dates, the
+  // walk above has already reshaped these to its layout, so we leave them.)
+  if (options.dates && !profile.date.numeric?.placeholder) {
+    for (const rec of editable) {
+      for (const before of dropPlaceholderDates(rec)) {
+        report.datesChanged++;
+        record(report.dateExamples, seenDate, before, "(blank)");
+      }
+    }
+  }
 
   // Reshape PLAC/ADDR/NOTE into the master's layout, e.g. splitting a packed
   // "Town (Country), Street No" into structured PLAC + ADDR, or folding a

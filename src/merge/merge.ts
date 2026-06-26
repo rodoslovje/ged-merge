@@ -181,7 +181,16 @@ export function mergeDecisions(
   // How the master stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
   const linkFormat = detectLinkFormat(master);
-  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap);
+  // Matches the user explicitly rejected: dropped from the merge's identity map
+  // so a rejected pair is never reused to stitch relationships — the incoming
+  // person is imported as a new record instead of folded into the wrong master.
+  const rejectedPairs = new Set<string>();
+  for (const [key, decision] of decisions) {
+    if (decision.status !== "rejected") continue;
+    const { kind, masterId, compareId } = parseKey(key);
+    if (kind === "individual") rejectedPairs.add(`${masterId}|${compareId}`);
+  }
+  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;

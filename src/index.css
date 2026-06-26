@@ -908,6 +908,14 @@ button:focus-visible {
 }
 .loader-meta dt { color: var(--muted); }
 .loader-meta dd { margin: 0; font-family: var(--font-mono); color: var(--text); }
+/* Rows with an explanatory tooltip get the same dotted-underline help cue as the
+   normalized-report lines. */
+.loader-meta dt[title] { cursor: help; }
+.loader-meta dd[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--border);
+  text-underline-offset: 3px;
+}
 
 /* Warnings status — green check at 0, amber count when >0 */
 .loader-warn {

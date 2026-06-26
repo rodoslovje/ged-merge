@@ -127,9 +127,31 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
   };
   // Prefer numeric output only when it's the master's dominant style.
   if (numeric.count > monthWordValues && numeric.count > 0) {
-    profile.numeric = numeric.resolve();
+    const resolved = numeric.resolve();
+    const placeholder = detectDatePlaceholder(values);
+    if (placeholder) resolved.placeholder = placeholder;
+    profile.numeric = resolved;
   }
   return profile;
+}
+
+/**
+ * The character a file uses to mark an unknown date component ("_" or "?"), or
+ * undefined when it doesn't use placeholder dates. Detected from values where a
+ * placeholder run sits in a numeric date slot (bounded by separators or the
+ * ends), e.g. "__.05.1900" or ".__.____". Requires at least two such values so a
+ * single stray entry isn't mistaken for a house convention.
+ */
+export function detectDatePlaceholder(values: string[]): string | undefined {
+  let underscore = 0;
+  let question = 0;
+  for (const v of values) {
+    if (!/(?:^|[./-])\s*[_?]{1,4}\s*(?:[./-]|$)/.test(v)) continue;
+    if (v.includes("_")) underscore++;
+    else question++;
+  }
+  if (underscore + question < 2) return undefined;
+  return underscore >= question ? "_" : "?";
 }
 
 /**
@@ -139,11 +161,13 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
  */
 export function describeDateFormat(profile: DateFormatProfile): string {
   if (profile.numeric) {
-    const { order, separator, padDay, padMonth } = profile.numeric;
+    const { order, separator, padDay, padMonth, placeholder } = profile.numeric;
     const d = padDay ? "DD" : "D";
     const m = padMonth ? "MM" : "M";
     const fields = order === "YMD" ? ["YYYY", m, d] : order === "MDY" ? [m, d, "YYYY"] : [d, m, "YYYY"];
-    return fields.join(separator);
+    const layout = fields.join(separator);
+    // Note the unknown-component marker when the master uses one (e.g. "__").
+    return placeholder ? `${layout} (unknown: ${placeholder.repeat(2)})` : layout;
   }
   const d = profile.padDay ? "DD" : "D";
   const token = profile.monthTokens[1] || "JAN";

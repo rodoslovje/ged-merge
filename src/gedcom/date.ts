@@ -103,7 +103,33 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   const simple = parseSimple(upper, order);
   if (simple) return { raw, qualifier: "exact", ...simple };
 
+  // A structured but entirely-unknown numeric date (".__.____", "__.__.____"):
+  // no usable component, yet a deliberate placeholder, not garbage. Flag it so
+  // reshaping can re-render it in the master's placeholder layout.
+  if (isAllPlaceholderDate(upper)) return { raw, qualifier: "unknown", placeholder: true };
+
   return { raw, qualifier: "unknown" };
+}
+
+/**
+ * True for a `.`/`/`-separated value whose every field is empty or a pure
+ * placeholder run (`_`, `?`, `<>`, `-`, …) — i.e. a deliberate all-unknown date.
+ * A field carrying any digit (e.g. the "19__" in ".__.19__") disqualifies it:
+ * that's a partly-known value we'd rather leave as raw than treat as unknown.
+ * A lone token ("____") is also excluded — it lacks the separators that mark it
+ * out as a date rather than stray text.
+ */
+function isAllPlaceholderDate(s: string): boolean {
+  const toks = s.split(/[./]/);
+  if (toks.length < 2 || toks.length > 3) return false;
+  let sawPlaceholder = false;
+  for (const tok of toks) {
+    const t = tok.trim();
+    if (t === "") continue;
+    if (/^[_?<>–—o-]+$/i.test(t)) sawPlaceholder = true;
+    else return false;
+  }
+  return sawPlaceholder;
 }
 
 function withFirst(

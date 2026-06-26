@@ -69,9 +69,16 @@ export function makeContext(
   touched: Set<string>,
   t: Translate,
   sourXrefMap: SourXrefMap,
+  /** `${masterId}|${compareId}` pairs the user rejected — never reused as a join
+   *  point, so the incoming record is imported as a new person instead of being
+   *  silently merged into the (wrongly) matched master record. */
+  rejectedPairs: Set<string> = new Set(),
 ): MergeContext {
   const incToMaster = new Map<string, string>();
-  for (const c of matches.individuals) incToMaster.set(c.compareId, c.masterId);
+  for (const c of matches.individuals) {
+    if (rejectedPairs.has(`${c.masterId}|${c.compareId}`)) continue;
+    incToMaster.set(c.compareId, c.masterId);
+  }
 
   const used = new Set<string>();
   for (const r of records) if (r.xref) used.add(r.xref);
@@ -423,7 +430,13 @@ function ensureChildFamily(
   master: Dataset,
   ctx: MergeContext,
 ): { id: string; node: GedNode } {
-  const existing = master.individuals.get(masterId)?.childOf[0];
+  // Prefer the live merged tree's FAMC over the original dataset's: a child
+  // family created earlier in this merge (e.g. by the confirmed-match parent
+  // stitch) is wired onto the cloned indi node but absent from `master`, so
+  // reading `master` here would miss it and create a duplicate family.
+  const existing =
+    ctx.indiNode(masterId)?.children.find((c) => c.tag === "FAMC")?.value ??
+    master.individuals.get(masterId)?.childOf[0];
   if (existing) {
     const node = ctx.famNode(existing);
     if (node) return { id: existing, node };

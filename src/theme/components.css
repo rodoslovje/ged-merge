@@ -82,14 +82,17 @@
 .tree-node-year        { fill: var(--muted); }              /* render "1817–1921" range */
 .tree-node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
 
-/* Decision badge (C / D / R) on a tree node — same tokens as .status-chip,
-   so a decision reads the same whether it's shown in Edit, Merge or Tree. */
+/* Decision badge (C / D / R, or I for an incoming-only person a graft will
+   bring in) on a tree node — same tokens as .status-chip, so a decision reads
+   the same whether it's shown in Edit, Merge or Tree. */
 .tree-node-decision.confirmed circle { fill: color-mix(in oklch, var(--state-match) 22%, transparent); }
 .tree-node-decision.deferred circle  { fill: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .tree-node-decision.rejected circle  { fill: color-mix(in oklch, var(--state-major) 22%, transparent); }
+.tree-node-decision.incoming circle  { fill: color-mix(in oklch, var(--state-incoming) 22%, transparent); }
 .tree-node-decision.confirmed text   { fill: var(--state-match); }
 .tree-node-decision.deferred text    { fill: var(--state-minor); }
 .tree-node-decision.rejected text    { fill: var(--state-major); }
+.tree-node-decision.incoming text    { fill: var(--state-incoming); }
 
 /* Legend swatches already use .tree-swatch — fill them from the node tokens. */
 .tree-swatch.match    { background: var(--node-match); }

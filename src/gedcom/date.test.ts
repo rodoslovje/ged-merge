@@ -53,6 +53,14 @@ describe("parseDate — partial dates with placeholders", () => {
     expect(parseDate("____").qualifier).toBe("unknown");
     expect(parseDate(".__.19__").qualifier).toBe("unknown");
   });
+
+  it("flags a structured all-unknown date so reshape can re-render it", () => {
+    expect(parseDate(".__.____")).toMatchObject({ qualifier: "unknown", placeholder: true });
+    expect(parseDate("__.__.____")).toMatchObject({ qualifier: "unknown", placeholder: true });
+    // A lone token or a partly-known year is not a structured placeholder date.
+    expect(parseDate("____").placeholder).toBeUndefined();
+    expect(parseDate(".__.19__").placeholder).toBeUndefined();
+  });
 });
 
 describe("parseDate — ranges, dual dating, parentheses", () => {

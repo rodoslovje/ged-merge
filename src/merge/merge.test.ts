@@ -450,6 +450,22 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
     // A couple family pairing @I1@ (husband) with the new wife @I4@.
     expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I4@/);
   });
+
+  it("imports a rejected-match parent as a new record instead of reusing the wrong master person", () => {
+    // The mother candidate @I3@/@P3@ is a false positive the user rejected; the
+    // father @I2@/@P2@ stays a confirmed-as-plausible match.
+    const rejectMother = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "rejected", fields: {} }],
+    ]);
+    const { records: recs } = mergeDecisions(master, compare, rejectMother, matches, tr);
+    const rejected = serializeGedcom(recs);
+    // Father is still the existing @I2@; mother is a freshly added record (@I4@),
+    // not the rejected @I3@.
+    expect(rejected).toMatch(/0 @F\d+@ FAM\n1 HUSB @I2@\n1 WIFE @I4@\n1 CHIL @I1@/);
+    expect(rejected).toContain("0 @I4@ INDI\n1 NAME Neza /Kos/");
+    expect(rejected).not.toMatch(/1 WIFE @I3@/);
+  });
 });
 
 describe("mergeDecisions — links", () => {

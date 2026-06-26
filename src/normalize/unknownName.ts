@@ -14,8 +14,14 @@ export interface UnknownNameAnalysis {
 /**
  * Detect how a file marks unknown given/surnames. A file is taken to use the
  * `token` convention when explicit placeholder tokens (`NN`, `____`, …) outnumber
- * the half-known names it leaves blank; otherwise it uses the `blank` convention
- * (the default). Only the primary `NAME` of each individual is examined.
+ * the *fully blank* names it leaves empty; otherwise it uses the `blank`
+ * convention (the default). Only the primary `NAME` of each individual is
+ * examined.
+ *
+ * Half-known names — one real part with the other slot empty ("Janez //") — are
+ * ordinary incomplete data, not a statement of convention, so they are *not*
+ * counted as blank evidence. In a large genealogy they vastly outnumber explicit
+ * tokens and would otherwise drown out a deliberate `NN` convention.
  */
 export function analyzeUnknownNames(dataset: Dataset): UnknownNameAnalysis {
   const tokenCounts = new Map<string, number>();
@@ -29,13 +35,11 @@ export function analyzeUnknownNames(dataset: Dataset): UnknownNameAnalysis {
     const { given, surname, hadSlash } = effectiveParts(name);
     if (isUnknownNameToken(given)) bump(tokenCounts, given!.trim());
     if (isUnknownNameToken(surname)) bump(tokenCounts, surname!.trim());
-    // A half-known name — one real part present, the other an empty slot — is
-    // evidence the file leaves unknown parts blank. Require the slash form so an
-    // absent surname is a deliberate empty slot, not an unparsed single word.
-    if (hadSlash) {
-      if (isReal(given) && !surname) blanks++;
-      if (isReal(surname) && !given) blanks++;
-    }
+    // A *fully* blank name — both parts empty in the slash form ("//") — is the
+    // deliberate counterpart to an explicit token ("NN /NN/"): an entirely
+    // unknown person recorded by leaving the slots empty. That is the only
+    // reliable blank-convention signal; half-known names are skipped above.
+    if (hadSlash && !given && !surname) blanks++;
   }
   const token = mostFrequent(tokenCounts);
   const tokenTotal = total(tokenCounts);
@@ -141,9 +145,6 @@ function writeValue(name: GedNode, given: string | undefined, surname: string | 
 
 // --- counting helpers ------------------------------------------------------
 
-function isReal(text: string | undefined): boolean {
-  return !!text && !isUnknownNameToken(text);
-}
 function bump(m: Map<string, number>, key: string): void {
   m.set(key, (m.get(key) ?? 0) + 1);
 }

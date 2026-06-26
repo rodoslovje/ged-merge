@@ -61,6 +61,19 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/** A Tools-tab "working…" placeholder: the same spinner + accent row the file
+ *  loader uses for "Parsing and validating…", shown while a panel computes. */
+function ToolsLoading({ label }: { label: string }) {
+  return (
+    <div className="tools-loading">
+      <div className="parsing-status">
+        <span className="spinner" aria-hidden="true" />
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onMergeDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
@@ -175,7 +188,7 @@ function ValidatePanel({
     return q ? byCat.filter((i) => i.subject.toLowerCase().includes(q)) : byCat;
   }, [report, filter, q]);
 
-  if (!report) return <div className="tools-loading">{t("tools.running")}</div>;
+  if (!report) return <ToolsLoading label={t("tools.running")} />;
 
   const total = report.issues.length;
   return (
@@ -385,7 +398,7 @@ function DuplicatesPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [active, shown]);
 
-  if (state.status !== "done") return <div className="tools-loading">{t("tools.duplicates.running")}</div>;
+  if (state.status !== "done") return <ToolsLoading label={t("tools.duplicates.running")} />;
 
   return (
     <>
@@ -656,7 +669,7 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
     downloadText(`${base}.normalized.ged`, text);
   }
 
-  if (state.status !== "done") return <div className="tools-loading">{t("tools.normalize.running")}</div>;
+  if (state.status !== "done") return <ToolsLoading label={t("tools.normalize.running")} />;
 
   return (
     <>
@@ -1066,7 +1079,7 @@ function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (!tree || !filtered) return <div className="tools-loading">{t("tools.running")}</div>;
+  if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
 
   const empty =
     filtered.tree.repos.length === 0 &&
@@ -1299,7 +1312,7 @@ function PlacesPanel({
     setOpen(toOpen);
   }
 
-  if (!tree) return <div className="tools-loading">{t("tools.running")}</div>;
+  if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
   return (
     <>
