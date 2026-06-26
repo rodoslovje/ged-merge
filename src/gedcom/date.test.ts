@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDate } from "./date";
+import { parseDate, dateRefines } from "./date";
 
 describe("parseDate — Slovenian/German month words", () => {
   it("parses Slovenian months (nominative, genitive, abbreviations)", () => {
@@ -98,5 +98,33 @@ describe("parseDate — existing forms still work", () => {
     expect(parseDate("BET 1900 AND 1905")).toMatchObject({
       qualifier: "between", year: 1900, year2: 1905,
     });
+  });
+});
+
+describe("dateRefines — incoming is a more exact same date", () => {
+  it("treats a full date as refining a year-only one", () => {
+    expect(dateRefines("1949", "12 MAR 1949")).toBe(true);
+    expect(dateRefines("1949", "MAR 1949")).toBe(true);
+    expect(dateRefines("MAR 1949", "12 MAR 1949")).toBe(true);
+    expect(dateRefines("ABT 1949", "12 MAR 1949")).toBe(true);
+  });
+
+  it("treats an exact assertion as refining the same about date", () => {
+    expect(dateRefines("ABT 12 MAR 1949", "12 MAR 1949")).toBe(true);
+  });
+
+  it("does not refine when components contradict", () => {
+    expect(dateRefines("12 MAR 1949", "13 MAR 1949")).toBe(false);
+    expect(dateRefines("JAN 1949", "12 MAR 1949")).toBe(false);
+    expect(dateRefines("1949", "12 MAR 1950")).toBe(false);
+  });
+
+  it("does not refine when incoming is equal or less precise", () => {
+    expect(dateRefines("12 MAR 1949", "12 MAR 1949")).toBe(false);
+    expect(dateRefines("12 MAR 1949", "1949")).toBe(false);
+  });
+
+  it("leaves ranges to the default", () => {
+    expect(dateRefines("BET 1949 AND 1950", "12 MAR 1949")).toBe(false);
   });
 });

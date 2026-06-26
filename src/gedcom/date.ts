@@ -128,6 +128,38 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
 }
 
 /**
+ * How precise a single, plain date is (no range/placeholder):
+ *   0 = nothing known · 1 = year · 2 = year+month · 3 = full date.
+ * An `about`-style estimate counts as half a step less precise than the same
+ * granularity asserted exactly, so "12 MAR 1949" beats "ABT 12 MAR 1949".
+ */
+function datePrecision(d: GedDate): number {
+  if (d.year == null) return 0;
+  let rank = d.month == null ? 1 : d.day == null ? 2 : 3;
+  if (d.qualifier !== "exact") rank -= 0.5;
+  return rank;
+}
+
+/**
+ * True when `incoming` is a strictly more precise version of `master` that
+ * doesn't contradict it — e.g. master "1949" refined by incoming "12 MAR 1949".
+ * Both must be single (non-range) dates sharing the same year, and every
+ * component the master already pins (month, day) must agree. Used so a merge
+ * defaults to the incoming side when it carries the more exact date.
+ */
+export function dateRefines(masterRaw: string, incomingRaw: string, order?: DateOrder): boolean {
+  const m = parseDate(masterRaw, order);
+  const i = parseDate(incomingRaw, order);
+  if (m.year == null || i.year == null) return false;
+  if (m.year !== i.year) return false;
+  // Ranges/periods aren't a simple precision ladder — leave them to the default.
+  if (m.year2 != null || i.year2 != null) return false;
+  if (m.month != null && m.month !== i.month) return false;
+  if (m.day != null && m.day !== i.day) return false;
+  return datePrecision(i) > datePrecision(m);
+}
+
+/**
  * True for a `.`/`/`-separated value whose every field is empty or a pure
  * placeholder run (`_`, `?`, `<>`, `-`, …) — i.e. a deliberate all-unknown date.
  * A field carrying any digit (e.g. the "19__" in ".__.19__") disqualifies it:

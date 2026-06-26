@@ -1,4 +1,5 @@
 import type { SourceCitation, Sex } from "../gedcom/types";
+import { dateRefines } from "../gedcom/date";
 
 /** Whether a candidate match has been acted on. */
 export type MatchDecisionStatus = "undecided" | "confirmed" | "rejected" | "deferred";
@@ -178,7 +179,12 @@ export function decisionStatusByMasterId(
   return map;
 }
 
-/** Sensible default merge choice: keep the master's value, else take incoming. */
+/** Sensible default merge choice: keep the master's value, else take incoming.
+ *  Exception: for a date field, when the incoming date is a strictly more exact
+ *  version of the master's (e.g. master "1949" vs incoming "12 MAR 1949"), take
+ *  the incoming side — the finer date is almost always what the user wants. */
 export function defaultChoice(row: FieldRow): FieldChoice {
-  return row.master ? "master" : "incoming";
+  if (!row.master) return "incoming";
+  if (row.key.endsWith(".date") && dateRefines(row.master, row.incoming)) return "incoming";
+  return "master";
 }
