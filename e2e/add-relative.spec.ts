@@ -8,7 +8,7 @@ const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
 test("edit mode: adding father/mother/partner/child creates new people and links them", async ({ page }) => {
   await page.goto("/");
 
-  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -51,5 +51,5 @@ test("edit mode: adding father/mother/partner/child creates new people and links
   await expect(page.locator(".edit-parents")).toContainText("New Father");
   await expect(page.locator(".edit-parents")).toContainText("New Mother");
 
-  await expect(page.locator(".app-head-right .export-btn")).toBeEnabled();
+  await expect(page.locator(".app-head-actions .export-btn")).toBeEnabled();
 });

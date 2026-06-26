@@ -31,11 +31,11 @@ function writeLegacyLinkFixture(url: string): string {
 test("edit mode: name, sex and event fields are editable and exportable", async ({ page }) => {
   await page.goto("/");
 
-  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
-  const saveBtn = page.locator(".app-head-right .export-btn");
+  const saveBtn = page.locator(".app-head-actions .export-btn");
   await expect(saveBtn).toHaveCount(0);
 
   const given = page.locator(".edit-name-input").first();
@@ -76,7 +76,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
 test("edit mode: family marriage fields are editable and exportable", async ({ page }) => {
   await page.goto("/");
 
-  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -89,7 +89,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
 
-  const saveBtn = page.locator(".app-head-right .export-btn");
+  const saveBtn = page.locator(".app-head-actions .export-btn");
   await expect(saveBtn).toBeEnabled();
   await saveBtn.click();
 
@@ -110,7 +110,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
 test("edit mode: undoing a removed source citation restores its title, not just a bare link", async ({ page }) => {
   await page.goto("/");
 
-  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -138,7 +138,7 @@ test("edit mode: undoing a removed source citation restores its title, not just 
 test("edit mode: clicking a source citation opens an editable dialog, prefilled, and Save updates it", async ({ page }) => {
   await page.goto("/");
 
-  await page.locator('input[type="file"]').first().setInputFiles(SAMPLE);
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -172,7 +172,7 @@ test("edit mode: clicking a source citation opens an editable dialog, prefilled,
 test("edit mode: a legacy link opens the Edit Source dialog prefilled with just the URL; saving without other fields keeps it a plain link", async ({ page }) => {
   const fixture = writeLegacyLinkFixture("https://example.com/legacy-original");
   await page.goto("/");
-  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.locator('input.file-input').first().setInputFiles(fixture);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -200,7 +200,7 @@ test("edit mode: a legacy link opens the Edit Source dialog prefilled with just 
 test("edit mode: filling in a title while editing a legacy link promotes it to a real Source citation", async ({ page }) => {
   const fixture = writeLegacyLinkFixture("https://example.com/legacy-promote");
   await page.goto("/");
-  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.locator('input.file-input').first().setInputFiles(fixture);
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 

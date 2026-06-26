@@ -40,11 +40,11 @@ async function rowByPlace(page: Page, place: string): Promise<Locator> {
 // must not strip the dirty marker off its siblings.
 test("materialized merge event keeps all fields marked after a later edit", async ({ page }) => {
   await page.goto("/");
-  await page.locator('input[type="file"]').first().setInputFiles(MASTER);
+  await page.locator('input.file-input').first().setInputFiles(MASTER);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Merge", exact: true }).click();
-  await page.locator('input[type="file"]').last().setInputFiles(COMPARE);
+  await page.locator('input.file-input').last().setInputFiles(COMPARE);
   await page.locator(".candidate").first().waitFor({ timeout: 30000 });
   await page.locator(".candidate-main").first().click();
   await page.locator(".decision-bar button").first().click();
