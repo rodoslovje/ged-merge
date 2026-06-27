@@ -37,6 +37,16 @@
   --sex-male:   #55bef0;
   --sex-female: #f886bb;
 
+  /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
+  --danger:      #e74c3c;
+  --danger-soft: color-mix(in oklch, var(--danger) 12%, transparent);
+
+  /* ---- field-level status accents (sit on --panel/--bg, not coloured chips) ---- */
+  --status-new:    #6ee7b7;  /* incoming-only field (will be added) */
+  --status-diff:   #fcd34d;  /* values differ                      */
+  --status-link:   #93c5fd;  /* carries a link / source            */
+  --status-import: #c4b5fd;  /* importable candidate count         */
+
   /* ---- Compare-Tree node fills (deeper; white text reads on both themes) ---- */
   --node-match:    #067d4d;
   --node-minor:    #a2702b;
@@ -45,9 +55,10 @@
   --node-incoming: #7846a9;
 
   /* ---- shape ---- */
-  --radius-sm: 6px;
-  --radius:    8px;
-  --radius-lg: 10px;
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-lg:   10px;
+  --radius-pill: 999px;
 }
 
 :root[data-theme="light"] {
@@ -72,6 +83,14 @@
 
   --sex-male:   #166daf;
   --sex-female: #b73c7c;
+
+  --danger:      #c0392b;   /* deeper red reads better on warm paper */
+  /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */
+
+  --status-new:    #15803d;
+  --status-diff:   #b45309;
+  --status-link:   #2563eb;
+  --status-import: #7c3aed;
 
   /* --node-* fills are intentionally shared with dark (they pop on both). */
 }

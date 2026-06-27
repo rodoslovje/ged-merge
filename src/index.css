@@ -81,7 +81,7 @@ button:focus-visible {
   gap: 7px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 11px 3px 9px;
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -160,7 +160,7 @@ button:focus-visible {
   background: none;
   color: var(--muted);
   padding: 5px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .seg-btn:hover { color: var(--text); }
@@ -181,7 +181,7 @@ button:focus-visible {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 4px 8px;
   font-size: 0.85rem;
   cursor: pointer;
@@ -214,7 +214,7 @@ button:focus-visible {
   align-items: center;
   gap: 12px;
   font-size: 0.9rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 16px;
 }
 .mobile-warning button {
@@ -226,7 +226,7 @@ button:focus-visible {
 .section {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   margin-bottom: 14px;
   overflow: hidden;
 }
@@ -380,7 +380,7 @@ button:focus-visible {
   gap: 6px;
   padding: 32px 16px;
   border: 1.5px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--bg);
   cursor: pointer;
   text-align: center;
@@ -507,7 +507,7 @@ button:focus-visible {
 /* Dropzone */
 .lb-drop {
   border: 1.5px dashed color-mix(in oklch, var(--accent) 55%, var(--border-2));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: color-mix(in oklch, var(--accent) 3%, var(--panel));
   text-align: center;
   display: flex;
@@ -813,7 +813,7 @@ button:focus-visible {
   padding: 8px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 12px;
   font-size: 0.9rem;
 }
@@ -824,7 +824,7 @@ button:focus-visible {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 16px;
   margin-bottom: 14px;
 }
@@ -945,7 +945,7 @@ button:focus-visible {
   font-size: 0.85rem;
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--muted);
   cursor: pointer;
@@ -1041,7 +1041,7 @@ button:focus-visible {
   min-width: 120px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--text);
   /* room for the home icon on the left and the clear button on the right */
   padding: 5px 26px 5px 28px;
@@ -1106,7 +1106,7 @@ button:focus-visible {
   overflow-y: auto;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   position: absolute;
   top: 100%;
   left: 0;
@@ -1122,7 +1122,7 @@ button:focus-visible {
   border: none;
   color: var(--text);
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .home-option:hover,
 .home-option.highlighted { background: var(--panel); }
@@ -1172,7 +1172,7 @@ button:focus-visible {
   padding: 10px 12px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 0.85rem;
 }
 .filter-row {
@@ -1197,7 +1197,7 @@ button:focus-visible {
   box-sizing: border-box;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--text);
   padding: 5px 28px 5px 10px;
   font-size: 0.85rem;
@@ -1228,7 +1228,7 @@ button:focus-visible {
 .score-select {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 4px 6px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1243,7 +1243,7 @@ button:focus-visible {
   background: var(--accent);
   border: 1px solid var(--accent);
   color: #fff;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px 12px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1279,7 +1279,7 @@ button:focus-visible {
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 12px;
 }
 
@@ -1369,17 +1369,17 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
 }
-.nd.new { color: #6ee7b7; }
-.nd.diff { color: #fcd34d; }
-.nd.link { color: #93c5fd; }
+.nd.new { color: var(--status-new); }
+.nd.diff { color: var(--status-diff); }
+.nd.link { color: var(--status-link); }
 /* Import counts span a whole subtree, so they can be several digits — give the
    column room (header icon and body number share the width to stay aligned). */
-.nd.import { flex-basis: 34px; width: 34px; color: #c4b5fd; }
+.nd.import { flex-basis: 34px; width: 34px; color: var(--status-import); }
 .nd.zero { color: var(--muted); opacity: 0.45; }
 
-/* Name colouring by sex: cyan male, pink female. */
-.sex-m { color: #38bdf8; }
-.sex-f { color: #f472b6; }
+/* Name colouring by sex (themed tokens; male blue, female pink). */
+.sex-m { color: var(--sex-male); }
+.sex-f { color: var(--sex-female); }
 
 .candidate {
   flex: 0 0 auto; /* don't shrink to fit the scroll container — let it scroll */
@@ -1394,7 +1394,7 @@ button:focus-visible {
 }
 /* Subtle left accent for candidates that carry link data. */
 .candidate.has-links {
-  border-left: 3px solid #93c5fd;
+  border-left: 3px solid var(--status-link);
 }
 
 .candidate-head {
@@ -1508,7 +1508,7 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
 }
 .candidate.selected .badge { font-weight: 600; }
@@ -1685,7 +1685,7 @@ button:focus-visible {
 .person-photo-btn {
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   cursor: zoom-in;
   overflow: hidden;
@@ -1726,7 +1726,7 @@ button:focus-visible {
   color: #fff;
   font-size: 1.1rem;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .person-photo-close:hover { background: rgba(255, 255, 255, 0.1); }
@@ -1755,7 +1755,7 @@ button:focus-visible {
   line-height: 1;
   width: 48px;
   height: 64px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1807,7 +1807,7 @@ button:focus-visible {
   overflow-y: auto;
   background: var(--panel, #1e1e1e);
   color: var(--text);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 14px 16px;
   font-size: 0.85rem;
 }
@@ -1883,7 +1883,7 @@ button:focus-visible {
 .edit-name-chip {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 2px 6px;
   color: inherit;
   font: inherit;
@@ -1927,7 +1927,7 @@ button:focus-visible {
 .edit-name-variant-input { font-size: 0.85rem; }
 .edit-name-type-select {
   font-size: 0.85rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* The whole table is one grid so every row shares the same column tracks —
@@ -2061,7 +2061,7 @@ button:focus-visible {
 .edit-input {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 2px 6px;
   color: inherit;
   font: inherit;
@@ -2139,7 +2139,7 @@ button:focus-visible {
   font-size: 0.85rem;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 2px 6px;
   cursor: pointer;
 }
@@ -2156,7 +2156,7 @@ button:focus-visible {
   width: 24px;
   height: 24px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   font: inherit;
@@ -2181,7 +2181,7 @@ button:focus-visible {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 0.8rem;
   text-decoration: none;
@@ -2192,7 +2192,7 @@ button:focus-visible {
   align-self: flex-start;
   background: transparent;
   border: 1px dashed var(--border-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font: inherit;
   padding: 2px 6px;
@@ -2204,7 +2204,7 @@ button:focus-visible {
 .person-card {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 5px 8px;
   cursor: pointer;
   text-align: left;
@@ -2220,7 +2220,7 @@ button:focus-visible {
   display: inline-flex;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   cursor: zoom-in;
   line-height: 0;
@@ -2308,8 +2308,8 @@ button:focus-visible {
 }
 .person-card-wrap:hover .person-card-detach { opacity: 1; }
 .person-card-detach:hover {
-  color: var(--danger, #c0392b);
-  background: color-mix(in oklch, var(--danger, #c0392b) 12%, transparent);
+  color: var(--danger);
+  background: var(--danger-soft);
   opacity: 1;
 }
 
@@ -2317,7 +2317,7 @@ button:focus-visible {
 .relative-picker {
   width: 200px;
   border: 1px dashed var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg);
 }
@@ -2397,7 +2397,9 @@ button:focus-visible {
 }
 .clearable-wrap:hover .input-clear,
 .clearable-wrap:focus-within .input-clear { opacity: 0.7; }
-.input-clear:hover { opacity: 1 !important; color: var(--text); background: var(--border); }
+/* Matches the descendant-selector specificity above (.clearable-wrap .input-clear:hover),
+   so the brighter hover wins on source order without !important. */
+.clearable-wrap .input-clear:hover { opacity: 1; color: var(--text); background: var(--border); }
 .clearable-wrap--textarea { align-items: flex-start; }
 .clearable-wrap--textarea .edit-input {
   resize: none;
@@ -2429,7 +2431,7 @@ button:focus-visible {
   padding: 4px 0;
   background: var(--panel);
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   max-height: 220px;
   overflow-y: auto;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
@@ -2485,7 +2487,7 @@ button:focus-visible {
   min-height: 3em;
   resize: vertical;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   padding: 4px 8px;
@@ -2497,10 +2499,10 @@ button:focus-visible {
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
   margin-left: auto;
-  border: 1px solid var(--danger, #e74c3c);
-  border-radius: 6px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--danger, #e74c3c);
+  color: var(--danger);
   font: inherit;
   font-size: 1rem;
   line-height: 1;
@@ -2509,10 +2511,10 @@ button:focus-visible {
   transition: background 0.12s;
 }
 .edit-delete-btn:hover {
-  background: color-mix(in oklch, var(--danger, #e74c3c) 12%, transparent);
+  background: var(--danger-soft);
 }
 .edit-delete-btn:focus-visible {
-  outline: 2px solid var(--danger, #e74c3c);
+  outline: 2px solid var(--danger);
   outline-offset: 2px;
 }
 
@@ -2577,7 +2579,7 @@ button:focus-visible {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px 12px;
   font-size: 0.85rem;
 }
@@ -2613,7 +2615,7 @@ button:focus-visible {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px 12px;
   font-size: 0.85rem;
   text-transform: capitalize;
@@ -2725,7 +2727,7 @@ button:focus-visible {
 button.link-icon { border: none; font: inherit; }
 /* Marks an incoming link that the master doesn't have yet (will be added). */
 .link-icon.link-new {
-  background: #93c5fd40;
+  background: color-mix(in srgb, var(--status-link) 25%, transparent);
   opacity: 1;
 }
 .source-refs { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; margin-left: 8px; }
@@ -2796,7 +2798,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 2px 5px;
   margin-right: 2px;
 }
@@ -2862,7 +2864,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px 12px;
   font-size: 0.85rem;
   white-space: nowrap;
@@ -2976,7 +2978,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: none;
   border: none;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 5px 16px;
   cursor: pointer;
 }
@@ -3005,7 +3007,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 5px 10px;
   font-size: 0.82rem;
 }
@@ -3024,7 +3026,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   list-style: none;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 10;
 }
@@ -3038,7 +3040,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border: none;
   color: var(--text);
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
 }
 .tree-person:hover { background: var(--panel); }
@@ -3089,7 +3091,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   display: block;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   touch-action: none;
@@ -3110,7 +3112,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--muted);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .tree-minimap-collapse:hover { color: var(--text); border-color: var(--accent); }
@@ -3128,7 +3130,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--muted);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }
@@ -3180,7 +3182,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 9;
   overflow: hidden;
@@ -3323,7 +3325,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: var(--bg);
   border: 1px dashed var(--border);
   color: var(--muted);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 5px 12px;
   font-size: 0.85rem;
 }
@@ -3365,7 +3367,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   align-items: center;
   gap: 1px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.85em;
   font-weight: 700;
   color: var(--node-incoming);
@@ -3380,7 +3382,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   transform: translateX(-50%);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 12px 20px;
   z-index: 200;
   cursor: pointer;
@@ -3487,7 +3489,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .confirm-dialog-confirm {
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: #fff;
   padding: 6px 14px;
   font-size: 0.85rem;
@@ -3498,12 +3500,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* Destructive variant — red, for irreversible delete/remove confirmations only. */
 .confirm-dialog-confirm.danger {
   background: transparent;
-  border-color: var(--danger, #e74c3c);
-  color: var(--danger, #e74c3c);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .confirm-dialog-confirm.danger:hover {
   filter: none;
-  background: color-mix(in oklch, var(--danger, #e74c3c) 12%, transparent);
+  background: var(--danger-soft);
 }
 
 .add-source-dialog { width: 520px; max-width: 90vw; }
@@ -3529,7 +3531,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* Edit Source dialog: Remove sits apart on the left so Cancel/Save (the
    common path) stay the rightmost, single-click-safe default actions. */
 .add-source-remove { margin-right: auto; }
-.add-source-remove:hover:not(:disabled) { border-color: var(--danger, #c0392b); color: var(--danger, #c0392b); }
+.add-source-remove:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 
 /* --- merge preview --- */
 .preview-body {
@@ -3554,7 +3556,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 14px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 .preview-stat-num-row { display: flex; align-items: baseline; gap: 6px; }
 .preview-stat-num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
@@ -3587,12 +3589,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   display: flex; align-items: center; justify-content: center; flex: none;
 }
 .preview-item:hover .preview-item-remove { opacity: 1; }
-.preview-item-remove:hover { color: var(--danger, #c0392b); background: color-mix(in oklch, var(--danger, #c0392b) 12%, transparent); opacity: 1; }
+.preview-item-remove:hover { color: var(--danger); background: var(--danger-soft); opacity: 1; }
 
 .preview-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 10px 14px;
   margin-bottom: 10px;
 }
@@ -3604,14 +3606,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .preview-rec { font-weight: 600; color: var(--text); }
 .preview-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
 }
 .preview-badge.is-new { background: color-mix(in srgb, var(--state-incoming) 22%, transparent); color: var(--state-incoming); }
 .preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
-.preview-badge.is-removed { background: color-mix(in srgb, var(--danger, #c0392b) 15%, transparent); color: var(--danger, #c0392b); }
+.preview-badge.is-removed { background: var(--danger-soft); color: var(--danger); }
 .edit-tree-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
   background: color-mix(in srgb, var(--node-minor) 22%, transparent);
   color: var(--node-minor);
 }
@@ -3644,7 +3646,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .btn-secondary {
   background: transparent; border: 1px solid var(--border-2); color: var(--text);
-  border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
 }
 .btn-secondary:hover { border-color: var(--accent); }
 
@@ -3698,7 +3700,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .legal-notice {
   background: color-mix(in oklch, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in oklch, var(--accent) 25%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 12px 16px;
   margin: 14px 0 4px;
 }
@@ -3722,7 +3724,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .legal-content a:hover { text-decoration: underline; }
 
-/* --- Responsive adjustments for narrow screens (phones, tablets) --- */
+/* --- Responsive adjustments for narrow screens (phones, tablets) ---
+   Breakpoint scale (max-width), used throughout the file:
+     1100px — wordmark/file-pills/mode-tabs no longer fit on one header row
+      880px — header collapses; Save button switches to its short label
+      720px — tablet/large-phone layout (single column, stacked panels)
+      560px — phone: one field per full-width row
+   Some component-local responsive rules live next to their component
+   (search "@media" — header at ~880px, compare photos at ~720px); the bulk
+   of the overrides are grouped here so cross-cutting tweaks stay together. */
 @media (max-width: 880px) {
   .mobile-warning {
     border-radius: 0;
@@ -4116,7 +4126,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   text-align: left;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 12px 14px;
   cursor: pointer;
   display: flex;
@@ -4144,7 +4154,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   height: 18px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   color: var(--text);
   font-size: 0.7rem;
@@ -4179,7 +4189,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   box-sizing: border-box;
   padding: 6px 30px 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   color: var(--text);
   font: inherit;
@@ -4198,7 +4208,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-chip {
   border: 1px solid var(--border);
   background: var(--panel-2);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 12px;
   font: inherit;
   font-size: 0.8rem;
@@ -4223,8 +4233,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   contain-intrinsic-size: auto 34px;
 }
 .tools-issue:nth-child(even), .tools-pair:nth-child(even) { background: var(--panel-2); }
-.tools-issue.sev-error { border-left-color: var(--state-danger, #d9534f); }
-.tools-issue.sev-warning { border-left-color: var(--state-minor, #d9a441); }
+.tools-issue.sev-error { border-left-color: var(--state-major); }
+.tools-issue.sev-warning { border-left-color: var(--state-minor); }
 .tools-issue-link {
   border: none; background: none; padding: 0;
   color: var(--accent); cursor: pointer; font-weight: 600;

@@ -58,6 +58,21 @@ Key state:
 
 `handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. After confirming, the live `masterDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
 
+### Styling
+
+Plain global CSS (no CSS Modules / CSS-in-JS). Files load in a deliberate order — keep it:
+
+`theme/fonts.css` → `theme/heritage-pine.css` → `index.css` → `theme/components.css` (overrides win last). `src/guide.css` is the standalone guide page.
+
+- **`theme/heritage-pine.css` is the single source of design tokens** (`--bg`, `--panel`, `--accent`, `--danger`, `--status-*`, `--sex-*`, `--state-*`, `--node-*`, `--radius*`, …). `index.css` is layout/components; `components.css` is targeted overrides that must win the cascade.
+- **Use a token, don't hardcode.** No raw hex/`rgb()` for anything that maps to an existing token. Colors → the `--*` color tokens; corner radii → the `--radius-sm` / `--radius` / `--radius-lg` / `--radius-pill` scale; destructive UI → `--danger` (+ `--danger-soft` for tinted fills); male/female → `--sex-male` / `--sex-female`; field accents (new / changed / link / importable) → `--status-*`.
+- **New semantic color ⇒ new token, defined in *both* themes.** Add it to the dark `:root` *and* the `[data-theme="light"]` block. A color used in only one place can stay literal, but anything reused or theme-sensitive becomes a token. Don't use `var(--x, #fallback)` to paper over a missing definition — define `--x` instead (a dangling token with a fallback hides the gap and drifts).
+- **Don't tokenize a foreground color that sits on a hardcoded colored background** (e.g. the status chips `background:#14492f; color:#…`) unless you token-ize the background too — otherwise light theme breaks. Convert the pair together or leave both literal.
+- **Avoid `!important`** — fix specificity instead (e.g. match the descendant-selector weight and rely on source order). The few existing uses are for genuine cases (drag cursor, responsive grid resets).
+- **Breakpoints (max-width): `1100` / `880` / `720` / `560`** — reuse these, don't invent new ones. Most overrides are grouped in the responsive section at the bottom of `index.css`; some live next to their component.
+
+Sanity check after CSS edits: every referenced var must resolve to a definition, and `npm run build` must pass (it compiles the CSS).
+
 ### Module map
 
 | Path | Responsibility |
