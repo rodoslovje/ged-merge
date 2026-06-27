@@ -897,6 +897,45 @@ export function reorderIndividualMedia(indi: Individual, from: number, to: numbe
   slots.forEach((slotIdx, k) => { indi.raw.children[slotIdx] = objes[k]; });
 }
 
+/** Editable descriptive fields of a photo (`OBJE`). Each maps to a sub-tag;
+ *  an empty/blank value removes that tag. `undefined` leaves it unchanged. */
+export interface MediaInfoFields {
+  /** Caption — `TITL`. */
+  title?: string;
+  /** The date the media depicts — `DATE`. */
+  date?: string;
+  /** Place depicted — `PLAC`. */
+  place?: string;
+  /** Free-text description — `_DSCR` (the `NOTE` fallback is dropped). */
+  description?: string;
+}
+
+/**
+ * Write a photo's descriptive fields onto its `OBJE` node — either an inline
+ * block or a shared top-level record. `TITL`/`DATE`/`PLAC` are normalized to the
+ * `OBJE` level (any `TITL` nested on the `FILE` child is removed so it can't go
+ * stale), and `description` is stored as `_DSCR` (dropping a `NOTE` that
+ * `objeInfoOf` would otherwise read as the description). Blank values clear the
+ * tag; omitted fields are left untouched.
+ */
+export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
+  const fileNode = objeNode.children.find((c) => c.tag === "FILE");
+  const set = (tag: string, value: string) => {
+    objeNode.children = objeNode.children.filter((c) => c.tag !== tag);
+    if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== tag);
+    const v = value.trim();
+    if (v) objeNode.children.push({ level: objeNode.level + 1, tag, value: v, children: [] });
+  };
+  if (fields.title !== undefined) set("TITL", fields.title);
+  if (fields.date !== undefined) set("DATE", fields.date);
+  if (fields.place !== undefined) set("PLAC", fields.place);
+  if (fields.description !== undefined) {
+    objeNode.children = objeNode.children.filter((c) => c.tag !== "_DSCR" && c.tag !== "NOTE");
+    const v = fields.description.trim();
+    if (v) objeNode.children.push({ level: objeNode.level + 1, tag: "_DSCR", value: v, children: [] });
+  }
+}
+
 /**
  * Delete the top-level `OBJE` record `objeXref` if no pointer anywhere in the
  * dataset (on an `INDI`, `FAM`, or `SOUR`) still references it. Mirrors

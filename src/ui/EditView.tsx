@@ -27,6 +27,7 @@ import {
   findSharedMediaByFile,
   removeIndividualMediaAtIndex,
   reorderIndividualMedia,
+  setMediaInfo,
   detachChildFromFamily,
   detachSpouseRole,
   FAM_CHILD_ORDER,
@@ -69,7 +70,7 @@ import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonPhotos } from "./PersonPhotos";
-import { collectPhotoRefs } from "./PhotoViewer";
+import { collectPhotoRefs, usePhotoViewer, type PhotoEditFields } from "./PhotoViewer";
 
 /** Image filenames the photo drop zone accepts. */
 const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i;
@@ -663,6 +664,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder } = useMediaFolder();
+  const { openPerson } = usePhotoViewer();
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   // Follow the master's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
@@ -717,6 +719,45 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       extraPatches.push({ type: "record", id: rec.xref!, before: null, after: cloneRaw(rec) });
     }
     commit((indi) => attachMediaPointer(indi, objeXref!), extraPatches);
+  }
+
+  /** Edit a photo's metadata (title/date/place/description). An inline OBJE is
+   *  edited on the person record (normal commit); a shared top-level OBJE is
+   *  edited in place and captured as a `record` patch for undo, with the person
+   *  marked dirty so the change surfaces in the save preview. */
+  function editPersonMedia(objeIndex: number, fields: PhotoEditFields) {
+    if (!person) return;
+    const objeChild = person.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+    if (!objeChild) return;
+    const ptr = objeChild.value?.trim();
+    const sharedXref = ptr && isPointer(ptr) ? ptr : undefined;
+    if (sharedXref) {
+      const rec = dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref);
+      if (!rec) return;
+      const before = cloneRaw(rec);
+      setMediaInfo(rec, fields);
+      const after = cloneRaw(rec);
+      if (JSON.stringify(before) === JSON.stringify(after)) return;
+      bumpSourceCacheVersion(dataset.records);
+      rebuildIndividual(dataset, person);
+      onPushEdit([{ type: "record", id: sharedXref, before, after }], selectedId);
+      onDirty("individual", person.id);
+      setTick((v) => v + 1);
+    } else {
+      commit((indi) => {
+        const child = indi.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+        if (child) setMediaInfo(child, fields);
+      });
+    }
+  }
+
+  /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
+  const photoRefCtx = { dataset, onNavigate: navigate, onEditMedia: editPersonMedia };
+
+  /** After adding a single photo, open it in the viewer so its metadata can be
+   *  filled in straight away. */
+  function openLastPhoto() {
+    if (person) openPerson(person.raw, dataset.records, Number.MAX_SAFE_INTEGER, photoRefCtx);
   }
 
   /** The "Add photo" entry point: ensure a media folder is chosen, then open
@@ -792,13 +833,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     if (!folderName) { infoDialog(t("photo.selectFolderPrompt")); return; }
     if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("photo.importUnsupported")); return; }
     let anyOutside = false;
+    let added = 0;
     for (const promise of handlePromises) {
       const handle = await promise;
       if (!handle || handle.kind !== "file" || !IMAGE_NAME_RE.test(handle.name)) continue;
       const rel = await resolveDroppedHandle(handle);
-      if (rel) addPhotoToPerson(rel);
+      if (rel) { addPhotoToPerson(rel); added++; }
       else anyOutside = true;
     }
+    if (added === 1) openLastPhoto();
     if (anyOutside) infoDialog(t("photo.outsideFolder"));
   }
 
@@ -1401,7 +1444,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             key={`photos-${person.id}-${tick}-${undoVersion}`}
             raw={person.raw}
             records={dataset.records}
-            refCtx={{ dataset, onNavigate: navigate }}
+            refCtx={photoRefCtx}
             editable={{ onAdd: handleAddPhoto, onDelete: handleDeletePhoto, onReorder: (from, to) => commit((indi) => reorderIndividualMedia(indi, from, to)) }}
           />
           <OtherNamesEditor
@@ -1692,7 +1735,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       <AddPhotoDialog
         isOpen={photoPickerOpen}
         onClose={() => setPhotoPickerOpen(false)}
-        onAdd={(photos) => { for (const p of photos) addPhotoToPerson(p.path, p.existingXref); }}
+        onAdd={(photos) => {
+          for (const p of photos) addPhotoToPerson(p.path, p.existingXref);
+          if (photos.length === 1) openLastPhoto();
+        }}
         dataset={dataset}
         t={t}
       />

@@ -29,6 +29,23 @@ export interface PhotoMetaRow {
   value: ReactNode;
 }
 
+/** Editable descriptive fields shown as inputs in the info panel (Edit only). */
+export interface PhotoEditFields {
+  title: string;
+  date: string;
+  place: string;
+  description: string;
+}
+
+/** Makes a photo's info panel editable (Edit/master context only): the current
+ *  field values to seed the inputs, the file path shown read-only, and a commit
+ *  callback that writes them back through the edit/undo flow. */
+export interface PhotoEdit {
+  file: string;
+  initial: PhotoEditFields;
+  onSave: (fields: PhotoEditFields) => void;
+}
+
 /** One photo plus the metadata shown beside it in the info panel. */
 export interface PhotoItem {
   url: string;
@@ -39,6 +56,8 @@ export interface PhotoItem {
   /** Extra info block (e.g. a "referenced by" list). Receives a `close`
    *  callback so navigation links can dismiss the viewer first. */
   details?: (close: () => void) => ReactNode;
+  /** When set, the info panel shows editable inputs instead of static rows. */
+  edit?: PhotoEdit;
 }
 
 /**
@@ -49,6 +68,9 @@ export interface PhotoItem {
 export interface PhotoRefContext {
   dataset: Dataset;
   onNavigate: (id: string) => void;
+  /** When provided (Edit/master context), the info panel becomes editable; the
+   *  callback writes a photo's fields back by its `OBJE` child index. */
+  onEditMedia?: (objeIndex: number, fields: PhotoEditFields) => void;
 }
 
 interface PhotoViewerCtx {
@@ -196,10 +218,24 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
         if (!url) continue;
         const ref = refs[i];
         const { xref } = ref;
+        const onEditMedia = refCtx?.onEditMedia;
         items.push({
           url,
           title: ref.title || basename(ref.file),
-          meta: mediaMetaRows(ref, t),
+          // When editable, the form replaces the static rows; otherwise show them.
+          meta: onEditMedia ? undefined : mediaMetaRows(ref, t),
+          edit: onEditMedia
+            ? {
+                file: ref.file,
+                initial: {
+                  title: ref.title ?? "",
+                  date: ref.date ?? "",
+                  place: ref.place ?? "",
+                  description: ref.description ?? "",
+                },
+                onSave: (fields) => onEditMedia(ref.objeIndex, fields),
+              }
+            : undefined,
           details:
             refCtx && xref
               ? (close) => (
@@ -231,6 +267,49 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Editable info-panel form for a photo's descriptive fields. Seeded from
+ *  `seed` (the latest saved values, falling back to the photo's initial ones);
+ *  remounted per photo by the overlay so each starts from its own values. */
+function PhotoInfoEditor({
+  edit,
+  seed,
+  onSaved,
+  t,
+}: {
+  edit: PhotoEdit;
+  seed: PhotoEditFields;
+  onSaved: (fields: PhotoEditFields) => void;
+  t: (key: string) => string;
+}) {
+  const [fields, setFields] = useState<PhotoEditFields>(seed);
+  const dirty = JSON.stringify(fields) !== JSON.stringify(seed);
+  const set = (key: keyof PhotoEditFields) => (value: string) => setFields((f) => ({ ...f, [key]: value }));
+  return (
+    <div className="media-lightbox-edit">
+      <div className="media-lightbox-file" title={edit.file}>{basename(edit.file)}</div>
+      <label className="media-edit-field">
+        <span>{t("photo.field.title")}</span>
+        <input className="edit-input" value={fields.title} onChange={(e) => set("title")(e.target.value)} />
+      </label>
+      <label className="media-edit-field">
+        <span>{t("photo.field.date")}</span>
+        <input className="edit-input" value={fields.date} onChange={(e) => set("date")(e.target.value)} />
+      </label>
+      <label className="media-edit-field">
+        <span>{t("photo.field.place")}</span>
+        <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} />
+      </label>
+      <label className="media-edit-field">
+        <span>{t("photo.field.description")}</span>
+        <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} />
+      </label>
+      <button className="tree-open-btn" disabled={!dirty} onClick={() => { edit.onSave(fields); onSaved(fields); }}>
+        {t("photo.save")}
+      </button>
+    </div>
+  );
+}
+
 function PhotoViewerOverlay({
   items,
   startIndex,
@@ -242,6 +321,9 @@ function PhotoViewerOverlay({
 }) {
   const { t } = useTranslation();
   const [index, setIndex] = useState(startIndex);
+  // Saved field values per photo, so navigating away and back shows the latest
+  // edits rather than the values captured when the viewer opened.
+  const [edits, setEdits] = useState<Record<number, PhotoEditFields>>({});
   const multiple = items.length > 1;
   const current = items[Math.min(index, items.length - 1)];
 
@@ -256,7 +338,7 @@ function PhotoViewerOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [items.length, onClose]);
 
-  const hasInfo = current.title || (current.meta && current.meta.length > 0) || current.details;
+  const hasInfo = current.edit || current.title || (current.meta && current.meta.length > 0) || current.details;
 
   return (
     <div
@@ -298,16 +380,28 @@ function PhotoViewerOverlay({
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
-            {current.title && <div className="media-lightbox-caption">{current.title}</div>}
-            {current.meta && current.meta.length > 0 && (
-              <dl className="media-lightbox-meta">
-                {current.meta.map((row, i) => (
-                  <div key={i}>
-                    <dt>{row.label}</dt>
-                    <dd>{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
+            {current.edit ? (
+              <PhotoInfoEditor
+                key={index}
+                edit={current.edit}
+                seed={edits[index] ?? current.edit.initial}
+                onSaved={(f) => setEdits((p) => ({ ...p, [index]: f }))}
+                t={t}
+              />
+            ) : (
+              <>
+                {current.title && <div className="media-lightbox-caption">{current.title}</div>}
+                {current.meta && current.meta.length > 0 && (
+                  <dl className="media-lightbox-meta">
+                    {current.meta.map((row, i) => (
+                      <div key={i}>
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </>
             )}
             {current.details?.(onClose)}
           </div>

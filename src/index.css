@@ -1941,6 +1941,19 @@ button:focus-visible {
 .media-lightbox-meta > div { margin-bottom: 6px; }
 .media-lightbox-meta dt { color: var(--muted); font-size: 0.78rem; }
 .media-lightbox-meta dd { margin: 0; word-break: break-word; }
+/* Editable info-panel form (Edit mode). */
+.media-lightbox-edit { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.media-lightbox-file {
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+.media-edit-field { display: flex; flex-direction: column; gap: 2px; }
+.media-edit-field > span { color: var(--muted); font-size: 0.78rem; }
+.media-edit-field .edit-input { width: 100%; box-sizing: border-box; }
+.media-lightbox-edit textarea.edit-input { resize: vertical; font-family: inherit; }
+.media-lightbox-edit .tree-open-btn { align-self: flex-end; margin-top: 2px; }
 .media-lightbox-uses-head {
   font-weight: 600;
   margin-bottom: 6px;

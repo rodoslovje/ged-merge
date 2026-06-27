@@ -20,6 +20,7 @@ import {
   pruneUnreferencedMedia,
   removeIndividualMediaAtIndex,
   reorderIndividualMedia,
+  setMediaInfo,
   changeEventTagAtIndex,
   changeFamilyEventTag,
   connectExistingChild,
@@ -1438,5 +1439,38 @@ describe("individual media", () => {
     attachMediaPointer(indi, rec.xref!);
     pruneUnreferencedMedia(ds, rec.xref!);
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
+  });
+
+  it("sets and clears photo metadata (title/date/place/description)", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const obje = attachInlineMedia(indi, "a.jpg");
+    setMediaInfo(obje, { title: "Wedding", date: "1900", place: "Ljubljana", description: "On the steps" });
+    const child = (tag: string) => obje.children.find((c) => c.tag === tag)?.value;
+    expect(child("TITL")).toBe("Wedding");
+    expect(child("DATE")).toBe("1900");
+    expect(child("PLAC")).toBe("Ljubljana");
+    expect(child("_DSCR")).toBe("On the steps");
+    expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("a.jpg");
+
+    setMediaInfo(obje, { title: "", description: "" });
+    expect(child("TITL")).toBeUndefined();
+    expect(child("_DSCR")).toBeUndefined();
+    expect(child("DATE")).toBe("1900"); // omitted fields untouched
+  });
+
+  it("normalizes a FILE-level TITL up to the OBJE and drops a NOTE used as description", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const obje = attachInlineMedia(indi, "a.jpg");
+    const fileNode = obje.children.find((c) => c.tag === "FILE")!;
+    fileNode.children.push({ level: fileNode.level + 1, tag: "TITL", value: "stale", children: [] });
+    obje.children.push({ level: obje.level + 1, tag: "NOTE", value: "old desc", children: [] });
+
+    setMediaInfo(obje, { title: "New title", description: "New desc" });
+    expect(fileNode.children.some((c) => c.tag === "TITL")).toBe(false);
+    expect(obje.children.find((c) => c.tag === "TITL")?.value).toBe("New title");
+    expect(obje.children.some((c) => c.tag === "NOTE")).toBe(false);
+    expect(obje.children.find((c) => c.tag === "_DSCR")?.value).toBe("New desc");
   });
 });
