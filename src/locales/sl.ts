@@ -543,7 +543,7 @@ export const sl = {
   "redo.tooltip": "Ponovi zadnjo razveljavljeno spremembo (Ctrl+Shift+Z)",
 
   "landing.eyebrow": "Vaše rodoslovno drevo",
-  "landing.h1": "Uredite, primerjajte in združite GEDCOM — <1>100% v brskalniku</1>.",
+  "landing.h1": "Združite, primerjajte in uredite GEDCOM — <1>100% v brskalniku</1>.",
   "landing.sub": "Za začetek naložite vaše rodoslovno drevo. Primerjajte dohodne zapise polje za poljem in združite samo tiste, ki jih potrdite.",
   "landing.dropzone.title": "Sem spustite glavno .ged datoteko",
   "landing.dropzone.hint": "ali kliknite za iskanje",

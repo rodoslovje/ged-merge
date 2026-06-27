@@ -543,7 +543,7 @@ export const en = {
   "redo.tooltip": "Redo last undone change (Ctrl+Shift+Z)",
 
   "landing.eyebrow": "Your genealogy tree",
-  "landing.h1": "Edit, compare & merge GEDCOM — <1>100% in your browser</1>.",
+  "landing.h1": "Merge, compare & edit GEDCOM — <1>100% in your browser</1>.",
   "landing.sub": "Load your genealogy tree to begin. Compare incoming records field by field, then merge only the matches you confirm.",
   "landing.dropzone.title": "Drop your master .ged file here",
   "landing.dropzone.hint": "or click to browse",
