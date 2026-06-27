@@ -98,10 +98,16 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
   // Nephew / Niece
   if (hg === 1 && tg === 2) return f ? t("kinship.niece") : t("kinship.nephew");
 
-  // Great-uncle / Great-aunt (grandparent's sibling)
-  if (hg === 3 && tg === 1) return f ? t("kinship.greatAunt") : t("kinship.greatUncle");
-  // Grand-nephew / Grand-niece
-  if (hg === 1 && tg === 3) return f ? t("kinship.grandNiece") : t("kinship.grandNephew");
+  // Great-uncle / Great-aunt and beyond (grandparent's sibling, then ×N)
+  if (hg >= 3 && tg === 1) {
+    const base = f ? t("kinship.greatAunt") : t("kinship.greatUncle");
+    return hg === 3 ? base : base + ` ×${hg - 2}`;
+  }
+  // Grand-nephew / Grand-niece and beyond
+  if (hg === 1 && tg >= 3) {
+    const base = f ? t("kinship.grandNiece") : t("kinship.grandNephew");
+    return tg === 3 ? base : base + ` ×${tg - 2}`;
+  }
 
   // Cousins
   if (hg >= 2 && tg >= 2) {

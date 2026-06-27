@@ -3335,6 +3335,54 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--muted);
   margin: 0 2px;
 }
+/* Clickable title endpoints — either person can be swapped for another. */
+.relchart-endpoint {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  margin: -2px 0;
+  cursor: pointer;
+  font: inherit;
+}
+.relchart-endpoint:hover,
+.relchart-endpoint.active {
+  background: var(--panel-2);
+}
+.relchart-endpoint-edit {
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0;
+  align-self: center;
+}
+.relchart-endpoint:hover .relchart-endpoint-edit,
+.relchart-endpoint.active .relchart-endpoint-edit {
+  opacity: 1;
+}
+/* Inline search bar shown while replacing one side. */
+.relchart-picker-bar {
+  align-items: center;
+  gap: 10px;
+}
+.relchart-picker-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.relchart-picker-cancel {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.relchart-picker-cancel:hover {
+  color: var(--text);
+}
 
 .tree-node { cursor: pointer; }
 /* Node border colour comes from the per-node `stroke` presentation attribute

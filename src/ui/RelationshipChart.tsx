@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
@@ -10,6 +10,7 @@ import { buildRelationshipChart, type ChartBox } from "../match/relationshipChar
 import { displayName, primaryName } from "../match/relatives";
 import { individualFieldRows } from "../review/fields";
 import { sexClass } from "./sex";
+import { HomePersonSelector } from "./HomePersonSelector";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { TreeMinimap } from "./TreeMinimap";
@@ -43,6 +44,19 @@ interface PathOption {
 export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNavigate }: Props) {
   const { t } = useTranslation();
   const [optionIdx, setOptionIdx] = useState(0);
+  // Either endpoint can be swapped on this page without touching the app's home
+  // person; the local picks reset whenever the page is (re)opened for a new pair.
+  const [homeSel, setHomeSel] = useState(homeId);
+  const [targetSel, setTargetSel] = useState(targetId);
+  const [picking, setPicking] = useState<"home" | "target" | null>(null);
+  useEffect(() => setHomeSel(homeId), [homeId]);
+  useEffect(() => setTargetSel(targetId), [targetId]);
+
+  const replace = (side: "home" | "target", id: string) => {
+    (side === "home" ? setHomeSel : setTargetSel)(id);
+    setOptionIdx(0);
+    setPicking(null);
+  };
 
   const nameOf = (id: string) => {
     const indi = masterDs.individuals.get(id);
@@ -56,18 +70,18 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   // Shortest path + every distinct bloodline, deduped (a shortest path that is
   // already a pure bloodline isn't listed twice).
   const options = useMemo<PathOption[]>(() => {
-    const blood = bloodPaths(masterDs, homeId, targetId);
+    const blood = bloodPaths(masterDs, homeSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
       path,
       label: t("relpath.optBlood", { name: nameOf(path.steps[path.lcaIndex!].id), count: path.hops }),
     }));
-    const shortest = shortestPath(masterDs, homeId, targetId);
+    const shortest = shortestPath(masterDs, homeSel, targetSel);
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
       opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterDs, homeId, targetId, t]);
+  }, [masterDs, homeSel, targetSel, t]);
 
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
@@ -101,10 +115,27 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
     [t, selectedIndi, masterDs],
   );
 
-  const kinship = kinshipLabel(masterDs, homeId, targetId, t);
+  const kinship = kinshipLabel(masterDs, homeSel, targetSel, t);
   const needsMinimap =
     !!chart && viewport.width > 0 &&
     (chart.width > viewport.width + 1 || chart.height > viewport.height + 1);
+
+  // A title endpoint: the person's name + lifespan, clickable to swap that side.
+  const renderEndpoint = (side: "home" | "target", id: string) => {
+    const indi = masterDs.individuals.get(id);
+    return (
+      <button
+        type="button"
+        className={`relchart-endpoint${picking === side ? " active" : ""}`}
+        onClick={() => setPicking(picking === side ? null : side)}
+        title={t("relpath.replace")}
+      >
+        <span className={`tree-title-name ${sexClass(indi?.sex)}`}>{nameOf(id)}</span>
+        {yearsOf(id) && <span className="tree-title-years gm-data">{yearsOf(id)}</span>}
+        <span className="relchart-endpoint-edit" aria-hidden="true">✎</span>
+      </button>
+    );
+  };
 
   return (
     <div className="tree-page">
@@ -113,11 +144,9 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           ← <span className="tree-back-label">{t("edit.tree.back")}</span>
         </button>
         <h2 className="tree-title">
-          <span className={`tree-title-name ${sexClass(masterDs.individuals.get(homeId)?.sex)}`}>{nameOf(homeId)}</span>
-          {yearsOf(homeId) && <span className="tree-title-years gm-data">{yearsOf(homeId)}</span>}
+          {renderEndpoint("home", homeSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>
-          <span className={`tree-title-name ${sexClass(masterDs.individuals.get(targetId)?.sex)}`}>{nameOf(targetId)}</span>
-          {yearsOf(targetId) && <span className="tree-title-years gm-data">{yearsOf(targetId)}</span>}
+          {renderEndpoint("target", targetSel)}
           {kinship && <span className="tree-title-kinship">{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </h2>
@@ -125,8 +154,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           className="tree-open-btn tree-export-btn"
           onClick={() => exportCanvasSvg(
             canvasRef.current,
-            diagramSlug(nameOf(homeId), nameOf(targetId), "relationship"),
-            `${nameOf(homeId)} → ${nameOf(targetId)} — ${t("relpath.pageTitle")}`,
+            diagramSlug(nameOf(homeSel), nameOf(targetSel), "relationship"),
+            `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`,
           )}
           disabled={!chart}
           title={t("tree.export.tooltip")}
@@ -134,6 +163,33 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           {t("tree.export")}
         </button>
       </div>
+
+      {picking && (
+        <div className="tree-controls relchart-picker-bar">
+          <span className="relchart-picker-label">
+            {picking === "home" ? t("relpath.replaceHome") : t("relpath.replaceTarget")}
+          </span>
+          <HomePersonSelector
+            key={picking}
+            individuals={masterDs.individuals}
+            homeId={picking === "home" ? homeSel : targetSel}
+            onChange={(newId) => replace(picking, newId)}
+            icon="search"
+            autoFocus
+            selectedAsPlaceholder={false}
+            placeholder={t("relpath.searchPerson")}
+            tooltip={t("relpath.searchPerson")}
+          />
+          <button
+            className="relchart-picker-cancel"
+            onClick={() => setPicking(null)}
+            title={t("tree.close")}
+            aria-label={t("tree.close")}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {options.length > 1 && (
         <div className="tree-controls">
@@ -173,7 +229,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
-                        kinship={kinshipLabel(masterDs, homeId, b.id, t)}
+                        kinship={kinshipLabel(masterDs, homeSel, b.id, t)}
                         photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
                       />
                     </g>
@@ -216,7 +272,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
             masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}
             masterLabel={t("tree.master")}
             singleColumn
-            kinship={kinshipLabel(masterDs, homeId, selectedBox.id, t)}
+            kinship={kinshipLabel(masterDs, homeSel, selectedBox.id, t)}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}
