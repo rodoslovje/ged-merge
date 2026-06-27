@@ -33,6 +33,7 @@ import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { SaveDialog } from "./ui/SaveDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EditTree } from "./ui/EditTree";
+import { RelationshipChart } from "./ui/RelationshipChart";
 import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
@@ -307,7 +308,7 @@ function AppContent() {
     function onPop(e: PopStateEvent) {
       const st = (e.state ?? {}) as {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
-        gedEditTreeId?: string; gedMode?: Mode; gedNavigateTo?: string;
+        gedEditTreeId?: string; gedRelId?: string; gedMode?: Mode; gedNavigateTo?: string;
       };
       // Landing on the leave-guard = the user pressed Back from the app's main
       // entry and is about to leave the app. Intercept it.
@@ -331,6 +332,7 @@ function AppContent() {
       }
       setTreeView(st.gedTree ?? null);
       setEditTreeId(st.gedEditTreeId ?? null);
+      setRelTargetId(st.gedRelId ?? null);
       // Restore the mode recorded for this entry (e.g. returning to the Tools tab
       // after opening a person from it). Absent on older/plain entries, in which
       // case the current mode is left untouched.
@@ -489,6 +491,7 @@ function AppContent() {
       dirty.prepareForLoad();
       sortEligiblePersonIdsRef.current = new Set();
       setEditTreeId(null);
+      setRelTargetId(null);
       setHomeId(undefined); // home person is opt-in; reset on (re)load
       setFocusHome(false);
       autoHomeRef.current = false; // allow the default home person for the new file
@@ -937,6 +940,14 @@ function AppContent() {
     setEditTreeId(id);
   }
 
+  // Relationship-to-home diagram: full-page view for the selected person.
+  const [relTargetId, setRelTargetId] = useState<string | null>(null);
+
+  function openRelationship(id: string) {
+    window.history.pushState({ gedRelId: id }, "");
+    setRelTargetId(id);
+  }
+
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
 
   // Called by EditView after undo/redo patches have been applied to the dataset.
@@ -1364,6 +1375,19 @@ function AppContent() {
         onBack={() => window.history.back()}
       />
     );
+  } else if (relTargetId && masterDataset && homeId) {
+    treeOverlay = wrapTree(
+      <RelationshipChart
+        masterDs={masterDataset}
+        homeId={homeId}
+        targetId={relTargetId}
+        onBack={() => window.history.back()}
+        onNavigate={(id) => {
+          window.history.back(); // close the chart overlay
+          setNavigateToId(id);
+        }}
+      />
+    );
   }
 
   // Panel is forced open whenever Merge mode has no matches yet; otherwise
@@ -1599,6 +1623,7 @@ function AppContent() {
               changeHome={changeHome}
               onDirty={handleEditDirty}
               onShowTree={(id) => openEditTree(id)}
+              onShowRelationship={(id) => openRelationship(id)}
               marriedNameTag={lastMasterFile.marriedNameTag}
               navigateToId={navigateToId}
               onPersonChange={setEditPersonId}

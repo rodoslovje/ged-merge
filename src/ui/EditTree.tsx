@@ -3,17 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildCompareTree, countTreePeople, type TreeMode } from "../tree/compareTree";
 import {
-  NODE_H,
-  NODE_W,
   PAD,
-  PHOTO_SIZE,
-  PHOTO_X,
-  PHOTO_Y,
-  TEXT_X_PHOTO,
-  TEXT_X_PLAIN,
   flatten,
   layout,
-  truncate,
   type Placed,
 } from "../tree/treeLayout";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
@@ -21,11 +13,11 @@ import { TreeMinimap } from "./TreeMinimap";
 import { kinshipLabel } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { sexClass, sexColorVar } from "./sex";
-import { TreeNodePhoto } from "./PersonPhotos";
+import { sexClass } from "./sex";
+import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
+import { diagramSlug, exportCanvasSvg } from "./exportSvg";
 
 // Color for unmodified nodes (master pine green) and modified (amber/minor).
 const COLOR_NORMAL = "var(--node-master)";
@@ -64,8 +56,6 @@ interface Props {
 
 export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions, onBack }: Props) {
   const { t } = useTranslation();
-  const { folderName } = useMediaFolder();
-  const textX = folderName ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const [mapOpen, setMapOpen] = useState(true);
@@ -178,6 +168,18 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
             t("edit.tree.title")
           )}
         </h2>
+        <button
+          className="tree-open-btn tree-export-btn"
+          onClick={() => exportCanvasSvg(
+            canvasRef.current,
+            diagramSlug(tree?.name, "tree"),
+            [tree?.name, tree?.years, "—", t("edit.tree.title")].filter(Boolean).join(" "),
+          )}
+          disabled={!laid}
+          title={t("tree.export.tooltip")}
+        >
+          {t("tree.export")}
+        </button>
       </div>
 
       {/* Mode toggle (left) + legend (right) — same layout as the Compare Tree. */}
@@ -251,87 +253,39 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                       onClick={() => selectNode(n.key)}
                     >
                       <title>{t("tree.node.clickHint")}</title>
-                      <rect
-                        width={NODE_W}
-                        height={NODE_H}
-                        rx={10}
-                        ry={10}
-                        fill={`color-mix(in srgb, ${color} 16%, var(--panel))`}
-                        stroke={color}
-                        strokeWidth={2.5}
-                      />
-                      <text
-                        className="tree-node-name"
-                        x={textX}
-                        y={23}
-                        style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
-                      >
-                        {truncate(n.name, 24)}
-                      </text>
-                      {(() => {
-                        const k = homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
-                        // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char
-                        // at 10px; each badge: a fixed ~22px once it sits next to the years label).
-                        const decW = (modified ? 22 : 0) + (dec ? 22 : 0);
-                        const needsKinshipRow = !!(k && (n.years || decW) && (n.years?.length ?? 0) * 13 + decW + k.length * 11 > 300);
-                        const yearsRowY = needsKinshipRow ? 36 : 40;
-                        const badge1X = textX + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
-                        const badge2X = badge1X + 18;
-                        const decisionBadgeX = badge1X;
-                        const modifiedBadgeX = dec ? badge2X : badge1X;
-                        return (
-                          <>
-                            {n.years && (
-                              <text className="tree-node-year gm-data" x={textX} y={yearsRowY}>
-                                {n.years}
-                              </text>
-                            )}
-                            {k && (
-                              <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 48 : 40} textAnchor="end">
-                                {k}
-                              </text>
-                            )}
-                            {dec && (
-                              <g className={`tree-node-decision ${dec.status}`} transform={`translate(${decisionBadgeX},${yearsRowY - 4})`}>
-                                <circle r={7} />
-                                <text
-                                  textAnchor="middle"
-                                  dominantBaseline="central"
-                                  x={0}
-                                  y={0.5}
-                                  fontSize={9}
-                                  fontWeight={700}
-                                >
-                                  {dec.letter}
-                                </text>
-                              </g>
-                            )}
-                            {modified && (
-                              <g className="tree-node-decision" transform={`translate(${modifiedBadgeX},${yearsRowY - 4})`}>
-                                <circle r={7} fill={COLOR_MODIFIED} />
-                                <text
-                                  textAnchor="middle"
-                                  dominantBaseline="central"
-                                  x={0}
-                                  y={0.5}
-                                  fontSize={9}
-                                  fontWeight={700}
-                                  fill="var(--bg)"
-                                >
-                                  {t("edit.tree.modified").charAt(0)}
-                                </text>
-                              </g>
-                            )}
-                          </>
-                        );
-                      })()}
-                      <TreeNodePhoto
-                        node={n}
-                        masterRecords={masterDs.records}
-                        masterRefCtx={{ dataset: masterDs, onNavigate: setCurrentRootId }}
-                        x={PHOTO_X}
-                        y={PHOTO_Y}
-                        size={PHOTO_SIZE}
+                      <TreeNodeBox
+                        name={n.name}
+                        years={n.years}
+                        sex={n.sex}
+                        color={color}
+                        kinship={homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined}
+                        photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: setCurrentRootId } } : undefined}
+                        badgeWidth={(modified ? 22 : 0) + (dec ? 22 : 0)}
+                        badges={({ yearsY, textX: tx }) => {
+                          // Estimate the years label width (~6.5px/char) so badges sit just past it.
+                          const badge1X = tx + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+                          const modifiedBadgeX = dec ? badge1X + 18 : badge1X;
+                          return (
+                            <>
+                              {dec && (
+                                <g className={`tree-node-decision ${dec.status}`} transform={`translate(${badge1X},${yearsY - 4})`}>
+                                  <circle r={7} />
+                                  <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700}>
+                                    {dec.letter}
+                                  </text>
+                                </g>
+                              )}
+                              {modified && (
+                                <g className="tree-node-decision" transform={`translate(${modifiedBadgeX},${yearsY - 4})`}>
+                                  <circle r={7} fill={COLOR_MODIFIED} />
+                                  <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill="var(--bg)">
+                                    {t("edit.tree.modified").charAt(0)}
+                                  </text>
+                                </g>
+                              )}
+                            </>
+                          );
+                        }}
                       />
                     </g>
                   );

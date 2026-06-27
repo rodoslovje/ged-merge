@@ -175,3 +175,26 @@ function maxDepth(node: TreeNode): number {
 export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
+
+/**
+ * Vertical placement for the lifespan (left) and kinship (right-aligned) labels
+ * inside a node box. They share one row, but when their estimated widths would
+ * collide the kinship drops onto its own row beneath the years. `badgeW` is the
+ * extra width reserved by any decision/modified badges sitting after the years.
+ * Shared by every tree diagram so the wrap behaves consistently.
+ */
+export function kinshipRowLayout(
+  years: string | undefined,
+  kinship: string | undefined,
+  badgeW = 0,
+): { needsKinshipRow: boolean; yearsY: number; kinshipY: number } {
+  const needsKinshipRow = !!(
+    kinship && (years || badgeW) &&
+    (years?.length ?? 0) * 13 + badgeW + kinship.length * 11 > 300
+  );
+  return {
+    needsKinshipRow,
+    yearsY: needsKinshipRow ? 36 : 40,
+    kinshipY: needsKinshipRow ? 48 : 40,
+  };
+}

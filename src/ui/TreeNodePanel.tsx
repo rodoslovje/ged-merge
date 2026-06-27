@@ -20,6 +20,8 @@ interface Props {
   onClose: () => void;
   /** Re-root the tree on this person ("Set as root"). */
   onSetRoot: () => void;
+  /** Label for the primary action button; defaults to the "Set as root" wording. */
+  rootLabel?: string;
   /** When set, the title becomes a button (Compare Tree: open in Matches). */
   onTitleClick?: () => void;
   titleHint?: string;
@@ -49,6 +51,7 @@ export function TreeNodePanel({
   singleColumn,
   onClose,
   onSetRoot,
+  rootLabel,
   onTitleClick,
   titleHint,
   kinship,
@@ -83,7 +86,7 @@ export function TreeNodePanel({
       <div className="tree-compare-actions">
         {badges}
         <button className="nav-btn tree-compare-root" onClick={onSetRoot}>
-          {t("edit.tree.reroot")}
+          {rootLabel ?? t("edit.tree.reroot")}
         </button>
       </div>
       {controls}

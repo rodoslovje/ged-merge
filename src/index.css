@@ -3287,6 +3287,55 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke: var(--muted);
   stroke-dasharray: 3 3;
 }
+/* Relationship chart: orthogonal connectors (top-down pedigree). */
+.relchart-edge {
+  fill: none;
+  stroke: var(--border-2);
+  stroke-width: 1.5;
+}
+.relchart-edge-partner {
+  stroke: var(--muted);
+}
+.relchart-edge-parent {
+  stroke: var(--border-2);
+}
+/* The two endpoints — the home person and the related target — are the subjects
+   of the chart, so they get a bold accent border, a stronger tinted fill, and a
+   soft glow to stand out from the (thinner) spine and context boxes. */
+.relchart-node.is-home rect,
+.relchart-node.is-target rect {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+  fill: color-mix(in srgb, var(--accent) 24%, var(--panel));
+}
+.relchart-node.is-home,
+.relchart-node.is-target {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 50%, transparent));
+}
+.relchart-node:hover rect {
+  filter: brightness(1.12);
+}
+/* Available-paths selector in the chart's control bar. */
+.relchart-paths {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.relchart-paths select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+.tree-title-arrow {
+  color: var(--muted);
+  margin: 0 2px;
+}
+
 .tree-node { cursor: pointer; }
 /* Node border colour comes from the per-node `stroke` presentation attribute
    (the state colour); the selected ring is set in theme/components.css. */
@@ -4538,6 +4587,16 @@ kbd {
 .tools-norm-check input { cursor: pointer; }
 .tools-norm-check.disabled { color: var(--muted); cursor: default; }
 .tools-norm-check.disabled input { cursor: default; }
+.tools-privacy-group { margin: 0 0 16px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.tools-privacy-legend { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: var(--text); }
+.tools-privacy-radios { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.tools-privacy-radios .tools-norm-check.active { color: var(--accent); font-weight: 600; }
+.tools-privacy-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; color: var(--text); font-size: 0.9rem; }
+.tools-privacy-inline:last-child { margin-bottom: 0; }
+.tools-privacy-num { width: 4.5rem; padding: 3px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.tools-privacy-text { width: 9rem; padding: 3px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.tools-privacy .tools-norm-summary { margin: 0; }
+
 .tools-examples { margin-bottom: 14px; }
 .tools-examples-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; color: var(--text); }
 .tools-examples ul { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }

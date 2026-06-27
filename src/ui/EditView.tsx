@@ -87,6 +87,8 @@ interface Props {
   onDirty: (type: "individual" | "family", id: string) => void;
   /** Open the edit tree rooted on the currently selected person. */
   onShowTree: (id: string) => void;
+  /** Open the relationship-to-home diagram for the currently selected person. */
+  onShowRelationship: (id: string) => void;
   /** True when the master file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
   marriedNameTag?: boolean;
@@ -134,7 +136,7 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -1322,6 +1324,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             selectedAsPlaceholder={false}
           />
           <div className="toolbar-end">
+            <button
+              className="tree-open-btn"
+              onClick={() => selectedId && homeId && onShowRelationship(selectedId)}
+              disabled={!homeId || !selectedId || homeId === selectedId}
+              title={t("relpath.tooltip")}
+            >
+              {t("relpath.button")}
+            </button>
             <button
               className="tree-open-btn"
               onClick={() => selectedId && onShowTree(selectedId)}

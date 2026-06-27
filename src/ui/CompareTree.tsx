@@ -37,6 +37,7 @@ import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
+import { diagramSlug, exportCanvasSvg } from "./exportSvg";
 
 interface Props {
   masterDs: Dataset;
@@ -293,6 +294,18 @@ export function CompareTree({
             t("tree.title")
           )}
         </h2>
+        <button
+          className="tree-open-btn tree-export-btn"
+          onClick={() => exportCanvasSvg(
+            canvasRef.current,
+            diagramSlug(rootName, "compare-tree"),
+            [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" "),
+          )}
+          disabled={!laid}
+          title={t("tree.export.tooltip")}
+        >
+          {t("tree.export")}
+        </button>
       </div>
 
       <div className="tree-controls">
