@@ -17,7 +17,8 @@ import { sexClass } from "./sex";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { MapIcon } from "./icons/MapIcon";
-import { diagramSlug, exportCanvasSvg } from "./exportSvg";
+import { DownloadIcon } from "./icons/DownloadIcon";
+import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 
 // Color for unmodified nodes (master pine green) and modified (amber/minor).
 const COLOR_NORMAL = "var(--node-master)";
@@ -145,6 +146,9 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
     !!laid && viewport.width > 0 &&
     (laid.width > viewport.width + 1 || laid.height > viewport.height + 1);
 
+  // Shared title for the SVG / PDF export header.
+  const editTreeTitle = [tree?.name, tree?.years, "—", t("edit.tree.title")].filter(Boolean).join(" ");
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -173,12 +177,20 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
           onClick={() => exportCanvasSvg(
             canvasRef.current,
             diagramSlug(tree?.name, "tree"),
-            [tree?.name, tree?.years, "—", t("edit.tree.title")].filter(Boolean).join(" "),
+            editTreeTitle,
           )}
           disabled={!laid}
           title={t("tree.export.tooltip")}
         >
-          {t("tree.export")}
+          <DownloadIcon /> {t("tree.export")}
+        </button>
+        <button
+          className="tree-open-btn tree-export-btn"
+          onClick={() => exportCanvasPdf(canvasRef.current, editTreeTitle)}
+          disabled={!laid}
+          title={t("tree.exportPdf.tooltip")}
+        >
+          <DownloadIcon /> {t("tree.exportPdf")}
         </button>
       </div>
 

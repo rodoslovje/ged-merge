@@ -15,7 +15,8 @@ import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { TreeMinimap } from "./TreeMinimap";
 import { MapIcon } from "./icons/MapIcon";
-import { diagramSlug, exportCanvasSvg } from "./exportSvg";
+import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { DownloadIcon } from "./icons/DownloadIcon";
 
 const COLOR_SPINE = "var(--node-master)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -116,6 +117,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   );
 
   const kinship = kinshipLabel(masterDs, homeSel, targetSel, t);
+  // Shared title for the SVG / PDF export header.
+  const relchartTitle = `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
   const needsMinimap =
     !!chart && viewport.width > 0 &&
     (chart.width > viewport.width + 1 || chart.height > viewport.height + 1);
@@ -155,12 +158,20 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           onClick={() => exportCanvasSvg(
             canvasRef.current,
             diagramSlug(nameOf(homeSel), nameOf(targetSel), "relationship"),
-            `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`,
+            relchartTitle,
           )}
           disabled={!chart}
           title={t("tree.export.tooltip")}
         >
-          {t("tree.export")}
+          <DownloadIcon /> {t("tree.export")}
+        </button>
+        <button
+          className="tree-open-btn tree-export-btn"
+          onClick={() => exportCanvasPdf(canvasRef.current, relchartTitle)}
+          disabled={!chart}
+          title={t("tree.exportPdf.tooltip")}
+        >
+          <DownloadIcon /> {t("tree.exportPdf")}
         </button>
       </div>
 

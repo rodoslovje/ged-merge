@@ -37,7 +37,8 @@ import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
-import { diagramSlug, exportCanvasSvg } from "./exportSvg";
+import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { DownloadIcon } from "./icons/DownloadIcon";
 
 interface Props {
   masterDs: Dataset;
@@ -252,6 +253,8 @@ export function CompareTree({
   const rootYears = tree?.years ?? "";
   // Root person's kinship to the home person, shown in the title.
   const rootKinship = homeId && rootMasterId ? kinshipLabel(masterDs, homeId, rootMasterId, t) : undefined;
+  // Shared title for the SVG / PDF export header.
+  const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
   const nodesByKey = useMemo(() => {
     const map = new Map<string, Placed>();
@@ -296,15 +299,19 @@ export function CompareTree({
         </h2>
         <button
           className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasSvg(
-            canvasRef.current,
-            diagramSlug(rootName, "compare-tree"),
-            [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" "),
-          )}
+          onClick={() => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, "compare-tree"), compareTreeTitle)}
           disabled={!laid}
           title={t("tree.export.tooltip")}
         >
-          {t("tree.export")}
+          <DownloadIcon /> {t("tree.export")}
+        </button>
+        <button
+          className="tree-open-btn tree-export-btn"
+          onClick={() => exportCanvasPdf(canvasRef.current, compareTreeTitle)}
+          disabled={!laid}
+          title={t("tree.exportPdf.tooltip")}
+        >
+          <DownloadIcon /> {t("tree.exportPdf")}
         </button>
       </div>
 

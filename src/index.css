@@ -3009,6 +3009,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
 .tree-open-btn:focus-visible { border-color: var(--accent); }
 .tree-open-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+/* Export buttons pair a download glyph with a short SVG / PDF label. */
+.tree-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tree-export-btn svg { flex: 0 0 auto; }
 
 .tree-page {
   display: flex;

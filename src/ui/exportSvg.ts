@@ -97,8 +97,10 @@ export interface SvgExportOptions {
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+const XLINK_NS = "http://www.w3.org/1999/xlink";
 const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
 const SITE = "gedmerge.com";
+const SITE_URL = "https://gedmerge.com";
 
 // Header / footer band geometry and side margin.
 const HEADER_H = 52;
@@ -124,7 +126,18 @@ function svgRect(x: number, y: number, w: number, h: number, fill: string): SVGR
   return r;
 }
 
-export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: SvgExportOptions): Promise<void> {
+interface BuiltSvg {
+  svg: SVGSVGElement;
+  width: number;
+  height: number;
+}
+
+/**
+ * Clone a live diagram SVG into a standalone document: styles inlined, photos
+ * embedded, wrapped in a titled header + site/timestamp footer. Shared by the
+ * `.svg` download and the print-to-PDF path.
+ */
+async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const clone = live.cloneNode(true) as SVGSVGElement;
   inlineComputedStyles(live, clone);
 
@@ -170,14 +183,21 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
   footLine.setAttribute("y2", String(footY));
   clone.appendChild(footLine);
   const footTextY = footY + FOOTER_H / 2 + 4;
-  clone.appendChild(
+  // Site name as a clickable link (works in browsers and in print-to-PDF).
+  const link = document.createElementNS(SVG_NS, "a");
+  link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
+  link.setAttribute("href", SITE_URL);
+  link.setAttribute("target", "_blank");
+  link.appendChild(
     svgText(SITE, MARGIN_X, footTextY, {
       "font-family": SANS,
       "font-size": "12",
       "font-weight": "600",
       fill: opts.foreground,
+      "text-decoration": "underline",
     }),
   );
+  clone.appendChild(link);
   clone.appendChild(
     svgText(new Date().toLocaleString(), totalW - MARGIN_X, footTextY, {
       "text-anchor": "end",
@@ -194,16 +214,69 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
   clone.setAttribute("height", String(totalH));
   clone.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
   clone.setAttribute("xmlns", SVG_NS);
-  clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  clone.setAttribute("xmlns:xlink", XLINK_NS);
 
-  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+  return { svg: clone, width: totalW, height: totalH };
+}
+
+function serialize(svg: SVGSVGElement): string {
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg);
+}
+
+/** Build a standalone diagram SVG and trigger its download as a `.svg` file. */
+export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: SvgExportOptions): Promise<void> {
+  const { svg } = await buildExportSvg(live, opts);
+  const blob = new Blob([serialize(svg)], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName.endsWith(".svg") ? fileName : `${fileName}.svg`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Build the standalone diagram SVG and open it in the browser's print dialog,
+ * sized so the whole diagram lands on one page — the user picks "Save as PDF".
+ * Uses a hidden iframe (not window.open) to dodge popup blockers.
+ */
+export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<void> {
+  const { svg, width, height } = await buildExportSvg(live, opts);
+  // Make the SVG fill the print page; the @page size matches its pixel extent.
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.setAttribute("style", "display:block;width:100%;height:100%;");
+
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(opts.title)}</title>
+<style>
+  @page { size: ${width}px ${height}px; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  svg { display: block; }
+</style></head><body>${serialize(svg)}</body></html>`;
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+  document.body.appendChild(iframe);
+
+  const cleanup = () => iframe.remove();
+  iframe.onload = () => {
+    const win = iframe.contentWindow;
+    if (!win) { cleanup(); return; }
+    // Give the data-URI images a frame to decode before printing.
+    requestAnimationFrame(() => {
+      win.focus();
+      win.print();
+      // Tear down after the dialog returns; afterprint isn't reliable everywhere.
+      win.addEventListener("afterprint", cleanup);
+      setTimeout(cleanup, 60000);
+    });
+  };
+  iframe.srcdoc = doc;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
 /**
@@ -214,19 +287,43 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
 export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg || !canvas) return;
+  void downloadSvg(svg, fileName, canvasExportOptions(canvas, title));
+}
+
+/**
+ * Find the diagram SVG inside a `.tree-canvas` element and open it in the print
+ * dialog (whole diagram on one page) for "Save as PDF". No-op if absent.
+ */
+export function exportCanvasPdf(canvas: HTMLElement | null, title: string): void {
+  const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
+  if (!svg || !canvas) return;
+  void printSvg(svg, canvasExportOptions(canvas, title));
+}
+
+function canvasExportOptions(canvas: HTMLElement, title: string): SvgExportOptions {
   const cs = getComputedStyle(canvas);
-  void downloadSvg(svg, fileName, {
+  return {
     background: cs.backgroundColor || "#ffffff",
     foreground: cs.color || "#000000",
     title,
-  });
+  };
 }
 
-/** Filesystem-safe slug for a diagram file name; falls back to `diagram`. */
+/**
+ * Filesystem-safe slug for a diagram file name; falls back to `diagram`.
+ * Accented letters are transliterated to ASCII (Č→C, Š→S, Ž→Z, Ä→A, …) so the
+ * download name stays plain ASCII instead of dropping those characters.
+ */
 export function diagramSlug(...parts: (string | undefined)[]): string {
   const s = parts
     .filter(Boolean)
     .join("-")
+    // Decompose accents (é → e +  ́) then drop the combining marks; map the few
+    // stroked letters NFD can't split (đ, ł).
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[łŁ]/g, "l")
     .replace(/[\s/\\]+/g, "-")
     .replace(/[^\w.\-]+/g, "")
     .replace(/-+/g, "-")
