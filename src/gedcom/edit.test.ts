@@ -15,6 +15,7 @@ import {
   attachSourceCitation,
   changeEventTagAtIndex,
   changeFamilyEventTag,
+  connectExistingChild,
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
@@ -838,6 +839,40 @@ describe("addChild", () => {
     const second = addChild(ds, ds.individuals.get(indi.id)!, fam);
     const updatedFam = rebuildFamily(ds, fam);
     expect(updatedFam.children).toEqual([first.id, second.id]);
+  });
+});
+
+// ─── child birth-order insertion ────────────────────────────────────────────
+
+describe("connectExistingChild (birth order)", () => {
+  // A family with two children born 1805 and 1811, plus a loose individual
+  // born 1807 to be attached between them.
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n" +
+    "0 @C1@ INDI\n1 BIRT\n2 DATE 1805\n" +
+    "0 @C2@ INDI\n1 BIRT\n2 DATE 1811\n" +
+    "0 @C3@ INDI\n1 BIRT\n2 DATE 1807\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 CHIL @C1@\n1 CHIL @C2@\n";
+
+  it("inserts an attached child in birth order, not at the end", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I1@")!;
+    const fam = ds.families.get("@F1@")!;
+
+    connectExistingChild(ds, person, "@C3@", fam);
+
+    const updatedFam = rebuildFamily(ds, fam);
+    expect(updatedFam.children).toEqual(["@C1@", "@C3@", "@C2@"]);
+  });
+
+  it("places a child with no known birth date after the dated children", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I1@")!;
+    const fam = ds.families.get("@F1@")!;
+    const newborn = addChild(ds, person, fam); // empty individual, no birth
+
+    const updatedFam = rebuildFamily(ds, fam);
+    expect(updatedFam.children).toEqual(["@C1@", "@C2@", newborn.id]);
   });
 });
 

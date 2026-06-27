@@ -23,6 +23,19 @@ function yearOf(indi: Individual | undefined, tags: readonly string[]): number |
   return undefined;
 }
 
+/**
+ * A comparable numeric key for sorting siblings by birth (year, then month,
+ * then day; missing month/day count as 0). Individuals with no known birth
+ * year return `Infinity` so they sort to the end.
+ */
+export function birthSortKey(indi: Individual | undefined): number {
+  for (const tag of BIRTH_TAGS) {
+    const d = indi?.events.find((e) => e.tag === tag)?.date;
+    if (d?.year !== undefined) return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
+  }
+  return Infinity;
+}
+
 /** The original birth date text (birth, else baptism/christening), if any. */
 export function birthDateText(indi: Individual | undefined): string | undefined {
   return dateRawOf(indi, BIRTH_TAGS);

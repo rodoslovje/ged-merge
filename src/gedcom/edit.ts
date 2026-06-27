@@ -1,5 +1,6 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
 import { buildSourceContext, isPointer, type SourceContext } from "./source";
+import { birthSortKey } from "./lifespan";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -463,8 +464,25 @@ function setFamilySpouse(fam: Family, tag: "HUSB" | "WIFE", indiId: string): voi
 }
 
 /** Append a `CHIL` pointer to a family. */
-function addFamilyChild(fam: Family, childId: string): void {
-  insertOrdered(fam.raw, { level: fam.raw.level + 1, tag: "CHIL", value: childId, children: [] }, FAM_CHILD_ORDER);
+/**
+ * Add a `CHIL` pointer to a family, inserted among the existing children in
+ * birth order (year, then month/day). A child with no known birth date — e.g.
+ * a brand-new empty individual — goes after the dated children, at the end of
+ * the `CHIL` block. The position is found by comparing birth keys against the
+ * existing children only, so an already-sorted list stays sorted.
+ */
+function addFamilyChild(dataset: Dataset, fam: Family, childId: string): void {
+  const node: GedNode = { level: fam.raw.level + 1, tag: "CHIL", value: childId, children: [] };
+  const key = birthSortKey(dataset.individuals.get(childId));
+  // Insert before the first existing CHIL that was born later than this child.
+  const before = fam.raw.children.find(
+    (c) => c.tag === "CHIL" && c.value !== undefined && birthSortKey(dataset.individuals.get(c.value)) > key,
+  );
+  if (!before) {
+    insertOrdered(fam.raw, node, FAM_CHILD_ORDER);
+    return;
+  }
+  fam.raw.children.splice(fam.raw.children.indexOf(before), 0, node);
 }
 
 /** Create a new, empty `INDI` record (with just a `SEX` line, if known) and add it to the dataset. */
@@ -498,7 +516,7 @@ export function addParent(dataset: Dataset, person: Individual, fam: Family | un
 
   if (!fam) {
     fam = addFamily(dataset);
-    addFamilyChild(fam, person.id);
+    addFamilyChild(dataset, fam, person.id);
     addFamilyLink(person, "FAMC", fam.id);
     rebuildIndividual(dataset, person);
   }
@@ -545,7 +563,7 @@ export function addChild(dataset: Dataset, person: Individual, fam: Family | und
     addFamilyLink(person, "FAMS", fam.id);
     rebuildIndividual(dataset, person);
   }
-  addFamilyChild(fam, child.id);
+  addFamilyChild(dataset, fam, child.id);
   addFamilyLink(child, "FAMC", fam.id);
   rebuildFamily(dataset, fam);
   return rebuildIndividual(dataset, child);
@@ -569,7 +587,7 @@ export function connectExistingParent(
 
   if (!fam) {
     fam = addFamily(dataset);
-    addFamilyChild(fam, person.id);
+    addFamilyChild(dataset, fam, person.id);
     if (!person.raw.children.some((c) => c.tag === "FAMC" && c.value === fam!.id))
       addFamilyLink(person, "FAMC", fam.id);
     rebuildIndividual(dataset, person);
@@ -635,7 +653,7 @@ export function connectExistingChild(
       addFamilyLink(person, "FAMS", fam.id);
     rebuildIndividual(dataset, person);
   }
-  if (!fam.children.includes(childId)) addFamilyChild(fam, childId);
+  if (!fam.children.includes(childId)) addFamilyChild(dataset, fam, childId);
   if (!child.raw.children.some((c) => c.tag === "FAMC" && c.value === fam!.id))
     addFamilyLink(child, "FAMC", fam.id);
   rebuildFamily(dataset, fam);

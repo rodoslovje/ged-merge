@@ -657,7 +657,7 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
       eol: dataset.eol,
       finalNewline: dataset.finalNewline,
     });
-    downloadText(`${base}.normalized.ged`, text);
+    downloadText(`${base}.gedmerge.ged`, text);
   }
 
   if (state.status !== "done") return <ToolsLoading label={t("tools.normalize.running")} />;
