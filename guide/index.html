@@ -93,11 +93,34 @@
     <script type="module" src="/src/guide-entry.ts"></script>
   </head>
   <body>
+    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <header class="guide-topbar">
+      <div class="guide-topbar-inner">
+        <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
+          <span class="gm-wordmark">
+            <span class="gm-wordmark-logo">
+              <svg width="33" height="33" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="9" y1="31" x2="9" y2="11" />
+                <line x1="9" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="31" x2="31" y2="11" />
+                <circle cx="9" cy="11" r="3.3" />
+                <circle cx="31" cy="11" r="3.3" />
+                <circle cx="20" cy="23.5" r="3.3" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span class="gm-wordmark-text"><span class="gm-wordmark-ged">GED</span><span class="gm-wordmark-merge">&nbsp;Merge</span></span>
+          </span>
+        </a>
+        <div class="guide-topbar-controls">
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Toggle theme" title="Toggle theme">🌙</button>
+          <a class="guide-lang" href="../navodila/" hreflang="sl" lang="sl">Slovenščina</a>
+        </div>
+      </div>
+    </header>
     <div class="guide-shell">
       <!-- ── Sticky sidebar table of contents ─────────────────────────────── -->
       <aside class="guide-side">
-        <a class="guide-back" href="../">&larr; GED Merge</a>
-        <a class="guide-lang" href="../navodila/" hreflang="sl" lang="sl">Slovenščina</a>
         <p class="guide-side-title">Contents</p>
         <nav class="guide-toc-nav" aria-label="Contents">
           <ol>
@@ -372,15 +395,36 @@
               if a home person is set — its relationship distance. Selecting a row opens the side-by-side comparison.
               Step through with <span class="gm-key">←</span> / <span class="gm-key">→</span>.
             </p>
-            <h3>Filtering &amp; sorting</h3>
+            <h3>Filtering</h3>
             <p>
-              Narrow the list with the <strong>Filters</strong>: <strong>New</strong> (adds new data),
-              <strong>Differences</strong> (has conflicts), <strong>Links</strong> (adds or changes attached links), a
-              name search, and a minimum-score threshold. Sort by score, distance and more. Each row carries small
-              counts for the new fields (<span class="gm-swatch new"></span>), differing fields
-              (<span class="gm-swatch diff"></span>), and link changes (<span class="gm-swatch link"></span>) it would
-              bring.
+              The filter button (top-right of the panel) shows or hides the filter controls, and the header reports how
+              many candidates pass them (e.g. <em>74 of 114</em>). Narrow the list with:
             </p>
+            <ul>
+              <li><strong>≥ score</strong> — a minimum match-score threshold</li>
+              <li><strong>New persons</strong> — only matches that could bring in new ancestors or descendants</li>
+              <li><strong>New data</strong> — only matches that add new field data</li>
+              <li><strong>New links</strong> — only matches that add or change attached links</li>
+              <li><strong>Differences</strong> — only matches with conflicting fields</li>
+              <li><strong>Search name</strong> — filter by given name or surname</li>
+            </ul>
+            <h3>Columns &amp; sorting</h3>
+            <p>
+              Each row shows the candidate's name and life span, then a set of count columns. Every column header is
+              also a <strong>sort button</strong> — click it to sort by that column, click again to reverse.
+            </p>
+            <table class="gm-table">
+              <thead><tr><th>Column</th><th>What it shows</th></tr></thead>
+              <tbody>
+                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Score</td><td>The match score, 0–100.</td></tr>
+                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Distance</td><td>Kinship hops from your home person — shown only when a home person is set.</td></tr>
+                <tr><td><svg class="gm-ico import" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>New persons</td><td>Incoming-only ancestors and descendants this match could bring in. Confirming the merge doesn't import them — choose which to bring in from the Compare Tree.</td></tr>
+                <tr><td><svg class="gm-ico new" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New data</td><td>New fields the incoming file would add.</td></tr>
+                <tr><td><svg class="gm-ico link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>New links</td><td>Attached links the incoming adds or that differ.</td></tr>
+                <tr><td><svg class="gm-ico diff" viewBox="0 0 24 24"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="17" y1="5" x2="7" y2="19"/></svg>Differences</td><td>Fields present in both files but differing.</td></tr>
+                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Status</td><td>Your decision — confirmed, rejected or deferred (round status badge; see <a href="#legend">§15</a>).</td></tr>
+              </tbody>
+            </table>
             <h3>Comparing &amp; resolving conflicts</h3>
             <p>
               The compare panel highlights only fields that add <strong>new data</strong> or <strong>conflict</strong>.
@@ -646,7 +690,8 @@
               All reading, matching, merging and editing happens locally in your browser, on your own computer —
               including your media folder, which is read on your device only. Your family tree is never sent to a
               server. The full
-              Privacy Policy &amp; Terms are available from the footer links inside <a href="../">GED Merge</a>.
+              <a href="../?legal=privacy">Privacy Policy</a> &amp; <a href="../?legal=terms">Terms</a> are also linked in
+              the footer below.
             </p>
           </section>
         </article>
@@ -657,5 +702,37 @@
         </div>
       </main>
     </div>
+
+    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <footer class="app-footer guide-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="#shortcuts">Keyboard Shortcuts</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../?legal=privacy">Privacy</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../?legal=terms">Terms</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="mailto:support@gedmerge.com">Contact</a>
+    </footer>
+
+    <script>
+      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
+      // key, so the choice carries over to the app and survives reloads.
+      (function () {
+        var btn = document.getElementById("gm-theme");
+        if (!btn) return;
+        function render() {
+          btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "🌙" : "☀️";
+        }
+        render();
+        btn.addEventListener("click", function () {
+          var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try { localStorage.setItem("gedmerge.theme", next); } catch (e) {}
+          render();
+        });
+      })();
+    </script>
   </body>
 </html>

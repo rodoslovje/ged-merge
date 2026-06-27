@@ -260,6 +260,24 @@ function AppContent() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  // Open the Privacy/Terms modal when arrived at via `?legal=privacy|terms`
+  // (the standalone guide pages link here, having no React modal of their own).
+  // The param is then stripped so a reload or Back doesn't reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const legal = params.get("legal");
+    if (legal !== "privacy" && legal !== "terms") return;
+    setLegalPage(legal);
+    setShowLegal(true);
+    params.delete("legal");
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      window.location.pathname + (search ? `?${search}` : "") + window.location.hash,
+    );
+  }, []);
   function toggleTheme() {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";

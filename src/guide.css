@@ -31,16 +31,73 @@
   color: var(--accent);
 }
 
-/* Language switch (EN ⇄ SL) shown under the back link in the sidebar. */
+/* Language switch (EN ⇄ SL), shown in the top header bar. */
 .guide-lang {
   display: inline-block;
-  margin: -12px 0 20px;
   font-size: 0.85rem;
   color: var(--accent);
   text-decoration: none;
 }
 .guide-lang:hover {
   text-decoration: underline;
+}
+
+/* ── Top header bar (brand + theme + language) ───────────────────────────── */
+.guide-topbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.guide-topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.guide-topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* GED Merge wordmark lockup — mirrors the in-app <Wordmark/> (mono "GED",
+   sans "Merge", accent-coloured mark). Explicit font stacks so the mono/sans
+   contrast holds even before IBM Plex loads. */
+.gm-wordmark-link {
+  text-decoration: none;
+}
+.gm-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--text);
+}
+.gm-wordmark-logo {
+  display: inline-flex;
+  color: var(--accent);
+}
+.gm-wordmark-text {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.gm-wordmark-ged {
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.gm-wordmark-merge {
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 600;
+}
+
+/* Footer reuses the app's .app-footer styling; just add breathing room. */
+.guide-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+  padding: 22px 24px 40px;
 }
 
 /* Sidebar lives in the grid's first column; sticks while the article scrolls. */
@@ -254,6 +311,27 @@
 .gm-swatch.diff { background: var(--state-minor); }
 .gm-swatch.link { background: var(--sex-male); }
 .gm-swatch.import { background: var(--status-import); }
+
+/* Inline copies of the Matches column header icons — same geometry as the app's
+   ICON_PROPS (viewBox 0 0 24 24, round 2.5 stroke). Colour is set per column to
+   mirror the live list. */
+.guide-body .gm-ico {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+  margin-right: 7px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+.gm-ico.new { color: var(--state-match); }
+.gm-ico.diff { color: var(--state-minor); }
+.gm-ico.link { color: var(--sex-male); }
+.gm-ico.import { color: var(--status-import); }
 
 /* Mode-tab pill — Edit / Merge / Tools. */
 .guide-body .gm-pill {
