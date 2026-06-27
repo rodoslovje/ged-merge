@@ -23,6 +23,8 @@ import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { HelpModal } from "./ui/HelpModal";
 import { LegalModal } from "./ui/LegalModal";
+import { ShortcutsModal } from "./ui/ShortcutsModal";
+import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
@@ -189,6 +191,7 @@ function AppContent() {
   const [showFilters, setShowFilters] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
     { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
   >(null);
@@ -723,17 +726,60 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const handleUndoRedoRef = useRef({ undo: handleUndo, redo: handleRedo });
-  handleUndoRedoRef.current = { undo: handleUndo, redo: handleRedo };
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false });
+  globalShortcutRef.current.undo = handleUndo;
+  globalShortcutRef.current.redo = handleRedo;
 
+  // Global "standard" shortcuts: modifier chords (undo/redo/save) plus the
+  // universal find (`/`) and shortcut-help (`?`/F1) keys. Bare app-specific keys
+  // (mode switches, decisions, tree) live in their own handlers below and in the
+  // per-view files. All of them bail while a modal is open so they don't act on
+  // the app behind a dialog.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const editable = isEditableTarget(e.target);
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndoRedoRef.current.undo(); }
-      else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); handleUndoRedoRef.current.redo(); }
+
+      // Ctrl/Cmd+S saves from anywhere — including mid-edit. Blur the field
+      // first so its in-progress value commits (edit fields save on blur),
+      // then save. preventDefault always, so the browser never shows its own
+      // "save page" prompt. Skipped only while another dialog is open.
+      if (mod && e.key === "s" && !isModalOpen()) {
+        e.preventDefault();
+        const doSave = () => { if (globalShortcutRef.current.canSave) globalShortcutRef.current.save(); };
+        if (editable) {
+          // Let the field's blur-commit flush into app state before reading
+          // canSave / building the save report off the now-current dataset.
+          (e.target as HTMLElement).blur();
+          requestAnimationFrame(doSave);
+        } else {
+          doSave();
+        }
+        return;
+      }
+
+      if (editable) return;
+
+      // `?` / F1 toggle the shortcut cheat sheet. Allowed even with the sheet
+      // itself open (so it toggles closed), but not stacked over another modal.
+      if (e.key === "?" || e.key === "F1") {
+        e.preventDefault();
+        setShowShortcuts((v) => (!v && isModalOpen() ? v : !v));
+        return;
+      }
+      if (isModalOpen()) return;
+
+      if (mod) {
+        if (e.key === "z" && !e.shiftKey) { e.preventDefault(); globalShortcutRef.current.undo(); }
+        else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); globalShortcutRef.current.redo(); }
+        return;
+      }
+
+      // `/` focuses the match filter search box (wherever it's currently shown).
+      if (e.key === "/") {
+        const search = document.querySelector<HTMLInputElement>(".name-search");
+        if (search) { e.preventDefault(); search.focus(); search.select(); }
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -764,29 +810,21 @@ function AppContent() {
     setMode("tools");
   }
 
-  // Mode-switch shortcuts: first letter of each mode label in the active
-  // language, except Tools which uses a fixed "o" — its label first letter ("t")
-  // is already the Compare-Tree shortcut inside Merge/Edit.
-  const modeSwitchRef = useRef({ editKey: "", mergeKey: "", mode, switchToEdit, switchToMerge, switchToTools });
-  modeSwitchRef.current = {
-    editKey: t("mode.edit").charAt(0).toLowerCase(),
-    mergeKey: t("mode.merge").charAt(0).toLowerCase(),
-    mode,
-    switchToEdit,
-    switchToMerge,
-    switchToTools,
-  };
+  // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
+  // Kept locale-independent — label-derived first letters collided across
+  // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
-      const { editKey, mergeKey, mode: cur, switchToEdit: se, switchToMerge: sme, switchToTools: st } = modeSwitchRef.current;
-      if (key === editKey && cur !== "edit") { e.preventDefault(); se(); }
-      else if (key === mergeKey && cur !== "merge") { e.preventDefault(); sme(); }
-      else if (key === "o" && cur !== "tools") { e.preventDefault(); st(); }
+      const { mode: cur, switchToEdit: se, switchToMerge: sme, switchToTools: st } = modeSwitchRef.current;
+      if (key === KEY.modeEdit && cur !== "edit") { e.preventDefault(); se(); }
+      else if (key === KEY.modeMerge && cur !== "merge") { e.preventDefault(); sme(); }
+      else if (key === KEY.modeTools && cur !== "tools") { e.preventDefault(); st(); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1018,6 +1056,10 @@ function AppContent() {
     });
   }
 
+  // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
+  globalShortcutRef.current.save = handleSave;
+  globalShortcutRef.current.canSave = !!lastMasterFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!masterDataset) return;
     dirty.markDirty(type, id, masterDataset);
@@ -1166,8 +1208,9 @@ function AppContent() {
   // shell and the full-page tree views, so they're built once here.
   const appModals = (
     <>
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} onShowShortcuts={() => { setShowHelp(false); setShowShortcuts(true); }} />
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
@@ -1192,6 +1235,10 @@ function AppContent() {
       >
         {t("help.title")}
       </a>
+      <span className="app-footer-sep">·</span>
+      <button className="app-footer-link" onClick={() => setShowShortcuts(true)}>
+        {t("shortcuts.title")}
+      </button>
       <span className="app-footer-sep">·</span>
       <button
         className="app-footer-link"

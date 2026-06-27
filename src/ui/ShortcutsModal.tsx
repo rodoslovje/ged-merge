@@ -1,0 +1,86 @@
+import { useTranslation } from "react-i18next";
+import { SHORTCUT_GROUPS, renderKeyToken, type ShortcutItem } from "../keyboard/shortcuts";
+import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function Combo({ item }: { item: ShortcutItem }) {
+  return (
+    <span className="kbd-combo">
+      {item.keys.map((chord, ci) => (
+        <span key={ci} className="kbd-chord">
+          {ci > 0 && <span className="kbd-or">/</span>}
+          {chord.map((token, ti) => (
+            <kbd key={ti}>{renderKeyToken(token)}</kbd>
+          ))}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * The keyboard cheat sheet — opened with `?` / F1, or from the User's Guide and
+ * footer. Renders straight from `SHORTCUT_GROUPS`, so it always matches the
+ * live bindings. Standard (modifier) and app-specific (bare-key) groups are
+ * split with a legend so the two kinds stay visually distinct.
+ */
+export function ShortcutsModal({ isOpen, onClose }: Props) {
+  const { t } = useTranslation();
+  const ref = useModalKeyboard(isOpen, onClose);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal shortcuts-modal"
+        ref={ref}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("shortcuts.title")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2>{t("shortcuts.title")}</h2>
+          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          <p className="shortcuts-legend">
+            <span className="shortcuts-legend-item">
+              <kbd>{renderKeyToken("mod")}</kbd>
+              <span>{t("shortcuts.legend.standard")}</span>
+            </span>
+            <span className="shortcuts-legend-item">
+              <kbd>A</kbd>
+              <span>{t("shortcuts.legend.app")}</span>
+            </span>
+          </p>
+          <div className="shortcuts-grid">
+            {SHORTCUT_GROUPS.map((group) => (
+              <section key={group.titleKey} className={`shortcuts-group ${group.category}`}>
+                <h3>{t(group.titleKey)}</h3>
+                <dl>
+                  {group.items.map((item) => (
+                    <div className="shortcuts-row" key={item.descKey}>
+                      <dt>
+                        <Combo item={item} />
+                      </dt>
+                      <dd>{t(item.descKey)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

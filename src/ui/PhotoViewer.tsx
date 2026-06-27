@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -76,8 +77,11 @@ export interface PhotoRefContext {
 interface PhotoViewerCtx {
   /** Open the viewer with already-resolved items. */
   openItems(items: PhotoItem[], startIndex?: number): void;
-  /** Resolve a person/record's local photos, then open the viewer. */
-  openPerson(raw: GedNode, records: GedNode[], startIndex?: number, refCtx?: PhotoRefContext): void;
+  /** Resolve a person/record's local photos, then open the viewer. `focusEdit`
+   *  autofocuses the edit form's first field once — used by the add flow so a
+   *  just-added photo is ready to caption; left off for plain viewing (tray
+   *  navigation / opening from Edit) so the user decides whether to edit. */
+  openPerson(raw: GedNode, records: GedNode[], startIndex?: number, refCtx?: PhotoRefContext, focusEdit?: boolean): void;
 }
 
 const PhotoViewerContext = createContext<PhotoViewerCtx>({
@@ -200,15 +204,15 @@ export function MediaReferencedBy({
 export function PhotoViewerProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { resolveFile } = useMediaFolder();
-  const [request, setRequest] = useState<{ items: PhotoItem[]; index: number } | null>(null);
+  const [request, setRequest] = useState<{ items: PhotoItem[]; index: number; focusEdit: boolean } | null>(null);
 
-  const openItems = useCallback((items: PhotoItem[], startIndex = 0) => {
+  const openItems = useCallback((items: PhotoItem[], startIndex = 0, focusEdit = false) => {
     if (items.length === 0) return;
-    setRequest({ items, index: Math.max(0, Math.min(startIndex, items.length - 1)) });
+    setRequest({ items, index: Math.max(0, Math.min(startIndex, items.length - 1)), focusEdit });
   }, []);
 
   const openPerson = useCallback(
-    async (raw: GedNode, records: GedNode[], startIndex = 0, refCtx?: PhotoRefContext) => {
+    async (raw: GedNode, records: GedNode[], startIndex = 0, refCtx?: PhotoRefContext, focusEdit = false) => {
       const refs = collectPhotoRefs(raw, records);
       if (refs.length === 0) return;
       const resolved = await Promise.all(refs.map((r) => resolveFile(r.file)));
@@ -248,7 +252,7 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
               : undefined,
         });
       }
-      openItems(items, startIndex);
+      openItems(items, startIndex, focusEdit);
     },
     [resolveFile, t, openItems],
   );
@@ -260,6 +264,7 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
         <PhotoViewerOverlay
           items={request.items}
           startIndex={request.index}
+          focusEdit={request.focusEdit}
           onClose={() => setRequest(null)}
         />
       )}
@@ -269,43 +274,45 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
 
 /** Editable info-panel form for a photo's descriptive fields. Seeded from
  *  `seed` (the latest saved values, falling back to the photo's initial ones);
- *  remounted per photo by the overlay so each starts from its own values. */
+ *  remounted per photo by the overlay so each starts from its own values.
+ *  Like the Edit-mode fields, each field auto-commits on blur (a no-op commit
+ *  when nothing changed is filtered out by the edit/undo layer). */
 function PhotoInfoEditor({
   edit,
   seed,
   onSaved,
+  autoFocus,
   t,
 }: {
   edit: PhotoEdit;
   seed: PhotoEditFields;
   onSaved: (fields: PhotoEditFields) => void;
+  autoFocus: boolean;
   t: (key: string) => string;
 }) {
   const [fields, setFields] = useState<PhotoEditFields>(seed);
-  const dirty = JSON.stringify(fields) !== JSON.stringify(seed);
   const set = (key: keyof PhotoEditFields) => (value: string) => setFields((f) => ({ ...f, [key]: value }));
+  const commit = () => { onSaved(fields); edit.onSave(fields); };
+  const blurOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") e.currentTarget.blur(); };
   return (
     <div className="media-lightbox-edit">
       <div className="media-lightbox-file" title={edit.file}>{basename(edit.file)}</div>
       <label className="media-edit-field">
         <span>{t("photo.field.title")}</span>
-        <input className="edit-input" value={fields.title} onChange={(e) => set("title")(e.target.value)} />
+        <input className="edit-input" autoFocus={autoFocus} value={fields.title} onChange={(e) => set("title")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
       </label>
       <label className="media-edit-field">
         <span>{t("photo.field.date")}</span>
-        <input className="edit-input" value={fields.date} onChange={(e) => set("date")(e.target.value)} />
+        <input className="edit-input" value={fields.date} onChange={(e) => set("date")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
       </label>
       <label className="media-edit-field">
         <span>{t("photo.field.place")}</span>
-        <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} />
+        <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
       </label>
       <label className="media-edit-field">
         <span>{t("photo.field.description")}</span>
-        <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} />
+        <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} onBlur={commit} />
       </label>
-      <button className="tree-open-btn" disabled={!dirty} onClick={() => { edit.onSave(fields); onSaved(fields); }}>
-        {t("photo.save")}
-      </button>
     </div>
   );
 }
@@ -313,10 +320,12 @@ function PhotoInfoEditor({
 function PhotoViewerOverlay({
   items,
   startIndex,
+  focusEdit,
   onClose,
 }: {
   items: PhotoItem[];
   startIndex: number;
+  focusEdit: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -326,12 +335,21 @@ function PhotoViewerOverlay({
   const [edits, setEdits] = useState<Record<number, PhotoEditFields>>({});
   const multiple = items.length > 1;
   const current = items[Math.min(index, items.length - 1)];
+  // Autofocus the edit form's first field only on the add-flow open — never on
+  // tray navigation or plain "expand from Edit". Consumed after the first render
+  // so even returning to the start photo won't refocus.
+  const [allowFocus, setAllowFocus] = useState(focusEdit);
+  useEffect(() => { if (allowFocus) setAllowFocus(false); }, [allowFocus]);
 
   // Esc closes; arrows step (with wraparound) when there's more than one photo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + items.length) % items.length);
+      if (e.key === "Escape") { onClose(); return; }
+      // Don't hijack arrow keys while typing in the edit form — let them move
+      // the text cursor instead of stepping photos.
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + items.length) % items.length);
       else if (e.key === "ArrowRight") setIndex((i) => (i + 1) % items.length);
     };
     window.addEventListener("keydown", onKey);
@@ -342,7 +360,7 @@ function PhotoViewerOverlay({
 
   return (
     <div
-      className="person-photo-overlay"
+      className={`person-photo-overlay ${multiple ? "has-tray" : ""}`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -363,20 +381,6 @@ function PhotoViewerOverlay({
       <div className="media-lightbox" onClick={(e) => e.stopPropagation()}>
         <div className="person-photo-stage">
           <img src={current.url} className="person-photo-full" alt={current.title ?? ""} />
-          {multiple && (
-            <div className="person-photo-tray">
-              {items.map((it, i) => (
-                <button
-                  key={i}
-                  className={`person-photo-tray-thumb ${i === index ? "active" : ""}`}
-                  onClick={() => setIndex(i)}
-                  aria-current={i === index}
-                >
-                  <img src={it.url} alt="" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
@@ -386,6 +390,7 @@ function PhotoViewerOverlay({
                 edit={current.edit}
                 seed={edits[index] ?? current.edit.initial}
                 onSaved={(f) => setEdits((p) => ({ ...p, [index]: f }))}
+                autoFocus={allowFocus}
                 t={t}
               />
             ) : (
@@ -415,6 +420,20 @@ function PhotoViewerOverlay({
         >
           ›
         </button>
+      )}
+      {multiple && (
+        <div className="person-photo-tray" onClick={(e) => e.stopPropagation()}>
+          {items.map((it, i) => (
+            <button
+              key={i}
+              className={`person-photo-tray-thumb ${i === index ? "active" : ""}`}
+              onClick={() => setIndex(i)}
+              aria-current={i === index}
+            >
+              <img src={it.url} alt="" />
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

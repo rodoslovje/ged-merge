@@ -190,7 +190,7 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal add-photo-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-photo-dialog" role="dialog" aria-modal="true" aria-label={t("addPhoto.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t("addPhoto.title")}</h2>
           <div className="name-search-wrap add-photo-search">

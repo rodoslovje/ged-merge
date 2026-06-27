@@ -18,6 +18,7 @@ import { individualFieldRows } from "../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { type PersonNav } from "./ReadOnlyCompare";
+import { isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -355,8 +356,7 @@ function DuplicatesPanel({
   useEffect(() => {
     if (!active || shown.length === 0) return;
     function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Step the highlight; if a candidate is already open, keep the compare
       // open and stick it to the one we land on.

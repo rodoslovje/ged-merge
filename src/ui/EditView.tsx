@@ -57,7 +57,8 @@ import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddPhotoDialog } from "./AddPhotoDialog";
 import { nodeId } from "./edit/nodeId";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
-import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData, MATCH_STATUSES } from "./edit/editConstants";
+import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./edit/editConstants";
+import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
 import { RelativePickerCard } from "./edit/RelativePickerCard";
 import { NameEditor } from "./edit/NameEditor";
@@ -270,15 +271,12 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     onUpdateDecision(matchDecKey, { status: matchStatus === next ? "undecided" : next, fields: matchDecision?.fields ?? {} });
   }
 
-  // T shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
+  // V (tree) shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
-  const statusShortcuts = Object.fromEntries(
-    MATCH_STATUSES.map((s) => [t(`status.${s}`).charAt(0).toLowerCase(), s]),
-  ) as Record<string, MatchDecisionStatus>;
-  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus, statusShortcuts });
-  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus, statusShortcuts };
+  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus });
+  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -286,16 +284,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle, statusShortcuts: shortcuts } = shortcutRef.current;
+      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
-      if (key === "t") {
+      if (key === KEY.tree) {
         if (id) { e.preventDefault(); show(id); }
         return;
       }
-      const statusHit = shortcuts[key];
+      const statusHit = KEY_STATUS[key];
       if (statusHit) {
         if (decKey) { e.preventDefault(); toggle(statusHit); }
         return;
@@ -757,7 +754,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   /** After adding a single photo, open it in the viewer so its metadata can be
    *  filled in straight away. */
   function openLastPhoto() {
-    if (person) openPerson(person.raw, dataset.records, Number.MAX_SAFE_INTEGER, photoRefCtx);
+    if (person) openPerson(person.raw, dataset.records, Number.MAX_SAFE_INTEGER, photoRefCtx, true);
   }
 
   /** The "Add photo" entry point: ensure a media folder is chosen, then open

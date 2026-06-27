@@ -1829,6 +1829,9 @@ button:focus-visible {
   justify-content: center;
   cursor: zoom-out;
 }
+/* Reserve room at the bottom for the fixed thumbnail tray, so the centered
+ * photo never sits under it. */
+.person-photo-overlay.has-tray { padding-bottom: 96px; }
 .person-photo-full {
   max-width: min(90vw, 1200px);
   max-height: 90vh;
@@ -1860,6 +1863,8 @@ button:focus-visible {
   min-width: 0;
   flex: 0 1 auto;
   max-height: 92vh;
+  /* Stay vertically centred even when the info panel (top-aligned) is taller. */
+  align-self: center;
   cursor: default;
 }
 .person-photo-stage .person-photo-full { max-height: 80vh; max-width: 100%; }
@@ -1884,12 +1889,20 @@ button:focus-visible {
 .person-photo-nav:hover { background: rgba(255, 255, 255, 0.15); }
 .person-photo-prev { left: 20px; }
 .person-photo-next { right: 20px; }
+/* Fixed thumbnail tray pinned to the bottom of the viewport — independent of
+ * the centered photo's size, so it never overlaps it. */
 .person-photo-tray {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
+  justify-content: safe center;
   gap: 8px;
-  max-width: 92vw;
   overflow-x: auto;
-  padding: 4px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: default;
 }
 .person-photo-tray-thumb {
   padding: 0;
@@ -1924,6 +1937,10 @@ button:focus-visible {
 .media-lightbox-info {
   flex: 0 0 280px;
   max-width: 340px;
+  /* Top-aligned (the lightbox uses align-items: flex-start) and bounded so a
+   * long "referenced by" list scrolls within the panel instead of stretching
+   * the row and pushing the photo off-centre. */
+  max-height: 92vh;
   overflow-y: auto;
   background: var(--panel, #1e1e1e);
   color: var(--text);
@@ -3561,6 +3578,60 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .modal-body li { margin: 6px 0; }
 .modal-body strong { color: var(--text); font-weight: 600; }
 
+/* A button that reads as an inline text link (used inside help prose). */
+.link-button {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font: inherit; text-decoration: underline;
+}
+.link-button:hover { color: var(--text); }
+
+/* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
+.shortcuts-modal { max-width: 720px; height: auto; max-height: 88vh; }
+
+.shortcuts-legend {
+  display: flex; flex-wrap: wrap; gap: 8px 24px;
+  margin: 0 0 8px; padding: 12px 0; color: var(--muted); font-size: 0.95rem;
+  border-bottom: 1px solid var(--border);
+}
+.shortcuts-legend-item { display: inline-flex; align-items: center; gap: 8px; }
+
+.shortcuts-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 32px; margin-top: 16px;
+}
+.shortcuts-group { break-inside: avoid; }
+.shortcuts-group h3 {
+  font-size: 1.05rem; margin: 12px 0 8px; padding-bottom: 6px;
+  color: var(--accent); border-bottom: 1px solid var(--border);
+}
+/* Tint app-specific groups so the single-key bindings read distinctly from the
+   modifier-chord standard ones. */
+.shortcuts-group.app h3 { color: var(--text); }
+
+.shortcuts-group dl { margin: 0; }
+.shortcuts-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 5px 0;
+}
+.shortcuts-row dt { margin: 0; flex: 0 0 auto; }
+.shortcuts-row dd { margin: 0; color: var(--muted); font-size: 0.98rem; text-align: right; }
+
+.kbd-combo { display: inline-flex; align-items: center; gap: 6px; }
+.kbd-chord { display: inline-flex; align-items: center; gap: 4px; }
+.kbd-or { color: var(--muted); font-size: 0.85rem; }
+
+kbd {
+  display: inline-block; min-width: 1.6em; padding: 2px 7px;
+  font-family: inherit; font-size: 0.82rem; font-weight: 600; line-height: 1.4;
+  text-align: center; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); box-shadow: 0 1px 0 var(--border-2);
+}
+
+@media (max-width: 720px) {
+  .shortcuts-grid { grid-template-columns: 1fr; }
+}
+
 /* --- Add Source dialog --- */
 /* --- Confirm dialog (small, no scroll) --- */
 .confirm-dialog {
@@ -3738,9 +3809,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .preview-field { color: var(--text); }
 .preview-field-group-label { color: var(--text); font-weight: 600; }
 .preview-fields-nested { padding-left: 18px; margin-top: 2px; }
-.preview-add { color: var(--accent); }
+/* Added / modified values are bold, mirroring how Edit mode emphasizes a
+ * changed field. (Verbatim, un-edited incoming values — `.preview-same` — stay
+ * normal weight.) */
+.preview-add { color: var(--accent); font-weight: 600; }
 .preview-from { color: var(--muted); text-decoration: line-through; }
-.preview-to { color: var(--accent); }
+.preview-to { color: var(--accent); font-weight: 600; }
 /* A value taken verbatim from a real incoming GEDCOM file during a merge, not edited. */
 .preview-same { color: var(--state-incoming); }
 /* A sub-field of an edited event that the edit itself didn't touch — plain text,

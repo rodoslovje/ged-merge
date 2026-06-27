@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 
 interface Props {
   message: string;
@@ -20,10 +21,11 @@ interface Props {
 
 export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange }: Props) {
   const { t } = useTranslation();
+  const ref = useModalKeyboard(true, onCancel);
   const [title, body] = message.split("\n\n");
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <p className="confirm-dialog-title">{title}</p>
         {body && <p className="confirm-dialog-body">{body}</p>}
         {checkboxLabel && (

@@ -5,6 +5,7 @@ import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { buildCompareTree, buildMatchMaps, countImportable } from "../tree/compareTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { kinshipLabel } from "../match/kinship";
 import { displayName, primaryName } from "../match/relatives";
 import { MatchResults } from "./MatchResults";
@@ -141,13 +142,12 @@ export function MergeView({
     ? t("kinship.tooltip", { kinship, name: homePersonName })
     : undefined;
 
-  const STATUSES: MatchDecisionStatus[] = ["confirmed", "rejected", "deferred"];
+  const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
   const currentDecision = current
     ? decisions.get(decisionKey("individual", current.masterId, current.compareId))
     : undefined;
   const status = currentDecision?.status ?? "undecided";
   const fields = currentDecision?.fields ?? {};
-  const shortcutOf = (s: MatchDecisionStatus) => t(`status.${s}`).charAt(0).toLowerCase();
 
   function toggleStatus(next: MatchDecisionStatus) {
     if (!current) return;
@@ -157,8 +157,7 @@ export function MergeView({
   useEffect(() => {
     if (!active || !current) return;
     function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Left/Right move to the previous/next candidate; Up/Down scroll the
       // compare panel instead (when it actually has something to scroll) —
@@ -174,8 +173,8 @@ export function MergeView({
         return;
       }
       const key = e.key.toLowerCase();
-      if (key === "t") { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
-      const hit = STATUSES.find((s) => shortcutOf(s) === key);
+      if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
+      const hit = KEY_STATUS[key];
       if (hit) toggleStatus(hit);
     }
     window.addEventListener("keydown", onKey);
@@ -231,7 +230,7 @@ export function MergeView({
             <button
               key={s}
               className={status === s ? `decision ${s} active` : "decision"}
-              title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
+              title={t("compare.decisionTooltip", { action: t(`status.action.${s}`), key: STATUS_KEY[s].toUpperCase() })}
               onClick={() => toggleStatus(s)}
             >
               {t(status === s ? `status.${s}` : `status.action.${s}`)}

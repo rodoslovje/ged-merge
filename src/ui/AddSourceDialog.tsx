@@ -195,10 +195,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal add-source-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t(editing ? "editSource.title" : "addSource.title")}</h2>
-          <button className="modal-close" onClick={handleClose} title={t("help.close")}>×</button>
+          <button className="modal-close" onClick={handleClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
         </div>
         <div className="modal-body">
           {!editing && (

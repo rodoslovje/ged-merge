@@ -855,18 +855,29 @@ export function findSharedMediaByFile(records: GedNode[], file: string): GedNode
   return undefined;
 }
 
+/** Append a new `OBJE` node after the individual's last existing `OBJE` (so a
+ * just-added photo is reliably last among the photos, regardless of where the
+ * existing ones sit in the record), or at the canonical position if it's the
+ * first. Mirrors `addEventNode`'s "after the last same-tag node" placement. */
+function appendMediaNode(indi: Individual, node: GedNode): GedNode {
+  const objes = indi.raw.children.filter((c) => c.tag === "OBJE");
+  if (objes.length > 0) {
+    const lastIdx = indi.raw.children.indexOf(objes[objes.length - 1]);
+    indi.raw.children.splice(lastIdx + 1, 0, node);
+  } else {
+    insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
+  }
+  return node;
+}
+
 /** Add an inline `1 OBJE`/`2 FILE` photo block to an individual (inline mode). */
 export function attachInlineMedia(indi: Individual, file: string, title?: string): GedNode {
-  const node = buildObjeNode(indi.raw.level + 1, file, title);
-  insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
-  return node;
+  return appendMediaNode(indi, buildObjeNode(indi.raw.level + 1, file, title));
 }
 
 /** Add a `1 OBJE @O@` pointer to a top-level shared media record (shared mode). */
 export function attachMediaPointer(indi: Individual, objeXref: string): GedNode {
-  const node: GedNode = { level: indi.raw.level + 1, tag: "OBJE", value: objeXref, children: [] };
-  insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
-  return node;
+  return appendMediaNode(indi, { level: indi.raw.level + 1, tag: "OBJE", value: objeXref, children: [] });
 }
 
 /**

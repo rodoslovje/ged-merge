@@ -2,7 +2,7 @@ import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { parseName } from "./name";
-import { buildObjeIndex, isPointer, looksLikeUrl } from "./source";
+import { buildObjeIndex, isPointer, objeInfoOf } from "./source";
 import type { Translate } from "../locales/i18n";
 
 const INDIVIDUAL_EVENT_TAGS = new Set([
@@ -207,42 +207,54 @@ function diffStringSet(
   return diffs;
 }
 
+/** A photo's full file path plus a one-line summary of its descriptive
+ *  metadata (title/date/place/description), used to detect added/removed/edited
+ *  photos in the diff. */
+interface PhotoDesc {
+  path: string;
+  meta: string;
+}
+
 /**
- * A resolver from a record's `OBJE` child to the photo's full file path — the
- * inline `FILE` value, or (for a `@O@` pointer) the shared record's file, looked
- * up in `objeIndex`. URL-only objects (web links, not photos) and unresolvable
- * pointers (e.g. a shared record pruned on removal) return undefined and are
- * simply omitted from the diff.
+ * A resolver from a record's `OBJE` child to its {@link PhotoDesc} — read from
+ * the inline node, or (for a `@O@` pointer) the shared record's content via
+ * `objeIndex`. URL-only objects (web links, not photos) and unresolvable
+ * pointers (e.g. a shared record pruned on removal) return undefined.
+ *
+ * Note: a pointer resolves through the *current* records on both sides of the
+ * diff, so a metadata-only edit to a shared `OBJE` isn't detectable here — only
+ * inline photos surface metadata changes.
  */
-type PhotoResolver = (node: GedNode) => string | undefined;
+type PhotoResolver = (node: GedNode) => PhotoDesc | undefined;
 
 function makePhotoResolver(records: GedNode[]): PhotoResolver {
   const objeIndex = buildObjeIndex(records);
   return (node) => {
-    let file = node.children.find((c) => c.tag === "FILE")?.value?.trim();
-    if (!file) {
-      const ptr = node.value?.trim();
-      if (ptr && isPointer(ptr)) file = objeIndex.get(ptr)?.file;
-    }
-    if (!file || looksLikeUrl(file)) return undefined;
-    return file;
+    const ptr = node.value?.trim();
+    const info = ptr && isPointer(ptr) ? objeIndex.get(ptr) : objeInfoOf(node);
+    if (!info || !info.file || info.url) return undefined;
+    const meta = [info.title, info.date, info.place, info.description].filter(Boolean).join(" · ");
+    return { path: info.file, meta };
   };
 }
 
-/** Diff a record's photos (`OBJE`) by full path, reporting each one added or
- *  removed. Rows are `noLabel` — the path is self-describing, so the preview
- *  shows it without a "Photo:" prefix. */
+/** Diff a record's photos (`OBJE`), reporting each one added, removed, or (for
+ *  inline photos) edited, as a self-describing one-liner — `path` plus its
+ *  metadata. Rows are `noLabel`, so the preview shows them without a prefix. */
 function diffPhotos(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: PhotoResolver): FieldChange[] {
-  const paths = (node: GedNode) =>
-    node.children.filter((c) => c.tag === "OBJE").map(resolve).filter((f): f is string => !!f);
-  const beforeVals = paths(before);
-  const afterVals = paths(after);
+  const descs = (node: GedNode) =>
+    node.children.filter((c) => c.tag === "OBJE").map(resolve).filter((d): d is PhotoDesc => !!d);
+  const beforeByPath = new Map(descs(before).map((d) => [d.path, d]));
+  const afterByPath = new Map(descs(after).map((d) => [d.path, d]));
+  const line = (d: PhotoDesc) => (d.meta ? `${d.path} — ${d.meta}` : d.path);
   const diffs: FieldChange[] = [];
-  for (const v of beforeVals) {
-    if (!afterVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming", noLabel: true });
+  for (const [path, d] of beforeByPath) {
+    if (!afterByPath.has(path)) diffs.push({ recordId: id, field: fieldLabel, from: line(d), to: "", action: "incoming", noLabel: true });
   }
-  for (const v of afterVals) {
-    if (!beforeVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both", noLabel: true });
+  for (const [path, d] of afterByPath) {
+    const prev = beforeByPath.get(path);
+    if (!prev) diffs.push({ recordId: id, field: fieldLabel, from: "", to: line(d), action: "both", noLabel: true });
+    else if (prev.meta !== d.meta) diffs.push({ recordId: id, field: fieldLabel, from: "", to: line(d), action: "both", noLabel: true });
   }
   return diffs;
 }

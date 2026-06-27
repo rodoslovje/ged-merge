@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 
 interface Props {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface Props {
 
 export function LegalModal({ isOpen, onClose, page }: Props) {
   const { t } = useTranslation();
+  const ref = useModalKeyboard(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -15,10 +17,10 @@ export function LegalModal({ isOpen, onClose, page }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button className="modal-close" onClick={onClose} title={t("help.close")}>×</button>
+          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
         </div>
         <div className="modal-body legal-content">
           <p className="legal-meta">
