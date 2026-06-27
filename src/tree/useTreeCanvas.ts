@@ -95,8 +95,10 @@ export function useTreeCanvas(
       const n = nodesByKey.get(key);
       const el = canvasRef.current;
       if (!n || !el) return;
+      // The detail panel covers the right half of the canvas, so centre the node
+      // in the left (visible) area — at a quarter of the width — not the middle.
       scrollTo(
-        n.x + PAD + NODE_W / 2 - el.clientWidth / 2,
+        n.x + PAD + NODE_W / 2 - el.clientWidth / 4,
         n.y + PAD + NODE_H / 2 - el.clientHeight / 2,
       );
     },

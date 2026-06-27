@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
@@ -272,14 +272,15 @@ export function CompareTree({
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn" onClick={onBack}>
-          ← {t("tree.back")}
+        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("tree.back")} aria-label={t("tree.back")}>
+          ← <span className="tree-back-label">{t("tree.back")}</span>
         </button>
         <h2 className="tree-title">
           {rootName ? (
             <>
               <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
               {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+              <span className="tree-title-break" aria-hidden="true" />
               {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
               {rootStatus && rootStatus !== "undecided" && (
                 <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
@@ -388,6 +389,7 @@ export function CompareTree({
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
             onShowInMatches={onShowInMatches}
+            kinship={kinshipOf(selected)}
             decision={
               selected.master && selected.incoming
                 ? decisions.get(decisionKey("individual", selected.master.id, selected.incoming.id))
@@ -564,6 +566,22 @@ function TreeLegend({
   const { t } = useTranslation();
   const [openStatus, setOpenStatus] = useState<NodeStatus | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // The dropdown is anchored to its button (right-aligned), so for buttons near
+  // a screen edge it can overflow off-screen. After it opens, nudge it back into
+  // the viewport horizontally.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.style.transform = "";
+    const rect = el.getBoundingClientRect();
+    const margin = 8;
+    let dx = 0;
+    if (rect.left < margin) dx = margin - rect.left;
+    else if (rect.right > window.innerWidth - margin) dx = window.innerWidth - margin - rect.right;
+    if (dx) el.style.transform = `translateX(${Math.round(dx)}px)`;
+  }, [openStatus]);
 
   const grouped = useMemo(() => {
     const g: Record<NodeStatus, Placed[]> = {
@@ -604,7 +622,7 @@ function TreeLegend({
               {t(LEGEND_KEY[s])} ({people.length})
             </button>
             {open && (
-              <ul className="tree-legend-list">
+              <ul className="tree-legend-list" ref={listRef}>
                 {people.map((n) => (
                   <li key={n.key}>
                     <button
@@ -615,8 +633,10 @@ function TreeLegend({
                       }}
                     >
                       <span className="tree-swatch" style={{ background: STATUS_COLOR[n.status] }} />
-                      <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
-                      {n.years && <span className="tree-person-years gm-data">{n.years}</span>}
+                      <span className="tree-person-text">
+                        <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
+                        {n.years && <span className="tree-person-years gm-data">{n.years}</span>}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -641,6 +661,7 @@ function NodeCompare({
   onReroot,
   onClose,
   onShowInMatches,
+  kinship,
   decision,
   onDecide,
 }: {
@@ -654,6 +675,7 @@ function NodeCompare({
   onReroot: (masterId?: string, compareId?: string) => void;
   onClose: () => void;
   onShowInMatches: (masterId: string, compareId: string) => void;
+  kinship: string | undefined;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
 }) {
@@ -689,21 +711,24 @@ function NodeCompare({
     ? () => onShowInMatches(node.master!.id, node.incoming!.id)
     : undefined;
 
+  // The confirm/reject/defer bar sits on the actions row (left), opposite the
+  // Set-as-root button (right) — same row, left and right.
+  const decisionBar = decidable ? (
+    <div className="tree-compare-decisions decision-bar">
+      {DECISION_STATUSES.map((s) => (
+        <button
+          key={s}
+          className={status === s ? `decision ${s} active` : "decision"}
+          onClick={() => onDecide(s)}
+        >
+          {t(status === s ? `status.${s}` : `status.action.${s}`)}
+        </button>
+      ))}
+    </div>
+  ) : undefined;
+
   const controls = (
     <>
-      {decidable && (
-        <div className="tree-compare-decisions decision-bar">
-          {DECISION_STATUSES.map((s) => (
-            <button
-              key={s}
-              className={status === s ? `decision ${s} active` : "decision"}
-              onClick={() => onDecide(s)}
-            >
-              {t(status === s ? `status.${s}` : `status.action.${s}`)}
-            </button>
-          ))}
-        </div>
-      )}
       {importableId && (importCount > 0 || importActive) && (
         <div className="tree-compare-import">
           <button
@@ -731,6 +756,8 @@ function NodeCompare({
       onSetRoot={() => onReroot(node.master?.id, node.incoming?.id)}
       onTitleClick={matchLink}
       titleHint={matchLink ? t("tree.openInMatches") : undefined}
+      kinship={kinship}
+      badges={decisionBar}
       controls={controls}
     />
   );

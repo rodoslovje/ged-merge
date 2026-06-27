@@ -23,6 +23,8 @@ interface Props {
   /** When set, the title becomes a button (Compare Tree: open in Matches). */
   onTitleClick?: () => void;
   titleHint?: string;
+  /** Kinship label to the home person, shown after the lifespan in the title. */
+  kinship?: string;
   /** Chips shown on the actions row, left of the Set-as-root button. */
   badges?: ReactNode;
   /** Extra control rows shown between the actions row and the field table
@@ -49,14 +51,18 @@ export function TreeNodePanel({
   onSetRoot,
   onTitleClick,
   titleHint,
+  kinship,
   badges,
   controls,
 }: Props) {
   const { t } = useTranslation();
   const title = (
     <>
-      <span className={`tree-compare-name ${sexClass(node.sex)}`}>{node.name}</span>
-      {node.years && <span className="tree-compare-years gm-data">{node.years}</span>}
+      <span className="tree-compare-title-main">
+        <span className={`tree-compare-name ${sexClass(node.sex)}`}>{node.name}</span>
+        {node.years && <span className="tree-compare-years gm-data">{node.years}</span>}
+      </span>
+      {kinship && <span className="tree-compare-kinship gm-data">{kinship}</span>}
     </>
   );
   return (

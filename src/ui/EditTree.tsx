@@ -160,8 +160,8 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn" onClick={onBack}>
-          ← {t("edit.tree.back")}
+        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("edit.tree.back")} aria-label={t("edit.tree.back")}>
+          ← <span className="tree-back-label">{t("edit.tree.back")}</span>
         </button>
         <h2 className="tree-title">
           {tree ? (
@@ -170,6 +170,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                 {tree.name}
               </span>
               {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
+              <span className="tree-title-break" aria-hidden="true" />
               {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
               <span className="tree-title-kind">{t("edit.tree.title")}</span>
             </>

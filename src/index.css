@@ -2913,6 +2913,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-title-name {
   font-weight: 600;
 }
+/* Row break inside the title, only active on narrow screens (see media query). */
+.tree-title-break {
+  display: none;
+}
+/* The back button is icon-only at every size; the label lives in the tooltip. */
+.tree-back-btn .tree-back-label {
+  display: none;
+}
 /* Keep the decision chip centred against the baseline-aligned title text. */
 .tree-title .status-chip {
   align-self: center;
@@ -3035,10 +3043,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tree-person:hover { background: var(--panel); }
 .tree-person.active { background: var(--panel); color: var(--accent); }
-.tree-person-name { min-width: 0; }
+/* Name + lifespan share one inline-flow block so the lifespan always sits
+   directly after the name's last word, even when the name wraps to two lines —
+   instead of being a separate flex item pushed to the right and vertically
+   centred (which looked decoupled). */
+.tree-person-text { min-width: 0; }
+.tree-person-name { word-break: break-word; }
 /* Lifespan: muted and smaller than the name, sitting right after it — matching
    .person-years elsewhere (no separator dot). */
-.tree-person-years { color: var(--muted); font-size: 0.9em; flex: 0 0 auto; }
+.tree-person-years { color: var(--muted); font-size: 0.9em; margin-left: 6px; white-space: nowrap; }
 .tree-swatch {
   display: inline-block;
   width: 14px;
@@ -3189,6 +3202,17 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-compare-title {
   font-weight: 600;
   font-size: 0.9rem;
+  /* Name+years on one line; kinship wraps to a second row when it won't fit. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+/* Name and lifespan stay together and truncate as a unit. */
+.tree-compare-title-main {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3210,6 +3234,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 400;
+}
+/* Kinship to the home person, after the lifespan in the panel title. */
+.tree-compare-kinship {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 .tree-compare-close {
   margin-left: auto;
@@ -3241,7 +3271,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border-top: 1px solid var(--border);
   vertical-align: top;
 }
-.tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: 1%; text-align: left; }
+.tree-compare-table .f-label { color: var(--muted); white-space: nowrap; width: 1%; text-align: right; }
 /* Split the remaining width evenly between the two value columns so the
    compare fills its container instead of shrink-wrapping to content. */
 .tree-compare-table .f-val { width: 50%; }
@@ -3279,9 +3309,10 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-compare-actions .tree-compare-root {
   margin-left: auto;
 }
+/* Decision bar now lives on the actions row (left), opposite Set-as-root. */
 .tree-compare-decisions {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
 }
 .tree-compare-import {
   padding: 8px 12px;
@@ -3722,8 +3753,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     padding: 16px 16px 0;
     margin-bottom: 12px;
   }
+  /* The tree shell packs the title tightly under the brand header; keep its
+     bottom margin minimal (the .app-head rule above would otherwise re-add it). */
+  .tree-shell-head {
+    margin-bottom: 0;
+  }
   .app-head-brand {
     gap: 12px;
+  }
+  /* Filenames would wrap to a second row and crowd the header on narrow
+     screens; hide them rather than pushing them down. */
+  .app-head-file-pills {
+    display: none;
   }
   .section {
     border-left: none;
@@ -3869,13 +3910,32 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     padding: 12px;
   }
   .tree-toolbar {
-    flex-wrap: wrap;
+    /* Keep the back button on the same row as the title; the title shrinks and
+       wraps its own content instead of being pushed to a new row. The button
+       stays vertically centred against the (possibly two-line) title. */
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+    /* The app shell zeroes the tree-page horizontal padding, so inset the title
+       and tabs to match the brand header above (16px). */
+    padding-inline: 16px;
   }
   .tree-title {
-    flex: 1 1 100%;
+    /* Sit on the same line as the back button; the name + years fit beside it,
+       and the kinship + kind label wrap to a second row (see below).
+       min-width: 0 lets it shrink below its content size so it wraps internally
+       rather than forcing the toolbar to wrap. */
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 1.1rem;
+  }
+  /* Break the title after the name + years so the kinship and "Tree" kind label
+     wrap together onto a second row. */
+  .tree-title-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
   }
   .tree-open-btn {
     padding: 4px 10px;
@@ -3884,6 +3944,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 8px;
+    padding-inline: 16px;
   }
   .tree-mode button {
     padding: 4px 8px;
@@ -3897,11 +3958,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     padding: 4px 8px;
     font-size: 0.75rem;
   }
+  /* On mobile the panel covers the whole tree, with a minimal gap to the screen
+     edges so the tree behind it doesn't peek through. */
   .tree-compare {
     width: auto;
-    left: 10px;
-    right: 10px;
-    max-height: 55vh;
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    bottom: 8px;
+    max-height: none;
   }
 
   /* Info panel: stack master and incoming loaders vertically */

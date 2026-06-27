@@ -276,27 +276,40 @@ function AppContent() {
   const [treeView, setTreeView] = useState<TreeView | null>(null);
 
   useEffect(() => {
-    // Tag the initial history entry so navigating back past all SPA pushStates
-    // (state === null) means the user is about to leave the app entirely.
-    if (!window.history.state?.gedPage) {
-      window.history.replaceState({ ...window.history.state, gedPage: "main" }, "");
+    // Keep a throwaway "leave-guard" entry beneath the app's main entry. The
+    // browser Back button then lands on a same-document popstate we can intercept
+    // with our own confirmation dialog, instead of the un-stylable native
+    // beforeunload prompt. Set up once; a remount keeps the existing entries.
+    if (window.history.state?.gedPage !== "main") {
+      window.history.replaceState({ ...window.history.state, gedPage: "leave-guard" }, "");
+      window.history.pushState({ gedPage: "main" }, "");
     }
 
     function onPop(e: PopStateEvent) {
-      // null state = browser navigated back before the SPA's initial entry.
-      // Re-push a sentinel and ask for confirmation if there are unsaved changes.
-      if (e.state === null) {
+      const st = (e.state ?? {}) as {
+        gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
+        gedEditTreeId?: string; gedMode?: Mode; gedNavigateTo?: string;
+      };
+      // Landing on the leave-guard = the user pressed Back from the app's main
+      // entry and is about to leave the app. Intercept it.
+      if (st.gedPage === "leave-guard") {
         if (hasUnsavedChangesRef.current) {
-          // Re-push the sentinel so we stay put, then ask asynchronously. If the
-          // user confirms, go back for real (past the re-pushed entry).
+          // Re-push main so we stay on the app, then confirm asynchronously.
           window.history.pushState({ gedPage: "main" }, "");
           confirmDialog(t("app.navLeaveConfirm"), t("confirm.leave")).then((ok) => {
-            if (ok) window.history.back();
+            if (ok) {
+              // Already confirmed in-app — skip the native beforeunload prompt,
+              // then navigate past the re-pushed main and the guard to leave.
+              skipUnloadWarnRef.current = true;
+              window.history.go(-2);
+            }
           });
+        } else {
+          // No unsaved changes: continue past the guard to the previous page.
+          window.history.back();
         }
         return;
       }
-      const st = e.state as { gedTree?: TreeView; gedSel?: SelRef; gedEditTreeId?: string; gedMode?: Mode; gedNavigateTo?: string };
       setTreeView(st.gedTree ?? null);
       setEditTreeId(st.gedEditTreeId ?? null);
       // Restore the mode recorded for this entry (e.g. returning to the Tools tab
@@ -1249,9 +1262,13 @@ function AppContent() {
     </div>
   );
 
-  // Full-page compare tree takes over the whole view when open.
+  // Full-page tree views (Compare / Edit) render as an overlay on top of the
+  // still-mounted main app (hidden via display:none below) rather than replacing
+  // it. Keeping Edit/Merge mounted preserves their scroll position when the user
+  // returns — important on mobile, where the page is a single tall scroll.
+  let treeOverlay: React.ReactNode = null;
   if (treeView && masterDataset && compareDataset && matches) {
-    return wrapTree(
+    treeOverlay = wrapTree(
       <CompareTree
         masterDs={masterDataset}
         compareDs={compareDataset}
@@ -1271,11 +1288,8 @@ function AppContent() {
         homeId={homeId}
       />
     );
-  }
-
-  // Edit Tree takes over the full page when open.
-  if (editTreeId && masterDataset) {
-    return wrapTree(
+  } else if (editTreeId && masterDataset) {
+    treeOverlay = wrapTree(
       <EditTree
         masterDs={masterDataset}
         rootId={editTreeId}
@@ -1300,8 +1314,9 @@ function AppContent() {
 
   return (
     <>
+    {treeOverlay}
     <AutoMediaOffer master={master} />
-    <div className="app">
+    <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
       {showMobileWarning && (
         <div className="mobile-warning">
           <span>{t("app.mobileWarning")}</span>

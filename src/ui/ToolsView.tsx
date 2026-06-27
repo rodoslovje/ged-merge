@@ -13,6 +13,7 @@ import { collectNodeUseIds } from "../tools/places";
 import { countryCode } from "../gedcom/countryCode";
 import { serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
+import { revealEdgeWhitespace } from "./whitespace";
 import { individualFieldRows } from "../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
@@ -743,9 +744,9 @@ function NormExamples({ title, examples }: { title: string; examples: { before: 
       <ul>
         {examples.map((e, i) => (
           <li key={i}>
-            <span className="tools-ex-from">{e.before}</span>
+            <span className="tools-ex-from">{revealEdgeWhitespace(e.before)}</span>
             <span className="tools-pair-sep">→</span>
-            <span className="tools-ex-to">{e.after}</span>
+            <span className="tools-ex-to">{revealEdgeWhitespace(e.after)}</span>
           </li>
         ))}
       </ul>

@@ -4,6 +4,7 @@ import type { Translate } from "../locales/i18n";
 import type { GedNode } from "../gedcom/types";
 import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
+import { revealEdgeWhitespace } from "./whitespace";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 function countLocalMedia(records: GedNode[]): number {
@@ -267,7 +268,9 @@ function renderSummary(
     : undefined;
 
   const examplesTooltip = (changes: { before: string; after: string }[]): string | undefined =>
-    changes.length > 0 ? changes.map((ex) => `${ex.before} → ${ex.after}`).join("\n") : undefined;
+    changes.length > 0
+      ? changes.map((ex) => `${revealEdgeWhitespace(ex.before)} → ${revealEdgeWhitespace(ex.after)}`).join("\n")
+      : undefined;
 
   const kv = info.map(({ text, tooltip }) => {
     const i = text.indexOf(":");
