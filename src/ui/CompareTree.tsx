@@ -53,6 +53,8 @@ interface Props {
   onShowInMatches: (masterId: string, compareId: string) => void;
   /** Decisions by pair key, so matched nodes can show + set their status. */
   decisions: Map<string, CandidateDecision>;
+  /** Master ids with unsaved edits — those nodes show an "M" badge. */
+  changedPersonIds: Set<string>;
   /** Toggle a matched node's decision status (confirm / reject / defer). */
   onDecide: (masterId: string, compareId: string, status: MatchDecisionStatus) => void;
   /** Keys (`importKey(direction, incomingId)`) of incoming branches marked to graft on save. */
@@ -109,6 +111,7 @@ export function CompareTree({
   onBack,
   onShowInMatches,
   decisions,
+  changedPersonIds,
   onDecide,
   importBranches,
   onToggleImport,
@@ -116,22 +119,40 @@ export function CompareTree({
 }: Props) {
   const { t } = useTranslation();
 
+  // A node whose master record has unsaved edits gets an "M" badge, matching the
+  // Edit tree and relative cards.
+  const isModified = useCallback(
+    (n: Placed): boolean => !!n.master && changedPersonIds.has(n.master.id),
+    [changedPersonIds],
+  );
+
   // A matched node (both sides present) carries a decision; resolve its status
   // and localized letter for the badge next to its lifespan. The badge's colour
   // comes from CSS (`.status-chip.<status>`), matching the same chip used in
   // Edit and Merge. Undecided → no badge.
   const decisionOf = useCallback(
     (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
-      if (!n.master || !n.incoming) return undefined;
-      const d = decisions.get(decisionKey("individual", n.master.id, n.incoming.id));
+      // A rejected pairing prunes the incoming side from the tree, so the root
+      // node would lose its `incoming` — fall back to the root compare id (the
+      // pair the tree was opened on) so the decided root still shows its badge.
+      const compareId = n.incoming?.id ?? (n.master?.id === rootMasterId ? rootCompareId : undefined);
+      if (!n.master || !compareId) return undefined;
+      const d = decisions.get(decisionKey("individual", n.master.id, compareId));
       if (!d || d.status === "undecided") return undefined;
       return {
         status: d.status,
         letter: t(`status.${d.status}`).charAt(0).toUpperCase(),
       };
     },
-    [decisions, t],
+    [decisions, t, rootMasterId, rootCompareId],
   );
+
+  // The root pair's decision drives the C/D/R chip in the title — looked up from
+  // the props ids directly so it survives the rejection pruning above.
+  const rootStatus =
+    rootMasterId && rootCompareId
+      ? decisions.get(decisionKey("individual", rootMasterId, rootCompareId))?.status
+      : undefined;
 
   const kinshipOf = useCallback(
     (n: Placed): string | undefined => {
@@ -228,6 +249,8 @@ export function CompareTree({
 
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
+  // Root person's kinship to the home person, shown in the title.
+  const rootKinship = homeId && rootMasterId ? kinshipLabel(masterDs, homeId, rootMasterId, t) : undefined;
 
   const nodesByKey = useMemo(() => {
     const map = new Map<string, Placed>();
@@ -257,6 +280,12 @@ export function CompareTree({
             <>
               <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
               {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+              {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
+              {rootStatus && rootStatus !== "undecided" && (
+                <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
+                  {t(`status.${rootStatus}`).charAt(0)}
+                </span>
+              )}
               <span className="tree-title-kind">{t("tree.title")}</span>
             </>
           ) : (
@@ -305,6 +334,7 @@ export function CompareTree({
               selectedKey={selectedKey}
               onSelect={selectNode}
               decisionOf={badgeOf}
+              modifiedOf={isModified}
               kinshipOf={kinshipOf}
               masterRecords={masterDs.records}
               compareRecords={compareDs.records}
@@ -382,6 +412,7 @@ function TreeSvg({
   selectedKey,
   onSelect,
   decisionOf,
+  modifiedOf,
   kinshipOf,
   masterRecords,
   compareRecords,
@@ -394,12 +425,14 @@ function TreeSvg({
   selectedKey: string | null;
   onSelect: (key: string) => void;
   decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
+  modifiedOf: (n: Placed) => boolean;
   kinshipOf: (n: Placed) => string | undefined;
   masterRecords: GedNode[];
   compareRecords: GedNode[];
   masterRefCtx: PhotoRefContext;
   compareRefCtx: PhotoRefContext;
 }) {
+  const { t } = useTranslation();
   const { nodes, edges } = flat;
   const { folderName } = useMediaFolder();
   const textX = folderName ? TEXT_X_PHOTO : TEXT_X_PLAIN;
@@ -415,14 +448,17 @@ function TreeSvg({
         ))}
         {nodes.map((n) => {
           const dec = decisionOf(n);
+          const modified = modifiedOf(n);
           const kinship = kinshipOf(n);
           // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char at 10px;
-          // decision badge: a fixed ~22px once the years label has a badge next to it).
+          // each badge: a fixed ~22px once the years label has a badge next to it).
           // If they'd overflow the 160px gap, stack kinship on a separate third row.
-          const decW = dec ? 22 : 0;
-          const needsKinshipRow = !!(kinship && (n.years || dec) && (n.years?.length ?? 0) * 13 + decW + kinship.length * 11 > 300);
+          const decW = (dec ? 22 : 0) + (modified ? 22 : 0);
+          const needsKinshipRow = !!(kinship && (n.years || decW) && (n.years?.length ?? 0) * 13 + decW + kinship.length * 11 > 300);
           const yearsRowY = needsKinshipRow ? 36 : 40;
           const decBadgeX = textX + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+          // M badge sits after the decision badge when both are present.
+          const modBadgeX = dec ? decBadgeX + 18 : decBadgeX;
           return (
             <g
               key={n.key}
@@ -430,7 +466,7 @@ function TreeSvg({
               className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
               onClick={() => onSelect(n.key)}
             >
-              <title>{n.detail}</title>
+              <title>{t("tree.node.clickHint")}</title>
               <rect
                 width={NODE_W}
                 height={NODE_H}
@@ -472,6 +508,24 @@ function TreeSvg({
                     fontWeight={700}
                   >
                     {dec.letter}
+                  </text>
+                </g>
+              )}
+              {/* M badge for a master record with unsaved edits — solid fill, same
+                  as the Edit tree. */}
+              {modified && (
+                <g className="tree-node-decision" transform={`translate(${modBadgeX},${yearsRowY - 4})`}>
+                  <circle r={7} fill="var(--node-minor)" />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    x={0}
+                    y={0.5}
+                    fontSize={9}
+                    fontWeight={700}
+                    fill="var(--bg)"
+                  >
+                    {t("edit.tree.modified").charAt(0)}
                   </text>
                 </g>
               )}
@@ -561,8 +615,8 @@ function TreeLegend({
                       }}
                     >
                       <span className="tree-swatch" style={{ background: STATUS_COLOR[n.status] }} />
-                      <span className="tree-person-name">{n.name}</span>
-                      {n.years && <span className="muted"> · {n.years}</span>}
+                      <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
+                      {n.years && <span className="tree-person-years gm-data">{n.years}</span>}
                     </button>
                   </li>
                 ))}
@@ -645,7 +699,7 @@ function NodeCompare({
               className={status === s ? `decision ${s} active` : "decision"}
               onClick={() => onDecide(s)}
             >
-              {t(`status.${s}`)}
+              {t(status === s ? `status.${s}` : `status.action.${s}`)}
             </button>
           ))}
         </div>

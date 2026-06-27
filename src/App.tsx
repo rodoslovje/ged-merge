@@ -164,6 +164,9 @@ function AppContent() {
   // Set right before an intentional reload so the beforeunload handler skips
   // the browser's native "leave page?" prompt after an in-app confirmation.
   const skipUnloadWarnRef = useRef(false);
+  // Holds the currently-registered beforeunload handler so an intentional
+  // reload can detach it synchronously before navigating.
+  const beforeUnloadRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   const undoRedo = useUndoRedo();
@@ -187,7 +190,7 @@ function AppContent() {
   const [showHelp, setShowHelp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
-    { message: string; confirmLabel: string; resolve: (ok: boolean) => void } | null
+    { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
   >(null);
   const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
@@ -315,8 +318,8 @@ function AppContent() {
   /** Show the app-styled confirmation dialog and resolve true/false on the user's
    *  choice. Replaces native window.confirm so all prompts share the app's look. */
   const confirmDialog = useCallback(
-    (message: string, confirmLabel: string) =>
-      new Promise<boolean>((resolve) => setPendingConfirm({ message, confirmLabel, resolve })),
+    (message: string, confirmLabel: string, onConfirmAction?: () => void) =>
+      new Promise<boolean>((resolve) => setPendingConfirm({ message, confirmLabel, resolve, onConfirmAction })),
     []
   );
 
@@ -908,26 +911,46 @@ function AppContent() {
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
 
-  // Warn before leaving the page when there are unsaved changes.
+  // Warn before leaving the page when there are unsaved changes. Registered once
+  // on mount and reads refs so it always reflects the current state without
+  // re-subscribing. The handler is kept in a ref so an intentional in-app reload
+  // can detach it synchronously before navigating — some browsers (e.g. Firefox)
+  // abort a programmatic reload while a beforeunload listener is attached.
   useEffect(() => {
-    if (changedCount === 0 && confirmedCount === 0 && importCount === 0) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
-      // The user already confirmed discarding via the in-app dialog — don't
-      // show the browser's native prompt on top of it.
-      if (skipUnloadWarnRef.current) return;
+      if (skipUnloadWarnRef.current || !hasUnsavedChangesRef.current) return;
       e.preventDefault();
       e.returnValue = "";
     }
+    beforeUnloadRef.current = onBeforeUnload;
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [changedCount, confirmedCount, importCount]);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      beforeUnloadRef.current = null;
+    };
+  }, []);
+
+  /** Drop the unsaved-changes guard and reload. Runs synchronously inside the
+   *  dialog button's click handler so the reload keeps the user's activation —
+   *  Firefox blocks a programmatic reload that fires from an async continuation. */
+  function discardAndReload() {
+    skipUnloadWarnRef.current = true;
+    if (beforeUnloadRef.current) {
+      window.removeEventListener("beforeunload", beforeUnloadRef.current);
+      beforeUnloadRef.current = null;
+    }
+    window.location.reload();
+  }
 
   async function handleTitleClick() {
     const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
-    if (!hasChanges || (await confirmDialog(t("app.reloadConfirm"), t("confirm.reload")))) {
-      skipUnloadWarnRef.current = true;
-      window.location.reload();
+    if (!hasChanges) {
+      discardAndReload();
+      return;
     }
+    // Pass the reload as the dialog's synchronous confirm action; the awaited
+    // result is only used to no-op on cancel.
+    await confirmDialog(t("app.reloadConfirm"), t("confirm.reload"), discardAndReload);
   }
 
   function handleSave() {
@@ -1132,6 +1155,14 @@ function AppContent() {
     <>
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+      {pendingConfirm && (
+        <ConfirmDialog
+          message={pendingConfirm.message}
+          confirmLabel={pendingConfirm.confirmLabel}
+          onConfirm={() => { pendingConfirm.onConfirmAction?.(); pendingConfirm.resolve(true); setPendingConfirm(null); }}
+          onCancel={() => { pendingConfirm.resolve(false); setPendingConfirm(null); }}
+        />
+      )}
     </>
   );
 
@@ -1233,6 +1264,7 @@ function AppContent() {
         onBack={() => window.history.back()}
         onShowInMatches={showInMatches}
         decisions={decisions}
+        changedPersonIds={changedPersonIds}
         onDecide={setPairStatus}
         importBranches={importBranches}
         onToggleImport={toggleImportBranch}
@@ -1493,6 +1525,7 @@ function AppContent() {
               matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMasterOrder : undefined}
               decisions={decisions}
+              changedPersonIds={changedPersonIds}
               compareDataset={compareDataset}
               onUpdateDecision={updateDecisionForKey}
               onPushEdit={handlePushEdit}
@@ -1569,14 +1602,6 @@ function AppContent() {
         <div className="save-toast" role="status" onClick={() => setSaveToast(null)}>
           {saveToast}
         </div>
-      )}
-      {pendingConfirm && (
-        <ConfirmDialog
-          message={pendingConfirm.message}
-          confirmLabel={pendingConfirm.confirmLabel}
-          onConfirm={() => { pendingConfirm.resolve(true); setPendingConfirm(null); }}
-          onCancel={() => { pendingConfirm.resolve(false); setPendingConfirm(null); }}
-        />
       )}
       {appFooter}
       {appModals}

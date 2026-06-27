@@ -48,6 +48,8 @@
 .status-chip.confirmed { background: color-mix(in oklch, var(--state-match) 22%, transparent); color: var(--state-match); }
 .status-chip.deferred  { background: color-mix(in oklch, var(--state-minor) 20%, transparent); color: var(--state-minor); }
 .status-chip.rejected  { background: color-mix(in oklch, var(--state-major) 22%, transparent); color: var(--state-major); }
+/* Solid fill (vs the translucent decision chips) mirrors the M badge on tree nodes. */
+.status-chip.modified  { background: var(--node-minor); color: var(--bg); }
 
 /* ---------------- Decision bar ---------------- */
 .decision.confirmed.active { border-color: var(--state-match); color: var(--state-match); }
@@ -100,6 +102,8 @@
 .tree-swatch.major    { background: var(--node-major); }
 .tree-swatch.master   { background: var(--node-master); }
 .tree-swatch.incoming { background: var(--node-incoming); }
+/* Confirmed-merge legend swatch mirrors the round "C" badge on the node. */
+.tree-swatch.confirmed { border-radius: 50%; background: var(--state-match); }
 
 /* Minimap viewport accent */
 .tree-minimap-viewport { fill: color-mix(in oklch, var(--accent) 16%, transparent); stroke: var(--accent); }

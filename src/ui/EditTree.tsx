@@ -137,9 +137,19 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
 
   // ── Derived counts for legend ─────────────────────────────────────────────
 
+  // "Modified" and "Merged" are independent, overlapping dimensions — a node can
+  // carry both an edit and a confirmed merge — so the counts mirror the badges
+  // rather than partitioning the total. "Unmodified" is the clean complement:
+  // people the save leaves untouched (no edit, no confirmed merge).
   const allNodes = flat?.nodes ?? [];
   const modifiedCount = allNodes.filter((n) => isModified(n)).length;
-  const totalCount = allNodes.length;
+  const mergedCount = allNodes.filter((n) => decisionOf(n)?.status === "confirmed").length;
+  const unmodifiedCount = allNodes.filter(
+    (n) => !isModified(n) && decisionOf(n)?.status !== "confirmed",
+  ).length;
+
+  // Root person's kinship to the home person, shown in the title.
+  const rootKinship = homeId && rootPerson ? kinshipLabel(masterDs, homeId, rootPerson.id, t) : undefined;
 
   const needsMinimap =
     !!laid && viewport.width > 0 &&
@@ -160,6 +170,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                 {tree.name}
               </span>
               {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
+              {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
               <span className="tree-title-kind">{t("edit.tree.title")}</span>
             </>
           ) : (
@@ -180,20 +191,34 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
             <span className="tree-mode-count">{peopleCounts.descendants}</span>
           </button>
         </div>
-        {/* Legend: two static items — unmodified and modified counts */}
+        {/* Legend: confirmed-merge badge + modified / unmodified swatches.
+            Merged and Modified overlap, so they don't sum to the total.
+            Empty groups are hidden. */}
         <div className="tree-legend">
-          <div className="tree-legend-item">
-            <span className="tree-legend-btn">
-              <span className="tree-swatch" style={{ background: COLOR_NORMAL }} />
-              {t("edit.tree.unmodified")} ({totalCount - modifiedCount})
-            </span>
-          </div>
-          <div className="tree-legend-item">
-            <span className="tree-legend-btn">
-              <span className="tree-swatch" style={{ background: COLOR_MODIFIED }} />
-              {t("edit.tree.modified")} ({modifiedCount})
-            </span>
-          </div>
+          {mergedCount > 0 && (
+            <div className="tree-legend-item">
+              <span className="tree-legend-btn">
+                <span className="tree-swatch confirmed" />
+                {t("edit.tree.merged")} ({mergedCount})
+              </span>
+            </div>
+          )}
+          {modifiedCount > 0 && (
+            <div className="tree-legend-item">
+              <span className="tree-legend-btn">
+                <span className="tree-swatch" style={{ background: COLOR_MODIFIED }} />
+                {t("edit.tree.modified")} ({modifiedCount})
+              </span>
+            </div>
+          )}
+          {unmodifiedCount > 0 && (
+            <div className="tree-legend-item">
+              <span className="tree-legend-btn">
+                <span className="tree-swatch" style={{ background: COLOR_NORMAL }} />
+                {t("edit.tree.unmodified")} ({unmodifiedCount})
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -224,7 +249,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                       className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
                       onClick={() => selectNode(n.key)}
                     >
-                      <title>{n.name}{n.years ? ` · ${n.years}` : ""}</title>
+                      <title>{t("tree.node.clickHint")}</title>
                       <rect
                         width={NODE_W}
                         height={NODE_H}
@@ -292,7 +317,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                                   fontWeight={700}
                                   fill="var(--bg)"
                                 >
-                                  M
+                                  {t("edit.tree.modified").charAt(0)}
                                 </text>
                               </g>
                             )}

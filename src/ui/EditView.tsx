@@ -92,6 +92,8 @@ interface Props {
   matchOrder?: string[];
   /** Merge decisions — used to preview incoming values for confirmed matches. */
   decisions?: Map<string, CandidateDecision>;
+  /** Master ids with unsaved edits — relatives in that set show an "M" chip. */
+  changedPersonIds: Set<string>;
   /** The incoming dataset — needed to resolve confirmed match incoming values. */
   compareDataset?: Dataset;
   /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision.
@@ -117,7 +119,7 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
@@ -1121,11 +1123,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     };
   }
 
-  function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string } {
+  // Status chips for a relative card: its merge decision (C/D/R) and/or an "M"
+  // chip when its master record has unsaved edits — mirroring the tree nodes.
+  function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string; modified?: boolean; modifiedLetter?: string; modifiedTooltip?: string } {
+    const modified = !!id && changedPersonIds.has(id);
+    const modifiedProps = modified ? { modified, modifiedLetter: t("edit.tree.modified").charAt(0), modifiedTooltip: t("edit.tree.modified") } : {};
     const status = id ? decisionStatusById.get(id) : undefined;
-    if (!status) return {};
+    if (!status) return modifiedProps;
     const tooltip = t(`status.${status}`);
-    return { decisionStatus: status, decisionLetter: tooltip.charAt(0), decisionTooltip: tooltip };
+    return { decisionStatus: status, decisionLetter: tooltip.charAt(0), decisionTooltip: tooltip, ...modifiedProps };
   }
 
   return (

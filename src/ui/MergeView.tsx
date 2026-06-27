@@ -234,7 +234,7 @@ export function MergeView({
               title={t("compare.shortcut", { key: shortcutOf(s).toUpperCase() })}
               onClick={() => toggleStatus(s)}
             >
-              {t(`status.${s}`)}
+              {t(status === s ? `status.${s}` : `status.action.${s}`)}
             </button>
           ))}
         </div>

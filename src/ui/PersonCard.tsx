@@ -28,6 +28,12 @@ interface Props {
   decisionLetter?: string;
   /** Tooltip for the status chip, e.g. "Confirmed". */
   decisionTooltip?: string;
+  /** True when this relative's master record has unsaved edits — shows a "modified" chip. */
+  modified?: boolean;
+  /** Single letter shown in the modified chip, e.g. "M" / "S" (already localized). */
+  modifiedLetter?: string;
+  /** Tooltip for the modified chip, e.g. "Modified". */
+  modifiedTooltip?: string;
   /** Pass to display a profile photo thumbnail from local media. */
   records?: GedNode[];
   /** When set, the enlarged photo's info panel lists the records citing each
@@ -36,7 +42,7 @@ interface Props {
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, records, refCtx }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -67,13 +73,16 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
           {records && <CardPhoto raw={individual.raw} records={records} refCtx={refCtx} />}
           <div className={`person-label ${sexClass(individual.sex)}`}>
             <span className="person-name">{displayName(primaryName(individual))}</span>
-            {(lifespan || kinship || decisionStatus) && (
+            {(lifespan || kinship || decisionStatus || modified) && (
               <div className="person-card-meta">
                 {lifespan && <span className="person-years gm-data">{lifespan}</span>}
                 {decisionStatus && (
                   <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
                     {decisionLetter}
                   </span>
+                )}
+                {modified && (
+                  <span className="status-chip modified" title={modifiedTooltip}>{modifiedLetter}</span>
                 )}
                 {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
               </div>

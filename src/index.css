@@ -1497,6 +1497,8 @@ button:focus-visible {
 .status-chip.confirmed { background: #14492f; color: #6ee7b7; }
 .status-chip.rejected { background: #4a1d1d; color: #fca5a5; }
 .status-chip.deferred { background: #3a3320; color: #fcd34d; }
+/* Solid fill (vs the translucent decision chips) mirrors the M badge on tree nodes. */
+.status-chip.modified { background: var(--node-minor); color: var(--bg); }
 
 .badge {
   flex: 0 0 42px;
@@ -1557,7 +1559,7 @@ button:focus-visible {
 .candidate-main .person-name { font-weight: 400; }
 .candidate.selected .person-name { font-weight: 600; }
 
-.compare-head .person-label { font-size: 1rem; }
+.compare-head .person-label { font-size: 1.1rem; }
 .compare-head .person-name,
 .compare-head .person-years { font-weight: 600; }
 
@@ -2897,7 +2899,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin-bottom: 12px;
 }
 .tree-title {
-  /* Person name matches the Edit/Compare person header (1.1rem, 600). */
+  /* Person name + lifespan match the Edit/Merge person header
+     (1.1rem name, 600; 0.9em muted years). */
   font-size: 1.1rem;
   margin: 0;
   flex: 1 1 auto;
@@ -2910,10 +2913,21 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-title-name {
   font-weight: 600;
 }
+/* Keep the decision chip centred against the baseline-aligned title text. */
+.tree-title .status-chip {
+  align-self: center;
+}
 .tree-title-years {
   color: var(--muted);
+  font-size: 0.9em;
+  /* 600 to match the Edit/Merge person header's lifespan weight. */
+  font-weight: 600;
+}
+/* Root person's kinship to the home person, shown in the title. */
+.tree-title-kinship {
+  color: var(--accent);
   font-size: 0.85rem;
-  font-weight: 400;
+  font-weight: 600;
 }
 /* The page kind ("Tree" / "Compare Tree") — secondary to the person, shown as a
    muted label after the name, separated by a faint dot. */
@@ -3021,7 +3035,10 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tree-person:hover { background: var(--panel); }
 .tree-person.active { background: var(--panel); color: var(--accent); }
-.tree-person-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-person-name { min-width: 0; }
+/* Lifespan: muted and smaller than the name, sitting right after it — matching
+   .person-years elsewhere (no separator dot). */
+.tree-person-years { color: var(--muted); font-size: 0.9em; flex: 0 0 auto; }
 .tree-swatch {
   display: inline-block;
   width: 14px;
@@ -3144,7 +3161,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 360px;
+  width: 432px;
   max-height: calc(100% - 20px);
   display: flex;
   flex-direction: column;

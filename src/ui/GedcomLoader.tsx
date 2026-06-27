@@ -221,7 +221,7 @@ function renderSummary(
   // Each row is one "Label: value" line; format rows carry a tooltip explaining
   // the (deliberately short) format label in detail.
   const info: { text: string; tooltip?: string }[] = [
-    { text: t("loader.version", { version: dataset.version }) },
+    { text: t("loader.version", { version: dataset.version === "unknown" ? t("loader.versionUnknown") : dataset.version }) },
     { text: t("loader.encoding", { charset: dataset.charset }) },
   ];
   if (dateFormat) {
