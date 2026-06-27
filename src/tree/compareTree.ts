@@ -242,6 +242,26 @@ function nodeKey(master: Individual | undefined, incoming: Individual | undefine
  * reused as join points and master-only nodes aren't touched, so neither counts.
  * The node itself is excluded (the import is about its ancestors/descendants).
  */
+/**
+ * Count the blood relatives in a node's tree — ancestors (in an ancestors tree)
+ * or descendants (in a descendants tree). The root itself and spouses (partner
+ * nodes) are excluded, so the number answers "does this person have anything in
+ * this direction?" at a glance. Deduped by key for any pedigree collapse.
+ */
+export function countTreePeople(root: TreeNode | undefined): number {
+  if (!root) return 0;
+  const seen = new Set<string>();
+  const visit = (x: TreeNode) => {
+    if (seen.has(x.key)) return;
+    seen.add(x.key);
+    x.children.forEach(visit);
+    x.partners.forEach((p) => p.children.forEach(visit));
+  };
+  root.children.forEach(visit);
+  root.partners.forEach((p) => p.children.forEach(visit));
+  return seen.size;
+}
+
 export function countImportable(node: TreeNode): number {
   let n = 0;
   const visit = (x: TreeNode) => {

@@ -6,6 +6,7 @@ import { validateDataset, type ValidationReport, type IssueCategory } from "../t
 import { findDuplicates, makeDuplicatePair, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { buildSourceTree, type SourceTree, type SourceUse, type RepoGroup, type SourceEntry, type MediaEntry } from "../tools/sources";
+import { findSourceDuplicates, dedupeSources, type DuplicateReport, type DupGroup, type DupKind } from "../tools/sourceDuplicates";
 import { buildPlaceTree, countDistinctPlaces, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../tools/placeEdit";
 import { collectNodeUseIds } from "../tools/places";
@@ -112,7 +113,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
           <NormalizePanel dataset={dataset} fileName={fileName} active={active} />
         )}
         {tool === "sources" && (
-          <SourcesPanel dataset={dataset} onNavigate={onNavigate} active={active} />
+          <SourcesPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} />
@@ -998,12 +999,35 @@ function repoDescendants(repo: RepoGroup): string[] {
   return [`s:${src.xref}`, ...srcDescendants(src)];
 }
 
+/** Keys to open on first load so the tree expands down to the first level that
+ *  offers a choice: when there is a single top-level entry (e.g. only the "No
+ *  repository" bucket), open it and drill on through any single-child chain. */
+function initialSourceOpen(tree: SourceTree): Set<string> {
+  const open = new Set<string>();
+  const hasLinks = tree.unattachedLinks.length > 0;
+  const hasMedia = tree.unattachedMedia.length > 0;
+  const topCount = tree.repos.length + (hasLinks ? 1 : 0) + (hasMedia ? 1 : 0);
+  if (topCount !== 1) return open;
+  if (tree.repos.length === 1) {
+    const repo = tree.repos[0];
+    open.add(`r:${repo.xref ?? "none"}:0`);
+    for (const k of repoDescendants(repo)) open.add(k);
+  } else if (hasLinks) {
+    open.add("unattachedLinks");
+  } else if (hasMedia) {
+    open.add("unattached");
+  }
+  return open;
+}
+
 function SourcesPanel({
   dataset,
+  fileName,
   onNavigate,
   active,
 }: {
   dataset: Dataset;
+  fileName: string;
   onNavigate: (id: string) => void;
   active: boolean;
 }) {
@@ -1011,16 +1035,39 @@ function SourcesPanel({
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  // Switches the panel body between the containment tree and the duplicate finder.
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  // Scanned automatically so the toggle can show the count (only when > 0).
+  const [dupReport, setDupReport] = useState<DuplicateReport | null>(null);
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
     setQuery("");
+    setShowDuplicates(false);
+    setDupReport(null);
   }, [dataset]);
 
   useEffect(() => {
-    if (active && !tree) setTree(buildSourceTree(dataset));
+    if (active && !tree) {
+      const built = buildSourceTree(dataset);
+      setTree(built);
+      setOpen(initialSourceOpen(built));
+    }
   }, [active, tree, dataset]);
+
+  // Find duplicates once the tab is shown (after the tree, so the tree paints
+  // first), then leave it cached for the toggle badge and the finder view.
+  useEffect(() => {
+    if (!active || dupReport) return;
+    let cancelled = false;
+    void nextTick().then(() => {
+      if (!cancelled) setDupReport(findSourceDuplicates(dataset));
+    });
+    return () => { cancelled = true; };
+  }, [active, dupReport, dataset]);
+
+  const dupCount = dupReport?.groups.length ?? 0;
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -1066,6 +1113,9 @@ function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
+  if (showDuplicates && dupReport)
+    return <SourceDuplicatesView report={dupReport} dataset={dataset} fileName={fileName} onBack={() => setShowDuplicates(false)} />;
+
   if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
 
   const empty =
@@ -1102,6 +1152,11 @@ function SourcesPanel({
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
+        {dupCount > 0 && (
+          <button className="tools-chip tools-dup-toggle" onClick={() => setShowDuplicates(true)}>
+            {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
+          </button>
+        )}
         <p className="tools-summary">
           {t("tools.sources.summary", {
             repos: tree.repoCount,
@@ -1178,6 +1233,207 @@ function SourcesPanel({
   );
 }
 
+// ── Source duplicate finder ──────────────────────────────────────────────────
+
+const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
+const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
+
+/** The default-kept member of a group (the one the finder flagged as survivor). */
+function defaultSurvivor(g: DupGroup): string {
+  return (g.members.find((m) => m.survivor) ?? g.members[0]).xref;
+}
+
+/** A copy of `g` with `xref` marked as the kept record (the rest fold into it). */
+function withSurvivor(g: DupGroup, xref: string): DupGroup {
+  return { ...g, members: g.members.map((m) => ({ ...m, survivor: m.xref === xref })) };
+}
+
+/**
+ * Lists the media/source/repository records that describe the same thing under
+ * different ids (scan supplied by the parent). The user picks which groups to
+ * merge and, within each, which record to keep, then downloads a deduplicated
+ * GEDCOM (the live dataset is never touched — same contract as the Normalize
+ * panel). Each selected group collapses to its chosen survivor with every
+ * citation re-pointed onto it.
+ */
+function SourceDuplicatesView({
+  report,
+  dataset,
+  fileName,
+  onBack,
+}: {
+  report: DuplicateReport;
+  dataset: Dataset;
+  fileName: string;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  // Groups excluded from the fix (default: all selected). Survivor overrides
+  // keyed by group id (default: the finder's pick).
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const back = (
+    <button className="tools-chip tools-dup-toggle" onClick={onBack}>
+      ← {t("tools.sources.dupBack")}
+    </button>
+  );
+
+  const toggleGroup = (id: string) =>
+    setExcluded((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleExpand = (id: string) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const chooseSurvivor = (id: string, xref: string) =>
+    setSurvivors((m) => new Map(m).set(id, xref));
+
+  const selectedGroups = report.groups
+    .filter((g) => !excluded.has(g.id))
+    .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
+  const removeCount = selectedGroups.reduce((n, g) => n + g.removable, 0);
+
+  function download() {
+    const { records } = dedupeSources(dataset.records, selectedGroups);
+    const base = fileName.replace(/\.ged$/i, "");
+    const text = serializeGedcom(records, { eol: dataset.eol, finalNewline: dataset.finalNewline });
+    downloadText(`${base}.gedmerge.ged`, text);
+  }
+
+  return (
+    <>
+      <div className="tools-filter-row">
+        {back}
+        <div className="tools-dup-bulk">
+          <button className="tools-issue-link" onClick={() => setExcluded(new Set())}>
+            {t("tools.sources.dupSelectAll")}
+          </button>
+          <button className="tools-issue-link" onClick={() => setExcluded(new Set(report.groups.map((g) => g.id)))}>
+            {t("tools.sources.dupSelectNone")}
+          </button>
+        </div>
+        <p className="tools-summary">{t("tools.sources.dupFound", { count: report.groups.length })}</p>
+      </div>
+      <p className="tools-intro">{t("tools.sources.dupIntro")}</p>
+
+      {DUP_KINDS.filter((k) => report.byKind[k] > 0).map((kind) => (
+        <div key={kind} className="tools-dup-kind">
+          <div className="tools-dup-kind-head">
+            {DUP_KIND_ICON[kind]} {t(`tools.sources.dupKind.${kind}`)}
+            <span className="tools-chip-count">{report.byKind[kind]}</span>
+          </div>
+          <ul className="tools-tree">
+            {report.groups
+              .filter((g) => g.kind === kind)
+              .map((g) => (
+                <DupGroupRow
+                  key={g.id}
+                  group={g}
+                  checked={!excluded.has(g.id)}
+                  survivorXref={survivors.get(g.id) ?? defaultSurvivor(g)}
+                  open={expanded.has(g.id)}
+                  onToggleCheck={() => toggleGroup(g.id)}
+                  onToggleOpen={() => toggleExpand(g.id)}
+                  onChooseSurvivor={(xref) => chooseSurvivor(g.id, xref)}
+                />
+              ))}
+          </ul>
+        </div>
+      ))}
+
+      <div className="tools-dup-actions">
+        <button className="nav-btn primary tools-run" onClick={download} disabled={selectedGroups.length === 0}>
+          {t("tools.sources.dupDownload")}
+        </button>
+        {selectedGroups.length > 0 && (
+          <span className="tools-fix-hint">
+            {t("tools.sources.dupDownloadCount", { groups: selectedGroups.length, records: removeCount })}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** One duplicate group: a checkbox to include it in the fix, the shared
+ *  link/title, and an expandable list of its members with a radio to pick which
+ *  record to keep (the rest fold into it). */
+function DupGroupRow({
+  group,
+  checked,
+  survivorXref,
+  open,
+  onToggleCheck,
+  onToggleOpen,
+  onChooseSurvivor,
+}: {
+  group: DupGroup;
+  checked: boolean;
+  survivorXref: string;
+  open: boolean;
+  onToggleCheck: () => void;
+  onToggleOpen: () => void;
+  onChooseSurvivor: (xref: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <li className="tools-tree-node">
+      <div className="tools-tree-row">
+        <input type="checkbox" className="tools-dup-check" checked={checked} onChange={onToggleCheck} />
+        <button
+          className={`tools-pair-toggle ${open ? "open" : ""}`}
+          onClick={onToggleOpen}
+          aria-expanded={open}
+        >
+          ▶
+        </button>
+        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.label}>
+          {group.label}
+        </span>
+        <span className="tools-chip-count">{group.members.length}</span>
+      </div>
+      {open && (
+        <div className="tools-tree-children">
+          <ul className="tools-dup-members">
+            {group.members.map((m) => {
+              const keep = m.xref === survivorXref;
+              return (
+                <li key={m.xref} className={keep ? "tools-dup-member survivor" : "tools-dup-member"}>
+                  <label className="tools-dup-keep-pick" title={t("tools.sources.dupKeepThis")}>
+                    <input
+                      type="radio"
+                      name={`surv-${group.id}`}
+                      checked={keep}
+                      onChange={() => onChooseSurvivor(m.xref)}
+                    />
+                    {keep && <span className="tools-dup-keep">{t("tools.sources.dupKeep")}</span>}
+                  </label>
+                  <span className="tools-dup-title">{m.title}</span>
+                  {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
+                  {m.usage > 0 && (
+                    <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </li>
+  );
+}
+
 // ── Places explorer ──────────────────────────────────────────────────────────
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
@@ -1195,6 +1451,23 @@ function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set
   if (children.length === 0) return null;
   autoOpen.add(path);
   return { ...node, children };
+}
+
+/** Keys to open on first load: when there is a single root place, open it and
+ *  drill on through any single-child chain so the tree lands on the first level
+ *  that offers a choice. */
+function initialPlaceOpen(roots: PlaceNode[]): Set<string> {
+  const open = new Set<string>();
+  if (roots.length !== 1) return open;
+  let node = roots[0];
+  let path = node.name;
+  open.add(path);
+  while (node.children.length === 1 && node.uses.length === 0) {
+    node = node.children[0];
+    path = `${path}/${node.name}`;
+    open.add(path);
+  }
+  return open;
 }
 
 function PlacesPanel({
@@ -1220,7 +1493,11 @@ function PlacesPanel({
   }, [dataset]);
 
   useEffect(() => {
-    if (active && !tree) setTree(buildPlaceTree(dataset));
+    if (active && !tree) {
+      const built = buildPlaceTree(dataset);
+      setTree(built);
+      setOpen(initialPlaceOpen(built.roots));
+    }
   }, [active, tree, dataset]);
 
   // Expanding a place opens it and then keeps drilling through any single-child

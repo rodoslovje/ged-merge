@@ -11,6 +11,7 @@ import {
   buildCompareTree,
   buildMatchMaps,
   countImportable,
+  countTreePeople,
   type MatchMaps,
   type NodeStatus,
   type TreeMode,
@@ -19,6 +20,7 @@ import {
 import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
+import { MapIcon } from "./icons/MapIcon";
 
 interface Props {
   masterDs: Dataset;
@@ -196,12 +198,18 @@ export function CompareTree({
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode. Built for
   // both directions (independent of the current mode) so switching reflects them.
-  const importCounts = useMemo(() => {
+  const { importCounts, peopleCounts } = useMemo(() => {
     const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
     const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected);
     return {
-      ancestors: ancestors ? countImportable(ancestors) : 0,
-      descendants: descendants ? countImportable(descendants) : 0,
+      importCounts: {
+        ancestors: ancestors ? countImportable(ancestors) : 0,
+        descendants: descendants ? countImportable(descendants) : 0,
+      },
+      peopleCounts: {
+        ancestors: countTreePeople(ancestors),
+        descendants: countTreePeople(descendants),
+      },
     };
   }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
 
@@ -255,6 +263,7 @@ export function CompareTree({
   const canvasRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(true);
 
   // A new tree (mode switch / different root) invalidates the old selection.
   useEffect(() => setSelectedKey(null), [laid]);
@@ -373,13 +382,14 @@ export function CompareTree({
           ← {t("tree.back")}
         </button>
         <h2 className="tree-title">
-          {t("tree.title")}
-          {rootName && (
-            <span className="tree-title-person">
-              <span className="muted">{" · "}</span>
+          {rootName ? (
+            <>
               <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
               {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-            </span>
+              <span className="tree-title-kind">{t("tree.title")}</span>
+            </>
+          ) : (
+            t("tree.title")
           )}
         </h2>
       </div>
@@ -391,6 +401,7 @@ export function CompareTree({
             onClick={() => onModeChange("ancestors")}
           >
             {t("tree.ancestors")}
+            <span className="tree-mode-count">{peopleCounts.ancestors}</span>
             {importCounts.ancestors > 0 && (
               <span className="tree-import-count">▲{importCounts.ancestors}</span>
             )}
@@ -400,6 +411,7 @@ export function CompareTree({
             onClick={() => onModeChange("descendants")}
           >
             {t("tree.descendants")}
+            <span className="tree-mode-count">{peopleCounts.descendants}</span>
             {importCounts.descendants > 0 && (
               <span className="tree-import-count">▼{importCounts.descendants}</span>
             )}
@@ -438,13 +450,34 @@ export function CompareTree({
           )}
         </div>
         {needsMinimap && laid && flat && (
-          <Minimap
-            nodes={flat.nodes}
-            contentW={laid.width}
-            contentH={laid.height}
-            viewport={viewport}
-            onScrollTo={scrollTo}
-          />
+          mapOpen ? (
+            <div className="tree-minimap-box">
+              <button
+                className="tree-minimap-collapse"
+                onClick={() => setMapOpen(false)}
+                title={t("tree.minimap.hide")}
+                aria-label={t("tree.minimap.hide")}
+              >
+                ×
+              </button>
+              <Minimap
+                nodes={flat.nodes}
+                contentW={laid.width}
+                contentH={laid.height}
+                viewport={viewport}
+                onScrollTo={scrollTo}
+              />
+            </div>
+          ) : (
+            <button
+              className="tree-minimap-show"
+              onClick={() => setMapOpen(true)}
+              title={t("tree.minimap.show")}
+              aria-label={t("tree.minimap.show")}
+            >
+              <MapIcon />
+            </button>
+          )
         )}
         {selected && (
           <NodeCompare

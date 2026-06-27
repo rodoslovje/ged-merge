@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildCompareTree, type TreeMode, type TreeNode } from "../tree/compareTree";
+import { buildCompareTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
 import { kinshipLabel } from "../match/kinship";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
+import { MapIcon } from "./icons/MapIcon";
 
 // ─── Constants (identical to CompareTree so node sizes match) ─────────────────
 const NODE_W = 220;
@@ -93,6 +94,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
   const [panning, setPanning] = useState(false);
+  const [mapOpen, setMapOpen] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
   const pan = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null);
   const dragged = useRef(false);
@@ -108,6 +110,15 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
 
   const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
   const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
+
+  // Ancestor / descendant head-counts for both directions, shown on the mode
+  // buttons so the user can tell at a glance whether either way is worth
+  // opening. Built independently of the current mode (memoized on the root), so
+  // switching modes doesn't recompute them.
+  const peopleCounts = useMemo(() => ({
+    ancestors: countTreePeople(rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined),
+    descendants: countTreePeople(rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined),
+  }), [t, rootPerson, masterDs]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, Placed>();
@@ -239,40 +250,46 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
           ← {t("edit.tree.back")}
         </button>
         <h2 className="tree-title">
-          {t("edit.tree.title")}
-          {tree && (
-            <span className="tree-title-person">
-              <span className="muted">{" · "}</span>
+          {tree ? (
+            <>
               <span className={`tree-title-name ${rootPerson ? sexClass(rootPerson.sex) : ""}`}>
                 {tree.name}
               </span>
               {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
-            </span>
+              <span className="tree-title-kind">{t("edit.tree.title")}</span>
+            </>
+          ) : (
+            t("edit.tree.title")
           )}
         </h2>
+      </div>
+
+      {/* Mode toggle (left) + legend (right) — same layout as the Compare Tree. */}
+      <div className="tree-controls">
         <div className="tree-mode">
           <button className={mode === "ancestors" ? "active" : ""} onClick={() => setMode("ancestors")}>
             {t("tree.ancestors")}
+            <span className="tree-mode-count">{peopleCounts.ancestors}</span>
           </button>
           <button className={mode === "descendants" ? "active" : ""} onClick={() => setMode("descendants")}>
             {t("tree.descendants")}
+            <span className="tree-mode-count">{peopleCounts.descendants}</span>
           </button>
         </div>
-      </div>
-
-      {/* Legend: two static items — unmodified and modified counts */}
-      <div className="tree-legend">
-        <div className="tree-legend-item">
-          <span className="tree-legend-btn">
-            <span className="tree-swatch" style={{ background: COLOR_NORMAL }} />
-            {t("edit.tree.unmodified")} ({totalCount - modifiedCount})
-          </span>
-        </div>
-        <div className="tree-legend-item">
-          <span className="tree-legend-btn">
-            <span className="tree-swatch" style={{ background: COLOR_MODIFIED }} />
-            {t("edit.tree.modified")} ({modifiedCount})
-          </span>
+        {/* Legend: two static items — unmodified and modified counts */}
+        <div className="tree-legend">
+          <div className="tree-legend-item">
+            <span className="tree-legend-btn">
+              <span className="tree-swatch" style={{ background: COLOR_NORMAL }} />
+              {t("edit.tree.unmodified")} ({totalCount - modifiedCount})
+            </span>
+          </div>
+          <div className="tree-legend-item">
+            <span className="tree-legend-btn">
+              <span className="tree-swatch" style={{ background: COLOR_MODIFIED }} />
+              {t("edit.tree.modified")} ({modifiedCount})
+            </span>
+          </div>
         </div>
       </div>
 
@@ -402,14 +419,35 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
         </div>
 
         {needsMinimap && laid && flat && (
-          <EditMinimap
-            nodes={flat.nodes}
-            contentW={laid.width}
-            contentH={laid.height}
-            viewport={viewport}
-            onScrollTo={scrollTo}
-            colorOf={colorOf}
-          />
+          mapOpen ? (
+            <div className="tree-minimap-box">
+              <button
+                className="tree-minimap-collapse"
+                onClick={() => setMapOpen(false)}
+                title={t("tree.minimap.hide")}
+                aria-label={t("tree.minimap.hide")}
+              >
+                ×
+              </button>
+              <EditMinimap
+                nodes={flat.nodes}
+                contentW={laid.width}
+                contentH={laid.height}
+                viewport={viewport}
+                onScrollTo={scrollTo}
+                colorOf={colorOf}
+              />
+            </div>
+          ) : (
+            <button
+              className="tree-minimap-show"
+              onClick={() => setMapOpen(true)}
+              title={t("tree.minimap.show")}
+              aria-label={t("tree.minimap.show")}
+            >
+              <MapIcon />
+            </button>
+          )
         )}
 
         {selected && selected.master && (

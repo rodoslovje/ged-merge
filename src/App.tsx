@@ -1119,9 +1119,101 @@ function AppContent() {
     });
   }
 
+  // Modals (help / legal) and the page footer are shared between the main app
+  // shell and the full-page tree views, so they're built once here.
+  const appModals = (
+    <>
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+    </>
+  );
+
+  const appFooter = (
+    <footer className="app-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
+        © 2026 Luka Renko
+      </a>
+      <span className="app-footer-sep">·</span>
+      <a
+        href="guide/"
+        className="app-footer-link"
+        onClick={(e) => { e.preventDefault(); setShowHelp(true); }}
+      >
+        {t("help.title")}
+      </a>
+      <span className="app-footer-sep">·</span>
+      <button
+        className="app-footer-link"
+        onClick={() => { setLegalPage("privacy"); setShowLegal(true); }}
+      >
+        {t("footer.privacy")}
+      </button>
+      <span className="app-footer-sep">·</span>
+      <button
+        className="app-footer-link"
+        onClick={() => { setLegalPage("terms"); setShowLegal(true); }}
+      >
+        {t("footer.terms")}
+      </button>
+      <span className="app-footer-sep">·</span>
+      <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
+    </footer>
+  );
+
+  // Full-page tree views (Compare / Edit) keep the app brand title and footer
+  // around the tree so the page never feels detached from the rest of the app.
+  const wrapTree = (content: React.ReactNode) => (
+    <div className="app tree-shell">
+      <header className="app-head tree-shell-head">
+        <div className="app-head-top">
+          <div className="app-head-brand">
+            <h1 onClick={handleTitleClick} className="brand-clickable">
+              <Wordmark />
+            </h1>
+            {(lastMasterFile || compare.status === "loaded") && (
+              <div className="app-head-file-pills">
+                {lastMasterFile && (
+                  <button className="header-file-btn gm-file master" onClick={() => window.history.back()} title={`${t("tree.master")}: ${lastMasterFile.fileName}`}>
+                    {lastMasterFile.fileName}
+                  </button>
+                )}
+                {compare.status === "loaded" && (
+                  <button className="header-file-btn gm-file incoming" onClick={() => window.history.back()} title={`${t("tree.incoming")}: ${compare.file.fileName}`}>
+                    {compare.file.fileName}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="lang-switcher">
+            <button
+              className="nav-btn icon-only"
+              style={{ marginRight: "8px" }}
+              onClick={toggleTheme}
+              title={theme === "dark" ? t("theme.light") : t("theme.dark")}
+              aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
+            >
+              {theme === "dark" ? "🌙" : "☀️"}
+            </button>
+            <div className="lang-select-wrapper">
+              <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
+              <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
+                <option value="en">🇬🇧 English (EN)</option>
+                <option value="sl">🇸🇮 Slovenščina (SL)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </header>
+      {content}
+      {appFooter}
+      {appModals}
+    </div>
+  );
+
   // Full-page compare tree takes over the whole view when open.
   if (treeView && masterDataset && compareDataset && matches) {
-    return (
+    return wrapTree(
       <CompareTree
         masterDs={masterDataset}
         compareDs={compareDataset}
@@ -1144,7 +1236,7 @@ function AppContent() {
 
   // Edit Tree takes over the full page when open.
   if (editTreeId && masterDataset) {
-    return (
+    return wrapTree(
       <EditTree
         masterDs={masterDataset}
         rootId={editTreeId}
@@ -1471,8 +1563,6 @@ function AppContent() {
           {saveToast}
         </div>
       )}
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
-      <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
@@ -1481,35 +1571,8 @@ function AppContent() {
           onCancel={() => { pendingConfirm.resolve(false); setPendingConfirm(null); }}
         />
       )}
-      <footer className="app-footer">
-        <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
-          © 2026 Luka Renko
-        </a>
-        <span className="app-footer-sep">·</span>
-        <a
-          href="guide/"
-          className="app-footer-link"
-          onClick={(e) => { e.preventDefault(); setShowHelp(true); }}
-        >
-          {t("help.title")}
-        </a>
-        <span className="app-footer-sep">·</span>
-        <button
-          className="app-footer-link"
-          onClick={() => { setLegalPage("privacy"); setShowLegal(true); }}
-        >
-          {t("footer.privacy")}
-        </button>
-        <span className="app-footer-sep">·</span>
-        <button
-          className="app-footer-link"
-          onClick={() => { setLegalPage("terms"); setShowLegal(true); }}
-        >
-          {t("footer.terms")}
-        </button>
-        <span className="app-footer-sep">·</span>
-        <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
-      </footer>
+      {appFooter}
+      {appModals}
     </div>
     </>
   );

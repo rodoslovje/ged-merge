@@ -1088,6 +1088,12 @@ button:focus-visible {
   line-height: 1;
   padding: 0 4px;
   z-index: 1;
+  /* Only revealed when the selector is hovered or focused (see below). */
+  display: none;
+}
+.home-control:hover .home-clear,
+.home-control:focus-within .home-clear {
+  display: block;
 }
 .home-clear:hover {
   color: var(--text);
@@ -2871,6 +2877,17 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 24px;
   overflow: hidden;
 }
+/* Inside the shared app shell (brand title + footer), the tree fills the space
+   between header and footer; the shell already supplies the page padding. */
+.tree-shell > .tree-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  padding: 6px 0 0;
+}
+.tree-shell-head {
+  margin-bottom: 0;
+}
 .tree-toolbar {
   flex: 0 0 auto;
   display: flex;
@@ -2879,18 +2896,35 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin-bottom: 12px;
 }
 .tree-title {
-  font-size: 1.2rem;
+  /* Person name matches the Edit/Compare person header (1.1rem, 600). */
+  font-size: 1.1rem;
   margin: 0;
   flex: 1 1 auto;
+  font-weight: 400;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 8px;
 }
 .tree-title-name {
   font-weight: 600;
 }
 .tree-title-years {
-  margin-left: 6px;
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 400;
+}
+/* The page kind ("Tree" / "Compare Tree") — secondary to the person, shown as a
+   muted label after the name, separated by a faint dot. */
+.tree-title-kind {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.tree-title-kind::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--border-2);
 }
 .tree-controls {
   flex: 0 0 auto;
@@ -3014,10 +3048,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-canvas.panning * {
   cursor: grabbing !important;
 }
-.tree-minimap {
+.tree-minimap-box {
   position: absolute;
   top: 10px;
   left: 10px;
+  line-height: 0;
+}
+.tree-minimap {
+  display: block;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3025,6 +3063,45 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: pointer;
   touch-action: none;
 }
+/* Collapse (×) button pinned to the minimap's top-right corner. */
+.tree-minimap-collapse {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tree-minimap-collapse:hover { color: var(--text); border-color: var(--accent); }
+/* Small floating button shown when the overview map is collapsed. */
+.tree-minimap-show {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.tree-minimap-show:hover { color: var(--accent); border-color: var(--accent); }
 .tree-minimap-viewport {
   fill: color-mix(in oklch, var(--accent) 16%, transparent);
   stroke: var(--accent);
@@ -3212,6 +3289,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin-left: 8px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* Head-count next to a mode label (Ancestors 12 / Descendants 0). Follows the
+   button's own text colour (muted when inactive, accent when active) at reduced
+   strength, so it reads as secondary to the label. */
+.tree-mode-count {
+  font-size: 0.85em;
+  font-weight: 700;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
 }
 .tree-import-count {
   display: inline-flex;
@@ -3730,7 +3816,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
     margin-right: 2px;
     font-size: 0.8rem;
   }
-  .tree-minimap {
+  .tree-minimap-box,
+  .tree-minimap-show {
     display: none;
   }
   .tabs {
@@ -3981,6 +4068,17 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-filter-row .tools-search { flex: 1 1 200px; margin: 0; }
 .tools-filter-row .tools-chips { margin: 0; margin-left: auto; }
 .tools-filter-row .tools-summary { margin: 0; margin-left: auto; }
+/* Sources tree row (search + centered "Duplicates" toggle + summary): a
+   3-column grid keeps the toggle truly centered regardless of side widths. */
+.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-search {
+  justify-self: start; width: 100%; max-width: 360px;
+}
+.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-dup-toggle { justify-self: center; }
+.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-summary { justify-self: end; margin: 0; }
 .tools-search-input {
   width: 100%;
   box-sizing: border-box;
@@ -4147,3 +4245,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tools-examples li { display: flex; gap: 8px; padding: 2px 0; font-family: ui-monospace, monospace; }
 .tools-ex-from { color: var(--muted); text-decoration: line-through; }
 .tools-ex-to { color: var(--text); }
+
+/* Source duplicate finder */
+.tools-dup-toggle { cursor: pointer; }
+.tools-dup-bulk { display: inline-flex; gap: 12px; align-items: center; }
+.tools-dup-kind { margin: 0 0 16px; }
+.tools-dup-kind-head {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 0.95rem; color: var(--text);
+  margin: 0 0 4px;
+}
+.tools-dup-check { cursor: pointer; }
+.tools-dup-members { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
+.tools-dup-member { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.9rem; }
+.tools-dup-member.survivor .tools-dup-title { font-weight: 600; }
+.tools-dup-title { color: var(--text); }
+.tools-dup-keep-pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tools-dup-keep-pick input { cursor: pointer; }
+.tools-dup-keep {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--state-match); border: 1px solid var(--state-match); border-radius: 4px; padding: 0 4px;
+}
+.tools-dup-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.tools-dup-actions .tools-run { margin: 0; }
