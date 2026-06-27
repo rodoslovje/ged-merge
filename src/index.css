@@ -1169,10 +1169,10 @@ button:focus-visible {
   align-items: stretch;
   gap: 12px;
   margin-bottom: 12px;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  /* No boxed card — a single bottom rule separates the filters from the list,
+     and minimal side padding keeps the controls aligned with the rows below. */
+  padding: 0 2px 12px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
 }
 .filter-row {
@@ -1267,6 +1267,10 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
   color: var(--muted);
+  /* The score column is wide (fits "99.9"), so the centred score sits far from
+     distance. Pull distance left to tighten that one gap — header and body share
+     this class, so the columns stay aligned. */
+  margin-left: -6px;
 }
 
 .tabs {
@@ -1354,12 +1358,10 @@ button:focus-visible {
 .sortbtn:hover {
   color: var(--text);
 }
-.sortbtn.active {
-  color: var(--accent);
-}
-.sortbtn.active2 {
-  color: var(--text);
-}
+/* Active sort is signalled by the arrow glyph alone (▲▼ primary, △▽ secondary).
+   The header icons keep their own resting colour — the per-column tint for the
+   coloured metric columns, muted for the rest — so a column's colour never
+   changes when you sort by it. */
 
 .nd {
   flex: 0 0 22px;
@@ -1391,10 +1393,6 @@ button:focus-visible {
 .candidate.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
-}
-/* Subtle left accent for candidates that carry link data. */
-.candidate.has-links {
-  border-left: 3px solid var(--status-link);
 }
 
 .candidate-head {
@@ -1488,6 +1486,13 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* The status header is the only metric button that's a flex container, so its
+   icon is a flex item. Without this it shrinks to a sliver when the sort arrow
+   is appended (the 18px width can't hold icon + arrow). Keep the icon at size
+   and let the arrow overflow into the gap instead. */
+.status-h .col-ico {
+  flex: none;
 }
 /* Empty placeholder keeping the status column reserved on undecided rows so the
    metric columns stay aligned under their headers. */
@@ -4098,7 +4103,7 @@ kbd {
     font-size: 0.85rem;
   }
   .filters {
-    padding: 8px;
+    padding: 0 2px 8px;
     gap: 8px;
     margin-bottom: 8px;
   }

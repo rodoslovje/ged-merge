@@ -21,7 +21,6 @@ import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { CompareTree } from "./ui/CompareTree";
-import { HelpModal } from "./ui/HelpModal";
 import { LegalModal } from "./ui/LegalModal";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
 import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
@@ -189,7 +188,6 @@ function AppContent() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selectedId, setSelectedId] = useState<{ masterId: string; compareId: string } | null>(null);
   const [showFilters, setShowFilters] = useState(true);
-  const [showHelp, setShowHelp] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
@@ -1204,11 +1202,12 @@ function AppContent() {
     });
   }
 
-  // Modals (help / legal) and the page footer are shared between the main app
-  // shell and the full-page tree views, so they're built once here.
+  // Modals (legal / shortcuts) and the page footer are shared between the main
+  // app shell and the full-page tree views, so they're built once here. The
+  // User's Guide is the standalone /guide page (opened from the footer), not an
+  // in-app modal.
   const appModals = (
     <>
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} onShowShortcuts={() => { setShowHelp(false); setShowShortcuts(true); }} />
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       {pendingConfirm && (
@@ -1229,9 +1228,10 @@ function AppContent() {
       </a>
       <span className="app-footer-sep">·</span>
       <a
-        href="guide/"
+        href={i18n.language === "sl" ? "navodila/" : "guide/"}
         className="app-footer-link"
-        onClick={(e) => { e.preventDefault(); setShowHelp(true); }}
+        target="_blank"
+        rel="noopener noreferrer"
       >
         {t("help.title")}
       </a>

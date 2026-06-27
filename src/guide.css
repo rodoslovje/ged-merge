@@ -1,12 +1,23 @@
 /* Standalone /guide page — same tokens as the app (--bg/--text/--muted/
    --accent/--border via heritage-pine.css) but its own layout, since it's a
-   plain scrolling document rather than a fixed-height app shell or modal. */
+   plain scrolling document rather than a fixed-height app shell or modal.
 
-.guide-page {
-  max-width: 760px;
+   Layout: a two-column shell (sticky sidebar TOC + article) that collapses to
+   a single column under 880px. Everything below the layout block is the shared
+   "UI vocabulary" — chips and badges that recreate the app's icons, keys, mode
+   tabs and status colours inline, all sourced from heritage-pine.css tokens so
+   the guide tracks both themes without a single hardcoded colour. */
+
+/* ── Page shell + sticky sidebar TOC ─────────────────────────────────────── */
+.guide-shell {
+  max-width: 1100px;
   margin: 0 auto;
   padding: 48px 24px 80px;
   color: var(--text);
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
 }
 
 .guide-back {
@@ -20,6 +31,70 @@
   color: var(--accent);
 }
 
+/* Language switch (EN ⇄ SL) shown under the back link in the sidebar. */
+.guide-lang {
+  display: inline-block;
+  margin: -12px 0 20px;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.guide-lang:hover {
+  text-decoration: underline;
+}
+
+/* Sidebar lives in the grid's first column; sticks while the article scrolls. */
+.guide-side {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.guide-side-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.guide-toc-nav ol {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.guide-toc-nav > ol {
+  counter-reset: guide-part;
+}
+.guide-toc-part {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 6px;
+  font-weight: 600;
+}
+.guide-toc-part:first-child {
+  margin-top: 0;
+}
+.guide-toc-nav a {
+  display: block;
+  padding: 3px 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  padding-left: 10px;
+}
+.guide-toc-nav a:hover {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+.guide-main {
+  min-width: 0;
+}
 .guide-header h1 {
   font-size: 2rem;
   margin: 0 0 8px;
@@ -30,45 +105,29 @@
   margin: 0 0 40px;
 }
 
-.guide-toc {
-  margin: 0 0 40px;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-}
-.guide-toc ol {
-  margin: 0;
-  padding-left: 20px;
-  list-style: decimal;
-}
-.guide-toc li {
-  margin: 4px 0;
-  font-size: 1rem;
-  line-height: 1.6;
-}
-.guide-toc a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.guide-toc a:hover {
-  text-decoration: underline;
-}
-
+/* ── Article typography ──────────────────────────────────────────────────── */
 .guide-body h2 {
   font-size: 1.5rem;
-  margin: 40px 0 16px;
+  margin: 48px 0 16px;
   color: var(--accent);
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
+  scroll-margin-top: 24px;
 }
 .guide-body h2:first-child {
   margin-top: 0;
 }
+.guide-body h2 .guide-num {
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 8px;
+  font-size: 1.1rem;
+}
 .guide-body h3 {
   font-size: 1.15rem;
-  margin: 24px 0 8px;
+  margin: 28px 0 8px;
   color: var(--text);
+  scroll-margin-top: 24px;
 }
 .guide-body p,
 .guide-body > section > div {
@@ -91,7 +150,179 @@
   color: var(--text);
   font-weight: 600;
 }
+.guide-part-head {
+  margin: 56px 0 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.guide-part-head:first-child {
+  margin-top: 0;
+}
 
+/* ── UI vocabulary: keys, glyphs, badges, pills, callouts ────────────────── */
+
+/* Keyboard key — mirrors the in-app <kbd>. */
+.guide-body .gm-key {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: 600 0.85em/1.5 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* Icon glyph chip — the ×, −, +, ↗, ‹ › etc. the UI uses for inline actions. */
+.guide-body .gm-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--text) 6%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: text-bottom;
+}
+.guide-body .gm-glyph.danger {
+  border-color: color-mix(in oklch, var(--danger) 45%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Status / decision letter badges — colour from app tokens, tinted fill so a
+   coloured letter never sits on a hardcoded background (theme-safe). */
+.guide-body .gm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.5em;
+  padding: 0 0.45em;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.82em;
+  line-height: 1;
+  vertical-align: text-bottom;
+  border: 1px solid currentColor;
+}
+.gm-badge.c { color: var(--state-match); background: color-mix(in oklch, var(--state-match) 15%, transparent); }
+.gm-badge.r { color: var(--state-major); background: color-mix(in oklch, var(--state-major) 15%, transparent); }
+.gm-badge.d { color: var(--state-minor); background: color-mix(in oklch, var(--state-minor) 15%, transparent); }
+.gm-badge.m { color: var(--state-master); background: color-mix(in oklch, var(--state-master) 15%, transparent); }
+.gm-badge.i { color: var(--state-incoming); background: color-mix(in oklch, var(--state-incoming) 15%, transparent); }
+.gm-badge.b { color: var(--accent); background: color-mix(in oklch, var(--accent) 15%, transparent); }
+/* Edit-mode "Modified" marker — solid amber, like the app's tree-node M badge. */
+.gm-badge.mod { color: var(--bg); background: var(--node-minor); border-color: var(--node-minor); }
+/* Status badges (C/R/D + Modified) are round chips in-app; field choices (M/I/B
+   or G/V/O) stay rectangular. */
+.guide-body .gm-badge.round {
+  min-width: 1.5em;
+  width: 1.5em;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* Swatch for the Compare-Tree legend / status-colour rows. */
+.guide-body .gm-swatch {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 3px;
+  vertical-align: baseline;
+  margin-right: 2px;
+}
+.gm-swatch.match { background: var(--state-match); }
+.gm-swatch.minor { background: var(--state-minor); }
+.gm-swatch.major { background: var(--state-major); }
+.gm-swatch.master { background: var(--state-master); }
+.gm-swatch.incoming { background: var(--state-incoming); }
+/* Match-list N / D / link count colours — mirror the app's winning rule in
+   theme/components.css (which overrides the --status-* base in index.css). */
+.gm-swatch.new { background: var(--state-match); }
+.gm-swatch.diff { background: var(--state-minor); }
+.gm-swatch.link { background: var(--sex-male); }
+.gm-swatch.import { background: var(--status-import); }
+
+/* Mode-tab pill — Edit / Merge / Tools. */
+.guide-body .gm-pill {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  font-weight: 600;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+/* Callout boxes — Note / Tip / Warning. */
+.guide-body .gm-callout {
+  margin: 18px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.guide-body .gm-callout p:last-child { margin-bottom: 0; }
+.guide-body .gm-callout .gm-callout-label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.gm-callout.note { border-left-color: var(--status-link); }
+.gm-callout.tip { border-left-color: var(--accent); }
+.gm-callout.warn { border-left-color: var(--danger); background: var(--danger-soft); }
+.gm-callout.warn .gm-callout-label { color: var(--danger); }
+
+/* Reference tables — icon legend, shortcuts. */
+.guide-body .gm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 24px;
+  font-size: 0.98rem;
+}
+.guide-body .gm-table th,
+.guide-body .gm-table td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  vertical-align: top;
+}
+.guide-body .gm-table th {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.guide-body .gm-table td:first-child {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* ── CTA ─────────────────────────────────────────────────────────────────── */
 .guide-cta {
   margin-top: 48px;
   padding: 24px;
@@ -109,10 +340,30 @@
   padding: 10px 22px;
   border-radius: 8px;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--accent-ink);
   font-weight: 600;
   text-decoration: none;
 }
 .guide-cta a:hover {
   opacity: 0.9;
+}
+
+/* ── Narrow screens: collapse to a single column, TOC on top ─────────────── */
+@media (max-width: 880px) {
+  .guide-shell {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 32px 18px 64px;
+  }
+  .guide-side {
+    position: static;
+    max-height: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: 16px 20px;
+  }
+  .guide-body .gm-table td:first-child {
+    white-space: normal;
+  }
 }

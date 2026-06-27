@@ -1,33 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+>
   <url>
     <loc>https://gedmerge.com/</loc>
-    <lastmod>2026-06-25</lastmod>
+    <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://gedmerge.com/guide/</loc>
-    <lastmod>2026-06-25</lastmod>
+    <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/guide/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/navodila/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/guide/" />
   </url>
   <url>
-    <loc>https://gedmerge.com/guide/#edit</loc>
-    <lastmod>2026-06-25</lastmod>
+    <loc>https://gedmerge.com/navodila/</loc>
+    <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://gedmerge.com/guide/#workflow</loc>
-    <lastmod>2026-06-25</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://gedmerge.com/guide/#tools</loc>
-    <lastmod>2026-06-25</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/guide/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/navodila/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/guide/" />
   </url>
 </urlset>

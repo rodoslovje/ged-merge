@@ -15,6 +15,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         guide: resolve(__dirname, "guide/index.html"),
+        // Slovenian translation of the guide, on a localized slug for SLO SEO.
+        navodila: resolve(__dirname, "navodila/index.html"),
       },
     },
   },

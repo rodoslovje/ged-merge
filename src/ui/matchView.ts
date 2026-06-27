@@ -77,6 +77,8 @@ export interface Filters {
   onlyDiff: boolean;
   /** Keep only matches that add or change attached links (linkCount > 0). */
   onlyLinks: boolean;
+  /** Keep only matches that bring in new people (importTotal > 0). */
+  onlyImports: boolean;
   /** Keep only matches scoring at least this much (0..100). */
   minScore: number;
 }
@@ -86,6 +88,7 @@ export const NO_FILTERS: Filters = {
   onlyNew: false,
   onlyDiff: false,
   onlyLinks: false,
+  onlyImports: false,
   minScore: 0,
 };
 
@@ -95,18 +98,21 @@ export const DEFAULT_FILTERS: Filters = {
   onlyNew: false,
   onlyDiff: false,
   onlyLinks: false,
+  onlyImports: false,
   minScore: 80,
 };
 
 export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
   const q = f.nameQuery.trim().toLowerCase();
-  if (!q && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && f.minScore <= 0) return list;
+  if (!q && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && !f.onlyImports && f.minScore <= 0)
+    return list;
   return list.filter(
     (c) =>
       (!q || c.name.toLowerCase().includes(q)) &&
       (!f.onlyNew || (c.newCount ?? 0) > 0) &&
       (!f.onlyDiff || (c.diffCount ?? 0) > 0) &&
       (!f.onlyLinks || (c.linkCount ?? 0) > 0) &&
+      (!f.onlyImports || importTotal(c) > 0) &&
       c.score >= f.minScore,
   );
 }

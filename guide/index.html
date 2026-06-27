@@ -7,30 +7,35 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
     <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
     <meta name="theme-color" content="#151310" />
-    <title>User's Guide — GED Merge | GEDCOM compare &amp; merge</title>
+    <title>User's Guide — GED Merge | GEDCOM editor, compare &amp; merge</title>
     <meta
       name="description"
-      content="Complete guide to GED Merge: Edit GEDCOM records inline, compare two files side-by-side and merge field by field, find duplicates, run a health check, normalize places and dates, and browse sources."
+      content="Complete guide to GED Merge: edit GEDCOM records inline with photos and sources, compare two files and merge field by field, import a rodoslovje.si CSV, and run maintenance tools — health check, duplicates, normalize, sources and places. 100% in your browser."
     />
     <link rel="canonical" href="https://gedmerge.com/guide/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/guide/" />
+    <link rel="alternate" hreflang="sl" href="https://gedmerge.com/navodila/" />
+    <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/guide/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="article" />
     <meta property="og:title" content="User's Guide — GED Merge" />
     <meta
       property="og:description"
-      content="How to edit, compare, merge, and maintain GEDCOM files in GED Merge — entirely in your browser."
+      content="Edit, compare, merge and maintain GEDCOM family-tree files entirely in your browser — Edit, Merge and Tools modes explained, with an icon and keyboard reference."
     />
     <meta property="og:url" content="https://gedmerge.com/guide/" />
     <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
     <meta property="og:image:width" content="2400" />
     <meta property="og:image:height" content="1260" />
     <meta property="og:site_name" content="GED Merge" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:locale:alternate" content="sl_SI" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="User's Guide — GED Merge" />
-    <meta name="twitter:description" content="How to edit, compare, merge, and maintain GEDCOM files in GED Merge — entirely in your browser." />
+    <meta name="twitter:description" content="Edit, compare, merge and maintain GEDCOM files in GED Merge — entirely in your browser." />
     <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
 
     <!-- Structured data -->
@@ -39,28 +44,35 @@
       "@context": "https://schema.org",
       "@type": "TechArticle",
       "headline": "GED Merge User's Guide",
-      "description": "Complete guide to GED Merge: edit GEDCOM records, compare two files side-by-side, merge field by field, find duplicates, run a health check, normalize places and dates, and browse sources.",
+      "description": "Complete guide to GED Merge: edit GEDCOM records with photos and sources, compare two files side-by-side, merge field by field, import a rodoslovje.si CSV, and run maintenance tools (health check, duplicates, normalize, sources, places).",
       "url": "https://gedmerge.com/guide/",
+      "inLanguage": "en",
       "isPartOf": { "@type": "WebSite", "name": "GED Merge", "url": "https://gedmerge.com/" },
-      "articleSection": ["Edit", "Merge", "Tools", "Main Concepts", "Privacy"],
+      "articleSection": ["Getting Started", "Core Concepts", "Edit", "Merge", "Tools", "Photos", "Sources", "Reference"],
       "hasPart": [
         {
           "@type": "WebPageElement",
-          "name": "Edit — Editing Your Master GEDCOM",
+          "name": "Edit mode",
           "url": "https://gedmerge.com/guide/#edit",
-          "description": "Browse and edit individuals, families, events, and relationships inline without needing a second file."
+          "description": "Browse and edit individuals, names, events, families, notes, sources and photos directly in your master GEDCOM."
         },
         {
           "@type": "WebPageElement",
-          "name": "Merge — Compare &amp; Merge Workflow",
+          "name": "Merge mode",
           "url": "https://gedmerge.com/guide/#merge",
-          "description": "Load a second GEDCOM or CSV, review side-by-side differences, resolve conflicts field by field, and download a merged file."
+          "description": "Load a second GEDCOM or a rodoslovje.si CSV, review matches side-by-side, resolve conflicts field by field, and download a merged file."
         },
         {
           "@type": "WebPageElement",
-          "name": "Tools — Maintenance Tools",
+          "name": "Tools",
           "url": "https://gedmerge.com/guide/#tools",
-          "description": "Run a health check, find within-file duplicates, normalize dates and places, and browse sources and places across the whole file."
+          "description": "Whole-file maintenance: health check, find duplicates, normalize dates and places, and browse sources and places."
+        },
+        {
+          "@type": "WebPageElement",
+          "name": "Keyboard & icon reference",
+          "url": "https://gedmerge.com/guide/#reference",
+          "description": "A legend of every icon, status badge and keyboard shortcut used across the app."
         }
       ]
     }
@@ -81,221 +93,569 @@
     <script type="module" src="/src/guide-entry.ts"></script>
   </head>
   <body>
-    <div class="guide-page">
-      <a class="guide-back" href="../">&larr; GED Merge</a>
-      <header class="guide-header">
-        <h1>GED Merge User's Guide</h1>
-        <p>
-          GED Merge compares, edits, and merges GEDCOM family tree files entirely in your browser — nothing is
-          uploaded. This guide covers the four main modes: <strong>Edit</strong>, <strong>Merge</strong>,
-          <strong>Tools</strong>, and the underlying concepts.
-        </p>
-      </header>
+    <div class="guide-shell">
+      <!-- ── Sticky sidebar table of contents ─────────────────────────────── -->
+      <aside class="guide-side">
+        <a class="guide-back" href="../">&larr; GED Merge</a>
+        <a class="guide-lang" href="../navodila/" hreflang="sl" lang="sl">Slovenščina</a>
+        <p class="guide-side-title">Contents</p>
+        <nav class="guide-toc-nav" aria-label="Contents">
+          <ol>
+            <li class="guide-toc-part">I · Getting Started</li>
+            <li><a href="#what">1. What GED Merge is</a></li>
+            <li><a href="#workspace">2. The workspace</a></li>
+            <li><a href="#loading">3. Loading files</a></li>
 
-      <nav class="guide-toc" aria-label="Contents">
-        <ol>
-          <li><a href="#concepts">Main Concepts</a></li>
-          <li><a href="#edit">Edit — Editing Your Master GEDCOM</a></li>
-          <li><a href="#workflow">Merge — Compare &amp; Merge Workflow</a></li>
-          <li><a href="#tools">Tools — Maintenance Tools</a></li>
-          <li><a href="#privacy">Privacy</a></li>
-        </ol>
-      </nav>
+            <li class="guide-toc-part">II · Core Concepts</li>
+            <li><a href="#master-incoming">4. Master &amp; Incoming</a></li>
+            <li><a href="#score">5. The match score</a></li>
+            <li><a href="#home-person">6. Home person &amp; kinship</a></li>
+            <li><a href="#house-style">7. House style &amp; normalization</a></li>
+            <li><a href="#data-model">8. Sources, media &amp; lossless data</a></li>
 
-      <article class="guide-body">
-        <section id="concepts">
-          <h2>Main Concepts</h2>
-          <h3>Master &amp; Incoming</h3>
-          <p>
-            The <strong>Master</strong> file is your primary family tree. The <strong>Incoming</strong> file is the
-            tree you want to compare and merge into the Master — a second GEDCOM file, or a matches CSV exported from
-            indeks.rodoslovje.si.
-          </p>
-          <h3>Matching &amp; Scoring</h3>
-          <p>
-            The app automatically compares individuals and families between the two files. It calculates a
-            <strong>match score (0–100%)</strong> based on similarities in names, dates, places, and relationships.
-            Kinship distance from a chosen home person is used to rank candidates so your closest relatives surface
-            first.
-          </p>
-        </section>
+            <li class="guide-toc-part">III · The Three Modes</li>
+            <li><a href="#edit">9. Edit</a></li>
+            <li><a href="#merge">10. Merge</a></li>
+            <li><a href="#tools">11. Tools</a></li>
 
-        <section id="edit">
-          <h2>Edit — Editing Your Master GEDCOM</h2>
-          <h3>Overview</h3>
+            <li class="guide-toc-part">IV · Shared Features</li>
+            <li><a href="#photos">12. Photos &amp; media</a></li>
+            <li><a href="#sources">13. Sources &amp; citations</a></li>
+            <li><a href="#saving">14. Saving &amp; reports</a></li>
+
+            <li class="guide-toc-part">V · Reference</li>
+            <li><a href="#legend">15. Icon &amp; badge legend</a></li>
+            <li><a href="#shortcuts">16. Keyboard shortcuts</a></li>
+            <li><a href="#events">17. Event types</a></li>
+            <li><a href="#glossary">18. Glossary</a></li>
+            <li><a href="#privacy">19. Privacy</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <!-- ── Main article ─────────────────────────────────────────────────── -->
+      <main class="guide-main">
+        <header class="guide-header">
+          <h1>GED Merge User's Guide</h1>
           <p>
-            Switch to <strong>Edit</strong> mode to browse and directly modify your Master GEDCOM without needing a
-            second file. Select any person from the jump-to menu at the top, or navigate by clicking a family
-            member's card. Use the <strong>Back</strong> button to return to your previous person. If the current
-            person also has a match in your incoming file, click <strong>Merge</strong> in the toolbar to jump
-            straight to that comparison. All changes stay in memory until you download the file, and can be stepped
-            back with <strong>Undo</strong> / <strong>Redo</strong> (Ctrl+Z / Ctrl+Shift+Z) in the header.
+            A <strong>GEDCOM</strong> file (<em>.ged</em>) is the standard format genealogy programs use to store a
+            family tree — the people, families, events, sources and photos that make up your research. GED Merge is a
+            complete GEDCOM editor that runs entirely in your browser, so nothing is uploaded. Use it to
+            <strong>edit</strong> your family tree, <strong>compare and merge</strong> a second file into it, and
+            <strong>maintain</strong> the whole file with a suite of clean-up tools.
           </p>
-          <h3>Names &amp; Identity</h3>
-          <p>
-            Given name, surname, sex, and nickname are all editable inline — click a field, type, then click away to
-            save. Use the <strong>&times;</strong> button to clear a field. Click <strong>+ Add Name</strong> to
-            attach alternative name variants (married, name at birth, aka, formal, and more); each variant has its
-            own given name, surname, and type selector. Remove a variant with the <strong>&minus;</strong> button.
-          </p>
-          <h3>Events</h3>
-          <div>
-            Birth is always shown. Click <strong>+ Add Event</strong> to reveal additional events grouped by life
-            stage:
+        </header>
+
+        <article class="guide-body">
+          <!-- ═══════════════ PART I — GETTING STARTED ═══════════════ -->
+          <p class="guide-part-head">Part I — Getting Started</p>
+
+          <section id="what">
+            <h2><span class="guide-num">1</span>What GED Merge is</h2>
+            <p>
+              GED Merge opens one or two <strong>GEDCOM</strong> files (the standard family-tree exchange format,
+              <em>.ged</em>) and lets you work on them through three modes, switched from the tabs at the top:
+            </p>
             <ul>
-              <li><strong>Early Life:</strong> Baptism, Christening, Confirmation, Adoption, First Communion</li>
-              <li><strong>Career:</strong> Occupation, Education, Retirement</li>
-              <li>
-                <strong>Residence &amp; Movement:</strong> Residence, Emigration, Immigration, Naturalization, Census
-              </li>
-              <li><strong>Estate:</strong> Will, Probate</li>
-              <li><strong>Death:</strong> Death, Burial, Cremation</li>
+              <li><span class="gm-pill">Edit</span> — browse and directly change your own tree: names, events, families, notes, sources and photos. No second file required.</li>
+              <li><span class="gm-pill">Merge</span> — load a second tree (or a matches CSV) and fold confirmed records into your own, field by field.</li>
+              <li><span class="gm-pill">Tools</span> — whole-file maintenance: a health check, duplicate finder, style normalizer, and source/place browsers.</li>
             </ul>
-            Each event row has <strong>date</strong>, <strong>place</strong>, <strong>address</strong>, and
-            <strong>note</strong> fields, plus optional per-event <strong>links</strong>. Use
-            <strong>&times;</strong> to clear a field, or the <strong>&times;</strong> at the end of the row to
-            remove the entire event.
-          </div>
-          <h3>Family Relationships</h3>
-          <div>
-            The edit panel shows three family sections:
+            <p>
+              Everything happens locally. Reading, matching, merging and editing all run inside your browser on your
+              own computer, so your genealogical data never leaves your device. Your loaded file is never modified in
+              place — you always download a new copy when you save (see <a href="#saving">§14</a>).
+            </p>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Tip</span>
+              <p>New here? On the landing page, open one of the sample trees (Europe Royal Families, Tudors, US
+              Presidents) to explore every feature with real data before loading your own file.</p>
+            </div>
+          </section>
+
+          <section id="workspace">
+            <h2><span class="guide-num">2</span>The workspace</h2>
+            <p>The app shell is the same in every mode. From the top bar you can:</p>
             <ul>
-              <li>
-                <strong>Parents:</strong> Father and mother from each parent family. Use
-                <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> to search for an existing person in
-                your tree or add a new one. The <strong>&minus;</strong> icon detaches the role without deleting the
-                person's record.
-              </li>
-              <li>
-                <strong>Partners:</strong> Use <strong>+ Add Partner</strong> to create a new spouse family the same
-                way — search existing or add new. Each spouse family shows the marriage event and lets you add
-                Engagement, Separation, or Divorce via <strong>+ Add Family Event</strong>. The
-                <strong>&minus;</strong> icon detaches the spouse without deleting them. Families also support their
-                own notes and links.
-              </li>
-              <li>
-                <strong>Children:</strong> Listed under each spouse family. Use <strong>+ Add Child</strong> to
-                search for an existing person or add a new one, or the <strong>&minus;</strong> icon to unlink a
-                child from that family without deleting them.
-              </li>
+              <li><strong>Mode tabs</strong> — switch between <span class="gm-pill">Edit</span>, <span class="gm-pill">Merge</span> and <span class="gm-pill">Tools</span> (shortcuts <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
+              <li><strong>File pills</strong> — the loaded master and incoming file names. Click a pill to see or replace that file.</li>
+              <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
+              <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
+              <li><strong>Theme</strong> — the <span class="gm-glyph">☀</span> / <span class="gm-glyph">🌙</span> button toggles light and dark; it follows your operating system until you choose.</li>
+              <li><strong>Language</strong> — English and Slovenščina, from the language menu.</li>
             </ul>
-          </div>
-          <h3>Notes &amp; Sources</h3>
-          <p>
-            Both individuals and families can carry free-text <strong>notes</strong> and <strong>URL links</strong>.
-            Click <strong>+ Add Note</strong> or <strong>+ Add Source</strong> to reveal the input fields. Once a
-            link is entered, an <strong>&#8599;</strong> icon opens it in a new tab. Click <strong>&times;</strong>
-            to remove any note or link.
-          </p>
-          <h3>Removing Records</h3>
-          <p>
-            <strong>Detach</strong> (the &minus; icon) only removes the family connection — both individual records
-            remain intact and can be re-linked later.
-          </p>
-          <p>
-            <strong>Delete Person</strong> (the trash icon at the bottom of the panel) permanently removes the
-            individual and unlinks them from every family they belong to. A confirmation dialog appears before
-            deletion. <strong>This cannot be undone</strong> — download a backup first if needed.
-          </p>
-          <h3>Saving Your Work</h3>
-          <p>
-            Click <strong>Save GEDCOM</strong> to open a preview listing how many persons and families were changed.
-            Click <strong>Download GEDCOM</strong> to save the edited file to your computer. Your original loaded
-            file is never modified.
-          </p>
-        </section>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Note</span>
+              <p>The app is built for tablet and desktop screens. On a phone you can still review, but editing large
+              trees is more comfortable on a wider display.</p>
+            </div>
+            <p>
+              GED Merge is keyboard-driven — press <span class="gm-key">?</span> anywhere to open the full shortcut
+              sheet, or see <a href="#shortcuts">§16</a>.
+            </p>
+          </section>
 
-        <section id="workflow">
-          <h2>Merge — Compare &amp; Merge Workflow</h2>
-          <h3>Reviewing Differences</h3>
-          <p>
-            Load a second GEDCOM (or a matches CSV from indeks.rodoslovje.si) as the Incoming file. Select a match
-            from the list to see a side-by-side comparison of their data. Only fields with
-            <strong>new data</strong> or <strong>conflicts</strong> are highlighted.
-          </p>
-          <h3>Compare Tree</h3>
-          <p>
-            Click <strong>Compare Tree</strong> to visually inspect the ancestors and descendants of a matched
-            person to ensure they are exactly who you think they are. Click <strong>Edit</strong> next to it to jump
-            straight to editing the master person in Edit mode.
-          </p>
-          <h3>Resolving Conflicts</h3>
-          <p>
-            For each conflicting field, choose whether to keep the Master value (<strong>M</strong>), take the
-            Incoming value (<strong>I</strong>), or keep both (<strong>B</strong>).
-          </p>
-          <h3>Marking for Merge</h3>
-          <p>
-            Use the decision buttons or keyboard shortcuts to categorize each match as
-            <strong>Confirmed (C)</strong>, <strong>Rejected (R)</strong>, or <strong>Deferred (D)</strong>.
-          </p>
-          <h3>How Merging Works</h3>
-          <p>
-            When you click <strong>Save GEDCOM</strong>, the app opens a preview of all confirmed matches and edits.
-            Click <strong>Download GEDCOM</strong> there to apply your field-level choices to a copy of the Master
-            file and download it — seamlessly inserting any new individuals or families from the Incoming file that
-            are connected to those confirmed matches.
-          </p>
-          <p>
-            Your original files remain completely untouched; the merged file is downloaded to your computer
-            securely.
-          </p>
-        </section>
+          <section id="loading">
+            <h2><span class="guide-num">3</span>Loading files</h2>
+            <p>
+              Drag a file onto the drop zone, or click to browse. The <strong>master</strong> is your primary tree —
+              load it first. In <span class="gm-pill">Merge</span> mode you then load an <strong>incoming</strong> file:
+              another <em>.ged</em>, or a <strong>matches CSV</strong> exported from
+              <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
+              (the Slovenian genealogical index).
+            </p>
+            <p>
+              After a file loads, the <strong>file-info panel</strong> reports what was read — individual and family
+              counts, GEDCOM version, encoding, and the file's detected <strong>house style</strong>: its date format,
+              place layout, source layout and name layout (explained in <a href="#house-style">§7</a>). For an incoming
+              file it also lists how many dates, places, links and names were reshaped to match your master, and how
+              many split copies of the same person were merged into one.
+            </p>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Tip</span>
+              <p>If your tree references local photos, GED Merge offers to connect a <strong>media folder</strong> so it
+              can display them. See <a href="#photos">§12</a>.</p>
+            </div>
+          </section>
 
-        <section id="tools">
-          <h2>Tools — Maintenance Tools</h2>
-          <p>
-            The <strong>Tools</strong> tab runs whole-file checks and clean-ups on your Master GEDCOM. All five
-            tools work entirely in your browser — no data is sent to a server.
-          </p>
-          <h3>Health Check</h3>
-          <p>
-            Scans every individual and family for common data problems: missing names or sex, no vital dates, broken
-            internal links, future-dated events, death before birth, and disconnected records not linked to any
-            family. Issues are grouped by category so you can navigate and fix them one by one in Edit mode.
-          </p>
-          <h3>Find Duplicates</h3>
-          <p>
-            Compares every person in the file against every other person using the same scoring engine as the Merge
-            mode. Likely duplicate pairs are listed with their similarity score. Click a name to open it in Edit, or
-            expand a pair to see a side-by-side field comparison before deciding whether to merge or dismiss.
-          </p>
-          <h3>Normalize</h3>
-          <p>
-            Detects the dominant date format, place layout, and link style in your file, then re-renders every
-            record that deviates from it. Typical corrections include reformatting dates (e.g.
-            <em>1 Jan 1900</em> → <em>01.01.1900</em>), reshaping structured place fields, and rewriting Matricula
-            or Geneanet links to a consistent form. A preview lists examples of each change; the original file is
-            untouched until you download the normalized copy.
-          </p>
-          <h3>Sources</h3>
-          <p>
-            Displays all repositories, source records, and media objects in the file, grouped by repository.
-            Clicking a source or media entry shows which individuals and families cite it, with direct links to open
-            each record in Edit. Unattached media and links with no associated source are listed separately.
-          </p>
-          <h3>Places</h3>
-          <p>
-            Lists every place name used in the file, arranged in a country → locality → house → address hierarchy.
-            Each place shows how many records use it. Click a place to see which records refer to it and open them
-            in Edit. Use the <strong>Rename</strong> action on any level to bulk-rename or merge a place segment
-            across every record that mentions it — useful for standardizing spelling variations.
-          </p>
-        </section>
+          <!-- ═══════════════ PART II — CORE CONCEPTS ═══════════════ -->
+          <p class="guide-part-head">Part II — Core Concepts</p>
 
-        <section id="privacy">
-          <h2>Privacy</h2>
-          <p>
-            All parsing, matching, merging, and editing happens locally in your browser via Web Workers. Your family
-            tree is never sent to a server.
-          </p>
-        </section>
-      </article>
+          <section id="master-incoming">
+            <h2><span class="guide-num">4</span>Master &amp; Incoming</h2>
+            <p>
+              The <strong>Master</strong> file is your primary family tree — the one you own and maintain. The
+              <strong>Incoming</strong> file is what you compare against it: a second GEDCOM, or a matches CSV from
+              <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>.
+              Edits and merges only ever build a <em>new copy</em> for download; your originals on
+              disk stay untouched.
+            </p>
+          </section>
 
-      <div class="guide-cta">
-        <p>Ready to compare or edit your own GEDCOM file?</p>
-        <a href="../">Open GED Merge</a>
-      </div>
+          <section id="score">
+            <h2><span class="guide-num">5</span>The match score</h2>
+            <p>
+              When both files are loaded, GED Merge automatically pairs individuals between them and gives each pair a
+              <strong>match score from 0 to 100%</strong>. The score weighs several signals: surname, given name, birth
+              and death date and place, parents, partners, children and marriage. Implausible pairs are filtered out
+              early (for example, an irreconcilable surname or an impossible age gap), so the list surfaces genuine
+              candidates.
+            </p>
+            <p>
+              A high score means the two records are very likely the same person; a middling score is worth a careful
+              look. The <a href="#tools">Find duplicates</a> tool uses the very same engine to spot two records inside
+              <em>one</em> file that describe the same person.
+            </p>
+          </section>
+
+          <section id="home-person">
+            <h2><span class="guide-num">6</span>Home person &amp; kinship</h2>
+            <p>
+              Set a <strong>home person</strong> — usually yourself or the root of your tree — and GED Merge ranks
+              matches by <strong>kinship distance</strong>: how many relationship hops separate each candidate from your
+              home person. Your closest relatives then surface first, and each match shows its relationship (e.g.
+              <em>Grandfather</em>, <em>2nd cousin</em>). A sensible home person is chosen automatically when a file
+              loads; you can change or clear it at any time.
+            </p>
+          </section>
+
+          <section id="house-style">
+            <h2><span class="guide-num">7</span>House style &amp; normalization</h2>
+            <p>
+              Every GEDCOM has its own conventions — its <strong>house style</strong>. GED Merge detects four of them:
+            </p>
+            <ul>
+              <li><strong>Date format</strong> — e.g. <em>01.01.1900</em> vs <em>1 JAN 1900</em>, including how unknown parts are marked.</li>
+              <li><strong>Place layout</strong> — whether places are one packed line, a structured comma hierarchy, a separate street address, and so on.</li>
+              <li><strong>Source layout</strong> — bibliographic citations, repository links, page-image sources (Matricula-style), or inline text.</li>
+              <li><strong>Name layout</strong> — whether alternate names live as inline sub-tags or as separate typed name records.</li>
+            </ul>
+            <p>
+              When you load an <strong>incoming</strong> file, GED Merge <strong>normalizes</strong> it to your master's
+              house style before comparing — reformatting its dates, reshaping its places, rewriting links (Matricula,
+              Geneanet) and reshaping name variants — so the comparison is like-for-like and anything you merge in
+              already matches your file's conventions. The <a href="#tools">Normalize</a> tool applies the same idea
+              <em>within</em> a single file, bringing outliers in line with the file's own dominant style.
+            </p>
+          </section>
+
+          <section id="data-model">
+            <h2><span class="guide-num">8</span>Sources, media &amp; lossless data</h2>
+            <p>
+              GED Merge reads the <strong>whole</strong> file losslessly: every line is preserved, including custom and
+              non-standard tags, so nothing is silently dropped when you save. Beyond people and families, that includes
+              <strong>sources</strong> (repositories, source records and citations), <strong>media objects</strong>
+              (photos and document images), and the <strong>notes</strong> and <strong>links</strong> attached to any
+              record. These are first-class throughout: you can add and edit them in <span class="gm-pill">Edit</span>
+              (<a href="#sources">§13</a>, <a href="#photos">§12</a>) and browse them across the whole file in
+              <span class="gm-pill">Tools</span>.
+            </p>
+          </section>
+
+          <!-- ═══════════════ PART III — THE THREE MODES ═══════════════ -->
+          <p class="guide-part-head">Part III — The Three Modes</p>
+
+          <section id="edit">
+            <h2><span class="guide-num">9</span>Edit — your master GEDCOM</h2>
+            <h3>Navigating</h3>
+            <p>
+              Switch to <span class="gm-pill">Edit</span> (<span class="gm-key">E</span>) to browse and modify your
+              master directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
+              click a relative's card to walk the tree; <strong>Back</strong> returns to where you came from. If the
+              current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
+              that comparison. Press <span class="gm-key">V</span> (or <strong>Show Tree</strong>) for a family-tree view
+              of the current person. Every change is held in memory and reversible with
+              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
+            </p>
+            <h3>Names &amp; identity</h3>
+            <p>
+              Given name, surname, sex and nickname edit inline — click a field, type, click away to save. The
+              <span class="gm-glyph">×</span> glyph clears a field. <strong>+ Add Name</strong> attaches alternative
+              name variants (married name, name at birth, aka, formal and more), each with its own given name, surname
+              and type; the <span class="gm-glyph">−</span> glyph removes a variant.
+            </p>
+            <h3>Events</h3>
+            <div>
+              Birth shows by default. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
+              <ul>
+                <li><strong>Early Life</strong> — Baptism, Christening, Confirmation, Adoption, First Communion</li>
+                <li><strong>Career</strong> — Occupation, Education, Retirement</li>
+                <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
+                <li><strong>Estate</strong> — Will, Probate</li>
+                <li><strong>Death</strong> — Death, Burial, Cremation</li>
+              </ul>
+              Each event row carries <strong>date</strong>, <strong>place</strong> and <strong>address</strong>; expand
+              it to add a note, agency, type, cause and <strong>sources</strong>. Use <span class="gm-glyph">×</span> to
+              clear a single field. To change an event's type or remove the whole event, use the dropdown menu on its
+              event-type label.
+            </div>
+            <h3>Family relationships</h3>
+            <div>
+              The panel shows three family sections:
+              <ul>
+                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph">−</span> glyph detaches the role without deleting the record.</li>
+                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and supports Engagement, Separation and Divorce via <strong>+ Add Family Event</strong>; <span class="gm-glyph">−</span> detaches the spouse. Families carry their own notes and links too.</li>
+                <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph">−</span> unlinks a child without deleting them.</li>
+              </ul>
+            </div>
+            <h3>Notes, sources &amp; photos</h3>
+            <p>
+              Individuals and families can carry free-text <strong>notes</strong>, <strong>sources</strong> and
+              <strong>photos</strong>. <strong>+ Add Note</strong> and <strong>+ Add Source</strong> reveal their inputs
+              (the Add Source dialog is covered in <a href="#sources">§13</a>); once a link is present the
+              <span class="gm-glyph">↗</span> glyph opens it in a new tab. Adding and captioning photos is covered in
+              <a href="#photos">§12</a>.
+            </p>
+            <h3>Detach vs delete</h3>
+            <p>
+              <strong>Detach</strong> (the <span class="gm-glyph">−</span> glyph) only removes a family connection — both
+              individual records survive and can be re-linked later. <strong>Delete Person</strong> (the
+              <span class="gm-glyph danger">🗑</span> at the foot of the panel) permanently removes the individual and
+              unlinks them everywhere.
+            </p>
+            <div class="gm-callout warn">
+              <span class="gm-callout-label">Cannot be undone</span>
+              <p>Deleting a person is permanent and asks for confirmation. If in doubt, download a backup copy first.</p>
+            </div>
+            <h3>Saving</h3>
+            <p>
+              <strong>Save GEDCOM</strong> opens a preview of exactly what changed, then downloads the edited file — see
+              <a href="#saving">§14</a>. Your loaded file is never modified.
+            </p>
+          </section>
+
+          <section id="merge">
+            <h2><span class="guide-num">10</span>Merge — compare &amp; combine</h2>
+            <h3>The match list</h3>
+            <p>
+              With both files loaded, the <strong>Matches</strong> list shows every candidate pair with its score and —
+              if a home person is set — its relationship distance. Selecting a row opens the side-by-side comparison.
+              Step through with <span class="gm-key">←</span> / <span class="gm-key">→</span>.
+            </p>
+            <h3>Filtering &amp; sorting</h3>
+            <p>
+              Narrow the list with the <strong>Filters</strong>: <strong>New</strong> (adds new data),
+              <strong>Differences</strong> (has conflicts), <strong>Links</strong> (adds or changes attached links), a
+              name search, and a minimum-score threshold. Sort by score, distance and more. Each row carries small
+              counts for the new fields (<span class="gm-swatch new"></span>), differing fields
+              (<span class="gm-swatch diff"></span>), and link changes (<span class="gm-swatch link"></span>) it would
+              bring.
+            </p>
+            <h3>Comparing &amp; resolving conflicts</h3>
+            <p>
+              The compare panel highlights only fields that add <strong>new data</strong> or <strong>conflict</strong>.
+              For each conflicting field, choose which value to keep:
+            </p>
+            <ul>
+              <li><span class="gm-badge m">M</span> — keep the <strong>Master</strong> value</li>
+              <li><span class="gm-badge i">I</span> — take the <strong>Incoming</strong> value</li>
+              <li><span class="gm-badge b">B</span> — keep <strong>Both</strong></li>
+            </ul>
+            <h3>Marking each match</h3>
+            <p>
+              Give every pair a decision, by button or shortcut:
+              <span class="gm-badge c round">C</span> <strong>Confirm</strong> (<span class="gm-key">C</span>),
+              <span class="gm-badge r round">R</span> <strong>Reject</strong> (<span class="gm-key">R</span>), or
+              <span class="gm-badge d round">D</span> <strong>Defer</strong> to decide later (<span class="gm-key">D</span>).
+              Only <strong>confirmed</strong> matches are merged on save.
+            </p>
+            <h3>Compare Tree</h3>
+            <p>
+              <strong>Compare Tree</strong> (<span class="gm-key">V</span>) shows a matched person's ancestors and
+              descendants from both files in one diagram, so you can be sure they're really the same person. Nodes are
+              colour-coded: <span class="gm-swatch match"></span> match, <span class="gm-swatch minor"></span> minor
+              differences, <span class="gm-swatch major"></span> major differences,
+              <span class="gm-swatch master"></span> master only, <span class="gm-swatch incoming"></span> incoming only.
+              From here you can re-root on any person, mark a status, or use
+              <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
+              into your master on save. An overview minimap helps you navigate large trees.
+            </p>
+            <h3>Merging</h3>
+            <p>
+              <strong>Save GEDCOM</strong> previews every confirmed match and edit, then downloads the merged file —
+              applying your field-level choices to a copy of the master and pulling in any new individuals and families
+              connected to those confirmed matches. Full detail in <a href="#saving">§14</a>.
+            </p>
+          </section>
+
+          <section id="tools">
+            <h2><span class="guide-num">11</span>Tools — whole-file maintenance</h2>
+            <p>
+              The <span class="gm-pill">Tools</span> tab (<span class="gm-key">T</span>) runs checks and clean-ups across
+              your entire master file. Each tool works in the browser and previews its result before you download; your
+              live file is untouched until you do.
+            </p>
+            <h3>Health check</h3>
+            <p>
+              Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
+              dates, disconnected records, broken or one-way family links, future-dated events, death before birth, and
+              implausible ages (at death, at marriage, parent's age, spouse age gap). Click an issue to open the record
+              in <span class="gm-pill">Edit</span>; <strong>Fix all broken links</strong> clears dead and one-way family
+              pointers in one step.
+            </p>
+            <h3>Find duplicates</h3>
+            <p>
+              Compares every person against every other using the same engine as Merge, and lists likely duplicate pairs
+              with their score. Expand a pair for a side-by-side comparison, then <strong>Merge</strong> to keep the
+              surviving record and fold the other into it — family links are re-pointed automatically, and the action is
+              undoable.
+            </p>
+            <h3>Normalize</h3>
+            <p>
+              Detects the file's own dominant date format, place layout and link style, then re-renders records that
+              deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping places, and rewriting Matricula or
+              Geneanet links to a consistent form. A preview lists examples of each change before you download the
+              normalized copy.
+            </p>
+            <h3>Sources</h3>
+            <p>
+              Browse every repository, source record and media object, grouped by repository. Selecting one shows which
+              individuals and families cite it, each a link into <span class="gm-pill">Edit</span>; unattached media and
+              link-only citations are listed separately. A <strong>Potential duplicates</strong> view groups records
+              that describe the same media, source or repository under different ids — pick groups to collapse and
+              download a deduplicated file with every citation re-pointed.
+            </p>
+            <h3>Places</h3>
+            <p>
+              Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
+              a place to see the records that use it, or use <strong>Rename</strong> on any level to bulk-rename or merge
+              a place segment across every record at once — ideal for standardizing spelling variants.
+            </p>
+          </section>
+
+          <!-- ═══════════════ PART IV — CROSS-CUTTING ═══════════════ -->
+          <p class="guide-part-head">Part IV — Shared Features</p>
+
+          <section id="photos">
+            <h2><span class="guide-num">12</span>Photos &amp; media</h2>
+            <p>
+              GEDCOM files reference image files by name rather than embedding them, so to display photos GED Merge needs
+              the folder they live in. Connect a <strong>media folder</strong> from the file-info panel (or accept the
+              prompt offered when a file references local images). The folder is read locally — your photos never leave
+              your device.
+            </p>
+            <h3>Viewing</h3>
+            <p>
+              Click any thumbnail to open the full-screen <strong>lightbox</strong>. When a person has several photos,
+              step through them with <span class="gm-glyph">‹</span> / <span class="gm-glyph">›</span>, the arrow keys,
+              or the thumbnail tray; <span class="gm-key">Esc</span> closes. For a shared media object the info panel
+              also lists the records that reference it, each a link into <span class="gm-pill">Edit</span>.
+            </p>
+            <h3>Adding &amp; editing</h3>
+            <p>
+              In <span class="gm-pill">Edit</span>, <strong>Add photo</strong> attaches an image from your media folder
+              (Chrome and Edge can also accept a file dragged in). In the lightbox, the info panel is
+              <strong>editable</strong>: change a photo's <strong>title</strong>, <strong>date</strong> (the date the
+              image depicts), <strong>place</strong> and <strong>description</strong> — each field saves on blur and
+              joins the normal undo/redo history. The <span class="gm-glyph">×</span> control removes a photo from the
+              person; the image file on disk is kept.
+            </p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Note</span>
+              <p>Media folders need a modern browser (Chrome, Edge or Firefox). Firefox shows a generic “upload”
+              warning when you pick a folder — nothing is uploaded; the prompt is just how the browser asks for folder
+              access.</p>
+            </div>
+          </section>
+
+          <section id="sources">
+            <h2><span class="guide-num">13</span>Sources &amp; citations</h2>
+            <p>
+              <strong>+ Add Source</strong> — on a person, a family, or an individual event — opens the Add Source
+              dialog. Paste a full citation or just a URL: GED Merge fetches the page title where it can, and detects
+              when your citation <strong>matches an existing source</strong> in the file, adding the new page to it
+              rather than creating a duplicate. You can fill in structured fields — title, author, periodical/series,
+              publisher, agency, filing number, page, URL and note — as needed for your house style.
+            </p>
+            <p>
+              Existing citations can be reopened and edited the same way. To see and tidy sources across the entire
+              file — including duplicates — use <span class="gm-pill">Tools</span> › <strong>Sources</strong>
+              (<a href="#tools">§11</a>).
+            </p>
+          </section>
+
+          <section id="saving">
+            <h2><span class="guide-num">14</span>Saving &amp; reports</h2>
+            <p>
+              Saving is one unified flow for both edits and merges. <strong>Save GEDCOM</strong>
+              (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>) opens a <strong>preview</strong> listing
+              every change — persons and families changed, fields applied, new records added, and anything that could
+              not be merged. Each entry carries a badge: <span class="gm-badge b">New</span>,
+              <span class="gm-badge i">Incoming</span>, <span class="gm-badge c">Edited</span> or
+              <span class="gm-badge r">Removed</span>. Use <strong>Remove from Save</strong> to drop any single change
+              before downloading.
+            </p>
+            <p>
+              <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text
+              <em>change report</em> documenting exactly what was applied. The downloaded file becomes your new working
+              baseline inside the app, so what you see next matches what you just saved.
+            </p>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Tip</span>
+              <p>Your original file on disk is never overwritten — the download is always a new copy. Even so, keep a
+              backup of your tree before large merges.</p>
+            </div>
+          </section>
+
+          <!-- ═══════════════ PART V — REFERENCE ═══════════════ -->
+          <p class="guide-part-head">Part V — Reference</p>
+
+          <section id="legend">
+            <h2><span class="guide-num">15</span>Icon &amp; badge legend</h2>
+            <p>The same small set of glyphs and badges recurs throughout the app:</p>
+            <table class="gm-table">
+              <thead><tr><th>Symbol</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-glyph">+</span></td><td>Add — a name, event, person, note, source, photo, or family link</td></tr>
+                <tr><td><span class="gm-glyph">×</span></td><td>Clear a field, remove a note or link, or close a dialog</td></tr>
+                <tr><td><span class="gm-glyph">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
+                <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person permanently (cannot be undone)</td></tr>
+                <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and tree nodes:</p>
+            <table class="gm-table">
+              <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-badge c round">C</span></td><td>Confirmed match — it will be merged on save</td></tr>
+                <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match</td></tr>
+                <tr><td><span class="gm-badge d round">D</span></td><td>Deferred — decide later</td></tr>
+                <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on tree nodes)</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Field-choice badges</strong> — rectangular, in the compare panel:</p>
+            <table class="gm-table">
+              <tbody>
+                <tr><td><span class="gm-badge m">M</span></td><td>Keep the Master field value</td></tr>
+                <tr><td><span class="gm-badge i">I</span></td><td>Take the Incoming field value</td></tr>
+                <tr><td><span class="gm-badge b">B</span></td><td>Keep Both values</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Compare-Tree colours</strong> mark how the two files agree on each person:</p>
+            <table class="gm-table">
+              <tbody>
+                <tr><td><span class="gm-swatch match"></span></td><td>Match — the records agree</td></tr>
+                <tr><td><span class="gm-swatch minor"></span></td><td>Minor differences</td></tr>
+                <tr><td><span class="gm-swatch major"></span></td><td>Major differences / conflicts</td></tr>
+                <tr><td><span class="gm-swatch master"></span></td><td>Present in the master only</td></tr>
+                <tr><td><span class="gm-swatch incoming"></span></td><td>Present in the incoming only</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="shortcuts">
+            <h2><span class="guide-num">16</span>Keyboard shortcuts</h2>
+            <p>
+              Press <span class="gm-key">?</span> (or <span class="gm-key">F1</span>) anywhere to open this list in the
+              app. <strong>Standard</strong> actions use a modifier (<span class="gm-key">Ctrl</span> / <span class="gm-key">⌘</span>);
+              <strong>app</strong> actions are a single bare key.
+            </p>
+            <table class="gm-table">
+              <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">S</span></td><td>Save / download GEDCOM</td></tr>
+                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Z</span></td><td>Undo</td></tr>
+                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Redo</td></tr>
+                <tr><td><span class="gm-key">/</span></td><td>Focus the match search</td></tr>
+                <tr><td><span class="gm-key">?</span></td><td>Show the shortcut list</td></tr>
+                <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave the tree</td></tr>
+                <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
+                <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next person or item</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the open panel</td></tr>
+                <tr><td><span class="gm-key">Enter</span></td><td>Open the highlighted item (Tools)</td></tr>
+                <tr><td><span class="gm-key">V</span></td><td>Open the family / compare tree</td></tr>
+                <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="events">
+            <h2><span class="guide-num">17</span>Event types</h2>
+            <p>Events you can add to a person, grouped by life stage (families add Engagement, Marriage, Separation and Divorce):</p>
+            <ul>
+              <li><strong>Birth</strong> — always available</li>
+              <li><strong>Early Life</strong> — Baptism, Christening, Confirmation, Adoption, First Communion</li>
+              <li><strong>Career</strong> — Occupation, Education, Retirement</li>
+              <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
+              <li><strong>Estate</strong> — Will, Probate</li>
+              <li><strong>Death</strong> — Death, Burial, Cremation</li>
+            </ul>
+          </section>
+
+          <section id="glossary">
+            <h2><span class="guide-num">18</span>Glossary</h2>
+            <table class="gm-table">
+              <tbody>
+                <tr><td><strong>GEDCOM</strong></td><td>The standard family-tree exchange format (<em>.ged</em>) GED Merge reads and writes.</td></tr>
+                <tr><td><strong>Master</strong></td><td>Your primary tree — the file you edit and merge into.</td></tr>
+                <tr><td><strong>Incoming</strong></td><td>The file you compare against the master: another GEDCOM or a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV.</td></tr>
+                <tr><td><strong>Match score</strong></td><td>0–100% likelihood that two records are the same person.</td></tr>
+                <tr><td><strong>Home person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
+                <tr><td><strong>House style</strong></td><td>A file's own date, place, source and name conventions.</td></tr>
+                <tr><td><strong>Normalize</strong></td><td>Reshape records to one consistent house style.</td></tr>
+                <tr><td><strong>Media folder</strong></td><td>The local folder holding the image files a GEDCOM references.</td></tr>
+                <tr><td><strong>Repository / Source / Citation</strong></td><td>Where a record is held, the record itself, and a reference to it from a person or event.</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="privacy">
+            <h2><span class="guide-num">19</span>Privacy</h2>
+            <p>
+              All reading, matching, merging and editing happens locally in your browser, on your own computer —
+              including your media folder, which is read on your device only. Your family tree is never sent to a
+              server. The full
+              Privacy Policy &amp; Terms are available from the footer links inside <a href="../">GED Merge</a>.
+            </p>
+          </section>
+        </article>
+
+        <div class="guide-cta">
+          <p>Ready to edit, compare, or merge your own GEDCOM file?</p>
+          <a href="../">Open GED Merge</a>
+        </div>
+      </main>
     </div>
   </body>
 </html>

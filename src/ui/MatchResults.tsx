@@ -37,12 +37,12 @@ interface Props {
 /** Shared attributes for the small, language-neutral column-header icons. */
 const ICON_PROPS = {
   className: "col-ico",
-  width: 13,
-  height: 13,
+  width: 14,
+  height: 14,
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 2,
+  strokeWidth: 2.5,
   strokeLinecap: "round",
   strokeLinejoin: "round",
   "aria-hidden": true,
@@ -130,6 +130,14 @@ export function MatchResults({
                 ))}
               </select>
             </label>
+            <label className="filter-check" title={t("filter.newPeopleTooltip")}>
+              <input
+                type="checkbox"
+                checked={filters.onlyImports}
+                onChange={(e) => onFilters({ ...filters, onlyImports: e.target.checked })}
+              />
+              {t("filter.newPeople")}
+            </label>
             <label className="filter-check" title={t("filter.newDataTooltip")}>
               <input
                 type="checkbox"
@@ -138,14 +146,6 @@ export function MatchResults({
               />
               {t("filter.newData")}
             </label>
-            <label className="filter-check" title={t("filter.differencesTooltip")}>
-              <input
-                type="checkbox"
-                checked={filters.onlyDiff}
-                onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
-              />
-              {t("filter.differences")}
-            </label>
             <label className="filter-check" title={t("filter.linksTooltip")}>
               <input
                 type="checkbox"
@@ -153,6 +153,14 @@ export function MatchResults({
                 onChange={(e) => onFilters({ ...filters, onlyLinks: e.target.checked })}
               />
               {t("filter.links")}
+            </label>
+            <label className="filter-check" title={t("filter.differencesTooltip")}>
+              <input
+                type="checkbox"
+                checked={filters.onlyDiff}
+                onChange={(e) => onFilters({ ...filters, onlyDiff: e.target.checked })}
+              />
+              {t("filter.differences")}
             </label>
           </div>
         </div>
@@ -214,7 +222,21 @@ export function MatchResults({
                 </button>
               )}
               <button
-                className={cls("newCount", "nd")}
+                className={cls("importCount", "nd import")}
+                title={t("list.importTooltip")}
+                onClick={() => onToggleSort("importCount")}
+              >
+                {/* New persons (ancestors + descendants): a group of people. */}
+                <svg {...ICON_PROPS}>
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                {arrow("importCount")}
+              </button>
+              <button
+                className={cls("newCount", "nd new")}
                 title={t("list.newTooltip")}
                 onClick={() => onToggleSort("newCount")}
               >
@@ -226,7 +248,19 @@ export function MatchResults({
                 {arrow("newCount")}
               </button>
               <button
-                className={cls("diffCount", "nd")}
+                className={cls("linkCount", "nd link")}
+                title={t("list.linkTooltip")}
+                onClick={() => onToggleSort("linkCount")}
+              >
+                {/* New links: a chain link. */}
+                <svg {...ICON_PROPS}>
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                {arrow("linkCount")}
+              </button>
+              <button
+                className={cls("diffCount", "nd diff")}
                 title={t("list.diffTooltip")}
                 onClick={() => onToggleSort("diffCount")}
               >
@@ -237,20 +271,6 @@ export function MatchResults({
                   <line x1="17" y1="5" x2="7" y2="19" />
                 </svg>
                 {arrow("diffCount")}
-              </button>
-              <button
-                className={cls("linkCount", "nd")}
-                title={t("list.linkTooltip")}
-                onClick={() => onToggleSort("linkCount")}
-              >
-                🔗{arrow("linkCount")}
-              </button>
-              <button
-                className={cls("importCount", "nd import")}
-                title={t("list.importTooltip")}
-                onClick={() => onToggleSort("importCount")}
-              >
-                👪{arrow("importCount")}
               </button>
             </span>
           </li>
@@ -308,7 +328,7 @@ const CandidateRow = memo(function CandidateRow({
   );
 
   return (
-    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}${candidate.linkCount ? " has-links" : ""}`}>
+    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
           <span className={`person-label ${sexClass(candidate.sex)}`}>
@@ -342,16 +362,19 @@ const CandidateRow = memo(function CandidateRow({
               </span>
             )}
             <span
+              className={`nd import ${importTotal(candidate) ? "" : "zero"}`}
+              title={t("list.importBreakdown", {
+                anc: candidate.ancestorCount ?? 0,
+                desc: candidate.descendantCount ?? 0,
+              })}
+            >
+              {importTotal(candidate)}
+            </span>
+            <span
               className={`nd new ${candidate.newCount ? "" : "zero"}`}
               title={t("list.newTooltip")}
             >
               {candidate.newCount ?? 0}
-            </span>
-            <span
-              className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
-              title={t("list.diffTooltip")}
-            >
-              {candidate.diffCount ?? 0}
             </span>
             <span
               className={`nd link ${candidate.linkCount ? "" : "zero"}`}
@@ -360,13 +383,10 @@ const CandidateRow = memo(function CandidateRow({
               {candidate.linkCount ?? 0}
             </span>
             <span
-              className={`nd import ${importTotal(candidate) ? "" : "zero"}`}
-              title={t("list.importBreakdown", {
-                anc: candidate.ancestorCount ?? 0,
-                desc: candidate.descendantCount ?? 0,
-              })}
+              className={`nd diff ${candidate.diffCount ? "" : "zero"}`}
+              title={t("list.diffTooltip")}
             >
-              {importTotal(candidate)}
+              {candidate.diffCount ?? 0}
             </span>
           </span>
         </button>
