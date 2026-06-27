@@ -98,12 +98,16 @@ export interface PhotoRef {
   description?: string;
   /** Shared media record xref, present only for pointer-style OBJE links. */
   xref?: string;
+  /** Position of this photo's `OBJE` among the record's `OBJE` children
+   *  (counting URL-only ones too), so Edit-mode delete/reorder can target the
+   *  right child even when some `OBJE`s aren't displayable photos. */
+  objeIndex: number;
 }
 
 /** Local file, title, and descriptive content for one OBJE node, or null when
  *  it's a URL/has no file. Reuses the shared OBJE parser; keeps only nodes whose
  *  `FILE` is a local filename (a displayable photo), dropping URL-only links. */
-function objePhotoRef(objeNode: GedNode): Omit<PhotoRef, "xref"> | null {
+function objePhotoRef(objeNode: GedNode): Omit<PhotoRef, "xref" | "objeIndex"> | null {
   const info = objeInfoOf(objeNode);
   if (!info.file || info.url) return null;
   return {
@@ -119,14 +123,16 @@ function objePhotoRef(objeNode: GedNode): Omit<PhotoRef, "xref"> | null {
 export function collectPhotoRefs(raw: GedNode, records: GedNode[]): PhotoRef[] {
   const objeNodes = objeNodesFor(records);
   const refs: PhotoRef[] = [];
+  let objeIndex = -1;
   for (const child of raw.children) {
     if (child.tag !== "OBJE") continue;
+    objeIndex++;
     const val = child.value?.trim();
     const xref = val && isPointer(val) ? val : undefined;
     const objeNode = xref ? objeNodes.get(xref) : child;
     if (!objeNode) continue;
     const ref = objePhotoRef(objeNode);
-    if (ref) refs.push({ ...ref, xref });
+    if (ref) refs.push({ ...ref, xref, objeIndex });
   }
   return refs;
 }

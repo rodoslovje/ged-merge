@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../../locales/i18n";
+import { ClearableTextarea } from "./ClearableInput";
 
 /** Multi-line notes attached to a person or family record. */
 export function NotesEditor({
@@ -57,25 +58,18 @@ export function NotesEditor({
         </div>
       )}
       {notes.map((note, i) => (
-        <div className="edit-note-row" key={i}>
-          <textarea
-            ref={(el) => { textareaRefs.current[i] = el; }}
-            className={`edit-input edit-note-input${note.trim() ? " edit-input--dirty" : ""}`}
-            value={note}
-            placeholder={t("field.notes")}
-            rows={2}
-            onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? e.target.value : n)))}
-            onBlur={() => commitNotes(notes)}
-          />
-          <button
-            type="button"
-            className="edit-link-remove"
-            title={t("edit.removeNote")}
-            onClick={() => commitNotes(notes.filter((_, idx) => idx !== i))}
-          >
-            ×
-          </button>
-        </div>
+        <ClearableTextarea
+          key={i}
+          ref={(el) => { textareaRefs.current[i] = el; }}
+          className="edit-input edit-event-note"
+          value={note}
+          placeholder={t("field.notes")}
+          title={t("field.notes")}
+          rows={1}
+          onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? e.target.value : n)))}
+          onBlur={() => commitNotes(notes)}
+          onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
+        />
       ))}
     </div>
   );

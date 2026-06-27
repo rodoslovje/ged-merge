@@ -22,6 +22,8 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
+  showAddPhoto,
+  onAddPhoto,
   marriedNameTag,
   leadingControl,
 }: {
@@ -34,6 +36,10 @@ export function OtherNamesEditor({
   onAddLink: () => void;
   showAddNote: boolean;
   onAddNote: () => void;
+  /** True when the person has no photos yet, so an empty-state "+ Add photo"
+   * chip belongs in this row (the tray hosts adding once photos exist). */
+  showAddPhoto: boolean;
+  onAddPhoto: () => void;
   /** True when the master file records married surnames inline as `_MARNM`, so
    * choosing the "married" type on an added name stores it there instead of as a
    * separate `TYPE married` NAME record. */
@@ -135,6 +141,16 @@ export function OtherNamesEditor({
           onAdd={onAddEvent}
           className="edit-name-chip edit-name-chip-add add-chip-select"
         />
+        {showAddPhoto && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("photo.add")}
+            onClick={onAddPhoto}
+          >
+            + {t("photo.add")}
+          </button>
+        )}
         {showAddLink && (
           <button
             type="button"

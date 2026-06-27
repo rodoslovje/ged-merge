@@ -1,5 +1,5 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
-import { buildSourceContext, isPointer, type SourceContext } from "./source";
+import { buildSourceContext, clearObjeNodeCache, isPointer, type SourceContext } from "./source";
 import { birthSortKey } from "./lifespan";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
@@ -809,17 +809,113 @@ export interface NewSourceFields {
   url?: string;
 }
 
-/** Create a new top-level `OBJE` record whose `FILE` is `url`, and add it to `records`. */
-export function createMediaRecord(records: GedNode[], url: string): GedNode {
+/** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
+ * optional `TITL`), and add it to `records`. */
+export function createMediaRecord(records: GedNode[], url: string, title?: string): GedNode {
   const raw: GedNode = {
     level: 0,
     xref: nextXref(records, "O"),
     tag: "OBJE",
     children: [{ level: 1, tag: "FILE", value: url, children: [] }],
   };
+  const trimmedTitle = title?.trim();
+  if (trimmedTitle) raw.children.push({ level: 1, tag: "TITL", value: trimmedTitle, children: [] });
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
+  clearObjeNodeCache(records);
   return raw;
+}
+
+// ── Individual photos (OBJE) ────────────────────────────────────────────────
+//
+// Edit-mode helpers for attaching/removing/reordering a person's photos. The
+// inline-vs-shared choice (whether to write an inline `1 OBJE`/`2 FILE` block or
+// a `1 OBJE @O@` pointer to a top-level record) is the caller's, driven by the
+// master file's detected `MediaMode`; these helpers just realize whichever the
+// caller picks.
+
+/** Build an `OBJE` node (a `FILE` plus an optional `TITL`) at `level`. */
+function buildObjeNode(level: number, file: string, title?: string): GedNode {
+  const node: GedNode = { level, tag: "OBJE", children: [{ level: level + 1, tag: "FILE", value: file, children: [] }] };
+  const trimmedTitle = title?.trim();
+  if (trimmedTitle) node.children.push({ level: level + 1, tag: "TITL", value: trimmedTitle, children: [] });
+  return node;
+}
+
+/** The first top-level shared `OBJE` whose `FILE` equals `file` (case-insensitive),
+ * so adding a photo already on file reuses its record instead of duplicating it. */
+export function findSharedMediaByFile(records: GedNode[], file: string): GedNode | undefined {
+  const target = file.trim().toLowerCase();
+  if (!target) return undefined;
+  for (const rec of records) {
+    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    const f = rec.children.find((c) => c.tag === "FILE")?.value?.trim().toLowerCase();
+    if (f === target) return rec;
+  }
+  return undefined;
+}
+
+/** Add an inline `1 OBJE`/`2 FILE` photo block to an individual (inline mode). */
+export function attachInlineMedia(indi: Individual, file: string, title?: string): GedNode {
+  const node = buildObjeNode(indi.raw.level + 1, file, title);
+  insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
+  return node;
+}
+
+/** Add a `1 OBJE @O@` pointer to a top-level shared media record (shared mode). */
+export function attachMediaPointer(indi: Individual, objeXref: string): GedNode {
+  const node: GedNode = { level: indi.raw.level + 1, tag: "OBJE", value: objeXref, children: [] };
+  insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
+  return node;
+}
+
+/**
+ * Remove the `objeIndex`th `OBJE` child of an individual (0-based among its
+ * `OBJE` children). If it was a pointer to a top-level shared record, prune
+ * that record when nothing else in the dataset still references it.
+ */
+export function removeIndividualMediaAtIndex(dataset: Dataset, indi: Individual, objeIndex: number): void {
+  const node = indi.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+  if (!node) return;
+  const i = indi.raw.children.indexOf(node);
+  if (i !== -1) indi.raw.children.splice(i, 1);
+  const ptr = node.value?.trim();
+  if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
+}
+
+/**
+ * Move an individual's `OBJE` child from position `from` to `to` (0-based among
+ * its `OBJE` children), leaving every non-`OBJE` child in place — so a tray
+ * reorder doesn't disturb the rest of the record's field order.
+ */
+export function reorderIndividualMedia(indi: Individual, from: number, to: number): void {
+  const slots = indi.raw.children.map((c, i) => (c.tag === "OBJE" ? i : -1)).filter((i) => i >= 0);
+  const objes = slots.map((i) => indi.raw.children[i]);
+  if (from === to || from < 0 || to < 0 || from >= objes.length || to >= objes.length) return;
+  const [moved] = objes.splice(from, 1);
+  objes.splice(to, 0, moved);
+  slots.forEach((slotIdx, k) => { indi.raw.children[slotIdx] = objes[k]; });
+}
+
+/**
+ * Delete the top-level `OBJE` record `objeXref` if no pointer anywhere in the
+ * dataset (on an `INDI`, `FAM`, or `SOUR`) still references it. Mirrors
+ * `pruneUnreferencedSource` — a shared photo also cited as a source-page image,
+ * or still attached to another person, is left intact.
+ */
+export function pruneUnreferencedMedia(dataset: Dataset, objeXref: string): void {
+  const stack: GedNode[] = [...dataset.records];
+  while (stack.length) {
+    const node = stack.pop()!;
+    // A pointer (value set) referencing this media — its own definition record
+    // has no value, so it never counts as a reference to itself.
+    if (node.tag === "OBJE" && node.value?.trim() === objeXref) return; // still referenced
+    for (const child of node.children) stack.push(child);
+  }
+  const i = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
+  if (i !== -1) dataset.records.splice(i, 1);
+  bumpSourceCacheVersion(dataset.records);
+  clearObjeNodeCache(dataset.records);
 }
 
 /**

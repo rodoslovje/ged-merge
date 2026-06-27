@@ -12,7 +12,14 @@ import {
   addObjeToSource,
   addParent,
   addPartner,
+  attachInlineMedia,
+  attachMediaPointer,
   attachSourceCitation,
+  createMediaRecord,
+  findSharedMediaByFile,
+  pruneUnreferencedMedia,
+  removeIndividualMediaAtIndex,
+  reorderIndividualMedia,
   changeEventTagAtIndex,
   changeFamilyEventTag,
   connectExistingChild,
@@ -1327,5 +1334,109 @@ describe("updateSourceCitation", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].title).toBe("Family Bible, 2nd ed.");
     expect(updated.sources![0].page).toBe("3");
+  });
+});
+
+// ─── Individual photos (OBJE) ─────────────────────────────────────────────────
+
+describe("individual media", () => {
+  it("attaches an inline OBJE/FILE block (with title)", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const node = attachInlineMedia(indi, "photos/janez.jpg", "Janez 1870");
+    expect(node.tag).toBe("OBJE");
+    expect(node.children.find((c) => c.tag === "FILE")?.value).toBe("photos/janez.jpg");
+    expect(node.children.find((c) => c.tag === "TITL")?.value).toBe("Janez 1870");
+    expect(indi.raw.children).toContain(node);
+    // No top-level OBJE record is created for inline mode.
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
+  it("attaches a pointer to a shared top-level OBJE record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "photos/janez.jpg", "Janez 1870");
+    attachMediaPointer(indi, rec.xref!);
+    const ptr = indi.raw.children.find((c) => c.tag === "OBJE");
+    expect(ptr?.value).toBe(rec.xref);
+    expect(ds.records.filter((r) => r.tag === "OBJE")).toHaveLength(1);
+  });
+
+  it("finds an existing shared record by file, case-insensitively", () => {
+    const ds = buildFromText(BASE);
+    createMediaRecord(ds.records, "Photos/Janez.JPG");
+    expect(findSharedMediaByFile(ds.records, "photos/janez.jpg")?.tag).toBe("OBJE");
+    expect(findSharedMediaByFile(ds.records, "other.jpg")).toBeUndefined();
+  });
+
+  it("removes an inline photo by index", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi, "a.jpg");
+    attachInlineMedia(indi, "b.jpg");
+    removeIndividualMediaAtIndex(ds, indi, 0);
+    const remaining = indi.raw.children.filter((c) => c.tag === "OBJE");
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].children.find((c) => c.tag === "FILE")?.value).toBe("b.jpg");
+  });
+
+  it("prunes a shared OBJE record when its last reference is removed", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "a.jpg");
+    attachMediaPointer(indi, rec.xref!);
+    removeIndividualMediaAtIndex(ds, indi, 0);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
+  it("keeps a shared OBJE still referenced by another person", () => {
+    const ds = buildFromText(FAM_BASE);
+    const i1 = ds.individuals.get("@I1@")!;
+    const i2 = ds.individuals.get("@I2@")!;
+    const rec = createMediaRecord(ds.records, "family.jpg");
+    attachMediaPointer(i1, rec.xref!);
+    attachMediaPointer(i2, rec.xref!);
+    removeIndividualMediaAtIndex(ds, i1, 0);
+    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
+  });
+
+  it("does not prune a shared OBJE also cited as a source image", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "scan.jpg");
+    attachMediaPointer(indi, rec.xref!);
+    // A SOUR record also points at the same media object.
+    ds.records.push({
+      level: 0,
+      xref: "@S1@",
+      tag: "SOUR",
+      children: [{ level: 1, tag: "OBJE", value: rec.xref, children: [] }],
+    });
+    removeIndividualMediaAtIndex(ds, indi, 0);
+    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
+  });
+
+  it("reorders OBJE children without disturbing other fields", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi, "a.jpg");
+    attachInlineMedia(indi, "b.jpg");
+    attachInlineMedia(indi, "c.jpg");
+    reorderIndividualMedia(indi, 2, 0);
+    const files = indi.raw.children
+      .filter((c) => c.tag === "OBJE")
+      .map((o) => o.children.find((c) => c.tag === "FILE")?.value);
+    expect(files).toEqual(["c.jpg", "a.jpg", "b.jpg"]);
+    // NAME/SEX/FAMC are still present and ahead of the photos.
+    expect(indi.raw.children[0].tag).toBe("NAME");
+  });
+
+  it("pruneUnreferencedMedia is a no-op while a reference remains", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "a.jpg");
+    attachMediaPointer(indi, rec.xref!);
+    pruneUnreferencedMedia(ds, rec.xref!);
+    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
   });
 });

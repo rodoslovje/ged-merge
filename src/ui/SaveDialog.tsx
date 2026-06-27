@@ -230,7 +230,7 @@ export function SaveDialog({
                           ) : (
                             grp.rows.map((c, i) => (
                               <li key={`${gi}-${i}`}>
-                                <span className="preview-field">{c.field}</span>:{" "}
+                                {!c.noLabel && <><span className="preview-field">{c.field}</span>: </>}
                                 {isIconChange(c) ? <ChangeIcons changes={[c]} t={t} /> : <FieldValue c={c} />}
                               </li>
                             ))

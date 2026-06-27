@@ -67,6 +67,10 @@ export interface FieldChange {
   /** Plain attached links (record- or event-level) this change added, rendered as
    *  🔗 icons inline like `sources`. */
   links?: string[];
+  /** Suppress the field-label prefix in the save preview (the value is
+   *  self-describing, e.g. a photo's full file path). The text report still
+   *  uses `field` to group/label the line. */
+  noLabel?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */

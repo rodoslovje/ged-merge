@@ -15,12 +15,18 @@ import {
   addObjeToSource,
   addParent,
   addPartner,
+  attachInlineMedia,
+  attachMediaPointer,
   attachSourceCitation,
   bumpSourceCacheVersion,
   connectExistingChild,
   connectExistingParent,
   connectExistingPartner,
+  createMediaRecord,
   createSourceRecord,
+  findSharedMediaByFile,
+  removeIndividualMediaAtIndex,
+  reorderIndividualMedia,
   detachChildFromFamily,
   detachSpouseRole,
   FAM_CHILD_ORDER,
@@ -41,10 +47,13 @@ import {
   type EditSourceFields,
   type NewSourceFields,
 } from "../gedcom/edit";
-import { childText, findExistingSource, resolveSourceCitation } from "../gedcom/source";
+import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation } from "../gedcom/source";
+import { detectMediaMode } from "../gedcom/media";
+import { useMediaFolder } from "./MediaFolderContext";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { PersonCard } from "./PersonCard";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
+import { AddPhotoDialog } from "./AddPhotoDialog";
 import { nodeId } from "./edit/nodeId";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData, MATCH_STATUSES } from "./edit/editConstants";
@@ -60,6 +69,10 @@ import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonPhotos } from "./PersonPhotos";
+import { collectPhotoRefs } from "./PhotoViewer";
+
+/** Image filenames the photo drop zone accepts. */
+const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i;
 
 interface Props {
   dataset: Dataset;
@@ -143,7 +156,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // Tracks which individual-event row should auto-focus its date field on mount.
   const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
   useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
-  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void; danger?: boolean } | null>(null);
 
   // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
 
@@ -156,7 +169,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         if (ri !== -1) dataset.records.splice(ri, 1);
         if (patch.type === "individual") dataset.individuals.delete(patch.id);
         else if (patch.type === "family") dataset.families.delete(patch.id);
-        else if (patch.type === "record") bumpSourceCacheVersion(dataset.records);
+        else if (patch.type === "record") { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
       }
     }
     // Second pass: restore or re-add generic top-level records (e.g. a
@@ -182,6 +195,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
       // A SOUR/OBJE this patch touches may now have a different FILE value or
       // existence than `getMediaAndSourceCtx`'s cache last saw.
       bumpSourceCacheVersion(dataset.records);
+      clearObjeNodeCache(dataset.records);
     }
     // Third pass: restore individual/family records and rebuild them.
     for (const patch of patches) {
@@ -648,6 +662,13 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     setResolvedSessionFields((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }
 
+  const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder } = useMediaFolder();
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  // Follow the master's photo house-style (inline OBJE/FILE vs. shared top-level
+  // OBJE + pointer); ties / no photos fall back to shared.
+  const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
+  const [photoDragOver, setPhotoDragOver] = useState(false);
+
   const commit: Commit = (mutate, extraPatches) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
@@ -670,6 +691,116 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     onDirty("family", fam.id);
     setTick((v) => v + 1);
   };
+
+  // ── Photos (OBJE) ──────────────────────────────────────────────────────────
+
+  /** Pop a benign (non-destructive) acknowledgement dialog. */
+  function infoDialog(message: string) {
+    setPendingConfirm({ message, confirmLabel: t("confirm.ok"), danger: false, action: () => {} });
+  }
+
+  /** Attach a photo by folder-relative path, following the master's media mode:
+   *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
+   *  shared mode an `existingXref` (or a record with the same file) is reused,
+   *  else a new top-level OBJE is created and captured as a record patch. */
+  function addPhotoToPerson(file: string, existingXref?: string) {
+    if (!person) return;
+    if (mediaMode === "inline") {
+      commit((indi) => { attachInlineMedia(indi, file); });
+      return;
+    }
+    const extraPatches: RecordPatch[] = [];
+    let objeXref = existingXref ?? findSharedMediaByFile(dataset.records, file)?.xref;
+    if (!objeXref) {
+      const rec = createMediaRecord(dataset.records, file);
+      objeXref = rec.xref!;
+      extraPatches.push({ type: "record", id: rec.xref!, before: null, after: cloneRaw(rec) });
+    }
+    commit((indi) => attachMediaPointer(indi, objeXref!), extraPatches);
+  }
+
+  /** The "Add photo" entry point: ensure a media folder is chosen, then open
+   *  the picker (which lists the folder's images — works in every browser that
+   *  can load a folder). Dragging files in from outside is the Chrome/Edge-only
+   *  path handled separately. */
+  function handleAddPhoto() {
+    if (!folderName) {
+      setPendingConfirm({
+        message: t("photo.selectFolderPrompt"),
+        confirmLabel: t("photo.chooseFolder"),
+        danger: false,
+        action: () => { void openFolder(); },
+      });
+      return;
+    }
+    setPhotoPickerOpen(true);
+  }
+
+  /** Remove the person's `objeIndex`th photo. Mirrors `commitRemoveSource`:
+   *  snapshots the shared OBJE first so undo can restore it if the delete
+   *  pruned it as now-unreferenced. */
+  function deletePhoto(objeIndex: number) {
+    if (!person) return;
+    const objeChild = person.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+    const ptr = objeChild?.value?.trim();
+    const sharedXref = ptr && isPointer(ptr) ? ptr : undefined;
+    const sharedNode = sharedXref ? dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref) : undefined;
+    const sharedBefore = sharedNode ? cloneRaw(sharedNode) : undefined;
+
+    const before = cloneRaw(person.raw);
+    removeIndividualMediaAtIndex(dataset, person, objeIndex);
+    const after = cloneRaw(person.raw);
+
+    const extraPatches: RecordPatch[] = [];
+    if (sharedXref && sharedBefore && !dataset.records.some((r) => r.xref === sharedXref)) {
+      extraPatches.push({ type: "record", id: sharedXref, before: sharedBefore, after: null });
+    }
+    rebuildIndividual(dataset, person);
+    onPushEdit([{ type: "individual", id: person.id, before, after }, ...extraPatches], selectedId);
+    onDirty("individual", person.id);
+    setTick((v) => v + 1);
+  }
+
+  function handleDeletePhoto(objeIndex: number) {
+    setPendingConfirm({
+      message: t("photo.deleteConfirm"),
+      confirmLabel: t("confirm.delete"),
+      action: () => deletePhoto(objeIndex),
+    });
+  }
+
+  /** Reference dropped image files that live inside the chosen media folder.
+   *  DataTransferItems are invalidated after the first `await`, so every
+   *  handle is requested synchronously up front, then resolved. */
+  function handlePhotoDrop(e: React.DragEvent) {
+    if (!e.dataTransfer.types.includes("Files")) return; // internal reorder drag
+    e.preventDefault();
+    setPhotoDragOver(false);
+    const handlePromises: Promise<FileSystemHandle | null>[] = [];
+    let fileCount = 0;
+    for (const item of Array.from(e.dataTransfer.items)) {
+      if (item.kind !== "file") continue;
+      fileCount++;
+      const get = (item as unknown as { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }).getAsFileSystemHandle;
+      if (get) handlePromises.push(get.call(item));
+    }
+    if (fileCount === 0) return;
+    void resolveDroppedPhotos(handlePromises, fileCount);
+  }
+
+  async function resolveDroppedPhotos(handlePromises: Promise<FileSystemHandle | null>[], fileCount: number) {
+    if (!folderName) { infoDialog(t("photo.selectFolderPrompt")); return; }
+    if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("photo.importUnsupported")); return; }
+    let anyOutside = false;
+    for (const promise of handlePromises) {
+      const handle = await promise;
+      if (!handle || handle.kind !== "file" || !IMAGE_NAME_RE.test(handle.name)) continue;
+      const rel = await resolveDroppedHandle(handle);
+      if (rel) addPhotoToPerson(rel);
+      else anyOutside = true;
+    }
+    if (anyOutside) infoDialog(t("photo.outsideFolder"));
+  }
 
   // ── Add Source dialog ────────────────────────────────────────────────────
   // `sourceDialogTarget` says where the confirmed citation should attach:
@@ -1227,7 +1358,16 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
         <div className="edit-connector-v" />
 
-        <div className="edit-person">
+        <div
+          className={`edit-person ${photoDragOver ? "photo-drop-active" : ""}`}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setPhotoDragOver(true);
+          }}
+          onDragLeave={(e) => { if (e.currentTarget === e.target) setPhotoDragOver(false); }}
+          onDrop={handlePhotoDrop}
+        >
           <div className="edit-person-header">
             <NameEditor
               key={`name-${person.id}-${undoVersion}`}
@@ -1255,7 +1395,15 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               }
             />
           </div>
-          <PersonPhotos raw={person.raw} records={dataset.records} refCtx={{ dataset, onNavigate: navigate }} />
+          <PersonPhotos
+            // person.raw is mutated in place, so remount on each edit/undo to
+            // re-read the OBJE children (resolved files are blob-cached).
+            key={`photos-${person.id}-${tick}-${undoVersion}`}
+            raw={person.raw}
+            records={dataset.records}
+            refCtx={{ dataset, onNavigate: navigate }}
+            editable={{ onAdd: handleAddPhoto, onDelete: handleDeletePhoto, onReorder: (from, to) => commit((indi) => reorderIndividualMedia(indi, from, to)) }}
+          />
           <OtherNamesEditor
             key={`names-${person.id}-${undoVersion}`}
             person={person}
@@ -1272,35 +1420,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
+            showAddPhoto={collectPhotoRefs(person.raw, dataset.records).length === 0}
+            onAddPhoto={handleAddPhoto}
             marriedNameTag={marriedNameTag}
             leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
-          />
-          <EventList
-            key={person.id}
-            person={person}
-            t={t}
-            commit={commit}
-            openEditSource={openEditSource}
-            onOpenSourceDialog={setSourceDialogTarget}
-            placeSuggestions={placeSuggestions}
-            placeToAddrs={placeToAddrs}
-            placeCanonical={placeCanonical}
-            addrCanonical={addrCanonical}
-            mergeHighlight={mergeHighlight}
-            mergeIncomingSources={mergeIncomingSources}
-            masterMergeKeyBases={masterMergeKeyBases}
-            masterMergeCompareKeys={masterMergeCompareKeys}
-            masterMergeSortKeys={masterMergeSortKeys}
-            extraMergeEvents={extraMergeEvents}
-            onRejectIncomingEvent={rejectIncomingEvent}
-            onMaterializeIncomingSources={materializeMergeEventSources}
-            onResolveMergeField={resolveMergeFields}
-            resolvedSessionFields={resolvedSessionFields}
-            materializedEventIds={materializedEventIds}
-            onMaterializeEventNode={markMaterializedEvent}
-            pendingFocusNodeId={pendingFocusEventNodeId}
-            undoVersion={undoVersion}
-            mergeGen={mergeGenRef.current}
           />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
@@ -1334,6 +1457,33 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               />
             </div>
           )}
+          <EventList
+            key={person.id}
+            person={person}
+            t={t}
+            commit={commit}
+            openEditSource={openEditSource}
+            onOpenSourceDialog={setSourceDialogTarget}
+            placeSuggestions={placeSuggestions}
+            placeToAddrs={placeToAddrs}
+            placeCanonical={placeCanonical}
+            addrCanonical={addrCanonical}
+            mergeHighlight={mergeHighlight}
+            mergeIncomingSources={mergeIncomingSources}
+            masterMergeKeyBases={masterMergeKeyBases}
+            masterMergeCompareKeys={masterMergeCompareKeys}
+            masterMergeSortKeys={masterMergeSortKeys}
+            extraMergeEvents={extraMergeEvents}
+            onRejectIncomingEvent={rejectIncomingEvent}
+            onMaterializeIncomingSources={materializeMergeEventSources}
+            onResolveMergeField={resolveMergeFields}
+            resolvedSessionFields={resolvedSessionFields}
+            materializedEventIds={materializedEventIds}
+            onMaterializeEventNode={markMaterializedEvent}
+            pendingFocusNodeId={pendingFocusEventNodeId}
+            undoVersion={undoVersion}
+            mergeGen={mergeGenRef.current}
+          />
         </div>
 
         <div className="edit-families">
@@ -1539,11 +1689,18 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         t={t}
         editing={editingSourceDialogProps()}
       />
+      <AddPhotoDialog
+        isOpen={photoPickerOpen}
+        onClose={() => setPhotoPickerOpen(false)}
+        onAdd={(photos) => { for (const p of photos) addPhotoToPerson(p.path, p.existingXref); }}
+        dataset={dataset}
+        t={t}
+      />
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
           confirmLabel={pendingConfirm.confirmLabel}
-          danger
+          danger={pendingConfirm.danger ?? true}
           onConfirm={() => { pendingConfirm.action(); setPendingConfirm(null); }}
           onCancel={() => setPendingConfirm(null)}
         />

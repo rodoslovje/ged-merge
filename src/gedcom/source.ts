@@ -137,6 +137,13 @@ export function objeNodesFor(records: GedNode[]): Map<string, GedNode> {
   return index;
 }
 
+/** Drop the cached xref→`OBJE` map for `records`. Call after adding or removing
+ * a top-level `OBJE` record in place, so the next `objeNodesFor` rebuilds it
+ * (the cache is keyed on the array reference, which edits mutate in place). */
+export function clearObjeNodeCache(records: GedNode[]): void {
+  objeNodeCache.delete(records);
+}
+
 /**
  * The displayable content of one `OBJE` node — equally a top-level shared media
  * record or an inline event-level link. `file` is the raw `FILE` value (URL or

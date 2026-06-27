@@ -2,6 +2,7 @@ import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { parseName } from "./name";
+import { buildObjeIndex, isPointer, looksLikeUrl } from "./source";
 import type { Translate } from "../locales/i18n";
 
 const INDIVIDUAL_EVENT_TAGS = new Set([
@@ -206,7 +207,47 @@ function diffStringSet(
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
+/**
+ * A resolver from a record's `OBJE` child to the photo's full file path — the
+ * inline `FILE` value, or (for a `@O@` pointer) the shared record's file, looked
+ * up in `objeIndex`. URL-only objects (web links, not photos) and unresolvable
+ * pointers (e.g. a shared record pruned on removal) return undefined and are
+ * simply omitted from the diff.
+ */
+type PhotoResolver = (node: GedNode) => string | undefined;
+
+function makePhotoResolver(records: GedNode[]): PhotoResolver {
+  const objeIndex = buildObjeIndex(records);
+  return (node) => {
+    let file = node.children.find((c) => c.tag === "FILE")?.value?.trim();
+    if (!file) {
+      const ptr = node.value?.trim();
+      if (ptr && isPointer(ptr)) file = objeIndex.get(ptr)?.file;
+    }
+    if (!file || looksLikeUrl(file)) return undefined;
+    return file;
+  };
+}
+
+/** Diff a record's photos (`OBJE`) by full path, reporting each one added or
+ *  removed. Rows are `noLabel` — the path is self-describing, so the preview
+ *  shows it without a "Photo:" prefix. */
+function diffPhotos(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: PhotoResolver): FieldChange[] {
+  const paths = (node: GedNode) =>
+    node.children.filter((c) => c.tag === "OBJE").map(resolve).filter((f): f is string => !!f);
+  const beforeVals = paths(before);
+  const afterVals = paths(after);
+  const diffs: FieldChange[] = [];
+  for (const v of beforeVals) {
+    if (!afterVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming", noLabel: true });
+  }
+  for (const v of afterVals) {
+    if (!beforeVals.includes(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both", noLabel: true });
+  }
+  return diffs;
+}
+
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolvePhoto: PhotoResolver): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
@@ -227,6 +268,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
+  diffs.push(...diffPhotos(id, before, after, t("field.photos"), resolvePhoto));
 
   return diffs;
 }
@@ -269,6 +311,7 @@ function diffFamilyNodes(
   after: GedNode,
   t: Translate,
   resolveName: (xref: string) => string,
+  resolvePhoto: PhotoResolver,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
@@ -281,6 +324,7 @@ function diffFamilyNodes(
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
+  diffs.push(...diffPhotos(id, before, after, t("field.photos"), resolvePhoto));
 
   return diffs;
 }
@@ -345,6 +389,7 @@ export function enrichEditReport(
   t: Translate,
 ): ChangeReport {
   const extra: FieldChange[] = [];
+  const resolvePhoto = makePhotoResolver(dataset.records);
 
   const resolveIndiName = (xref: string): string => {
     const indi = dataset.individuals.get(xref);
@@ -358,7 +403,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolvePhoto));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -406,7 +451,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolvePhoto));
     }
   }
 

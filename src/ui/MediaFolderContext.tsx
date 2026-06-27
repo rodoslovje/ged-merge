@@ -26,7 +26,7 @@ function hasPermApi(h: FileSystemHandle): h is FsHandlePerms & Required<FsHandle
 
 type FolderState =
   | { kind: "handle"; handle: FileSystemDirectoryHandle; name: string }
-  | { kind: "filemap"; map: Map<string, File>; name: string }
+  | { kind: "filemap"; map: Map<string, File>; name: string; paths: string[] }
   | null;
 
 interface MediaFolderCtx {
@@ -34,6 +34,16 @@ interface MediaFolderCtx {
   openFolder(): Promise<void>;
   clearFolder(): void;
   resolveFile(filePath: string): Promise<string | null>;
+  /** Whether files outside the chosen folder can be dragged in (handle mode —
+   *  Chrome/Edge). False in the Firefox/Safari filemap fallback, which can
+   *  still reference files already inside the folder (see `listImages`). */
+  canReferenceFiles: boolean;
+  /** Folder-relative paths of every image file in the chosen folder, for the
+   *  Add-photo picker. Works in both handle and filemap modes. */
+  listImages(): Promise<string[]>;
+  /** Resolve a dragged file-system handle to a folder-relative path, or null
+   *  when it isn't a file inside the chosen folder. */
+  resolveDroppedHandle(handle: FileSystemHandle): Promise<string | null>;
 }
 
 export const MediaFolderContext = createContext<MediaFolderCtx>({
@@ -41,7 +51,20 @@ export const MediaFolderContext = createContext<MediaFolderCtx>({
   openFolder: async () => {},
   clearFolder: () => {},
   resolveFile: async () => null,
+  canReferenceFiles: false,
+  listImages: async () => [],
+  resolveDroppedHandle: async () => null,
 });
+
+/** Image extensions listed in the picker / accepted on drop. */
+const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff"];
+const isImageFile = (name: string) => IMAGE_EXTS.some((ext) => name.toLowerCase().endsWith(ext));
+
+// `resolve` (relative path of a handle within a directory) is not yet in the
+// DOM lib typings. Narrow cast kept local.
+interface DirHandleResolve {
+  resolve(child: FileSystemHandle): Promise<string[] | null>;
+}
 
 // ── IndexedDB helpers (Chrome/Edge only) ──────────────────────────────────
 
@@ -118,8 +141,9 @@ async function findByBasename(
  *    1. The path with the leading folder segment stripped ("sub/photo.jpg")
  *    2. The bare basename ("photo.jpg")
  *  Both lowercased for case-insensitive matching. */
-function buildFileMap(files: FileList): { map: Map<string, File>; name: string } {
+function buildFileMap(files: FileList): { map: Map<string, File>; name: string; paths: string[] } {
   const map = new Map<string, File>();
+  const paths: string[] = [];
   let name = "";
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -131,8 +155,10 @@ function buildFileMap(files: FileList): { map: Map<string, File>; name: string }
     if (withoutRoot) map.set(withoutRoot.toLowerCase(), file);
     const basename = parts[parts.length - 1].toLowerCase();
     if (basename && !map.has(basename)) map.set(basename, file);
+    // Folder-relative path for the picker (basename when the file sits in root).
+    paths.push(withoutRoot || parts[parts.length - 1]);
   }
-  return { map, name };
+  return { map, name, paths };
 }
 
 function lookupInMap(map: Map<string, File>, filePath: string): File | null {
@@ -326,9 +352,48 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     [folder],
   );
 
+  const listImages = useCallback(async (): Promise<string[]> => {
+    if (!folder) return [];
+    if (folder.kind === "filemap") return folder.paths.filter(isImageFile);
+    const out: string[] = [];
+    const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
+      for await (const [name, entry] of dir) {
+        const path = prefix ? `${prefix}/${name}` : name;
+        if (entry.kind === "file") {
+          if (isImageFile(name)) out.push(path);
+        } else if (entry.kind === "directory") {
+          await walk(entry as FileSystemDirectoryHandle, path);
+        }
+      }
+    };
+    try {
+      await walk(folder.handle, "");
+    } catch {
+      // permission revoked / read error — return whatever we gathered
+    }
+    return out;
+  }, [folder]);
+
+  const resolveDroppedHandle = useCallback(
+    async (handle: FileSystemHandle): Promise<string | null> => {
+      if (!folder || folder.kind !== "handle" || handle.kind !== "file") return null;
+      const segments = await (folder.handle as unknown as DirHandleResolve).resolve(handle);
+      return segments ? segments.join("/") : null;
+    },
+    [folder],
+  );
+
   return (
     <MediaFolderContext.Provider
-      value={{ folderName: folder?.name ?? null, openFolder, clearFolder, resolveFile }}
+      value={{
+        folderName: folder?.name ?? null,
+        openFolder,
+        clearFolder,
+        resolveFile,
+        canReferenceFiles: folder?.kind === "handle",
+        listImages,
+        resolveDroppedHandle,
+      }}
     >
       {/* Hidden input for Firefox webkitdirectory fallback */}
       <input
@@ -342,8 +407,8 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
           const files = e.target.files;
           if (!files || files.length === 0) return;
           revokeAll();
-          const { map, name } = buildFileMap(files);
-          setFolder({ kind: "filemap", map, name });
+          const { map, name, paths } = buildFileMap(files);
+          setFolder({ kind: "filemap", map, name, paths });
           e.target.value = "";
         }}
       />

@@ -5,12 +5,26 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { collectPhotoRefs, usePhotoViewer, type PhotoItem, type PhotoRefContext } from "./PhotoViewer";
 
+/** Edit-mode controls for a person's photo tray. When supplied, the tray always
+ *  renders (even with no photos), each thumb gains a delete affordance and can
+ *  be dragged to reorder, and a trailing "+" placeholder adds a photo. */
+export interface PhotoEditControls {
+  /** Add a new photo (open the picker / prompt for a media folder). */
+  onAdd: () => void;
+  /** Delete the photo at this `OBJE` child index (see {@link PhotoRef.objeIndex}). */
+  onDelete: (objeIndex: number) => void;
+  /** Move the photo from one `OBJE` child index to another. */
+  onReorder: (fromObjeIndex: number, toObjeIndex: number) => void;
+}
+
 interface Props {
   raw: GedNode;
   records: GedNode[];
   /** When set, the viewer's info panel lists the records citing each shared
    *  photo and links into Edit (see {@link PhotoRefContext}). */
   refCtx?: PhotoRefContext;
+  /** When set, the tray is editable (add / delete / reorder); see {@link PhotoEditControls}. */
+  editable?: PhotoEditControls;
 }
 
 /** Returns the first local file path from a person's OBJE links, or null. */
@@ -26,44 +40,94 @@ export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string |
   return null;
 }
 
-/** Thumbnail strip for a person — each opens the shared full viewer at its index. */
-export function PersonPhotos({ raw, records, refCtx }: Props) {
+/** Thumbnail strip for a person — each opens the shared full viewer at its
+ *  index. With `editable` set it also renders delete/reorder controls and a
+ *  trailing "+" to add another photo. Renders nothing when the person has no
+ *  photos; the empty-state "add photo" affordance is a chip in EditView's
+ *  actions row instead. */
+export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
   const { folderName, resolveFile } = useMediaFolder();
   const { openPerson } = usePhotoViewer();
   const { t } = useTranslation();
-  const [urls, setUrls] = useState<string[]>([]);
+  // Resolved photos keep their `OBJE` child index so edit ops target the right
+  // child even when some refs don't resolve (file missing from the folder).
+  const [items, setItems] = useState<{ url: string; objeIndex: number }[]>([]);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
 
-  const filePaths = useMemo(() => collectPhotoRefs(raw, records).map((r) => r.file), [raw, records]);
+  const refs = useMemo(() => collectPhotoRefs(raw, records), [raw, records]);
 
   useEffect(() => {
-    if (!folderName || filePaths.length === 0) {
-      setUrls([]);
+    if (!folderName || refs.length === 0) {
+      setItems([]);
       return;
     }
     let cancelled = false;
-    Promise.all(filePaths.map((p) => resolveFile(p))).then((results) => {
+    Promise.all(refs.map((r) => resolveFile(r.file))).then((results) => {
       if (cancelled) return;
-      setUrls(results.filter((u): u is string => u !== null));
+      setItems(
+        refs
+          .map((r, i) => ({ url: results[i], objeIndex: r.objeIndex }))
+          .filter((x): x is { url: string; objeIndex: number } => x.url !== null),
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, [folderName, filePaths, resolveFile]);
+  }, [folderName, refs, resolveFile]);
 
-  if (urls.length === 0) return null;
+  // With no photos to show, the tray renders nothing — even when editable: the
+  // "add photo" affordance for an empty person lives as a chip in the actions
+  // row (see EditView), so the tray only appears once there are photos.
+  if (items.length === 0) return null;
+
+  const drop = (toTrayIndex: number) => {
+    if (!editable || dragFrom === null || dragFrom === toTrayIndex) return;
+    editable.onReorder(items[dragFrom].objeIndex, items[toTrayIndex].objeIndex);
+    setDragFrom(null);
+  };
 
   return (
     <div className="person-photos">
-      {urls.map((url, i) => (
-        <button
-          key={i}
-          className="person-photo-btn"
-          title={t("photo.enlarge")}
-          onClick={() => openPerson(raw, records, i, refCtx)}
+      {items.map((item, i) => (
+        <span
+          key={item.objeIndex}
+          className="person-photo-item"
+          draggable={!!editable}
+          onDragStart={editable ? () => setDragFrom(i) : undefined}
+          onDragOver={editable ? (e) => e.preventDefault() : undefined}
+          onDrop={editable ? () => drop(i) : undefined}
+          onDragEnd={editable ? () => setDragFrom(null) : undefined}
         >
-          <img src={url} className="person-photo-thumb" alt="" />
-        </button>
+          <button
+            type="button"
+            className="person-photo-btn"
+            title={t("photo.enlarge")}
+            onClick={() => openPerson(raw, records, i, refCtx)}
+          >
+            <img src={item.url} className="person-photo-thumb" alt="" />
+          </button>
+          {editable && (
+            <button
+              type="button"
+              className="person-photo-delete"
+              title={t("photo.delete")}
+              onClick={() => editable.onDelete(item.objeIndex)}
+            >
+              ✕
+            </button>
+          )}
+        </span>
       ))}
+      {editable && (
+        <button
+          type="button"
+          className="person-photo-add"
+          title={t("photo.add")}
+          onClick={editable.onAdd}
+        >
+          +
+        </button>
+      )}
     </div>
   );
 }

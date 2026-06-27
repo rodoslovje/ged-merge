@@ -1699,6 +1699,126 @@ button:focus-visible {
   display: block;
   border-radius: 5px;
 }
+/* Editable tray: thumb wrapper hosting the hover delete button. */
+.person-photo-item {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+.person-photo-item[draggable="true"] { cursor: grab; }
+.person-photo-delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger, #c0392b);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.person-photo-item:hover .person-photo-delete { opacity: 1; }
+.person-photo-add {
+  width: 64px;
+  height: 64px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.person-photo-add:hover { border-color: var(--accent); color: var(--accent); }
+/* Whole-person drop target highlight while dragging image files over it. */
+.edit-person.photo-drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+/* Add-photo picker dialog. */
+.add-photo-dialog { width: min(720px, 92vw); }
+.add-photo-search { margin: 0 16px; max-width: 320px; }
+/* Fill the modal's height (the .modal base is a 90vh flex column) so the grid
+ * scrolls and the footer sticks to the bottom, instead of capping the body. */
+.add-photo-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* A lone message (loading / no matches) centers in the body rather than
+ * clinging to the top. Higher specificity than `.modal-body > div`. */
+.add-photo-body .add-photo-empty {
+  margin: auto;
+  max-width: 36ch;
+  text-align: center;
+  color: var(--muted);
+}
+.add-photo-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 32px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.add-photo-section {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+.add-photo-section:first-child { margin-top: 0; }
+.add-photo-subfolder {
+  font-size: 0.78em;
+  color: var(--muted);
+  margin: 10px 0 4px;
+  padding-left: 2px;
+}
+.add-photo-subfolder::before { content: "📁 "; }
+/* Refresh sits on the left; Cancel/Add stay grouped on the right. */
+.add-photo-refresh { margin-right: auto; }
+.add-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.add-photo-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.add-photo-cell:hover { border-color: var(--accent); }
+.add-photo-cell.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent) inset;
+}
+.add-photo-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.add-photo-name {
+  font-size: 0.72em;
+  color: var(--muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .person-photo-overlay {
   position: fixed;
   inset: 0;
@@ -2164,8 +2284,6 @@ button:focus-visible {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.edit-note-row:hover .edit-link-remove,
-.edit-note-row:focus-within .edit-link-remove,
 .edit-link-remove:focus-visible { opacity: 1; }
 .edit-record-section .edit-name-chip-add { opacity: 1; }
 .edit-link-remove:hover,
@@ -2476,25 +2594,9 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Match the events grid so person notes read at the same size as event notes. */
+  font-size: 0.88rem;
 }
-.edit-note-row {
-  display: flex;
-  gap: 4px;
-  align-items: flex-start;
-}
-.edit-note-input {
-  flex: 1;
-  min-height: 3em;
-  resize: vertical;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text);
-  padding: 4px 8px;
-  font: inherit;
-  font-size: 0.85rem;
-}
-.edit-note-input:focus { outline: none; border-color: var(--accent); }
 
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
