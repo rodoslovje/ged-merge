@@ -2688,6 +2688,7 @@ button:focus-visible {
    (there's still only one choice for the whole list — see RelativeGrid). Its
    grid gains a third column for the choice. */
 .rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+.rel-grid.single-col { grid-template-columns: minmax(0, 1fr); }
 /* Inside the main Compare table the choice column is a fixed 110px (see the
    `.compare-head` widths), and the relatives grid spans master+incoming+choice.
    Mirror that split here — two equal halves plus a 110px choice — so the relatives
@@ -3227,6 +3228,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* Split the remaining width evenly between the two value columns so the
    compare fills its container instead of shrink-wrapping to content. */
 .tree-compare-table .f-val { width: 50%; }
+/* Single-column (Edit Tree) panel: the one value column takes the rest. */
+.tree-compare-table.single-col .f-val { width: auto; }
 /* Bold the kept value, mute the other — same emphasis as the main compare table
    (.f-val.chosen / .f-val:not(.chosen)). */
 /* Match the Compare screen's row highlights for new (incoming-only) and
@@ -3249,6 +3252,16 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-compare-table th.compare-col-master { color: var(--state-master); }
 .tree-compare-table th.compare-col-incoming { color: var(--state-incoming); }
 /* Quick confirm / reject / defer for the selected node, above its field table. */
+/* Actions row under the head: optional badges (left) + Set-as-root (right). */
+.tree-compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.tree-compare-actions .tree-compare-root {
+  margin-left: auto;
+}
 .tree-compare-decisions {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);

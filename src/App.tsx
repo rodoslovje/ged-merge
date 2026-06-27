@@ -161,6 +161,9 @@ function AppContent() {
   // Tracks whether there are unsaved changes — updated each render so the
   // stable popstate handler can check without stale-closure issues.
   const hasUnsavedChangesRef = useRef(false);
+  // Set right before an intentional reload so the beforeunload handler skips
+  // the browser's native "leave page?" prompt after an in-app confirmation.
+  const skipUnloadWarnRef = useRef(false);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   const undoRedo = useUndoRedo();
@@ -909,6 +912,9 @@ function AppContent() {
   useEffect(() => {
     if (changedCount === 0 && confirmedCount === 0 && importCount === 0) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
+      // The user already confirmed discarding via the in-app dialog — don't
+      // show the browser's native prompt on top of it.
+      if (skipUnloadWarnRef.current) return;
       e.preventDefault();
       e.returnValue = "";
     }
@@ -919,6 +925,7 @@ function AppContent() {
   async function handleTitleClick() {
     const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
     if (!hasChanges || (await confirmDialog(t("app.reloadConfirm"), t("confirm.reload")))) {
+      skipUnloadWarnRef.current = true;
       window.location.reload();
     }
   }

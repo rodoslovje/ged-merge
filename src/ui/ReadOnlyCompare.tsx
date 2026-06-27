@@ -24,6 +24,9 @@ interface Props {
   /** Omit the header row entirely — useful when the column identities are already
    *  shown just above the table (e.g. the duplicate finder's pair row). */
   hideHeader?: boolean;
+  /** Master-only: show just labels + the master column (no incoming side). Used
+   *  by the Edit Tree's person panel, where there is no incoming dataset. */
+  singleColumn?: boolean;
 }
 
 /**
@@ -41,16 +44,18 @@ export function ReadOnlyCompare({
   incomingLabel,
   className = "tree-compare-table",
   hideHeader = false,
+  singleColumn = false,
 }: Props) {
   const { t } = useTranslation();
+  const valueCols = singleColumn ? 1 : 2;
   return (
-    <table className={className}>
+    <table className={singleColumn ? `${className} single-col` : className}>
       {!hideHeader && (
         <thead>
           <tr>
             <th />
             <th className="compare-col compare-col-master">{masterLabel}</th>
-            <th className="compare-col compare-col-incoming">{incomingLabel}</th>
+            {!singleColumn && <th className="compare-col compare-col-incoming">{incomingLabel}</th>}
           </tr>
         </thead>
       )}
@@ -60,7 +65,7 @@ export function ReadOnlyCompare({
             const isEventHeader = !!row.isEventHeader;
             return (
               <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
-                <td colSpan={3} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }}>
+                <td colSpan={1 + valueCols} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }}>
                   {row.label}
                 </td>
               </tr>
@@ -78,7 +83,7 @@ export function ReadOnlyCompare({
             <tr key={row.key} className={`field ${row.state}`}>
               <td className="f-label">{row.displayLabel ?? row.label}</td>
               {row.relatives ? (
-                <td className="f-rel" colSpan={2}>
+                <td className="f-rel" colSpan={valueCols}>
                   <RelativeGrid
                     pairs={row.relatives}
                     // Children are opt-in, so in this read-only preview none
@@ -87,23 +92,26 @@ export function ReadOnlyCompare({
                     incomingChosen={row.perChildChoice ? false : choice !== "master"}
                     masterPerson={masterPerson}
                     incomingPerson={incomingPerson}
+                    singleColumn={singleColumn}
                   />
                 </td>
               ) : hasSources ? (
                 <>
-                  <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                  <td className={!singleColumn && choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
                     <SourceRefs t={t} masterSources={row.masterSources} />
                     {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                   </td>
-                  <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                    <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
-                    {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
-                  </td>
+                  {!singleColumn && (
+                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
+                    </td>
+                  )}
                 </>
               ) : (
                 <>
                   <td
-                    className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
+                    className={!singleColumn && choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
                     title={row.masterTitle}
                   >
                     <FieldValue
@@ -112,17 +120,19 @@ export function ReadOnlyCompare({
                       person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
                     />
                   </td>
-                  <td
-                    className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
-                    title={row.incomingTitle}
-                  >
-                    <FieldValue
-                      text={row.incoming}
-                      links={row.incomingLinks}
-                      otherLinks={row.masterLinks}
-                      person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
-                    />
-                  </td>
+                  {!singleColumn && (
+                    <td
+                      className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                      title={row.incomingTitle}
+                    >
+                      <FieldValue
+                        text={row.incoming}
+                        links={row.incomingLinks}
+                        otherLinks={row.masterLinks}
+                        person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
+                      />
+                    </td>
+                  )}
                 </>
               )}
             </tr>

@@ -4,7 +4,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
-import { ReadOnlyCompare } from "./ReadOnlyCompare";
+import { TreeNodePanel } from "./TreeNodePanel";
 import { kinshipLabel } from "../match/kinship";
 import { sexClass, sexColorVar } from "./sex";
 import {
@@ -15,8 +15,24 @@ import {
   type MatchMaps,
   type NodeStatus,
   type TreeMode,
-  type TreeNode,
 } from "../tree/compareTree";
+import {
+  NODE_H,
+  NODE_W,
+  PAD,
+  PHOTO_SIZE,
+  PHOTO_X,
+  PHOTO_Y,
+  TEXT_X_PHOTO,
+  TEXT_X_PLAIN,
+  flatten,
+  layout,
+  truncate,
+  type Flat,
+  type Placed,
+} from "../tree/treeLayout";
+import { useTreeCanvas } from "../tree/useTreeCanvas";
+import { TreeMinimap } from "./TreeMinimap";
 import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -54,41 +70,6 @@ const DECISION_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = [
   "deferred",
 ];
 
-const NODE_W = 220;
-// Box height matches the Edit-mode person card (a ~46px photo + padding).
-const NODE_H = 56;
-const PHOTO_SIZE = 46;
-// Photo sits on the left, vertically centred.
-const PHOTO_X = 5;
-const PHOTO_Y = (NODE_H - PHOTO_SIZE) / 2;
-// Text begins right of the photo column when a media folder is loaded (photos
-// then occupy the reserved space); otherwise it starts at the left padding.
-const TEXT_X_PHOTO = PHOTO_X + PHOTO_SIZE + 8;
-const TEXT_X_PLAIN = 16;
-const COL_GAP = 80;
-const ROW_GAP = 18;
-const COL_STEP = NODE_W + COL_GAP;
-const ROW_STEP = NODE_H + ROW_GAP;
-const PAD = 24;
-
-/** Maximum minimap extent (px); the tree is scaled to fit within this box. */
-const MINIMAP_MAX_W = 240;
-const MINIMAP_MAX_H = 280;
-/** How far each axis may stretch past the uniform scale. Pure uniform scaling
-   collapses an extreme aspect-ratio tree (e.g. a deep descendants chart that is
-   very tall but only a few generations wide) into a useless sliver; allowing a
-   bounded per-axis stretch keeps the minimap usable while ordinary balanced
-   trees stay close to proportional. */
-const MINIMAP_MAX_STRETCH = 6;
-
-/** The visible window over the scrolling canvas, in content coordinates. */
-interface Viewport {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
 /** Per-status colour, drawn from the Heritage Pine node tokens so it follows the
    theme. Used for the node border, legend swatches, and minimap dots. */
 const STATUS_COLOR: Record<NodeStatus, string> = {
@@ -115,12 +96,6 @@ const LEGEND_KEY: Record<NodeStatus, string> = {
   "incoming-only": "tree.legend.incomingOnly",
 };
 
-interface Placed extends TreeNode {
-  x: number;
-  y: number;
-  children: Placed[];
-  partners: Placed[];
-}
 
 export function CompareTree({
   masterDs,
@@ -260,115 +235,11 @@ export function CompareTree({
     return map;
   }, [flat]);
 
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(true);
 
-  // A new tree (mode switch / different root) invalidates the old selection.
-  useEffect(() => setSelectedKey(null), [laid]);
-
-  const selected = selectedKey ? nodesByKey.get(selectedKey) : undefined;
-
-  const syncViewport = useCallback(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    setViewport({
-      left: el.scrollLeft,
-      top: el.scrollTop,
-      width: el.clientWidth,
-      height: el.clientHeight,
-    });
-  }, []);
-
-  // On (re)layout — initial load and mode switches — scroll so the starting
-  // person (the tree root) is in view: pinned to the left, vertically centred.
-  // Then re-measure for the minimap.
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (el && laid) {
-      el.scrollLeft = Math.max(0, laid.root.x);
-      el.scrollTop = Math.max(0, laid.root.y + PAD + NODE_H / 2 - el.clientHeight / 2);
-    }
-    syncViewport();
-  }, [laid, syncViewport]);
-  useEffect(() => {
-    window.addEventListener("resize", syncViewport);
-    return () => window.removeEventListener("resize", syncViewport);
-  }, [syncViewport]);
-
-  const scrollTo = useCallback((left: number, top: number) => {
-    const el = canvasRef.current;
-    if (!el) return;
-    el.scrollLeft = left; // browser clamps to range; onScroll re-syncs the rect
-    el.scrollTop = top;
-  }, []);
-
-  // Select a node and bring it into view, centred in the canvas.
-  const selectNode = useCallback(
-    (key: string) => {
-      setSelectedKey(key);
-      const n = nodesByKey.get(key);
-      const el = canvasRef.current;
-      if (!n || !el) return;
-      scrollTo(
-        n.x + PAD + NODE_W / 2 - el.clientWidth / 2,
-        n.y + PAD + NODE_H / 2 - el.clientHeight / 2,
-      );
-    },
-    [nodesByKey, scrollTo],
-  );
-
-  // Grab-to-pan with mouse / touchpad. Touch keeps the browser's native
-  // one-finger scroll (with momentum), so we ignore touch pointers here.
-  // We only capture the pointer *after* movement crosses a threshold — capturing
-  // on pointerdown would retarget the click off the node and break selection.
-  const pan = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null);
-  const dragged = useRef(false);
-  const [panning, setPanning] = useState(false);
-
-  const onPanStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "touch" || e.button !== 0) return;
-    const el = canvasRef.current;
-    if (!el) return;
-    pan.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false };
-  }, []);
-
-  const onPanMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const p = pan.current;
-    const el = canvasRef.current;
-    if (!p || !el) return;
-    const dx = e.clientX - p.x;
-    const dy = e.clientY - p.y;
-    if (!p.moved) {
-      if (Math.hypot(dx, dy) < 4) return; // ignore jitter, keep clicks clickable
-      p.moved = true;
-      el.setPointerCapture(p.id);
-      setPanning(true);
-    }
-    el.scrollLeft = p.left - dx;
-    el.scrollTop = p.top - dy;
-  }, []);
-
-  const onPanEnd = useCallback(() => {
-    const p = pan.current;
-    const el = canvasRef.current;
-    if (!p) return;
-    if (p.moved) {
-      dragged.current = true; // swallow the click that the drag would emit
-      if (el?.hasPointerCapture(p.id)) el.releasePointerCapture(p.id);
-      setPanning(false);
-    }
-    pan.current = null;
-  }, []);
-
-  // After a pan, cancel the trailing click so dragging doesn't select a node.
-  const onClickCapture = useCallback((e: React.MouseEvent) => {
-    if (dragged.current) {
-      e.stopPropagation();
-      dragged.current = false;
-    }
-  }, []);
+  // Viewport, grab-to-pan, root re-centring, and node selection.
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selected, selectNode } =
+    useTreeCanvas(laid, nodesByKey);
 
   const needsMinimap =
     !!laid &&
@@ -424,12 +295,7 @@ export function CompareTree({
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
           ref={canvasRef}
-          onScroll={syncViewport}
-          onPointerDown={onPanStart}
-          onPointerMove={onPanMove}
-          onPointerUp={onPanEnd}
-          onPointerCancel={onPanEnd}
-          onClickCapture={onClickCapture}
+          {...canvasProps}
         >
           {laid && flat ? (
             <TreeSvg
@@ -437,7 +303,7 @@ export function CompareTree({
               width={laid.width}
               height={laid.height}
               selectedKey={selectedKey}
-              onSelect={setSelectedKey}
+              onSelect={selectNode}
               decisionOf={badgeOf}
               kinshipOf={kinshipOf}
               masterRecords={masterDs.records}
@@ -460,12 +326,13 @@ export function CompareTree({
               >
                 ×
               </button>
-              <Minimap
+              <TreeMinimap
                 nodes={flat.nodes}
                 contentW={laid.width}
                 contentH={laid.height}
                 viewport={viewport}
                 onScrollTo={scrollTo}
+                fill={(n) => STATUS_COLOR[n.status]}
               />
             </div>
           ) : (
@@ -506,38 +373,6 @@ export function CompareTree({
       </div>
     </div>
   );
-}
-
-interface Flat {
-  nodes: Placed[];
-  edges: { id: string; d: string; partner?: boolean }[];
-}
-
-/** Collect every node plus its child and partner connectors from the laid-out tree. */
-function flatten(root: Placed): Flat {
-  const nodes: Placed[] = [];
-  const edges: Flat["edges"] = [];
-  (function walk(n: Placed) {
-    nodes.push(n);
-    // Spouses sit in the same column, chained directly below the person; each
-    // union's children branch from that spouse.
-    let prev: Placed = n;
-    for (const p of n.partners) {
-      nodes.push(p);
-      edges.push({ id: `${prev.key}~${p.key}`, d: partnerPath(prev, p), partner: true });
-      prev = p;
-      for (const c of p.children) {
-        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c) });
-        walk(c);
-      }
-    }
-    // Children of a spouseless family connect to the person directly.
-    for (const c of n.children) {
-      edges.push({ id: `${n.key}->${c.key}`, d: edgePath(n, c) });
-      walk(c);
-    }
-  })(root);
-  return { nodes, edges };
 }
 
 function TreeSvg({
@@ -654,79 +489,6 @@ function TreeSvg({
           );
         })}
       </g>
-    </svg>
-  );
-}
-
-/**
- * Overview map of the whole tree with a draggable rectangle marking the visible
- * window. Clicking or dragging on it recentres the main canvas there.
- */
-function Minimap({
-  nodes,
-  contentW,
-  contentH,
-  viewport,
-  onScrollTo,
-}: {
-  nodes: Placed[];
-  contentW: number;
-  contentH: number;
-  viewport: Viewport;
-  onScrollTo: (left: number, top: number) => void;
-}) {
-  const dragging = useRef(false);
-  // Independent per-axis scale, each bounded to MINIMAP_MAX_STRETCH × the
-  // uniform fit so an extreme aspect ratio can't collapse one axis to a sliver.
-  const fitX = MINIMAP_MAX_W / contentW;
-  const fitY = MINIMAP_MAX_H / contentH;
-  const uniform = Math.min(fitX, fitY);
-  const sx = Math.min(fitX, uniform * MINIMAP_MAX_STRETCH);
-  const sy = Math.min(fitY, uniform * MINIMAP_MAX_STRETCH);
-  const w = contentW * sx;
-  const h = contentH * sy;
-
-  const recentre = (e: React.PointerEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / sx;
-    const y = (e.clientY - rect.top) / sy;
-    onScrollTo(x - viewport.width / 2, y - viewport.height / 2);
-  };
-
-  return (
-    <svg
-      className="tree-minimap"
-      width={w}
-      height={h}
-      onPointerDown={(e) => {
-        dragging.current = true;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        recentre(e);
-      }}
-      onPointerMove={(e) => dragging.current && recentre(e)}
-      onPointerUp={(e) => {
-        dragging.current = false;
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }}
-    >
-      {nodes.map((n) => (
-        <rect
-          key={n.key}
-          x={(n.x + PAD) * sx}
-          y={(n.y + PAD) * sy}
-          width={Math.max(1, NODE_W * sx)}
-          height={Math.max(1, NODE_H * sy)}
-          rx={1}
-          fill={STATUS_COLOR[n.status]}
-        />
-      ))}
-      <rect
-        className="tree-minimap-viewport"
-        x={viewport.left * sx}
-        y={viewport.top * sy}
-        width={viewport.width * sx}
-        height={viewport.height * sy}
-      />
     </svg>
   );
 }
@@ -873,28 +635,8 @@ function NodeCompare({
     ? () => onShowInMatches(node.master!.id, node.incoming!.id)
     : undefined;
 
-  const titleContent = (
+  const controls = (
     <>
-      <span className={`tree-compare-name ${sexClass(node.sex)}`}>{node.name}</span>
-      {node.years && <span className="tree-compare-years gm-data">{node.years}</span>}
-    </>
-  );
-
-  return (
-    <div className="tree-compare">
-      <div className="tree-compare-head">
-        <span className="tree-swatch" style={{ background: STATUS_COLOR[node.status] }} />
-        {matchLink ? (
-          <button className="tree-compare-title tree-compare-title-link" onClick={matchLink} title={t("tree.openInMatches")}>
-            {titleContent}
-          </button>
-        ) : (
-          <span className="tree-compare-title">{titleContent}</span>
-        )}
-        <button className="tree-compare-close" onClick={onClose} title={t("tree.close")}>
-          ×
-        </button>
-      </div>
       {decidable && (
         <div className="tree-compare-decisions decision-bar">
           {DECISION_STATUSES.map((s) => (
@@ -919,113 +661,23 @@ function NodeCompare({
           </button>
         </div>
       )}
-      <div className="tree-compare-body">
-        <ReadOnlyCompare
-          rows={rows}
-          masterPerson={masterPerson}
-          incomingPerson={incomingPerson}
-          masterLabel={t("tree.master")}
-          incomingLabel={t("tree.incoming")}
-        />
-      </div>
-    </div>
+    </>
   );
-}
 
-/** A smooth horizontal connector from a node's right edge to a child's left edge. */
-function edgePath(parent: Placed, child: Placed): string {
-  const x1 = parent.x + NODE_W;
-  const y1 = parent.y + NODE_H / 2;
-  const x2 = child.x;
-  const y2 = child.y + NODE_H / 2;
-  const mx = (x1 + x2) / 2;
-  return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
-}
-
-/** A short vertical link between a person and their spouse (same column). */
-function partnerPath(person: Placed, partner: Placed): string {
-  const x = person.x + 18;
-  return `M${x},${person.y + NODE_H} L${x},${partner.y}`;
-}
-
-/**
- * Left-to-right layered layout. Depth sets the column (x). A person and their
- * spouses are stacked in that column as a series of "anchors"; each anchor's own
- * children occupy the next column, so children sit beside the spouse they belong
- * to. Every anchor reserves `max(1, Σ child rows)` rows and is centred on its
- * children, so the whole person group spans the sum of its anchors' rows and no
- * two subtrees overlap.
- */
-function layout(root: TreeNode): { root: Placed; width: number; height: number } {
-  const groupMemo = new Map<TreeNode, number>();
-  const anchorRows = (children: TreeNode[]): number =>
-    Math.max(1, children.reduce((s, c) => s + groupRows(c), 0));
-  const groupRows = (node: TreeNode): number => {
-    const cached = groupMemo.get(node);
-    if (cached != null) return cached;
-    let total = anchorRows(node.children);
-    for (const p of node.partners) total += anchorRows(p.children);
-    const v = Math.max(1, total);
-    groupMemo.set(node, v);
-    return v;
-  };
-
-  // Place one anchor's children (in the next column) and return where the anchor
-  // itself should sit, vertically centred on them.
-  const placeAnchor = (
-    anchorChildren: TreeNode[],
-    depth: number,
-    top: number,
-  ): { y: number; children: Placed[]; band: number } => {
-    const childRows = anchorChildren.reduce((s, c) => s + groupRows(c), 0);
-    const band = Math.max(1, childRows);
-    let cursor = top + ((band - childRows) / 2) * ROW_STEP;
-    const children = anchorChildren.map((c) => {
-      const placed = place(c, depth, cursor);
-      cursor += groupRows(c) * ROW_STEP;
-      return placed;
-    });
-    const y =
-      children.length > 0
-        ? Math.max(
-            top,
-            Math.min(
-              (children[0].y + children[children.length - 1].y) / 2,
-              top + (band - 1) * ROW_STEP,
-            ),
-          )
-        : top;
-    return { y, children, band };
-  };
-
-  const place = (node: TreeNode, depth: number, top: number): Placed => {
-    const x = depth * COL_STEP;
-    let cursor = top;
-    const self = placeAnchor(node.children, depth + 1, cursor);
-    cursor += self.band * ROW_STEP;
-    const partners: Placed[] = node.partners.map((p) => {
-      const a = placeAnchor(p.children, depth + 1, cursor);
-      cursor += a.band * ROW_STEP;
-      return { ...p, x, y: a.y, children: a.children, partners: [] };
-    });
-    return { ...node, x, y: self.y, children: self.children, partners };
-  };
-
-  const placed = place(root, 0, 0);
-  const total = groupRows(root);
-  return {
-    root: placed,
-    width: maxDepth(root) * COL_STEP + NODE_W + PAD * 2,
-    height: (total - 1) * ROW_STEP + NODE_H + PAD * 2,
-  };
-}
-
-/** Generations deep: spouses share the person's column, but their children don't. */
-function maxDepth(node: TreeNode): number {
-  const kids = [...node.children, ...node.partners.flatMap((p) => p.children)];
-  return kids.length === 0 ? 0 : 1 + Math.max(...kids.map(maxDepth));
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+  return (
+    <TreeNodePanel
+      node={node}
+      swatch={STATUS_COLOR[node.status]}
+      rows={rows}
+      masterPerson={masterPerson}
+      incomingPerson={incomingPerson}
+      masterLabel={t("tree.master")}
+      incomingLabel={t("tree.incoming")}
+      onClose={onClose}
+      onSetRoot={() => onReroot(node.master?.id, node.incoming?.id)}
+      onTitleClick={matchLink}
+      titleHint={matchLink ? t("tree.openInMatches") : undefined}
+      controls={controls}
+    />
+  );
 }

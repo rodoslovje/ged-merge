@@ -113,6 +113,7 @@ export function RelativeGrid({
   incomingPerson,
   renderChoice,
   renderPair,
+  singleColumn = false,
 }: {
   pairs: RelativePair[];
   masterChosen: boolean;
@@ -120,6 +121,9 @@ export function RelativeGrid({
   masterPerson: RelativePerson;
   incomingPerson: RelativePerson;
   renderChoice?: () => React.ReactNode;
+  /** Master-only: render a single column of master relatives (no incoming,
+   *  no choice). Used by the Edit Tree's read-only person panel. */
+  singleColumn?: boolean;
   /** Per-pair override: returns this pair's chosen-side emphasis and its own
    *  choice control. When supplied, takes precedence over the row-level
    *  `masterChosen`/`incomingChosen`/`renderChoice`. */
@@ -143,6 +147,18 @@ export function RelativeGrid({
     }
     return renderLine(content, cell.id, person);
   };
+
+  if (singleColumn) {
+    return (
+      <div className="rel-grid single-col">
+        {pairs.map((p, i) => (
+          <div key={i} className="rel-cell f-val gm-data" title={p.master?.title}>
+            {renderCell(p.master, masterPerson)}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className={hasChoiceCol ? "rel-grid with-choice" : "rel-grid"}>
