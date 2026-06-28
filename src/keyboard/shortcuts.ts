@@ -20,6 +20,7 @@ export const KEY = {
   modeMerge: "m",
   modeTools: "t",
   tree: "v",
+  relationship: "s",
   confirm: "c",
   reject: "r",
   defer: "d",
@@ -104,6 +105,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
       { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
+      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
     ],
   },
   {

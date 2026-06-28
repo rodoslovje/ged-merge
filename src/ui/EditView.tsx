@@ -277,8 +277,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
-  const shortcutRef = useRef({ selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowTree, matchOrder, navigate, matchDecKey, toggleMatchStatus };
+  const shortcutRef = useRef({ selectedId, onShowTree, onShowRelationship, homeId, matchOrder, navigate, matchDecKey, toggleMatchStatus });
+  shortcutRef.current = { selectedId, onShowTree, onShowRelationship, homeId, matchOrder, navigate, matchDecKey, toggleMatchStatus };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -288,10 +288,14 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowTree: show, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowTree: show, onShowRelationship: showRel, homeId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
         if (id) { e.preventDefault(); show(id); }
+        return;
+      }
+      if (key === KEY.relationship) {
+        if (id && hId && id !== hId) { e.preventDefault(); showRel(id); }
         return;
       }
       const statusHit = KEY_STATUS[key];

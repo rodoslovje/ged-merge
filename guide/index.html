@@ -66,7 +66,7 @@
           "@type": "WebPageElement",
           "name": "Tools",
           "url": "https://gedmerge.com/guide/#tools",
-          "description": "Whole-file maintenance: health check, find duplicates, normalize dates and places, and browse sources and places."
+          "description": "Whole-file maintenance: health check, find duplicates, normalize dates and places, redact living people for sharing, and browse sources and places."
         },
         {
           "@type": "WebPageElement",
@@ -142,7 +142,7 @@
             <li class="guide-toc-part">II · Core Concepts</li>
             <li><a href="#master-incoming">4. Master &amp; Incoming</a></li>
             <li><a href="#score">5. The match score</a></li>
-            <li><a href="#home-person">6. Home person &amp; kinship</a></li>
+            <li><a href="#home-person">6. Start person &amp; kinship</a></li>
             <li><a href="#house-style">7. House style &amp; normalization</a></li>
             <li><a href="#data-model">8. Sources, media &amp; lossless data</a></li>
 
@@ -192,7 +192,7 @@
             <ul>
               <li><span class="gm-pill">Edit</span> — browse and directly change your own tree: names, events, families, notes, sources and photos. No second file required.</li>
               <li><span class="gm-pill">Merge</span> — load a second tree (or a matches CSV) and fold confirmed records into your own, field by field.</li>
-              <li><span class="gm-pill">Tools</span> — whole-file maintenance: a health check, duplicate finder, style normalizer, and source/place browsers.</li>
+              <li><span class="gm-pill">Tools</span> — whole-file maintenance: a health check, duplicate finder, style normalizer, a privacy redactor, and source/place browsers.</li>
             </ul>
             <p>
               Everything happens locally. Reading, matching, merging and editing all run inside your browser on your
@@ -282,12 +282,12 @@
           </section>
 
           <section id="home-person">
-            <h2><span class="guide-num">6</span>Home person &amp; kinship</h2>
+            <h2><span class="guide-num">6</span>Start person &amp; kinship</h2>
             <p>
-              Set a <strong>home person</strong> — usually yourself or the root of your tree — and GED Merge ranks
+              Set a <strong>start person</strong> — usually yourself or the root of your tree — and GED Merge ranks
               matches by <strong>kinship distance</strong>: how many relationship hops separate each candidate from your
-              home person. Your closest relatives then surface first, and each match shows its relationship (e.g.
-              <em>Grandfather</em>, <em>2nd cousin</em>). A sensible home person is chosen automatically when a file
+              start person. Your closest relatives then surface first, and each match shows its relationship (e.g.
+              <em>Grandfather</em>, <em>2nd cousin</em>). A sensible start person is chosen automatically when a file
               loads; you can change or clear it at any time.
             </p>
           </section>
@@ -336,9 +336,20 @@
               master directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
               click a relative's card to walk the tree; <strong>Back</strong> returns to where you came from. If the
               current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
-              that comparison. Press <span class="gm-key">V</span> (or <strong>Show Tree</strong>) for a family-tree view
-              of the current person. Every change is held in memory and reversible with
+              that comparison. Every change is held in memory and reversible with
               <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
+            </p>
+            <h3>Family tree &amp; relationship diagrams</h3>
+            <p>Two visual diagrams open from the Edit toolbar:</p>
+            <ul>
+              <li><strong>Show Tree</strong> (<span class="gm-key">V</span>) draws the current person's ancestors and descendants as a family tree.</li>
+              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) traces how the selected person is related to your <a href="#home-person">start person</a> (§6) — it needs a start person set and a different person selected. The diagram lays out the chain of relatives between the two, labelled with the exact kinship (e.g. <em>2nd cousin once removed</em>). When more than one route exists, the <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
+            </ul>
+            <p>
+              Every diagram — the family tree, the relationship diagram and the Merge <a href="#merge">Compare Tree</a> —
+              carries <strong>SVG</strong> and <strong>PDF</strong> buttons in its toolbar. <strong>SVG</strong> downloads
+              a sharp, infinitely scalable image of the diagram; <strong>PDF</strong> opens your browser's print dialog,
+              where you choose <em>Save as PDF</em>. Large diagrams show an overview minimap — drag the canvas to pan.
             </p>
             <h3>Names &amp; identity</h3>
             <p>
@@ -402,7 +413,7 @@
             <h3>The match list</h3>
             <p>
               With both files loaded, the <strong>Matches</strong> list shows every candidate pair with its score and —
-              if a home person is set — its relationship distance. Selecting a row opens the side-by-side comparison.
+              if a start person is set — its relationship distance. Selecting a row opens the side-by-side comparison.
               Step through with <span class="gm-key">←</span> / <span class="gm-key">→</span>.
             </p>
             <h3>Filtering</h3>
@@ -427,7 +438,7 @@
               <thead><tr><th>Column</th><th>What it shows</th></tr></thead>
               <tbody>
                 <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Score</td><td>The match score, 0–100.</td></tr>
-                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Distance</td><td>Kinship hops from your home person — shown only when a home person is set.</td></tr>
+                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Distance</td><td>Kinship hops from your start person — shown only when a start person is set.</td></tr>
                 <tr><td><svg class="gm-ico import" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>New persons</td><td>Incoming-only ancestors and descendants this match could bring in. Confirming the merge doesn't import them — choose which to bring in from the Compare Tree.</td></tr>
                 <tr><td><svg class="gm-ico new" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New data</td><td>New fields the incoming file would add.</td></tr>
                 <tr><td><svg class="gm-ico link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>New links</td><td>Attached links the incoming adds or that differ.</td></tr>
@@ -462,7 +473,9 @@
               <span class="gm-swatch master"></span> master only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
-              into your master on save. An overview minimap helps you navigate large trees.
+              into your master on save. An overview minimap helps you navigate large trees, and the
+              <strong>SVG</strong> / <strong>PDF</strong> buttons export the diagram just like the other charts
+              (see <a href="#edit">§9</a>).
             </p>
             <h3>Merging</h3>
             <p>
@@ -500,6 +513,30 @@
               deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping places, and rewriting Matricula or
               Geneanet links to a consistent form. A preview lists examples of each change before you download the
               normalized copy.
+            </p>
+            <h3>Privacy</h3>
+            <p>
+              Produces a <strong>redacted copy</strong> of your file for sharing or publishing, with living people
+              protected — your live master is never touched. GED Merge <em>infers</em> who is likely living: anyone with
+              no death, burial or cremation event whose estimated birth is recent enough. The estimate comes from their
+              own birth year, or — when that's missing — from dated relatives, or finally a configurable assume-living
+              fallback. A breakdown shows how many were flagged by birth date, by relatives, or assumed.
+            </p>
+            <div>
+              You control what happens to each flagged person:
+              <ul>
+                <li><strong>What to do</strong> — <em>sanitize</em> them in place, <em>remove the person</em>, or <em>remove the person and all descendants</em>.</li>
+                <li><strong>Replace each name</strong> — with “Living”, custom text, initials, initial + surname, or surname only.</li>
+                <li><strong>Also remove</strong> from each flagged record — dates &amp; places (all events), notes, sources, photos &amp; media, or contact details.</li>
+                <li><strong>GEDCOM restriction</strong> — strip the data and mark a <code>RESN</code> privacy tag, strip only, or mark only.</li>
+                <li><strong>Also privatize</strong> people who died within a chosen number of recent years.</li>
+              </ul>
+            </div>
+            <p>
+              <strong>File-level</strong> options strip data that isn't tied to one person: the submitter record (your own
+              name, address and email), external tree ids (<code>_UID</code>, <code>_FID</code>, <code>AFN</code>), and
+              every postal address, email or phone number across the whole file. A preview counts how many people are
+              redacted or removed before you download the redacted GEDCOM.
             </p>
             <h3>Sources</h3>
             <p>
@@ -659,6 +696,7 @@
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the open panel</td></tr>
                 <tr><td><span class="gm-key">Enter</span></td><td>Open the highlighted item (Tools)</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the family / compare tree</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram (Edit)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
               </tbody>
             </table>
@@ -685,7 +723,7 @@
                 <tr><td><strong>Master</strong></td><td>Your primary tree — the file you edit and merge into.</td></tr>
                 <tr><td><strong>Incoming</strong></td><td>The file you compare against the master: another GEDCOM or a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV.</td></tr>
                 <tr><td><strong>Match score</strong></td><td>0–100% likelihood that two records are the same person.</td></tr>
-                <tr><td><strong>Home person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
+                <tr><td><strong>Start person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
                 <tr><td><strong>House style</strong></td><td>A file's own date, place, source and name conventions.</td></tr>
                 <tr><td><strong>Normalize</strong></td><td>Reshape records to one consistent house style.</td></tr>
                 <tr><td><strong>Media folder</strong></td><td>The local folder holding the image files a GEDCOM references.</td></tr>

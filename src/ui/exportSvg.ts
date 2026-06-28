@@ -102,6 +102,33 @@ const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
 const SITE = "gedmerge.com";
 const SITE_URL = "https://gedmerge.com";
 
+// Brand badge colours, fixed so the footer logo stays on-brand regardless of the
+// diagram's (theme-dependent) export colours. Mirrors public/app-icon.svg.
+const BADGE_BG = "#31715b";
+const BADGE_FG = "#ffffff";
+
+/**
+ * The GED Merge badge: a green rounded square with the white Node-M mark inside,
+ * scaled from the canonical 100×100 app-icon into a `size`-px box at (x, y).
+ */
+function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("transform", `translate(${x},${y}) scale(${size / 100})`);
+  g.innerHTML =
+    `<rect width="100" height="100" rx="23" fill="${BADGE_BG}"></rect>` +
+    `<g transform="translate(50 50) scale(2.3) translate(-20 -21)" fill="none" stroke="${BADGE_FG}" ` +
+    `stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
+    `<line x1="9" y1="31" x2="9" y2="11"></line>` +
+    `<line x1="9" y1="11" x2="20" y2="23.5"></line>` +
+    `<line x1="31" y1="11" x2="20" y2="23.5"></line>` +
+    `<line x1="31" y1="31" x2="31" y2="11"></line>` +
+    `<circle cx="9" cy="11" r="3.3"></circle>` +
+    `<circle cx="31" cy="11" r="3.3"></circle>` +
+    `<circle cx="20" cy="23.5" r="3.3" fill="${BADGE_FG}" stroke="none"></circle>` +
+    `</g>`;
+  return g;
+}
+
 // Header / footer band geometry and side margin.
 const HEADER_H = 52;
 const FOOTER_H = 34;
@@ -183,13 +210,16 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Prom
   footLine.setAttribute("y2", String(footY));
   clone.appendChild(footLine);
   const footTextY = footY + FOOTER_H / 2 + 4;
-  // Site name as a clickable link (works in browsers and in print-to-PDF).
+  // Small green brand badge, vertically centred in the footer band, with the
+  // site name as a clickable link beside it (works in browsers and print-to-PDF).
+  const badgeSize = 18;
   const link = document.createElementNS(SVG_NS, "a");
   link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
   link.setAttribute("href", SITE_URL);
   link.setAttribute("target", "_blank");
+  link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - badgeSize) / 2, badgeSize));
   link.appendChild(
-    svgText(SITE, MARGIN_X, footTextY, {
+    svgText(SITE, MARGIN_X + badgeSize + 8, footTextY, {
       "font-family": SANS,
       "font-size": "12",
       "font-weight": "600",

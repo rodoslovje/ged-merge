@@ -66,7 +66,7 @@
           "@type": "WebPageElement",
           "name": "Orodja",
           "url": "https://gedmerge.com/navodila/#tools",
-          "description": "Vzdrževanje celotne datoteke: pregled, iskanje dvojnikov, poenotenje datumov in krajev ter brskanje po virih in krajih."
+          "description": "Vzdrževanje celotne datoteke: pregled, iskanje dvojnikov, poenotenje datumov in krajev, prečiščenje živečih oseb za deljenje ter brskanje po virih in krajih."
         },
         {
           "@type": "WebPageElement",
@@ -193,7 +193,7 @@
             <ul>
               <li><span class="gm-pill">Urejanje</span> — pregledujte in neposredno spreminjajte svoje drevo: imena, dogodke, družine, opombe, vire in fotografije. Druga datoteka ni potrebna.</li>
               <li><span class="gm-pill">Združevanje</span> — naložite drugo drevo (ali CSV z ujemanji) in potrjene zapise po poljih vključite v svoje.</li>
-              <li><span class="gm-pill">Orodja</span> — vzdrževanje celotne datoteke: pregled, iskalnik dvojnikov, poenotenje sloga ter brskalnika virov in krajev.</li>
+              <li><span class="gm-pill">Orodja</span> — vzdrževanje celotne datoteke: pregled, iskalnik dvojnikov, poenotenje sloga, zaščita zasebnosti ter brskalnika virov in krajev.</li>
             </ul>
             <p>
               Vse poteka lokalno. Branje, ujemanje, združevanje in urejanje teče v vašem brskalniku, na vašem
@@ -336,10 +336,21 @@
               pregledujete in spreminjate glavno datoteko — brez druge datoteke. Osebo izberite v polju
               <strong>Skoči na osebo</strong> ali kliknite kartico sorodnika in se sprehodite po drevesu;
               <strong>Nazaj</strong> vas vrne na prejšnjo osebo. Če se trenutna oseba ujema tudi z vhodno datoteko,
-              <strong>Združi</strong> v orodni vrstici skoči naravnost na tisto primerjavo. S pritiskom
-              <span class="gm-key">V</span> (ali <strong>Prikaži drevo</strong>) odprete rodoslovno drevo trenutne osebe.
+              <strong>Združi</strong> v orodni vrstici skoči naravnost na tisto primerjavo.
               Vsaka sprememba je v pomnilniku in jo lahko razveljavite z <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>,
               dokler ne prenesete datoteke.
+            </p>
+            <h3>Rodoslovno drevo in diagram sorodstva</h3>
+            <p>V orodni vrstici Urejanja se odpreta dva grafična diagrama:</p>
+            <ul>
+              <li><strong>Prikaži drevo</strong> (<span class="gm-key">V</span>) izriše prednike in potomce trenutne osebe kot rodoslovno drevo.</li>
+              <li><strong>Sorodstvo</strong> (<span class="gm-key">S</span>) prikaže, kako je izbrana oseba v sorodu z vašo <a href="#home-person">izhodiščno osebo</a> (§6) — potrebna sta nastavljena izhodiščna oseba in izbrana druga oseba. Diagram razporedi verigo sorodnikov med njima, označeno z natančnim sorodstvom (npr. <em>bratranec v drugem kolenu</em>). Kadar obstaja več poti, meni <strong>Razpoložljive poti</strong> preklaplja med <em>najkrajšo potjo</em> in <em>krvno linijo</em> prek skupnega prednika. S klikom na <span class="gm-glyph">✎</span> ob enem koncu zamenjate to osebo, s klikom na vozlišče ga postavite v središče ali ga odprete v <span class="gm-pill">Urejanju</span>.</li>
+            </ul>
+            <p>
+              Vsak diagram — rodoslovno drevo, diagram sorodstva in <a href="#merge">Primerjalno drevo</a> v Združevanju —
+              ima v orodni vrstici gumba <strong>SVG</strong> in <strong>PDF</strong>. <strong>SVG</strong> prenese ostro,
+              neskončno povečljivo sliko diagrama; <strong>PDF</strong> odpre pogovorno okno za tiskanje v brskalniku, kjer
+              izberete <em>Shrani kot PDF</em>. Veliki diagrami prikažejo pregledni zemljevid — s potegom po platnu se premikate.
             </p>
             <h3>Imena in identiteta</h3>
             <p>
@@ -464,7 +475,8 @@
               glavni, <span class="gm-swatch incoming"></span> samo vhodni. Od tu lahko za koren postavite katero koli
               osebo, dodelite stanje ali z <strong>+ Prinesi prednike</strong> / <strong>+ Prinesi potomce</strong> ob
               shranjevanju v glavno datoteko vključite celotno vhodno vejo. Pregledni zemljevid pomaga pri pomikanju po
-              velikih drevesih.
+              velikih drevesih, gumba <strong>SVG</strong> / <strong>PDF</strong> pa diagram izvozita enako kot pri drugih
+              diagramih (glejte <a href="#edit">§9</a>).
             </p>
             <h3>Združevanje</h3>
             <p>
@@ -502,6 +514,31 @@
               zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>, prilagodi kraje in prepiše povezave
               Matricula ali Geneanet v enotno obliko. Predogled navede primere vsake spremembe, preden prenesete
               poenoteno kopijo.
+            </p>
+            <h3>Zasebnost</h3>
+            <p>
+              Izdela <strong>prečiščeno kopijo</strong> datoteke za deljenje ali objavo, v kateri so živeče osebe
+              zaščitene — vaša glavna datoteka ostane nedotaknjena. GED Merge <em>sklepa</em>, kdo je verjetno še živ:
+              vsak, ki nima dogodka smrti, pokopa ali upepelitve in čigar ocenjeno rojstvo je dovolj nedavno. Ocena
+              izhaja iz lastnega leta rojstva ali — kadar tega ni — iz datiranih sorodnikov ali nazadnje iz nastavljive
+              privzete predpostavke o življenju. Razčlenitev pokaže, koliko oseb je bilo označenih po datumu rojstva, po
+              sorodnikih ali predpostavljeno.
+            </p>
+            <div>
+              Za vsako označeno osebo nadzorujete, kaj se zgodi:
+              <ul>
+                <li><strong>Kaj storiti</strong> — osebo <em>prečisti</em> na mestu, <em>odstrani osebo</em> ali <em>odstrani osebo in vse potomce</em>.</li>
+                <li><strong>Vsako ime zamenjaj</strong> — z „Živeč/a“, lastnim besedilom, začetnicami, začetnico in priimkom ali samo priimkom.</li>
+                <li><strong>Iz vsakega označenega zapisa odstrani</strong> — datume in kraje (vse dogodke), opombe, vire, fotografije in medije ali kontaktne podatke.</li>
+                <li><strong>GEDCOM omejitev</strong> — odstrani podatke in označi oznako zasebnosti <code>RESN</code>, samo odstrani podatke ali samo označi.</li>
+                <li><strong>Zasebnost tudi za</strong> osebe, ki so umrle v izbranem številu nedavnih let.</li>
+              </ul>
+            </div>
+            <p>
+              Možnosti na <strong>ravni datoteke</strong> odstranijo podatke, ki niso vezani na eno osebo: zapis
+              pošiljatelja (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
+              <code>_FID</code>, <code>AFN</code>) ter vse poštne naslove, e-pošto in telefonske številke v celotni
+              datoteki. Predogled prešteje, koliko oseb je prečiščenih ali odstranjenih, preden prenesete prečiščeni GEDCOM.
             </p>
             <h3>Viri</h3>
             <p>
@@ -662,6 +699,7 @@
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premik po odprtem oknu</td></tr>
                 <tr><td><span class="gm-key">Enter</span></td><td>Odpri označeni element (Orodja)</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Odpri rodoslovno / primerjalno drevo</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Odpri diagram sorodstva (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Potrdi · Zavrni · Preloži trenutno ujemanje</td></tr>
               </tbody>
             </table>
