@@ -22,6 +22,12 @@ button {
   font: inherit;
   cursor: pointer;
 }
+
+/* Native form controls use the brand green, not browser blue. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
 button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
