@@ -17,7 +17,7 @@ export const en = {
   "mode.edit.tooltip": "Browse and edit individuals in your master GEDCOM (E)",
   "mode.tools": "Tools",
   "mode.tools.tooltip": "Maintenance tools that work on your whole master GEDCOM (T)",
-  "tools.stats": "{{indi}} individuals · {{fam}} families · {{sources}} sources · {{places}} places",
+  "tools.stats": "{{indi}} individuals · {{fam}} families · {{sources}} sources · {{media}} media · {{places}} places",
   "tools.running": "Working…",
   "tools.tool.validate": "Health check",
   "tools.tool.validate.desc": "Find data problems and broken links",

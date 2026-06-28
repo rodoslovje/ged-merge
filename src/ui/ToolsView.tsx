@@ -93,6 +93,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
     indi: dataset.individuals.size,
     fam: dataset.families.size,
     sources: dataset.records.filter((r) => r.tag === "SOUR" && r.xref).length,
+    media: dataset.records.filter((r) => r.tag === "OBJE" && r.xref).length,
     places: countDistinctPlaces(dataset),
   }), [dataset]);
 
