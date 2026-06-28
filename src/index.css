@@ -4711,6 +4711,8 @@ kbd {
   font-weight: 400;
 }
 .tools-issue-msg { color: var(--muted); font-size: 0.88rem; }
+/* The "via father X (b. 1910)" derivation behind a "from relatives" flag. */
+.tools-issue-detail { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }
 .tools-pair.selected { box-shadow: inset 0 0 0 1px var(--accent); }
 .tools-pair-row { display: flex; gap: 10px; align-items: center; }

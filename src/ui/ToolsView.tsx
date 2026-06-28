@@ -784,7 +784,12 @@ function privacyReportText(flagged: FlaggedPerson[], opts: PrivacyOptions): stri
     `Action: ${opts.action} · names: ${opts.nameStrategy} · RESN: ${opts.resn}`,
     "",
     `Flagged living people (${flagged.length}):`,
-    ...flagged.map((f) => `  ${f.id}  ${f.subject}  [${f.reason}]`),
+    ...flagged.map((f) => {
+      const note = f.estimate
+        ? ` — est. born ~${f.estimate.estimatedYear} via ${f.estimate.relation} ${f.estimate.relativeName} (b. ${f.estimate.relativeYear})`
+        : "";
+      return `  ${f.id}  ${f.subject}  [${f.reason}]${note}`;
+    }),
   ];
   return lines.join("\n") + "\n";
 }
@@ -983,7 +988,19 @@ function PrivacyPanel({
               {flagged.map((f) => (
                 <li key={f.id} className="tools-issue">
                   <PersonLink dataset={dataset} id={f.id} fallback={f.subject} onNavigate={onNavigate} />
-                  <span className="tools-issue-msg">{t(`tools.privacy.reason.${f.reason}`)}</span>
+                  <span className="tools-issue-msg" title={t(`tools.privacy.reasonHint.${f.reason}`)}>
+                    {t(`tools.privacy.reason.${f.reason}`)}
+                  </span>
+                  {f.estimate && (
+                    <span className="tools-issue-detail">
+                      {t("tools.privacy.reason.relativeDetail", {
+                        year: f.estimate.estimatedYear,
+                        relation: t(`tools.privacy.relation.${f.estimate.relation}`),
+                        name: f.estimate.relativeName,
+                        relativeYear: f.estimate.relativeYear,
+                      })}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

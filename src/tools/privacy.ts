@@ -29,6 +29,21 @@ export type StripCategory = "events" | "notes" | "sources" | "media" | "contact"
 /** Why an individual was flagged as living — surfaced in the preview breakdown. */
 export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath";
 
+/** The kin relation an undated birth estimate was derived from. */
+export type EstimateRelation = "father" | "mother" | "spouse" | "child";
+
+/** When a "from relatives" flag is raised, the single relative whose date drove
+ *  the estimate, so the preview can show which relation and how the age follows. */
+export interface BirthEstimate {
+  /** The year this person's birth is estimated at. */
+  estimatedYear: number;
+  relation: EstimateRelation;
+  relativeId: string;
+  relativeName: string;
+  /** The relative's own birth year that the estimate was offset from. */
+  relativeYear: number;
+}
+
 export interface PrivacyOptions {
   /** Treat an undated, un-dead person as living if their (estimated) birth is
    *  fewer than this many years ago. */
@@ -62,6 +77,8 @@ export interface FlaggedPerson {
   /** Name + lifespan, for the preview list. */
   subject: string;
   reason: LivingReason;
+  /** Present only for `reason === "relative"`: the kin the age was estimated from. */
+  estimate?: BirthEstimate;
 }
 
 export interface PrivacyReport {
@@ -125,50 +142,63 @@ function detailCategory(tag: string): StripCategory {
 
 /** Estimate a birth year from dated immediate relatives, biased toward the most
  *  recent evidence (so borderline people lean "living" — the safe default). */
-function estimateBirthYear(indi: Individual, ds: Dataset): number | undefined {
-  let est: number | undefined;
-  const consider = (y: number | undefined, delta: number) => {
-    if (y === undefined) return;
-    const v = y + delta;
-    if (est === undefined || v > est) est = v;
+function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate | undefined {
+  let best: BirthEstimate | undefined;
+  const consider = (rel: Individual | undefined, relation: EstimateRelation, delta: number) => {
+    if (!rel) return;
+    const ry = birthYear(rel);
+    if (ry === undefined) return;
+    const v = ry + delta;
+    if (best === undefined || v > best.estimatedYear) {
+      best = {
+        estimatedYear: v,
+        relation,
+        relativeId: rel.id,
+        relativeName: rel.names[0]?.full?.trim() || rel.id,
+        relativeYear: ry,
+      };
+    }
   };
   // Parents → this person was born ~a generation later.
   for (const famId of indi.childOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
-    consider(birthYear(fam.husband ? ds.individuals.get(fam.husband) : undefined), GENERATION);
-    consider(birthYear(fam.wife ? ds.individuals.get(fam.wife) : undefined), GENERATION);
+    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", GENERATION);
+    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", GENERATION);
   }
   // Spouse (same generation) and children (~a generation earlier).
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
     const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
-    consider(birthYear(otherId ? ds.individuals.get(otherId) : undefined), 0);
-    for (const cid of fam.children) consider(birthYear(ds.individuals.get(cid)), -GENERATION);
+    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", 0);
+    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -GENERATION);
   }
-  return est;
+  return best;
 }
 
-/** Why this individual counts as living, or undefined when presumed deceased. */
+/** Why this individual counts as living (plus the estimate behind a "relative"
+ *  flag), or undefined when presumed deceased. */
 function livingReason(
   indi: Individual,
   ds: Dataset,
   opts: PrivacyOptions,
   currentYear: number,
-): LivingReason | undefined {
+): { reason: LivingReason; estimate?: BirthEstimate } | undefined {
   if (isDeceased(indi)) {
     const dy = deathYear(indi);
     if (opts.alsoRecentlyDeceasedYears > 0 && dy !== undefined && currentYear - dy <= opts.alsoRecentlyDeceasedYears) {
-      return "recentDeath";
+      return { reason: "recentDeath" };
     }
     return undefined;
   }
   const by = birthYear(indi);
-  if (by !== undefined) return currentYear - by < opts.livingThresholdYears ? "birth" : undefined;
+  if (by !== undefined) return currentYear - by < opts.livingThresholdYears ? { reason: "birth" } : undefined;
   const est = estimateBirthYear(indi, ds);
-  if (est !== undefined) return currentYear - est < opts.livingThresholdYears ? "relative" : undefined;
-  return opts.unknownBirthPolicy === "living" ? "unknown" : undefined;
+  if (est !== undefined) {
+    return currentYear - est.estimatedYear < opts.livingThresholdYears ? { reason: "relative", estimate: est } : undefined;
+  }
+  return opts.unknownBirthPolicy === "living" ? { reason: "unknown" } : undefined;
 }
 
 /** A short label for the preview list: primary name + life years. */
@@ -186,8 +216,8 @@ export function findLiving(
 ): FlaggedPerson[] {
   const out: FlaggedPerson[] = [];
   for (const indi of ds.individuals.values()) {
-    const reason = livingReason(indi, ds, opts, currentYear);
-    if (reason) out.push({ id: indi.id, subject: subjectOf(indi), reason });
+    const r = livingReason(indi, ds, opts, currentYear);
+    if (r) out.push({ id: indi.id, subject: subjectOf(indi), reason: r.reason, estimate: r.estimate });
   }
   out.sort((a, b) => a.subject.localeCompare(b.subject));
   return out;
