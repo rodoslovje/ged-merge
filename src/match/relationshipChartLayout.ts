@@ -11,7 +11,7 @@
 
 import type { Dataset, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
-import { NODE_H, NODE_W, PAD } from "../tree/treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartAlignment } from "../tree/treeLayout";
 import { displayName, primaryName } from "./relatives";
 import type { RelationshipPath } from "./relationshipPath";
 
@@ -51,7 +51,12 @@ export interface RelationshipChart {
 
 interface Pos { col: number; row: number; onSpine: boolean; }
 
-export function buildRelationshipChart(ds: Dataset, path: RelationshipPath): RelationshipChart {
+export function buildRelationshipChart(
+  ds: Dataset,
+  path: RelationshipPath,
+  alignment: ChartAlignment = "tb",
+  nodeH: number = NODE_H,
+): RelationshipChart {
   const steps = path.steps;
   const n = steps.length;
   if (n === 0) return { boxes: [], links: [], width: PAD * 2, height: PAD * 2, rootKey: "" };
@@ -116,32 +121,44 @@ export function buildRelationshipChart(ds: Dataset, path: RelationshipPath): Rel
   }
 
   // 4. Coordinates, normalized so the leftmost column is 0. PAD-relative (like
-  //    tree/treeLayout): the SVG group draws with translate(PAD,PAD).
+  //    tree/treeLayout): the SVG group draws with translate(PAD,PAD). Generations
+  //    advance along the "depth" axis (vertical in the native top-down form),
+  //    siblings/spouses along "breadth"; for "lr" the two axes swap. Step sizes
+  //    follow the box dimension each axis advances along so nothing overlaps.
+  const lr = alignment === "lr";
+  const depthStep = lr ? NODE_W + ROW_GAP_TD : nodeH + ROW_GAP_TD;
+  const breadthStep = lr ? nodeH + COL_GAP_TD : NODE_W + COL_GAP_TD;
   let minCol = Infinity;
   for (const p of place.values()) minCol = Math.min(minCol, p.col);
-  const xOf = (c: number) => (c - minCol) * COL_STEP_TD;
-  const yOf = (r: number) => r * ROW_STEP_TD;
+  const depthPx = (r: number) => r * depthStep;
+  const breadthPx = (c: number) => (c - minCol) * breadthStep;
+  const coordOf = (p: Pos) => ({
+    x: lr ? depthPx(p.row) : breadthPx(p.col),
+    y: lr ? breadthPx(p.col) : depthPx(p.row),
+  });
 
   const boxes: ChartBox[] = order.map((id) => {
     const p = place.get(id)!;
     const indi = ds.individuals.get(id);
+    const { x, y } = coordOf(p);
     return {
       key: id,
       id,
       name: indi ? displayName(primaryName(indi)) : id,
       years: (indi && lifespanOf(indi)) || undefined,
       sex: indi?.sex ?? "U",
-      x: xOf(p.col),
-      y: yOf(p.row),
+      x,
+      y,
       onSpine: p.onSpine,
       role: id === steps[0].id ? "home" : id === steps[n - 1].id ? "target" : undefined,
     };
   });
 
-  // 5. Connectors. Partner lines are horizontal; parent→child drops are vertical
-  //    in the child's column (the box directly above each child is its parent or,
-  //    at the apex, the apex's spouse heading the descending rail). Partner lines
-  //    dedupe — the apex couple is reachable from both its links.
+  // 5. Connectors. Partner lines run along the breadth axis (horizontal in TB,
+  //    vertical in LR); parent→child drops run along the depth axis from the box
+  //    directly "above" each child (its parent or, at the apex, the apex's spouse
+  //    heading the descending rail). Partner lines dedupe — the apex couple is
+  //    reachable from both its links. ROW_GAP_TD is the gap between generations.
   const links: ChartLink[] = [];
   const seen = new Set<string>();
   const addPartner = (a: string, b: string) => {
@@ -150,19 +167,25 @@ export function buildRelationshipChart(ds: Dataset, path: RelationshipPath): Rel
     const key = [a, b].sort().join("~");
     if (seen.has(key)) return;
     seen.add(key);
-    const [l, r] = pa.col <= pb.col ? [pa, pb] : [pb, pa];
-    const y = yOf(l.row) + NODE_H / 2;
-    links.push({ id: `p~${key}`, d: `M${xOf(l.col) + NODE_W},${y} H${xOf(r.col)}`, kind: "partner" });
+    // Order the couple along the breadth axis (lower column first).
+    const [lo, hi] = pa.col <= pb.col ? [pa, pb] : [pb, pa];
+    const cLo = coordOf(lo), cHi = coordOf(hi);
+    const d = lr
+      ? `M${cLo.x + NODE_W / 2},${cLo.y + nodeH} V${cHi.y}`
+      : `M${cLo.x + NODE_W},${cLo.y + nodeH / 2} H${cHi.x}`;
+    links.push({ id: `p~${key}`, d, kind: "partner" });
   };
   for (const [a, b] of partners) addPartner(a, b);
   for (const childId of dropChildren) {
-    const c = place.get(childId)!;
-    const cx = xOf(c.col) + NODE_W / 2;
-    links.push({ id: `c~${childId}`, d: `M${cx},${yOf(c.row - 1) + NODE_H} V${yOf(c.row)}`, kind: "parent" });
+    const c = coordOf(place.get(childId)!);
+    const d = lr
+      ? `M${c.x - ROW_GAP_TD},${c.y + nodeH / 2} H${c.x}`
+      : `M${c.x + NODE_W / 2},${c.y - ROW_GAP_TD} V${c.y}`;
+    links.push({ id: `c~${childId}`, d, kind: "parent" });
   }
 
   const width = Math.max(0, ...boxes.map((b) => b.x + NODE_W)) + PAD * 2;
-  const height = Math.max(0, ...boxes.map((b) => b.y + NODE_H)) + PAD * 2;
+  const height = Math.max(0, ...boxes.map((b) => b.y + nodeH)) + PAD * 2;
   return { boxes, links, width, height, rootKey: steps[0].id };
 }
 

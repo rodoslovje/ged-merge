@@ -15,30 +15,40 @@ import {
   type MatchMaps,
   type NodeStatus,
   type TreeMode,
+  type TreeNode,
 } from "../tree/compareTree";
+import { buildFanChart, type FanSegment } from "../tree/fanLayout";
+import { FanChartBody } from "./FanChartBody";
 import {
-  NODE_H,
+  DETAIL_ROW_H,
+  DETAIL_ROW_TOP,
   NODE_W,
   PAD,
   PHOTO_SIZE,
   PHOTO_X,
-  PHOTO_Y,
   TEXT_X_PHOTO,
   TEXT_X_PLAIN,
   flatten,
   layout,
+  layoutGrid,
+  minimapDefaultOpen,
+  nodeHeight,
   truncate,
   type Flat,
   type Placed,
 } from "../tree/treeLayout";
+import { nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { TreeMinimap } from "./TreeMinimap";
-import { TreeNodePhoto } from "./PersonPhotos";
+import { ZoomControls } from "./ZoomControls";
+import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { DownloadIcon } from "./icons/DownloadIcon";
+import { ChartSettings } from "./ChartSettings";
+import { useChartSettings } from "./ChartSettingsContext";
 
 interface Props {
   masterDs: Dataset;
@@ -124,7 +134,7 @@ export function CompareTree({
   // A node whose master record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
   const isModified = useCallback(
-    (n: Placed): boolean => !!n.master && changedPersonIds.has(n.master.id),
+    (n: TreeNode): boolean => !!n.master && changedPersonIds.has(n.master.id),
     [changedPersonIds],
   );
 
@@ -133,7 +143,7 @@ export function CompareTree({
   // comes from CSS (`.status-chip.<status>`), matching the same chip used in
   // Edit and Merge. Undecided → no badge.
   const decisionOf = useCallback(
-    (n: Placed): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
+    (n: TreeNode): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
       // A rejected pairing prunes the incoming side from the tree, so the root
       // node would lose its `incoming` — fall back to the root compare id (the
       // pair the tree was opened on) so the decided root still shows its badge.
@@ -157,7 +167,7 @@ export function CompareTree({
       : undefined;
 
   const kinshipOf = useCallback(
-    (n: Placed): string | undefined => {
+    (n: TreeNode): string | undefined => {
       if (!homeId || !n.master) return undefined;
       return kinshipLabel(masterDs, homeId, n.master.id, t) ?? undefined;
     },
@@ -211,8 +221,54 @@ export function CompareTree({
     };
   }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
 
-  const laid = useMemo(() => (tree ? layout(tree) : undefined), [tree]);
-  const flat = useMemo(() => (laid ? flatten(laid.root) : undefined), [laid]);
+  const { settings, setType } = useChartSettings();
+  const { alignment } = settings;
+  // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
+  // are radial.
+  const radial = settings.type === "fan" || settings.type === "circle";
+  const isGrid = settings.type === "grid";
+  // Kinship can only show when there's a home person to measure against; gate it so
+  // the box height doesn't reserve an always-empty kinship row.
+  const display = useMemo(
+    () => ({ ...settings, showKinship: settings.showKinship && !!homeId }),
+    [settings, homeId],
+  );
+  // Box height grows per enabled detail row (lifespan / place / kinship); thread it
+  // through the layout, connectors, canvas centring, minimap, and the node boxes.
+  const nodeH = nodeHeight(display);
+  const livingLabel = t("tree.node.living");
+  const laid = useMemo(
+    () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
+    [tree, alignment, isGrid, nodeH],
+  );
+  const flat = useMemo(
+    () => (laid ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH) : undefined),
+    [laid, alignment, isGrid, nodeH],
+  );
+
+  // A radial chart only draws ancestors; force the mode so the toggle reflects it.
+  useEffect(() => {
+    if (radial) onModeChange("ancestors");
+  }, [radial, onModeChange]);
+
+  // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
+  // so it's independent of the (forced-ancestors) mode toggle.
+  const { folderName } = useMediaFolder();
+  const fan = useMemo(() => {
+    if (!radial) return undefined;
+    const at = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
+    if (!at) return undefined;
+    const hasPhoto = (n: TreeNode) =>
+      !!folderName &&
+      ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
+        (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records)));
+    // Kinship to the home person, shown in place of a redacted living person's name.
+    const kinshipOf = (n: TreeNode) =>
+      homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
+    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
+  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, homeId]);
+
+  const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
   // Keys of incoming-only nodes that an active "import ancestors/descendants"
   // branch would bring in as new records: a node is covered once it, or any of
@@ -238,7 +294,7 @@ export function CompareTree({
   // The badge a node shows next to its lifespan: a decided match's C/D/R, or "I"
   // (Incoming) for an incoming-only person an active graft will bring in.
   const badgeOf = useCallback(
-    (n: Placed): { status: string; letter: string } | undefined => {
+    (n: TreeNode): { status: string; letter: string } | undefined => {
       const dec = decisionOf(n);
       if (dec) return dec;
       if (n.status === "incoming-only" && willImport.has(n.key)) {
@@ -256,22 +312,59 @@ export function CompareTree({
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
+  // Per-segment badge for the radial chart: the decision / import "I" letter, or
+  // an "M" for an edited master — same information as the tree node badges.
+  const fanBadgeOf = useCallback(
+    (n: TreeNode) => {
+      const b = badgeOf(n);
+      if (b) return { cls: `tree-node-decision ${b.status}`, letter: b.letter };
+      if (isModified(n)) return { fill: "var(--node-minor)", textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
+      return undefined;
+    },
+    [badgeOf, isModified, t],
+  );
+
   const nodesByKey = useMemo(() => {
     const map = new Map<string, Placed>();
     for (const n of flat?.nodes ?? []) if (!map.has(n.key)) map.set(n.key, n);
     return map;
   }, [flat]);
 
-  const [mapOpen, setMapOpen] = useState(true);
+  const fanNodes = useMemo(() => {
+    const m = new Map<string, Placed>();
+    for (const s of fan?.segments ?? []) m.set(s.key, s as unknown as Placed);
+    return m;
+  }, [fan]);
+  const fanLaid = useMemo(
+    () => (fan ? { root: (fanNodes.get(fan.rootKey) ?? fan.segments[0]) as unknown as Placed, width: fan.width, height: fan.height } : undefined),
+    [fan, fanNodes],
+  );
+  const activeLaid = radial ? fanLaid : laid;
+  const activeNodes = radial ? fanNodes : nodesByKey;
 
-  // Viewport, grab-to-pan, root re-centring, and node selection.
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selected, selectNode } =
-    useTreeCanvas(laid, nodesByKey);
+  // null = follow the automatic default (collapsed unless the chart dwarfs the
+  // screen); true/false once the user has toggled it by hand.
+  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
+  // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+
+  // The selected person — a laid tree node or a fan segment's ancestor node;
+  // both are `TreeNode`s, read identically by the detail panel.
+  const selected: TreeNode | undefined = radial
+    ? fan?.segments.find((s) => s.key === selectedKey)?.node
+    : selectedKey
+      ? nodesByKey.get(selectedKey)
+      : undefined;
+
+  // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
   const needsMinimap =
-    !!laid &&
+    !radial &&
+    !!activeLaid &&
     viewport.width > 0 &&
-    (laid.width > viewport.width + 1 || laid.height > viewport.height + 1);
+    (activeLaid.width * zoom > viewport.width + 1 || activeLaid.height * zoom > viewport.height + 1);
+  const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
 
   return (
     <div className="tree-page">
@@ -297,18 +390,19 @@ export function CompareTree({
             t("tree.title")
           )}
         </h2>
+        <ChartSettings />
         <button
           className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, "compare-tree"), compareTreeTitle)}
-          disabled={!laid}
+          onClick={() => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle)}
+          disabled={!activeLaid}
           title={t("tree.export.tooltip")}
         >
           <DownloadIcon /> {t("tree.export")}
         </button>
         <button
           className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasPdf(canvasRef.current, compareTreeTitle)}
-          disabled={!laid}
+          onClick={() => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle)}
+          disabled={!activeLaid}
           title={t("tree.exportPdf.tooltip")}
         >
           <DownloadIcon /> {t("tree.exportPdf")}
@@ -329,7 +423,12 @@ export function CompareTree({
           </button>
           <button
             className={mode === "descendants" ? "active" : ""}
-            onClick={() => onModeChange("descendants")}
+            onClick={() => {
+              // Radial charts are ancestor-only; switching to descendants reverts
+              // to the layered tree.
+              if (radial) setType("tree");
+              onModeChange("descendants");
+            }}
           >
             {t("tree.descendants")}
             <span className="tree-mode-count">{peopleCounts.descendants}</span>
@@ -347,11 +446,29 @@ export function CompareTree({
           ref={canvasRef}
           {...canvasProps}
         >
-          {laid && flat ? (
+          {radial ? (
+            fan ? (
+              <FanChartBody
+                chart={fan}
+                zoom={zoom}
+                colorOf={colorOf}
+                selectedKey={selectedKey}
+                onSelect={selectNode}
+                masterRecords={masterDs.records}
+                compareRecords={compareDs.records}
+                masterRefCtx={masterRefCtx}
+                compareRefCtx={compareRefCtx}
+                badgeOf={fanBadgeOf}
+              />
+            ) : (
+              <p className="muted">{t("tree.empty")}</p>
+            )
+          ) : laid && flat ? (
             <TreeSvg
               flat={flat}
               width={laid.width}
               height={laid.height}
+              zoom={zoom}
               selectedKey={selectedKey}
               onSelect={selectNode}
               decisionOf={badgeOf}
@@ -361,13 +478,16 @@ export function CompareTree({
               compareRecords={compareDs.records}
               masterRefCtx={masterRefCtx}
               compareRefCtx={compareRefCtx}
+              display={display}
+              nodeH={nodeH}
+              livingLabel={livingLabel}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
-        {needsMinimap && laid && flat && (
-          mapOpen ? (
+        {needsMinimap && activeLaid && (
+          minimapOpen ? (
             <div className="tree-minimap-box">
               <button
                 className="tree-minimap-collapse"
@@ -378,12 +498,14 @@ export function CompareTree({
                 ×
               </button>
               <TreeMinimap
-                nodes={flat.nodes}
-                contentW={laid.width}
-                contentH={laid.height}
+                nodes={radial ? (fan!.segments as unknown as Placed[]) : flat!.nodes}
+                contentW={activeLaid.width}
+                contentH={activeLaid.height}
                 viewport={viewport}
                 onScrollTo={scrollTo}
-                fill={(n) => STATUS_COLOR[n.status]}
+                fill={radial ? (n) => STATUS_COLOR[(n as unknown as FanSegment).node.status] : (n) => STATUS_COLOR[n.status]}
+                nodeH={radial ? undefined : nodeH}
+                zoom={zoom}
               />
             </div>
           ) : (
@@ -397,9 +519,12 @@ export function CompareTree({
             </button>
           )
         )}
+        {activeLaid && (
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
+        )}
         {selected && (
           <NodeCompare
-            node={selected}
+            node={selected as unknown as Placed}
             masterDs={masterDs}
             compareDs={compareDs}
             maps={maps}
@@ -431,6 +556,7 @@ function TreeSvg({
   flat,
   width,
   height,
+  zoom,
   selectedKey,
   onSelect,
   decisionOf,
@@ -440,10 +566,14 @@ function TreeSvg({
   compareRecords,
   masterRefCtx,
   compareRefCtx,
+  display,
+  nodeH,
+  livingLabel,
 }: {
   flat: Flat;
   width: number;
   height: number;
+  zoom: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
@@ -453,13 +583,16 @@ function TreeSvg({
   compareRecords: GedNode[];
   masterRefCtx: PhotoRefContext;
   compareRefCtx: PhotoRefContext;
+  display: NodeDisplayOptions;
+  nodeH: number;
+  livingLabel: string;
 }) {
   const { t } = useTranslation();
   const { nodes, edges } = flat;
   const { folderName } = useMediaFolder();
-  const textX = folderName ? TEXT_X_PHOTO : TEXT_X_PLAIN;
+  const photoY = (nodeH - PHOTO_SIZE) / 2;
   return (
-    <svg className="tree-svg" width={width} height={height} role="img">
+    <svg className="tree-svg" width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
         {edges.map((e) => (
           <path
@@ -471,15 +604,27 @@ function TreeSvg({
         {nodes.map((n) => {
           const dec = decisionOf(n);
           const modified = modifiedOf(n);
-          const kinship = kinshipOf(n);
-          // Estimate pixel widths (years: ~6.5px/char at 11px; kinship: ~5.5px/char at 10px;
-          // each badge: a fixed ~22px once the years label has a badge next to it).
-          // If they'd overflow the 160px gap, stack kinship on a separate third row.
-          const decW = (dec ? 22 : 0) + (modified ? 22 : 0);
-          const needsKinshipRow = !!(kinship && (n.years || decW) && (n.years?.length ?? 0) * 13 + decW + kinship.length * 11 > 300);
-          const yearsRowY = needsKinshipRow ? 36 : 40;
-          const decBadgeX = textX + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
-          // M badge sits after the decision badge when both are present.
+          const disp = nodeDisplay(display, {
+            name: n.name,
+            years: n.years,
+            place: n.place,
+            kinship: kinshipOf(n),
+            living: n.living,
+            livingLabel,
+          });
+          const { years } = disp;
+          // Text shifts right of the photo column whenever a media folder is loaded
+          // and photos are shown (privacy hides them).
+          const showPhoto = disp.showPhoto && !!folderName;
+          const textX = showPhoto ? TEXT_X_PHOTO : TEXT_X_PLAIN;
+          // Lifespan, then place, then kinship — each on its own stacked row.
+          const rows: { text: string; cls: string }[] = [];
+          if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
+          if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
+          if (disp.kinship) rows.push({ text: disp.kinship, cls: "tree-node-kinship" });
+          // Badges sit on the lifespan row, just past the years label.
+          const yearsRowY = DETAIL_ROW_TOP;
+          const decBadgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
           const modBadgeX = dec ? decBadgeX + 18 : decBadgeX;
           return (
             <g
@@ -491,7 +636,7 @@ function TreeSvg({
               <title>{t("tree.node.clickHint")}</title>
               <rect
                 width={NODE_W}
-                height={NODE_H}
+                height={nodeH}
                 rx={10}
                 ry={10}
                 fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
@@ -504,18 +649,13 @@ function TreeSvg({
                 y={23}
                 style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
               >
-                {truncate(n.name, 24)}
+                {truncate(disp.name, 24)}
               </text>
-              {n.years && (
-                <text className="tree-node-year gm-data" x={textX} y={yearsRowY}>
-                  {n.years}
+              {rows.map((r, i) => (
+                <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
+                  {r.text}
                 </text>
-              )}
-              {kinship && (
-                <text className="tree-node-kinship gm-data" x={NODE_W - 8} y={needsKinshipRow ? 48 : 40} textAnchor="end">
-                  {kinship}
-                </text>
-              )}
+              ))}
               {/* Decision badge next to the lifespan (matched, decided nodes) — same
                   colours as the status chip used in Edit and Merge. */}
               {dec && (
@@ -551,16 +691,18 @@ function TreeSvg({
                   </text>
                 </g>
               )}
-              <TreeNodePhoto
-                node={n}
-                masterRecords={masterRecords}
-                compareRecords={compareRecords}
-                masterRefCtx={masterRefCtx}
-                compareRefCtx={compareRefCtx}
-                x={PHOTO_X}
-                y={PHOTO_Y}
-                size={PHOTO_SIZE}
-              />
+              {disp.showPhoto && (
+                <TreeNodePhoto
+                  node={n}
+                  masterRecords={masterRecords}
+                  compareRecords={compareRecords}
+                  masterRefCtx={masterRefCtx}
+                  compareRefCtx={compareRefCtx}
+                  x={PHOTO_X}
+                  y={photoY}
+                  size={PHOTO_SIZE}
+                />
+              )}
             </g>
           );
         })}

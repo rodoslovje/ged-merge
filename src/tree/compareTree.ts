@@ -1,5 +1,6 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
-import { birthYear, deathYear, formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -28,6 +29,10 @@ export interface TreeNode {
   name: string;
   /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
+  /** First-available place (birth → residence → death), most-specific locality. */
+  place?: string;
+  /** Presumed living (no death event + recent birth) — a privacy-redaction candidate. */
+  living: boolean;
   sex: Sex;
   /** Multi-line tooltip describing the differences ("Full match" when clean). */
   detail: string;
@@ -306,6 +311,8 @@ function makeNode(
     status,
     name: nameOf(primary),
     years: birthYears(master, incoming),
+    place: placeLabel(primary),
+    living: isPresumedLiving(master) || isPresumedLiving(incoming),
     sex,
     detail: describe(t, master, incoming, masterDs, compareDs, status, placeFmt),
     children: [],

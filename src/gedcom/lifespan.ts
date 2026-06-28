@@ -59,6 +59,25 @@ export function isDeceased(indi: Individual | undefined): boolean {
   return (indi?.events ?? []).some((e) => (DEATH_TAGS as readonly string[]).includes(e.tag));
 }
 
+/** Years since a birth still counts a person as possibly living (privacy default). */
+const LIVING_WINDOW_YEARS = 100;
+
+/**
+ * Whether a person is presumed living for chart-privacy purposes. They count as
+ * living only when they carry no death event *and* were born within the last
+ * {@link LIVING_WINDOW_YEARS} years. Undated people with no death event are treated
+ * as deceased (not redacted) — otherwise every dateless ancient ancestor would be
+ * hidden, which is the opposite of useful on a chart.
+ */
+export function isPresumedLiving(
+  indi: Individual | undefined,
+  now: number = new Date().getFullYear(),
+): boolean {
+  if (!indi || isDeceased(indi)) return false;
+  const by = birthYear(indi);
+  return by !== undefined && now - by < LIVING_WINDOW_YEARS;
+}
+
 /**
  * Birth–death lifespan label:
  *  - `1817–1921` when both years are known,

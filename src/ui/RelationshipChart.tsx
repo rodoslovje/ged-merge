@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { lifespanOf } from "../gedcom/lifespan";
-import { PAD, type Placed } from "../tree/treeLayout";
+import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
+import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
+import { placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { kinshipLabel } from "../match/kinship";
 import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
@@ -14,9 +15,12 @@ import { HomePersonSelector } from "./HomePersonSelector";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { TreeMinimap } from "./TreeMinimap";
+import { ZoomControls } from "./ZoomControls";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { DownloadIcon } from "./icons/DownloadIcon";
+import { ChartSettings } from "./ChartSettings";
+import { useChartSettings } from "./ChartSettingsContext";
 
 const COLOR_SPINE = "var(--node-master)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -84,10 +88,14 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterDs, homeSel, targetSel, t]);
 
+  const settings = useChartSettings().settings;
+  const { alignment } = settings;
+  const nodeH = nodeHeight(settings);
+  const livingLabel = t("tree.node.living");
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
-    () => (current ? buildRelationshipChart(masterDs, current) : undefined),
-    [masterDs, current],
+    () => (current ? buildRelationshipChart(masterDs, current, alignment, nodeH) : undefined),
+    [masterDs, current, alignment, nodeH],
   );
 
   // Adapt the chart boxes to the shapes `useTreeCanvas` / `TreeMinimap` expect
@@ -105,9 +113,11 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
     [chart, nodesByKey],
   );
 
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode } =
-    useTreeCanvas(laid, nodesByKey);
-  const [mapOpen, setMapOpen] = useState(true);
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+    useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
+  // null = follow the automatic default (collapsed unless the chart dwarfs the
+  // screen); true/false once the user has toggled it by hand.
+  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
   const selectedIndi = selectedBox ? masterDs.individuals.get(selectedBox.id) : undefined;
@@ -121,7 +131,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   const relchartTitle = `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
   const needsMinimap =
     !!chart && viewport.width > 0 &&
-    (chart.width > viewport.width + 1 || chart.height > viewport.height + 1);
+    (chart.width * zoom > viewport.width + 1 || chart.height * zoom > viewport.height + 1);
+  const minimapOpen = mapOpen ?? (!!chart && minimapDefaultOpen(chart.width, chart.height, viewport));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "home" | "target", id: string) => {
@@ -153,11 +164,12 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           {kinship && <span className="tree-title-kinship">{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </h2>
+        <ChartSettings />
         <button
           className="tree-open-btn tree-export-btn"
           onClick={() => exportCanvasSvg(
             canvasRef.current,
-            diagramSlug(nameOf(homeSel), nameOf(targetSel), "relationship"),
+            diagramSlug(nameOf(homeSel), nameOf(targetSel), t("relpath.pageTitle")),
             relchartTitle,
           )}
           disabled={!chart}
@@ -167,7 +179,11 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
         </button>
         <button
           className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasPdf(canvasRef.current, relchartTitle)}
+          onClick={() => exportCanvasPdf(
+            canvasRef.current,
+            diagramSlug(nameOf(homeSel), nameOf(targetSel), t("relpath.pageTitle")),
+            relchartTitle,
+          )}
           disabled={!chart}
           title={t("tree.exportPdf.tooltip")}
         >
@@ -218,7 +234,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
-            <svg className="tree-svg" width={chart.width} height={chart.height} role="img">
+            <svg className="tree-svg" width={chart.width * zoom} height={chart.height * zoom} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
                 {chart.links.map((e) => (
                   <path key={e.id} className={`relchart-edge relchart-edge-${e.kind}`} d={e.d} />
@@ -237,11 +253,16 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                       <TreeNodeBox
                         name={b.name}
                         years={b.years}
+                        place={placeLabel(indi)}
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
                         kinship={kinshipLabel(masterDs, homeSel, b.id, t)}
                         photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
+                        display={settings}
+                        living={isPresumedLiving(indi)}
+                        livingLabel={livingLabel}
+                        nodeH={nodeH}
                       />
                     </g>
                   );
@@ -254,7 +275,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
         </div>
 
         {needsMinimap && chart && (
-          mapOpen ? (
+          minimapOpen ? (
             <div className="tree-minimap-box">
               <button className="tree-minimap-collapse" onClick={() => setMapOpen(false)} title={t("tree.minimap.hide")} aria-label={t("tree.minimap.hide")}>
                 ×
@@ -266,6 +287,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                 viewport={viewport}
                 onScrollTo={scrollTo}
                 fill={(n) => ((n as unknown as ChartBox).onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+                nodeH={nodeH}
+                zoom={zoom}
               />
             </div>
           ) : (
@@ -273,6 +296,10 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
               <MapIcon />
             </button>
           )
+        )}
+
+        {chart && (
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
         )}
 
         {selectedBox && selectedIndi && (

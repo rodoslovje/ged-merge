@@ -3133,6 +3133,85 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
 }
 
+/* Chart-settings gear button + its popover (diagram type & alignment). The
+   button reuses .tree-open-btn; the popover mirrors the legend dropdown, and the
+   option groups reuse the .tree-mode segmented-button look. */
+.chart-settings {
+  position: relative;
+  flex: 0 0 auto;
+}
+.chart-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.chart-settings-btn svg { flex: 0 0 auto; }
+.chart-settings-btn.open { border-color: var(--accent); }
+.chart-settings-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 12px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
+.chart-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chart-settings-heading {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.chart-settings-segmented {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+}
+.chart-settings-segmented button {
+  flex: 1 1 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chart-settings-segmented button:hover:not(:disabled) { color: var(--text); }
+.chart-settings-segmented button.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
+}
+.chart-settings-segmented button:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
+}
+/* Independent show/hide + privacy toggles: two per row (a lone privacy toggle
+   grows to fill the row). They're not a single mutually-exclusive choice. */
+.chart-settings-toggles { flex-wrap: wrap; }
+.chart-settings-toggles button { flex: 1 1 42%; }
+
 .tree-legend {
   flex: 1 1 auto;
   display: flex;
@@ -3215,6 +3294,10 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   position: absolute;
   inset: 0;
   overflow: auto;
+  /* Flex + auto margins on the chart centre it when it is smaller than the
+     canvas (filling the empty area), yet let it scroll from the top-left without
+     clipping when it is larger. */
+  display: flex;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -3240,11 +3323,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: pointer;
   touch-action: none;
 }
-/* Collapse (×) button pinned to the minimap's top-right corner. */
+/* Collapse (×) button pinned to the minimap's top-left corner, matching where
+   the "show" toggle sits so opening/closing happens in the same spot. */
 .tree-minimap-collapse {
   position: absolute;
   top: 4px;
-  right: 4px;
+  left: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3279,12 +3363,49 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: pointer;
 }
 .tree-minimap-show:hover { color: var(--accent); border-color: var(--accent); }
+/* Floating zoom toolbar, bottom-right of the canvas (opposite the minimap). */
+.tree-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.tree-zoom-btn,
+.tree-zoom-pct {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.tree-zoom-pct {
+  height: 24px;
+  font-size: 0.7rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.tree-zoom-btn:hover,
+.tree-zoom-pct:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tree-minimap-viewport {
   fill: color-mix(in oklch, var(--accent) 16%, transparent);
   stroke: var(--accent);
   stroke-width: 1.5;
 }
-.tree-svg { display: block; }
+.tree-svg { display: block; margin: auto; flex: 0 0 auto; }
 .tree-edge {
   fill: none;
   stroke: var(--border);
@@ -3407,11 +3528,29 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   fill: var(--accent);
   font-size: 10px;
 }
+.tree-node-place {
+  fill: var(--muted);
+  font-size: 10px;
+}
 /* Decision / modified badge next to a node's lifespan — a drop shadow
    separates it from the node fill instead of a hard panel-colour ring. */
 .tree-node-decision {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
+
+/* ── Fan / Circle radial ancestor charts ──────────────────────────────────── */
+.fan-node { cursor: pointer; }
+/* Wedge border colour comes from the per-segment `stroke` presentation attribute
+   (the state colour); the selected ring uses the accent. */
+.fan-sector { transition: stroke-width 0.1s ease; }
+.fan-node:hover .fan-sector { stroke-width: 2.5; }
+.fan-node.selected .fan-sector { stroke: var(--accent); }
+/* Font size is set per-generation on the element (shrinks outward); keep it off
+   the class so the attribute wins. */
+.fan-label-name { fill: var(--text); font-weight: 600; }
+.fan-label-year { fill: var(--muted); }
+.fan-badge { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
+
 /* selected-person compare table (top-right overlay) */
 .tree-compare {
   position: absolute;

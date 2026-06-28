@@ -5,11 +5,40 @@
 
 import type { TreeNode } from "./compareTree";
 
+/** Which way a layered diagram grows: left→right (default) or top→bottom. The
+ *  canonical home for the type — the UI's ChartSettings re-exports it. */
+export type ChartAlignment = "lr" | "tb";
+
 // ─── Node / grid sizing ───────────────────────────────────────────────────────
 
 export const NODE_W = 220;
 // Box height matches the Edit-mode person card (a ~46px photo + padding).
 export const NODE_H = 56;
+// Each stacked detail line (lifespan, place, kinship) below the name is this tall.
+export const DETAIL_ROW_H = 16;
+// Baseline of the first detail row (beneath the name).
+export const DETAIL_ROW_TOP = 40;
+
+/** Which detail rows the current settings show — lifespan, place, and kinship each
+ *  get their own stacked row beneath the name. */
+export interface DetailToggles {
+  showLifespan: boolean;
+  showPlace: boolean;
+  showKinship: boolean;
+}
+
+/** How many detail rows are enabled (0–3). */
+export function detailRowCount(o: DetailToggles): number {
+  return (o.showLifespan ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showKinship ? 1 : 0);
+}
+
+/** The node-box height for the current display settings: the base box holds the
+ *  name plus one detail row; each additional enabled detail row makes it taller.
+ *  Threaded into the layout fns and the box renderers so spacing, connectors, and
+ *  rects all agree. */
+export function nodeHeight(o: DetailToggles): number {
+  return NODE_H + Math.max(0, detailRowCount(o) - 1) * DETAIL_ROW_H;
+}
 export const PHOTO_SIZE = 46;
 // Photo sits on the left, vertically centred.
 export const PHOTO_X = 5;
@@ -22,6 +51,13 @@ export const COL_GAP = 80;
 export const ROW_GAP = 18;
 export const COL_STEP = NODE_W + COL_GAP;
 export const ROW_STEP = NODE_H + ROW_GAP;
+// Top→bottom diagrams advance generations along the vertical (NODE_H) axis. The
+// slim ROW_GAP that stacks siblings in LR leaves almost no room for the
+// parent→child connectors, which fan out sideways across the box width — in a
+// family with many children they collapse into a barely-visible smear. So TB
+// gets a much larger generation gap of its own.
+export const ROW_GAP_TB = 70;
+export const ROW_STEP_TB = NODE_H + ROW_GAP_TB;
 export const PAD = 24;
 
 // ─── Layout types ─────────────────────────────────────────────────────────────
@@ -40,6 +76,10 @@ export interface Flat {
   edges: { id: string; d: string; partner?: boolean }[];
 }
 
+/** Connector shape: smooth Béziers for the tidy tree, right-angle "elbows" for
+ *  the grid (where parent→child can span many lanes, so a curve reads poorly). */
+export type ChartConnector = "curve" | "elbow";
+
 /** The visible window over the canvas, in canvas pixels. */
 export interface Viewport {
   left: number;
@@ -48,122 +88,317 @@ export interface Viewport {
   height: number;
 }
 
+/**
+ * Whether the minimap should start expanded for a diagram of `contentW`×`contentH`
+ * shown through `viewport`. It only earns the space when the chart is much larger
+ * than the screen — i.e. at most a quarter of its area is visible at once. Once
+ * more than 25% already fits, the minimap defaults to collapsed (the small "show"
+ * toggle stays available). Returns `false` until the viewport has been measured.
+ */
+export function minimapDefaultOpen(contentW: number, contentH: number, viewport: Viewport): boolean {
+  if (viewport.width <= 0 || contentW <= 0 || contentH <= 0) return false;
+  const shownFraction =
+    (Math.min(viewport.width, contentW) * Math.min(viewport.height, contentH)) / (contentW * contentH);
+  return shownFraction < 0.25;
+}
+
 // ─── Flattening & connectors ──────────────────────────────────────────────────
 
 /** Collect every node plus its child and partner connectors from the laid-out tree. */
-export function flatten(root: Placed): Flat {
+export function flatten(
+  root: Placed,
+  alignment: ChartAlignment = "lr",
+  connector: ChartConnector = "curve",
+  nodeH: number = NODE_H,
+): Flat {
   const nodes: Placed[] = [];
   const edges: Flat["edges"] = [];
   (function walk(n: Placed) {
     nodes.push(n);
-    // Spouses sit in the same column, chained directly below the person; each
-    // union's children branch from that spouse.
+    // Spouses sit alongside the person (in the breadth direction), chained off
+    // them; each union's children branch from that spouse.
     let prev: Placed = n;
     for (const p of n.partners) {
       nodes.push(p);
-      edges.push({ id: `${prev.key}~${p.key}`, d: partnerPath(prev, p), partner: true });
+      edges.push({ id: `${prev.key}~${p.key}`, d: partnerPath(prev, p, alignment, nodeH), partner: true });
       prev = p;
       for (const c of p.children) {
-        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c) });
+        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c, alignment, connector, nodeH) });
         walk(c);
       }
     }
     // Children of a spouseless family connect to the person directly.
     for (const c of n.children) {
-      edges.push({ id: `${n.key}->${c.key}`, d: edgePath(n, c) });
+      edges.push({ id: `${n.key}->${c.key}`, d: edgePath(n, c, alignment, connector, nodeH) });
       walk(c);
     }
   })(root);
   return { nodes, edges };
 }
 
-function edgePath(parent: Placed, child: Placed): string {
+/** Parent→child connector: a smooth Bézier from the parent's trailing edge (right
+ *  in LR, bottom in TB) to the child's leading edge, curving along the depth axis.
+ *  In `"elbow"` mode it's instead a right-angle path that drops down a shared
+ *  trunk just inside the parent and turns into each child — the indented-tree look
+ *  that keeps the grid legible when children sit many lanes below their parent. */
+function edgePath(
+  parent: Placed,
+  child: Placed,
+  alignment: ChartAlignment,
+  connector: ChartConnector = "curve",
+  nodeH: number = NODE_H,
+): string {
+  if (connector === "elbow") {
+    if (alignment === "tb") {
+      // Depth runs down: drop from the parent's bottom, run across, drop in. A
+      // child on the parent's own lane (same x) just gets the straight drop.
+      const x1 = parent.x + NODE_W / 2;
+      const y1 = parent.y + nodeH;
+      const x2 = child.x + NODE_W / 2;
+      const y2 = child.y;
+      const my = (y1 + y2) / 2;
+      return `M${x1},${y1} V${my} H${x2} V${y2}`;
+    }
+    // Depth runs right. Every child of a node forks from one shared point — the
+    // parent box's right edge, mid-height: a short stem to a junction in the
+    // column gap, a vertical bus down to the child's lane, then a stub into its
+    // left edge. The inline first child (same lane) collapses to a straight line.
+    const startX = parent.x + NODE_W;
+    const startY = parent.y + nodeH / 2;
+    const junctionX = parent.x + NODE_W + COL_GAP / 2;
+    const y2 = child.y + nodeH / 2;
+    return `M${startX},${startY} H${junctionX} V${y2} H${child.x}`;
+  }
+  if (alignment === "tb") {
+    const x1 = parent.x + NODE_W / 2;
+    const y1 = parent.y + nodeH;
+    const x2 = child.x + NODE_W / 2;
+    const y2 = child.y;
+    const my = (y1 + y2) / 2;
+    return `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+  }
   const x1 = parent.x + NODE_W;
-  const y1 = parent.y + NODE_H / 2;
+  const y1 = parent.y + nodeH / 2;
   const x2 = child.x;
-  const y2 = child.y + NODE_H / 2;
+  const y2 = child.y + nodeH / 2;
   const mx = (x1 + x2) / 2;
   return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
 }
 
-/** A short vertical link between a person and their spouse (same column). */
-function partnerPath(person: Placed, partner: Placed): string {
+/** A short link between a person and their spouse (adjacent in the breadth
+ *  direction): vertical in LR (stacked), horizontal in TB (side by side). */
+function partnerPath(person: Placed, partner: Placed, alignment: ChartAlignment, nodeH: number = NODE_H): string {
+  if (alignment === "tb") {
+    const y = person.y + 18;
+    return `M${person.x + NODE_W},${y} L${partner.x},${y}`;
+  }
   const x = person.x + 18;
-  return `M${x},${person.y + NODE_H} L${x},${partner.y}`;
+  return `M${x},${person.y + nodeH} L${x},${partner.y}`;
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 /**
- * Left-to-right layered layout. Depth sets the column (x). A person and their
- * spouses are stacked in that column as a series of "anchors"; each anchor's own
- * children occupy the next column, so children sit beside the spouse they belong
- * to. Every anchor reserves `max(1, Σ child rows)` rows and is centred on its
- * children, so the whole person group spans the sum of its anchors' rows and no
- * two subtrees overlap.
+ * Layered layout. Depth (generation) advances along one axis; siblings and
+ * spouses spread along the other ("breadth"). A person and their spouse(s) occupy
+ * one depth slot, their children the next. With a single union the couple sits
+ * together, centred over their shared children. With several unions each spouse
+ * is instead placed over its own union's children (the person beside the first),
+ * so a later marriage spreads out far enough for its connectors to read clearly.
+ * The exact breadth arrangement lives in `arrange`; every group reserves enough
+ * rows for both its children and its couple, so no two subtrees overlap.
+ *
+ * The algorithm runs in left→right space (depth = x, breadth = y); for "tb" the
+ * placed coordinates are transposed at the end. Because the box is much wider
+ * than tall, the depth and breadth step sizes differ per alignment so generations
+ * and siblings each get spacing matched to the box dimension they advance along.
  */
-export function layout(root: TreeNode): { root: Placed; width: number; height: number } {
-  const groupMemo = new Map<TreeNode, number>();
-  const anchorRows = (children: TreeNode[]): number =>
-    Math.max(1, children.reduce((s, c) => s + groupRows(c), 0));
-  const groupRows = (node: TreeNode): number => {
-    const cached = groupMemo.get(node);
-    if (cached != null) return cached;
-    let total = anchorRows(node.children);
-    for (const p of node.partners) total += anchorRows(p.children);
-    const v = Math.max(1, total);
-    groupMemo.set(node, v);
-    return v;
-  };
+export function layout(
+  root: TreeNode,
+  alignment: ChartAlignment = "lr",
+  nodeH: number = NODE_H,
+): { root: Placed; width: number; height: number } {
+  const lr = alignment === "lr";
+  // Step along generations (depth) and along siblings/spouses (breadth). In LR
+  // depth runs horizontally (NODE_W wide), breadth vertically (nodeH tall); in
+  // TB they swap, so the breadth step must clear the box width and vice versa.
+  const depthStep = lr ? COL_STEP : nodeH + ROW_GAP_TB;
+  const breadthStep = lr ? nodeH + ROW_GAP : COL_STEP;
 
-  // Place one anchor's children (in the next column) and return where the anchor
-  // itself should sit, vertically centred on them.
-  const placeAnchor = (
-    anchorChildren: TreeNode[],
-    depth: number,
-    top: number,
-  ): { y: number; children: Placed[]; band: number } => {
-    const childRows = anchorChildren.reduce((s, c) => s + groupRows(c), 0);
-    const band = Math.max(1, childRows);
-    let cursor = top + ((band - childRows) / 2) * ROW_STEP;
-    const children = anchorChildren.map((c) => {
-      const placed = place(c, depth, cursor);
-      cursor += groupRows(c) * ROW_STEP;
-      return placed;
-    });
-    const y =
-      children.length > 0
-        ? Math.max(
-            top,
-            Math.min(
-              (children[0].y + children[children.length - 1].y) / 2,
-              top + (band - 1) * ROW_STEP,
-            ),
-          )
-        : top;
-    return { y, children, band };
+  // Per-node breadth arrangement, in row units (alignment-independent): the
+  // breadth row of the person and each spouse ("members", person first), where
+  // the children block starts, and the total rows the group reserves. A single
+  // union centres the couple over its shared children; multiple unions instead
+  // give each spouse its own children to sit over — with the person adjacent to
+  // the first — so a later marriage spreads out and its connectors stay legible.
+  interface Arrange { memberY: number[]; childStart: number; band: number }
+  const arrangeMemo = new Map<TreeNode, Arrange>();
+  const arrange = (node: TreeNode): Arrange => {
+    const cached = arrangeMemo.get(node);
+    if (cached) return cached;
+    // Child rows per "group": the person's spouseless children first, then each
+    // union's children, in couple order. w[0] is the person, w[i>0] the spouses.
+    const w = [
+      node.children.reduce((s, c) => s + groupRows(c), 0),
+      ...node.partners.map((p) => p.children.reduce((s, c) => s + groupRows(c), 0)),
+    ];
+    const childRows = w.reduce((s, n) => s + n, 0);
+    const coupleSize = w.length;
+
+    let result: Arrange;
+    if (node.partners.length <= 1) {
+      // Couple centred over the (shared) children block.
+      const band = Math.max(1, childRows, coupleSize);
+      const coupleTop = (band - coupleSize) / 2;
+      result = {
+        memberY: w.map((_, i) => coupleTop + i),
+        childStart: (band - childRows) / 2,
+        band,
+      };
+    } else {
+      // Spread: place each member over the centre of its own children (the
+      // person over its spouseless children, each spouse over that union's),
+      // pushed right only as far as needed to stay clear of the previous member.
+      const start: number[] = [];
+      let acc = 0;
+      for (const width of w) { start.push(acc); acc += width; }
+      const memberY: number[] = [];
+      let prev = -Infinity;
+      w.forEach((width, i) => {
+        const own = width > 0 ? start[i] + (width - 1) / 2 : prev + 1;
+        const y = Math.max(prev === -Infinity ? 0 : prev + 1, own);
+        memberY.push(y);
+        prev = y;
+      });
+      result = {
+        memberY,
+        childStart: 0,
+        band: Math.max(1, childRows, memberY[memberY.length - 1] + 1),
+      };
+    }
+    arrangeMemo.set(node, result);
+    return result;
   };
+  const groupRows = (node: TreeNode): number => arrange(node).band;
 
   const place = (node: TreeNode, depth: number, top: number): Placed => {
-    const x = depth * COL_STEP;
-    let cursor = top;
-    const self = placeAnchor(node.children, depth + 1, cursor);
-    cursor += self.band * ROW_STEP;
-    const partners: Placed[] = node.partners.map((p) => {
-      const a = placeAnchor(p.children, depth + 1, cursor);
-      cursor += a.band * ROW_STEP;
-      return { ...p, x, y: a.y, children: a.children, partners: [] };
-    });
-    return { ...node, x, y: self.y, children: self.children, partners };
+    const x = depth * depthStep;
+    const { memberY, childStart } = arrange(node);
+
+    // Children (direct first, then each union's, in couple order) laid out
+    // contiguously from the block start. `y` is the breadth coordinate; it
+    // becomes `x` after the transpose for "tb".
+    let cursor = top + childStart * breadthStep;
+    const placeKids = (kids: TreeNode[]): Placed[] =>
+      kids.map((c) => {
+        const placed = place(c, depth + 1, cursor);
+        cursor += groupRows(c) * breadthStep;
+        return placed;
+      });
+    const directChildren = placeKids(node.children);
+    const partnerChildren = node.partners.map((p) => placeKids(p.children));
+
+    const partners: Placed[] = node.partners.map((p, i) => ({
+      ...p,
+      x,
+      y: top + memberY[i + 1] * breadthStep,
+      children: partnerChildren[i],
+      partners: [],
+    }));
+    return { ...node, x, y: top + memberY[0] * breadthStep, children: directChildren, partners };
   };
 
   const placed = place(root, 0, 0);
   const total = groupRows(root);
+  // Computed in LR space; for TB swap each node's axes so depth runs down.
+  if (!lr) transpose(placed);
+
+  // Extents along each axis, then mapped to width/height by alignment.
+  const depthExtent = maxDepth(root) * depthStep + (lr ? NODE_W : nodeH);
+  const breadthExtent = (total - 1) * breadthStep + (lr ? nodeH : NODE_W);
   return {
     root: placed,
-    width: maxDepth(root) * COL_STEP + NODE_W + PAD * 2,
-    height: (total - 1) * ROW_STEP + NODE_H + PAD * 2,
+    width: (lr ? depthExtent : breadthExtent) + PAD * 2,
+    height: (lr ? breadthExtent : depthExtent) + PAD * 2,
   };
+}
+
+/**
+ * Grid layout — the "Excel columns" diagram. Generations form aligned columns
+ * (the depth axis) exactly like the tidy tree, but each person snaps to a regular
+ * lane on the breadth axis so boxes line up like a spreadsheet.
+ *
+ * It's compact: a node shares its lane with its *first* next-column child, so an
+ * only-child lineage stays on a single row and merely steps one column per
+ * generation — the start person sits top-left and the direct line runs straight
+ * across. A lane is only spent on extra siblings and on each spouse (who shares
+ * the person's column, so can't share the row). The result reads like an indented
+ * spreadsheet.
+ *
+ * Same `{ root, width, height }` contract as `layout`, so `flatten`, the
+ * connectors, the minimap and the SVG export consume it unchanged. Pair it with
+ * the `"elbow"` connector in `flatten`: branches that drop several lanes below
+ * their parent need the right-angle routing to stay legible.
+ */
+export function layoutGrid(
+  root: TreeNode,
+  alignment: ChartAlignment = "lr",
+  nodeH: number = NODE_H,
+): { root: Placed; width: number; height: number } {
+  const lr = alignment === "lr";
+  const depthStep = lr ? COL_STEP : nodeH + ROW_GAP_TB;
+  const breadthStep = lr ? nodeH + ROW_GAP : COL_STEP;
+
+  // Running lane index. It only ever advances, so its final value is the last
+  // lane used. Computed in LR space — depth → x, lane → y — then transposed for TB.
+  let lane = 0;
+  const place = (node: TreeNode, depth: number): Placed => {
+    const x = depth * depthStep;
+    const myLane = lane; // this node sits on the current lane…
+
+    // …which its first spouseless child shares; each later child steps down one.
+    let claimed = false;
+    const children = node.children.map((c) => {
+      if (claimed) lane++;
+      claimed = true;
+      return place(c, depth + 1);
+    });
+
+    // Spouses share the person's column, so each takes a fresh lane below; a
+    // spouse in turn shares its lane with its own first child.
+    const partners: Placed[] = node.partners.map((p) => {
+      const pLane = ++lane;
+      let pClaimed = false;
+      const pChildren = p.children.map((c) => {
+        if (pClaimed) lane++;
+        pClaimed = true;
+        return place(c, depth + 1);
+      });
+      return { ...p, x, y: pLane * breadthStep, children: pChildren, partners: [] };
+    });
+
+    return { ...node, x, y: myLane * breadthStep, children, partners };
+  };
+
+  const placed = place(root, 0);
+  if (!lr) transpose(placed);
+
+  const laneCount = lane + 1;
+  const depthExtent = maxDepth(root) * depthStep + (lr ? NODE_W : nodeH);
+  const breadthExtent = (laneCount - 1) * breadthStep + (lr ? nodeH : NODE_W);
+  return {
+    root: placed,
+    width: (lr ? depthExtent : breadthExtent) + PAD * 2,
+    height: (lr ? breadthExtent : depthExtent) + PAD * 2,
+  };
+}
+
+/** Swap x/y on a placed node and its whole subtree (spouses and their children
+ *  included) — turns the left→right placement into top→bottom. */
+function transpose(n: Placed): void {
+  [n.x, n.y] = [n.y, n.x];
+  n.partners.forEach(transpose);
+  n.children.forEach(transpose);
 }
 
 /** Generations deep: spouses share the person's column, but their children don't. */
@@ -176,25 +411,3 @@ export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-/**
- * Vertical placement for the lifespan (left) and kinship (right-aligned) labels
- * inside a node box. They share one row, but when their estimated widths would
- * collide the kinship drops onto its own row beneath the years. `badgeW` is the
- * extra width reserved by any decision/modified badges sitting after the years.
- * Shared by every tree diagram so the wrap behaves consistently.
- */
-export function kinshipRowLayout(
-  years: string | undefined,
-  kinship: string | undefined,
-  badgeW = 0,
-): { needsKinshipRow: boolean; yearsY: number; kinshipY: number } {
-  const needsKinshipRow = !!(
-    kinship && (years || badgeW) &&
-    (years?.length ?? 0) * 13 + badgeW + kinship.length * 11 > 300
-  );
-  return {
-    needsKinshipRow,
-    yearsY: needsKinshipRow ? 36 : 40,
-    kinshipY: needsKinshipRow ? 48 : 40,
-  };
-}

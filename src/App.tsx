@@ -37,6 +37,7 @@ import { RelationshipChart } from "./ui/RelationshipChart";
 import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
+import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -1717,11 +1718,13 @@ function AppContent() {
 
 export function App() {
   return (
-    <MediaFolderProvider>
-      <PhotoViewerProvider>
-        <AppContent />
-      </PhotoViewerProvider>
-    </MediaFolderProvider>
+    <ChartSettingsProvider>
+      <MediaFolderProvider>
+        <PhotoViewerProvider>
+          <AppContent />
+        </PhotoViewerProvider>
+      </MediaFolderProvider>
+    </ChartSettingsProvider>
   );
 }
 

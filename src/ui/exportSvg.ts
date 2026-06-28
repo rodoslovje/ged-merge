@@ -30,20 +30,168 @@ const STYLE_PROPS = [
   "filter",
 ] as const;
 
-function inlineComputedStyles(live: Element, clone: Element): void {
-  // The clone is a deep copy of `live`, so a flat walk over both lists stays in
-  // lockstep (same elements, same order, including foreignObject HTML).
-  const liveEls = [live, ...live.querySelectorAll("*")];
-  const cloneEls = [clone, ...clone.querySelectorAll("*")];
-  for (let i = 0; i < liveEls.length; i++) {
-    const cs = getComputedStyle(liveEls[i]);
-    const out = cloneEls[i] as HTMLElement;
-    let decl = out.getAttribute("style") ?? "";
-    for (const prop of STYLE_PROPS) {
-      const v = cs.getPropertyValue(prop);
-      if (v) decl += `${decl && !decl.endsWith(";") ? ";" : ""}${prop}:${v};`;
+// Colour-bearing properties whose value may be `var()`/`color-mix()`. These get
+// resolved to a concrete rgb(a) for the export — external SVG renderers (Inkscape,
+// Pixelmator) understand none/transparent/hex/rgb but not `var()`/`color-mix()`.
+const COLOR_PROPS = new Set<string>(["fill", "stroke", "color"]);
+
+/** A throwaway probe element plus a per-export memo, used to resolve colours. */
+interface ColorCtx {
+  probe: HTMLElement;
+  cache: Map<string, string>;
+}
+
+/** Does a CSS value need resolving, or is it already portable as-is? */
+function needsResolve(v: string): boolean {
+  return v.includes("var(") || v.includes("color-mix(");
+}
+
+// Split on a top-level separator, ignoring ones nested inside parentheses
+// (so `rgb(1, 2, 3)` and `color-mix(in srgb, …)` stay intact).
+function splitTopLevel(s: string, sep: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let last = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === sep && depth === 0) { out.push(s.slice(last, i)); last = i + 1; }
+  }
+  out.push(s.slice(last));
+  return out;
+}
+
+export function parseRgba(s: string): [number, number, number, number] {
+  if (/^transparent$/i.test(s.trim())) return [0, 0, 0, 0];
+  const m = s.match(/-?\d*\.?\d+/g);
+  if (!m || m.length < 3) return [0, 0, 0, 1];
+  return [+m[0], +m[1], +m[2], m.length >= 4 ? +m[3] : 1];
+}
+
+// Split a color-mix component like `var(--x) 16%` into its colour and percentage.
+function splitColorPct(seg: string): { color: string; pct: number | null } {
+  let pct: number | null = null;
+  const colorToks: string[] = [];
+  for (const tok of splitTopLevel(seg.trim(), " ")) {
+    const t = tok.trim();
+    if (!t) continue;
+    if (/^\d*\.?\d+%$/.test(t)) pct = parseFloat(t);
+    else colorToks.push(t);
+  }
+  return { color: colorToks.join(" "), pct };
+}
+
+// Evaluate `color-mix(in <space>, A p1%, B p2%)` ourselves, in sRGB with
+// premultiplied alpha (matching the CSS spec closely enough for export fidelity;
+// every mix the app uses is `in srgb`). The components are plain colours / `var()`,
+// which the browser resolves reliably even when it won't resolve the whole mix.
+function mixSrgb(expr: string, ctx: ColorCtx): string {
+  const inner = expr.slice(expr.indexOf("(") + 1, expr.lastIndexOf(")"));
+  const colorSegs = splitTopLevel(inner, ",").map((s) => s.trim()).filter(Boolean).slice(1); // drop "in srgb"
+  if (colorSegs.length < 2) return resolveColorExpr(colorSegs[0] ?? "", ctx) || expr;
+  const a = splitColorPct(colorSegs[0]);
+  const b = splitColorPct(colorSegs[1]);
+  let p1 = a.pct;
+  let p2 = b.pct;
+  if (p1 == null && p2 == null) { p1 = 50; p2 = 50; }
+  else if (p1 == null) p1 = 100 - (p2 as number);
+  else if (p2 == null) p2 = 100 - p1;
+  let w1 = p1 / 100;
+  let w2 = (p2 as number) / 100;
+  const sum = w1 + w2;
+  if (sum <= 0) return "rgba(0, 0, 0, 0)";
+  w1 /= sum; w2 /= sum;
+  const c1 = parseRgba(resolveColorExpr(a.color, ctx));
+  const c2 = parseRgba(resolveColorExpr(b.color, ctx));
+  const al = w1 * c1[3] + w2 * c2[3];
+  const ch = (i: number) => (al <= 0 ? 0 : Math.round((w1 * c1[3] * c1[i] + w2 * c2[3] * c2[i]) / al));
+  const [r, g, bl] = [ch(0), ch(1), ch(2)];
+  return al >= 1 ? `rgb(${r}, ${g}, ${bl})` : `rgba(${r}, ${g}, ${bl}, ${+al.toFixed(4)})`;
+}
+
+/**
+ * Resolve a CSS colour expression to a concrete rgb(a). Values already portable
+ * (none/transparent/hex/rgb/named) pass through untouched. `var()`/`color-mix()`
+ * are first handed to the browser as a real `color` (which resolves custom
+ * properties, and `color-mix` where supported); if that still comes back
+ * unresolved, `color-mix()` is evaluated by hand.
+ */
+function resolveColorExpr(value: string, ctx: ColorCtx): string {
+  const v = (value ?? "").trim();
+  if (!v || !needsResolve(v)) return v;
+  const cached = ctx.cache.get(v);
+  if (cached !== undefined) return cached;
+  ctx.probe.style.color = "";
+  ctx.probe.style.color = v; // an invalid value leaves it empty
+  const browser = ctx.probe.style.color ? getComputedStyle(ctx.probe).color : "";
+  let out: string;
+  if (browser && !needsResolve(browser)) out = browser;
+  else if (v.startsWith("color-mix(")) out = mixSrgb(v, ctx);
+  else out = browser || v;
+  ctx.cache.set(v, out);
+  return out;
+}
+
+/** Replace every `color-mix(…)` expression inside a CSS value with a resolved colour. */
+function bakeColorMix(value: string, ctx: ColorCtx): string {
+  if (!value.includes("color-mix(")) return value;
+  let out = "";
+  let i = 0;
+  while (i < value.length) {
+    const start = value.indexOf("color-mix(", i);
+    if (start === -1) { out += value.slice(i); break; }
+    out += value.slice(i, start);
+    let depth = 0;
+    let j = start + "color-mix".length; // points at the opening "("
+    for (; j < value.length; j++) {
+      if (value[j] === "(") depth++;
+      else if (value[j] === ")" && --depth === 0) { j++; break; }
     }
-    out.setAttribute("style", decl);
+    out += resolveColorExpr(value.slice(start, j), ctx);
+    i = j;
+  }
+  return out;
+}
+
+function inlineComputedStyles(live: Element, clone: Element): void {
+  // A probe in the live document inherits the theme's custom properties (defined
+  // on :root), so `var(--…)` resolves to the colours currently on screen.
+  const probe = document.createElement("span");
+  probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const ctx: ColorCtx = { probe, cache: new Map() };
+  try {
+    // The clone is a deep copy of `live`, so a flat walk over both lists stays in
+    // lockstep (same elements, same order, including foreignObject HTML).
+    const liveEls = [live, ...live.querySelectorAll("*")];
+    const cloneEls = [clone, ...clone.querySelectorAll("*")];
+    for (let i = 0; i < liveEls.length; i++) {
+      const liveEl = liveEls[i] as HTMLElement;
+      const cs = getComputedStyle(liveEl);
+      const out = cloneEls[i] as HTMLElement;
+      let decl = out.getAttribute("style") ?? "";
+      for (const prop of STYLE_PROPS) {
+        let v: string;
+        if (COLOR_PROPS.has(prop)) {
+          // getComputedStyle collapses an unresolved `color-mix()` fill to black,
+          // so resolve from the *authored* expression (inline style or the SVG
+          // presentation attribute) instead, falling back to the computed value.
+          const authored = liveEl.style?.getPropertyValue(prop) || liveEl.getAttribute(prop) || "";
+          v = authored ? resolveColorExpr(authored, ctx) : bakeColorMix(cs.getPropertyValue(prop), ctx);
+        } else {
+          v = bakeColorMix(cs.getPropertyValue(prop), ctx);
+        }
+        if (!v) continue;
+        decl += `${decl && !decl.endsWith(";") ? ";" : ""}${prop}:${v};`;
+        // Overwrite any matching presentation attribute (e.g. the rect's
+        // color-mix `fill`) so attribute-preferring renderers also get rgb.
+        if (COLOR_PROPS.has(prop) && out.hasAttribute(prop)) out.setAttribute(prop, v);
+      }
+      out.setAttribute("style", decl);
+    }
+  } finally {
+    probe.remove();
   }
 }
 
@@ -94,6 +242,15 @@ export interface SvgExportOptions {
   foreground: string;
   /** Diagram title shown centred in the header band. */
   title: string;
+  /** Download base name (no extension); used as the print-to-PDF default name. */
+  fileName?: string;
+}
+
+/** Append the shared `.gedmerge.<ext>` stem so chart exports sit alongside the
+ *  `.gedmerge.*` save files; tolerates a base that already carries the extension. */
+function withExportStem(base: string, ext: string): string {
+  const stem = base.endsWith(`.${ext}`) ? base.slice(0, -(ext.length + 1)) : base;
+  return `${stem}.gedmerge.${ext}`;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -168,8 +325,22 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Prom
   const clone = live.cloneNode(true) as SVGSVGElement;
   inlineComputedStyles(live, clone);
 
-  const diagramW = parseFloat(live.getAttribute("width") ?? "") || live.clientWidth;
-  const diagramH = parseFloat(live.getAttribute("height") ?? "") || live.clientHeight;
+  // SVG <title> children surface as hover tooltips (the on-screen nodes carry a
+  // "click to…" hint). In a static export they're useless and misleading, so
+  // drop them. Must run after inlineComputedStyles, which walks live/clone in
+  // lockstep and would desync if the clone lost nodes first.
+  clone.querySelectorAll("title").forEach((el) => el.remove());
+
+  // Export at the diagram's native size, ignoring the on-screen zoom: the live
+  // SVG carries a native-sized `viewBox` (its width/height attributes are scaled
+  // by the current zoom), so read dimensions from there when present.
+  const viewBox = (live.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
+  const diagramW = viewBox.length === 4 && viewBox[2] > 0
+    ? viewBox[2]
+    : parseFloat(live.getAttribute("width") ?? "") || live.clientWidth;
+  const diagramH = viewBox.length === 4 && viewBox[3] > 0
+    ? viewBox[3]
+    : parseFloat(live.getAttribute("height") ?? "") || live.clientHeight;
   const totalW = diagramW;
   const totalH = HEADER_H + diagramH + FOOTER_H;
 
@@ -260,7 +431,7 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = fileName.endsWith(".svg") ? fileName : `${fileName}.svg`;
+  a.download = withExportStem(fileName, "svg");
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -277,7 +448,10 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Pro
   svg.removeAttribute("height");
   svg.setAttribute("style", "display:block;width:100%;height:100%;");
 
-  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(opts.title)}</title>
+  // Browsers seed the "Save as PDF" filename from the document <title>, so use
+  // the export base name there (extension auto-appended) rather than the heading.
+  const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
 <style>
   @page { size: ${width}px ${height}px; margin: 0; }
   html, body { margin: 0; padding: 0; }
@@ -317,25 +491,26 @@ function escapeHtml(s: string): string {
 export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg || !canvas) return;
-  void downloadSvg(svg, fileName, canvasExportOptions(canvas, title));
+  void downloadSvg(svg, fileName, canvasExportOptions(canvas, title, fileName));
 }
 
 /**
  * Find the diagram SVG inside a `.tree-canvas` element and open it in the print
  * dialog (whole diagram on one page) for "Save as PDF". No-op if absent.
  */
-export function exportCanvasPdf(canvas: HTMLElement | null, title: string): void {
+export function exportCanvasPdf(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg || !canvas) return;
-  void printSvg(svg, canvasExportOptions(canvas, title));
+  void printSvg(svg, canvasExportOptions(canvas, title, fileName));
 }
 
-function canvasExportOptions(canvas: HTMLElement, title: string): SvgExportOptions {
+function canvasExportOptions(canvas: HTMLElement, title: string, fileName: string): SvgExportOptions {
   const cs = getComputedStyle(canvas);
   return {
     background: cs.backgroundColor || "#ffffff",
     foreground: cs.color || "#000000",
     title,
+    fileName,
   };
 }
 
