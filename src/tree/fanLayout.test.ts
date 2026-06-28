@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFanChart } from "./fanLayout";
+import { ALL_DISPLAY } from "./nodeDisplay";
 import type { TreeNode } from "./compareTree";
 import type { Sex } from "../gedcom/types";
 
@@ -78,5 +79,67 @@ describe("buildFanChart", () => {
   it("reserves no photo space without a hasPhoto predicate", () => {
     const chart = buildFanChart(pedigree(2), "fan");
     expect(chart.segments.every((s) => s.photo === undefined)).toBe(true);
+  });
+
+  it("emits a marriage collar (year + place) for a couple under their child", () => {
+    const root = person("M", [person("M", [], "dad"), person("F", [], "mum")]);
+    root.marriage = { year: "1900", place: "Ljubljana" };
+    const chart = buildFanChart(root, "fan");
+    expect(chart.marriages).toHaveLength(1);
+    expect(chart.marriages[0].lines.map((l) => l.text)).toEqual(["⚭ 1900 Ljubljana"]);
+    expect(chart.marriages[0].lines[0].arc).toMatch(/^M/);
+    expect(chart.marriages[0].d).toMatch(/^M/);
+  });
+
+  it("shows only the year when just the date field is on", () => {
+    const root = person("M", [person("M", [], "dad"), person("F", [], "mum")]);
+    root.marriage = { year: "1900", place: "Ljubljana" };
+    const chart = buildFanChart(root, "fan", {
+      display: { ...ALL_DISPLAY, showMarriageDate: true, showMarriagePlace: false },
+    });
+    expect(chart.marriages[0].lines.map((l) => l.text)).toEqual(["⚭ 1900"]);
+  });
+
+  it("stacks the year over the place on a deep ring (level 6+)", () => {
+    // A 6-generation pedigree: the couple at gen 6 (the leaves' parents) get a
+    // two-line collar.
+    const root = pedigree(6);
+    // Attach a marriage to one gen-5 person (its parents are the gen-6 couple).
+    const gen5 = (function find(n: TreeNode, g: number): TreeNode {
+      return g === 0 ? n : find(n.children[0], g - 1);
+    })(root, 5);
+    gen5.marriage = { year: "1700", place: "Kranj" };
+    const chart = buildFanChart(root, "fan");
+    const collar = chart.marriages.find((m) => m.lines.length === 2);
+    expect(collar?.lines.map((l) => l.text)).toEqual(["⚭ 1700", "Kranj"]);
+  });
+
+  it("draws the root's-parents collar as a full ring in a circle chart", () => {
+    // In a circle the gen-0 collar spans the whole 360° (a0 ≡ a1); it must still
+    // render a band + baseline rather than degenerating to a zero-length arc.
+    const root = person("M", [person("M", [], "dad"), person("F", [], "mum")]);
+    root.marriage = { year: "1962", place: "Ljubljana" };
+    const chart = buildFanChart(root, "circle");
+    const collar = chart.marriages[0];
+    expect(collar.lines.map((l) => l.text)).toEqual(["⚭ 1962 Ljubljana"]);
+    // Two full-circle arcs in the baseline (so the textPath has real length).
+    expect(collar.lines[0].arc.match(/A/g)?.length).toBe(2);
+    expect(collar.d).toContain("M"); // full donut band, not an empty sector
+  });
+
+  it("omits collars when no marriage field is on", () => {
+    const root = person("M", [person("M", [], "dad"), person("F", [], "mum")]);
+    root.marriage = { year: "1900", place: "Ljubljana" };
+    const chart = buildFanChart(root, "fan", {
+      display: { ...ALL_DISPLAY, showMarriageDate: false, showMarriagePlace: false },
+    });
+    expect(chart.marriages).toHaveLength(0);
+  });
+
+  it("draws no collar for a childless (leaf) ancestor even if a marriage is set", () => {
+    const root = person("M", [], "solo");
+    root.marriage = { year: "1900" };
+    const chart = buildFanChart(root, "fan");
+    expect(chart.marriages).toHaveLength(0);
   });
 });

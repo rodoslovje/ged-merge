@@ -19,6 +19,7 @@ const TYPES: { key: ChartType; enabled: boolean }[] = [
 const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
 /** The boolean display toggles, in popover order. */
+/** Per-person fields (the "Person" group). */
 const DISPLAY_FIELDS: { key: "showLifespan" | "showPhoto" | "showKinship" | "showPlace"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showPlace", label: "place" },
@@ -26,11 +27,22 @@ const DISPLAY_FIELDS: { key: "showLifespan" | "showPhoto" | "showKinship" | "sho
   { key: "showKinship", label: "kinship" },
 ];
 
-export function ChartSettings() {
+/** Per-couple marriage fields (the "Marriage" group — both default off). */
+const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: string }[] = [
+  { key: "showMarriageDate", label: "date" },
+  { key: "showMarriagePlace", label: "place" },
+];
+
+/** `lockedType` pins the diagram to one type (used by the Relationship chart,
+ *  which only ever renders a tree): that type shows active, the rest are disabled. */
+export function ChartSettings({ lockedType }: { lockedType?: ChartType } = {}) {
   const { t } = useTranslation();
   const { settings, setType, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // The effective type drives the active highlight and which extra rows show; with
+  // a locked type it wins even if the shared (persisted) type is something else.
+  const effectiveType = lockedType ?? settings.type;
 
   // Close the popover on an outside click.
   useEffect(() => {
@@ -58,21 +70,24 @@ export function ChartSettings() {
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.type")}</span>
             <div className="chart-settings-segmented">
-              {TYPES.map(({ key, enabled }) => (
-                <button
-                  key={key}
-                  className={settings.type === key ? "active" : ""}
-                  disabled={!enabled}
-                  title={enabled ? undefined : t("tree.settings.comingSoon")}
-                  onClick={() => setType(key)}
-                >
-                  {t(`tree.settings.type.${key}`)}
-                </button>
-              ))}
+              {TYPES.map(({ key, enabled }) => {
+                const allowed = lockedType ? key === lockedType : enabled;
+                return (
+                  <button
+                    key={key}
+                    className={effectiveType === key ? "active" : ""}
+                    disabled={!allowed}
+                    title={allowed ? undefined : t(lockedType ? "tree.settings.treeOnly" : "tree.settings.comingSoon")}
+                    onClick={() => setType(key)}
+                  >
+                    {t(`tree.settings.type.${key}`)}
+                  </button>
+                );
+              })}
             </div>
           </div>
           {/* Alignment only applies to the layered tree; radial charts ignore it. */}
-          {settings.type === "tree" && (
+          {effectiveType === "tree" && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.alignment")}</span>
               <div className="chart-settings-segmented">
@@ -88,13 +103,13 @@ export function ChartSettings() {
               </div>
             </div>
           )}
-          {/* Per-field show/hide toggles — each independent (multi-select). */}
+          {/* Per-person fields — each independent (multi-select). */}
           <div className="chart-settings-group">
-            <span className="chart-settings-heading">{t("tree.settings.display")}</span>
+            <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">
               {DISPLAY_FIELDS.map(({ key, label }) => {
                 // The radial fan / circle charts don't draw a kinship line.
-                const disabled = key === "showKinship" && (settings.type === "fan" || settings.type === "circle");
+                const disabled = key === "showKinship" && (effectiveType === "fan" || effectiveType === "circle");
                 return (
                   <button
                     key={key}
@@ -108,6 +123,23 @@ export function ChartSettings() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+          {/* Per-couple marriage fields (date / place) — drawn on the couple's
+              connector (tree / grid) or the fan collar; both default off. */}
+          <div className="chart-settings-group">
+            <span className="chart-settings-heading">{t("tree.settings.marriage")}</span>
+            <div className="chart-settings-segmented chart-settings-toggles">
+              {MARRIAGE_FIELDS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={settings[key] ? "active" : ""}
+                  aria-pressed={settings[key]}
+                  onClick={() => set({ [key]: !settings[key] } as Partial<Settings>)}
+                >
+                  {t(`tree.settings.marriage.${label}`)}
+                </button>
+              ))}
             </div>
           </div>
           {/* Privacy: redact people inferred to be living. */}

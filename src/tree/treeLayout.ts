@@ -73,7 +73,13 @@ export interface Placed extends TreeNode {
 /** A laid-out tree flattened to a draw list: every node plus its connectors. */
 export interface Flat {
   nodes: Placed[];
-  edges: { id: string; d: string; partner?: boolean }[];
+  edges: {
+    id: string;
+    d: string;
+    partner?: boolean;
+    /** Marriage label centred on a partner connector (when enabled + recorded). */
+    label?: { x: number; y: number; text: string };
+  }[];
 }
 
 /** Connector shape: smooth Béziers for the tidy tree, right-angle "elbows" for
@@ -110,6 +116,13 @@ export function flatten(
   alignment: ChartAlignment = "lr",
   connector: ChartConnector = "curve",
   nodeH: number = NODE_H,
+  /** When set, label each couple's connector with their marriage (year / place).
+   *  Descendant mode reads a partner node's marriage; ancestor mode reads a node's
+   *  parents' marriage (bracketed between that node's two parent children). */
+  marriageLabel?: (node: TreeNode) => string | undefined,
+  /** True in ancestor mode (children are parents) — switches the marriage label
+   *  from the partner connector to a bracket between a node's two parents. */
+  ancestors = false,
 ): Flat {
   const nodes: Placed[] = [];
   const edges: Flat["edges"] = [];
@@ -120,11 +133,26 @@ export function flatten(
     let prev: Placed = n;
     for (const p of n.partners) {
       nodes.push(p);
-      edges.push({ id: `${prev.key}~${p.key}`, d: partnerPath(prev, p, alignment, nodeH), partner: true });
+      const text = marriageLabel?.(p);
+      edges.push({
+        id: `${prev.key}~${p.key}`,
+        d: partnerPath(prev, p, alignment, nodeH),
+        partner: true,
+        label: text ? { ...partnerMidpoint(prev, p, alignment, nodeH), text } : undefined,
+      });
       prev = p;
       for (const c of p.children) {
         edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c, alignment, connector, nodeH) });
         walk(c);
+      }
+    }
+    // Ancestor mode: link the node's two parents (its children) with a partner line
+    // and hang the marriage label between them — the couple have no line of their own.
+    if (ancestors && n.children.length >= 2) {
+      const text = marriageLabel?.(n);
+      if (text) {
+        const b = parentBracket(n.children, alignment, nodeH);
+        edges.push({ id: `${n.key}=m`, d: b.d, partner: true, label: { x: b.x, y: b.y, text } });
       }
     }
     // Children of a spouseless family connect to the person directly.
@@ -185,15 +213,58 @@ function edgePath(
   return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
 }
 
-/** A short link between a person and their spouse (adjacent in the breadth
- *  direction): vertical in LR (stacked), horizontal in TB (side by side). */
-function partnerPath(person: Placed, partner: Placed, alignment: ChartAlignment, nodeH: number = NODE_H): string {
+/** Connector + label anchor joining two boxes that form a couple, drawn box-centre
+ *  to box-centre across the gap between them: bottom→top in LR (stacked), right→left
+ *  in TB (side by side). Robust to which box comes first. */
+function coupleLink(
+  a: Placed,
+  b: Placed,
+  alignment: ChartAlignment,
+  nodeH: number = NODE_H,
+): { d: string; x: number; y: number } {
   if (alignment === "tb") {
-    const y = person.y + 18;
-    return `M${person.x + NODE_W},${y} L${partner.x},${y}`;
+    // Side by side: link the inner (facing) edges at each box's vertical centre.
+    const [l, r] = a.x <= b.x ? [a, b] : [b, a];
+    const x1 = l.x + NODE_W;
+    const x2 = r.x;
+    const y1 = l.y + nodeH / 2;
+    const y2 = r.y + nodeH / 2;
+    return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
   }
-  const x = person.x + 18;
-  return `M${x},${person.y + nodeH} L${x},${partner.y}`;
+  // Stacked: link the inner edges at each box's horizontal centre.
+  const [hi, lo] = a.y <= b.y ? [a, b] : [b, a];
+  const x1 = hi.x + NODE_W / 2;
+  const x2 = lo.x + NODE_W / 2;
+  const y1 = hi.y + nodeH;
+  const y2 = lo.y;
+  return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+}
+
+/** Partner connector between a person and their spouse (descendant mode). */
+function partnerPath(person: Placed, partner: Placed, alignment: ChartAlignment, nodeH: number = NODE_H): string {
+  return coupleLink(person, partner, alignment, nodeH).d;
+}
+
+/** Midpoint of the {@link partnerPath} connector — where the marriage label rides. */
+function partnerMidpoint(
+  person: Placed,
+  partner: Placed,
+  alignment: ChartAlignment,
+  nodeH: number = NODE_H,
+): { x: number; y: number } {
+  const { x, y } = coupleLink(person, partner, alignment, nodeH);
+  return { x, y };
+}
+
+/** Marriage line between a node's two parents (ancestor mode): joins their boxes
+ *  through their centres, with the label at the midpoint — sitting between husband
+ *  and wife, exactly like a descendant partner line. */
+function parentBracket(
+  parents: Placed[],
+  alignment: ChartAlignment,
+  nodeH: number = NODE_H,
+): { d: string; x: number; y: number } {
+  return coupleLink(parents[0], parents[parents.length - 1], alignment, nodeH);
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────

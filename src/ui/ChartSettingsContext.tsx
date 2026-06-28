@@ -25,6 +25,10 @@ export interface ChartSettings {
   showLifespan: boolean;
   /** Show a place line (first available of birth / residence / death). */
   showPlace: boolean;
+  /** Show the marriage year on the couple's connector / fan collar. */
+  showMarriageDate: boolean;
+  /** Show the marriage place on the couple's connector / fan collar. */
+  showMarriagePlace: boolean;
   /** Redact people inferred to be living: show only their relationship / "Living". */
   privacyLiving: boolean;
 }
@@ -36,6 +40,8 @@ const DEFAULTS: ChartSettings = {
   showPhoto: true,
   showLifespan: true,
   showPlace: false,
+  showMarriageDate: false,
+  showMarriagePlace: false,
   privacyLiving: false,
 };
 
@@ -74,6 +80,8 @@ function load(): ChartSettings {
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
+      showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
+      showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       privacyLiving: bool(parsed.privacyLiving, DEFAULTS.privacyLiving),
     };
   } catch {

@@ -12,6 +12,7 @@ import {
   type Placed,
 } from "../tree/treeLayout";
 import { buildFanChart, type FanSegment } from "../tree/fanLayout";
+import { formatMarriage } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonPhotos";
@@ -108,9 +109,18 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
     () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
     [tree, alignment, isGrid, nodeH],
   );
+  const marriageLabel = useMemo(() => {
+    if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
+    const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
+    return (node: TreeNode) =>
+      display.privacyLiving && node.living ? undefined : formatMarriage(node.marriage, fields);
+  }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
-    () => (laid ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH) : undefined),
-    [laid, alignment, isGrid, nodeH],
+    () =>
+      laid
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
+        : undefined,
+    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
@@ -233,8 +243,10 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
     (activeLaid.width * zoom > viewport.width + 1 || activeLaid.height * zoom > viewport.height + 1);
   const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
 
+  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart".
+  const chartKind = `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
   // Shared title for the SVG / PDF export header.
-  const editTreeTitle = [tree?.name, tree?.years, "—", t("edit.tree.title")].filter(Boolean).join(" ");
+  const editTreeTitle = [tree?.name, tree?.years, "—", chartKind].filter(Boolean).join(" ");
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -253,10 +265,10 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
               {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
               <span className="tree-title-break" aria-hidden="true" />
               {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
-              <span className="tree-title-kind">{t("edit.tree.title")}</span>
+              <span className="tree-title-kind">{chartKind}</span>
             </>
           ) : (
-            t("edit.tree.title")
+            chartKind
           )}
         </h2>
         <ChartSettings />
@@ -368,6 +380,21 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                     d={e.d}
                   />
                 ))}
+                {flat.edges.map(
+                  (e) =>
+                    e.label && (
+                      <text
+                        key={`${e.id}-m`}
+                        className="tree-edge-label gm-data"
+                        x={e.label.x}
+                        y={e.label.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                      >
+                        {e.label.text}
+                      </text>
+                    ),
+                )}
                 {flat.nodes.map((n) => {
                   const color = colorOf(n);
                   const modified = isModified(n);

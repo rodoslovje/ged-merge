@@ -37,7 +37,7 @@ import {
   type Flat,
   type Placed,
 } from "../tree/treeLayout";
-import { nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
+import { formatMarriage, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { TreeMinimap } from "./TreeMinimap";
 import { ZoomControls } from "./ZoomControls";
@@ -241,9 +241,18 @@ export function CompareTree({
     () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
     [tree, alignment, isGrid, nodeH],
   );
+  const marriageLabel = useMemo(() => {
+    if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
+    const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
+    return (node: TreeNode) =>
+      display.privacyLiving && node.living ? undefined : formatMarriage(node.marriage, fields);
+  }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
-    () => (laid ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH) : undefined),
-    [laid, alignment, isGrid, nodeH],
+    () =>
+      laid
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
+        : undefined,
+    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // A radial chart only draws ancestors; force the mode so the toggle reflects it.
@@ -601,6 +610,21 @@ function TreeSvg({
             d={e.d}
           />
         ))}
+        {edges.map(
+          (e) =>
+            e.label && (
+              <text
+                key={`${e.id}-m`}
+                className="tree-edge-label gm-data"
+                x={e.label.x}
+                y={e.label.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                {e.label.text}
+              </text>
+            ),
+        )}
         {nodes.map((n) => {
           const dec = decisionOf(n);
           const modified = modifiedOf(n);

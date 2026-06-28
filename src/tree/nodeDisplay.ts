@@ -14,6 +14,10 @@ export interface NodeDisplayOptions {
   showPhoto: boolean;
   showLifespan: boolean;
   showPlace: boolean;
+  /** Show the marriage year on the couple's connector / fan collar. */
+  showMarriageDate: boolean;
+  /** Show the marriage place on the couple's connector / fan collar. */
+  showMarriagePlace: boolean;
   privacyLiving: boolean;
 }
 
@@ -23,8 +27,34 @@ export const ALL_DISPLAY: NodeDisplayOptions = {
   showPhoto: true,
   showLifespan: true,
   showPlace: true,
+  showMarriageDate: true,
+  showMarriagePlace: true,
   privacyLiving: false,
 };
+
+/** Marriage glyph (U+26AD) — language-neutral, prefixed on every marriage label. */
+export const MARRIAGE_SYMBOL = "⚭";
+
+/** Which marriage fields to include — the two independent Marriage toggles. */
+export interface MarriageFields {
+  date: boolean;
+  place: boolean;
+}
+
+/**
+ * The connector label for a marriage: `⚭ <year>, <place>` — the year (when `date`)
+ * and place (when `place`), joined. Returns undefined when nothing is selected or
+ * recorded, so callers render nothing.
+ */
+export function formatMarriage(
+  marriage: { year?: string; place?: string } | undefined,
+  fields: MarriageFields,
+): string | undefined {
+  if (!marriage) return undefined;
+  const parts = [fields.date ? marriage.year : undefined, fields.place ? marriage.place : undefined].filter(Boolean);
+  if (!parts.length) return undefined;
+  return `${MARRIAGE_SYMBOL} ${parts.join(" ")}`;
+}
 
 /** Place events tried in order — show the first one that records a place. */
 const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;

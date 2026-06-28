@@ -71,6 +71,9 @@ const TREE = `0 HEAD
 1 WIFE @I5@
 1 CHIL @I2@
 1 CHIL @I6@
+1 MARR
+2 DATE 1800
+2 PLAC Kranj, Slovenija
 0 @F3@ FAM
 1 HUSB @I6@
 1 WIFE @I7@
@@ -131,5 +134,15 @@ describe("relationshipChartLayout", () => {
     // Spouse link (I1~I9) + couple link (I10~I11) = 2 partner lines; 1 parent drop.
     expect(chart.links.filter((l) => l.kind === "partner")).toHaveLength(2);
     expect(chart.links.filter((l) => l.kind === "parent")).toHaveLength(1);
+  });
+
+  it("carries the couple's marriage (year + place) on the partner link", () => {
+    const chart = buildRelationshipChart(ds, bloodPath(ds, "@I1@", "@I8@")!);
+    // The common-ancestor couple (I4/I5) records a MARR; their partner line gets it.
+    const link = chart.links.find((l) => l.id === "p~@I4@~@I5@")!;
+    expect(link.marriage).toEqual({ year: "1800", place: "Kranj" });
+    expect(link.mid).toBeDefined();
+    // A couple with no MARR (I2/I3) leaves the link's marriage undefined.
+    expect(chart.links.find((l) => l.id === "p~@I2@~@I3@")!.marriage).toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
-import type { Dataset, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, Individual, Sex } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { localityParts } from "../gedcom/place";
 import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
@@ -40,6 +41,17 @@ export interface TreeNode {
   children: TreeNode[];
   /** Spouses, shown beside the person in descendant mode (empty for ancestors). */
   partners: TreeNode[];
+  /** Marriage drawn at this node's connector: in descendant mode the person's own
+   *  union (on the partner line); in ancestor mode the marriage of this node's two
+   *  parents (the fan collar between its parent segments). Absent when unrecorded. */
+  marriage?: MarriageInfo;
+}
+
+/** A marriage's display fields — already reduced to a year and most-specific
+ *  locality, like a person's lifespan/place. Either may be absent. */
+export interface MarriageInfo {
+  year?: string;
+  place?: string;
 }
 
 export interface MatchMaps {
@@ -98,6 +110,10 @@ export function buildCompareTree(
     seen.add(key);
     if (mode === "ancestors") {
       node.children = parents(master, incoming, masterDs, compareDs, build);
+      // The marriage of this person's parents — drawn as the fan collar between
+      // their two segments. Prefer the master side, else the incoming side.
+      node.marriage =
+        parentsMarriage(master, masterDs) ?? parentsMarriage(incoming, compareDs);
     } else {
       const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build, placeFmt);
       node.partners = partners;
@@ -128,10 +144,12 @@ function parents(
   return out;
 }
 
-/** One marriage/family of a person: the spouse (if any) and that union's children. */
+/** One marriage/family of a person: the spouse (if any), that union's children,
+ *  and the family record (carrying the MARR event). */
 interface Union {
   partner?: Individual;
   children: Individual[];
+  fam: Family;
 }
 
 function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
@@ -145,9 +163,37 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
     const children = fam.children
       .map((cid) => ds.individuals.get(cid))
       .filter((c): c is Individual => c !== undefined);
-    unions.push({ partner, children });
+    unions.push({ partner, children, fam });
   }
   return unions;
+}
+
+/** The marriage display fields (year + most-specific locality) of a family's MARR
+ *  event, or undefined when the family has neither recorded. */
+function marriageOf(fam: Family | undefined): MarriageInfo | undefined {
+  if (!fam) return undefined;
+  const marr = fam.events.find((e) => e.tag === "MARR");
+  if (!marr) return undefined;
+  const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
+  const place = marr.place ? localityParts(marr.place)[0] : undefined;
+  if (!year && !place) return undefined;
+  return { year, place };
+}
+
+/** The marriage of `indi`'s parents — the MARR of the family in which `indi` is a
+ *  child that holds the same father/mother shown by {@link firstParent} (else the
+ *  first FAMC family). Undefined when no such family records a marriage. */
+function parentsMarriage(indi: Individual | undefined, ds: Dataset): MarriageInfo | undefined {
+  if (!indi) return undefined;
+  const father = firstParent(indi, ds, "husband");
+  const mother = firstParent(indi, ds, "wife");
+  const fams = indi.childOf.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
+  const match = fams.find(
+    (f) =>
+      (!father || f.husband === father.id || f.wife === father.id) &&
+      (!mother || f.husband === mother.id || f.wife === mother.id),
+  );
+  return marriageOf(match ?? fams[0]);
 }
 
 /**
@@ -177,10 +223,13 @@ function descend(
     mPartner: Individual | undefined,
     iPartner: Individual | undefined,
     children: TreeNode[],
+    fam: Family | undefined,
   ) => {
     if (mPartner || iPartner) {
       const node = makeNode(t, nodeKey(mPartner, iPartner), mPartner, iPartner, masterDs, compareDs, placeFmt);
       node.children = children;
+      // The marriage belongs to this union — drawn on the person↔spouse line.
+      node.marriage = marriageOf(fam);
       partners.push(node);
     } else {
       directChildren.push(...children);
@@ -200,12 +249,12 @@ function descend(
     }
     const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
     if (iIndex >= 0) usedIncoming.add(iIndex);
-    emit(mu.partner, iu?.partner, pairChildren(mu.children, iu?.children ?? [], maps, build));
+    emit(mu.partner, iu?.partner, pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam);
   }
 
   incomingUnions.forEach((iu, idx) => {
     if (usedIncoming.has(idx)) return;
-    emit(undefined, iu.partner, pairChildren([], iu.children, maps, build));
+    emit(undefined, iu.partner, pairChildren([], iu.children, maps, build), iu.fam);
   });
 
   return { partners, directChildren };

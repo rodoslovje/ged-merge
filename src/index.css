@@ -3415,14 +3415,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke: var(--muted);
   stroke-dasharray: 3 3;
 }
+/* Marriage label riding the partner connector — small muted text with a panel
+   halo (paint-order stroke) so it stays readable where it crosses the line. */
+.tree-edge-label {
+  fill: var(--muted);
+  font-size: 11px;
+  stroke: var(--panel);
+  stroke-width: 3;
+  paint-order: stroke;
+}
 /* Relationship chart: orthogonal connectors (top-down pedigree). */
 .relchart-edge {
   fill: none;
   stroke: var(--border-2);
   stroke-width: 1.5;
 }
+/* Partner (marriage) links are dashed; blood (parent→child) links stay solid —
+   the same convention the tree / grid use. */
 .relchart-edge-partner {
   stroke: var(--muted);
+  stroke-dasharray: 3 3;
 }
 .relchart-edge-parent {
   stroke: var(--border-2);
@@ -3549,6 +3561,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    the class so the attribute wins. */
 .fan-label-name { fill: var(--text); font-weight: 600; }
 .fan-label-year { fill: var(--muted); }
+/* Marriage collar: a thin tinted band in the reserved lane between a couple and
+   their child, with muted year / place text centred on it. */
+.fan-marriage-band {
+  fill: color-mix(in srgb, var(--muted) 14%, var(--panel));
+  stroke: color-mix(in srgb, var(--muted) 30%, var(--panel));
+  stroke-width: 0.5;
+}
+.fan-marriage { fill: var(--muted); }
 .fan-badge { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
 
 /* selected-person compare table (top-right overlay) */

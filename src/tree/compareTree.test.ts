@@ -167,3 +167,38 @@ describe("buildCompareTree (descendants)", () => {
     expect(root.partners).toHaveLength(0);
   });
 });
+
+describe("buildCompareTree (marriage)", () => {
+  // A child and its two married parents (family records a MARR date + place).
+  const MARR = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Anton /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@\n1 MARR\n2 DATE 12 JAN 1900\n2 PLAC Kranj, Slovenija\n",
+  );
+  const ds = dataset(MARR);
+  const emptyMaps = { masterToCompare: new Map(), compareToMaster: new Map() };
+
+  it("attaches the parents' marriage to the child node (ancestor mode)", () => {
+    const root = buildCompareTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
+    expect(root.marriage).toEqual({ year: "1900", place: "Kranj" });
+  });
+
+  it("attaches the union's marriage to the partner node (descendant mode)", () => {
+    const root = buildCompareTree(tr, ds.individuals.get("@I2@"), undefined, ds, ds, emptyMaps, "descendants")!;
+    const spouse = root.partners.find((p) => p.name === "Marija Novak")!;
+    expect(spouse.marriage).toEqual({ year: "1900", place: "Kranj" });
+  });
+
+  it("leaves marriage undefined when the family records no MARR", () => {
+    const noMarr = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME A /B/\n1 SEX M\n1 FAMC @F1@\n" +
+          "0 @I2@ INDI\n1 NAME C /B/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I2@\n1 CHIL @I1@\n",
+      ),
+    );
+    const root = buildCompareTree(tr, noMarr.individuals.get("@I1@"), undefined, noMarr, noMarr, emptyMaps, "ancestors")!;
+    expect(root.marriage).toBeUndefined();
+  });
+});

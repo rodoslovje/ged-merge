@@ -101,6 +101,41 @@ describe("layout alignment", () => {
     expect(flatten(layout(root(), "lr").root, "lr").edges).toHaveLength(2);
     expect(flatten(layout(root(), "tb").root, "tb").edges).toHaveLength(2);
   });
+
+  it("labels the partner connector with the marriage when requested", () => {
+    const spouse = node("spouse");
+    spouse.marriage = { year: "1900", place: "Ljubljana" };
+    const couple = () => node("person", [], [spouse]);
+    const label = (n: TreeNode) => (n.marriage ? `⚭ ${n.marriage.year}` : undefined);
+
+    const partnerEdge = flatten(layout(couple(), "lr").root, "lr", "curve", NODE_H, label).edges.find(
+      (e) => e.partner,
+    )!;
+    expect(partnerEdge.label?.text).toBe("⚭ 1900");
+    // The label rides the connector at the boxes' horizontal centre in LR.
+    expect(partnerEdge.label?.x).toBe(NODE_W / 2);
+
+    // No callback → no label.
+    const plain = flatten(layout(couple(), "lr").root, "lr").edges.find((e) => e.partner)!;
+    expect(plain.label).toBeUndefined();
+  });
+
+  it("brackets the two parents with the marriage label in ancestor mode", () => {
+    // Ancestor: child whose marriage = its parents' union.
+    const child = node("child", [node("father"), node("mother")]);
+    child.marriage = { year: "1900", place: "Ljubljana" };
+    const label = (n: TreeNode) => (n.marriage ? `⚭ ${n.marriage.year}` : undefined);
+
+    const { edges } = flatten(layout(child, "lr").root, "lr", "curve", NODE_H, label, true);
+    const bracket = edges.find((e) => e.id.endsWith("=m"))!;
+    expect(bracket.partner).toBe(true);
+    expect(bracket.label?.text).toBe("⚭ 1900");
+    expect(bracket.d).toMatch(/^M/); // a real line between the two parents
+
+    // Without the ancestor flag there's no bracket (descendant treatment only).
+    const desc = flatten(layout(child, "lr").root, "lr", "curve", NODE_H, label, false);
+    expect(desc.edges.some((e) => e.id.endsWith("=m"))).toBe(false);
+  });
 });
 
 describe("grid layout", () => {

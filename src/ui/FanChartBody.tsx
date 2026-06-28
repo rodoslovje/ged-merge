@@ -70,6 +70,9 @@ export function FanChartBody({
               {seg.lines.map((l, i) => l.arc && <path key={i} id={arcId(seg, i)} d={l.arc} />)}
             </g>
           ))}
+          {chart.marriages.map((m, i) =>
+            m.lines.map((l, j) => <path key={`${m.key}-${j}`} id={`fm-${i}-${j}`} d={l.arc} />),
+          )}
         </defs>
         {chart.segments.map((seg) => (
           <Segment
@@ -86,6 +89,25 @@ export function FanChartBody({
             badge={badgeOf?.(seg.node)}
           />
         ))}
+        {/* Marriage collars: a thin band in the reserved lane between each couple
+            and their child, with the year / place centred on it. */}
+        {chart.marriages.map((m) => (
+          <path key={m.key} className="fan-marriage-band" d={m.d} />
+        ))}
+        {chart.marriages.map((m, i) =>
+          m.lines.map((l, j) => (
+            <text
+              key={`${m.key}-${j}`}
+              className="fan-marriage gm-data"
+              fontSize={m.fontPx}
+              dominantBaseline="middle"
+            >
+              <textPath href={`#fm-${i}-${j}`} startOffset="50%" textAnchor="middle">
+                {l.text}
+              </textPath>
+            </text>
+          )),
+        )}
       </g>
     </svg>
   );

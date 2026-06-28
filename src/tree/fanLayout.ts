@@ -17,7 +17,7 @@
 
 import { PAD } from "./treeLayout";
 import type { TreeNode } from "./compareTree";
-import { ALL_DISPLAY, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";
 
@@ -39,6 +39,13 @@ const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 
 const DEFAULT_MAX_GEN = 10;
 const DEFAULT_PHOTO_RINGS = 3;
+// A dedicated thin "collar" ring reserved between generations for the marriage
+// label (only when a marriage field is shown). The couple's collar sits at the
+// inner edge of their (the parents') ring, centred under husband + wife.
+const COLLAR_W = 26;
+// From this couple-generation the collar's narrow arc can't hold "year, place" on
+// one line, so the year and place stack on two concentric lines instead.
+const MARRIAGE_TWO_LINE_FROM = 6;
 // The deep, narrow rings can't fit every line: from this generation the place is
 // dropped (capping the label at two lines — the name plus the lifespan)…
 const TWO_LINE_FROM = 7;
@@ -87,8 +94,23 @@ export interface FanSegment {
   badge: { x: number; y: number };
 }
 
+/** A marriage "collar": a curved label riding the ring boundary between a child's
+ *  wedge and its two parents' segments (so it sits centred under the couple). */
+export interface FanMarriage {
+  /** Unique by the child's position (`m:gen:slot`). */
+  key: string;
+  /** Thin collar band (annular sector) spanning the couple, filled behind the text. */
+  d: string;
+  /** One or two curved label lines (deep rings stack the year over the place), each
+   *  a `<textPath>` baseline + its text. */
+  lines: { text: string; arc: string }[];
+  fontPx: number;
+}
+
 export interface FanChart {
   segments: FanSegment[];
+  /** Marriage collars, one per couple whose marriage is recorded (when enabled). */
+  marriages: FanMarriage[];
   cx: number;
   cy: number;
   r0: number;
@@ -193,9 +215,14 @@ export function buildFanChart(
     const deepened = g > photoRings && g >= usedMaxGen - 1;
     return base + (deepened ? LAST_RING_EXTRA : 0);
   };
+  // Reserve a collar lane before every ancestor ring when a marriage field is on,
+  // so each couple's label has its own band between them and their child.
+  const showMarriage = display.showMarriageDate || display.showMarriagePlace;
+  const collarW = showMarriage ? COLLAR_W : 0;
   const rInnerOf: number[] = [0];
   let acc = ROOT_R;
   for (let g = 1; g <= maxGen; g++) {
+    acc += collarW;
     rInnerOf[g] = acc;
     acc += ringW(g);
   }
@@ -269,10 +296,11 @@ export function buildFanChart(
     // across the slight dip below the horizontal); a full circle flips its bottom
     // half so those labels aren't upside-down. Radial labels flip on the left half
     // so their outward-reading text stays upright.
-    const flip = curved
-      ? shape === "circle" && Math.sin(mid) > 0
-      : Math.cos(mid) < 0;
-    const photo = gen <= photoRings && hasPhoto(node) ? photoBox(cx, cy, rIn, w, delta, mid) : undefined;
+    // The circle's bottom half reads "upside down": labels flip, the line stack
+    // reverses (so the name stays visually on top), and photos rotate 180°.
+    const lowerHalf = shape === "circle" && Math.sin(mid) > 0;
+    const flip = curved ? lowerHalf : Math.cos(mid) < 0;
+    const photo = gen <= photoRings && hasPhoto(node) ? photoBox(cx, cy, rIn, w, delta, mid, lowerHalf) : undefined;
 
     const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "fontPx" | "light"> = {
       key: `${gen}:${slot}`,
@@ -307,7 +335,9 @@ export function buildFanChart(
         curved: true,
         lines: texts.map((l, i) => ({
           ...l,
-          arc: arcPath(cx, cy, centre + ((n - 1) / 2 - i) * gap, a0, a1, flip),
+          // Outermost line first; in the circle's bottom half the stack reverses so
+          // the name still ends up visually on top.
+          arc: arcPath(cx, cy, centre + (flip ? -1 : 1) * ((n - 1) / 2 - i) * gap, a0, a1, flip),
         })),
       };
     }
@@ -335,8 +365,77 @@ export function buildFanChart(
     };
   });
 
+  // Marriage collars: a thin band in the reserved lane just inside each couple's
+  // (the parents') ring, centred under husband + wife. Drawn only when a marriage
+  // field is shown and the child's parents occupy the next ring. The place drops
+  // when it won't fit, and the whole label is skipped if even the year overflows.
+  const marriages: FanMarriage[] = [];
+  if (showMarriage) {
+    for (const { node, gen, slot } of placed) {
+      // A band is drawn under every couple that has a parent ring above them, even
+      // with no recorded marriage (a gray placeholder); the year / place is added
+      // on top only when recorded, not redacted, and it fits the arc.
+      if (node.children.length === 0 || gen >= maxGen || gen + 1 > usedMaxGen) continue;
+      const delta = sweep / 2 ** gen;
+      const a0 = start + slot * delta;
+      const a1 = a0 + delta;
+      const mid = (a0 + a1) / 2;
+      // The collar lane sits at the inner edge of the parents' ring.
+      const rOut = rInnerOf[gen + 1];
+      const rIn = rOut - collarW;
+      const rMid = (rIn + rOut) / 2;
+      const parentGen = gen + 1;
+      const baseFont = FONT_BY_GEN[Math.min(parentGen, FONT_BY_GEN.length - 1)] ?? 6.5;
+      const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
+      // A full circle flips its bottom half so the label isn't upside-down.
+      const flip = shape === "circle" && Math.sin(mid) > 0;
+      // The root's-parents collar in a circle spans the whole 360°, where a0 ≡ a1
+      // and a normal sector/arc degenerates — draw a full ring + full-circle baseline.
+      const full = a1 - a0 >= TAU - 1e-6;
+      const overflows = (s: string, font: number, r: number) => s.length * font * 0.5 > r * delta;
+      const lineAt = (text: string, r: number) => ({
+        text,
+        arc: full ? circleBaseline(cx, cy, r) : arcPath(cx, cy, r, a0, a1, flip),
+      });
+
+      let lines: { text: string; arc: string }[] = [];
+      let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
+
+      if (node.marriage && !(display.privacyLiving && node.living)) {
+        const { year, place } = node.marriage;
+        // Deep rings stack the year over the place on two concentric lines (the arc
+        // is too short for one line) when both are selected and recorded.
+        if (parentGen >= MARRIAGE_TWO_LINE_FROM && fields.date && fields.place && year && place) {
+          const twoFont = round(Math.min(baseFont * 0.82, collarW * 0.4));
+          const gap = twoFont * 1.08;
+          const dateText = formatMarriage(node.marriage, { date: true, place: false })!;
+          if (!overflows(dateText, twoFont, rMid + gap / 2) && !overflows(place, twoFont, rMid - gap / 2)) {
+            fontPx = twoFont;
+            // Date outer, place inner — reversed in the circle's bottom half so the
+            // date stays visually on top.
+            const ord = flip ? -1 : 1;
+            lines = [lineAt(dateText, rMid + (ord * gap) / 2), lineAt(place, rMid - (ord * gap) / 2)];
+          }
+        }
+        // Otherwise one line; if "year, place" won't fit, fall back to the date
+        // alone (when shown), else leave the band as a bare placeholder.
+        if (!lines.length) {
+          let text = formatMarriage(node.marriage, fields);
+          if (text && overflows(text, fontPx, rMid) && fields.date && fields.place) {
+            text = formatMarriage(node.marriage, { date: true, place: false });
+          }
+          if (text && !overflows(text, fontPx, rMid)) lines = [lineAt(text, rMid)];
+        }
+      }
+
+      const d = full ? donutPath(cx, cy, rIn, rOut) : sectorPath(cx, cy, rIn, rOut, a0, a1);
+      marriages.push({ key: `m:${gen}:${slot}`, d, lines, fontPx });
+    }
+  }
+
   return {
     segments,
+    marriages,
     cx,
     cy,
     r0: ROOT_R,
@@ -405,15 +504,16 @@ function photoBox(
   width: number,
   delta: number,
   mid: number,
+  lowerHalf: boolean,
 ): { size: number; cx: number; cy: number; rot: number } | undefined {
   const rGuess = rIn + width * 0.26;
   const arc = rGuess * delta;
   const size = Math.min(width * 0.38, arc * 0.7, 46);
   if (size < 24) return undefined;
   const rPhoto = rIn + size / 2 + 8;
-  // Bottom edge along the arc tangent → top points outward (never upside-down on
-  // the upward fan, at worst sideways near the rim).
-  const rot = ((((mid * 180) / Math.PI + 90) % 360) + 360) % 360;
+  // Bottom edge along the arc tangent → top points outward. In the circle's bottom
+  // half that would land upside-down, so rotate a further 180° to keep it upright.
+  const rot = (((((mid * 180) / Math.PI + 90 + (lowerHalf ? 180 : 0)) % 360) + 360) % 360);
   return {
     size: round(size),
     cx: round(cx + rPhoto * Math.cos(mid)),
@@ -426,9 +526,12 @@ function photoBox(
  *  vertical: left→right on the right half, reversed on the left half. */
 function arcPath(cx: number, cy: number, r: number, a0: number, a1: number, flip: boolean): string {
   const pt = (a: number) => `${round(cx + r * Math.cos(a))},${round(cy + r * Math.sin(a))}`;
+  // Large-arc flag must follow the span: the root's-parents collar wraps the whole
+  // sweep (>180°), where a hardcoded 0 would draw the minor arc through the notch.
+  const large = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
   return flip
-    ? `M${pt(a1)} A${round(r)},${round(r)} 0 0 0 ${pt(a0)}`
-    : `M${pt(a0)} A${round(r)},${round(r)} 0 0 1 ${pt(a1)}`;
+    ? `M${pt(a1)} A${round(r)},${round(r)} 0 ${large} 0 ${pt(a0)}`
+    : `M${pt(a0)} A${round(r)},${round(r)} 0 ${large} 1 ${pt(a1)}`;
 }
 
 /** Annular sector between two radii and two angles (PAD-relative coords). */
@@ -448,6 +551,26 @@ function circlePath(cx: number, cy: number, r: number): string {
     `A${round(r)},${round(r)} 0 1 1 ${round(cx + r)},${round(cy)} ` +
     `A${round(r)},${round(r)} 0 1 1 ${round(cx - r)},${round(cy)} Z`
   );
+}
+
+/** A full-circle text baseline starting at the bottom and running clockwise, so a
+ *  `<textPath>` at 50% lands centred at the top (the circle chart's root collar). */
+function circleBaseline(cx: number, cy: number, r: number): string {
+  return (
+    `M${round(cx)},${round(cy + r)} ` +
+    `A${round(r)},${round(r)} 0 1 1 ${round(cx)},${round(cy - r)} ` +
+    `A${round(r)},${round(r)} 0 1 1 ${round(cx)},${round(cy + r)}`
+  );
+}
+
+/** A full annular ring (donut) between two radii — the circle chart's root collar
+ *  band. Outer circle clockwise, inner counter-clockwise, so the hole is cut out. */
+function donutPath(cx: number, cy: number, rIn: number, rOut: number): string {
+  const ring = (r: number, sweep: 0 | 1) =>
+    `M${round(cx - r)},${round(cy)} ` +
+    `A${round(r)},${round(r)} 0 1 ${sweep} ${round(cx + r)},${round(cy)} ` +
+    `A${round(r)},${round(r)} 0 1 ${sweep} ${round(cx - r)},${round(cy)} Z`;
+  return `${ring(rOut, 1)} ${ring(rIn, 0)}`;
 }
 
 function round(n: number): number {

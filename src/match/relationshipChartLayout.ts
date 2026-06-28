@@ -12,7 +12,9 @@
 import type { Dataset, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "../tree/treeLayout";
+import { localityParts } from "../gedcom/place";
 import { displayName, primaryName } from "./relatives";
+import type { MarriageInfo } from "../tree/compareTree";
 import type { RelationshipPath } from "./relationshipPath";
 
 export const ROW_GAP_TD = 72;
@@ -38,6 +40,10 @@ export interface ChartLink {
   id: string;
   d: string;
   kind: "partner" | "parent";
+  /** The couple's marriage (year + place), on partner links when recorded. */
+  marriage?: MarriageInfo;
+  /** Label anchor (connector midpoint) for the marriage label. */
+  mid?: { x: number; y: number };
 }
 
 export interface RelationshipChart {
@@ -173,7 +179,13 @@ export function buildRelationshipChart(
     const d = lr
       ? `M${cLo.x + NODE_W / 2},${cLo.y + nodeH} V${cHi.y}`
       : `M${cLo.x + NODE_W},${cLo.y + nodeH / 2} H${cHi.x}`;
-    links.push({ id: `p~${key}`, d, kind: "partner" });
+    // Label anchor: LR stacks the couple vertically, so the gap between them has
+    // room — sit on the connector. TB places them side by side with only a narrow
+    // column gap, so drop the label just under the couple where it has space.
+    const mid = lr
+      ? { x: cLo.x + NODE_W / 2, y: (cLo.y + nodeH + cHi.y) / 2 }
+      : { x: (cLo.x + cHi.x + NODE_W) / 2, y: cLo.y + nodeH + 13 };
+    links.push({ id: `p~${key}`, d, kind: "partner", marriage: coupleMarriage(ds, a, b), mid });
   };
   for (const [a, b] of partners) addPartner(a, b);
   for (const childId of dropChildren) {
@@ -187,6 +199,23 @@ export function buildRelationshipChart(
   const width = Math.max(0, ...boxes.map((b) => b.x + NODE_W)) + PAD * 2;
   const height = Math.max(0, ...boxes.map((b) => b.y + nodeH)) + PAD * 2;
   return { boxes, links, width, height, rootKey: steps[0].id };
+}
+
+/** The marriage of the couple `a`+`b` — the year + most-specific locality of the
+ *  MARR event in the family where they are spouses together, if recorded. */
+function coupleMarriage(ds: Dataset, a: string, b: string): MarriageInfo | undefined {
+  const indi = ds.individuals.get(a);
+  if (!indi) return undefined;
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam || (fam.husband !== b && fam.wife !== b)) continue;
+    const marr = fam.events.find((e) => e.tag === "MARR");
+    if (!marr) return undefined;
+    const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
+    const place = marr.place ? localityParts(marr.place)[0] : undefined;
+    return year || place ? { year, place } : undefined;
+  }
+  return undefined;
 }
 
 /** The child's parent that *isn't* the one on the path, if recorded. */

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
-import { placeLabel } from "../tree/nodeDisplay";
+import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { kinshipLabel } from "../match/kinship";
 import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
@@ -91,6 +91,11 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   const settings = useChartSettings().settings;
   const { alignment } = settings;
   const nodeH = nodeHeight(settings);
+  // Marriage label fields, when either toggle is on (else no labels are drawn).
+  const marriageFields =
+    settings.showMarriageDate || settings.showMarriagePlace
+      ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
+      : undefined;
   const livingLabel = t("tree.node.living");
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
@@ -164,7 +169,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           {kinship && <span className="tree-title-kinship">{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </h2>
-        <ChartSettings />
+        <ChartSettings lockedType="tree" />
         <button
           className="tree-open-btn tree-export-btn"
           onClick={() => exportCanvasSvg(
@@ -239,6 +244,22 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                 {chart.links.map((e) => (
                   <path key={e.id} className={`relchart-edge relchart-edge-${e.kind}`} d={e.d} />
                 ))}
+                {marriageFields &&
+                  chart.links.map((e) => {
+                    const text = e.mid && formatMarriage(e.marriage, marriageFields);
+                    return text && e.mid ? (
+                      <text
+                        key={`${e.id}-m`}
+                        className="tree-edge-label gm-data"
+                        x={e.mid.x}
+                        y={e.mid.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                      >
+                        {text}
+                      </text>
+                    ) : null;
+                  })}
                 {chart.boxes.map((b) => {
                   const color = b.onSpine ? COLOR_SPINE : COLOR_CONTEXT;
                   const indi = masterDs.individuals.get(b.id);
