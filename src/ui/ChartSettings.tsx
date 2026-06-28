@@ -4,9 +4,10 @@ import { GearIcon } from "./icons/GearIcon";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type ChartType } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
-// that opens a small popover for the diagram Type (only "tree" enabled for now)
-// and the Tree alignment (left→right / top→bottom). The settings themselves are
-// shared + persisted by ChartSettingsContext, so this is pure UI.
+// that opens a small popover for the diagram Type (tree / grid / fan / circle),
+// the Tree alignment (left→right / top→bottom), and the per-person / marriage /
+// privacy display toggles. The settings themselves are shared + persisted by
+// ChartSettingsContext, so this is pure UI.
 
 /** Diagram types in button order. Fan/Circle are radial ancestor charts. */
 const TYPES: { key: ChartType; enabled: boolean }[] = [

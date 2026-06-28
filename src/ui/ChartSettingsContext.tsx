@@ -6,10 +6,9 @@ import type { ChartAlignment } from "../tree/treeLayout";
 // applies live everywhere; the choice is saved to localStorage so it sticks
 // across sessions.
 
-/** Diagram rendering style. "tree" (tidy layered) and "grid" (aligned columns —
- *  a pedigree grid for ancestors, an indented outline for descendants) are both
- *  implemented; "fan"/"circle" (radial, curved-text segments) are a planned
- *  follow-up phase and stay disabled for now. */
+/** Diagram rendering style. "tree" (tidy layered), "grid" (aligned columns —
+ *  a pedigree grid for ancestors, an indented outline for descendants), and
+ *  "fan"/"circle" (radial, curved-text ancestor charts) are all implemented. */
 export type ChartType = "tree" | "grid" | "fan" | "circle";
 
 export type { ChartAlignment };

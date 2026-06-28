@@ -346,10 +346,30 @@
               <li><strong>Relationship</strong> (<span class="gm-key">S</span>) traces how the selected person is related to your <a href="#home-person">start person</a> (§6) — it needs a start person set and a different person selected. The diagram lays out the chain of relatives between the two, labelled with the exact kinship (e.g. <em>2nd cousin once removed</em>). When more than one route exists, the <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
             </ul>
             <p>
-              Every diagram — the family tree, the relationship diagram and the Merge <a href="#merge">Compare Tree</a> —
-              carries <strong>SVG</strong> and <strong>PDF</strong> buttons in its toolbar. <strong>SVG</strong> downloads
-              a sharp, infinitely scalable image of the diagram; <strong>PDF</strong> opens your browser's print dialog,
-              where you choose <em>Save as PDF</em>. Large diagrams show an overview minimap — drag the canvas to pan.
+              The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear) in any diagram toolbar opens a
+              settings panel that controls how the diagram looks. Your choices are remembered across sessions and apply to
+              every diagram at once:
+            </p>
+            <ul>
+              <li><strong>Type</strong> — switch between four styles. <em>Tree</em> is the tidy layered family tree;
+                <em>Grid</em> aligns generations into columns (a pedigree grid for ancestors, an indented outline for
+                descendants); <em>Fan</em> and <em>Circle</em> are radial ancestor charts that fan the generations out in
+                curved rings. (The relationship diagram is always a tree.)</li>
+              <li><strong>Alignment</strong> (tree only) — lay the tree out <em>Left → Right</em> or <em>Top → Bottom</em>.</li>
+              <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em> (birth–death years),
+                <em>Place</em>, <em>Photo</em> (when a media folder is loaded) and <em>Kinship</em> (the relationship label
+                to your start person; not drawn on fan / circle charts).</li>
+              <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
+                connector (on the fan / circle charts these appear on the collar). Both are off by default.</li>
+              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing only
+                their relationship or “Living” (see <a href="#privacy">§19</a>) so the diagram is safe to share.</li>
+            </ul>
+            <p>
+              Use the <strong>zoom controls</strong> to zoom in and out, reset to 100%, or fit the whole diagram to the
+              screen; large diagrams also show an overview minimap — drag the canvas to pan. Every diagram carries
+              <strong>SVG</strong> and <strong>PDF</strong> buttons in its toolbar. <strong>SVG</strong> downloads a sharp,
+              infinitely scalable image of the diagram; <strong>PDF</strong> opens your browser's print dialog, where you
+              choose <em>Save as PDF</em>.
             </p>
             <h3>Names &amp; identity</h3>
             <p>
@@ -473,8 +493,8 @@
               <span class="gm-swatch master"></span> master only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
-              into your master on save. An overview minimap helps you navigate large trees, and the
-              <strong>SVG</strong> / <strong>PDF</strong> buttons export the diagram just like the other charts
+              into your master on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
+              <strong>SVG</strong> / <strong>PDF</strong> export all work here just like the other diagrams
               (see <a href="#edit">§9</a>).
             </p>
             <h3>Merging</h3>
