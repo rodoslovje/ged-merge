@@ -144,6 +144,8 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
+  "pedigreeLoop",
+  "roleSexConflict",
   "deathBeforeBirth",
   "ageAtDeath",
   "ageAtMarriage",

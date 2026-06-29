@@ -29,6 +29,8 @@ export type IssueScope = "individual" | "family";
 
 export type IssueCategory =
   | "brokenLink"
+  | "pedigreeLoop"
+  | "roleSexConflict"
   | "missingSex"
   | "missingName"
   | "missingVitals"
@@ -66,6 +68,8 @@ export interface ValidationReport {
 
 const EMPTY_COUNTS: Record<IssueCategory, number> = {
   brokenLink: 0,
+  pedigreeLoop: 0,
+  roleSexConflict: 0,
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
@@ -99,6 +103,66 @@ function maxEventYear(indi: Individual): number | undefined {
   return max;
 }
 
+/**
+ * Find every individual who is their own ancestor — a FAMC cycle in the
+ * parent graph (A is a child of B, who descends from A). This is genuine
+ * corruption: it makes ancestor walks (pedigree, completeness, kinship) loop
+ * forever, so it's an error, not a warning.
+ *
+ * Iterative depth-first search with on-path (gray) colouring so a deeply or
+ * pathologically linked file can't blow the call stack. When a parent edge
+ * points back to a node still on the current path, every node between that
+ * node and the current tip lies on the cycle and is flagged. Returns the set
+ * of all individual ids that participate in at least one loop.
+ */
+function findPedigreeLoops(ds: Dataset): Set<string> {
+  const color = new Map<string, 1 | 2>(); // 1 = on current path, 2 = fully explored
+  const inLoop = new Set<string>();
+
+  const parentsOf = (id: string): string[] => {
+    const indi = ds.individuals.get(id);
+    if (!indi) return [];
+    const out: string[] = [];
+    for (const famId of indi.childOf) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      if (fam.husband && ds.individuals.has(fam.husband)) out.push(fam.husband);
+      if (fam.wife && ds.individuals.has(fam.wife)) out.push(fam.wife);
+    }
+    return out;
+  };
+
+  for (const startId of ds.individuals.keys()) {
+    if (color.has(startId)) continue;
+    const path: string[] = [];
+    const stack: { id: string; parents: string[]; i: number }[] = [];
+    const enter = (id: string) => {
+      color.set(id, 1);
+      path.push(id);
+      stack.push({ id, parents: parentsOf(id), i: 0 });
+    };
+    enter(startId);
+    while (stack.length) {
+      const top = stack[stack.length - 1];
+      if (top.i < top.parents.length) {
+        const next = top.parents[top.i++];
+        const c = color.get(next);
+        if (c === 1) {
+          // Back-edge to a node still on the path → cycle. Flag the whole loop.
+          for (let k = path.lastIndexOf(next); k < path.length; k++) inLoop.add(path[k]);
+        } else if (c === undefined) {
+          enter(next);
+        }
+      } else {
+        color.set(top.id, 2);
+        path.pop();
+        stack.pop();
+      }
+    }
+  }
+  return inLoop;
+}
+
 export function validateDataset(ds: Dataset, currentYear: number = new Date().getFullYear()): ValidationReport {
   const issues: ValidationIssue[] = [];
   const counts: Record<IssueCategory, number> = { ...EMPTY_COUNTS };
@@ -107,6 +171,9 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     issues.push(issue);
     counts[issue.category]++;
   };
+
+  // Self-ancestor (FAMC) cycles, computed once over the whole parent graph.
+  const pedigreeLoops = findPedigreeLoops(ds);
 
   for (const indi of ds.individuals.values()) {
     // The display subject (name + lifespan) costs two event scans and a string
@@ -160,6 +227,11 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       add("orphan", "warning", "tools.validate.issue.orphan");
     }
 
+    // Pedigree loop: this person is their own ancestor (a FAMC cycle).
+    if (pedigreeLoops.has(indi.id)) {
+      add("pedigreeLoop", "error", "tools.validate.issue.pedigreeLoop");
+    }
+
     // Broken / non-reciprocal family pointers from the individual side.
     for (const famId of indi.childOf) {
       const fam = ds.families.get(famId);
@@ -188,6 +260,26 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     const hb = birthYear(husband);
     const wb = birthYear(wife);
     const marrYear = fam.events.find((e) => e.tag === "MARR")?.date?.year;
+
+    // Role/sex contradiction: a HUSB recorded female or a WIFE recorded male.
+    // SEX U is left alone (unknown, not contradictory). Reported on the person,
+    // naming the partner they're married to (or the family if there's no partner).
+    if (husband && husband.sex === "F") {
+      push({
+        scope: "individual", id: husband.id, category: "roleSexConflict", severity: "error",
+        subject: subjectOf(husband),
+        messageKey: wife ? "tools.validate.issue.husbandFemale" : "tools.validate.issue.husbandFemaleNoSpouse",
+        messageVars: wife ? { spouse: subjectOf(wife) } : { fam: fam.id },
+      });
+    }
+    if (wife && wife.sex === "M") {
+      push({
+        scope: "individual", id: wife.id, category: "roleSexConflict", severity: "error",
+        subject: subjectOf(wife),
+        messageKey: husband ? "tools.validate.issue.wifeMale" : "tools.validate.issue.wifeMaleNoSpouse",
+        messageVars: husband ? { spouse: subjectOf(husband) } : { fam: fam.id },
+      });
+    }
 
     // Age at marriage, per spouse.
     if (marrYear !== undefined) {

@@ -114,6 +114,88 @@ describe("validateDataset", () => {
     expect(report.counts.brokenLink).toBe(broken.length);
   });
 
+  it("detects a pedigree loop (a person who is their own ancestor)", () => {
+    // I1 is a child of F2 (parent I2); I2 is a child of F1 (parent I1).
+    // So each is their own grandparent — a FAMC cycle.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F1@
+1 FAMC @F2@
+0 @I2@ INDI
+1 NAME Bo /Novak/
+1 SEX M
+1 FAMS @F2@
+1 FAMC @F1@
+0 @F1@ FAM
+1 WIFE @I1@
+1 CHIL @I2@
+0 @F2@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const loop = report.issues.filter((i) => i.category === "pedigreeLoop");
+    expect(loop.map((i) => i.id).sort()).toEqual(["@I1@", "@I2@"]);
+    expect(loop.every((i) => i.severity === "error")).toBe(true);
+    expect(report.counts.pedigreeLoop).toBe(2);
+  });
+
+  it("does not flag a normal acyclic pedigree as a loop", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Child /Novak/
+1 SEX M
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Father /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Mother /Novak/
+1 SEX F
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.pedigreeLoop).toBe(0);
+  });
+
+  it("flags sex/role contradictions (female husband, male wife)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bo /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Cita /Kos/
+1 SEX U
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I3@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const conflicts = report.issues.filter((i) => i.category === "roleSexConflict");
+    // I1 is a female husband; I2 is a male wife; I3 (SEX U) is not flagged.
+    expect(conflicts.map((i) => i.id).sort()).toEqual(["@I1@", "@I2@"]);
+    expect(conflicts.every((i) => i.severity === "error")).toBe(true);
+    expect(report.counts.roleSexConflict).toBe(2);
+  });
+
   it("reports a clean file as having no issues", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
