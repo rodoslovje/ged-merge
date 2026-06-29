@@ -1,4 +1,4 @@
-import type { Dataset, Individual } from "../gedcom/types";
+import type { Dataset, GedNode, Individual } from "../gedcom/types";
 import { birthYear, deathYear } from "../gedcom/lifespan";
 
 /**
@@ -29,6 +29,7 @@ export type IssueScope = "individual" | "family";
 
 export type IssueCategory =
   | "brokenLink"
+  | "duplicatePointer"
   | "pedigreeLoop"
   | "roleSexConflict"
   | "missingSex"
@@ -68,6 +69,7 @@ export interface ValidationReport {
 
 const EMPTY_COUNTS: Record<IssueCategory, number> = {
   brokenLink: 0,
+  duplicatePointer: 0,
   pedigreeLoop: 0,
   roleSexConflict: 0,
   missingSex: 0,
@@ -89,6 +91,21 @@ function subjectOf(indi: Individual): string {
   const dy = deathYear(indi);
   const span = by || dy ? ` (${by ?? "?"}–${dy ?? "?"})` : "";
   return `${name || indi.id}${span}`;
+}
+
+/** Pointer values listed on more than one `tag` child of `node` — a redundant
+ *  CHIL/FAMS/FAMC line repeating an xref already present (common in merged
+ *  exports). Returns each repeated value once. */
+function duplicateRefs(node: GedNode, tag: string): string[] {
+  const seen = new Set<string>();
+  const dups = new Set<string>();
+  for (const c of node.children) {
+    if (c.tag === tag && c.value) {
+      if (seen.has(c.value)) dups.add(c.value);
+      else seen.add(c.value);
+    }
+  }
+  return [...dups];
 }
 
 /** Highest event year recorded on an individual (for future-date detection). */
@@ -249,6 +266,14 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         add("brokenLink", "error", "tools.validate.issue.famsNotReciprocal", { fam: famId });
       }
     }
+
+    // Redundant pointer lines: the same family listed twice as FAMC/FAMS.
+    for (const fam of duplicateRefs(indi.raw, "FAMC")) {
+      add("duplicatePointer", "warning", "tools.validate.issue.dupFamc", { fam });
+    }
+    for (const fam of duplicateRefs(indi.raw, "FAMS")) {
+      add("duplicatePointer", "warning", "tools.validate.issue.dupFams", { fam });
+    }
   }
 
   // Age plausibility across family relationships (marriage age, parent age at a
@@ -345,6 +370,13 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       if (!ds.individuals.has(childId)) {
         add("tools.validate.issue.childMissing", { indi: childId });
       }
+    }
+    // Redundant pointer lines: the same child listed twice as CHIL.
+    for (const indiId of duplicateRefs(fam.raw, "CHIL")) {
+      push({
+        scope: "family", id: fam.id, category: "duplicatePointer", severity: "warning",
+        subject, messageKey: "tools.validate.issue.dupChil", messageVars: { indi: indiId },
+      });
     }
   }
 

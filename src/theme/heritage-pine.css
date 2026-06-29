@@ -25,6 +25,8 @@
   --faint:     #66635e;   /* NEW — tertiary / empty values     */
   --accent:    #60c09e;   /* Heritage Pine                    */
   --accent-ink:#071a13;   /* NEW — text/icon on accent fills   */
+  /* Tinted accent fill (hover rows, soft highlights); adapts to light via --accent. */
+  --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
 
   /* ---- diff status — the 5-state language ---- */
   --state-match:    #5ed99e;  /* records agree            */

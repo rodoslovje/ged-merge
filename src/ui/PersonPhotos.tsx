@@ -51,7 +51,7 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
   const { t } = useTranslation();
   // Resolved photos keep their `OBJE` child index so edit ops target the right
   // child even when some refs don't resolve (file missing from the folder).
-  const [items, setItems] = useState<{ url: string; objeIndex: number }[]>([]);
+  const [items, setItems] = useState<{ url: string; objeIndex: number; hasCrop: boolean }[]>([]);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const refs = useMemo(() => collectPhotoRefs(raw, records), [raw, records]);
@@ -66,8 +66,8 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
       if (cancelled) return;
       setItems(
         refs
-          .map((r, i) => ({ url: results[i], objeIndex: r.objeIndex }))
-          .filter((x): x is { url: string; objeIndex: number } => x.url !== null),
+          .map((r, i) => ({ url: results[i], objeIndex: r.objeIndex, hasCrop: !!r.crop }))
+          .filter((x): x is { url: string; objeIndex: number; hasCrop: boolean } => x.url !== null),
       );
     });
     return () => {
@@ -105,6 +105,11 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
             onClick={() => openPerson(raw, records, i, refCtx)}
           >
             <img src={item.url} className="person-photo-thumb" alt="" />
+            {item.hasCrop && (
+              <span className="person-photo-crop-badge" title={t("photo.cropRegion")} aria-hidden="true">
+                ⛶
+              </span>
+            )}
           </button>
           {editable && (
             <button

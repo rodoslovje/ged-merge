@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { buildObjeIndex, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor } from "./source";
+import { buildObjeIndex, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor } from "./source";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -509,5 +509,68 @@ describe("objeNodesFor", () => {
   it("caches per records-array reference (same array → same map)", () => {
     const ds = buildFromText(text);
     expect(objeNodesFor(ds.records)).toBe(objeNodesFor(ds.records));
+  });
+});
+
+describe("cropOf", () => {
+  // The crop lives on the OBJE *link* node (a `1 OBJE @x@` child of the INDI),
+  // not on the shared media record — two people crop the same photo differently.
+  function indiLink(text: string): GedNode {
+    const ds = buildFromText(text);
+    const indi = ds.records.find((r) => r.tag === "INDI")!;
+    return indi.children.find((c) => c.tag === "OBJE")!;
+  }
+
+  it("reads a full crop region from a link node", () => {
+    const link = indiLink(`0 HEAD
+0 @I1@ INDI
+1 OBJE @O1@
+2 CROP
+3 TOP 1187
+3 LEFT 1138
+3 HEIGHT 233
+3 WIDTH 412
+0 @O1@ OBJE
+1 FILE group.jpg
+0 TRLR
+`);
+    expect(cropOf(link)).toEqual({ top: 1187, left: 1138, height: 233, width: 412 });
+  });
+
+  it("defaults missing TOP/LEFT to 0", () => {
+    const link = indiLink(`0 HEAD
+0 @I1@ INDI
+1 OBJE @O1@
+2 CROP
+3 HEIGHT 233
+3 WIDTH 412
+0 @O1@ OBJE
+1 FILE group.jpg
+0 TRLR
+`);
+    expect(cropOf(link)).toEqual({ top: 0, left: 0, height: 233, width: 412 });
+  });
+
+  it("returns undefined without a CROP or without usable width/height", () => {
+    const noCrop = indiLink(`0 HEAD
+0 @I1@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE group.jpg
+0 TRLR
+`);
+    expect(cropOf(noCrop)).toBeUndefined();
+
+    const noSize = indiLink(`0 HEAD
+0 @I1@ INDI
+1 OBJE @O1@
+2 CROP
+3 TOP 10
+3 LEFT 10
+0 @O1@ OBJE
+1 FILE group.jpg
+0 TRLR
+`);
+    expect(cropOf(noSize)).toBeUndefined();
   });
 });

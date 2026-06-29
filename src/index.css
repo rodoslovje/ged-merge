@@ -1694,6 +1694,7 @@ button:focus-visible {
   margin: 0 0 12px;
 }
 .person-photo-btn {
+  position: relative;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1701,6 +1702,22 @@ button:focus-visible {
   cursor: zoom-in;
   overflow: hidden;
   line-height: 0;
+}
+/* Corner badge marking a thumbnail whose link carries a GEDCOM 7 crop region —
+   the cover-fitted thumb can't show a faithful outline, so flag it instead. */
+.person-photo-crop-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
 }
 .person-photo-btn:hover { border-color: var(--accent); }
 .person-photo-thumb {
@@ -1879,6 +1896,32 @@ button:focus-visible {
   cursor: default;
 }
 .person-photo-stage .person-photo-full { max-height: 80vh; max-width: 100%; }
+/* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop marker can
+   be positioned as plain percentages of the image (no letterboxing inside). */
+.person-photo-cropwrap {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  max-height: 80vh;
+  line-height: 0;
+  /* Clip the marker's spotlight box-shadow to the image, not the whole lightbox. */
+  overflow: hidden;
+  border-radius: 4px;
+}
+/* Outlined rectangle marking the part of a (group) photo that depicts this
+   person; a spotlight dim makes the marked region stand out. */
+.photo-crop-marker {
+  position: absolute;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  /* Glides to the next person's region when hovering the "referenced by" list. */
+  transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+/* "Referenced by" rows that carry a crop region: hint that hovering moves the marker. */
+.media-lightbox-info .tools-usage li.has-crop { cursor: pointer; border-radius: var(--radius-sm); }
+.media-lightbox-info .tools-usage li.has-crop:hover { background: var(--accent-soft); }
 .person-photo-nav {
   position: absolute;
   top: 50%;
@@ -3807,6 +3850,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
   z-index: 100;
+}
+/* Confirm dialogs sit over a preview the user needs to read (e.g. the
+   Health-Check findings behind a fix confirmation) — dim but don't blur, and
+   sit near the top so the results below stay visible. */
+.modal-overlay:has(> .confirm-dialog) {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  align-items: flex-start;
+  padding-top: 10vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4664,8 +4716,10 @@ kbd {
 .tools-clean--ok { color: var(--state-match); font-weight: 600; }
 .tools-loading { color: var(--muted); padding: 20px 0; }
 .tools-run { margin: 0 0 16px; }
-.tools-fix-bar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
-.tools-fix-bar .tools-run { margin: 0; }
+.tools-fix-list { list-style: none; margin: 0 0 16px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.tools-fix-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
+.tools-fix-item + .tools-fix-item { border-top: 1px solid var(--border); }
+.tools-fix-item .tools-run { margin: 0; flex-shrink: 0; }
 .tools-fix-hint { color: var(--muted); font-size: 0.85rem; }
 .tools-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .tools-chip {
@@ -4698,6 +4752,29 @@ kbd {
 .tools-issue:nth-child(even), .tools-pair:nth-child(even) { background: var(--panel-2); }
 .tools-issue.sev-error { border-left-color: var(--state-major); }
 .tools-issue.sev-warning { border-left-color: var(--state-minor); }
+.tools-issue.sev-info { border-left-color: var(--border-2); }
+/* Structural ("spec") validation block — its own section above record issues. */
+.tools-struct {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tools-struct-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.tools-struct-loc { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A non-INDI/FAM top-level record (SOUR, OBJE, NOTE, …): identified by type but
+   not a link, since GED Merge can't open it. */
+.tools-struct-rec { color: var(--muted); font-weight: 600; white-space: nowrap; }
+/* Marks a structural issue the one-click Fix can safely repair, previewing the
+   value it would write (e.g. "→ 26.6.1912"). */
+.tools-struct-fixable {
+  margin-left: auto;
+  color: var(--status-new);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* A family-scoped structural issue reads as its couple (husband & wife links). */
+.tools-couple-ref { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
 .tools-issue-link {
   border: none; background: none; padding: 0;
   color: var(--accent); cursor: pointer; font-weight: 600;

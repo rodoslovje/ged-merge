@@ -476,7 +476,7 @@ function getForms(map: Map<string, Map<string, number>>, key: string): Map<strin
 
 // --- helpers ---------------------------------------------------------------
 
-function isMonthWord(token: string): boolean {
+export function isMonthWord(token: string): boolean {
   const u = token.toUpperCase();
   return MONTHS_ABBR.includes(u) || MONTHS_FULL.includes(u);
 }

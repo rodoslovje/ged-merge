@@ -166,6 +166,37 @@ export function objeInfoOf(node: GedNode): ObjeInfo {
   };
 }
 
+/**
+ * A GEDCOM 7 multimedia-link crop region — the rectangle of a (group) photo that
+ * depicts the linking record, in source-image pixels. `top`/`left` default to 0
+ * when absent; `width`/`height` are required for a meaningful region. Lives on the
+ * `OBJE` *link* (the `1 OBJE @x@` child of an INDI/FAM), not the shared `OBJE`
+ * record, so two people can mark different regions of the same image.
+ */
+export interface CropRegion {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+/** Read the `CROP` region from an `OBJE` link node, or undefined when there's no
+ *  crop or it lacks usable width/height. Integer subtags per the GEDCOM 7 spec. */
+export function cropOf(linkNode: GedNode): CropRegion | undefined {
+  const crop = linkNode.children.find((c) => c.tag === "CROP");
+  if (!crop) return undefined;
+  const num = (tag: string): number | undefined => {
+    const raw = crop.children.find((c) => c.tag === tag)?.value?.trim();
+    if (!raw) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const width = num("WIDTH");
+  const height = num("HEIGHT");
+  if (!width || !height || width <= 0 || height <= 0) return undefined;
+  return { top: num("TOP") ?? 0, left: num("LEFT") ?? 0, width, height };
+}
+
 export function buildObjeIndex(records: GedNode[]): ObjeIndex {
   const map: ObjeIndex = new Map();
   for (const rec of records) {

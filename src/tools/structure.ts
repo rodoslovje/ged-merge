@@ -1,0 +1,267 @@
+import type { Dataset, GedNode, ParseWarning } from "../gedcom/types";
+import { parseDate } from "../gedcom/date";
+import { dateFixContext, proposeDateFix } from "./fixDates";
+
+/**
+ * GEDCOM structural ("spec") validation — a pass over the raw `GedNode` tree and
+ * the parser's `ParseWarning`s, rather than the typed domain model.
+ *
+ * The record-level health check (`validate.ts`) only sees what survived parsing
+ * into `Individual`/`Family`. Malformed *lines* — unparsable syntax, bad level
+ * numbering, stray CONT/CONC, an encoding glitch, an unknown tag, a date that
+ * doesn't parse — never reach it. Many of these are already detected at parse/
+ * decode time and stashed in `dataset.warnings`; this pass surfaces them and adds
+ * two fresh GedNode-level checks (unknown tags, unparseable dates).
+ *
+ * Pure and synchronous: it reads only data already on `Dataset` (`records` +
+ * `warnings`), so it stays a main-thread tool like the rest of `src/tools/`.
+ */
+
+export type StructCategory =
+  | "encoding"
+  | "syntax"
+  | "level"
+  | "strayCont"
+  | "version"
+  | "unknownTag"
+  | "customTag"
+  | "badDate";
+
+export type StructSeverity = "error" | "warning" | "info";
+
+/** Sort weight per severity — errors first, informational (custom tags) last. */
+const SEV_RANK: Record<StructSeverity, number> = { error: 0, warning: 1, info: 2 };
+
+export interface StructIssue {
+  category: StructCategory;
+  severity: StructSeverity;
+  /** i18n key for the message, with optional interpolation values. */
+  messageKey: string;
+  messageVars?: Record<string, string | number>;
+  /** Source line number, for text-level issues folded in from the parser. */
+  line?: number;
+  /** Enclosing level-0 record xref, when known — the navigate target. */
+  recordId?: string;
+  /** The enclosing level-0 record's tag (INDI/FAM/SOUR/…), to identify its type. */
+  recordTag?: string;
+  /** The offending value/tag, truncated for display. */
+  sample?: string;
+  /** The actual problematic line(s), for a hover tooltip — the reconstructed
+   *  GEDCOM line for a tree-walk issue, or the parser's message + line number. */
+  tooltip?: string;
+  /** For a repairable `badDate`: the value the one-click fix would write, so the
+   *  row can flag itself fixable and preview the result. */
+  fix?: string;
+}
+
+export interface StructureReport {
+  issues: StructIssue[];
+  /** Per-category counts, for the summary header. */
+  counts: Record<StructCategory, number>;
+}
+
+const EMPTY_COUNTS: Record<StructCategory, number> = {
+  encoding: 0,
+  syntax: 0,
+  level: 0,
+  strayCont: 0,
+  version: 0,
+  unknownTag: 0,
+  customTag: 0,
+  badDate: 0,
+};
+
+/**
+ * Tags we recognise — a generous union of GEDCOM 5.5.1 and 7.0 standard tags
+ * (record, substructure, and event tags). Vendor extensions are `_`-prefixed and
+ * handled separately, so they never need to appear here. A tag outside this set
+ * isn't necessarily illegal, but it's worth surfacing as "unknown".
+ */
+const KNOWN_TAGS = new Set<string>([
+  // Records / top level
+  "HEAD", "TRLR", "INDI", "FAM", "SOUR", "REPO", "OBJE", "NOTE", "SNOTE", "SUBM", "SUBN",
+  // Header
+  "GEDC", "VERS", "FORM", "CHAR", "LANG", "DEST", "FILE", "COPR", "SCHMA", "TAG", "CORP",
+  // Names
+  "NAME", "NPFX", "GIVN", "NICK", "SPFX", "SURN", "NSFX", "FONE", "ROMN", "TYPE", "TRAN",
+  // Sex / family links / interest
+  "SEX", "FAMC", "FAMS", "HUSB", "WIFE", "CHIL", "PEDI", "STAT", "NCHI", "NMR", "ADOP",
+  "ANCI", "DESI", "ANCE", "DESC",
+  // Individual events
+  "BIRT", "CHR", "DEAT", "BURI", "CREM", "BAPM", "BARM", "BASM", "BLES", "CHRA",
+  "CONF", "FCOM", "ORDN", "NATU", "EMIG", "IMMI", "CENS", "PROB", "WILL", "GRAD",
+  "RETI", "EVEN", "BAPL", "CONL", "ENDL", "SLGC", "INIL",
+  // Individual attributes
+  "CAST", "DSCR", "EDUC", "IDNO", "NATI", "OCCU", "PROP", "RELI", "RESI", "SSN",
+  "TITL", "FACT",
+  // Family events
+  "MARR", "MARB", "MARC", "MARL", "MARS", "ANUL", "DIV", "DIVF", "ENGA", "SLGS",
+  // Event / citation detail
+  "DATE", "TIME", "PLAC", "ADDR", "ADR1", "ADR2", "ADR3", "CITY", "STAE", "POST", "CTRY",
+  "PHON", "EMAIL", "FAX", "WWW", "AGNC", "CAUS", "AGE", "ASSO", "RELA", "RESN",
+  "MAP", "LATI", "LONG", "EXID", "PHRASE", "SDATE", "NO",
+  // Source / citation
+  "PAGE", "DATA", "TEXT", "QUAY", "ROLE", "AUTH", "PUBL", "ABBR", "EDTN",
+  "REFN", "RIN", "MEDI", "CALN", "FILN",
+  // Multimedia (BLOB is deprecated 5.5 but still seen). CROP + TOP/LEFT/HEIGHT/
+  // WIDTH are the GEDCOM 7 multimedia-link crop region (a subregion of an image
+  // that depicts the linking record — e.g. one person marked in a group photo).
+  "BLOB", "CROP", "TOP", "LEFT", "HEIGHT", "WIDTH",
+  // Change / creation audit; identifiers
+  "CHAN", "CREA", "UID", "RFN", "AFN",
+]);
+
+function truncate(s: string, n = 60): string {
+  const t = s.trim();
+  return t.length > n ? t.slice(0, n) + "…" : t;
+}
+
+/** Reconstruct the raw GEDCOM line a node came from, for the hover tooltip. */
+function nodeLine(node: GedNode): string {
+  const xref = node.xref ? ` ${node.xref}` : "";
+  // Collapse folded CONT newlines so the tooltip stays one readable line.
+  const value = node.value != null ? ` ${node.value.replace(/\n/g, " ⏎ ")}` : "";
+  return `${node.level}${xref} ${node.tag}${value}`;
+}
+
+/** Map a parser/decoder `ParseWarning` to a structural issue (text-level, line-based). */
+function fromWarning(w: ParseWarning): StructIssue | undefined {
+  // The parser's message already embeds the offending line/context; pair it with
+  // the line number for the tooltip.
+  const tooltip = w.line != null ? `${w.message} (line ${w.line})` : w.message;
+  const base = { line: w.line, tooltip, messageKey: "tools.validate.struct.issue.parse", messageVars: { detail: w.message } };
+  switch (w.kind) {
+    case "encoding":
+      return { ...base, category: "encoding", severity: "warning" };
+    case "syntax":
+      return { ...base, category: "syntax", severity: "error" };
+    case "version":
+      return { ...base, category: "version", severity: "warning" };
+    case "structure": {
+      // The parser emits two structure cases: a stray CONT/CONC with no parent,
+      // and a line whose level skips its parent. Tell them apart by the message.
+      const stray = /CONT|CONC/.test(w.message);
+      return { ...base, category: stray ? "strayCont" : "level", severity: "error" };
+    }
+    default:
+      // "unknown-tag" / "date" / "place" are detected by our own tree walk below.
+      return undefined;
+  }
+}
+
+export function validateStructure(ds: Dataset): StructureReport {
+  const issues: StructIssue[] = [];
+  const counts: Record<StructCategory, number> = { ...EMPTY_COUNTS };
+
+  const push = (issue: StructIssue) => {
+    issues.push(issue);
+    counts[issue.category]++;
+  };
+
+  // (a) Fold in what the parser/decoder already caught at load time.
+  for (const w of ds.warnings) {
+    const issue = fromWarning(w);
+    if (issue) push(issue);
+  }
+
+  // The file's date house style, so a fixable bad date can preview the value the
+  // one-click fix would write (in the file's own format).
+  const fixCtx = dateFixContext(ds);
+
+  // (b) Walk the raw tree once for unknown tags and unparseable dates, tracking
+  //     the enclosing level-0 record so deep issues can navigate to it.
+  //     Unknown tags are de-duplicated per tag (one issue, with an occurrence
+  //     count and the first place it was seen) to avoid flooding the list.
+  type TagTally = { count: number; recordId?: string; recordTag?: string; tooltip: string };
+  const unknown = new Map<string, TagTally>();
+  // Every distinct vendor-extension (`_`) tag, with its occurrence count — an
+  // inventory so the user can see what non-standard tags a file carries, rather
+  // than the validator silently ignoring them.
+  const custom = new Map<string, TagTally>();
+
+  const tally = (map: Map<string, TagTally>, tag: string, node: GedNode, recordId?: string, recordTag?: string) => {
+    const seen = map.get(tag);
+    if (seen) seen.count++;
+    else map.set(tag, { count: 1, recordId, recordTag, tooltip: nodeLine(node) });
+  };
+
+  const visit = (node: GedNode, recordId?: string, recordTag?: string) => {
+    const tag = node.tag;
+    // A vendor extension (`_FOO`) marks the root of a vendor-defined subtree: record
+    // the outermost one in the inventory and skip the whole subtree from any further
+    // validation. Everything beneath it — nested `_` tags, standard-looking tags
+    // (e.g. `COLR` under `_LABL`), even dates — is the vendor's own vocabulary
+    // (MacFamilyTree's `_STF` source templates, `_STO` storage, `_LABL` labels, …),
+    // not ours to audit. CONT/CONC are folded by the parser, so never appear here.
+    if (tag.startsWith("_")) {
+      tally(custom, tag, node, recordId, recordTag);
+      return;
+    }
+    if (!KNOWN_TAGS.has(tag)) {
+      tally(unknown, tag, node, recordId, recordTag);
+    }
+
+    if (tag === "DATE" && node.value && node.value.trim()) {
+      const d = parseDate(node.value);
+      // The parser returns qualifier "unknown" with no components for garbage;
+      // a deliberate ".__.____" placeholder is flagged separately and is fine.
+      if (d.qualifier === "unknown" && d.year == null && d.year2 == null && !d.placeholder) {
+        // If the one-click fix could safely repair it, preview the result in the
+        // tooltip and mark the row fixable.
+        const fix = proposeDateFix(node.value, fixCtx);
+        push({
+          category: "badDate",
+          severity: "warning",
+          recordId,
+          recordTag,
+          sample: truncate(node.value),
+          tooltip: fix ? `${nodeLine(node)} → ${fix}` : nodeLine(node),
+          fix,
+          messageKey: "tools.validate.struct.issue.badDate",
+          messageVars: { sample: truncate(node.value) },
+        });
+      }
+    }
+
+    for (const child of node.children) visit(child, recordId, recordTag);
+  };
+
+  for (const rec of ds.records) visit(rec, rec.xref, rec.tag);
+
+  for (const [tag, { count, recordId, recordTag, tooltip }] of unknown) {
+    push({
+      category: "unknownTag",
+      severity: "warning",
+      recordId,
+      recordTag,
+      sample: tag,
+      tooltip,
+      messageKey: "tools.validate.struct.issue.unknownTag",
+      messageVars: { tag, count },
+    });
+  }
+
+  for (const [tag, { count, recordId, recordTag, tooltip }] of custom) {
+    push({
+      category: "customTag",
+      severity: "info",
+      recordId,
+      recordTag,
+      sample: tag,
+      tooltip,
+      messageKey: "tools.validate.struct.issue.customTag",
+      messageVars: { tag, count },
+    });
+  }
+
+  // Errors first, then by category, then by line (text issues) / sample.
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "version", "unknownTag", "badDate", "customTag"];
+  issues.sort((a, b) => {
+    if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
+    if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
+    if (a.line != null && b.line != null) return a.line - b.line;
+    return (a.sample ?? "").localeCompare(b.sample ?? "");
+  });
+
+  return { issues, counts };
+}

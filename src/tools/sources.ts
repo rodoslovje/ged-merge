@@ -3,10 +3,12 @@ import {
   buildObjeIndex,
   buildRepoIndex,
   childText,
+  cropOf,
   isPointer,
   repoTooltip,
   sourceTitle,
   sourceTooltip,
+  type CropRegion,
 } from "../gedcom/source";
 import { label } from "../match/relatives";
 
@@ -36,6 +38,10 @@ export interface SourceUse {
    * individual page of their own to navigate to).
    */
   persons: PersonRef[];
+  /** This record's GEDCOM 7 crop region for the media object — present only when
+   *  the citing `OBJE` link marks a subregion (e.g. this person in a group photo).
+   *  Populated by {@link mediaUsedBy}; lets the viewer move the highlight on hover. */
+  crop?: CropRegion;
 }
 
 export interface MediaEntry {
@@ -174,9 +180,26 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
       rec.tag === "INDI"
         ? [{ id: rec.xref, label: dataset.individuals.get(rec.xref) ? label(dataset.individuals.get(rec.xref)!) : rec.xref }]
         : familySpouses(dataset, rec.xref);
-    if (persons.length > 0) uses.push({ persons });
+    if (persons.length > 0) uses.push({ persons, crop: objeLinkCrop(rec, mediaXref) });
   }
   return uses;
+}
+
+/** The crop region on this record's `OBJE` link to `mediaXref`, if any — the
+ *  subregion of the shared media that depicts the record (e.g. its person in a
+ *  group photo). Walks descendants since a link can sit under an event. */
+function objeLinkCrop(rec: GedNode, mediaXref: string): CropRegion | undefined {
+  let crop: CropRegion | undefined;
+  const walk = (node: GedNode) => {
+    for (const child of node.children) {
+      if (child.tag === "OBJE" && child.value?.trim() === mediaXref) {
+        crop = crop ?? cropOf(child);
+      }
+      walk(child);
+    }
+  };
+  walk(rec);
+  return crop;
 }
 
 export function buildSourceTree(dataset: Dataset): SourceTree {

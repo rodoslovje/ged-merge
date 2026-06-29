@@ -29,6 +29,9 @@ import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { fixBrokenLinks } from "./tools/fixLinks";
+import { fixSexFromRole } from "./tools/fixSex";
+import { fixDates } from "./tools/fixDates";
+import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { SaveDialog } from "./ui/SaveDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
@@ -1667,6 +1670,39 @@ function AppContent() {
               onFixBrokenLinks={() => {
                 if (!masterDataset) return 0;
                 const patches = fixBrokenLinks(masterDataset);
+                if (patches.length > 0) {
+                  handlePushEdit(patches);
+                  for (const p of patches) {
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  }
+                }
+                return patches.length;
+              }}
+              onFixSexFromRole={() => {
+                if (!masterDataset) return 0;
+                const patches = fixSexFromRole(masterDataset);
+                if (patches.length > 0) {
+                  handlePushEdit(patches);
+                  for (const p of patches) {
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  }
+                }
+                return patches.length;
+              }}
+              onFixDates={() => {
+                if (!masterDataset) return 0;
+                const patches = fixDates(masterDataset);
+                if (patches.length > 0) {
+                  handlePushEdit(patches);
+                  for (const p of patches) {
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  }
+                }
+                return patches.length;
+              }}
+              onFixDuplicatePointers={() => {
+                if (!masterDataset) return 0;
+                const patches = fixDuplicatePointers(masterDataset);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
