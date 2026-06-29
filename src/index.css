@@ -1896,7 +1896,7 @@ button:focus-visible {
   cursor: default;
 }
 .person-photo-stage .person-photo-full { max-height: 80vh; max-width: 100%; }
-/* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop marker can
+/* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop boxes can
    be positioned as plain percentages of the image (no letterboxing inside). */
 .person-photo-cropwrap {
   position: relative;
@@ -1904,20 +1904,37 @@ button:focus-visible {
   max-width: 100%;
   max-height: 80vh;
   line-height: 0;
-  /* Clip the marker's spotlight box-shadow to the image, not the whole lightbox. */
-  overflow: hidden;
   border-radius: 4px;
 }
-/* Outlined rectangle marking the part of a (group) photo that depicts this
-   person; a spotlight dim makes the marked region stand out. */
-.photo-crop-marker {
+/* Crop boxes — one per tagged person — shown when hovering a "referenced by"
+   name (just that person) or hovering/touching the image (everyone). A subtle
+   dashed outline, with a name label underneath; no photo dimming. */
+.photo-crop-box {
   position: absolute;
-  border: 2px solid var(--accent);
+  /* Subtle dashed outline in the same white as the name label below it. */
+  border: 1px dashed #fff;
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
-  /* Glides to the next person's region when hovering the "referenced by" list. */
+  /* Glides to the next person when hovering down the "referenced by" list. */
   transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+.photo-crop-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  max-width: 200px;
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 /* "Referenced by" rows that carry a crop region: hint that hovering moves the marker. */
 .media-lightbox-info .tools-usage li.has-crop { cursor: pointer; border-radius: var(--radius-sm); }

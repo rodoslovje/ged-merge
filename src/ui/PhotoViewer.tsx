@@ -5,13 +5,15 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cropOf, isPointer, objeInfoOf, objeNodesFor, type CropRegion } from "../gedcom/source";
-import { mediaUsedBy } from "../tools/sources";
+import { mediaUsedBy, type PersonRef } from "../tools/sources";
+import { lifespanLabel } from "../match/relatives";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
 import { basename } from "./mediaPath";
@@ -47,6 +49,12 @@ export interface PhotoEdit {
   onSave: (fields: PhotoEditFields) => void;
 }
 
+/** A crop region plus the label (person name) shown under it. */
+export interface CropMark {
+  crop: CropRegion;
+  label: string;
+}
+
 /** One photo plus the metadata shown beside it in the info panel. */
 export interface PhotoItem {
   url: string;
@@ -56,13 +64,14 @@ export interface PhotoItem {
   meta?: PhotoMetaRow[];
   /** Extra info block (e.g. a "referenced by" list). Receives a `close`
    *  callback so navigation links can dismiss the viewer first, and an
-   *  `onHoverCrop` setter so a hovered entry can move the image's crop marker. */
-  details?: (close: () => void, onHoverCrop?: (crop: CropRegion | null) => void) => ReactNode;
+   *  `onHoverCrop` setter so a hovered entry can show that person's crop box. */
+  details?: (close: () => void, onHoverCrop?: (mark: CropMark | null) => void) => ReactNode;
   /** When set, the info panel shows editable inputs instead of static rows. */
   edit?: PhotoEdit;
-  /** GEDCOM 7 crop region — outlined over the full image to mark which part of a
-   *  (group) photo depicts this person. */
-  crop?: CropRegion;
+  /** Every tagged person's GEDCOM 7 crop region on this (group) photo, each with
+   *  a name label. Nothing is drawn by default; hovering/touching the image
+   *  reveals all of these boxes with their names. */
+  allCrops?: CropMark[];
 }
 
 /**
@@ -172,6 +181,27 @@ export function collectPhotoRefs(raw: GedNode, records: GedNode[]): PhotoRef[] {
   return refs;
 }
 
+/** Every tagged person's crop region on a shared media object, with a name label
+ *  — the boxes revealed when the lightbox image is hovered/touched. Skips
+ *  references that carry no crop region. */
+function mediaCropMarks(dataset: Dataset, mediaXref: string): CropMark[] {
+  return mediaUsedBy(dataset, mediaXref)
+    .filter((u) => u.crop)
+    .map((u) => ({ crop: u.crop!, label: personsLabel(dataset, u.persons) }));
+}
+
+/** Combined "Name lifespan" label for a usage row's person(s) — name + lifespan
+ *  ("Ana Novak 1900–1980") rather than the full birth date; "&"-joined for a
+ *  family. Used for both the hover marker and the reveal-all boxes. */
+function personsLabel(dataset: Dataset, persons: PersonRef[]): string {
+  return persons
+    .map((p) => {
+      const indi = dataset.individuals.get(p.id);
+      return indi ? lifespanLabel(indi) : p.label;
+    })
+    .join(" & ");
+}
+
 /** The "referenced by N records" block shown in the info panel for a shared
  *  media object — the `INDI`/`FAM` records that cite it, each a link into Edit.
  *  Mirrors the Tools › Sources panel so a photo's usage is visible there too. */
@@ -184,9 +214,9 @@ export function MediaReferencedBy({
   dataset: Dataset;
   mediaXref: string;
   onNavigate: (id: string) => void;
-  /** When given, hovering a usage row that carries a crop region reports it so
-   *  the image's crop marker can move to that person; leaving reports null. */
-  onHoverCrop?: (crop: CropRegion | null) => void;
+  /** When given, hovering a usage row that carries a crop region reports it (with
+   *  the person's name) so the image shows that one person's box; leaving reports null. */
+  onHoverCrop?: (mark: CropMark | null) => void;
 }) {
   const { t } = useTranslation();
   const uses = useMemo(() => mediaUsedBy(dataset, mediaXref), [dataset, mediaXref]);
@@ -203,7 +233,7 @@ export function MediaReferencedBy({
             <li
               key={`${u.persons.map((p) => p.id).join("-")}-${i}`}
               className={hoverable ? "has-crop" : undefined}
-              onMouseEnter={hoverable ? () => onHoverCrop!(u.crop!) : undefined}
+              onMouseEnter={hoverable ? () => onHoverCrop!({ crop: u.crop!, label: personsLabel(dataset, u.persons) }) : undefined}
               onMouseLeave={hoverable ? () => onHoverCrop!(null) : undefined}
             >
               {u.persons.map((p, j) => (
@@ -246,7 +276,7 @@ export function PhotoViewerProvider({ children }: { children: ReactNode }) {
         const onEditMedia = refCtx?.onEditMedia;
         items.push({
           url,
-          crop: ref.crop,
+          allCrops: refCtx && xref ? mediaCropMarks(refCtx.dataset, xref) : undefined,
           title: ref.title || basename(ref.file),
           // When editable, the form replaces the static rows; otherwise show them.
           meta: onEditMedia ? undefined : mediaMetaRows(ref, t),
@@ -340,46 +370,64 @@ function PhotoInfoEditor({
   );
 }
 
-/** The lightbox image plus, when the photo carries a GEDCOM 7 crop region, an
- *  outlined rectangle marking the part that depicts this person. The wrapper
- *  shrink-wraps the `object-fit: contain` image (which auto-sizes to its natural
- *  aspect ratio, so no letterboxing inside the element), letting the marker be
- *  positioned as plain percentages of the natural pixel dimensions. */
+/** The lightbox image plus, when the photo carries GEDCOM 7 crop regions, dashed
+ *  boxes (each with a name label) marking the people in it. Nothing shows by
+ *  default: hovering a "referenced by" name shows that one person's box, and
+ *  hovering/touching the image reveals everyone. The wrapper shrink-wraps the
+ *  `object-fit: contain` image (which auto-sizes to its natural aspect ratio, so
+ *  no letterboxing inside the element), letting boxes be positioned as plain
+ *  percentages of the natural pixel dimensions. */
 function PhotoStage({
   url,
   title,
-  crop,
-  cropLabel,
+  hoverMark,
+  allCrops,
 }: {
   url: string;
   title?: string;
-  crop?: CropRegion;
-  cropLabel: string;
+  /** A single person's box to show — set while a name in the "referenced by"
+   *  list is hovered. Takes precedence over the reveal-all overlay. */
+  hoverMark: CropMark | null;
+  /** Every tagged person on this photo; revealed (with names) on image hover/touch. */
+  allCrops: CropMark[];
 }) {
   // Natural pixel size, captured on load; cleared while a new image loads so a
-  // stale size from the previous photo can't briefly misposition the marker.
+  // stale size from the previous photo can't briefly misposition a box.
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
-  useEffect(() => { setNatural(null); }, [url]);
+  // Hovering/touching the image reveals every tagged person's box with its name.
+  const [revealing, setRevealing] = useState(false);
+  useEffect(() => { setNatural(null); setRevealing(false); }, [url]);
 
-  const marker =
-    crop && natural
-      ? {
-          left: `${(crop.left / natural.w) * 100}%`,
-          top: `${(crop.top / natural.h) * 100}%`,
-          width: `${(crop.width / natural.w) * 100}%`,
-          height: `${(crop.height / natural.h) * 100}%`,
-        }
-      : null;
+  // Region → percentage box of the image (which fills the wrapper exactly).
+  const box = (c: CropRegion): CSSProperties => ({
+    left: `${(c.left / natural!.w) * 100}%`,
+    top: `${(c.top / natural!.h) * 100}%`,
+    width: `${(c.width / natural!.w) * 100}%`,
+    height: `${(c.height / natural!.h) * 100}%`,
+  });
+
+  const canReveal = allCrops.length > 0;
+  // A hovered name shows just that person; otherwise an image hover reveals all.
+  const marks = hoverMark ? [hoverMark] : revealing ? allCrops : [];
 
   return (
-    <div className="person-photo-cropwrap">
+    <div
+      className="person-photo-cropwrap"
+      onMouseEnter={canReveal ? () => setRevealing(true) : undefined}
+      onMouseLeave={canReveal ? () => setRevealing(false) : undefined}
+      onTouchStart={canReveal ? () => setRevealing((v) => !v) : undefined}
+    >
       <img
         src={url}
         className="person-photo-full"
         alt={title ?? ""}
         onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
       />
-      {marker && <div className="photo-crop-marker" style={marker} role="img" aria-label={cropLabel} title={cropLabel} />}
+      {natural && marks.map((m, i) => (
+        <div key={i} className="photo-crop-box" style={box(m.crop)}>
+          <span className="photo-crop-name" title={m.label}>{m.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -402,11 +450,11 @@ function PhotoViewerOverlay({
   const [edits, setEdits] = useState<Record<number, PhotoEditFields>>({});
   const multiple = items.length > 1;
   const current = items[Math.min(index, items.length - 1)];
-  // Crop region hovered in the "referenced by" list — overrides the current
-  // photo's own crop so the marker tracks whichever person the cursor is over.
-  // Reset whenever the active photo changes so it can't bleed across photos.
-  const [hoverCrop, setHoverCrop] = useState<CropRegion | null>(null);
-  useEffect(() => { setHoverCrop(null); }, [index]);
+  // Person hovered in the "referenced by" list — shows that one person's box on
+  // the image. Reset whenever the active photo changes so it can't bleed across
+  // photos. (By default no boxes are drawn; see PhotoStage.)
+  const [hoverMark, setHoverMark] = useState<CropMark | null>(null);
+  useEffect(() => { setHoverMark(null); }, [index]);
   // Autofocus the edit form's first field only on the add-flow open — never on
   // tray navigation or plain "expand from Edit". Consumed after the first render
   // so even returning to the start photo won't refocus.
@@ -452,7 +500,7 @@ function PhotoViewerOverlay({
       )}
       <div className="media-lightbox" onClick={(e) => e.stopPropagation()}>
         <div className="person-photo-stage">
-          <PhotoStage url={current.url} title={current.title} crop={hoverCrop ?? current.crop} cropLabel={t("photo.cropRegion")} />
+          <PhotoStage url={current.url} title={current.title} hoverMark={hoverMark} allCrops={current.allCrops ?? []} />
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
@@ -480,7 +528,7 @@ function PhotoViewerOverlay({
                 )}
               </>
             )}
-            {current.details?.(onClose, setHoverCrop)}
+            {current.details?.(onClose, setHoverMark)}
           </div>
         )}
       </div>
