@@ -3,18 +3,18 @@ import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 
 /** Conventional xrefs of "person 1" — the root individual many apps assign to
- * the home/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
- * the default home person when no explicit pointer is present, in priority order. */
-const DEFAULT_HOME_XREFS = ["@1@", "@I1@"];
+ * the start/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
+ * the default start person when no explicit pointer is present, in priority order. */
+const DEFAULT_START_XREFS = ["@1@", "@I1@"];
 
 /**
- * The default home person to pre-select, by descending strength of signal:
+ * The default start person to pre-select, by descending strength of signal:
  *  1. an explicit `1 _ROOT @xref@` pointer in the HEAD (e.g. RootsMagic);
  *  2. an individual flagged with `_STP` ("start person", e.g. MacFamilyTree);
  *  3. the conventional root individual (`@1@` / `@I1@`).
  * Returns undefined when the file gives no usable signal.
  */
-export function defaultHomeId(ds: Dataset): string | undefined {
+export function defaultStartId(ds: Dataset): string | undefined {
   const head = ds.records.find((r) => r.tag === "HEAD");
   const root = head?.children.find((c) => c.tag === "_ROOT")?.value;
   if (root && ds.individuals.has(root)) return root;
@@ -23,7 +23,7 @@ export function defaultHomeId(ds: Dataset): string | undefined {
     if (indi.raw.children.some((c) => c.tag === "_STP")) return indi.id;
   }
 
-  return DEFAULT_HOME_XREFS.find((id) => ds.individuals.has(id));
+  return DEFAULT_START_XREFS.find((id) => ds.individuals.has(id));
 }
 
 /** The individual's primary name (first NAME record), if any. */

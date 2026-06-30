@@ -19,7 +19,7 @@ interface Props {
   onRemove?: () => void;
   /** Tooltip for the × detach button. */
   removeTooltip?: string;
-  /** Kinship label relative to the home person, e.g. "Son", "Spouse". */
+  /** Kinship label relative to the start person, e.g. "Son", "Spouse". */
   kinship?: string;
   /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-paternal"). */
   kinshipLineage?: string;

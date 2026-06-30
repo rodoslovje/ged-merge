@@ -16,7 +16,7 @@ export type { ChartAlignment };
 export interface ChartSettings {
   type: ChartType;
   alignment: ChartAlignment;
-  /** Show the kinship-to-home label on each node. */
+  /** Show the kinship-to-start label on each node. */
   showKinship: boolean;
   /** Show the person's photo (when a media folder is loaded). */
   showPhoto: boolean;

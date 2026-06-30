@@ -11,7 +11,7 @@ import { serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
-import { defaultHomeId } from "./match/relatives";
+import { defaultStartId } from "./match/relatives";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
@@ -19,7 +19,7 @@ import { decisionKey, importKey, parseImportKey, type CandidateDecision, type Im
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
-import { HomePersonSelector } from "./ui/HomePersonSelector";
+import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { LegalModal } from "./ui/LegalModal";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
@@ -137,9 +137,9 @@ function AppContent() {
   const { t, i18n } = useTranslation();
 
   const workerRef = useRef<Worker | null>(null);
-  // Whether we've already attempted the one-time default home person for the
+  // Whether we've already attempted the one-time default start person for the
   // currently loaded master, so a user who clears it isn't re-defaulted.
-  const autoHomeRef = useRef(false);
+  const autoStartRef = useRef(false);
   // Timestamp the "matching" spinner started, and the pending timer delaying
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
   const matchingStartRef = useRef<number | null>(null);
@@ -153,10 +153,10 @@ function AppContent() {
   const [lastMasterFile, setLastMasterFile] = useState<LoadedFile | null>(null);
   const [matches, setMatches] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
-  const [homeId, setHomeId] = useState<string | undefined>(undefined);
-  // When the first matches arrive with no home person, focus the picker so the
+  const [startId, setStartId] = useState<string | undefined>(undefined);
+  // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
-  const [focusHome, setFocusHome] = useState(false);
+  const [focusStart, setFocusStart] = useState(false);
   const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
@@ -500,9 +500,9 @@ function AppContent() {
       sortEligiblePersonIdsRef.current = new Set();
       setEditTreeId(null);
       setRelTargetId(null);
-      setHomeId(undefined); // home person is opt-in; reset on (re)load
-      setFocusHome(false);
-      autoHomeRef.current = false; // allow the default home person for the new file
+      setStartId(undefined); // start person is opt-in; reset on (re)load
+      setFocusStart(false);
+      autoStartRef.current = false; // allow the default start person for the new file
     } else {
       // Incoming reload: edit entries remain valid (they only touch master data).
       // Drop merge entries whose field comparisons reference the old incoming file.
@@ -516,9 +516,9 @@ function AppContent() {
     );
   }
 
-  function changeHome(id: string | undefined) {
-    setHomeId(id);
-    workerRef.current?.postMessage({ type: "setHome", id: id ?? "" });
+  function changeStart(id: string | undefined) {
+    setStartId(id);
+    workerRef.current?.postMessage({ type: "setStart", id: id ?? "" });
   }
 
   // Capture the set of IDs that exist at load time so we can later distinguish
@@ -530,18 +530,18 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [master.status]);
 
-  // When the master finishes loading, default the home person to its root
-  // individual if present. Attempted once per file (autoHomeRef), so a user
-  // who later clears the home person isn't overridden.
+  // When the master finishes loading, default the start person to its root
+  // individual if present. Attempted once per file (autoStartRef), so a user
+  // who later clears the start person isn't overridden.
   useEffect(() => {
-    if (master.status !== "loaded" || autoHomeRef.current) return;
-    autoHomeRef.current = true;
-    if (homeId) return;
-    const home = defaultHomeId(master.file.dataset);
-    if (home) {
-      changeHome(home);
+    if (master.status !== "loaded" || autoStartRef.current) return;
+    autoStartRef.current = true;
+    if (startId) return;
+    const start = defaultStartId(master.file.dataset);
+    if (start) {
+      changeStart(start);
     } else {
-      setFocusHome(true);
+      setFocusStart(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [master.status]);
@@ -549,15 +549,15 @@ function AppContent() {
   // In merge mode, also attempt once when first match results arrive (covers
   // the case where master loaded before the worker finished computing matches).
   useEffect(() => {
-    if (!matches || autoHomeRef.current) return;
-    autoHomeRef.current = true;
-    if (homeId) return;
+    if (!matches || autoStartRef.current) return;
+    autoStartRef.current = true;
+    if (startId) return;
     const ds = master.status === "loaded" ? master.file.dataset : undefined;
-    const home = ds ? defaultHomeId(ds) : undefined;
-    if (home) {
-      changeHome(home);
+    const start = ds ? defaultStartId(ds) : undefined;
+    if (start) {
+      changeStart(start);
     } else {
-      setFocusHome(true);
+      setFocusStart(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
@@ -822,10 +822,10 @@ function AppContent() {
     setMode("edit");
   }
 
-  // Clicking the home icon jumps Edit mode to the chosen home person.
-  function goToHomePerson() {
-    if (!homeId) return;
-    setNavigateToId(homeId);
+  // Clicking the start icon jumps Edit mode to the chosen start person.
+  function goToStartPerson() {
+    if (!startId) return;
+    setNavigateToId(startId);
     setMode("edit");
   }
 
@@ -868,7 +868,7 @@ function AppContent() {
   // same as switching into Edit mode via its "e" shortcut already does for
   // whichever candidate Merge has selected (see the `editKey` branch above).
   // Without this, Edit keeps showing whatever person it last had (often not a
-  // match candidate at all, e.g. the home person), so its Left/Right match
+  // match candidate at all, e.g. the start person), so its Left/Right match
   // navigation silently does nothing until the user manually picks a person
   // who is on the list.
   useEffect(() => {
@@ -955,7 +955,7 @@ function AppContent() {
     setEditTreeId(id);
   }
 
-  // Relationship-to-home diagram: full-page view for the selected person.
+  // Relationship-to-start diagram: full-page view for the selected person.
   const [relTargetId, setRelTargetId] = useState<string | null>(null);
 
   function openRelationship(id: string) {
@@ -1374,7 +1374,7 @@ function AppContent() {
         onDecide={setPairStatus}
         importBranches={importBranches}
         onToggleImport={toggleImportBranch}
-        homeId={homeId}
+        startId={startId}
       />
     );
   } else if (editTreeId && masterDataset) {
@@ -1382,17 +1382,17 @@ function AppContent() {
       <EditTree
         masterDs={masterDataset}
         rootId={editTreeId}
-        homeId={homeId}
+        startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         onBack={() => window.history.back()}
       />
     );
-  } else if (relTargetId && masterDataset && homeId) {
+  } else if (relTargetId && masterDataset && startId) {
     treeOverlay = wrapTree(
       <RelationshipChart
         masterDs={masterDataset}
-        homeId={homeId}
+        startId={startId}
         targetId={relTargetId}
         onBack={() => window.history.back()}
         onNavigate={(id) => {
@@ -1459,14 +1459,14 @@ function AppContent() {
         </div>
         {masterDataset && (
           <div className="app-head-controls">
-            <HomePersonSelector
+            <StartPersonSelector
               individuals={masterDataset.individuals}
-              homeId={homeId}
-              onChange={changeHome}
-              onClear={() => changeHome(undefined)}
-              onHomeClick={goToHomePerson}
-              autoFocus={focusHome}
-              onAutoFocused={() => setFocusHome(false)}
+              startId={startId}
+              onChange={changeStart}
+              onClear={() => changeStart(undefined)}
+              onStartClick={goToStartPerson}
+              autoFocus={focusStart}
+              onAutoFocused={() => setFocusStart(false)}
             />
             <div className="app-head-actions">
               {lastMasterFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0) && (
@@ -1607,7 +1607,7 @@ function AppContent() {
               decisions={decisions}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
-              homeId={homeId}
+              startId={startId}
               masterDataset={masterDataset}
               openMatches={openMatches}
               setOpenMatches={setOpenMatches}
@@ -1625,8 +1625,8 @@ function AppContent() {
             <EditView
               dataset={masterDataset}
               fileName={lastMasterFile.fileName}
-              homeId={homeId}
-              changeHome={changeHome}
+              startId={startId}
+              changeStart={changeStart}
               onDirty={handleEditDirty}
               onShowTree={(id) => openEditTree(id)}
               onShowRelationship={(id) => openRelationship(id)}

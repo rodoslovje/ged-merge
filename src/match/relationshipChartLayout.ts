@@ -1,4 +1,4 @@
-// Top-down pedigree layout for a single relationship path (home → target).
+// Top-down pedigree layout for a single relationship path (start → target).
 //
 // Unlike the left-to-right `tree/treeLayout.ts` (a full descendant tree with
 // Bézier connectors), this lays out one *chain* that rises to a common ancestor
@@ -33,7 +33,7 @@ export interface ChartBox {
   /** True for people on the connecting path; false for context "other parent" boxes. */
   onSpine: boolean;
   /** Marks the two endpoints for emphasis. */
-  role?: "home" | "target";
+  role?: "start" | "target";
 }
 
 export interface ChartLink {
@@ -51,7 +51,7 @@ export interface RelationshipChart {
   links: ChartLink[];
   width: number;
   height: number;
-  /** Home box key — used to pin the initial scroll position. */
+  /** Start box key — used to pin the initial scroll position. */
   rootKey: string;
 }
 
@@ -156,7 +156,7 @@ export function buildRelationshipChart(
       x,
       y,
       onSpine: p.onSpine,
-      role: id === steps[0].id ? "home" : id === steps[n - 1].id ? "target" : undefined,
+      role: id === steps[0].id ? "start" : id === steps[n - 1].id ? "target" : undefined,
     };
   });
 

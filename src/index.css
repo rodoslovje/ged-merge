@@ -105,14 +105,14 @@ button:focus-visible {
 }
 .header-file-btn:hover { border-color: var(--border-2); background: var(--panel-2); }
 
-/* Second header row: home selector (grows) + save/undo/redo (right) */
+/* Second header row: start selector (grows) + save/undo/redo (right) */
 .app-head-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
 }
-.app-head-controls .home-selector {
+.app-head-controls .start-selector {
   /* Compact: prefer a narrow ~190px and shrink to a small floor rather than
      filling the row, so the mode tabs stay on this line — they wrap to a new
      row only when the selector is squeezed to its minimum. */
@@ -122,11 +122,11 @@ button:focus-visible {
 }
 /* Let the input shrink with the selector (the wrapper's min-width is the real
    floor) instead of holding a wide 120px minimum. */
-.app-head-controls .home-selector input {
+.app-head-controls .start-selector input {
   min-width: 0;
 }
 /* Push the save/undo group (and the mode tabs after them) to the right edge of
-   the controls row, away from the compact home selector on the left. */
+   the controls row, away from the compact start selector on the left. */
 .app-head-controls .app-head-actions {
   margin-left: auto;
 }
@@ -1029,31 +1029,31 @@ button:focus-visible {
 .matches-tabs-header .tabs {
   margin-bottom: 0;
 }
-.home-selector {
+.start-selector {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
 }
-.home-control {
+.start-control {
   position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   flex: 1;
 }
-.home-selector input {
+.start-selector input {
   width: 100%;
   min-width: 120px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text);
-  /* room for the home icon on the left and the clear button on the right */
+  /* room for the start icon on the left and the clear button on the right */
   padding: 5px 26px 5px 28px;
   font-size: 0.85rem;
 }
-.home-icon {
+.start-icon {
   position: absolute;
   left: 9px;
   top: 50%;
@@ -1062,12 +1062,12 @@ button:focus-visible {
   pointer-events: none;
   z-index: 1;
 }
-.home-selector.unset .home-icon,
-.home-control:focus-within .home-icon {
+.start-selector.unset .start-icon,
+.start-control:focus-within .start-icon {
   color: var(--accent);
 }
-/* When a home person is set, the icon is a button that jumps back to them. */
-.home-icon-btn {
+/* When a start person is set, the icon is a button that jumps back to them. */
+.start-icon-btn {
   pointer-events: auto;
   cursor: pointer;
   background: none;
@@ -1076,26 +1076,26 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
 }
-.home-icon-btn:hover {
+.start-icon-btn:hover {
   color: var(--accent);
 }
-.home-selector input:focus {
+.start-selector input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
 }
-/* Until a home person is picked, draw attention to the (still-empty) field so
+/* Until a start person is picked, draw attention to the (still-empty) field so
    the user knows to set one to rank matches by relationship distance. */
-.home-selector.unset input {
+.start-selector.unset input {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
   animation: pulse-glow 2s infinite;
 }
-.home-selector.unset input::placeholder {
+.start-selector.unset input::placeholder {
   color: var(--accent);
   opacity: 1;
 }
-.home-clear {
+.start-clear {
   position: absolute;
   right: 6px;
   top: 50%;
@@ -1110,14 +1110,14 @@ button:focus-visible {
   /* Only revealed when the selector is hovered or focused (see below). */
   display: none;
 }
-.home-control:hover .home-clear,
-.home-control:focus-within .home-clear {
+.start-control:hover .start-clear,
+.start-control:focus-within .start-clear {
   display: block;
 }
-.home-clear:hover {
+.start-clear:hover {
   color: var(--text);
 }
-.home-options {
+.start-options {
   list-style: none;
   margin: 4px 0 0;
   padding: 4px;
@@ -1133,7 +1133,7 @@ button:focus-visible {
   min-width: 230px;
   z-index: 5;
 }
-.home-option {
+.start-option {
   display: block;
   width: 100%;
   text-align: left;
@@ -1143,10 +1143,10 @@ button:focus-visible {
   padding: 6px 8px;
   border-radius: var(--radius-sm);
 }
-.home-option:hover,
-.home-option.highlighted { background: var(--panel); }
-.home-option.active { color: var(--accent); }
-.home-empty { padding: 6px 8px; }
+.start-option:hover,
+.start-option.highlighted { background: var(--panel); }
+.start-option.active { color: var(--accent); }
+.start-empty { padding: 6px 8px; }
 
 /* --- matching indicator --- */
 .matching {
@@ -1620,7 +1620,7 @@ button:focus-visible {
   gap: 10px;
   margin-bottom: 16px;
 }
-.edit-toolbar .home-selector { flex: 1; max-width: 360px; }
+.edit-toolbar .start-selector { flex: 1; max-width: 360px; }
 .toolbar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
 .edit-parents {
@@ -3170,7 +3170,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   /* 600 to match the Edit/Merge person header's lifespan weight. */
   font-weight: 600;
 }
-/* Root person's kinship to the home person, shown in the title. */
+/* Root person's kinship to the start person, shown in the title. */
 .tree-title-kinship {
   color: var(--accent);
   font-size: 0.85rem;
@@ -3532,16 +3532,16 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .relchart-edge-parent {
   stroke: var(--border-2);
 }
-/* The two endpoints — the home person and the related target — are the subjects
+/* The two endpoints — the start person and the related target — are the subjects
    of the chart, so they get a bold accent border, a stronger tinted fill, and a
    soft glow to stand out from the (thinner) spine and context boxes. */
-.relchart-node.is-home rect,
+.relchart-node.is-start rect,
 .relchart-node.is-target rect {
   stroke: var(--accent);
   stroke-width: 3.5;
   fill: color-mix(in srgb, var(--accent) 24%, var(--panel));
 }
-.relchart-node.is-home,
+.relchart-node.is-start,
 .relchart-node.is-target {
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 50%, transparent));
 }
@@ -3730,7 +3730,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.85rem;
   font-weight: 400;
 }
-/* Kinship to the home person, after the lifespan in the panel title. */
+/* Kinship to the start person, after the lifespan in the panel title. */
 .tree-compare-kinship {
   color: var(--accent);
   font-size: 0.8rem;
@@ -4498,13 +4498,13 @@ kbd {
     border-top: 1px solid var(--border);
     padding-top: 32px;
   }
-  .home-selector {
+  .start-selector {
     flex: 1 1 100%;
   }
-  .home-selector input {
+  .start-selector input {
     width: 100%;
   }
-  /* Keep the controls on one line (no wrap) so the home selector shrinks from
+  /* Keep the controls on one line (no wrap) so the start selector shrinks from
      its 240px default to keep the mode tabs alongside it, instead of the tabs
      wrapping to a row below while the selector stays full-width. */
   .app-head-actions {
@@ -4746,7 +4746,7 @@ kbd {
 
 /* On phone-sized widths there's no longer room for the pills beside the
    wordmark, so the pills drop to their own row while the wordmark keeps the
-   theme/language switcher. (The mode tabs live on the home-selector row below.) */
+   theme/language switcher. (The mode tabs live on the start-selector row below.) */
 @media (max-width: 720px) {
   .app-head-file-pills {
     order: 4;

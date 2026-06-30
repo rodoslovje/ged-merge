@@ -39,7 +39,7 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   showFilters: boolean;
   setShowFilters: Dispatch<SetStateAction<boolean>>;
-  homeId: string | undefined;
+  startId: string | undefined;
   masterDataset: Dataset | undefined;
   openMatches: boolean;
   setOpenMatches: Dispatch<SetStateAction<boolean>>;
@@ -78,7 +78,7 @@ export function MergeView({
   decisions,
   showFilters,
   setShowFilters,
-  homeId,
+  startId,
   masterDataset,
   openMatches,
   setOpenMatches,
@@ -133,16 +133,16 @@ export function MergeView({
     </div>
   ) : undefined;
 
-  const homeInfo = current && homeId && masterDataset
-    ? kinshipInfo(masterDataset, homeId, current.masterId, t)
+  const startInfo = current && startId && masterDataset
+    ? kinshipInfo(masterDataset, startId, current.masterId, t)
     : undefined;
-  const homePersonName = homeId && masterDataset
-    ? formatName(masterDataset.individuals.get(homeId)!)
+  const startPersonName = startId && masterDataset
+    ? formatName(masterDataset.individuals.get(startId)!)
     : undefined;
-  const kinship = homeInfo?.label;
-  const kinshipLineage = lineageClass(homeInfo?.lineage);
-  const kinshipTooltip = homeInfo && homePersonName
-    ? kinshipTooltipText(homeInfo, homePersonName, t)
+  const kinship = startInfo?.label;
+  const kinshipLineage = lineageClass(startInfo?.lineage);
+  const kinshipTooltip = startInfo && startPersonName
+    ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
 
   const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
@@ -286,7 +286,7 @@ export function MergeView({
                   onSelect={onSelect}
                   decisions={decisions}
                   showFilters={showFilters}
-                  showRelation={!!homeId}
+                  showRelation={!!startId}
                 />
               </Section>
             </div>

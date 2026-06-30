@@ -5,37 +5,37 @@ import { bloodLineage, type Lineage } from "./relationshipPath";
 export type { Lineage };
 
 /**
- * Human-readable kinship label between `homeId` and `targetId`.
- * Returns undefined when homeId === targetId, neither is found,
+ * Human-readable kinship label between `startId` and `targetId`.
+ * Returns undefined when startId === targetId, neither is found,
  * or the relationship is too distant to name.
  */
 export function kinshipLabel(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
   t: Translate,
 ): string | undefined {
-  if (homeId === targetId) return t("kinship.home");
+  if (startId === targetId) return t("kinship.start");
 
-  const homeIndi = ds.individuals.get(homeId);
+  const startIndi = ds.individuals.get(startId);
   const targetIndi = ds.individuals.get(targetId);
-  if (!homeIndi || !targetIndi) return undefined;
+  if (!startIndi || !targetIndi) return undefined;
 
   // Direct spouse
-  for (const famId of homeIndi.spouseOf) {
+  for (const famId of startIndi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
-    const spouseId = fam.husband === homeId ? fam.wife : fam.husband;
+    const spouseId = fam.husband === startId ? fam.wife : fam.husband;
     if (spouseId === targetId) return t("kinship.spouse");
   }
 
   // Build ancestor-generation maps for both sides
-  const homeAncs = ancestorGens(ds, homeId);
+  const startAncs = ancestorGens(ds, startId);
   const targetAncs = ancestorGens(ds, targetId);
 
   // Find the closest common ancestor (lowest total hops)
   let bestHG = Infinity, bestTG = Infinity;
-  for (const [id, hg] of homeAncs) {
+  for (const [id, hg] of startAncs) {
     const tg = targetAncs.get(id);
     if (tg !== undefined && hg + tg < bestHG + bestTG) {
       bestHG = hg;
@@ -62,12 +62,12 @@ export interface KinshipInfo {
 
 export function kinshipInfo(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
   t: Translate,
 ): KinshipInfo | undefined {
-  const label = kinshipLabel(ds, homeId, targetId, t);
-  const lineage = bloodLineage(ds, homeId, targetId);
+  const label = kinshipLabel(ds, startId, targetId, t);
+  const lineage = bloodLineage(ds, startId, targetId);
   if (label) return { label, lineage, bloodOnly: false };
   // No nameable kinship, but a blood line still connects them — surface that.
   if (lineage) return { label: t("kinship.bloodline"), lineage, bloodOnly: true };
@@ -79,11 +79,11 @@ export function lineageClass(lineage?: Lineage): string {
   return lineage === "paternal" || lineage === "maternal" ? `lineage-${lineage}` : "";
 }
 
-/** Full kinship tooltip: the base "<rel> of <home>" plus a lineage line when known. */
-export function kinshipTooltip(info: KinshipInfo, homeName: string, t: Translate): string {
+/** Full kinship tooltip: the base "<rel> of <start>" plus a lineage line when known. */
+export function kinshipTooltip(info: KinshipInfo, startName: string, t: Translate): string {
   const base = info.bloodOnly
-    ? t("kinship.bloodlineTooltip", { name: homeName })
-    : t("kinship.tooltip", { kinship: info.label, name: homeName });
+    ? t("kinship.bloodlineTooltip", { name: startName })
+    : t("kinship.tooltip", { kinship: info.label, name: startName });
   return info.lineage ? `${base} — ${t(`kinship.lineage.${info.lineage}`)}` : base;
 }
 
@@ -112,12 +112,12 @@ function ancestorGens(ds: Dataset, startId: string): Map<string, number> {
 
 /**
  * Maps generation distances to a kinship label.
- * hg = hops from home to LCA; tg = hops from LCA down to target.
+ * hg = hops from start to LCA; tg = hops from LCA down to target.
  */
 function relLabel(hg: number, tg: number, sex: string, t: Translate): string | undefined {
   const f = sex === "F";
 
-  // Direct ancestor (target is ancestor of home)
+  // Direct ancestor (target is ancestor of start)
   if (hg > 0 && tg === 0) {
     if (hg === 1) return f ? t("kinship.mother") : t("kinship.father");
     if (hg === 2) return f ? t("kinship.grandmother") : t("kinship.grandfather");
@@ -125,7 +125,7 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
     return (f ? t("kinship.greatGrandmother") : t("kinship.greatGrandfather")) + ` ×${hg - 2}`;
   }
 
-  // Direct descendant (target is descendant of home)
+  // Direct descendant (target is descendant of start)
   if (hg === 0 && tg > 0) {
     if (tg === 1) return f ? t("kinship.daughter") : t("kinship.son");
     if (tg === 2) return f ? t("kinship.granddaughter") : t("kinship.grandson");

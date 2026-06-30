@@ -60,14 +60,14 @@ const EMPTY_MAPS = {
 interface Props {
   masterDs: Dataset;
   rootId: string;
-  homeId?: string;
+  startId?: string;
   changedPersonIds: Set<string>;
   /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
   decisions?: Map<string, CandidateDecision>;
   onBack: () => void;
 }
 
-export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions, onBack }: Props) {
+export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -81,11 +81,11 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
   // are radial.
   const radial = settings.type === "fan" || settings.type === "circle";
   const isGrid = settings.type === "grid";
-  // Kinship can only show when there's a home person to measure against; gate it so
+  // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && !!homeId }),
-    [settings, homeId],
+    () => ({ ...settings, showKinship: settings.showKinship && !!startId }),
+    [settings, startId],
   );
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
@@ -165,11 +165,11 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
     const at = buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors");
     if (!at) return undefined;
     const hasPhoto = (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records);
-    // Kinship to the home person, shown in place of a redacted living person's name.
+    // Kinship to the start person, shown in place of a redacted living person's name.
     const kinshipOf = (n: TreeNode) =>
-      homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
+      startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined;
     return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootPerson, masterDs, settings.type, display, t, folderName, livingLabel, homeId]);
+  }, [radial, rootPerson, masterDs, settings.type, display, t, folderName, livingLabel, startId]);
 
   const fanNodes = useMemo(() => {
     const m = new Map<string, Placed>();
@@ -235,9 +235,9 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
     (n) => !isModified(n) && decisionOf(n)?.status !== "confirmed",
   ).length;
 
-  // Root person's kinship to the home person, shown in the title.
-  const rootKinship = homeId && rootPerson ? kinshipLabel(masterDs, homeId, rootPerson.id, t) : undefined;
-  const rootLineage = homeId && rootPerson ? bloodLineage(masterDs, homeId, rootPerson.id) : undefined;
+  // Root person's kinship to the start person, shown in the title.
+  const rootKinship = startId && rootPerson ? kinshipLabel(masterDs, startId, rootPerson.id, t) : undefined;
+  const rootLineage = startId && rootPerson ? bloodLineage(masterDs, startId, rootPerson.id) : undefined;
 
   // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
   const needsMinimap =
@@ -415,8 +415,8 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                         place={n.place}
                         sex={n.sex}
                         color={color}
-                        kinship={homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined}
-                        kinshipLineage={homeId && n.master?.id ? bloodLineage(masterDs, homeId, n.master.id) : undefined}
+                        kinship={startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined}
+                        kinshipLineage={startId && n.master?.id ? bloodLineage(masterDs, startId, n.master.id) : undefined}
                         photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: setCurrentRootId } } : undefined}
                         display={display}
                         living={n.living}

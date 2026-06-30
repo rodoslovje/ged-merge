@@ -25,7 +25,7 @@ interface Props {
   /** When set, the title becomes a button (Compare Tree: open in Matches). */
   onTitleClick?: () => void;
   titleHint?: string;
-  /** Kinship label to the home person, shown after the lifespan in the title. */
+  /** Kinship label to the start person, shown after the lifespan in the title. */
   kinship?: string;
   /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-paternal"). */
   kinshipLineage?: string;

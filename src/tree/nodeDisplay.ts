@@ -81,7 +81,7 @@ export interface NodeDisplayInput {
   name: string;
   years?: string;
   place?: string;
-  /** Kinship-to-home label, when known. */
+  /** Kinship-to-start label, when known. */
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
   kinshipLineage?: Lineage;

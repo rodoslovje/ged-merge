@@ -74,8 +74,8 @@ interface Props {
   importBranches: Set<string>;
   /** Toggle "bring in this incoming person's ancestors/descendants on save". */
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
-  /** Home person ID in the master dataset, used to show kinship labels on nodes. */
-  homeId?: string;
+  /** Start person ID in the master dataset, used to show kinship labels on nodes. */
+  startId?: string;
 }
 
 /** The three actionable decisions, in button order. */
@@ -128,7 +128,7 @@ export function CompareTree({
   onDecide,
   importBranches,
   onToggleImport,
-  homeId,
+  startId,
 }: Props) {
   const { t } = useTranslation();
 
@@ -169,15 +169,15 @@ export function CompareTree({
 
   const kinshipOf = useCallback(
     (n: TreeNode): string | undefined => {
-      if (!homeId || !n.master) return undefined;
-      return kinshipLabel(masterDs, homeId, n.master.id, t) ?? undefined;
+      if (!startId || !n.master) return undefined;
+      return kinshipLabel(masterDs, startId, n.master.id, t) ?? undefined;
     },
-    [homeId, masterDs, t],
+    [startId, masterDs, t],
   );
   const lineageOf = useCallback(
     (n: TreeNode): Lineage | undefined =>
-      homeId && n.master ? bloodLineage(masterDs, homeId, n.master.id) : undefined,
-    [homeId, masterDs],
+      startId && n.master ? bloodLineage(masterDs, startId, n.master.id) : undefined,
+    [startId, masterDs],
   );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
@@ -233,11 +233,11 @@ export function CompareTree({
   // are radial.
   const radial = settings.type === "fan" || settings.type === "circle";
   const isGrid = settings.type === "grid";
-  // Kinship can only show when there's a home person to measure against; gate it so
+  // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && !!homeId }),
-    [settings, homeId],
+    () => ({ ...settings, showKinship: settings.showKinship && !!startId }),
+    [settings, startId],
   );
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
@@ -277,11 +277,11 @@ export function CompareTree({
       !!folderName &&
       ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
         (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records)));
-    // Kinship to the home person, shown in place of a redacted living person's name.
+    // Kinship to the start person, shown in place of a redacted living person's name.
     const kinshipOf = (n: TreeNode) =>
-      homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined;
+      startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined;
     return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, homeId]);
+  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, startId]);
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
@@ -322,9 +322,9 @@ export function CompareTree({
 
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
-  // Root person's kinship to the home person, shown in the title.
-  const rootKinship = homeId && rootMasterId ? kinshipLabel(masterDs, homeId, rootMasterId, t) : undefined;
-  const rootLineage = homeId && rootMasterId ? bloodLineage(masterDs, homeId, rootMasterId) : undefined;
+  // Root person's kinship to the start person, shown in the title.
+  const rootKinship = startId && rootMasterId ? kinshipLabel(masterDs, startId, rootMasterId, t) : undefined;
+  const rootLineage = startId && rootMasterId ? bloodLineage(masterDs, startId, rootMasterId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 

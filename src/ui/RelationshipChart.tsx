@@ -11,7 +11,7 @@ import { buildRelationshipChart, type ChartBox } from "../match/relationshipChar
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
-import { HomePersonSelector } from "./HomePersonSelector";
+import { StartPersonSelector } from "./StartPersonSelector";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { TreeMinimap } from "./TreeMinimap";
@@ -27,7 +27,7 @@ const COLOR_CONTEXT = "var(--faint)";
 
 interface Props {
   masterDs: Dataset;
-  homeId: string;
+  startId: string;
   targetId: string;
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the chart). */
@@ -40,26 +40,26 @@ interface PathOption {
 }
 
 /**
- * Full-page top-down "relationship to the home person" diagram: the chain of
- * people connecting the home person to the target, drawn as two vertical rails
- * (home's line and the target's line) joined at the common-ancestor couple, with
+ * Full-page top-down "relationship to the start person" diagram: the chain of
+ * people connecting the start person to the target, drawn as two vertical rails
+ * (start's line and the target's line) joined at the common-ancestor couple, with
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNavigate }: Props) {
+export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavigate }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const [optionIdx, setOptionIdx] = useState(0);
-  // Either endpoint can be swapped on this page without touching the app's home
+  // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
-  const [homeSel, setHomeSel] = useState(homeId);
+  const [startSel, setStartSel] = useState(startId);
   const [targetSel, setTargetSel] = useState(targetId);
-  const [picking, setPicking] = useState<"home" | "target" | null>(null);
-  useEffect(() => setHomeSel(homeId), [homeId]);
+  const [picking, setPicking] = useState<"start" | "target" | null>(null);
+  useEffect(() => setStartSel(startId), [startId]);
   useEffect(() => setTargetSel(targetId), [targetId]);
 
-  const replace = (side: "home" | "target", id: string) => {
-    (side === "home" ? setHomeSel : setTargetSel)(id);
+  const replace = (side: "start" | "target", id: string) => {
+    (side === "start" ? setStartSel : setTargetSel)(id);
     setOptionIdx(0);
     setPicking(null);
   };
@@ -76,18 +76,18 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   // Shortest path + every distinct bloodline, deduped (a shortest path that is
   // already a pure bloodline isn't listed twice).
   const options = useMemo<PathOption[]>(() => {
-    const blood = bloodPaths(masterDs, homeSel, targetSel);
+    const blood = bloodPaths(masterDs, startSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
       path,
       label: t("relpath.optBlood", { name: nameOf(path.steps[path.lcaIndex!].id), count: path.hops }),
     }));
-    const shortest = shortestPath(masterDs, homeSel, targetSel);
+    const shortest = shortestPath(masterDs, startSel, targetSel);
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
       opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterDs, homeSel, targetSel, t]);
+  }, [masterDs, startSel, targetSel, t]);
 
   const settings = useChartSettings().settings;
   const { alignment } = settings;
@@ -105,7 +105,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   );
 
   // Adapt the chart boxes to the shapes `useTreeCanvas` / `TreeMinimap` expect
-  // (they only read key/x/y). The home box pins the initial scroll.
+  // (they only read key/x/y). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
     const m = new Map<string, Placed>();
     for (const b of chart?.boxes ?? []) m.set(b.key, b as unknown as Placed);
@@ -132,17 +132,17 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
     [t, selectedIndi, masterDs],
   );
 
-  const kinship = kinshipLabel(masterDs, homeSel, targetSel, t);
-  const kinshipLineage = bloodLineage(masterDs, homeSel, targetSel);
+  const kinship = kinshipLabel(masterDs, startSel, targetSel, t);
+  const kinshipLineage = bloodLineage(masterDs, startSel, targetSel);
   // Shared title for the SVG / PDF export header.
-  const relchartTitle = `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
+  const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
   const needsMinimap =
     !!chart && viewport.width > 0 &&
     (chart.width * zoom > viewport.width + 1 || chart.height * zoom > viewport.height + 1);
   const minimapOpen = mapOpen ?? (!!chart && minimapDefaultOpen(chart.width, chart.height, viewport));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
-  const renderEndpoint = (side: "home" | "target", id: string) => {
+  const renderEndpoint = (side: "start" | "target", id: string) => {
     const indi = masterDs.individuals.get(id);
     return (
       <button
@@ -165,7 +165,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           ← <span className="tree-back-label">{t("edit.tree.back")}</span>
         </button>
         <h2 className="tree-title">
-          {renderEndpoint("home", homeSel)}
+          {renderEndpoint("start", startSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>
           {renderEndpoint("target", targetSel)}
           {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
@@ -176,7 +176,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           className="tree-open-btn tree-export-btn"
           onClick={() => exportCanvasSvg(
             canvasRef.current,
-            diagramSlug(nameOf(homeSel), nameOf(targetSel), t("relpath.pageTitle")),
+            diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")),
             relchartTitle,
           )}
           disabled={!chart}
@@ -188,7 +188,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           className="tree-open-btn tree-export-btn"
           onClick={() => exportCanvasPdf(
             canvasRef.current,
-            diagramSlug(nameOf(homeSel), nameOf(targetSel), t("relpath.pageTitle")),
+            diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")),
             relchartTitle,
           )}
           disabled={!chart}
@@ -201,12 +201,12 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
       {picking && (
         <div className="tree-controls relchart-picker-bar">
           <span className="relchart-picker-label">
-            {picking === "home" ? t("relpath.replaceHome") : t("relpath.replaceTarget")}
+            {picking === "start" ? t("relpath.replaceStart") : t("relpath.replaceTarget")}
           </span>
-          <HomePersonSelector
+          <StartPersonSelector
             key={picking}
             individuals={masterDs.individuals}
-            homeId={picking === "home" ? homeSel : targetSel}
+            startId={picking === "start" ? startSel : targetSel}
             onChange={(newId) => replace(picking, newId)}
             icon="search"
             autoFocus
@@ -280,8 +280,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
-                        kinship={kinshipLabel(masterDs, homeSel, b.id, t)}
-                        kinshipLineage={bloodLineage(masterDs, homeSel, b.id)}
+                        kinship={kinshipLabel(masterDs, startSel, b.id, t)}
+                        kinshipLineage={bloodLineage(masterDs, startSel, b.id)}
                         photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
@@ -334,8 +334,8 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
             masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}
             masterLabel={t("tree.master")}
             singleColumn
-            kinship={kinshipLabel(masterDs, homeSel, selectedBox.id, t)}
-            kinshipLineage={lineageClass(bloodLineage(masterDs, homeSel, selectedBox.id))}
+            kinship={kinshipLabel(masterDs, startSel, selectedBox.id, t)}
+            kinshipLineage={lineageClass(bloodLineage(masterDs, startSel, selectedBox.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}

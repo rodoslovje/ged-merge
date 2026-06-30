@@ -3,7 +3,7 @@ import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, pat
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
-import { defaultHomeId, primaryName } from "../match/relatives";
+import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf } from "./SettingsContext";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
@@ -52,7 +52,7 @@ import {
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation } from "../gedcom/source";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
-import { HomePersonSelector } from "./HomePersonSelector";
+import { StartPersonSelector } from "./StartPersonSelector";
 import { PersonCard } from "./PersonCard";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddPhotoDialog } from "./AddPhotoDialog";
@@ -80,15 +80,15 @@ const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i;
 interface Props {
   dataset: Dataset;
   fileName: string;
-  /** Seeds the initial selection (the Merge-mode home person, if set). */
-  homeId?: string;
-  /** Called to change (or clear) the home person. */
-  changeHome: (id: string | undefined) => void;
+  /** Seeds the initial selection (the Merge-mode start person, if set). */
+  startId?: string;
+  /** Called to change (or clear) the start person. */
+  changeStart: (id: string | undefined) => void;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
   /** Open the edit tree rooted on the currently selected person. */
   onShowTree: (id: string) => void;
-  /** Open the relationship-to-home diagram for the currently selected person. */
+  /** Open the relationship-to-start diagram for the currently selected person. */
   onShowRelationship: (id: string) => void;
   /** True when the master file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
@@ -96,7 +96,7 @@ interface Props {
   /** Navigate to this person when it changes (used by the save dialog person links). */
   navigateToId?: string;
   /** Called once after `navigateToId` has been honoured, so the parent can reset
-   *  it and re-request the same person again later (e.g. the "go home" icon). */
+   *  it and re-request the same person again later (e.g. the "go start" icon). */
   onNavigated?: () => void;
   /** Called whenever the currently-shown person changes, so the parent can
    * jump Merge to that same person's match candidate when switching modes
@@ -140,11 +140,11 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const [selectedId, setSelectedId] = useState<string | undefined>(
-    () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
+    () => startId ?? defaultStartId(dataset) ?? dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
   // Bumped after every edit to force a re-render — the dataset is mutated
@@ -282,8 +282,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
-  const shortcutRef = useRef({ selectedId, onShowTree, onShowRelationship, homeId, matchOrder, navigate, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowTree, onShowRelationship, homeId, matchOrder, navigate, matchDecKey, toggleMatchStatus };
+  const shortcutRef = useRef({ selectedId, onShowTree, onShowRelationship, startId, matchOrder, navigate, matchDecKey, toggleMatchStatus });
+  shortcutRef.current = { selectedId, onShowTree, onShowRelationship, startId, matchOrder, navigate, matchDecKey, toggleMatchStatus };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -293,7 +293,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowTree: show, onShowRelationship: showRel, homeId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowTree: show, onShowRelationship: showRel, startId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
         if (id) { e.preventDefault(); show(id); }
@@ -1250,7 +1250,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
         setHistory((prev) => prev.filter((id) => id !== personId));
         setNotesAdded(false);
         setSelectedId(nextId);
-        if (personId === homeId) changeHome(nextId);
+        if (personId === startId) changeStart(nextId);
         setTick((v) => v + 1);
       },
     });
@@ -1289,24 +1289,24 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     .filter((f): f is NonNullable<typeof f> => !!f);
 
   const lifespan = lifespanOf(person);
-  const homeInfo = homeId ? kinshipInfo(dataset, homeId, selectedId!, t) : undefined;
-  const homePersonName = homeId
-    ? formatName(dataset.individuals.get(homeId)!)
+  const startInfo = startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
+  const startPersonName = startId
+    ? formatName(dataset.individuals.get(startId)!)
     : undefined;
-  const kinship = homeInfo?.label;
-  const kinshipLineage = lineageClass(homeInfo?.lineage);
-  const kinshipTooltip = homeInfo && homePersonName
-    ? kinshipTooltipText(homeInfo, homePersonName, t)
+  const kinship = startInfo?.label;
+  const kinshipLineage = lineageClass(startInfo?.lineage);
+  const kinshipTooltip = startInfo && startPersonName
+    ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
 
   function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string; kinshipLineage?: string } {
-    if (!homeId || !id) return {};
-    const info = kinshipInfo(dataset, homeId, id, t);
+    if (!startId || !id) return {};
+    const info = kinshipInfo(dataset, startId, id, t);
     if (!info) return {};
     return {
       kinship: info.label,
       kinshipLineage: lineageClass(info.lineage),
-      kinshipTooltip: homePersonName ? kinshipTooltipText(info, homePersonName, t) : undefined,
+      kinshipTooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
     };
   }
 
@@ -1328,9 +1328,9 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           <button className="tree-open-btn" onClick={goBack} disabled={history.length === 0}>
             ← {t("edit.back")}
           </button>
-          <HomePersonSelector
+          <StartPersonSelector
             individuals={dataset.individuals}
-            homeId={selectedId}
+            startId={selectedId}
             onChange={navigate}
             placeholder={t("filter.search")}
             tooltip={t("edit.selectPerson")}
@@ -1340,8 +1340,8 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
           <div className="toolbar-end">
             <button
               className="tree-open-btn"
-              onClick={() => selectedId && homeId && onShowRelationship(selectedId)}
-              disabled={!homeId || !selectedId || homeId === selectedId}
+              onClick={() => selectedId && startId && onShowRelationship(selectedId)}
+              disabled={!startId || !selectedId || startId === selectedId}
               title={t("relpath.tooltip")}
             >
               {t("relpath.button")}

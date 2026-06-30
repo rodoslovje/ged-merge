@@ -8,13 +8,13 @@ function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 
-// Home person @I1@; @I2@ spouse (1), @I3@ child (1), @I4@ grandchild (2),
+// Start person @I1@; @I2@ spouse (1), @I3@ child (1), @I4@ grandchild (2),
 // @I5@ parent (1), @I6@ sibling (2 via shared parents).
 const TREE = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
-1 NAME Home /Person/
+1 NAME Start /Person/
 1 FAMS @F1@
 1 FAMC @F2@
 0 @I2@ INDI
@@ -63,7 +63,7 @@ describe("computeDistances", () => {
     expect(d.get("@I6@")).toBe(2); // sibling (via shared parent)
   });
 
-  it("returns empty for an unknown home id", () => {
+  it("returns empty for an unknown start id", () => {
     expect(computeDistances(ds, "@NOPE@").size).toBe(0);
   });
 });

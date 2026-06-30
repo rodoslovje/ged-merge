@@ -110,14 +110,14 @@ describe("relationshipChartLayout", () => {
     expect(box("@I1@").y).toBe(box("@I8@").y);
     expect(box("@I1@").y).toBeGreaterThan(box("@I2@").y);
 
-    // Each direct line is a single column: home's ancestors all share one x,
+    // Each direct line is a single column: start's ancestors all share one x,
     // the target's descendants another — only two rails wide (plus spouses).
     expect(box("@I1@").x).toBe(box("@I2@").x);
     expect(box("@I2@").x).toBe(box("@I4@").x);
     expect(box("@I6@").x).toBe(box("@I8@").x);
     expect(box("@I4@").x).not.toBe(box("@I8@").x);
 
-    expect(box("@I1@").role).toBe("home");
+    expect(box("@I1@").role).toBe("start");
     expect(box("@I8@").role).toBe("target");
 
     // Three couples (I2/I3, I4/I5, I6/I7) → 3 partner lines; 4 parent drops.

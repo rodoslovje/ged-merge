@@ -43,7 +43,7 @@ export interface IndividualCandidate {
   deceased: boolean;
   /** Sex of the matched person, used to colour the name label. */
   sex: Sex;
-  /** Hops from the home person to the master individual (set during ranking). */
+  /** Hops from the start person to the master individual (set during ranking). */
   distance?: number;
   /** Fields the compare record has that the master lacks (data to add). */
   newCount?: number;

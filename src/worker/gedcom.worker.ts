@@ -21,11 +21,11 @@ import type { WorkerRequest, WorkerResponse } from "./messages";
  * Off-main-thread GEDCOM parsing, normalization, and matching.
  *
  * The worker keeps state so the compare file normalizes to the master and the
- * results re-rank against the home person, regardless of action order:
- *  - load master  -> infer profile + suggest a home person; re-normalize any
+ * results re-rank against the start person, regardless of action order:
+ *  - load master  -> infer profile + suggest a start person; re-normalize any
  *    compare already loaded.
  *  - load compare -> normalize against the profile if the master is loaded.
- *  - setHome       -> re-rank the last match result by distance to that person.
+ *  - setStart       -> re-rank the last match result by distance to that person.
  */
 let profile: MasterProfile | undefined;
 let masterDataset: Dataset | undefined;
@@ -33,7 +33,7 @@ let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
 /** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
 let compareCsvPairs: GiPair[] | undefined;
-let homeId: string | undefined;
+let startId: string | undefined;
 let lastResult: MatchResult | undefined;
 /** The last compare `parsed` payload (minus the dataset), so the consolidated
  *  compare can be re-emitted with the same format reports after duplicates are
@@ -44,12 +44,12 @@ let lastCompareMeta:
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
-  if (req.type === "setHome") {
-    homeId = req.id || undefined; // empty id clears the home person
+  if (req.type === "setStart") {
+    startId = req.id || undefined; // empty id clears the start person
     if (lastResult && masterDataset) {
       post({ type: "matching" });
-      lastResult = homeId
-        ? applyDistanceRanking(lastResult, masterDataset, homeId)
+      lastResult = startId
+        ? applyDistanceRanking(lastResult, masterDataset, startId)
         : clearDistanceRanking(lastResult);
       post({ type: "matched", result: lastResult });
     }
@@ -148,7 +148,7 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
 }
 
-/** Run matching once both sides are available, ranked if a home person is set. */
+/** Run matching once both sides are available, ranked if a start person is set. */
 function maybeMatch(): void {
   if (!masterDataset || !compareNormalized) return;
   post({ type: "matching" });
@@ -170,7 +170,7 @@ function maybeMatch(): void {
     if (lastCompareMeta) post({ type: "parsed", role: "compare", dataset: compareNormalized, ...lastCompareMeta });
   }
   result = annotateCounts(result, masterDataset, compareNormalized);
-  if (homeId) result = applyDistanceRanking(result, masterDataset, homeId);
+  if (startId) result = applyDistanceRanking(result, masterDataset, startId);
   lastResult = result;
   post({ type: "matched", result });
 }

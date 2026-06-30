@@ -19,13 +19,13 @@ export interface ParseCsvRequest {
   buffer: ArrayBuffer;
 }
 
-/** Choose the home person in the master; triggers a re-ranked match result. */
-export interface SetHomeRequest {
-  type: "setHome";
+/** Choose the start person in the master; triggers a re-ranked match result. */
+export interface SetStartRequest {
+  type: "setStart";
   id: string;
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetHomeRequest;
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest;
 
 export interface ParseSuccess {
   type: "parsed";

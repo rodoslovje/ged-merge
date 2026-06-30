@@ -95,7 +95,7 @@ export function RelativePickerCard({
             </li>
           ))}
           {options.length === 0 && query.trim() && (
-            <li className="relative-picker-empty muted">{t("home.noMatches")}</li>
+            <li className="relative-picker-empty muted">{t("start.noMatches")}</li>
           )}
         </ul>
       </div>

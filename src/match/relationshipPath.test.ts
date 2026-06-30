@@ -210,7 +210,7 @@ describe("bloodLineage both / descendant", () => {
     expect(bloodLineage(ds, "@I1@", "@I2@")).toBe("both");
   });
 
-  it("a descendant has no ancestral line from the home person", () => {
+  it("a descendant has no ancestral line from the start person", () => {
     expect(bloodLineage(ds, "@I1@", "@I5@")).toBeUndefined();
   });
 });

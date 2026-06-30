@@ -7,22 +7,22 @@ import { useNameOf } from "./SettingsContext";
 
 interface Props {
   individuals: Map<string, Individual>;
-  homeId: string | undefined;
+  startId: string | undefined;
   onChange: (id: string) => void;
   onClear?: () => void;
   /** When it turns true, focus the input so the user can type right away. */
   autoFocus?: boolean;
   /** Called once after an autoFocus has been honoured, so it isn't repeated. */
   onAutoFocused?: () => void;
-  /** Input placeholder shown when no person is selected. Defaults to the home-person wording. */
+  /** Input placeholder shown when no person is selected. Defaults to the start-person wording. */
   placeholder?: string;
-  /** Input tooltip. Defaults to the home-person wording. */
+  /** Input tooltip. Defaults to the start-person wording. */
   tooltip?: string;
-  /** Icon to show left of the input. Defaults to "home". */
-  icon?: "home" | "search";
-  /** When set (and a home person is chosen), the home icon becomes a button that
-   *  navigates back to the home person. Only meaningful with `icon="home"`. */
-  onHomeClick?: () => void;
+  /** Icon to show left of the input. Defaults to "house". */
+  icon?: "house" | "search";
+  /** When set (and a start person is chosen), the start icon becomes a button that
+   *  navigates back to the start person. Only meaningful with `icon="house"`. */
+  onStartClick?: () => void;
   /** When true (default), the selected person's name is shown as the input
    * placeholder. Set false for a pure search field that should always show the
    * generic `placeholder` hint instead (e.g. Edit's "jump to person" search). */
@@ -33,21 +33,21 @@ const MAX_RESULTS = 50;
 
 /**
  * Optional, filterable picker for an individual. Originally built for setting
- * the master's home person (which makes the matcher compute each match's
+ * the master's start person (which makes the matcher compute each match's
  * relationship distance and sort by it); also reused in Edit mode as a
  * generic "jump to person" picker via the `placeholder`/`tooltip` props.
  */
-export function HomePersonSelector({
+export function StartPersonSelector({
   individuals,
-  homeId,
+  startId,
   onChange,
   onClear,
   autoFocus,
   onAutoFocused,
   placeholder,
   tooltip,
-  icon = "home",
-  onHomeClick,
+  icon = "house",
+  onStartClick,
   selectedAsPlaceholder = true,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -93,7 +93,7 @@ export function HomePersonSelector({
     return base.slice(0, MAX_RESULTS);
   }, [options, query]);
 
-  const current = options.find((o) => o.id === homeId);
+  const current = options.find((o) => o.id === startId);
 
   // Reset the highlight to the top whenever the result set changes.
   useEffect(() => {
@@ -134,7 +134,7 @@ export function HomePersonSelector({
   }
 
   const glyph =
-    icon === "home" ? (
+    icon === "house" ? (
       <svg
         width="14"
         height="14"
@@ -166,37 +166,37 @@ export function HomePersonSelector({
       </svg>
     );
 
-  // When a home person is set and a handler is provided, the home icon is a
+  // When a start person is set and a handler is provided, the start icon is a
   // button that jumps back to that person; otherwise it's a static glyph.
-  const clickableHome = icon === "home" && !!homeId && !!onHomeClick;
+  const clickableStart = icon === "house" && !!startId && !!onStartClick;
 
   return (
-    <div className={homeId ? "home-selector" : "home-selector unset"}>
-      <div className="home-control">
-        {clickableHome ? (
-          <button type="button" className="home-icon home-icon-btn" title={t("home.goto")} onClick={onHomeClick}>
+    <div className={startId ? "start-selector" : "start-selector unset"}>
+      <div className="start-control">
+        {clickableStart ? (
+          <button type="button" className="start-icon start-icon-btn" title={t("start.goto")} onClick={onStartClick}>
             {glyph}
           </button>
         ) : (
-          <span className="home-icon" aria-hidden="true">
+          <span className="start-icon" aria-hidden="true">
             {glyph}
           </span>
         )}
         <input
           ref={inputRef}
           type="text"
-          placeholder={selectedAsPlaceholder && current ? current.text : placeholder ?? t("home.set")}
-          title={tooltip ?? t("home.tooltip")}
+          placeholder={selectedAsPlaceholder && current ? current.text : placeholder ?? t("start.set")}
+          title={tooltip ?? t("start.tooltip")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={onKeyDown}
         />
-        {homeId && onClear && (
+        {startId && onClear && (
           <button
-            className="home-clear"
-            title={t("home.clear")}
+            className="start-clear"
+            title={t("start.clear")}
             onClick={() => {
               setQuery("");
               onClear();
@@ -206,11 +206,11 @@ export function HomePersonSelector({
           </button>
         )}
         {open && query.trim() !== "" && (
-          <ul className="home-options" ref={listRef}>
+          <ul className="start-options" ref={listRef}>
             {filtered.map((o, i) => {
               const cls = [
-                "home-option",
-                o.id === homeId ? "active" : "",
+                "start-option",
+                o.id === startId ? "active" : "",
                 i === activeIndex ? "highlighted" : "",
               ]
                 .filter(Boolean)
@@ -229,7 +229,7 @@ export function HomePersonSelector({
                 </li>
               );
             })}
-            {filtered.length === 0 && <li className="muted home-empty">{t("home.noMatches")}</li>}
+            {filtered.length === 0 && <li className="muted start-empty">{t("start.noMatches")}</li>}
           </ul>
         )}
       </div>

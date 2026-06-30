@@ -1,7 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 
 /**
- * Relationship paths between the home person and a target individual: the actual
+ * Relationship paths between the start person and a target individual: the actual
  * chain of people connecting them, for display as a "how are these two related"
  * graph. Two flavours:
  *
@@ -17,13 +17,13 @@ export type RelationEdge = "parent" | "child" | "spouse";
 
 export interface PathStep {
   id: string;
-  /** How this person relates to the previous step. Undefined on the first (home). */
+  /** How this person relates to the previous step. Undefined on the first (start). */
   edge?: RelationEdge;
 }
 
 export interface RelationshipPath {
   kind: "shortest" | "blood";
-  /** Home person first, target last (inclusive). A length-1 path means self. */
+  /** Start person first, target last (inclusive). A length-1 path means self. */
   steps: PathStep[];
   /** Number of hops = steps.length - 1. */
   hops: number;
@@ -39,11 +39,11 @@ export interface RelationshipPaths {
 
 export function relationshipPaths(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
 ): RelationshipPaths {
-  const shortest = shortestPath(ds, homeId, targetId);
-  const blood = bloodPath(ds, homeId, targetId);
+  const shortest = shortestPath(ds, startId, targetId);
+  const blood = bloodPath(ds, startId, targetId);
   // When the shortest path is already a pure blood path, don't offer it twice.
   return {
     shortest,
@@ -54,15 +54,15 @@ export function relationshipPaths(
 /** Shortest connection through parent/child/spouse edges (BFS). */
 export function shortestPath(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
 ): RelationshipPath | undefined {
-  if (homeId === targetId) return self(homeId, "shortest");
-  if (!ds.individuals.has(homeId) || !ds.individuals.has(targetId)) return undefined;
+  if (startId === targetId) return self(startId, "shortest");
+  if (!ds.individuals.has(startId) || !ds.individuals.has(targetId)) return undefined;
 
   const prev = new Map<string, { from: string; edge: RelationEdge }>();
-  const seen = new Set([homeId]);
-  const queue = [homeId];
+  const seen = new Set([startId]);
+  const queue = [startId];
   for (let h = 0; h < queue.length; h++) {
     const id = queue[h];
     if (id === targetId) break;
@@ -77,12 +77,12 @@ export function shortestPath(
 
   const steps: PathStep[] = [];
   let cur = targetId;
-  while (cur !== homeId) {
+  while (cur !== startId) {
     const p = prev.get(cur)!;
     steps.push({ id: cur, edge: p.edge });
     cur = p.from;
   }
-  steps.push({ id: homeId });
+  steps.push({ id: startId });
   steps.reverse();
   return { kind: "shortest", steps, hops: steps.length - 1 };
 }
@@ -90,18 +90,18 @@ export function shortestPath(
 /** Blood path: two ancestor chains meeting at the closest common ancestor. */
 export function bloodPath(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
 ): RelationshipPath | undefined {
-  if (homeId === targetId) return { ...self(homeId, "blood"), lcaIndex: 0 };
-  if (!ds.individuals.has(homeId) || !ds.individuals.has(targetId)) return undefined;
+  if (startId === targetId) return { ...self(startId, "blood"), lcaIndex: 0 };
+  if (!ds.individuals.has(startId) || !ds.individuals.has(targetId)) return undefined;
 
-  const homeAnc = ancestors(ds, homeId);
+  const startAnc = ancestors(ds, startId);
   const targetAnc = ancestors(ds, targetId);
 
   let lca: string | undefined;
   let best = Infinity;
-  for (const [id, { gen }] of homeAnc) {
+  for (const [id, { gen }] of startAnc) {
     const tg = targetAnc.get(id);
     if (tg && gen + tg.gen < best) {
       best = gen + tg.gen;
@@ -110,8 +110,8 @@ export function bloodPath(
   }
   if (!lca) return undefined;
 
-  // home → … → LCA (each step is a "parent" hop going up)
-  const up = walkTo(homeAnc, lca, homeId); // [home, …, lca]
+  // start → … → LCA (each step is a "parent" hop going up)
+  const up = walkTo(startAnc, lca, startId); // [start, …, lca]
   const steps: PathStep[] = up.map((id, i) => ({ id, edge: i === 0 ? undefined : "parent" }));
   const lcaIndex = up.length - 1;
 
@@ -123,7 +123,7 @@ export function bloodPath(
 }
 
 /**
- * Every distinct bloodline between home and target: one path per most-recent
+ * Every distinct bloodline between start and target: one path per most-recent
  * common ancestor (MRCA), so intermarriage / double-cousin cases each surface
  * as their own route. The common-ancestor *couple* (two spouses) is one
  * bloodline, not two — paths that differ only in which spouse is the apex are
@@ -131,23 +131,23 @@ export function bloodPath(
  */
 export function bloodPaths(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
 ): RelationshipPath[] {
-  if (homeId === targetId || !ds.individuals.has(homeId) || !ds.individuals.has(targetId)) {
+  if (startId === targetId || !ds.individuals.has(startId) || !ds.individuals.has(targetId)) {
     return [];
   }
 
-  const homeAnc = ancestors(ds, homeId);
+  const startAnc = ancestors(ds, startId);
   const targetAnc = ancestors(ds, targetId);
   const common = new Set<string>();
-  for (const id of homeAnc.keys()) if (targetAnc.has(id)) common.add(id);
+  for (const id of startAnc.keys()) if (targetAnc.has(id)) common.add(id);
   if (common.size === 0) return [];
 
   const paths: RelationshipPath[] = [];
   const seen = new Set<string>();
   for (const a of common) {
-    const up = walkTo(homeAnc, a, homeId); // [home, …, a]
+    const up = walkTo(startAnc, a, startId); // [start, …, a]
     const down = walkTo(targetAnc, a, targetId); // [target, …, a]
     // Skip A when a *closer* common ancestor already covers this line: an MRCA
     // has no other common ancestor strictly between an endpoint and itself.
@@ -168,35 +168,35 @@ export function bloodPaths(
   return paths.sort((a, b) => a.hops - b.hops);
 }
 
-/** Which of home's two parental lines a blood relationship runs through. */
+/** Which of start's two parental lines a blood relationship runs through. */
 export type Lineage = "paternal" | "maternal" | "both";
 
 /**
- * The blood lineage from the home person to the target: which of home's parents
+ * The blood lineage from the start person to the target: which of start's parents
  * the relationship climbs through to reach a common ancestor.
  *
- *  - `"paternal"` / `"maternal"` — reached only via home's father / mother.
+ *  - `"paternal"` / `"maternal"` — reached only via start's father / mother.
  *  - `"both"` — reached via both (e.g. a full sibling shares both parents).
  *  - `undefined` — self, no blood relationship, or the target is a *descendant*
- *    of home (so there is no ancestral line to climb from home's side).
+ *    of start (so there is no ancestral line to climb from start's side).
  *
  * Unlike {@link bloodPaths} this does not collapse the common-ancestor couple,
  * so a full sibling correctly resolves to `"both"` rather than one arbitrary side.
  */
 export function bloodLineage(
   ds: Dataset,
-  homeId: string,
+  startId: string,
   targetId: string,
 ): Lineage | undefined {
-  if (homeId === targetId) return undefined;
-  if (!ds.individuals.has(homeId) || !ds.individuals.has(targetId)) return undefined;
+  if (startId === targetId) return undefined;
+  if (!ds.individuals.has(startId) || !ds.individuals.has(targetId)) return undefined;
 
-  const homeAnc = ancestors(ds, homeId);
+  const startAnc = ancestors(ds, startId);
   const targetAnc = ancestors(ds, targetId);
 
   // Closest common ancestor(s), by total hops; ties (e.g. both parents) all count.
   let best = Infinity;
-  for (const [id, h] of homeAnc) {
+  for (const [id, h] of startAnc) {
     const tg = targetAnc.get(id);
     if (tg) best = Math.min(best, h.gen + tg.gen);
   }
@@ -204,12 +204,12 @@ export function bloodLineage(
 
   let paternal = false;
   let maternal = false;
-  for (const [id, h] of homeAnc) {
+  for (const [id, h] of startAnc) {
     const tg = targetAnc.get(id);
     if (!tg || h.gen + tg.gen !== best) continue;
-    // home is the apex ⇒ target descends from home: no ancestral line to climb.
+    // start is the apex ⇒ target descends from start: no ancestral line to climb.
     if (h.gen === 0) continue;
-    const parentId = walkTo(homeAnc, id, homeId)[1]; // home's parent toward this LCA
+    const parentId = walkTo(startAnc, id, startId)[1]; // start's parent toward this LCA
     const sex = ds.individuals.get(parentId)?.sex;
     if (sex === "M") paternal = true;
     else if (sex === "F") maternal = true;

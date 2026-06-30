@@ -2,16 +2,16 @@ import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "./types";
 
 /**
- * Relationship distance (in graph hops) from the home person to every reachable
+ * Relationship distance (in graph hops) from the start person to every reachable
  * master individual, via parent/child/spouse edges. Unreachable people are
  * simply absent from the map.
  */
-export function computeDistances(ds: Dataset, homeId: string): Map<string, number> {
+export function computeDistances(ds: Dataset, startId: string): Map<string, number> {
   const dist = new Map<string, number>();
-  if (!ds.individuals.has(homeId)) return dist;
+  if (!ds.individuals.has(startId)) return dist;
 
-  dist.set(homeId, 0);
-  const queue = [homeId];
+  dist.set(startId, 0);
+  const queue = [startId];
   for (let head = 0; head < queue.length; head++) {
     const id = queue[head];
     const d = dist.get(id)!;
@@ -46,16 +46,16 @@ function* neighbors(id: string, ds: Dataset): Generator<string> {
 }
 
 /**
- * Annotate candidates with their master-side distance to the home person and
+ * Annotate candidates with their master-side distance to the start person and
  * re-sort by (distance ascending, then score descending), so the matches most
  * relevant to the user surface first.
  */
 export function applyDistanceRanking(
   result: MatchResult,
   masterDs: Dataset,
-  homeId: string,
+  startId: string,
 ): MatchResult {
-  const distances = computeDistances(masterDs, homeId);
+  const distances = computeDistances(masterDs, startId);
 
   const individuals = result.individuals
     .map((c) => withDistance(c, distances.get(c.masterId)))
@@ -69,7 +69,7 @@ function withDistance<T extends { distance?: number }>(c: T, distance: number | 
 }
 
 /** Drop distance annotations and fall back to score-descending order (used when
- * the home person is cleared). */
+ * the start person is cleared). */
 export function clearDistanceRanking(result: MatchResult): MatchResult {
   const strip = <T extends { distance?: number; score: number }>(c: T): T => {
     const { distance, ...rest } = c;

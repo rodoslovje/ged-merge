@@ -29,7 +29,7 @@ interface Props {
   selectedIndex: number;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
-  /** Show the relationship-distance column (only meaningful with a home person). */
+  /** Show the relationship-distance column (only meaningful with a start person). */
   showRelation: boolean;
   showFilters: boolean;
 }
