@@ -36,6 +36,24 @@ export function displayName(n: PersonName | undefined): string {
   return n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || "(unnamed)";
 }
 
+/**
+ * The married surname to show for a person, from either source the app supports:
+ *  - an inline `_MARNM` on the primary name (Gramps/PAF/Brother's Keeper style), or
+ *  - a separate `1 NAME … 2 TYPE married` record (the GEDCOM-7 / standard style).
+ * Returns undefined when none is recorded.
+ */
+export function marriedSurnameOf(indi: Individual): string | undefined {
+  const inline = indi.names[0]?.married?.trim();
+  if (inline) return inline;
+  for (const n of indi.names.slice(1)) {
+    if (n.type?.toLowerCase() === "married") {
+      const surname = (n.surname ?? n.full)?.trim();
+      if (surname) return surname;
+    }
+  }
+  return undefined;
+}
+
 /** Known `NAME`/`2 TYPE` values with a translated label; anything else is shown as-is. */
 const KNOWN_NAME_TYPES = new Set([
   "aka", "birth", "married", "maiden", "nick", "formal", "family", "variation", "religious", "immigrant", "other",

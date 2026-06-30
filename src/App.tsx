@@ -23,6 +23,7 @@ import { HomePersonSelector } from "./ui/HomePersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { LegalModal } from "./ui/LegalModal";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
+import { SettingsModal } from "./ui/SettingsModal";
 import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
@@ -39,8 +40,10 @@ import { EditTree } from "./ui/EditTree";
 import { RelationshipChart } from "./ui/RelationshipChart";
 import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
+import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
+import { SettingsProvider } from "./ui/SettingsContext";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -88,8 +91,6 @@ interface SelRef {
   compareId: string;
 }
 
-const LANG_FLAGS: Record<string, string> = { en: "🇬🇧", sl: "🇸🇮" };
-
 // Reuses the landing.samples.<key>.name translation keys, so the sample
 // label is only defined once per language.
 const SAMPLE_FILES = [
@@ -99,6 +100,7 @@ const SAMPLE_FILES = [
 ];
 
 type Theme = "light" | "dark";
+type ThemeMode = "auto" | "light" | "dark";
 const THEME_KEY = "gedmerge.theme";
 
 type Mode = "merge" | "edit" | "tools";
@@ -116,12 +118,14 @@ const MIN_MATCHING_DISPLAY_MS = 300;
 const modeLayerStyle: CSSProperties = { display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 };
 const modeLayerHiddenStyle: CSSProperties = { display: "none" };
 
-/** Current theme from the <html data-theme> the inline boot script set, else
- * the OS preference. */
-function detectTheme(): Theme {
-  const attr = document.documentElement.getAttribute("data-theme");
-  if (attr === "light" || attr === "dark") return attr;
+/** The OS's current colour-scheme preference. */
+function osTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+/** The persisted theme *mode*; absent/invalid means "follow the OS" (auto). */
+function detectThemeMode(): ThemeMode {
+  const saved = localStorage.getItem(THEME_KEY);
+  return saved === "light" || saved === "dark" ? saved : "auto";
 }
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
@@ -195,6 +199,7 @@ function AppContent() {
   const [showFilters, setShowFilters] = useState(true);
   const [showLegal, setShowLegal] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
     { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
   >(null);
@@ -251,20 +256,21 @@ function AppContent() {
     }
   }, [mode]);
 
-  // Light/dark theme: auto-detected from the OS, overridable, and persisted.
-  const [theme, setTheme] = useState<Theme>(detectTheme);
+  // Light/dark theme. The mode is "auto" (follow the OS), "light" or "dark"; the
+  // applied theme resolves "auto" against the live OS preference. Persisted in
+  // localStorage and kept in sync with the inline boot script in index.html.
+  const [themeMode, setThemeMode] = useState<ThemeMode>(detectThemeMode);
+  const [osPref, setOsPref] = useState<Theme>(osTheme);
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-  useEffect(() => {
-    // Follow OS changes only while the user hasn't made an explicit choice.
     const mq = window.matchMedia("(prefers-color-scheme: light)");
-    const onChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem(THEME_KEY)) setTheme(e.matches ? "light" : "dark");
-    };
+    const onChange = (e: MediaQueryListEvent) => setOsPref(e.matches ? "light" : "dark");
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+  const theme: Theme = themeMode === "auto" ? osPref : themeMode;
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   // Open the Privacy/Terms modal when arrived at via `?legal=privacy|terms`
   // (the standalone guide pages link here, having no React modal of their own).
@@ -283,16 +289,14 @@ function AppContent() {
       window.location.pathname + (search ? `?${search}` : "") + window.location.hash,
     );
   }, []);
-  function toggleTheme() {
-    setTheme((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem(THEME_KEY, next);
-      } catch {
-        // ignore storage failures (private mode); the in-memory choice still applies
-      }
-      return next;
-    });
+  function changeThemeMode(mode: ThemeMode) {
+    setThemeMode(mode);
+    try {
+      if (mode === "auto") localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, mode);
+    } catch {
+      // ignore storage failures (private mode); the in-memory choice still applies
+    }
   }
 
   // Full-page "Compare tree" view, kept in sync with browser history so the
@@ -1243,6 +1247,12 @@ function AppContent() {
     <>
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        themeMode={themeMode}
+        onThemeMode={changeThemeMode}
+      />
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
@@ -1319,20 +1329,12 @@ function AppContent() {
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
-              style={{ marginRight: "8px" }}
-              onClick={toggleTheme}
-              title={theme === "dark" ? t("theme.light") : t("theme.dark")}
-              aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
+              onClick={() => setShowSettings(true)}
+              title={t("settings.title")}
+              aria-label={t("settings.title")}
             >
-              {theme === "dark" ? "🌙" : "☀️"}
+              <GearIcon size={18} />
             </button>
-            <div className="lang-select-wrapper">
-              <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
-              <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
-                <option value="en">🇬🇧 English (EN)</option>
-                <option value="sl">🇸🇮 Slovenščina (SL)</option>
-              </select>
-            </div>
           </div>
         </div>
       </header>
@@ -1440,20 +1442,12 @@ function AppContent() {
           <div className="lang-switcher">
             <button
               className="nav-btn icon-only"
-              style={{ marginRight: "8px" }}
-              onClick={toggleTheme}
-              title={theme === "dark" ? t("theme.light") : t("theme.dark")}
-              aria-label={theme === "dark" ? t("theme.light") : t("theme.dark")}
+              onClick={() => setShowSettings(true)}
+              title={t("settings.title")}
+              aria-label={t("settings.title")}
             >
-              {theme === "dark" ? "🌙" : "☀️"}
+              <GearIcon size={18} />
             </button>
-            <div className="lang-select-wrapper">
-              <span aria-hidden="true">{LANG_FLAGS[i18n.language]} {i18n.language.toUpperCase()} ▾</span>
-              <select className="lang-select" value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)} aria-label="Language">
-                <option value="en">🇬🇧 English (EN)</option>
-                <option value="sl">🇸🇮 Slovenščina (SL)</option>
-              </select>
-            </div>
           </div>
         </div>
         {masterDataset && (
@@ -1754,13 +1748,15 @@ function AppContent() {
 
 export function App() {
   return (
-    <ChartSettingsProvider>
-      <MediaFolderProvider>
-        <PhotoViewerProvider>
-          <AppContent />
-        </PhotoViewerProvider>
-      </MediaFolderProvider>
-    </ChartSettingsProvider>
+    <SettingsProvider>
+      <ChartSettingsProvider>
+        <MediaFolderProvider>
+          <PhotoViewerProvider>
+            <AppContent />
+          </PhotoViewerProvider>
+        </MediaFolderProvider>
+      </ChartSettingsProvider>
+    </SettingsProvider>
   );
 }
 

@@ -8,8 +8,8 @@ import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { kinshipLabel } from "../match/kinship";
 import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { buildRelationshipChart, type ChartBox } from "../match/relationshipChartLayout";
-import { displayName, primaryName } from "../match/relatives";
 import { individualFieldRows } from "../review/fields";
+import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { HomePersonSelector } from "./HomePersonSelector";
 import { TreeNodeBox } from "./TreeNodeBox";
@@ -48,6 +48,7 @@ interface PathOption {
  */
 export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNavigate }: Props) {
   const { t } = useTranslation();
+  const formatName = useNameOf();
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's home
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -65,7 +66,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
 
   const nameOf = (id: string) => {
     const indi = masterDs.individuals.get(id);
-    return indi ? displayName(primaryName(indi)) : id;
+    return indi ? formatName(indi) : id;
   };
   const yearsOf = (id: string) => {
     const indi = masterDs.individuals.get(id);

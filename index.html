@@ -69,7 +69,11 @@
       (function () {
         try {
           var saved = localStorage.getItem("gedmerge.theme");
-          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          // Only "light"/"dark" are explicit; anything else (incl. "auto" or
+          // absent) follows the OS preference.
+          var theme = (saved === "light" || saved === "dark")
+            ? saved
+            : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
           document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {
           document.documentElement.setAttribute("data-theme", "dark");

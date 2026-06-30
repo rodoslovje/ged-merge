@@ -1549,6 +1549,13 @@ button:focus-visible {
   color: var(--accent);
   flex: none;
 }
+.person-xref {
+  color: var(--muted);
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  flex: none;
+}
 .person-card-meta .person-kinship { margin-left: auto; }
 /* Push the kinship label to the right edge of the compare header's name row —
    the decision buttons that used to spacer it there now live on the actions row. */
@@ -3881,6 +3888,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   justify-content: center;
   padding: 40px;
 }
+/* The settings modal is compact (auto height), so unlike the near-full-viewport
+   modals it needs the overlay to actually center it. */
+.modal-overlay:has(> .settings-modal) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
 .modal {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -3927,6 +3942,86 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--accent); font: inherit; text-decoration: underline;
 }
 .link-button:hover { color: var(--text); }
+
+/* ── General settings (SettingsModal) ─────────────────────────────────────── */
+.settings-modal { max-width: 520px; height: auto; max-height: 88vh; }
+
+.settings-section { margin: 0 0 22px; }
+.settings-section:last-child { margin-bottom: 4px; }
+.settings-section > h3 {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.settings-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.settings-preview-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  flex: none;
+}
+.settings-preview-person {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.05rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+}
+.settings-row:last-child { margin-bottom: 0; }
+
+.settings-row-toggle {
+  justify-content: flex-start;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.settings-row-toggle input { margin-top: 3px; flex: none; }
+
+.settings-row-text { display: flex; flex-direction: column; gap: 3px; }
+.settings-row-label { font-size: 0.95rem; }
+.settings-hint { font-size: 0.82rem; color: var(--muted); line-height: 1.35; }
+
+.settings-radio-group {
+  border: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.settings-radio-group > legend {
+  padding: 0;
+  margin: 0 0 8px;
+}
+.settings-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.settings-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+.settings-radio input { flex: none; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
 .shortcuts-modal { max-width: 720px; height: auto; max-height: 88vh; }

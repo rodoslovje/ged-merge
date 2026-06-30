@@ -7,8 +7,8 @@ import { buildCompareTree, buildMatchMaps, countImportable } from "../tree/compa
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { kinshipLabel } from "../match/kinship";
-import { displayName, primaryName } from "../match/relatives";
 import { MatchResults } from "./MatchResults";
+import { useNameOf } from "./SettingsContext";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
@@ -92,6 +92,7 @@ export function MergeView({
   active,
 }: Props) {
   const { t } = useTranslation();
+  const formatName = useNameOf();
 
   const compareBodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -136,7 +137,7 @@ export function MergeView({
     ? kinshipLabel(masterDataset, homeId, current.masterId, t)
     : undefined;
   const homePersonName = homeId && masterDataset
-    ? displayName(primaryName(masterDataset.individuals.get(homeId)!))
+    ? formatName(masterDataset.individuals.get(homeId)!)
     : undefined;
   const kinshipTooltip = kinship && homePersonName
     ? t("kinship.tooltip", { kinship, name: homePersonName })

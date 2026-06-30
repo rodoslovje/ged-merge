@@ -6,6 +6,7 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMasterProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageTitle } from "../normalize/urlMetadata";
+import { useSettings } from "./SettingsContext";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
@@ -58,6 +59,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
+  const { settings } = useSettings();
 
   const masterLinkLangs = useMemo(() => inferMasterProfile(dataset).linkLangs, [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
@@ -111,8 +113,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
+  // Gated behind the opt-in setting — this is the one path that sends a URL off
+  // the user's machine (to the public CORS relay), so it's off by default.
   useEffect(() => {
-    if (editing || !urlOnly || match || !normalizedUrl) {
+    if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) {
       setFetching(false);
       return;
     }
@@ -124,7 +128,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       if (title) setFields((f) => (f.url === normalizedUrl && !f.title ? { ...f, title } : f));
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch]);
 
   useEffect(() => {
     if (!isOpen) return;

@@ -3,7 +3,8 @@ import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, pat
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
-import { defaultHomeId, displayName, primaryName } from "../match/relatives";
+import { defaultHomeId, primaryName } from "../match/relatives";
+import { useNameOf } from "./SettingsContext";
 import { kinshipLabel } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
@@ -138,6 +139,7 @@ interface Props {
  * relatives navigate on click. */
 export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
+  const formatName = useNameOf();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => homeId ?? defaultHomeId(dataset) ?? dataset.individuals.keys().next().value,
   );
@@ -1168,7 +1170,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   function personName(id: string | undefined): string {
     if (!id) return "";
     const indi = dataset.individuals.get(id);
-    return indi ? (primaryName(indi)?.full ?? id) : id;
+    return indi ? formatName(indi) : id;
   }
 
   // Member ids of a family, for snapshotting before a detach/delete — pruning a
@@ -1211,7 +1213,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
 
   function handleDeletePerson() {
     if (!person) return;
-    const name = primaryName(person)?.full ?? person.id;
+    const name = formatName(person);
     setPendingConfirm({
       message: t("edit.deletePersonConfirm", { name }),
       confirmLabel: t("confirm.delete"),
@@ -1285,7 +1287,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     ? kinshipLabel(dataset, homeId, selectedId!, t)
     : undefined;
   const homePersonName = homeId
-    ? displayName(primaryName(dataset.individuals.get(homeId)!))
+    ? formatName(dataset.individuals.get(homeId)!)
     : undefined;
   const kinshipTooltip = kinship && homePersonName
     ? t("kinship.tooltip", { kinship, name: homePersonName })

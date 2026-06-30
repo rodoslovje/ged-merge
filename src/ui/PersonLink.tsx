@@ -1,6 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
-import { displayName, primaryName } from "../match/relatives";
+import { xrefLabel } from "../gedcom/nameDisplay";
+import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
  * for non-individual (family) or unresolved records.
  */
 export function PersonLink({ dataset, id, fallback, onNavigate }: Props) {
+  const nameOf = useNameOf();
+  const { settings } = useSettings();
   const indi = dataset.individuals.get(id);
   if (!indi) {
     return (
@@ -33,7 +36,8 @@ export function PersonLink({ dataset, id, fallback, onNavigate }: Props) {
       onClick={() => onNavigate(id)}
       title={datesTooltipOf(indi)}
     >
-      <span className={`person-name ${sexClass(indi.sex)}`}>{displayName(primaryName(indi))}</span>
+      <span className={`person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</span>
+      {settings.showXref && <span className="person-xref gm-data">{xrefLabel(indi.id)}</span>}
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
     </button>
   );

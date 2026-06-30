@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
-import { datesTooltipOf } from "../gedcom/lifespan";
-import { lifespanLabel } from "../match/relatives";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { useNameOf } from "./SettingsContext";
 
 interface Props {
   individuals: Map<string, Individual>;
@@ -52,6 +52,7 @@ export function HomePersonSelector({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const { t } = useTranslation();
+  const nameOf = useNameOf();
 
   useEffect(() => {
     if (autoFocus) {
@@ -60,12 +61,19 @@ export function HomePersonSelector({
     }
   }, [autoFocus, onAutoFocused]);
 
+  // The option text honours the user's name-display settings (order, uppercase,
+  // married surname) and is also what the query filters against — so a married
+  // surname shown here is searchable too.
   const options = useMemo(
     () =>
       [...individuals.values()]
-        .map((i) => ({ id: i.id, text: lifespanLabel(i), title: datesTooltipOf(i) }))
+        .map((i) => {
+          const span = lifespanOf(i);
+          const name = nameOf(i);
+          return { id: i.id, text: span ? `${name} ${span}` : name, title: datesTooltipOf(i) };
+        })
         .sort((a, b) => a.text.localeCompare(b.text)),
-    [individuals],
+    [individuals, nameOf],
   );
 
   const filtered = useMemo(() => {

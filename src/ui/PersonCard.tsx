@@ -1,6 +1,7 @@
 import type { GedNode, Individual } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
-import { displayName, primaryName } from "../match/relatives";
+import { xrefLabel } from "../gedcom/nameDisplay";
+import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { CardPhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
@@ -43,6 +44,8 @@ interface Props {
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
 export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
+  const nameOf = useNameOf();
+  const { settings } = useSettings();
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -72,7 +75,8 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
         >
           {records && <CardPhoto raw={individual.raw} records={records} refCtx={refCtx} />}
           <div className={`person-label ${sexClass(individual.sex)}`}>
-            <span className="person-name">{displayName(primaryName(individual))}</span>
+            <span className="person-name">{nameOf(individual)}</span>
+            {settings.showXref && <span className="person-xref gm-data">{xrefLabel(individual.id)}</span>}
             {(lifespan || kinship || decisionStatus || modified) && (
               <div className="person-card-meta">
                 {lifespan && <span className="person-years gm-data">{lifespan}</span>}
