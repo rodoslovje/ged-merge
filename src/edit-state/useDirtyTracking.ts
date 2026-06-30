@@ -131,6 +131,37 @@ export function useDirtyTracking() {
     setChangedFamilyIds(new Set());
   }
 
+  /** Restore tracking state cached from a previous session (IndexedDB hydrate).
+   *  Used instead of {@link resetOnLoad} when the re-parsed master is the edited
+   *  serialization, so the pre-edit snapshots and changed-id sets line up with it. */
+  function hydrate(state: {
+    loadedPersonIds: string[];
+    loadedFamilyIds: string[];
+    changedPersonIds: string[];
+    changedFamilyIds: string[];
+    personSnapshots: [string, GedNode][];
+    familySnapshots: [string, GedNode][];
+  }) {
+    loadedPersonIds.current = new Set(state.loadedPersonIds);
+    loadedFamilyIds.current = new Set(state.loadedFamilyIds);
+    personSnapshots.current = new Map(state.personSnapshots);
+    familySnapshots.current = new Map(state.familySnapshots);
+    setChangedPersonIds(new Set(state.changedPersonIds));
+    setChangedFamilyIds(new Set(state.changedFamilyIds));
+  }
+
+  /** Snapshot the current tracking state for persistence. */
+  function serialize() {
+    return {
+      loadedPersonIds: [...loadedPersonIds.current],
+      loadedFamilyIds: [...loadedFamilyIds.current],
+      changedPersonIds: [...changedPersonIds],
+      changedFamilyIds: [...changedFamilyIds],
+      personSnapshots: [...personSnapshots.current] as [string, GedNode][],
+      familySnapshots: [...familySnapshots.current] as [string, GedNode][],
+    };
+  }
+
   /** Advance the baseline after a successful save — the saved file becomes the
    *  new original, so all dirty tracking and snapshots start fresh. */
   function resetOnSave(dataset: Dataset) {
@@ -159,5 +190,7 @@ export function useDirtyTracking() {
     prepareForLoad,
     resetOnLoad,
     resetOnSave,
+    hydrate,
+    serialize,
   };
 }

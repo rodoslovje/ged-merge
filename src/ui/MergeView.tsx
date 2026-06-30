@@ -145,6 +145,27 @@ export function MergeView({
     ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
 
+  // Kinship of each match (master side) to the start person, shown under the
+  // name in the list to make relatives easy to spot. Keyed by masterId so a
+  // master that matches several compare records is computed once; memoized on
+  // the result set so filtering/sorting/selection don't rebuild it.
+  const kinshipByMaster = useMemo(() => {
+    if (!startId || !masterDataset || !matches) return undefined;
+    const map = new Map<string, { label: string; lineageClass: string; tooltip?: string }>();
+    for (const c of matches.individuals) {
+      if (map.has(c.masterId)) continue;
+      const info = kinshipInfo(masterDataset, startId, c.masterId, t);
+      if (info) {
+        map.set(c.masterId, {
+          label: info.label,
+          lineageClass: lineageClass(info.lineage),
+          tooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
+        });
+      }
+    }
+    return map;
+  }, [matches, masterDataset, startId, startPersonName, t]);
+
   const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
   const currentDecision = current
     ? decisions.get(decisionKey("individual", current.masterId, current.compareId))
@@ -287,6 +308,7 @@ export function MergeView({
                   decisions={decisions}
                   showFilters={showFilters}
                   showRelation={!!startId}
+                  kinshipByMaster={kinshipByMaster}
                 />
               </Section>
             </div>

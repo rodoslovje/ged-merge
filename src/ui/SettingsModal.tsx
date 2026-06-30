@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   themeMode: ThemeMode;
   onThemeMode: (mode: ThemeMode) => void;
+  /** Wipe the cached workspace (loaded files + merge session) from IndexedDB. */
+  onClearCache: () => void;
 }
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
@@ -29,7 +31,7 @@ const SAMPLE_LIFESPAN = "1850–1920";
  * opt-in for online link-metadata lookups. Preferences live in
  * {@link useSettings} and persist to localStorage.
  */
-export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode }: Props) {
+export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
@@ -176,6 +178,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode }: Props
                 <span className="settings-hint">{t("settings.links.fetch.hint")}</span>
               </span>
             </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.data.title")}</h3>
+            <div className="settings-row">
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.data.clear")}</span>
+                <span className="settings-hint">{t("settings.data.clear.hint")}</span>
+              </span>
+              <button type="button" className="settings-danger-btn" onClick={onClearCache}>
+                {t("settings.data.clear")}
+              </button>
+            </div>
           </section>
         </div>
       </div>

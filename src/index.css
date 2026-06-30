@@ -1562,6 +1562,14 @@ button:focus-visible {
   color: var(--accent);
   flex: none;
 }
+/* Kinship of a match to the start person, on its own line under the name. */
+.candidate-kinship {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+.candidate-kinship.lineage-paternal { color: var(--lineage-paternal); }
+.candidate-kinship.lineage-maternal { color: var(--lineage-maternal); }
 /* Kinship colour-coding by blood lineage; "both"/unknown keep the accent above. */
 .person-kinship.lineage-paternal,
 .tree-title-kinship.lineage-paternal { color: var(--lineage-paternal); }
@@ -1576,10 +1584,12 @@ button:focus-visible {
   opacity: 0.75;
   flex: none;
 }
-.person-card-meta .person-kinship { margin-left: auto; }
-/* Push the kinship label to the right edge of the compare header's name row —
-   the decision buttons that used to spacer it there now live on the actions row. */
-.compare-head .person-kinship { margin-left: auto; }
+/* Kinship drops to its own row (full-width flex item) and aligns left, below the
+   lifespan / status chips. */
+.person-card-meta .person-kinship { flex-basis: 100%; margin-left: 0; }
+/* Kinship sits right after the name in the compare header, left-aligned to
+   match Edit mode's name row (rather than pushed to the far right). */
+.compare-head .person-kinship { margin-left: 0; }
 .person-name-group {
   display: inline-flex;
   align-items: center;
@@ -4021,6 +4031,21 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .settings-row-text { display: flex; flex-direction: column; gap: 3px; }
 .settings-row-label { font-size: 0.95rem; }
 .settings-hint { font-size: 0.82rem; color: var(--muted); line-height: 1.35; }
+
+.settings-danger-btn {
+  flex: none;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: background 0.12s;
+}
+.settings-danger-btn:hover { background: var(--danger-soft); }
+.settings-danger-btn:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
 
 .settings-radio-group {
   border: none;

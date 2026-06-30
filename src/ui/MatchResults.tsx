@@ -32,6 +32,8 @@ interface Props {
   /** Show the relationship-distance column (only meaningful with a start person). */
   showRelation: boolean;
   showFilters: boolean;
+  /** Per-master kinship to the start person, shown under each name. */
+  kinshipByMaster?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
 }
 
 /** Shared attributes for the small, language-neutral column-header icons. */
@@ -60,6 +62,7 @@ export function MatchResults({
   decisions,
   showRelation,
   showFilters,
+  kinshipByMaster,
 }: Props) {
   const { t } = useTranslation();
   const total = result.individuals.length;
@@ -284,6 +287,7 @@ export function MatchResults({
               selected={i === selectedIndex}
               status={decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status}
               showRelation={showRelation}
+              kinship={kinshipByMaster?.get(c.masterId)}
               onSelect={onSelect}
             />
           ))}
@@ -299,6 +303,7 @@ const CandidateRow = memo(function CandidateRow({
   selected,
   status,
   showRelation,
+  kinship,
   onSelect,
 }: {
   candidate: IndividualCandidate;
@@ -306,6 +311,7 @@ const CandidateRow = memo(function CandidateRow({
   selected: boolean;
   status: MatchDecisionStatus | undefined;
   showRelation: boolean;
+  kinship?: { label: string; lineageClass: string; tooltip?: string };
   onSelect: (index: number) => void;
 }) {
   const { t } = useTranslation();
@@ -343,6 +349,11 @@ const CandidateRow = memo(function CandidateRow({
             )}
             {candidate.relationshipLinked && (
               <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
+            )}
+            {kinship && (
+              <span className={`candidate-kinship ${kinship.lineageClass}`} title={kinship.tooltip}>
+                {kinship.label}
+              </span>
             )}
           </span>
           {status && status !== "undecided" ? (

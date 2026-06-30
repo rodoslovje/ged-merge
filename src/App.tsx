@@ -42,6 +42,7 @@ import { Landing } from "./ui/Landing";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
+import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
 import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
 import { SettingsProvider } from "./ui/SettingsContext";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
@@ -177,6 +178,26 @@ function AppContent() {
   // Holds the currently-registered beforeunload handler so an intentional
   // reload can detach it synchronously before navigating.
   const beforeUnloadRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
+  // A merge session read from IndexedDB on startup, applied once the first match
+  // result arrives (the candidate list it keys into must exist first). Null when
+  // there is nothing to restore or it has already been consumed.
+  const pendingSessionRef = useRef<StoredSession | null>(null);
+  // Gates session persistence: stays false until the startup restore has settled
+  // (or there was nothing to restore), so the debounced writer can't overwrite a
+  // cached session with the empty state that exists mid-restore.
+  const hydratedRef = useRef(false);
+  // Whether the startup restore is still waiting on a compare file to match —
+  // decides whether persistence is enabled after the master parses or only once
+  // matching completes.
+  const expectCompareRef = useRef(false);
+  // Edit-state cached from a previous session, applied (instead of resetOnLoad)
+  // once the edited master re-parses. Null when there is nothing to restore.
+  const pendingEditStateRef = useRef<StoredEditState | null>(null);
+  // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
+  // persistence debounce and, when > 0, signals the dataset differs from the
+  // originally-loaded file so the *edited* serialization must be cached.
+  const [editVersion, setEditVersion] = useState(0);
+  const bumpEdit = useCallback(() => setEditVersion((v) => v + 1), []);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   const undoRedo = useUndoRedo();
@@ -365,6 +386,15 @@ function AppContent() {
     []
   );
 
+  /** Settings → wipe the cached workspace (master/compare files + merge session)
+   *  from IndexedDB. Doesn't touch the live, in-memory session — the current
+   *  work stays loaded; only the persisted copy used to restore on reload goes. */
+  async function handleClearCache() {
+    if (!(await confirmDialog(t("settings.data.clearConfirm"), t("confirm.continue")))) return;
+    await clearWorkspace();
+    setSaveToast(t("settings.data.cleared"));
+  }
+
   /** Record the current compare selection in the current history entry so the
    *  browser Back button returns here after a person-link or tree push. */
   function rememberSelection() {
@@ -428,6 +458,17 @@ function AppContent() {
           setSelectedId(null);
           setOpenMatches(true);
           setShowInfoPanel(false);
+          // First matches after a startup restore: re-apply the cached merge
+          // session now that the candidate list (keyed by xref) exists. Setting
+          // the home person re-ranks, producing another `matched` — harmless,
+          // the session is already consumed (ref nulled).
+          const restored = pendingSessionRef.current;
+          if (restored) {
+            pendingSessionRef.current = null;
+            if (restored.decisions.length) setDecisions(new Map(restored.decisions));
+            if (restored.importBranches.length) setImportBranches(new Set(restored.importBranches));
+          }
+          hydratedRef.current = true; // restore settled — persistence may resume
         };
         // matchDatasets can finish in under a millisecond once the engine is
         // JIT-warm (e.g. re-matching on a master reload), too fast for React to
@@ -454,13 +495,62 @@ function AppContent() {
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
         setter({ status: "loaded", file });
-        if (msg.role === "master") setLastMasterFile(file);
+        if (msg.role === "master") {
+          setLastMasterFile(file);
+          // Restore the cached start person as soon as the master is parsed —
+          // matching (and `applyMatched`) only runs once a compare is also
+          // loaded, so a master-only workspace would otherwise never restore it.
+          const restoredStart = pendingSessionRef.current?.startId;
+          if (restoredStart) changeStart(restoredStart);
+          // Master-only restore (no compare to match): nothing more to wait for.
+          if (!expectCompareRef.current) hydratedRef.current = true;
+        }
       } else {
         setter({ status: "error", fileName: msg.fileName, message: msg.message });
+        // A file that fails to parse must not stay cached, or every reload would
+        // re-load it into an error and never reach the landing page.
+        void deleteFile(msg.role);
+        // A failed restore won't reach `matched`/the master branch — unblock
+        // persistence so later user-loaded files still get cached.
+        hydratedRef.current = true;
       }
     };
 
+    // Restore a cached workspace: re-feed the stored files through the worker so
+    // the parse → normalize → match pipeline (and start-person ranking) rebuilds
+    // exactly as a fresh load would. The merge session is stashed and applied in
+    // `applyMatched` once the candidate list exists.
+    let cancelled = false;
+    void loadWorkspace().then((ws) => {
+      if (cancelled) return;
+      if (!ws.master) {
+        hydratedRef.current = true; // nothing cached — persist freely from here
+        return;
+      }
+      pendingSessionRef.current = ws.session ?? null;
+      pendingEditStateRef.current = ws.session?.editState ?? null;
+      expectCompareRef.current = !!ws.compare;
+      // A cached start person will be restored explicitly; suppress the one-time
+      // auto-default so it doesn't fight the restore.
+      if (ws.session?.startId) autoStartRef.current = true;
+      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.master>) => {
+        (role === "master" ? setMaster : setCompare)({ status: "loading", fileName: sf.fileName });
+        void sf.blob.arrayBuffer().then((buffer) => {
+          if (cancelled) return;
+          worker.postMessage(
+            sf.isCsv
+              ? { type: "parseCsv", fileName: sf.fileName, buffer }
+              : { type: "parse", role, fileName: sf.fileName, buffer },
+            [buffer],
+          );
+        });
+      };
+      feed("master", ws.master); // master first so its profile is set before compare normalizes
+      if (ws.compare) feed("compare", ws.compare);
+    });
+
     return () => {
+      cancelled = true;
       if (matchedTimerRef.current != null) window.clearTimeout(matchedTimerRef.current);
       worker.terminate();
     };
@@ -473,6 +563,12 @@ function AppContent() {
   }
 
   async function loadFile(role: DatasetRole, file: File) {
+    // A user-initiated load supersedes any in-flight startup restore, so enable
+    // session persistence (and stop expecting the cached compare to arrive).
+    hydratedRef.current = true;
+    expectCompareRef.current = false;
+    pendingSessionRef.current = null;
+    pendingEditStateRef.current = null;
     if (role === "master" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.masterReplaceConfirm"), t("confirm.continue")))) return;
     }
@@ -485,7 +581,13 @@ function AppContent() {
     // c + combining caron. Our subset fonts don't carry the combining marks, so
     // the accent mispositions; normalize to NFC (precomposed) for display.
     const fileName = file.name.normalize("NFC");
+    const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     setter({ status: "loading", fileName });
+    // Cache the raw file so a reload restores the workspace. Persist the original
+    // bytes as a Blob (exact charset round-trips); the parse-error branch deletes
+    // it again if it turns out to be unloadable.
+    void saveFile(role, { fileName, blob: file, isCsv, savedAt: Date.now() });
+    if (role === "master") void requestPersistentStorage();
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
@@ -497,6 +599,7 @@ function AppContent() {
     if (role === "master") {
       undoRedo.clearAll();
       dirty.prepareForLoad();
+      setEditVersion(0); // new file → dataset matches the cached original again
       sortEligiblePersonIdsRef.current = new Set();
       setEditTreeId(null);
       setRelTargetId(null);
@@ -509,7 +612,6 @@ function AppContent() {
       undoRedo.dropMergeEntries();
     }
     const buffer = await file.arrayBuffer();
-    const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     workerRef.current?.postMessage(
       isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role, fileName, buffer },
       [buffer], // transfer ownership — avoids copying large files
@@ -525,8 +627,20 @@ function AppContent() {
   // "modified existing" from "newly added" when reverting via Remove from save.
   useEffect(() => {
     if (master.status !== "loaded") return;
-    dirty.resetOnLoad(master.file.dataset);
-    sortEligiblePersonIdsRef.current = new Set();
+    // Startup restore of an edited workspace: the re-parsed master is the edited
+    // serialization, so adopt the cached pre-edit tracking and undo history
+    // instead of treating the current (edited) records as the clean baseline.
+    const es = pendingEditStateRef.current;
+    if (es) {
+      pendingEditStateRef.current = null;
+      dirty.hydrate(es);
+      undoRedo.hydrate(es.undo, es.redo);
+      sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
+      setEditVersion(1); // mark dataset as edited so further edits keep persisting
+    } else {
+      dirty.resetOnLoad(master.file.dataset);
+      sortEligiblePersonIdsRef.current = new Set();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [master.status]);
 
@@ -561,6 +675,43 @@ function AppContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
+
+  // Persist the workspace so a reload restores it: the pending merge session
+  // (decisions, import branches, start person) plus, once the dataset has been
+  // edited, the edited master text and the edit-state (dirty tracking + undo
+  // history). Debounced because these change rapidly while working; keyed to the
+  // loaded master/compare so a stale restore can be skipped.
+  useEffect(() => {
+    const masterFileName = lastMasterFile?.fileName;
+    if (!masterFileName) return; // nothing loaded yet → nothing to cache
+    if (!hydratedRef.current) return; // a startup restore is still settling
+    const handle = window.setTimeout(() => {
+      const edited = editVersion > 0; // dataset differs from the cached original
+      const editState: StoredEditState | undefined = edited
+        ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
+        : undefined;
+      void saveSession({
+        masterFileName,
+        compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
+        decisions: Array.from(decisions),
+        importBranches: Array.from(importBranches),
+        startId,
+        editState,
+        savedAt: Date.now(),
+      });
+      // Cache the *edited* serialization so the re-parsed dataset is post-edit
+      // (pure-merge sessions keep the originally-loaded file untouched).
+      if (edited && masterDataset) {
+        void saveFile("master", {
+          fileName: masterFileName,
+          blob: new Blob([serializeGedcom(masterDataset.records, { eol: masterDataset.eol, finalNewline: masterDataset.finalNewline })]),
+          savedAt: Date.now(),
+        });
+      }
+    }, 800);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, importBranches, startId, compare, lastMasterFile, editVersion, changedPersonIds, changedFamilyIds]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) => nextSort(prev, key));
@@ -939,6 +1090,7 @@ function AppContent() {
     (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => {
       dirty.captureSnapshotsForPush(patches);
       undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo });
+      bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -971,6 +1123,7 @@ function AppContent() {
     (patches: RecordPatch[], direction: "undo" | "redo") => {
       if (!masterDataset) return;
       dirty.onPatchApplied(patches, direction, masterDataset);
+      bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [masterDataset],
@@ -1138,6 +1291,15 @@ function AppContent() {
     downloadText(`${preview.base}.gedmerge.ged`, text);
     downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
 
+    // The saved file is the new master baseline — refresh the cache so a reload
+    // restores the saved state (the confirmed decisions are now baked in and
+    // cleared below, so the persisted session debounce will write them away).
+    void saveFile("master", {
+      fileName: lastMasterFile?.fileName ?? `${preview.base}.ged`,
+      blob: new Blob([text]),
+      savedAt: Date.now(),
+    });
+
     // The downloaded file is the new master baseline — rebuild the live dataset
     // from the same records so the app reflects exactly what was saved, instead
     // of leaving merged-in fields stuck on stale pre-merge data (mergeDecisions
@@ -1170,6 +1332,10 @@ function AppContent() {
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
     undoRedo.clearAll();
+    // The cached master text (written just above) now equals the live dataset,
+    // so drop the "dataset is edited" flag — the edited-text persist pauses until
+    // the next edit.
+    setEditVersion(0);
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
@@ -1234,6 +1400,7 @@ function AppContent() {
 
     if (patches.length > 0) {
       undoRedo.push({ mode: "edit", patches, navigateTo: id });
+      bumpEdit();
     }
 
     setPreview((prev) => {
@@ -1259,6 +1426,7 @@ function AppContent() {
         onClose={() => setShowSettings(false)}
         themeMode={themeMode}
         onThemeMode={changeThemeMode}
+        onClearCache={() => { setShowSettings(false); void handleClearCache(); }}
       />
       {pendingConfirm && (
         <ConfirmDialog

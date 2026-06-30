@@ -72,6 +72,17 @@ export function useUndoRedo() {
     setCanRedo(false);
   }, []);
 
+  /** Restore both stacks from a previous session (IndexedDB hydrate). */
+  const hydrate = useCallback((undo: UndoEntry[], redo: UndoEntry[]) => {
+    undoStack.current = undo;
+    redoStack.current = redo;
+    setCanUndo(undo.length > 0);
+    setCanRedo(redo.length > 0);
+  }, []);
+
+  /** Snapshot both stacks for persistence. */
+  const serialize = useCallback(() => ({ undo: undoStack.current, redo: redoStack.current }), []);
+
   const dropMergeEntries = useCallback(() => {
     undoStack.current = undoStack.current.filter((e) => e.mode === "edit");
     redoStack.current = redoStack.current.filter((e) => e.mode === "edit");
@@ -79,5 +90,5 @@ export function useUndoRedo() {
     setCanRedo(redoStack.current.length > 0);
   }, []);
 
-  return { canUndo, canRedo, push, pushRef, undo, redo, clearAll, dropMergeEntries };
+  return { canUndo, canRedo, push, pushRef, undo, redo, clearAll, dropMergeEntries, hydrate, serialize };
 }
