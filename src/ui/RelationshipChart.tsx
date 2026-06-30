@@ -5,8 +5,8 @@ import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
 import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel } from "../match/kinship";
-import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { kinshipLabel, lineageClass } from "../match/kinship";
+import { bloodLineage, bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { buildRelationshipChart, type ChartBox } from "../match/relationshipChartLayout";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
@@ -133,6 +133,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
   );
 
   const kinship = kinshipLabel(masterDs, homeSel, targetSel, t);
+  const kinshipLineage = bloodLineage(masterDs, homeSel, targetSel);
   // Shared title for the SVG / PDF export header.
   const relchartTitle = `${nameOf(homeSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
   const needsMinimap =
@@ -167,7 +168,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
           {renderEndpoint("home", homeSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>
           {renderEndpoint("target", targetSel)}
-          {kinship && <span className="tree-title-kinship">{kinship}</span>}
+          {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </h2>
         <ChartSettings lockedType="tree" />
@@ -280,6 +281,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
                         kinship={kinshipLabel(masterDs, homeSel, b.id, t)}
+                        kinshipLineage={bloodLineage(masterDs, homeSel, b.id)}
                         photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
@@ -333,6 +335,7 @@ export function RelationshipChart({ masterDs, homeId, targetId, onBack, onNaviga
             masterLabel={t("tree.master")}
             singleColumn
             kinship={kinshipLabel(masterDs, homeSel, selectedBox.id, t)}
+            kinshipLineage={lineageClass(bloodLineage(masterDs, homeSel, selectedBox.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}

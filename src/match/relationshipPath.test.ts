@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { bloodPath, bloodPaths, relationshipPaths, shortestPath } from "./relationshipPath";
+import { bloodLineage, bloodPath, bloodPaths, relationshipPaths, shortestPath } from "./relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -145,5 +145,72 @@ describe("relationshipPath", () => {
 
   it("bloodPaths is empty for an in-law", () => {
     expect(bloodPaths(ds, "@I1@", "@I10@")).toEqual([]);
+  });
+
+  it("lineage: paternal ancestors climb the father's side", () => {
+    expect(bloodLineage(ds, "@I1@", "@I2@")).toBe("paternal"); // father
+    expect(bloodLineage(ds, "@I1@", "@I4@")).toBe("paternal"); // paternal grandfather
+    expect(bloodLineage(ds, "@I1@", "@I6@")).toBe("paternal"); // paternal uncle
+    expect(bloodLineage(ds, "@I1@", "@I8@")).toBe("paternal"); // paternal cousin
+  });
+
+  it("lineage: the mother is on the maternal side", () => {
+    expect(bloodLineage(ds, "@I1@", "@I3@")).toBe("maternal");
+  });
+
+  it("lineage: spouses and in-laws have no blood line", () => {
+    expect(bloodLineage(ds, "@I1@", "@I9@")).toBeUndefined(); // spouse
+    expect(bloodLineage(ds, "@I1@", "@I10@")).toBeUndefined(); // in-law
+    expect(bloodLineage(ds, "@I1@", "@I1@")).toBeUndefined(); // self
+  });
+});
+
+// A two-parent family for the "both lines" and descendant cases:
+//   I1 = ego; full sibling I2; parents I3 (M) / I4 (F); ego's son I5.
+const FAMILY = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ego /Test/
+1 SEX M
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Sibling /Test/
+1 SEX F
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Father /Test/
+1 SEX M
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Mother /Test/
+1 SEX F
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME Son /Test/
+1 SEX M
+1 FAMC @F2@
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 @F2@ FAM
+1 HUSB @I1@
+1 CHIL @I5@
+0 TRLR
+`;
+
+describe("bloodLineage both / descendant", () => {
+  const ds = dataset(FAMILY);
+
+  it("a full sibling is reached through both parents", () => {
+    expect(bloodLineage(ds, "@I1@", "@I2@")).toBe("both");
+  });
+
+  it("a descendant has no ancestral line from the home person", () => {
+    expect(bloodLineage(ds, "@I1@", "@I5@")).toBeUndefined();
   });
 });

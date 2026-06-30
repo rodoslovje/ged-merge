@@ -39,6 +39,10 @@
   --sex-male:   #55bef0;
   --sex-female: #f886bb;
 
+  /* ---- blood lineage (kinship colour-coding; kin to sex, but distinct) ---- */
+  --lineage-paternal: #5a8df0;  /* royal blue, set apart from the cyan-ish male & green accent */
+  --lineage-maternal: #c061f0;  /* purple-magenta, set apart from the pink female */
+
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
   --danger-soft: color-mix(in oklch, var(--danger) 12%, transparent);
@@ -85,6 +89,9 @@
 
   --sex-male:   #166daf;
   --sex-female: #b73c7c;
+
+  --lineage-paternal: #2f5fcf;
+  --lineage-maternal: #8e24c9;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */

@@ -168,6 +168,59 @@ export function bloodPaths(
   return paths.sort((a, b) => a.hops - b.hops);
 }
 
+/** Which of home's two parental lines a blood relationship runs through. */
+export type Lineage = "paternal" | "maternal" | "both";
+
+/**
+ * The blood lineage from the home person to the target: which of home's parents
+ * the relationship climbs through to reach a common ancestor.
+ *
+ *  - `"paternal"` / `"maternal"` — reached only via home's father / mother.
+ *  - `"both"` — reached via both (e.g. a full sibling shares both parents).
+ *  - `undefined` — self, no blood relationship, or the target is a *descendant*
+ *    of home (so there is no ancestral line to climb from home's side).
+ *
+ * Unlike {@link bloodPaths} this does not collapse the common-ancestor couple,
+ * so a full sibling correctly resolves to `"both"` rather than one arbitrary side.
+ */
+export function bloodLineage(
+  ds: Dataset,
+  homeId: string,
+  targetId: string,
+): Lineage | undefined {
+  if (homeId === targetId) return undefined;
+  if (!ds.individuals.has(homeId) || !ds.individuals.has(targetId)) return undefined;
+
+  const homeAnc = ancestors(ds, homeId);
+  const targetAnc = ancestors(ds, targetId);
+
+  // Closest common ancestor(s), by total hops; ties (e.g. both parents) all count.
+  let best = Infinity;
+  for (const [id, h] of homeAnc) {
+    const tg = targetAnc.get(id);
+    if (tg) best = Math.min(best, h.gen + tg.gen);
+  }
+  if (best === Infinity) return undefined;
+
+  let paternal = false;
+  let maternal = false;
+  for (const [id, h] of homeAnc) {
+    const tg = targetAnc.get(id);
+    if (!tg || h.gen + tg.gen !== best) continue;
+    // home is the apex ⇒ target descends from home: no ancestral line to climb.
+    if (h.gen === 0) continue;
+    const parentId = walkTo(homeAnc, id, homeId)[1]; // home's parent toward this LCA
+    const sex = ds.individuals.get(parentId)?.sex;
+    if (sex === "M") paternal = true;
+    else if (sex === "F") maternal = true;
+  }
+
+  if (paternal && maternal) return "both";
+  if (paternal) return "paternal";
+  if (maternal) return "maternal";
+  return undefined;
+}
+
 /** Whether any node of `chain` other than its endpoints is a common ancestor. */
 function interiorHasCommon(chain: string[], common: Set<string>): boolean {
   for (let i = 1; i < chain.length - 1; i++) if (common.has(chain[i])) return true;

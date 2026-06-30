@@ -23,6 +23,7 @@ export function NameEditor({
   matchStatus,
   onToggleMatchStatus,
   kinship,
+  kinshipLineage,
   kinshipTooltip,
   controls,
 }: {
@@ -39,6 +40,8 @@ export function NameEditor({
   onToggleMatchStatus?: (status: MatchDecisionStatus) => void;
   /** Kinship label shown inline in the name row (e.g. "Great-grandmother ×9"). */
   kinship?: string;
+  /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-maternal"). */
+  kinshipLineage?: string;
   kinshipTooltip?: string;
   /** Delete control, placed at the far right of the decision row (or the name row if no match). */
   controls?: ReactNode;
@@ -93,7 +96,7 @@ export function NameEditor({
         />
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
       </div>
-      {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
+      {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
       {matchStatus && matchStatus !== "undecided" && (
         <span className={`status-chip ${matchStatus}`} title={t(`status.${matchStatus}`)}>
           {t(`status.${matchStatus}`).charAt(0)}

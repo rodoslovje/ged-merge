@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { nameSearchText } from "../match/relatives";
 import { useNameOf } from "./SettingsContext";
 
 interface Props {
@@ -19,6 +20,9 @@ interface Props {
   tooltip?: string;
   /** Icon to show left of the input. Defaults to "home". */
   icon?: "home" | "search";
+  /** When set (and a home person is chosen), the home icon becomes a button that
+   *  navigates back to the home person. Only meaningful with `icon="home"`. */
+  onHomeClick?: () => void;
   /** When true (default), the selected person's name is shown as the input
    * placeholder. Set false for a pure search field that should always show the
    * generic `placeholder` hint instead (e.g. Edit's "jump to person" search). */
@@ -43,6 +47,7 @@ export function HomePersonSelector({
   placeholder,
   tooltip,
   icon = "home",
+  onHomeClick,
   selectedAsPlaceholder = true,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -62,23 +67,29 @@ export function HomePersonSelector({
   }, [autoFocus, onAutoFocused]);
 
   // The option text honours the user's name-display settings (order, uppercase,
-  // married surname) and is also what the query filters against — so a married
-  // surname shown here is searchable too.
+  // married surname); `search` covers *all* of a person's names (married, aka,
+  // maiden, nickname…) plus their years, so they're found however they're shown.
   const options = useMemo(
     () =>
       [...individuals.values()]
         .map((i) => {
           const span = lifespanOf(i);
           const name = nameOf(i);
-          return { id: i.id, text: span ? `${name} ${span}` : name, title: datesTooltipOf(i) };
+          const search = span ? `${nameSearchText(i)} ${span}` : nameSearchText(i);
+          return { id: i.id, text: span ? `${name} ${span}` : name, title: datesTooltipOf(i), search };
         })
         .sort((a, b) => a.text.localeCompare(b.text)),
     [individuals, nameOf],
   );
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = q ? options.filter((o) => o.text.toLowerCase().includes(q)) : options;
+    // Every whitespace-separated term must appear somewhere in the person's name
+    // text, in any order — so "rezka jeko" finds someone with nick "Rezka" and
+    // married name "Jekovec" even though those live in different name fields.
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const base = terms.length
+      ? options.filter((o) => terms.every((term) => o.search.includes(term)))
+      : options;
     return base.slice(0, MAX_RESULTS);
   }, [options, query]);
 

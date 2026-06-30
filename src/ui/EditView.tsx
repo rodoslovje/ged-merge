@@ -5,7 +5,7 @@ import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { defaultHomeId, primaryName } from "../match/relatives";
 import { useNameOf } from "./SettingsContext";
-import { kinshipLabel } from "../match/kinship";
+import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
 import { decisionKey, decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
@@ -1283,22 +1283,24 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
     .filter((f): f is NonNullable<typeof f> => !!f);
 
   const lifespan = lifespanOf(person);
-  const kinship = homeId
-    ? kinshipLabel(dataset, homeId, selectedId!, t)
-    : undefined;
+  const homeInfo = homeId ? kinshipInfo(dataset, homeId, selectedId!, t) : undefined;
   const homePersonName = homeId
     ? formatName(dataset.individuals.get(homeId)!)
     : undefined;
-  const kinshipTooltip = kinship && homePersonName
-    ? t("kinship.tooltip", { kinship, name: homePersonName })
+  const kinship = homeInfo?.label;
+  const kinshipLineage = lineageClass(homeInfo?.lineage);
+  const kinshipTooltip = homeInfo && homePersonName
+    ? kinshipTooltipText(homeInfo, homePersonName, t)
     : undefined;
 
-  function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string } {
+  function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string; kinshipLineage?: string } {
     if (!homeId || !id) return {};
-    const k = kinshipLabel(dataset, homeId, id, t);
+    const info = kinshipInfo(dataset, homeId, id, t);
+    if (!info) return {};
     return {
-      kinship: k,
-      kinshipTooltip: k && homePersonName ? t("kinship.tooltip", { kinship: k, name: homePersonName }) : undefined,
+      kinship: info.label,
+      kinshipLineage: lineageClass(info.lineage),
+      kinshipTooltip: homePersonName ? kinshipTooltipText(info, homePersonName, t) : undefined,
     };
   }
 
@@ -1438,6 +1440,7 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
               matchStatus={matchStatus}
               onToggleMatchStatus={toggleMatchStatus}
               kinship={kinship}
+              kinshipLineage={kinshipLineage}
               kinshipTooltip={kinshipTooltip}
               controls={
                 <button

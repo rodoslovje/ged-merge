@@ -6,7 +6,7 @@ import type { MatchResult } from "../match/types";
 import { buildCompareTree, buildMatchMaps, countImportable } from "../tree/compareTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
-import { kinshipLabel } from "../match/kinship";
+import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
 import { useNameOf } from "./SettingsContext";
 import { ComparePanel } from "./ComparePanel";
@@ -133,14 +133,16 @@ export function MergeView({
     </div>
   ) : undefined;
 
-  const kinship = current && homeId && masterDataset
-    ? kinshipLabel(masterDataset, homeId, current.masterId, t)
+  const homeInfo = current && homeId && masterDataset
+    ? kinshipInfo(masterDataset, homeId, current.masterId, t)
     : undefined;
   const homePersonName = homeId && masterDataset
     ? formatName(masterDataset.individuals.get(homeId)!)
     : undefined;
-  const kinshipTooltip = kinship && homePersonName
-    ? t("kinship.tooltip", { kinship, name: homePersonName })
+  const kinship = homeInfo?.label;
+  const kinshipLineage = lineageClass(homeInfo?.lineage);
+  const kinshipTooltip = homeInfo && homePersonName
+    ? kinshipTooltipText(homeInfo, homePersonName, t)
     : undefined;
 
   const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
@@ -202,7 +204,7 @@ export function MergeView({
             </span>
           )}
         </span>
-        {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
+        {kinship && <span className={`person-kinship ${kinshipLineage}`} title={kinshipTooltip}>{kinship}</span>}
       </div>
       <div className="compare-nav-header">
         <button

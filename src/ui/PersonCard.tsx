@@ -21,6 +21,8 @@ interface Props {
   removeTooltip?: string;
   /** Kinship label relative to the home person, e.g. "Son", "Spouse". */
   kinship?: string;
+  /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-paternal"). */
+  kinshipLineage?: string;
   /** Long-form tooltip for the kinship badge, e.g. "Son of Luka Renko". */
   kinshipTooltip?: string;
   /** Merge-decision status ("confirmed" | "rejected" | "deferred") for this relative's own match, if any. */
@@ -43,7 +45,7 @@ interface Props {
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
   const nameOf = useNameOf();
   const { settings } = useSettings();
   if (!individual) {
@@ -88,7 +90,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
                 {modified && (
                   <span className="status-chip modified" title={modifiedTooltip}>{modifiedLetter}</span>
                 )}
-                {kinship && <span className="person-kinship" title={kinshipTooltip}>{kinship}</span>}
+                {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
               </div>
             )}
           </div>

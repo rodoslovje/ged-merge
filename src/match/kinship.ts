@@ -1,5 +1,8 @@
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
+import { bloodLineage, type Lineage } from "./relationshipPath";
+
+export type { Lineage };
 
 /**
  * Human-readable kinship label between `homeId` and `targetId`.
@@ -42,6 +45,46 @@ export function kinshipLabel(
 
   if (bestHG === Infinity) return undefined;
   return relLabel(bestHG, bestTG, targetIndi.sex ?? "U", t);
+}
+
+/**
+ * Kinship for display: the human-readable label, the blood {@link Lineage} (for
+ * colour-coding and the tooltip), and a `bloodOnly` flag set when no specific
+ * kinship could be named but the two are still blood-related — in which case
+ * `label` is a generic "blood relative" term and the lineage carries the detail.
+ * Returns undefined when there is no relationship at all (or self with no label).
+ */
+export interface KinshipInfo {
+  label: string;
+  lineage?: Lineage;
+  bloodOnly: boolean;
+}
+
+export function kinshipInfo(
+  ds: Dataset,
+  homeId: string,
+  targetId: string,
+  t: Translate,
+): KinshipInfo | undefined {
+  const label = kinshipLabel(ds, homeId, targetId, t);
+  const lineage = bloodLineage(ds, homeId, targetId);
+  if (label) return { label, lineage, bloodOnly: false };
+  // No nameable kinship, but a blood line still connects them — surface that.
+  if (lineage) return { label: t("kinship.bloodline"), lineage, bloodOnly: true };
+  return undefined;
+}
+
+/** CSS modifier class colouring a kinship label by lineage (none for "both"/unknown). */
+export function lineageClass(lineage?: Lineage): string {
+  return lineage === "paternal" || lineage === "maternal" ? `lineage-${lineage}` : "";
+}
+
+/** Full kinship tooltip: the base "<rel> of <home>" plus a lineage line when known. */
+export function kinshipTooltip(info: KinshipInfo, homeName: string, t: Translate): string {
+  const base = info.bloodOnly
+    ? t("kinship.bloodlineTooltip", { name: homeName })
+    : t("kinship.tooltip", { kinship: info.label, name: homeName });
+  return info.lineage ? `${base} — ${t(`kinship.lineage.${info.lineage}`)}` : base;
 }
 
 /** BFS upward through parents, returns Map<personId, generationsAbove>. */

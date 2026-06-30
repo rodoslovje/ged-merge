@@ -19,7 +19,8 @@ import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { TreeMinimap } from "./TreeMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { kinshipLabel } from "../match/kinship";
+import { kinshipLabel, lineageClass } from "../match/kinship";
+import { bloodLineage } from "../match/relationshipPath";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
@@ -236,6 +237,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
 
   // Root person's kinship to the home person, shown in the title.
   const rootKinship = homeId && rootPerson ? kinshipLabel(masterDs, homeId, rootPerson.id, t) : undefined;
+  const rootLineage = homeId && rootPerson ? bloodLineage(masterDs, homeId, rootPerson.id) : undefined;
 
   // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
   const needsMinimap =
@@ -264,7 +266,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
               </span>
               {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
               <span className="tree-title-break" aria-hidden="true" />
-              {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
+              {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
               <span className="tree-title-kind">{chartKind}</span>
             </>
           ) : (
@@ -414,6 +416,7 @@ export function EditTree({ masterDs, rootId, homeId, changedPersonIds, decisions
                         sex={n.sex}
                         color={color}
                         kinship={homeId && n.master?.id ? kinshipLabel(masterDs, homeId, n.master.id, t) : undefined}
+                        kinshipLineage={homeId && n.master?.id ? bloodLineage(masterDs, homeId, n.master.id) : undefined}
                         photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: setCurrentRootId } } : undefined}
                         display={display}
                         living={n.living}

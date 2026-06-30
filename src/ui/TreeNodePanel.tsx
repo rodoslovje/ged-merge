@@ -27,6 +27,8 @@ interface Props {
   titleHint?: string;
   /** Kinship label to the home person, shown after the lifespan in the title. */
   kinship?: string;
+  /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-paternal"). */
+  kinshipLineage?: string;
   /** Chips shown on the actions row, left of the Set-as-root button. */
   badges?: ReactNode;
   /** Extra control rows shown between the actions row and the field table
@@ -55,6 +57,7 @@ export function TreeNodePanel({
   onTitleClick,
   titleHint,
   kinship,
+  kinshipLineage,
   badges,
   controls,
 }: Props) {
@@ -65,7 +68,7 @@ export function TreeNodePanel({
         <span className={`tree-compare-name ${sexClass(node.sex)}`}>{node.name}</span>
         {node.years && <span className="tree-compare-years gm-data">{node.years}</span>}
       </span>
-      {kinship && <span className="tree-compare-kinship gm-data">{kinship}</span>}
+      {kinship && <span className={`tree-compare-kinship gm-data ${kinshipLineage ?? ""}`}>{kinship}</span>}
     </>
   );
   return (

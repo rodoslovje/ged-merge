@@ -42,8 +42,7 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 - **Map view** — plot birth/death/marriage places (geocoded) and migration paths.
 - **Descendant & classic pedigree charts** — complement the existing fan and relationship charts.
 - **Timeline view** — per-person or per-family chronological timeline.
-- **Maternal / paternal line color coding** — color-code kinship by lineage (paternal vs. maternal line) in charts and links. Possibly add an indicator for paternal/maternal *blood* relatives — ideally shown in place of the kinship label (name TBD, e.g. "lineage" or "bloodline").
-  - **Naming (EN / SL):** field label "lineage" → **linija** (or *rodovna linija*); "bloodline / blood kinship" → **krvno sorodstvo** (vs. *sorodstvo* for general kinship). Values: paternal → **očetova** / *po očetu*; maternal → **materina** / *po materini strani*. Recommendation: use **linija** as the field name with values **očetova** / **materina** — concise and unambiguous.
+- ~~**Maternal / paternal line color coding**~~ — *Done.* Kinship labels are colour-coded by blood lineage everywhere they appear (person headers, relative cards, tree nodes/titles, relationship chart): royal-blue `--lineage-paternal` for the father's side, purple-magenta `--lineage-maternal` for the mother's side; "both lines" (full siblings), descendants, and the Start Person keep the neutral green accent. Tooltips append the lineage line. When no specific kinship can be named but a blood line still connects the two, a generic "Blood relative" chip carries the lineage. See `bloodLineage()` in [src/match/relationshipPath.ts](src/match/relationshipPath.ts) and `kinshipInfo()` in [src/match/kinship.ts](src/match/kinship.ts).
 
 ### Editing / UX
 - **Global search & filter** — find individuals across the whole file.

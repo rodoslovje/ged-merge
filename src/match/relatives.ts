@@ -37,6 +37,17 @@ export function displayName(n: PersonName | undefined): string {
 }
 
 /**
+ * Every name form a person carries — the primary name, its inline married
+ * surname and nickname, and every additional `NAME` record (married/maiden/aka/…)
+ * — lower-cased into one string for substring search.
+ */
+export function nameSearchText(indi: Individual): string {
+  const parts: (string | undefined)[] = [];
+  for (const n of indi.names) parts.push(n.full, n.given, n.surname, n.married, n.nickname);
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+/**
  * The married surname to show for a person, from either source the app supports:
  *  - an inline `_MARNM` on the primary name (Gramps/PAF/Brother's Keeper style), or
  *  - a separate `1 NAME … 2 TYPE married` record (the GEDCOM-7 / standard style).

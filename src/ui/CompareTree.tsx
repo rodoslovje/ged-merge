@@ -5,7 +5,8 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { kinshipLabel } from "../match/kinship";
+import { kinshipLabel, lineageClass } from "../match/kinship";
+import { bloodLineage, type Lineage } from "../match/relationshipPath";
 import { sexClass, sexColorVar } from "./sex";
 import {
   buildCompareTree,
@@ -173,6 +174,11 @@ export function CompareTree({
     },
     [homeId, masterDs, t],
   );
+  const lineageOf = useCallback(
+    (n: TreeNode): Lineage | undefined =>
+      homeId && n.master ? bloodLineage(masterDs, homeId, n.master.id) : undefined,
+    [homeId, masterDs],
+  );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
   // side (master/compare) the photo came from.
@@ -318,6 +324,7 @@ export function CompareTree({
   const rootYears = tree?.years ?? "";
   // Root person's kinship to the home person, shown in the title.
   const rootKinship = homeId && rootMasterId ? kinshipLabel(masterDs, homeId, rootMasterId, t) : undefined;
+  const rootLineage = homeId && rootMasterId ? bloodLineage(masterDs, homeId, rootMasterId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
@@ -387,7 +394,7 @@ export function CompareTree({
               <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
               {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
               <span className="tree-title-break" aria-hidden="true" />
-              {rootKinship && <span className="tree-title-kinship">{rootKinship}</span>}
+              {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
               {rootStatus && rootStatus !== "undecided" && (
                 <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
                   {t(`status.${rootStatus}`).charAt(0)}
@@ -483,6 +490,7 @@ export function CompareTree({
               decisionOf={badgeOf}
               modifiedOf={isModified}
               kinshipOf={kinshipOf}
+              lineageOf={lineageOf}
               masterRecords={masterDs.records}
               compareRecords={compareDs.records}
               masterRefCtx={masterRefCtx}
@@ -544,6 +552,7 @@ export function CompareTree({
             onClose={() => setSelectedKey(null)}
             onShowInMatches={onShowInMatches}
             kinship={kinshipOf(selected)}
+            kinshipLineage={lineageClass(lineageOf(selected))}
             decision={
               selected.master && selected.incoming
                 ? decisions.get(decisionKey("individual", selected.master.id, selected.incoming.id))
@@ -571,6 +580,7 @@ function TreeSvg({
   decisionOf,
   modifiedOf,
   kinshipOf,
+  lineageOf,
   masterRecords,
   compareRecords,
   masterRefCtx,
@@ -588,6 +598,7 @@ function TreeSvg({
   decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
   modifiedOf: (n: Placed) => boolean;
   kinshipOf: (n: Placed) => string | undefined;
+  lineageOf: (n: Placed) => Lineage | undefined;
   masterRecords: GedNode[];
   compareRecords: GedNode[];
   masterRefCtx: PhotoRefContext;
@@ -633,6 +644,7 @@ function TreeSvg({
             years: n.years,
             place: n.place,
             kinship: kinshipOf(n),
+            kinshipLineage: lineageOf(n),
             living: n.living,
             livingLabel,
           });
@@ -645,7 +657,7 @@ function TreeSvg({
           const rows: { text: string; cls: string }[] = [];
           if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
           if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
-          if (disp.kinship) rows.push({ text: disp.kinship, cls: "tree-node-kinship" });
+          if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
           // Badges sit on the lifespan row, just past the years label.
           const yearsRowY = DETAIL_ROW_TOP;
           const decBadgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
@@ -848,6 +860,7 @@ function NodeCompare({
   onClose,
   onShowInMatches,
   kinship,
+  kinshipLineage,
   decision,
   onDecide,
 }: {
@@ -862,6 +875,7 @@ function NodeCompare({
   onClose: () => void;
   onShowInMatches: (masterId: string, compareId: string) => void;
   kinship: string | undefined;
+  kinshipLineage: string | undefined;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
 }) {
@@ -943,6 +957,7 @@ function NodeCompare({
       onTitleClick={matchLink}
       titleHint={matchLink ? t("tree.openInMatches") : undefined}
       kinship={kinship}
+      kinshipLineage={kinshipLineage}
       badges={decisionBar}
       controls={controls}
     />

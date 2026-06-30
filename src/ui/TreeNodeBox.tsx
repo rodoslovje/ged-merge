@@ -12,6 +12,7 @@ import {
   truncate,
 } from "../tree/treeLayout";
 import { ALL_DISPLAY, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
+import { lineageClass, type Lineage } from "../match/kinship";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import type { PhotoRefContext } from "./PhotoViewer";
@@ -34,6 +35,8 @@ interface Props {
   strokeWidth?: number;
   /** Kinship label; shown on its own row beneath the lifespan and place. */
   kinship?: string;
+  /** Blood lineage of the kinship, for colour-coding the kinship row. */
+  kinshipLineage?: Lineage;
   /** Master photo source; the thumbnail shows only when a file is actually
    *  present — a person without a photo leaves no reserved gap (text goes hard left). */
   photo?: NodePhotoSource;
@@ -66,6 +69,7 @@ export function TreeNodeBox({
   color,
   strokeWidth = 2.5,
   kinship,
+  kinshipLineage,
   photo,
   badges,
   display = ALL_DISPLAY,
@@ -74,7 +78,7 @@ export function TreeNodeBox({
   nodeH = NODE_H,
 }: Props) {
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, place, kinship, living, livingLabel });
+  const disp = nodeDisplay(display, { name, years, place, kinship, kinshipLineage, living, livingLabel });
   const photoPath = disp.showPhoto && photo && folderName ? collectFirstFilePath(photo.raw, photo.records) : null;
   const textX = photoPath ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const photoY = (nodeH - PHOTO_SIZE) / 2;
@@ -82,7 +86,7 @@ export function TreeNodeBox({
   const rows: { text: string; cls: string }[] = [];
   if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
   if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
-  if (disp.kinship) rows.push({ text: disp.kinship, cls: "tree-node-kinship" });
+  if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
   return (
     <>
       <rect

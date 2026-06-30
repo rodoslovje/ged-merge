@@ -1549,6 +1549,13 @@ button:focus-visible {
   color: var(--accent);
   flex: none;
 }
+/* Kinship colour-coding by blood lineage; "both"/unknown keep the accent above. */
+.person-kinship.lineage-paternal,
+.tree-title-kinship.lineage-paternal { color: var(--lineage-paternal); }
+.person-kinship.lineage-maternal,
+.tree-title-kinship.lineage-maternal { color: var(--lineage-maternal); }
+.tree-node-kinship.lineage-paternal { fill: var(--lineage-paternal); }
+.tree-node-kinship.lineage-maternal { fill: var(--lineage-maternal); }
 .person-xref {
   color: var(--muted);
   font-size: 0.78em;
@@ -3716,6 +3723,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.8rem;
   font-weight: 600;
 }
+.tree-compare-kinship.lineage-paternal { color: var(--lineage-paternal); }
+.tree-compare-kinship.lineage-maternal { color: var(--lineage-maternal); }
 .tree-compare-close {
   margin-left: auto;
   background: none;

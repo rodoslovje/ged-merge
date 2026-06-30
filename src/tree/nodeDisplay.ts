@@ -4,6 +4,7 @@
 // node shows, and how living people are redacted for privacy.
 
 import type { Individual } from "../gedcom/types";
+import type { Lineage } from "../match/kinship";
 import { findEvent } from "../match/relatives";
 import { localityParts } from "../gedcom/place";
 
@@ -82,6 +83,8 @@ export interface NodeDisplayInput {
   place?: string;
   /** Kinship-to-home label, when known. */
   kinship?: string;
+  /** Blood lineage of the kinship, for colour-coding the kinship row. */
+  kinshipLineage?: Lineage;
   /** True when the person is inferred to be living (privacy candidate). */
   living?: boolean;
   /** Localized "Living" placeholder for a redacted person with no kinship. */
@@ -98,6 +101,8 @@ export interface NodeDisplay {
   place?: string;
   /** Kinship line, present only when shown and not redacted. */
   kinship?: string;
+  /** Blood lineage of the shown kinship line, for colour-coding. */
+  kinshipLineage?: Lineage;
   /** Whether to draw the photo. */
   showPhoto: boolean;
 }
@@ -122,6 +127,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     years: opts.showLifespan ? input.years : undefined,
     place: opts.showPlace ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
+    kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     showPhoto: opts.showPhoto,
   };
 }
