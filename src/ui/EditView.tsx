@@ -95,6 +95,9 @@ interface Props {
   marriedNameTag?: boolean;
   /** Navigate to this person when it changes (used by the save dialog person links). */
   navigateToId?: string;
+  /** Called once after `navigateToId` has been honoured, so the parent can reset
+   *  it and re-request the same person again later (e.g. the "go home" icon). */
+  onNavigated?: () => void;
   /** Called whenever the currently-shown person changes, so the parent can
    * jump Merge to that same person's match candidate when switching modes
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
@@ -137,7 +140,7 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const [selectedId, setSelectedId] = useState<string | undefined>(
@@ -338,7 +341,10 @@ export function EditView({ dataset, fileName, homeId, changeHome, onDirty, onSho
   }
 
   useEffect(() => {
-    if (navigateToId) navigate(navigateToId);
+    if (navigateToId) {
+      navigate(navigateToId);
+      onNavigated?.();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateToId]);
 

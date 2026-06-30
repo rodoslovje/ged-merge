@@ -1066,6 +1066,19 @@ button:focus-visible {
 .home-control:focus-within .home-icon {
   color: var(--accent);
 }
+/* When a home person is set, the icon is a button that jumps back to them. */
+.home-icon-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.home-icon-btn:hover {
+  color: var(--accent);
+}
 .home-selector input:focus {
   outline: none;
   border-color: var(--accent);

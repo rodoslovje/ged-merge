@@ -822,6 +822,13 @@ function AppContent() {
     setMode("edit");
   }
 
+  // Clicking the home icon jumps Edit mode to the chosen home person.
+  function goToHomePerson() {
+    if (!homeId) return;
+    setNavigateToId(homeId);
+    setMode("edit");
+  }
+
   // Switch to Merge, pointing it at the match candidate for whichever person
   // Edit is currently showing (so the person carries over the other way too) —
   // falls back to leaving Merge's selection untouched when that person isn't
@@ -1457,6 +1464,7 @@ function AppContent() {
               homeId={homeId}
               onChange={changeHome}
               onClear={() => changeHome(undefined)}
+              onHomeClick={goToHomePerson}
               autoFocus={focusHome}
               onAutoFocused={() => setFocusHome(false)}
             />
@@ -1624,6 +1632,7 @@ function AppContent() {
               onShowRelationship={(id) => openRelationship(id)}
               marriedNameTag={lastMasterFile.marriedNameTag}
               navigateToId={navigateToId}
+              onNavigated={() => setNavigateToId(undefined)}
               onPersonChange={setEditPersonId}
               matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMasterOrder : undefined}
