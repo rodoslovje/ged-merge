@@ -1,6 +1,6 @@
 import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
-import { cloneNode } from "../gedcom/node";
+import { cloneNode, firstChild } from "../gedcom/node";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
@@ -167,8 +167,8 @@ function reshapePlaceNode(
   report: NormalizationReport,
   seen: Set<string>,
 ): void {
-  const placNode = node.children.find((c) => c.tag === "PLAC");
-  const addrNode = node.children.find((c) => c.tag === "ADDR");
+  const placNode = firstChild(node, "PLAC");
+  const addrNode = firstChild(node, "ADDR");
   if (!placNode && !addrNode) return;
   // A PLAC carrying an explicit FORM declares a fixed jurisdiction schema —
   // each comma part maps to a FORM label (e.g. "Place,Municipality,County,…").
@@ -183,7 +183,7 @@ function reshapePlaceNode(
   const after = [r.plac, r.addr, r.agency].filter(Boolean).join(" · ");
   if (before === after) return;
 
-  const existingAgency = node.children.find((c) => c.tag === "AGNC");
+  const existingAgency = firstChild(node, "AGNC");
   if (r.plac !== undefined) {
     // Reuse the original PLAC node when there is one, keeping its children
     // (FORM, MAP/LONG/LATI coordinates) and its position among the event's

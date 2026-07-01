@@ -12,6 +12,7 @@
  */
 
 import { isPointer } from "./source";
+import { hasChild } from "./node";
 import type { GedNode } from "./types";
 
 export type MediaMode = "inline" | "shared";
@@ -31,7 +32,7 @@ export function detectMediaMode(records: GedNode[]): MediaMode {
       if (child.tag !== "OBJE") continue;
       const value = child.value?.trim();
       if (value && isPointer(value)) shared++;
-      else if (child.children.some((c) => c.tag === "FILE")) inline++;
+      else if (hasChild(child, "FILE")) inline++;
     }
   }
   return inline > shared ? "inline" : "shared";

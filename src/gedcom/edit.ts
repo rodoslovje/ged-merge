@@ -1,6 +1,7 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
 import { buildSourceContext, clearObjeNodeCache, isPointer, type SourceContext } from "./source";
 import { birthSortKey } from "./lifespan";
+import { childrenByTag, firstChild, hasChild, removeChildren } from "./node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -78,10 +79,8 @@ export interface EventFieldUpdate {
   addSource?: { sourceXref: string; page?: string };
 }
 
-function findChild(node: GedNode, tag: string): GedNode | undefined {
-  return node.children.find((c) => c.tag === tag);
-}
-
+/** Remove the *first* direct child with `tag` (single-valued fields). Distinct
+ *  from node's `removeChildren`, which removes every match. */
 function removeChild(node: GedNode, tag: string): void {
   const i = node.children.findIndex((c) => c.tag === tag);
   if (i !== -1) node.children.splice(i, 1);
@@ -108,7 +107,7 @@ export function insertOrdered(parent: GedNode, child: GedNode, order: string[]):
 }
 
 function getOrCreateChild(node: GedNode, tag: string, order: string[]): GedNode {
-  let child = findChild(node, tag);
+  let child = firstChild(node, tag);
   if (!child) {
     child = { level: node.level + 1, tag, children: [] };
     insertOrdered(node, child, order);
@@ -126,7 +125,7 @@ function getOrCreateChild(node: GedNode, tag: string, order: string[]): GedNode 
 function setOrRemoveValue(node: GedNode, tag: string, value: string, order: string[]): void {
   const trimmed = value.trim();
   if (!trimmed) {
-    node.children = node.children.filter((c) => c.tag !== tag);
+    removeChildren(node, tag);
     return;
   }
   getOrCreateChild(node, tag, order).value = trimmed;
@@ -139,7 +138,7 @@ function setOrRemoveValue(node: GedNode, tag: string, value: string, order: stri
 }
 
 function setLinks(event: GedNode, links: string[]): void {
-  event.children = event.children.filter((c) => c.tag !== EVENT_LINK_TAG);
+  removeChildren(event, EVENT_LINK_TAG);
   for (const link of links) {
     const trimmed = link.trim();
     if (!trimmed) continue;
@@ -176,7 +175,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
  * lines; an event left with no children and no value is removed entirely.
  */
 function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): GedNode | undefined {
-  let event = findChild(record, tag);
+  let event = firstChild(record, tag);
   const isNewEvent = !event;
   const hasContent =
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
@@ -264,7 +263,7 @@ export function addEventField(indi: Individual, tag: string, update: EventFieldU
     !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!hasContent) return undefined;
   addEventNode(indi, tag);
-  const sameTagNodes = indi.raw.children.filter((c) => c.tag === tag);
+  const sameTagNodes = childrenByTag(indi.raw, tag);
   const newNode = sameTagNodes[sameTagNodes.length - 1];
   applyEventNodeUpdate(indi.raw, newNode, update);
   if (!indi.raw.children.includes(newNode)) return undefined;
@@ -275,7 +274,7 @@ export function addEventField(indi: Individual, tag: string, update: EventFieldU
 /** Append a new empty event node for `tag` to an individual record, inserting
  * it after the last existing event of the same tag (or in canonical order). */
 export function addEventNode(indi: Individual, tag: string): void {
-  const same = indi.raw.children.filter((c) => c.tag === tag);
+  const same = childrenByTag(indi.raw, tag);
   const event: GedNode = { level: indi.raw.level + 1, tag, children: [] };
   markEventTouched(event, "new");
   if (same.length > 0) {
@@ -299,8 +298,8 @@ export function setFamilyEventField(fam: Family, tag: string, update: EventField
  * silently shadow that other event). */
 export function changeFamilyEventTag(fam: Family, oldTag: string, newTag: string): void {
   if (oldTag === newTag) return;
-  const eventNode = fam.raw.children.find((c) => c.tag === oldTag);
-  if (!eventNode || fam.raw.children.some((c) => c.tag === newTag)) return;
+  const eventNode = firstChild(fam.raw, oldTag);
+  if (!eventNode || hasChild(fam.raw, newTag)) return;
   eventNode.tag = newTag;
   markEventTouched(eventNode, "changed");
 }
@@ -326,7 +325,7 @@ export function removeFamilyEvent(fam: Family, tag: string): void {
  */
 function writeNameValue(node: GedNode, given: string, surname: string): void {
   node.value = surname ? `${given} /${surname}/`.trim() : given;
-  node.children = node.children.filter((c) => c.tag !== "GIVN" && c.tag !== "SURN");
+  removeChildren(node, ["GIVN", "SURN"]);
 }
 
 /** Set (or clear) the individual's primary `NAME` line. */
@@ -343,7 +342,7 @@ export function setName(indi: Individual, name: { given?: string; surname?: stri
 }
 
 function nameNodes(indi: Individual): GedNode[] {
-  return indi.raw.children.filter((c) => c.tag === "NAME");
+  return childrenByTag(indi.raw, "NAME");
 }
 
 /** Set (or clear) the primary `NAME`'s `NICK` (nickname) sub-tag. */
@@ -759,7 +758,7 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
 
 /** Replace all NOTE records on an individual with the given texts. */
 export function setNotes(indi: Individual, notes: string[]): void {
-  indi.raw.children = indi.raw.children.filter((c) => c.tag !== "NOTE");
+  removeChildren(indi.raw, "NOTE");
   for (const text of notes) {
     const trimmed = text.trim();
     if (!trimmed) continue;
@@ -849,7 +848,7 @@ export function findSharedMediaByFile(records: GedNode[], file: string): GedNode
   if (!target) return undefined;
   for (const rec of records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;
-    const f = rec.children.find((c) => c.tag === "FILE")?.value?.trim().toLowerCase();
+    const f = firstChild(rec, "FILE")?.value?.trim().toLowerCase();
     if (f === target) return rec;
   }
   return undefined;
@@ -860,7 +859,7 @@ export function findSharedMediaByFile(records: GedNode[], file: string): GedNode
  * existing ones sit in the record), or at the canonical position if it's the
  * first. Mirrors `addEventNode`'s "after the last same-tag node" placement. */
 function appendMediaNode(indi: Individual, node: GedNode): GedNode {
-  const objes = indi.raw.children.filter((c) => c.tag === "OBJE");
+  const objes = childrenByTag(indi.raw, "OBJE");
   if (objes.length > 0) {
     const lastIdx = indi.raw.children.indexOf(objes[objes.length - 1]);
     indi.raw.children.splice(lastIdx + 1, 0, node);
@@ -886,7 +885,7 @@ export function attachMediaPointer(indi: Individual, objeXref: string): GedNode 
  * that record when nothing else in the dataset still references it.
  */
 export function removeIndividualMediaAtIndex(dataset: Dataset, indi: Individual, objeIndex: number): void {
-  const node = indi.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+  const node = childrenByTag(indi.raw, "OBJE")[objeIndex];
   if (!node) return;
   const i = indi.raw.children.indexOf(node);
   if (i !== -1) indi.raw.children.splice(i, 1);
@@ -930,7 +929,7 @@ export interface MediaInfoFields {
  * tag; omitted fields are left untouched.
  */
 export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
-  const fileNode = objeNode.children.find((c) => c.tag === "FILE");
+  const fileNode = firstChild(objeNode, "FILE");
   const set = (tag: string, value: string) => {
     objeNode.children = objeNode.children.filter((c) => c.tag !== tag);
     if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== tag);
@@ -1014,7 +1013,7 @@ export function attachSourceCitation(record: GedNode, sourceXref: string, page: 
 }
 
 function sourceCitationNodes(record: GedNode): GedNode[] {
-  return record.children.filter((c) => c.tag === "SOUR");
+  return childrenByTag(record, "SOUR");
 }
 
 /** Fields editable on an existing citation — `NewSourceFields` plus the
@@ -1066,14 +1065,14 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
 
   const url = fields.url?.trim();
   const soleObjeXref = sourceNode.children.filter((c) => c.tag === "OBJE" && c.value).length === 1
-    ? sourceNode.children.find((c) => c.tag === "OBJE")?.value?.trim()
+    ? firstChild(sourceNode, "OBJE")?.value?.trim()
     : undefined;
   const objeXref = fields.objeXref ?? soleObjeXref;
 
   if (objeXref) {
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
     if (objeNode && url) {
-      const fileChild = objeNode.children.find((c) => c.tag === "FILE");
+      const fileChild = firstChild(objeNode, "FILE");
       if (fileChild) fileChild.value = url;
       else objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
       bumpSourceCacheVersion(records);

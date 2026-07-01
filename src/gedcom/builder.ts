@@ -1,6 +1,7 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace } from "./place";
+import { firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
 
@@ -183,12 +184,12 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
-  const dateNode = node.children.find((c) => c.tag === "DATE");
-  const placeNode = node.children.find((c) => c.tag === "PLAC");
-  const addrNode = node.children.find((c) => c.tag === "ADDR");
-  const typeNode = node.children.find((c) => c.tag === "TYPE");
-  const agncNode = node.children.find((c) => c.tag === "AGNC");
-  const causNode = node.children.find((c) => c.tag === "CAUS");
+  const dateNode = firstChild(node, "DATE");
+  const placeNode = firstChild(node, "PLAC");
+  const addrNode = firstChild(node, "ADDR");
+  const typeNode = firstChild(node, "TYPE");
+  const agncNode = firstChild(node, "AGNC");
+  const causNode = firstChild(node, "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
@@ -202,7 +203,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
   const links = collectLinks(node, media);
-  const noteNode = node.children.find((c) => c.tag === "NOTE");
+  const noteNode = firstChild(node, "NOTE");
   if (noteNode) {
     const text = resolveNoteText(noteNode, noteIndex, links);
     const noteStripped = text && stripNoteLinks(text);

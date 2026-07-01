@@ -1,7 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
-import { cloneNode } from "../gedcom/node";
+import { childText, cloneNode, firstChild } from "../gedcom/node";
 import {
-  childText,
   isPointer,
   looksLikeUrl,
   objeInfoOf,
@@ -145,7 +144,7 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   groupRecords(
     ds.records, "OBJE", "media",
     (rec) => {
-      const file = rec.children.find((c) => c.tag === "FILE")?.value?.trim();
+      const file = firstChild(rec, "FILE")?.value?.trim();
       return file ? mediaKey(file) : undefined;
     },
     (rec) => {

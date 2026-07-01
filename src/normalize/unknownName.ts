@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { isUnknownNameToken } from "../gedcom/name";
+import { firstChild } from "../gedcom/node";
 import type { NormChange, UnknownNameTarget } from "./types";
 
 /** A file's unknown-name convention plus the marker it uses, for the loader. */
@@ -28,7 +29,7 @@ export function analyzeUnknownNames(dataset: Dataset): UnknownNameAnalysis {
   let blanks = 0;
   for (const indi of dataset.records) {
     if (indi.tag !== "INDI") continue;
-    const name = indi.children.find((c) => c.tag === "NAME");
+    const name = firstChild(indi, "NAME");
     if (!name) continue;
     // The effective (displayed) parts — slash value, falling back to GIVN/SURN —
     // so a placeholder is detected wherever it lives.
@@ -57,7 +58,7 @@ export function analyzeUnknownNames(dataset: Dataset): UnknownNameAnalysis {
  * Returns one before/after change per slot rewritten.
  */
 export function reshapeUnknownNames(indi: GedNode, target: UnknownNameTarget): NormChange[] {
-  const name = indi.children.find((c) => c.tag === "NAME");
+  const name = firstChild(indi, "NAME");
   if (!name) return [];
   const repl = target.form === "token" ? target.token ?? "" : "";
 
@@ -83,7 +84,7 @@ function cleanSlot(
   repl: string,
   changes: NormChange[],
 ): string | undefined {
-  const child = name.children.find((c) => c.tag === subTag);
+  const child = firstChild(name, subTag);
   if (isUnknownNameToken(valueText) && valueText!.trim() !== repl) {
     changes.push({ before: valueText!.trim(), after: repl || "(blank)" });
     reconcileChild(name, child, repl);
@@ -131,8 +132,8 @@ function valueParts(name: GedNode): Parts {
 /** The effective parts as `parseName` sees them: value slots, then GIVN/SURN. */
 function effectiveParts(name: GedNode): Parts {
   const v = valueParts(name);
-  const givn = name.children.find((c) => c.tag === "GIVN")?.value?.trim();
-  const surn = name.children.find((c) => c.tag === "SURN")?.value?.trim();
+  const givn = firstChild(name, "GIVN")?.value?.trim();
+  const surn = firstChild(name, "SURN")?.value?.trim();
   return { given: v.given ?? givn, surname: v.surname ?? surn, hadSlash: v.hadSlash };
 }
 

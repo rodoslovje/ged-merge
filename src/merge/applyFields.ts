@@ -14,7 +14,7 @@ import {
 } from "../gedcom/edit";
 import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { cloneNode } from "../gedcom/node";
+import { childrenByTag, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
@@ -282,7 +282,7 @@ export function detectLinkFormat(master: Dataset): LinkFormat {
   const objeFiles = new Map<string, string>();
   for (const rec of master.records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;
-    const file = rec.children.find((c) => c.tag === "FILE")?.value?.trim();
+    const file = firstChild(rec, "FILE")?.value?.trim();
     if (file) objeFiles.set(rec.xref, file);
   }
 
@@ -316,7 +316,7 @@ export function applyName(
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]>,
 ): boolean {
-  const incName = incomingRecord.children.find((c) => c.tag === "NAME");
+  const incName = firstChild(incomingRecord, "NAME");
   if (!incName) return false;
   const clone = cloneNodeRemapped(incName, sourMap);
   collectCustomTags(clone, customTags);
@@ -344,9 +344,9 @@ export function applyNotes(
   order: string[],
   customTags: Record<string, CustomTagNode[]>,
 ): boolean {
-  const incNotes = incoming.children.filter((c) => c.tag === "NOTE");
+  const incNotes = childrenByTag(incoming, "NOTE");
   if (!incNotes.length) return false;
-  if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "NOTE");
+  if (choice !== "both") removeChildren(target, "NOTE");
   for (const n of incNotes) {
     const clone = cloneNodeRemapped(n, sourMap);
     collectCustomTags(clone, customTags);
@@ -362,11 +362,11 @@ export function applyNickname(
   choice: FieldChoice,
   customTags: Record<string, CustomTagNode[]>,
 ): boolean {
-  const incName = incomingRecord.children.find((c) => c.tag === "NAME");
+  const incName = firstChild(incomingRecord, "NAME");
   if (!incName) return false;
-  const incNick = incName.children.find((c) => c.tag === "NICK");
+  const incNick = firstChild(incName, "NICK");
   if (!incNick) return false;
-  let name = target.children.find((c) => c.tag === "NAME");
+  let name = firstChild(target, "NAME");
   if (!name) {
     name = newNode("NAME");
     insertAt(target, 0, name);
@@ -423,7 +423,7 @@ function resolveEventNode(
   newEventNodes?: Map<string, GedNode>,
 ): GedNode {
   if (masterIdx >= 0) {
-    const existing = target.children.filter((c) => c.tag === tag)[masterIdx];
+    const existing = childrenByTag(target, tag)[masterIdx];
     if (existing) {
       markEventTouched(existing, "changed");
       return existing;
@@ -450,7 +450,7 @@ export function applyEventValue(
   order: string[] = [],
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   if (!incEvent?.value) return false;
   if (choice === "incoming" || choice === "both") {
     const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
@@ -473,8 +473,8 @@ export function applyEventSub(
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
-  const incSub = incEvent?.children.find((c) => c.tag === subTag);
+  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, incSub, customTags);
@@ -495,9 +495,9 @@ export function applyRecordSources(
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
-  const incSours = incomingRecord.children.filter((c) => c.tag === "SOUR");
+  const incSours = childrenByTag(incomingRecord, "SOUR");
   if (incSours.length === 0) return false;
-  if (choice !== "both") target.children = target.children.filter((c) => c.tag !== "SOUR");
+  if (choice !== "both") removeChildren(target, "SOUR");
   for (const s of incSours) {
     const clone = cloneNodeRemapped(s, sourMap);
     collectCustomTags(clone, customTags);
@@ -535,13 +535,13 @@ export function applyEventSources(
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? incomingRecord.children.filter((c) => c.tag === tag)[compareIdx] : undefined;
-  const incSours = incEvent?.children.filter((c) => c.tag === "SOUR") ?? [];
+  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
   const incLinks = eventLinkUrls(incEvent);
   if (incSours.length === 0 && incLinks.length === 0) return false;
   const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
-    if (choice !== "both") event.children = event.children.filter((c) => c.tag !== "SOUR");
+    if (choice !== "both") removeChildren(event, "SOUR");
     for (const s of incSours) {
       const clone = cloneNodeRemapped(s, sourMap);
       collectCustomTags(clone, customTags);
@@ -551,7 +551,7 @@ export function applyEventSources(
   if (incLinks.length) {
     const existing = new Set(eventLinkUrls(event).map(linkKey));
     if (choice !== "both") {
-      event.children = event.children.filter((c) => !EVENT_LINK_TAGS.has(c.tag));
+      removeChildren(event, [...EVENT_LINK_TAGS]);
       existing.clear();
     }
     for (const url of incLinks) {
@@ -589,7 +589,7 @@ export function setChild(
   incChildOverride?: GedNode,
   customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
-  const incChild = incChildOverride ?? incomingParent.children.find((c) => c.tag === tag);
+  const incChild = incChildOverride ?? firstChild(incomingParent, tag);
   if (!incChild) return false;
   const clone = cloneNode(incChild);
   collectCustomTags(clone, customTags);
@@ -629,7 +629,7 @@ export function sortEventsByDate(record: GedNode): void {
   const isEvent = (node: GedNode) => {
     const r = tagRank(node.tag);
     if (r >= 2 && r < suffixStart) return true;
-    return r === Infinity && node.tag.startsWith("_") && node.children.some((c) => c.tag === "DATE");
+    return r === Infinity && node.tag.startsWith("_") && hasChild(node, "DATE");
   };
 
   const eventIndices: number[] = [];
@@ -642,7 +642,7 @@ export function sortEventsByDate(record: GedNode): void {
   });
   if (events.length < 2) return;
 
-  const eventDate = (node: GedNode) => parseDate(node.children.find((c) => c.tag === "DATE")?.value ?? "");
+  const eventDate = (node: GedNode) => parseDate(firstChild(node, "DATE")?.value ?? "");
   // Same zone-aware ordering as the Merge comparison and Edit views
   // (`orderedEventTags` / `EventList`), so the saved file lists events in the
   // exact order the user saw — undated life-zone events land mid-lifespan
@@ -823,7 +823,7 @@ export function materializeEventSources(
   eventNode: GedNode,
   incomingEventNode: GedNode,
 ): GedNode[] {
-  const incSours = incomingEventNode.children.filter((c) => c.tag === "SOUR");
+  const incSours = childrenByTag(incomingEventNode, "SOUR");
   if (!incSours.length) return [];
   const sourMap = buildSourXrefMap(compare.records, dataset.records);
   for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);

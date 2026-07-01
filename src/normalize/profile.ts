@@ -1,6 +1,7 @@
 import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
+import { firstChild } from "../gedcom/node";
 import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
   DateFormatProfile,
@@ -423,9 +424,9 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   const streetTally = new Map<string, Map<string, number>>();
 
   walkNodes(dataset.records, (node) => {
-    const placNode = node.children.find((c) => c.tag === "PLAC");
+    const placNode = firstChild(node, "PLAC");
     if (!placNode?.value) return;
-    const addrNode = node.children.find((c) => c.tag === "ADDR");
+    const addrNode = firstChild(node, "ADDR");
     const p = decomposePlace(placNode.value);
     if (!p.locality) return;
 

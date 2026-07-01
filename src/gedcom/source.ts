@@ -1,10 +1,12 @@
 import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { linkKey } from "../normalize/links";
+import { childText, childValue, childrenByTag, firstChild, hasChild } from "./node";
 import { isPointer, looksLikeUrl } from "./uri";
 
 // Re-exported: callers across the app import these from the source module.
-export { isPointer, looksLikeUrl };
+// `childText` now lives in ./node; keep re-exporting it here for existing callers.
+export { isPointer, looksLikeUrl, childText };
 
 /**
  * Resolves event-level `SOUR` citations into a displayable, linkable
@@ -51,11 +53,6 @@ export interface SourceContext {
   sourceIndex: SourceIndex;
   objeIndex: ObjeIndex;
   repoIndex: RepoIndex;
-}
-
-export function childText(node: GedNode, tag: string): string | undefined {
-  const v = node.children.find((c) => c.tag === tag)?.value?.trim();
-  return v || undefined;
 }
 
 /**
@@ -152,7 +149,7 @@ export function clearObjeNodeCache(records: GedNode[]): void {
  * date — never a CHAN/CREA edit timestamp nested a level deeper.
  */
 export function objeInfoOf(node: GedNode): ObjeInfo {
-  const fileNode = node.children.find((c) => c.tag === "FILE");
+  const fileNode = firstChild(node, "FILE");
   const file = fileNode?.value?.trim();
   const url = file && looksLikeUrl(file) ? file : undefined;
   const title = childText(fileNode ?? node, "TITL") ?? childText(node, "TITL");
@@ -183,10 +180,10 @@ export interface CropRegion {
 /** Read the `CROP` region from an `OBJE` link node, or undefined when there's no
  *  crop or it lacks usable width/height. Integer subtags per the GEDCOM 7 spec. */
 export function cropOf(linkNode: GedNode): CropRegion | undefined {
-  const crop = linkNode.children.find((c) => c.tag === "CROP");
+  const crop = firstChild(linkNode, "CROP");
   if (!crop) return undefined;
   const num = (tag: string): number | undefined => {
-    const raw = crop.children.find((c) => c.tag === tag)?.value?.trim();
+    const raw = childValue(crop, tag)?.trim();
     if (!raw) return undefined;
     const n = Number(raw);
     return Number.isFinite(n) ? n : undefined;
@@ -329,9 +326,9 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
     total++;
     // Only OBJE children with a real (resolvable) URL count as "page media" —
     // a source whose only OBJE is a locally-cached filename isn't paginated.
-    const objeCount = rec.children.filter((c) => c.tag === "OBJE" && c.value && objeIndex.get(c.value.trim())?.url).length;
-    const hasRepo = rec.children.some((c) => c.tag === "REPO");
-    const hasBiblio = rec.children.some((c) => c.tag === "TEXT" || c.tag === "AUTH" || c.tag === "PUBL" || c.tag === "PERI");
+    const objeCount = childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length;
+    const hasRepo = hasChild(rec, "REPO");
+    const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI"]);
     if (objeCount >= 2) paginated++;
     else if (hasRepo) repository++;
     else if (hasBiblio) literature++;

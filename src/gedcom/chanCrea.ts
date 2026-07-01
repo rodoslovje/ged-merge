@@ -1,4 +1,5 @@
 import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered } from "./edit";
+import { firstChild, hasChild } from "./node";
 import type { ChanCreaUsage, GedNode } from "./types";
 
 const ALL_EVENT_TAGS = new Set([
@@ -30,7 +31,7 @@ function makeNode(level: number, tag: string, value?: string): GedNode {
 }
 
 function upsertDateChild(parent: GedNode, today: string, now: string): void {
-  let dateNode = parent.children.find((c) => c.tag === "DATE");
+  let dateNode = firstChild(parent, "DATE");
   if (dateNode) {
     dateNode.value = today;
   } else {
@@ -38,12 +39,12 @@ function upsertDateChild(parent: GedNode, today: string, now: string): void {
     parent.children.unshift(dateNode);
   }
   // Refresh a TIME stamp only when the record already carries one.
-  const time = dateNode.children.find((c) => c.tag === "TIME");
+  const time = firstChild(dateNode, "TIME");
   if (time) time.value = now;
 }
 
 function upsertChan(record: GedNode, today: string, now: string, order: string[]): void {
-  let chan = record.children.find((c) => c.tag === "CHAN");
+  let chan = firstChild(record, "CHAN");
   if (!chan) {
     chan = makeNode(record.level + 1, "CHAN");
     insertOrdered(record, chan, order);
@@ -52,7 +53,7 @@ function upsertChan(record: GedNode, today: string, now: string, order: string[]
 }
 
 function insertCreaIfAbsent(record: GedNode, today: string, now: string, order: string[]): void {
-  if (record.children.some((c) => c.tag === "CREA")) return;
+  if (hasChild(record, "CREA")) return;
   const crea = makeNode(record.level + 1, "CREA");
   insertOrdered(record, crea, order);
   upsertDateChild(crea, today, now);
@@ -106,7 +107,7 @@ export function stampChanCrea(
         child.auditStamp = undefined; // consume — keeps the live edit tree clean
         if (!stamp) continue;
         if (usage.eventChan) {
-          const existingChan = child.children.find((c) => c.tag === "CHAN");
+          const existingChan = firstChild(child, "CHAN");
           if (existingChan) upsertDateChild(existingChan, today, now);
           else upsertChan(child, today, now, EVENT_CHILD_ORDER);
         }

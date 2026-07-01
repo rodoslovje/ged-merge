@@ -1,4 +1,5 @@
 import type { Dataset, GedNode } from "../gedcom/types";
+import { childrenByTag, firstChild } from "../gedcom/node";
 import type { NameLayout, NameProfile, NameVariantKind, NameVariantTarget, NormChange } from "./types";
 import { walkNodes } from "./walk";
 
@@ -45,7 +46,7 @@ export function inferNameVariants(dataset: Dataset): NameProfile {
 
   walkNodes(dataset.records, (node) => {
     if (node.tag !== "NAME") return;
-    const type = node.children.find((c) => c.tag === "TYPE")?.value?.trim();
+    const type = firstChild(node, "TYPE")?.value?.trim();
     for (const kind of KINDS) {
       const spec = VARIANTS[kind];
       if (type && spec.types.includes(type.toLowerCase())) bump(typeCounts[kind], type);
@@ -88,7 +89,7 @@ export function inferNameLayout(dataset: Dataset): NameLayout {
  * place. Returns a before/after change per item rewritten (for the load report).
  */
 export function reshapeNameVariants(indi: GedNode, profile: NameProfile): NormChange[] {
-  const primary = indi.children.find((c) => c.tag === "NAME");
+  const primary = firstChild(indi, "NAME");
   if (!primary) return [];
   const changes: NormChange[] = [];
   for (const kind of KINDS) {
@@ -114,7 +115,7 @@ function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, target: Na
   // Existing records of this kind → recase/unify the TYPE token to the master's.
   for (const rec of indi.children) {
     if (rec === primary || rec.tag !== "NAME") continue;
-    const typeNode = rec.children.find((c) => c.tag === "TYPE");
+    const typeNode = firstChild(rec, "TYPE");
     const tv = typeNode?.value?.trim();
     if (!tv || !spec.types.includes(tv.toLowerCase()) || tv === typeValue) continue;
     changes.push({ before: `(${tv})`, after: `(${typeValue})` });
@@ -154,7 +155,7 @@ function addRecord(indi: GedNode, slot: Slot, text: string, typeValue: string): 
     level: indi.level + 1, tag: "NAME", value: recordValue(slot, text),
     children: [{ level: indi.level + 2, tag: "TYPE", value: typeValue, children: [] }],
   };
-  const names = indi.children.filter((c) => c.tag === "NAME");
+  const names = childrenByTag(indi, "NAME");
   const last = names[names.length - 1];
   indi.children.splice(indi.children.indexOf(last) + 1, 0, node);
 }
@@ -169,18 +170,18 @@ function recordValue(slot: Slot, text: string): string {
 }
 
 function hasType(node: GedNode, spec: VariantSpec): boolean {
-  const tv = node.children.find((c) => c.tag === "TYPE")?.value?.trim().toLowerCase();
+  const tv = firstChild(node, "TYPE")?.value?.trim().toLowerCase();
   return !!tv && spec.types.includes(tv);
 }
 
 function typeOf(node: GedNode): string {
-  return node.children.find((c) => c.tag === "TYPE")?.value?.trim() ?? "";
+  return firstChild(node, "TYPE")?.value?.trim() ?? "";
 }
 
 function nameParts(node: GedNode): { given?: string; surname?: string } {
   const slash = node.value?.match(/^(.*?)\/([^/]*)\//);
-  const given = (slash ? slash[1].trim() : node.value?.trim()) || node.children.find((c) => c.tag === "GIVN")?.value?.trim();
-  const surname = (slash ? slash[2].trim() : undefined) || node.children.find((c) => c.tag === "SURN")?.value?.trim();
+  const given = (slash ? slash[1].trim() : node.value?.trim()) || firstChild(node, "GIVN")?.value?.trim();
+  const surname = (slash ? slash[2].trim() : undefined) || firstChild(node, "SURN")?.value?.trim();
   return { given: given || undefined, surname: surname || undefined };
 }
 

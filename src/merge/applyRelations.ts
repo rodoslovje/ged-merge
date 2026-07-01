@@ -4,6 +4,7 @@ import {
   insertOrdered,
   insertRecord,
 } from "../gedcom/edit";
+import { childrenByTag, firstChild, removeChildren } from "../gedcom/node";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
@@ -123,7 +124,7 @@ export function makeContext(
     collectCustomTags(node, report.customTags);
     node.xref = newId;
     // Drop incoming family pointers; we re-link only into the family being merged.
-    node.children = node.children.filter((c) => c.tag !== "FAMC" && c.tag !== "FAMS");
+    removeChildren(node, ["FAMC", "FAMS"]);
     insertRecord(records, node);
     indiNodes.set(newId, node);
     addedFromIncoming.set(incomingId, newId);
@@ -170,7 +171,7 @@ export function applyFamilyStructure(
 ): void {
   const famId = famNode.xref;
   if (!famId) return;
-  const slotValue = (tag: string) => famNode.children.find((c) => c.tag === tag)?.value;
+  const slotValue = (tag: string) => firstChild(famNode, tag)?.value;
 
   if (opts.spouses) {
     const spouses: Array<["HUSB" | "WIFE", string | undefined]> = [
@@ -209,7 +210,7 @@ export function applyFamilyStructure(
 
   if (opts.takenChildren.size > 0) {
     const existing = new Set(
-      famNode.children.filter((c) => c.tag === "CHIL").map((c) => c.value),
+      childrenByTag(famNode, "CHIL").map((c) => c.value),
     );
     for (const incChild of incFam.children) {
       // Children are opt-in: only stitch in the ones the user explicitly took.
@@ -468,7 +469,7 @@ function setSpouseSlot(
   ctx: MergeContext,
 ): void {
   const famId = famNode.xref!;
-  const existing = famNode.children.find((c) => c.tag === role);
+  const existing = firstChild(famNode, role);
   if (existing) {
     if (existing.value !== personId) {
       ctx.report.deferred.push({

@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
+import { childrenByTag, firstChild } from "./node";
 import { parseName } from "./name";
 import { buildObjeIndex, isPointer, objeInfoOf } from "./source";
 import type { Translate } from "../locales/i18n";
@@ -20,7 +21,7 @@ function nodeChild(node: GedNode, tag: string): string {
 }
 
 function getNameParts(node: GedNode): { given: string; surname: string; nickname: string } {
-  const nameNode = node.children.find((c) => c.tag === "NAME");
+  const nameNode = firstChild(node, "NAME");
   if (!nameNode) return { given: "", surname: "", nickname: "" };
   const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
   const parsed = parseName(nameNode.value, subTags);
@@ -28,7 +29,7 @@ function getNameParts(node: GedNode): { given: string; surname: string; nickname
 }
 
 function displayNameFromRaw(node: GedNode): string {
-  const nameNode = node.children.find((c) => c.tag === "NAME");
+  const nameNode = firstChild(node, "NAME");
   if (!nameNode) return "";
   const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
   return displayName(parseName(nameNode.value, subTags));
@@ -243,7 +244,7 @@ function makePhotoResolver(records: GedNode[]): PhotoResolver {
  *  metadata. Rows are `noLabel`, so the preview shows them without a prefix. */
 function diffPhotos(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: PhotoResolver): FieldChange[] {
   const descs = (node: GedNode) =>
-    node.children.filter((c) => c.tag === "OBJE").map(resolve).filter((d): d is PhotoDesc => !!d);
+    childrenByTag(node, "OBJE").map(resolve).filter((d): d is PhotoDesc => !!d);
   const beforeByPath = new Map(descs(before).map((d) => [d.path, d]));
   const afterByPath = new Map(descs(after).map((d) => [d.path, d]));
   const line = (d: PhotoDesc) => (d.meta ? `${d.path} — ${d.meta}` : d.path);
@@ -305,8 +306,8 @@ function diffFamilyMembership(
     if (afterVal) diffs.push({ recordId: id, field: fieldLabel, from: "", to: resolveName(afterVal), action: "both" });
   }
 
-  const beforeChildren = before.children.filter((c) => c.tag === "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
-  const afterChildren = after.children.filter((c) => c.tag === "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
+  const beforeChildren = childrenByTag(before, "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
+  const afterChildren = childrenByTag(after, "CHIL").map((c) => c.value?.trim() ?? "").filter(Boolean);
   for (const cid of beforeChildren) {
     if (!afterChildren.includes(cid)) diffs.push({ recordId: id, field: t("field.child"), from: resolveName(cid), to: "", action: "incoming" });
   }

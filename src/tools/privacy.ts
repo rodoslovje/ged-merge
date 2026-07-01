@@ -1,5 +1,5 @@
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
-import { cloneNode } from "../gedcom/node";
+import { cloneNode, hasChild } from "../gedcom/node";
 import { birthYear, deathYear, isDeceased, lifespanOf } from "../gedcom/lifespan";
 
 /**
@@ -265,7 +265,7 @@ function resnNode(version: GedcomVersion): GedNode {
 
 /** Add a RESN privacy notice unless the record already carries one. */
 function stampResn(node: GedNode, version: GedcomVersion): GedNode {
-  if (node.children.some((c) => c.tag === "RESN")) return node;
+  if (hasChild(node, "RESN")) return node;
   return { ...node, children: [resnNode(version), ...node.children] };
 }
 
