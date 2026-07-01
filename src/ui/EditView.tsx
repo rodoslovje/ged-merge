@@ -3,6 +3,7 @@ import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, pat
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
+import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -582,7 +583,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (dec.status !== "confirmed") continue;
       const incoming = compareDataset.individuals.get(parts[2]);
       if (!incoming) break;
-      const incEvent = incoming.raw.children.filter((c) => c.tag === tag)[compareIdx];
+      const incEvent = childrenByTag(incoming.raw, tag)[compareIdx];
       if (!incEvent) break;
       const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
       return imported.map((r) => ({ type: "record", id: r.xref!, before: null, after: cloneRaw(r) }));
@@ -738,7 +739,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    *  marked dirty so the change surfaces in the save preview. */
   function editPersonMedia(objeIndex: number, fields: PhotoEditFields) {
     if (!person) return;
-    const objeChild = person.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+    const objeChild = childrenByTag(person.raw, "OBJE")[objeIndex];
     if (!objeChild) return;
     const ptr = objeChild.value?.trim();
     const sharedXref = ptr && isPointer(ptr) ? ptr : undefined;
@@ -756,7 +757,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       setTick((v) => v + 1);
     } else {
       commit((indi) => {
-        const child = indi.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+        const child = childrenByTag(indi.raw, "OBJE")[objeIndex];
         if (child) setMediaInfo(child, fields);
       });
     }
@@ -793,7 +794,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    *  pruned it as now-unreferenced. */
   function deletePhoto(objeIndex: number) {
     if (!person) return;
-    const objeChild = person.raw.children.filter((c) => c.tag === "OBJE")[objeIndex];
+    const objeChild = childrenByTag(person.raw, "OBJE")[objeIndex];
     const ptr = objeChild?.value?.trim();
     const sharedXref = ptr && isPointer(ptr) ? ptr : undefined;
     const sharedNode = sharedXref ? dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref) : undefined;
@@ -885,7 +886,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
     const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
     extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
-    const objeChild = sourceNode.children.find((c) => c.tag === "OBJE");
+    const objeChild = firstChild(sourceNode, "OBJE");
     if (objeChild?.value) {
       const objeNode = dataset.records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
       if (objeNode) extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
@@ -918,7 +919,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * runs, but here it's only known *after* (whether pruning actually happened).
    */
   const commitRemoveSource: CommitRemoveSource = (node, index, owner) => {
-    const sourceXref = node.children.filter((c) => c.tag === "SOUR")[index]?.value?.trim();
+    const sourceXref = childrenByTag(node, "SOUR")[index]?.value?.trim();
     const sourceNode = sourceXref ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref) : undefined;
     const sourceBefore = sourceNode ? cloneRaw(sourceNode) : undefined;
     const objeBefores = (sourceNode?.children.filter((c) => c.tag === "OBJE" && c.value) ?? [])
@@ -963,7 +964,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * retargets only this citation's page image, not a sibling page's.
    */
   const openEditSource: OpenEditSource = (node, index, owner) => {
-    const citation = node.children.filter((c) => c.tag === "SOUR")[index];
+    const citation = childrenByTag(node, "SOUR")[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
     const value = citation.value?.trim();
@@ -1472,7 +1473,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             onAddEvent={(tag) => {
               commit((indi) => addEventNode(indi, tag));
               // addEventNode inserts as the last child with this tag, so find it now.
-              const sameTag = person.raw.children.filter((c) => c.tag === tag);
+              const sameTag = childrenByTag(person.raw, tag);
               if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
             }}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
@@ -1619,7 +1620,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                   </div>
                 </div>
                 {fam && (() => {
-                  const marrNode = fam.raw.children.find((c) => c.tag === "MARR");
+                  const marrNode = firstChild(fam.raw, "MARR");
                   return (
                     <FamilyEventRow
                       key={`${fam.id}-MARR-${marrNode ? nodeId(marrNode) : "empty"}-${undoVersion}-${mergeGenRef.current}`}
@@ -1643,7 +1644,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                   );
                 })()}
                 {fam && shownFamilyTags.map((tag) => {
-                  const eventNode = fam.raw.children.find((c) => c.tag === tag);
+                  const eventNode = firstChild(fam.raw, tag);
                   const hasRealEvent = eventNode !== undefined;
                   return (
                     <FamilyEventRow

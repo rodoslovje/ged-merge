@@ -1,6 +1,7 @@
 import type { Family, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
+import { firstChild } from "../../gedcom/node";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
@@ -35,7 +36,7 @@ export function FamilyEventRow({
 }) {
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
-  const eventNode = fam.raw.children.find((c) => c.tag === tag);
+  const eventNode = firstChild(fam.raw, tag);
   const tagChoices = familyTagChoices(fam, tag);
 
   return (

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type ChangeEvent, type DragEvent
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { GedNode } from "../gedcom/types";
+import { firstChild } from "../gedcom/node";
 import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
@@ -11,7 +12,7 @@ function countLocalMedia(records: GedNode[]): number {
   let n = 0;
   for (const rec of records) {
     if (rec.tag !== "OBJE") continue;
-    const val = rec.children.find((c) => c.tag === "FILE")?.value?.trim();
+    const val = firstChild(rec, "FILE")?.value?.trim();
     if (val && !/^(https?:\/\/|www\.)/i.test(val)) n++;
   }
   return n;
