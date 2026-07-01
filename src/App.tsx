@@ -5,6 +5,7 @@ import { useTheme } from "./ui/useTheme";
 import { useMode, type Mode } from "./ui/useMode";
 import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
+import { useMobileWarning } from "./ui/useMobileWarning";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -39,7 +40,7 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { SaveDialog } from "./ui/SaveDialog";
-import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { EditTree } from "./ui/EditTree";
 import { RelationshipChart } from "./ui/RelationshipChart";
 import { Landing } from "./ui/Landing";
@@ -230,9 +231,6 @@ function AppContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [pendingConfirm, setPendingConfirm] = useState<
-    { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
-  >(null);
   const [preview, setPreview] = useState<{
     records: GedNode[];
     report: ChangeReport;
@@ -247,9 +245,7 @@ function AppContent() {
     /** Whether this save includes confirmed merge matches (vs. edits only). */
     isMerge: boolean;
   } | null>(null);
-  const [showMobileWarning, setShowMobileWarning] = useState(
-    () => window.innerWidth <= 880 && !localStorage.getItem("mobileWarningDismissed")
-  );
+  const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useState<string | null>(null);
   useEffect(() => {
@@ -337,13 +333,8 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Show the app-styled confirmation dialog and resolve true/false on the user's
-   *  choice. Replaces native window.confirm so all prompts share the app's look. */
-  const confirmDialog = useCallback(
-    (message: string, confirmLabel: string, onConfirmAction?: () => void) =>
-      new Promise<boolean>((resolve) => setPendingConfirm({ message, confirmLabel, resolve, onConfirmAction })),
-    []
-  );
+  // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
+  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
 
   /** Settings → wipe the cached workspace (master/compare files + merge session)
    *  from IndexedDB. Doesn't touch the live, in-memory session — the current
@@ -745,11 +736,6 @@ function AppContent() {
     [indexByMaster, indexByCompare],
   );
 
-
-  function dismissMobileWarning() {
-    localStorage.setItem("mobileWarningDismissed", "true");
-    setShowMobileWarning(false);
-  }
 
   // Stable identity — uses visibleRef so memoized rows don't re-render on
   // every filter change (only rows whose own props change do).
@@ -1479,14 +1465,7 @@ function AppContent() {
         onThemeMode={changeThemeMode}
         onClearCache={() => { setShowSettings(false); void handleClearCache(); }}
       />
-      {pendingConfirm && (
-        <ConfirmDialog
-          message={pendingConfirm.message}
-          confirmLabel={pendingConfirm.confirmLabel}
-          onConfirm={() => { pendingConfirm.onConfirmAction?.(); pendingConfirm.resolve(true); setPendingConfirm(null); }}
-          onCancel={() => { pendingConfirm.resolve(false); setPendingConfirm(null); }}
-        />
-      )}
+      {confirmDialogElement}
     </>
   );
 
