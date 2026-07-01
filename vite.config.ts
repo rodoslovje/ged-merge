@@ -66,5 +66,36 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    coverage: {
+      provider: "v8",
+      // Measure only the pure-logic layers. The UI / worker / persistence
+      // layers are exercised by the Playwright e2e suite, not unit tests, so
+      // instrumenting them here would just report misleading zeros.
+      include: [
+        "src/gedcom/**/*.ts",
+        "src/match/**/*.ts",
+        "src/merge/**/*.ts",
+        "src/normalize/**/*.ts",
+        "src/tools/**/*.ts",
+        "src/review/**/*.ts",
+        "src/tree/**/*.ts",
+        "src/csv/**/*.ts",
+      ],
+      exclude: ["**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts"],
+      reporter: ["text-summary", "html"],
+      // Per-directory floors — a regression ratchet, set a few points below the
+      // current numbers so a genuine drop fails CI without flaking on small
+      // edits. Re-run `npm run test:coverage` and raise these as coverage grows.
+      thresholds: {
+        "src/gedcom/**": { statements: 76, branches: 68, functions: 77, lines: 80 },
+        "src/match/**": { statements: 85, branches: 75, functions: 87, lines: 90 },
+        "src/merge/**": { statements: 75, branches: 66, functions: 78, lines: 80 },
+        "src/normalize/**": { statements: 90, branches: 81, functions: 87, lines: 92 },
+        "src/tools/**": { statements: 77, branches: 69, functions: 81, lines: 83 },
+        "src/review/**": { statements: 83, branches: 79, functions: 80, lines: 87 },
+        "src/tree/**": { statements: 67, branches: 65, functions: 70, lines: 70 },
+        "src/csv/**": { statements: 93, branches: 78, functions: 95, lines: 96 },
+      },
+    },
   },
 });
