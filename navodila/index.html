@@ -215,8 +215,8 @@
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Tema</strong> — gumb <span class="gm-glyph">☀</span> / <span class="gm-glyph">🌙</span> preklaplja svetlo in temno; do vaše izbire sledi nastavitvi operacijskega sistema.</li>
-              <li><strong>Jezik</strong> — angleščina in slovenščina, iz jezikovnega menija.</li>
+              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu; <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> jo odpre v drevesu.</li>
+              <li><strong>Nastavitve</strong> — meni <span class="gm-glyph">⚙</span> vsebuje videz (tema in jezik), prikaz imen in zapisov ter podatkovne možnosti — glejte <em>Nastavitve</em> spodaj.</li>
             </ul>
             <div class="gm-callout note">
               <span class="gm-callout-label">Opomba</span>
@@ -226,6 +226,34 @@
             <p>
               GED Merge upravljate s tipkovnico — kjer koli pritisnite <span class="gm-key">?</span>, da odprete celoten
               seznam bližnjic, ali glejte <a href="#shortcuts">§16</a>.
+            </p>
+
+            <h3>Nastavitve</h3>
+            <p>
+              Meni <span class="gm-glyph">⚙</span> <strong>Nastavitve</strong> ima dva zavihka. <strong>Splošno</strong>
+              zajema vsakodnevne izbire; <strong>Napredno</strong> vsebuje edino možnost, ki seže v omrežje. Vsaka izbira
+              se zapomni v tem brskalniku.
+            </p>
+            <ul>
+              <li><strong>Videz</strong> — <em>Tema</em> (Samodejno, Svetlo ali Temno; Samodejno sledi operacijskemu sistemu) in <em>Jezik</em> (angleščina ali slovenščina).</li>
+              <li><strong>Imena</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK) in <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač). To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
+              <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji.</li>
+              <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
+              <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. <strong>To je edina funkcija, ki karkoli pošlje z vaše naprave, in je privzeto izklopljena.</strong></li>
+            </ul>
+
+            <h3>Ohranjanje dela in delo brez povezave</h3>
+            <p>
+              Privzeto GED Merge med obiski ne ohrani ničesar — osvežitev začne znova. Vklopite
+              <strong>Nastavitve › Podatki › Zapomni si moje delo v tem brskalniku</strong>, da naložene datoteke ter
+              napredek pregleda in urejanja shrani lokalno, tako da osvežitev obnovi točno tam, kjer ste končali. Brskalnik
+              lahko prosi za dovoljenje za hrambo podatkov; nič ne zapusti vaše naprave. <strong>Počisti shranjene
+              podatke</strong> v istem oknu izprazni ta predpomnilnik (trenutno odprta datoteka ostane odprta).
+            </p>
+            <p>
+              GED Merge je namestljiva <strong>progresivna spletna aplikacija</strong>. Z ukazom brskalnika <em>Namesti</em>
+              ali <em>Dodaj na začetni zaslon</em> jo zaženete v lastnem oknu; ko je enkrat naložena, deluje
+              <strong>brez povezave</strong>. Ob objavi nove različice majhna pasica ponudi <strong>Osveži</strong>.
             </p>
           </section>
 
@@ -288,7 +316,16 @@
               ujemanja po <strong>sorodstveni razdalji</strong>: koliko sorodstvenih korakov loči vsakega kandidata od
               izhodiščne osebe. Najbližji sorodniki se tako pojavijo prvi, vsako ujemanje pa pokaže sorodstveno vez (npr.
               <em>Dedek</em>, <em>bratranec/sestrična</em>). Smiselna izhodiščna oseba se ob nalaganju izbere samodejno;
-              kadar koli jo lahko spremenite ali počistite.
+              kadar koli jo lahko spremenite ali počistite. <strong>Pojdi na izhodiščno osebo</strong> kadar koli vrne
+              trenutni pogled nazaj nanjo.
+            </p>
+            <p>
+              Sorodstvene oznake so <strong>obarvane po krvni liniji</strong>: sorodniki po očetovi strani so
+              <strong>modri</strong>, po materini <strong>vijolično-škrlatni</strong>, polnokrvni bratje in sestre
+              (»obe liniji«), potomci in izhodiščna oseba pa ohranijo nevtralni zeleni poudarek. Kadar dve osebi deli
+              krvno linijo, a nobena posamezna sorodstvena vez ne ustreza, splošna oznaka <em>Krvni sorodnik</em> nosi
+              barvo. Barve se pojavijo povsod, kjer je prikazano sorodstvo — glave oseb, kartice sorodnikov, vozlišča
+              drevesa in diagram sorodstva (glejte <a href="#legend">legendo</a>, §15).
             </p>
           </section>
 
@@ -516,11 +553,20 @@
             <h3>Pregled</h3>
             <p>
               Pregleda vsako osebo in družino za težave s podatki ter jih razvrsti po kategorijah: brez imena, brez
-              spola, brez ključnih datumov, nepovezani zapisi, pokvarjene ali enosmerne družinske povezave, dogodki z
-              datumom v prihodnosti, smrt pred rojstvom in neverjetne starosti (ob smrti, ob poroki, starost starša,
-              starostna razlika zakoncev). Klik na težavo odpre zapis v <span class="gm-pill">Urejanju</span>;
-              <strong>Popravi vse pokvarjene povezave</strong> v enem koraku odstrani mrtve in enosmerne družinske
-              kazalce.
+              spola, brez ključnih datumov, nepovezani zapisi, pokvarjene ali enosmerne družinske povezave, podvojeni
+              kazalci, <strong>sorodstvene zanke</strong> (oseba, ki je sama svoj prednik), neskladja
+              <strong>spola in vloge</strong> (ženska, zapisana kot mož, ali moški kot žena), dogodki z datumom v
+              prihodnosti, smrt pred rojstvom in neverjetne starosti (ob smrti, ob poroki, starost starša, starostna
+              razlika zakoncev). Ločen prehod <strong>strukture GEDCOM</strong> označi kodiranje, pokvarjene vrstice in
+              ravni, zaostale CONT/CONC, različico, neznane ali lastne oznake in neberljive datume — mnoge z enim klikom
+              na <strong>Popravi</strong>. Ko je povezana mapa z mediji, <strong>Preveri mapo s fotografijami</strong>
+              našteje navedene fotografije, ki v njej manjkajo.
+            </p>
+            <p>
+              Klik na katero koli težavo odpre zapis v <span class="gm-pill">Urejanju</span>. Paketni popravki v enem
+              koraku uredijo pogoste primere: <strong>Popravi vse pokvarjene povezave</strong> odstrani mrtve in
+              enosmerne družinske kazalce, <strong>Odstrani podvojene kazalce</strong> odpravi podvojene povezave,
+              popravek spola pa nastavi spol nedoločenim zakoncem (mož → moški, žena → ženska).
             </p>
             <h3>Dvojniki</h3>
             <p>
@@ -592,7 +638,9 @@
               Klik na sličico odpre celozaslonski <strong>pregledovalnik</strong>. Ko ima oseba več fotografij, se po
               njih pomikate z <span class="gm-glyph">‹</span> / <span class="gm-glyph">›</span>, s puščicami ali prek
               vrste sličic; <span class="gm-key">Esc</span> zapre. Za skupni medijski predmet plošča s podatki navede tudi
-              zapise, ki se nanj sklicujejo, vsak kot povezava v <span class="gm-pill">Urejanje</span>.
+              zapise, ki se nanj sklicujejo, vsak kot povezava v <span class="gm-pill">Urejanje</span>. Kadar fotografija
+              beleži <strong>označeno območje</strong> te osebe (izrez znotraj skupinske fotografije), GED Merge to
+              območje poudari, da veste, kdo je kdo.
             </p>
             <h3>Dodajanje in urejanje</h3>
             <p>
@@ -695,6 +743,14 @@
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Samo v vhodni datoteki</td></tr>
               </tbody>
             </table>
+            <p><strong>Barve sorodstvene linije</strong> — na sorodstvenih oznakah po vsej aplikaciji (§6):</p>
+            <table class="gm-table">
+              <tbody>
+                <tr><td><span class="gm-swatch paternal"></span></td><td>Očetova stran (paternalna linija)</td></tr>
+                <tr><td><span class="gm-swatch maternal"></span></td><td>Materina stran (maternalna linija)</td></tr>
+                <tr><td><span class="gm-swatch lineage-both"></span></td><td>Obe liniji, potomci in izhodiščna oseba</td></tr>
+              </tbody>
+            </table>
           </section>
 
           <section id="shortcuts">
@@ -711,7 +767,7 @@
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">S</span></td><td>Shrani / prenesi GEDCOM</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Z</span></td><td>Razveljavi</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Ponovi</td></tr>
-                <tr><td><span class="gm-key">/</span></td><td>Postavi kazalec v iskanje ujemanj</td></tr>
+                <tr><td><span class="gm-key">/</span></td><td>Poišči kogar koli v datoteki</td></tr>
                 <tr><td><span class="gm-key">?</span></td><td>Prikaži seznam bljižnic</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Zapri okno / zapusti drevo</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Preklopi na Urejanje · Združevanje · Orodja</td></tr>
@@ -720,6 +776,7 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Odpri označeni element (Orodja)</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Odpri rodoslovno / primerjalno drevo</td></tr>
                 <tr><td><span class="gm-key">S</span></td><td>Odpri diagram sorodstva (Urejanje)</td></tr>
+                <tr><td><span class="gm-key">F</span></td><td>Filtriraj seznam ujemanj po imenu (Združevanje)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Potrdi · Zavrni · Preloži trenutno ujemanje</td></tr>
               </tbody>
             </table>

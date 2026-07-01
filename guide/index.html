@@ -214,8 +214,8 @@
               <li><strong>File pills</strong> — the loaded master and incoming file names. Click a pill to see or replace that file.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Theme</strong> — the <span class="gm-glyph">☀</span> / <span class="gm-glyph">🌙</span> button toggles light and dark; it follows your operating system until you choose.</li>
-              <li><strong>Language</strong> — English and Slovenščina, from the language menu.</li>
+              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens them in the tree.</li>
+              <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
             </ul>
             <div class="gm-callout note">
               <span class="gm-callout-label">Note</span>
@@ -225,6 +225,34 @@
             <p>
               GED Merge is keyboard-driven — press <span class="gm-key">?</span> anywhere to open the full shortcut
               sheet, or see <a href="#shortcuts">§16</a>.
+            </p>
+
+            <h3>Settings</h3>
+            <p>
+              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has two tabs. <strong>General</strong>
+              covers everyday preferences; <strong>Advanced</strong> holds the one option that reaches the network. Every
+              choice is remembered in this browser.
+            </p>
+            <ul>
+              <li><strong>Appearance</strong> — <em>Theme</em> (Automatic, Light or Dark; Automatic follows your operating system) and <em>Language</em> (English or Slovenščina).</li>
+              <li><strong>Names</strong> — <em>Name order</em> (given name first or surname first), <em>Uppercase surnames</em> (e.g. Ana NOVAK) and <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač). These change how names <em>display</em> everywhere; your stored data is untouched.</li>
+              <li><strong>Display</strong> — <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (§6) throughout the app.</li>
+              <li><strong>Data</strong> — <em>Remember my work in this browser</em> (see <em>Keeping your work</em> below).</li>
+              <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. <strong>This is the only feature that sends anything off your device, and it is off by default.</strong></li>
+            </ul>
+
+            <h3>Keeping your work &amp; working offline</h3>
+            <p>
+              By default GED Merge keeps nothing between visits — reloading starts fresh. Turn on
+              <strong>Settings › Data › Remember my work in this browser</strong> to cache your loaded files and your
+              review and edit progress locally, so a reload restores exactly where you left off. The browser may ask
+              permission to keep the data; nothing ever leaves your device. <strong>Clear saved data</strong> in the same
+              panel empties that cache (the file you currently have open stays open).
+            </p>
+            <p>
+              GED Merge is an installable <strong>progressive web app</strong>. Use your browser's <em>Install</em> or
+              <em>Add to Home Screen</em> action to run it in its own window; once loaded it works <strong>offline</strong>.
+              When a new version is published, a small banner offers to <strong>Reload</strong>.
             </p>
           </section>
 
@@ -288,7 +316,16 @@
               matches by <strong>kinship distance</strong>: how many relationship hops separate each candidate from your
               start person. Your closest relatives then surface first, and each match shows its relationship (e.g.
               <em>Grandfather</em>, <em>2nd cousin</em>). A sensible start person is chosen automatically when a file
-              loads; you can change or clear it at any time.
+              loads; you can change or clear it at any time. <strong>Go to start person</strong> jumps the current view
+              back to them at any moment.
+            </p>
+            <p>
+              Kinship labels are <strong>colour-coded by blood line</strong>: relatives on the father's side show in
+              <strong>blue</strong>, the mother's side in <strong>purple-magenta</strong>, while full siblings (“both
+              lines”), descendants and the start person keep the neutral green accent. When two people share a bloodline
+              but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. The colours
+              appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship diagram (see
+              the <a href="#legend">legend</a>, §15).
             </p>
           </section>
 
@@ -515,10 +552,19 @@
             <h3>Health check</h3>
             <p>
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
-              dates, disconnected records, broken or one-way family links, future-dated events, death before birth, and
-              implausible ages (at death, at marriage, parent's age, spouse age gap). Click an issue to open the record
-              in <span class="gm-pill">Edit</span>; <strong>Fix all broken links</strong> clears dead and one-way family
-              pointers in one step.
+              dates, disconnected records, broken or one-way family links, duplicate pointers, <strong>pedigree
+              loops</strong> (a person who is their own ancestor), <strong>sex vs. role</strong> conflicts (a female
+              recorded as a husband, or a male as a wife), future-dated events, death before birth, and implausible ages
+              (at death, at marriage, parent's age, spouse age gap). A separate <strong>GEDCOM structure</strong> pass
+              flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
+              dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check photo
+              folder</strong> lists referenced photos that are missing from it.
+            </p>
+            <p>
+              Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
+              in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers, <strong>Remove
+              duplicate pointers</strong> de-duplicates repeated links, and a sex fix sets the sex on unspecified spouses
+              (husband → male, wife → female).
             </p>
             <h3>Find duplicates</h3>
             <p>
@@ -590,7 +636,9 @@
               Click any thumbnail to open the full-screen <strong>lightbox</strong>. When a person has several photos,
               step through them with <span class="gm-glyph">‹</span> / <span class="gm-glyph">›</span>, the arrow keys,
               or the thumbnail tray; <span class="gm-key">Esc</span> closes. For a shared media object the info panel
-              also lists the records that reference it, each a link into <span class="gm-pill">Edit</span>.
+              also lists the records that reference it, each a link into <span class="gm-pill">Edit</span>. When a photo
+              records a <strong>marked region</strong> for this person (a crop within a group photo), GED Merge highlights
+              that area so you can tell who is who.
             </p>
             <h3>Adding &amp; editing</h3>
             <p>
@@ -693,6 +741,14 @@
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Present in the incoming only</td></tr>
               </tbody>
             </table>
+            <p><strong>Kinship lineage colours</strong> — on relationship labels throughout the app (§6):</p>
+            <table class="gm-table">
+              <tbody>
+                <tr><td><span class="gm-swatch paternal"></span></td><td>Father's side (paternal line)</td></tr>
+                <tr><td><span class="gm-swatch maternal"></span></td><td>Mother's side (maternal line)</td></tr>
+                <tr><td><span class="gm-swatch lineage-both"></span></td><td>Both lines, descendants, and the start person</td></tr>
+              </tbody>
+            </table>
           </section>
 
           <section id="shortcuts">
@@ -708,7 +764,7 @@
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">S</span></td><td>Save / download GEDCOM</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Z</span></td><td>Undo</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Redo</td></tr>
-                <tr><td><span class="gm-key">/</span></td><td>Focus the match search</td></tr>
+                <tr><td><span class="gm-key">/</span></td><td>Search everyone in the file</td></tr>
                 <tr><td><span class="gm-key">?</span></td><td>Show the shortcut list</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave the tree</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
@@ -717,6 +773,7 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Open the highlighted item (Tools)</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the family / compare tree</td></tr>
                 <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram (Edit)</td></tr>
+                <tr><td><span class="gm-key">F</span></td><td>Filter the match list by name (Merge)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
               </tbody>
             </table>

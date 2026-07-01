@@ -312,6 +312,11 @@
 .gm-swatch.link { background: var(--sex-male); }
 .gm-swatch.import { background: var(--status-import); }
 
+/* Blood-lineage kinship colours (see §6) — tokens from heritage-pine.css. */
+.gm-swatch.paternal { background: var(--lineage-paternal); }
+.gm-swatch.maternal { background: var(--lineage-maternal); }
+.gm-swatch.lineage-both { background: var(--accent); }
+
 /* Inline copies of the Matches column header icons — same geometry as the app's
    ICON_PROPS (viewBox 0 0 24 24, round 2.5 stroke). Colour is set per column to
    mirror the live list. */
