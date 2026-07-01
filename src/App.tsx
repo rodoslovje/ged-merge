@@ -7,6 +7,7 @@ import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
+import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -247,12 +248,7 @@ function AppContent() {
   } | null>(null);
   const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
   // Brief confirmation shown after a successful download; auto-dismisses.
-  const [saveToast, setSaveToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!saveToast) return;
-    const id = setTimeout(() => setSaveToast(null), 4000);
-    return () => clearTimeout(id);
-  }, [saveToast]);
+  const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
 
   const [openMatches, setOpenMatches] = useState(false);
