@@ -52,7 +52,6 @@ import {
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation } from "../gedcom/source";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
-import { StartPersonSelector } from "./StartPersonSelector";
 import { PersonCard } from "./PersonCard";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddPhotoDialog } from "./AddPhotoDialog";
@@ -1325,38 +1324,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   return (
     <div className="section open edit-view">
       <div className="section-body" ref={editBodyRef}>
-        <div className="edit-toolbar">
-          <button className="tree-open-btn" onClick={goBack} disabled={history.length === 0}>
-            ← {t("edit.back")}
-          </button>
-          <StartPersonSelector
-            individuals={dataset.individuals}
-            startId={selectedId}
-            onChange={navigate}
-            placeholder={t("filter.search")}
-            tooltip={t("edit.selectPerson")}
-            icon="search"
-            selectedAsPlaceholder={false}
-          />
-          <div className="toolbar-end">
-            <button
-              className="tree-open-btn"
-              onClick={() => selectedId && startId && onShowRelationship(selectedId)}
-              disabled={!startId || !selectedId || startId === selectedId}
-              title={t("relpath.tooltip")}
-            >
-              {t("relpath.button")}
-            </button>
-            <button
-              className="tree-open-btn"
-              onClick={() => selectedId && onShowTree(selectedId)}
-              title={t("edit.tree.tooltip")}
-            >
-              {t("edit.tree.button")}
-            </button>
-          </div>
-        </div>
-
         <div className="edit-parents">
           {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => {
             const fatherName = personName(fam?.husband);
@@ -1419,6 +1386,32 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               </div>
             );
           })}
+          <div className="edit-actions">
+            <button
+              className="tree-open-btn edit-back-btn"
+              onClick={goBack}
+              disabled={history.length === 0}
+              title={t("edit.back")}
+            >
+              <span aria-hidden="true">←</span>
+              <span className="edit-back-label">{t("edit.back")}</span>
+            </button>
+            <button
+              className="tree-open-btn"
+              onClick={() => selectedId && startId && onShowRelationship(selectedId)}
+              disabled={!startId || !selectedId || startId === selectedId}
+              title={t("relpath.tooltip")}
+            >
+              {t("relpath.button")}
+            </button>
+            <button
+              className="tree-open-btn"
+              onClick={() => selectedId && onShowTree(selectedId)}
+              title={t("edit.tree.tooltip")}
+            >
+              {t("edit.tree.button")}
+            </button>
+          </div>
         </div>
 
         <div className="edit-connector-v" />

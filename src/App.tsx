@@ -45,7 +45,13 @@ import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
 import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
-import { SettingsProvider, useSettings } from "./ui/SettingsContext";
+import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
+import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
+import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
+import { SearchIcon } from "./ui/icons/SearchIcon";
+import { kinshipInfo, lineageClass } from "./match/kinship";
+import { computeDistances } from "./match/distance";
+import { xrefLabel } from "./gedcom/nameDisplay";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -138,6 +144,7 @@ function detectThemeMode(): ThemeMode {
 function AppContent() {
   const { t, i18n } = useTranslation();
   const { settings } = useSettings();
+  const nameOf = useNameOf();
   // Opt-in workspace caching (off by default). Mirrored into a ref so the
   // mount-only worker/hydration effect reads the current value without needing
   // to re-run, and the (non-memoized) loadFile closure always sees it fresh.
@@ -238,6 +245,7 @@ function AppContent() {
   const [showLegal, setShowLegal] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
     { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
   >(null);
@@ -1020,10 +1028,11 @@ function AppContent() {
         return;
       }
 
-      // `/` focuses the match filter search box (wherever it's currently shown).
+      // `/` opens the whole-file global search from any mode (Merge/Edit/Tools).
+      // The per-mode match filter has its own key (`f`, handled in MergeView).
       if (e.key === "/") {
-        const search = document.querySelector<HTMLInputElement>(".name-search");
-        if (search) { e.preventDefault(); search.focus(); search.select(); }
+        e.preventDefault();
+        setShowGlobalSearch(true);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -1180,6 +1189,102 @@ function AppContent() {
   function openRelationship(id: string) {
     window.history.pushState({ gedRelId: id }, "");
     setRelTargetId(id);
+  }
+
+  // Whole-file search index for the global search dialog. Rebuilt when the
+  // dataset is (re)loaded, edited (editVersion), or the name-display settings
+  // change — the same triggers that alter a person's displayed name.
+  const searchRows = useMemo(
+    () => (masterDataset ? buildSearchRows(masterDataset.individuals, nameOf) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [masterDataset, nameOf, editVersion],
+  );
+
+  // Master id → its merge decision (confirmed/deferred/rejected), for the global
+  // search "decision" facet. Undecided candidates carry no entry.
+  const decisionByMaster = useMemo(() => {
+    const m = new Map<string, MatchDecisionStatus>();
+    for (const [key, d] of decisions) {
+      if (d.status === "undecided") continue;
+      const masterId = key.split(":")[1];
+      if (!m.has(masterId)) m.set(masterId, d.status);
+    }
+    return m;
+  }, [decisions]);
+
+  // Relationship hops from the start person to every reachable individual, for
+  // the kinship facet. One BFS, recomputed only when the start person or the
+  // dataset (via edits) changes. Empty when no start person is set.
+  const kinshipDistances = useMemo(
+    () => (startId && masterDataset ? computeDistances(masterDataset, startId) : new Map<string, number>()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [startId, masterDataset, editVersion],
+  );
+
+  // Cross-cutting lookups the search facets need but that aren't baked into the
+  // (dataset-derived) rows: unsaved-edit, merge-decision, and kinship-hop per person.
+  const searchFilterContext = useMemo<FilterContext>(
+    () => ({
+      isEdited: (id) => changedPersonIds.has(id),
+      decisionOf: (id) => decisionByMaster.get(id),
+      kinshipHops: (id) => kinshipDistances.get(id),
+    }),
+    [changedPersonIds, decisionByMaster, kinshipDistances],
+  );
+
+  // Per-row record-id / kinship extras for the search results, honouring the
+  // "show record ids" and "show kinship" settings. Kinship is computed lazily
+  // (only for the ≤50 rendered rows) and cached per person, since a full kinship
+  // solve per keystroke over the whole list would be costly on large trees. The
+  // cache is keyed to the start person + dataset edits + the kinship setting.
+  const kinshipCacheRef = useRef(new Map<string, { label: string; lineageClass: string } | null>());
+  useEffect(() => {
+    kinshipCacheRef.current = new Map();
+  }, [startId, masterDataset, settings.showKinship, editVersion]);
+  const searchMetaOf = useCallback(
+    (id: string): SearchRowMeta => {
+      const meta: SearchRowMeta = {};
+      if (settings.showXref) meta.xref = xrefLabel(id);
+      if (settings.showKinship && startId && masterDataset && startId !== id) {
+        let cached = kinshipCacheRef.current.get(id);
+        if (cached === undefined) {
+          const info = kinshipInfo(masterDataset, startId, id, t);
+          cached = info ? { label: info.label, lineageClass: lineageClass(info.lineage) } : null;
+          kinshipCacheRef.current.set(id, cached);
+        }
+        if (cached) {
+          meta.kinship = cached.label;
+          meta.kinshipLineage = cached.lineageClass;
+        }
+      }
+      return meta;
+    },
+    [settings.showXref, settings.showKinship, startId, masterDataset, t],
+  );
+
+  // Open a person chosen in global search. Routes by context: a match candidate
+  // lands in Merge on its pair; anyone else jumps to them in Edit. Shift opens
+  // their tree, Alt their relationship-to-start (falling back to Edit when there
+  // is no start person to measure from).
+  function openSearchResult(id: string, how: OpenHow) {
+    if (how === "tree") { openEditTree(id); return; }
+    if (how === "relationship") {
+      if (startId && startId !== id) openRelationship(id);
+      else { setNavigateToId(id); setMode("edit"); }
+      return;
+    }
+    // Mode-aware "open": staying in Merge only makes sense when Merge is the
+    // active mode and the person is a match candidate — then land on their pair.
+    // From Edit (or Tools, or for a non-candidate), open the person in Edit so
+    // an edit-mode search never yanks the user into Merge.
+    const candidate = mode === "merge" ? indexByMaster.get(id) : undefined;
+    if (candidate) {
+      setSelectedId({ masterId: candidate.masterId, compareId: candidate.compareId });
+      setMode("merge");
+    } else {
+      setNavigateToId(id);
+      setMode("edit");
+    }
   }
 
   const changedCount = changedPersonIds.size + changedFamilyIds.size;
@@ -1491,6 +1596,16 @@ function AppContent() {
     <>
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <GlobalSearchModal
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+        rows={searchRows}
+        onOpen={openSearchResult}
+        filterContext={searchFilterContext}
+        metaOf={searchMetaOf}
+        startId={startId}
+        hasDecisions={decisions.size > 0}
+      />
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
@@ -1572,6 +1687,14 @@ function AppContent() {
             )}
           </div>
           <div className="lang-switcher">
+            <button
+              className="nav-btn icon-only"
+              onClick={() => setShowGlobalSearch(true)}
+              title={t("globalSearch.tooltip")}
+              aria-label={t("globalSearch.title")}
+            >
+              <SearchIcon size={18} />
+            </button>
             <button
               className="nav-btn icon-only"
               onClick={() => setShowSettings(true)}
@@ -1686,6 +1809,16 @@ function AppContent() {
             )}
           </div>
           <div className="lang-switcher">
+            {masterDataset && (
+              <button
+                className="nav-btn icon-only"
+                onClick={() => setShowGlobalSearch(true)}
+                title={t("globalSearch.tooltip")}
+                aria-label={t("globalSearch.title")}
+              >
+                <SearchIcon size={18} />
+              </button>
+            )}
             <button
               className="nav-btn icon-only"
               onClick={() => setShowSettings(true)}

@@ -200,13 +200,26 @@ export function MergeView({
       }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
+      // `f` reveals and focuses the match-list name filter (the whole-file
+      // global search lives on `/`, handled by the app shell).
+      if (key === KEY.filter) {
+        e.preventDefault();
+        setOpenMatches(true);
+        setShowFilters(true);
+        requestAnimationFrame(() => {
+          const el = document.querySelector<HTMLInputElement>(".name-search");
+          el?.focus();
+          el?.select();
+        });
+        return;
+      }
       const hit = KEY_STATUS[key];
       if (hit) toggleStatus(hit);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
   const compareHeader = current ? (
     <>

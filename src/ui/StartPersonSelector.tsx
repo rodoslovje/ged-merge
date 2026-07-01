@@ -4,6 +4,7 @@ import type { Individual } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
 import { useNameOf } from "./SettingsContext";
+import { SearchIcon } from "./icons/SearchIcon";
 
 interface Props {
   individuals: Map<string, Individual>;
@@ -150,20 +151,7 @@ export function StartPersonSelector({
         <path d="M5 10v10h14V10" />
       </svg>
     ) : (
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="11" cy="11" r="7" />
-        <line x1="16.5" y1="16.5" x2="22" y2="22" />
-      </svg>
+      <SearchIcon size={14} />
     );
 
   // When a start person is set and a handler is provided, the start icon is a

@@ -21,6 +21,8 @@ export const KEY = {
   modeTools: "t",
   tree: "v",
   relationship: "s",
+  /** Merge mode: focus the match-list name filter (global search is `/`). */
+  filter: "f",
   confirm: "c",
   reject: "r",
   defer: "d",
@@ -83,7 +85,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
       { keys: [["mod", "Shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
-      { keys: [["/"]], descKey: "shortcuts.item.search" },
+      { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
     ],
@@ -106,6 +108,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
+      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filterMatches" },
     ],
   },
   {
