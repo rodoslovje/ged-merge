@@ -15,7 +15,9 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
 
   // Remember the source's line-ending style and whether it ended with a newline
   // so the serializer can round-trip byte-faithfully (clean before/after diffs).
-  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  // Classic-Mac CR-only endings (e.g. Reunion exports) must be recognised too,
+  // otherwise their lines would be re-joined with LF on save.
+  const eol = text.includes("\r\n") ? "\r\n" : text.includes("\r") && !text.includes("\n") ? "\r" : "\n";
   const finalNewline = /[\r\n]$/.test(text);
 
   // Split on any line ending (\r\n, lone \r, or \n) in a single pass. Doing the

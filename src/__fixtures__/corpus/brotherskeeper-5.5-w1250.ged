@@ -1,0 +1,4400 @@
+0 HEAD
+1 SOUR BROSKEEP
+2 VERS 6.3.23 WINDOWS
+1 DEST BROSKEEP (BROTHERS KEEPER)
+1 DATE 11 MAY 2026
+1 CHAR ANSI
+1 FILE media/file1.GED
+1 GEDC
+2 VERS 5.5
+2 FORM LINEAGE-LINKED
+1 SUBM @SUB1@
+0 @I1@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F44207@
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F1@
+1 FAMC @F8@
+0 @I3@ INDI
+1 NAME Luka5 /Verbièiè/
+1 SEX F
+1 CHAN
+2 DATE 02 APR 2025
+1 BIRT
+2 DATE 04 APR 1943
+2 PLAC Vuèak, Smederevo, Srbija
+1 BIRT
+2 DATE 17 APR 1943
+2 PLAC po Gregorijanskom / novom kalendaru
+1 DEAT
+2 DATE 28 MAR 2025
+2 PLAC Ljubljana, DSO Moste
+1 CREM
+2 DATE 01 APR 2025
+2 PLAC Ljubljana, Nove Žale
+1 _FNRL
+2 DATE 02 APR 2025
+2 PLAC Ljubljana, Nove Žale
+1 FAMS @F1@
+1 FAMC @F12@
+0 @I4@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F40655@
+1 FAMC @F1@
+0 @I5@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F44207@
+0 @I6@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F40655@
+0 @I7@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F40655@
+0 @I8@ INDI
+1 NAME Elizabeta5 /Verbièek/
+1 SEX M
+1 CHAN
+2 DATE 19 JUL 2017
+1 BIRT
+2 DATE 07 OCT 1905
+1 DEAT
+2 DATE 17 APR 1975
+1 OCCU montanist
+1 FAMS @F3@
+0 @I9@ INDI
+1 NAME Tomaž5 /Verbièar/
+1 SEX F
+1 CHAN
+2 DATE 19 JUL 2017
+1 BIRT
+2 DATE 11 JUL 1909
+1 DEAT
+2 DATE 25 MAR 2001
+1 FAMS @F3@
+1 FAMC @F76@
+0 @I10@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F4@
+1 FAMC @F3@
+0 @I11@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F5@
+1 FAMC @F3@
+0 @I12@ INDI
+1 NAME Marta5 /Verbiènik/
+1 SEX M
+1 CHAN
+2 DATE 19 JUL 2017
+1 BIRT
+2 DATE 05 SEP 1935
+1 DEAT
+2 DATE 26 JUL 2012
+1 FAMS @F4@
+0 @I13@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F6@
+1 FAMC @F4@
+0 @I14@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F5@
+0 @I15@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F40654@
+1 FAMC @F5@
+0 @I16@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F5@
+0 @I17@ INDI
+1 NAME Filip5 /Verbièšek/
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F6@
+0 @I18@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F43743@
+1 FAMC @F6@
+0 @I19@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F6@
+0 @I20@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F40655@
+1 FAMC @F68@
+0 @I21@ INDI
+1 NAME Angela5 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 29 JUN 2013
+1 BIRT
+2 DATE 03 MAY 1902
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S1@
+1 BAPM
+2 DATE 09 MAY 1902
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 19 JUL 1953
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 20 JUL 1953
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F8@
+1 FAMC @F13@
+0 @I22@ INDI
+1 NAME Pavel5 /Verbièman/
+1 SEX F
+1 CHAN
+2 DATE 08 MAR 2009
+1 BIRT
+2 DATE 01 SEP 1907
+2 PLAC Skobalj, Smederevo, Srbija
+2 SOUR @S2@
+3 PAGE 94, redni broj 67
+1 BAPM
+2 DATE 09 SEP 1907
+2 PLAC Skobalj, crkva Uspenja Presv. Bogorodice
+1 DEAT
+2 DATE 09 FEB 1992
+2 PLAC Smederevo, Srbija
+1 BURI
+2 DATE 10 FEB 1992
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F8@
+1 FAMC @F14@
+0 @I23@ INDI
+1 NAME Cecilija5 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 30 JUN 2018
+1 BIRT
+2 DATE 25 JUN 1933
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 28 JUN 2018
+2 PLAC Bresje, Velika Plana
+1 BURI
+2 DATE 29 JUN 2018
+2 PLAC Bresje, Velika Plana
+1 FAMS @F9@
+1 FAMC @F8@
+0 @I24@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F10@
+1 FAMC @F8@
+0 @I25@ INDI
+1 NAME Helena3 /Verbièovec/
+1 SEX M
+1 CHAN
+2 DATE 18 MAR 2005
+1 BIRT
+2 DATE 1929
+2 PLAC Bresje, Velika Plana, Srbija
+1 DEAT
+2 DATE 15 DEC 2002
+2 PLAC Bresje, Velika Plana, Srbija
+1 FAMS @F9@
+1 FAMC @F214@
+0 @I26@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F9@
+0 @I27@ INDI
+1 NAME Boštjan5 /Verbièin/
+1 SEX M
+1 CHAN
+2 DATE 01 FEB 2011
+1 BIRT
+2 DATE 27 JAN 1938
+2 PLAC Velika Plana, Srbija
+1 DEAT
+2 DATE 01 FEB 2011
+2 PLAC Smederevska Palanka, Srbija
+1 FAMS @F10@
+1 FAMC @F42370@
+0 @I28@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F11@
+1 FAMC @F10@
+0 @I29@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F11@
+1 FAMC @F5617@
+0 @I30@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F11@
+0 @I31@ INDI
+1 NAME Veronika5 Nace5 /Verbièiè/
+1 SEX M
+1 CHAN
+2 DATE 06 AUG 2012
+1 BIRT
+2 DATE 12 OCT 1923
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 05 AUG 1986
+2 PLAC Ljubljana, Slovenija
+1 BURI
+2 DATE 07 AUG 1986
+2 PLAC Ljubljana, Slovenija
+1 _FNRL
+2 DATE SEP 1987
+2 PLAC Vuèak, Smederevo, Srbija
+1 REFN Miloš-Pantaleja
+1 OCCU borac 1. šumad. brigade
+1 FAMS @F12@
+1 FAMC @F16@
+0 @I32@ INDI
+1 NAME Ivana5 /Verbièel/
+1 SEX F
+1 CHAN
+2 DATE 18 FEB 2007
+1 BIRT
+2 DATE 27 OCT 1922
+2 PLAC Vrbovac, Smederevo, Srbija
+1 DEAT
+2 DATE 10 MAY 1993
+2 PLAC Beograd, Srbija
+1 BURI
+2 DATE 19 MAY 1993
+2 PLAC Vuèak, Smederevo, Srbija
+1 REFN Cuckiæ-Aranðel
+1 FAMS @F12@
+1 FAMC @F21@
+0 @I33@ INDI
+1 NAME Marta3 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 31 AUG 2023
+1 BIRT
+2 DATE 05 SEP 1881
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 44, redni broj 215
+1 BAPM
+2 DATE 13 SEP 1881
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1918
+1 OCCU 1. èeta 2. bataljona VIII. p. puka Dunavske d. 1. poziva
+1 FAMS @F13@
+1 FAMC @F29@
+0 @I34@ INDI
+1 NAME Štefan5 /Verbièniè/
+1 SEX F
+1 CHAN
+2 DATE 28 FEB 2009
+1 BIRT
+2 DATE 03 FEB 1880
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 8, redni broj 34
+1 BAPM
+2 DATE 10 FEB 1880
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 31 MAY 1959
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 1959
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Skokiæ/Lopar
+1 FAMS @F13@
+1 FAMC @F135@
+0 @I35@ INDI
+1 NAME Franèiška2 /Verbièman/
+1 SEX M
+1 CHAN
+2 DATE 01 NOV 2010
+1 BIRT
+2 DATE ABT 1883
+2 PLAC Skobalj, Smederevo, Srbija
+1 DEAT
+2 DATE 1915
+1 FAMS @F14@
+1 FAMC @F195@
+0 @I36@ INDI
+1 NAME Johana5 Vinko5 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 03 MAR 2011
+1 BIRT
+2 DATE 01 DEC 1884
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 130 redni broj 356
+1 BAPM
+2 DATE 02 DEC 1884
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 04 NOV 1968
+2 PLAC Miloševac, Velika Plana, Srbija
+1 BURI
+2 DATE NOV 1968
+2 PLAC Miloševac, Velika Plana, Srbija
+1 FAMS @F14@
+1 FAMS @F2501@
+1 FAMC @F99@
+0 @I37@ INDI
+1 NAME Amalija5 /Verbièak/
+1 SEX M
+1 CHAN
+2 DATE 24 APR 2011
+1 BIRT
+2 DATE ABT 1887
+1 DEAT
+2 DATE 1941
+1 FAMS @F2501@
+1 FAMC @F4633@
+0 @I38@ INDI
+1 NAME Rok5 /Verbièak/
+1 SEX F
+1 CHAN
+2 DATE 10 JUL 2011
+1 BIRT
+2 DATE 1922
+1 DEAT
+2 DATE 1996
+1 FAMS @F285@
+1 FAMS @F10973@
+1 FAMC @F2501@
+0 @I39@ INDI
+1 NAME Danijela5 Karel5 /Verbièak/
+1 SEX M
+1 CHAN
+2 DATE 10 JUL 2011
+1 BIRT
+2 DATE 1924
+1 DEAT
+2 DATE 2000
+1 FAMS @F281@
+1 FAMC @F2501@
+0 @I40@ INDI
+1 NAME Zofija5 Janez5 /Verbièak/
+1 SEX F
+1 CHAN
+2 DATE 21 MAR 2012
+1 BIRT
+2 DATE 1929
+1 DEAT
+2 DATE 19 MAR 2012
+2 PLAC Smederevo, Srbija
+1 FAMS @F2967@
+1 FAMS @F222@
+1 FAMC @F2501@
+0 @I41@ INDI
+1 NAME Alojzija5 /Verbièiè/
+1 SEX M
+1 CHAN
+2 DATE 04 SEP 2005
+1 BIRT
+2 DATE 03 AUG 1898
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 01 JUN 1945
+2 PLAC Vuèak, Smederevo, Srbija
+1 BURI
+2 DATE 02 JUN 1945
+2 PLAC Vuèak, Smederevo, Srbija
+1 REFN Miloševiæ-Pante
+1 FAMS @F16@
+1 FAMS @F17@
+1 FAMC @F196@
+0 @I42@ INDI
+1 NAME Mihael5 /Verbièveè/
+1 SEX F
+1 CHAN
+2 DATE 17 MAY 2008
+1 BIRT
+2 DATE 15 MAY 1898
+2 PLAC Ralja, Smederevo, Srbija
+2 SOUR @S4@
+3 PAGE 93, redni broj 89
+1 BAPM
+2 DATE 31 MAY 1898
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+1 DEAT
+2 DATE 1933
+2 PLAC Vuèak, Smederevo, Srbija
+1 BURI
+2 DATE 1933
+2 PLAC Vuèak, Smederevo, Srbija
+1 FAMS @F16@
+1 FAMC @F1329@
+0 @I43@ INDI
+1 NAME Jera5 /Verbièiè/
+1 SEX F
+1 CHAN
+2 DATE 06 AUG 2005
+1 BIRT
+2 DATE ABT 1920
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE ABT 1955
+1 REFN Miloševiæ-Pante
+1 FAMS @F230@
+1 FAMC @F16@
+0 @I44@ INDI
+1 NAME Sebastijan5 Kristina5 /Verbièiè/
+1 SEX F
+1 CHAN
+2 DATE 26 JUN 2005
+1 BIRT
+2 DATE 1921
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE DEC 2002
+1 REFN Miloševiæ-Pante
+1 FAMS @F232@
+1 FAMC @F16@
+0 @I45@ INDI
+1 NAME Urban5 Klara5 /Verbièiè/
+1 SEX M
+1 CHAN
+2 DATE 07 OCT 2004
+1 BIRT
+2 DATE 1926
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 1988
+2 PLAC Smederevo, Srbija
+1 BURI
+2 DATE 1988
+2 PLAC Vuèak, Smederevo, Srbija
+1 FAMS @F18@
+1 FAMC @F16@
+0 @I46@ INDI
+1 NAME Ferdinand5 Ljudmila5 /Verbièiè/
+1 SEX F
+1 CHAN
+2 DATE 14 FEB 2009
+1 BIRT
+2 DATE 24 JUN 1929
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 27 JUL 1986
+2 PLAC Beograd, Srbija
+1 BURI
+2 DATE 1986
+2 PLAC Beograd, Srbija
+1 FAMS @F226@
+1 FAMC @F16@
+0 @I47@ INDI
+1 NAME Ignac5 /Verbièièek/
+1 SEX F
+1 CHAN
+2 DATE 09 AUG 2005
+1 BIRT
+2 DATE 1909
+2 PLAC Udovice, Smederevo, Srbija
+1 DEAT
+2 DATE 1997
+1 FAMS @F239@
+1 FAMS @F17@
+1 FAMC @F46104@
+0 @I48@ INDI
+1 NAME Danijela5 /Verbièiè/
+1 SEX M
+1 CHAN
+2 DATE 09 AUG 2005
+1 BIRT
+2 DATE 08 NOV 1934
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 08 NOV 1947
+2 PLAC Vuèak, Smederevo, Srbija
+1 BURI
+2 PLAC Vuèak, Smederevo, Srbija
+1 FAMC @F17@
+0 @I49@ INDI
+1 NAME Cvetka2 /Verbiènjak/
+1 SEX F
+1 CHAN
+2 DATE 05 JAN 2008
+1 BIRT
+2 DATE 1928
+2 PLAC Vuèak, Smederevo, Srbija
+1 DEAT
+2 DATE 07 MAR 2003
+2 PLAC Smederevo, Srbija
+1 BURI
+2 DATE 08 MAR 2003
+2 PLAC Vuèak, Smederevo, Srbija
+1 FAMS @F18@
+1 FAMC @F2656@
+0 @I50@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F223@
+1 FAMC @F18@
+0 @I51@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F19@
+1 FAMC @F18@
+0 @I52@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F19@
+1 FAMC @F3514@
+0 @I53@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F20@
+1 FAMC @F19@
+0 @I54@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F20@
+0 @I55@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F20@
+0 @I56@ INDI
+1 NAME Karolina5 Bernard5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 01 NOV 2010
+1 BIRT
+2 DATE 24 DEC 1898
+2 PLAC Vrbovac, Smederevo, Srbija
+2 SOUR @S4@
+3 PAGE 235, redni broj 11
+1 BAPM
+2 DATE 17 JAN 1899
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+1 DEAT
+2 DATE 08 MAR 1979
+2 PLAC Vrbovac, Smederevo, Srbija
+1 BURI
+2 DATE MAR 1979
+2 PLAC Vrbovac, Smederevo, Srbija
+1 REFN Cuckiæ-Aranðel
+1 FAMS @F21@
+1 FAMC @F119@
+0 @I57@ INDI
+1 NAME Genovefa5 /Zajeciè/
+1 SEX F
+1 CHAN
+2 DATE 01 NOV 2010
+1 BIRT
+2 DATE 10 FEB 1901
+2 PLAC Binovac, Smederevo, Srbija
+2 SOUR @S5@
+3 PAGE 42, redni broj 31
+1 BAPM
+2 DATE 11 FEB 1901
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+1 DEAT
+2 DATE 06 JAN 1987
+2 PLAC Vrbovac, Smederevo, Srbija
+1 BURI
+2 DATE JAN 1987
+2 PLAC Vrbovac, Smederevo, Srbija
+1 FAMS @F21@
+1 FAMC @F134@
+0 @I58@ INDI
+1 NAME Angela5 Matevž5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 29 JAN 2006
+1 BIRT
+2 DATE 14 JAN 1924
+2 PLAC Vrbovac, Smederevo, Srbija
+1 DEAT
+2 DATE 2000
+1 REFN Cuckiæ-Aranðel
+1 FAMS @F22@
+1 FAMC @F21@
+0 @I59@ INDI
+1 NAME Cvetka2 /Verbièel/
+1 SEX F
+1 CHAN
+2 DATE 29 JAN 2006
+1 BIRT
+2 DATE 1926
+1 DEAT
+2 DATE ____
+1 REFN Cuckiæ-Aranðel
+1 FAMC @F21@
+0 @I60@ INDI
+1 NAME Zofija5 Suzana5 /Verbièel/
+1 SEX F
+1 CHAN
+2 DATE 29 JAN 2006
+1 BIRT
+2 DATE 1928
+2 PLAC Vrbovac, Smederevo, Srbija
+1 DEAT
+2 DATE 1946
+2 PLAC Vrbovac, Smederevo, Srbija
+1 BURI
+2 DATE 1946
+2 PLAC Vrbovac, Smederevo, Srbija
+1 REFN Cuckiæ-Aranðel
+1 FAMC @F21@
+0 @I61@ INDI
+1 NAME Primož5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 17 APR 2010
+1 BIRT
+2 DATE 1930
+1 DEAT
+2 DATE 04 JAN 1933
+1 REFN Cuckiæ-Aranðel
+1 FAMC @F21@
+0 @I62@ INDI
+1 NAME Dorotea5 Aleš5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 29 JAN 2006
+1 BIRT
+2 DATE 19 FEB 1934
+2 PLAC Vrbovac, Smederevo, Srbija
+1 DEAT
+2 DATE 22 JUL 1993
+2 PLAC Smederevo, Srbija
+1 BURI
+2 DATE 1993
+2 PLAC Vrbovac, Smederevo, Srbija
+1 REFN Cuckiæ-Aranðel
+1 FAMS @F23@
+1 FAMC @F21@
+0 @I63@ INDI
+1 NAME Regina5 /Zajecek/
+1 SEX F
+1 CHAN
+2 DATE 07 OCT 2004
+1 BIRT
+2 DATE 1927
+2 PLAC Lunjevac, Smederevo, Srbija
+1 DEAT
+2 DATE 2001
+1 FAMS @F22@
+1 FAMC @F4256@
+0 @I64@ INDI
+1 NAME Benjamin5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 08 JUN 2017
+1 BIRT
+2 DATE 11 NOV 1948
+1 DEAT
+2 DATE ABT 01 JUN 2017
+1 BURI
+2 DATE ABT 04 JUN 2017
+1 REFN Cuckiæ-Aranðel
+1 FAMC @F22@
+0 @I65@ INDI
+1 NAME Silvester5 /Verbièel/
+1 SEX M
+1 CHAN
+2 DATE 07 DEC 2011
+1 BIRT
+2 DATE MAR 1950
+1 DEAT
+2 DATE 07 DEC 2011
+2 PLAC Smederevo, Srbija
+1 BURI
+2 DATE 08 DEC 2011
+2 PLAC Vrbovac, Smederevo, Srbija
+1 REFN Cuckiæ-Aranðel
+1 FAMC @F22@
+0 @I66@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F23@
+1 FAMC @F1745@
+0 @I67@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F24@
+1 FAMC @F23@
+0 @I68@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F25@
+1 FAMC @F23@
+0 @I69@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F24@
+0 @I70@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F24@
+0 @I71@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F25@
+0 @I72@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F25@
+0 @I73@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F46835@
+1 FAMC @F25@
+0 @I74@ INDI
+1 NAME Margareta5 /Zajecar/
+1 SEX M
+1 CHAN
+2 DATE 09 SEP 2004
+1 FAMS @F329@
+0 @I75@ INDI
+1 NAME Adolf5 /Zajecnik/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 1813
+2 SOUR @S6@
+3 PAGE 328 red. broj 2094
+1 DEAT
+2 DATE 27 OCT 1878
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S7@
+3 PAGE 71, red. br. 137
+1 BURI
+2 DATE 28 OCT 1878
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F28@
+1 FAMC @F329@
+0 @I76@ INDI
+1 NAME Egidij5 Fortunat5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 24 MAY 2015
+1 BIRT
+2 DATE 1818
+1 DEAT
+2 DATE 18 NOV 1877
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S7@
+3 PAGE 46, redni broj 118
+1 BURI
+2 DATE 19 NOV 1877
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Kurcan-Petka
+1 FAMS @F27@
+1 FAMC @F12232@
+0 @I77@ INDI
+1 NAME Marina5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 1813
+2 SOUR @S8@
+3 PAGE red. broj 113
+1 DEAT
+2 DATE 24 OCT 1887
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S9@
+3 PAGE 126, red. br. 130
+1 BURI
+2 DATE 25 OCT 1887
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Kurcan-Petka
+1 FAMS @F28@
+1 FAMC @F3659@
+0 @I78@ INDI
+1 NAME Peter2 /Zajecnc/
+1 SEX F
+1 CHAN
+2 DATE 03 OCT 2022
+1 BIRT
+2 DATE 1833
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S6@
+3 PAGE red. br. 2070
+1 DEAT
+2 DATE 30 JAN 1883
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S9@
+3 PAGE 45, redni broj 16
+1 BURI
+2 DATE 31 JAN 1883
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F27@
+0 @I79@ INDI
+1 NAME Valburga5 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 16 MAR 2009
+1 BIRT
+2 DATE 26 DEC 1850
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S10@
+3 PAGE 46, redni broj 130
+1 BAPM
+2 DATE 27 DEC 1850
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1929
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 1929
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Kurcan-Petka
+1 FAMS @F29@
+1 FAMC @F27@
+0 @I80@ INDI
+1 NAME Kajetan5 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 29 MAR 2010
+1 BIRT
+2 DATE 16 NOV 1863
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S11@
+3 PAGE 23, red. br. 205
+1 BAPM
+2 DATE 01 DEC 1863
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 26 MAR 1935
+2 PLAC Veliko Orašje, Velika Plana, Srbija
+2 SOUR @S12@
+3 PAGE 108, red. br. 18
+1 BURI
+2 DATE 27 MAR 1935
+2 PLAC Veliko Orašje, Velika Plana, Srbija
+1 REFN Kurcan-Petka
+1 FAMS @F328@
+1 FAMC @F27@
+0 @I81@ INDI
+1 NAME Emerik5 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 29 MAR 2010
+1 BIRT
+2 DATE 16 JUN 1859
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S13@
+3 PAGE 177/88 red.br. 141
+1 BAPM
+2 DATE 05 JUL 1859
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 REFN Kurcan-Petka
+1 FAMS @F327@
+1 FAMS @F10118@
+1 FAMC @F27@
+0 @I82@ INDI
+1 NAME Nežka5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 20 MAY 1852
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S10@
+3 PAGE 60, redni broj 86
+1 BAPM
+2 DATE 30 JUN 1852
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1928
+2 PLAC Lozovik, Velika Plana, Srbija
+1 REFN Kurcan-Petka
+1 FAMS @F30@
+1 FAMC @F28@
+0 @I83@ INDI
+1 NAME Cvetka5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 28 NOV 2009
+1 BIRT
+2 DATE 1845
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S14@
+3 PAGE red. br. 2094
+1 DEAT
+2 DATE 13 MAR 1920
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S15@
+3 PAGE 218, red. br. 39
+1 BURI
+2 DATE 14 MAR 1920
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Kurcan-Petka
+1 FAMS @F31@
+1 FAMS @F330@
+1 FAMC @F28@
+0 @I84@ INDI
+1 NAME Štefan5 /Zajecman/
+1 SEX F
+1 CHAN
+2 DATE 16 APR 2009
+1 BIRT
+2 DATE 04 MAR 1855
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S10@
+3 PAGE 144, redni broj 45
+1 BAPM
+2 DATE 28 MAR 1855
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 10 APR 1916
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S15@
+3 PAGE 124, red. br. 84
+1 BURI
+2 DATE 11 APR 1916
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F29@
+1 FAMC @F189@
+0 @I85@ INDI
+1 NAME Ana6 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 29 NOV 2008
+1 BIRT
+2 DATE 01 JAN 1874
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 07 JAN 1874
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 FAMC @F29@
+0 @I86@ INDI
+1 NAME Marija6 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 17 FEB 2009
+1 BIRT
+2 DATE 14 JAN 1876
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 18 JAN 1876
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 02 JUL 1877
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S7@
+3 PAGE 40, red. br. 73
+1 BURI
+2 DATE 03 JUL 1877
+1 FAMC @F29@
+0 @I87@ INDI
+1 NAME Egidij5 Ivan6 /Zajecovec/
+1 SEX M
+1 CHAN
+2 DATE 28 SEP 2012
+1 BIRT
+2 DATE ABT 1780
+1 DEAT
+2 DATE BEF 1830
+1 REFN Kurcan-Petka
+1 FAMS @F12232@
+1 FAMC @F212@
+0 @I88@ INDI
+1 NAME Jožef6 Franc6 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 17 FEB 2009
+1 BIRT
+2 DATE 02 MAY 1878
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 07 MAY 1878
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE AFT 1945
+1 FAMS @F205@
+1 FAMC @F29@
+0 @I89@ INDI
+1 NAME Amalija5 Marko6 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 15 JAN 2009
+1 BIRT
+2 DATE 30 JAN 1884
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 104, redni broj 39
+1 BAPM
+2 DATE 05 FEB 1884
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1931
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 1931
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F32@
+1 FAMC @F29@
+0 @I90@ INDI
+1 NAME Tone6 Neža6 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 20 APR 2010
+1 BIRT
+2 DATE 01 DEC 1886
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 186 redni broj 331
+1 BAPM
+2 DATE 21 DEC 1886
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1929
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 1929
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F33@
+1 FAMC @F29@
+0 @I91@ INDI
+1 NAME Barbara2 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 22 SEP 1880
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 22, redni broj 197
+1 BAPM
+2 DATE 28 SEP 1880
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1915
+1 REFN Kurcan-Petka
+1 FAMS @F34@
+1 FAMC @F30@
+0 @I92@ INDI
+1 NAME Alojz6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 09 JUN 1877
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 17 JUL 1877
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ABT 1940
+1 REFN Kurcan-Petka
+1 FAMS @F35@
+1 FAMC @F30@
+0 @I93@ INDI
+1 NAME Terezija6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 01 MAR 1890
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 11 MAR 1890
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 18 DEC 1980
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 PLAC Lozovik, Vlaško groblje
+1 REFN Kurcan-Petka
+1 FAMS @F36@
+1 FAMC @F30@
+0 @I94@ INDI
+1 NAME Peter6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 16 JUN 1896
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 30 JUN 1896
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ABT 1960
+1 REFN Kurcan-Petka
+1 FAMS @F37@
+1 FAMC @F30@
+0 @I95@ INDI
+1 NAME Katarina6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 20 DEC 2008
+1 BIRT
+2 DATE 17 MAY 1899
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 23 MAY 1899
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ABT 1955
+1 REFN Kurcan-Petka
+1 FAMS @F38@
+1 FAMC @F30@
+0 @I96@ INDI
+1 NAME Veronika5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 29 APR 1874
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 12 MAY 1874
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 02 JUL 1954
+2 PLAC Lozovik, Velika Plana, Srbija
+1 REFN Kurcan-Petka
+1 FAMS @F39@
+1 FAMC @F31@
+0 @I97@ INDI
+1 NAME Ignac5 Anton6 /Verbièak/
+1 SEX F
+1 CHAN
+2 DATE 05 JUL 2010
+1 BIRT
+2 DATE 10 JAN 1886
+2 PLAC Saraorci, Smederevo, Srbija
+2 SOUR @S3@
+3 PAGE 161, red. br. 26
+1 BAPM
+2 DATE 30 JAN 1886
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 15 OCT 1946
+2 PLAC Veliko Orašje, Velika Plana, Srbija
+1 BURI
+2 DATE 1946
+2 PLAC Veliko Orašje, Velika Plana, Srbija
+1 FAMS @F32@
+1 FAMS @F46018@
+1 FAMS @F9050@
+1 FAMC @F3174@
+0 @I98@ INDI
+1 NAME Uršula6 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 06 OCT 2022
+1 BIRT
+2 DATE 1912
+1 DEAT
+2 DATE AFT 1919
+1 FAMC @F32@
+0 @I99@ INDI
+1 NAME Sebastijan5 Kristina5 /Zajecin/
+1 SEX F
+1 CHAN
+2 DATE 17 FEB 2009
+1 BIRT
+2 DATE 22 SEP 1889
+2 PLAC Golobok, Smederevska Palanka, Srbija
+1 BAPM
+2 DATE 01 OCT 1889
+1 DEAT
+2 DATE 30 SEP 1970
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 1970
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F33@
+1 FAMC @F2817@
+0 @I100@ INDI
+1 NAME Matija6 Helena6 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 20 JUL 2008
+1 BIRT
+2 DATE 1914
+1 DEAT
+2 DATE 1941
+1 FAMS @F2518@
+1 FAMC @F33@
+0 @I101@ INDI
+1 NAME Emerik5 Janez5 /Verbiènc/
+1 SEX F
+1 CHAN
+2 DATE 16 AUG 2024
+1 BIRT
+2 DATE 12 APR 1918
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 31 MAY 1992
+1 FAMS @F40@
+1 FAMC @F33@
+0 @I102@ INDI
+1 NAME Valburga5 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 08 JAN 2009
+1 BIRT
+2 DATE 02 SEP 1921
+2 PLAC Smederevo, Srbija
+1 DEAT
+2 DATE 21 AUG 2008
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 22 AUG 2008
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F41@
+1 FAMC @F33@
+0 @I103@ INDI
+1 NAME Margareta5 /Verbiènc/
+1 SEX M
+1 CHAN
+2 DATE 10 SEP 2005
+1 BIRT
+2 DATE 10 MAR 1926
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 19 JAN 1945
+2 PLAC Lopar, Bosna
+1 FAMC @F33@
+0 @I104@ INDI
+1 NAME Jera2 /Zajecel/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 12 APR 1885
+2 PLAC Miloševac, Velika Plana, Srbija
+1 DEAT
+2 DATE 1963
+1 FAMS @F34@
+1 FAMC @F6746@
+0 @I105@ INDI
+1 NAME Lovro6 Barbara6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 05 OCT 2022
+1 BIRT
+2 DATE 16 MAR 1906
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 04 OCT 1986
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 26 MAR 1906
+1 FAMS @F42@
+1 FAMC @F34@
+0 @I106@ INDI
+1 NAME Jožef6 /Zajecniè/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 02 MAY 1881
+2 PLAC Golobok, Smederevska Palanka, Srbija
+1 DEAT
+2 DATE ABT 1955
+1 FAMS @F35@
+1 FAMC @F380@
+0 @I107@ INDI
+1 NAME Miha6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 05 OCT 2022
+1 BIRT
+2 DATE 25 JAN 1906
+2 PLAC Lozovik
+1 DEAT
+2 DATE 1931
+1 BAPM
+2 DATE 05 FEB 1906
+1 FAMS @F43@
+1 FAMC @F35@
+0 @I108@ INDI
+1 NAME Jera2 /Zajecoviè/
+1 SEX F
+1 CHAN
+2 DATE 14 AUG 2004
+1 FAMS @F36@
+0 @I109@ INDI
+1 NAME Rozalija6 Jakob6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 05 JUL 2018
+1 BIRT
+2 DATE 1919
+1 DEAT
+2 DATE 1987
+1 FAMS @F44@
+1 FAMC @F36@
+0 @I110@ INDI
+1 NAME Ema6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 07 OCT 2004
+1 BIRT
+2 DATE 10 JAN 1922
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE JAN 1945
+1 FAMC @F36@
+0 @I111@ INDI
+1 NAME Marija6 /Zajecak/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 1897
+2 PLAC Krnjevo, Velika Plana, Srbija
+1 DEAT
+2 DATE ABT 1975
+1 FAMS @F37@
+1 FAMC @F2865@
+0 @I112@ INDI
+1 NAME Boštjan5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 02 JAN 2002
+1 BIRT
+2 DATE 1921
+1 DEAT
+2 DATE 1951
+1 FAMC @F37@
+0 @I113@ INDI
+1 NAME Emerik5 /Zajecšek/
+1 SEX F
+1 CHAN
+2 DATE 02 JAN 2002
+1 FAMS @F5068@
+1 FAMC @F37@
+0 @I114@ INDI
+1 NAME Andrej6 Franèiška6 /Zajecoviè/
+1 SEX F
+1 CHAN
+2 DATE 14 AUG 2004
+1 FAMS @F38@
+0 @I115@ INDI
+1 NAME Martin6 Nace5 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 17 JAN 2009
+1 BIRT
+2 DATE 1929
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 07 JAN 2009
+1 FAMS @F45@
+1 FAMC @F38@
+0 @I116@ INDI
+1 NAME Julijana6 Jurij6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 02 MAY 2005
+1 BIRT
+2 DATE 1932
+1 DEAT
+2 DATE 1993
+1 FAMS @F46@
+1 FAMC @F38@
+0 @I117@ INDI
+1 NAME Apolonija6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 28 NOV 2009
+1 BIRT
+2 DATE 19 APR 1899
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 25 APR 1899
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 1934
+1 BURI
+2 DATE 1934
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F2843@
+1 FAMC @F39@
+0 @I118@ INDI
+1 NAME Miha6 Blaž6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 05 OCT 2022
+1 BIRT
+2 DATE 20 SEP 1905
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 09 FEB 1974
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 09 OCT 1905
+1 FAMS @F48@
+1 FAMC @F39@
+0 @I119@ INDI
+1 NAME Veronika5 /Zajecveè/
+1 SEX M
+1 CHAN
+2 DATE 16 AUG 2024
+1 BIRT
+2 DATE ABT 1915
+2 PLAC Mala Plana
+1 DEAT
+2 DATE ____
+1 FAMS @F40@
+0 @I120@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F49@
+1 FAMC @F40@
+0 @I121@ INDI
+1 NAME Marjeta6 /Zajecièek/
+1 SEX F
+1 CHAN
+2 DATE 25 MAY 2013
+1 BIRT
+2 DATE 21 APR 1928
+2 PLAC Granice, Mladenovac
+1 DEAT
+2 DATE 22 MAY 2013
+2 PLAC Smederevska Palanka, Srbija
+1 BURI
+2 DATE 24 MAY 2013
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F41@
+1 FAMC @F7174@
+0 @I122@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F50@
+1 FAMC @F41@
+0 @I123@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F51@
+1 FAMC @F41@
+0 @I124@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F52@
+1 FAMC @F41@
+0 @I125@ INDI
+1 NAME Rok5 Valentin6 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 23 AUG 2009
+1 BIRT
+2 DATE 1910
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE ___
+1 FAMS @F42@
+1 FAMC @F2667@
+0 @I126@ INDI
+1 NAME Agata6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE 1927
+1 DEAT
+2 DATE 1929
+1 FAMC @F42@
+0 @I127@ INDI
+1 NAME Simon6 Lucija6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 27 APR 2016
+1 BIRT
+2 DATE 1930
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 2016
+1 BURI
+2 DATE 2016
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F53@
+1 FAMC @F42@
+0 @I128@ INDI
+1 NAME Gašper6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 07 OCT 2004
+1 BIRT
+2 DATE 1932
+1 DEAT
+2 DATE ABT 1996
+1 FAMS @F54@
+1 FAMC @F42@
+0 @I129@ INDI
+1 NAME Magdalena6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE ABT 1926
+1 DEAT
+2 DATE 1928
+1 FAMC @F43@
+0 @I130@ INDI
+1 NAME Johana5 /Zajecšek/
+1 SEX F
+1 CHAN
+2 DATE 02 MAY 2005
+1 BIRT
+2 DATE 1930
+1 DEAT
+2 DATE 2003
+1 FAMS @F258@
+1 FAMC @F43@
+0 @I131@ INDI
+1 NAME Emerik5 /Zajecoviè/
+1 SEX F
+1 CHAN
+2 DATE 14 AUG 2004
+1 FAMS @F44@
+0 @I132@ INDI
+1 NAME Luka6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 14 FEB 2015
+1 BIRT
+2 DATE 1946/1947
+1 DEAT
+2 DATE JAN 2015
+1 FAMS @F55@
+1 FAMC @F44@
+0 @I133@ INDI
+1 NAME Pavel3 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F44@
+0 @I134@ INDI
+1 NAME Luka5 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F44@
+0 @I135@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F45@
+1 FAMC @F353@
+0 @I136@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F56@
+1 FAMC @F45@
+0 @I137@ INDI
+1 NAME Rok5 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F45@
+0 @I138@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F478@
+1 FAMC @F46@
+0 @I139@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F479@
+1 FAMS @F480@
+1 FAMC @F46@
+0 @I140@ INDI
+1 NAME Genovefa5 /Zajecšek/
+1 SEX F
+1 CHAN
+2 DATE 11 JUL 2011
+1 BIRT
+2 DATE ABT 1924
+2 PLAC Lozovik, Velika Plana, Srbija
+1 FAMC @F2843@
+0 @I141@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F57@
+1 FAMC @F2843@
+0 @I142@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F58@
+1 FAMC @F2843@
+0 @I143@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F4629@
+1 FAMC @F2843@
+0 @I144@ INDI
+1 NAME Ignac5 Elizabeta6 /Zajecnjak/
+1 SEX F
+1 CHAN
+2 DATE 11 JUL 2011
+1 BIRT
+2 DATE 1905
+2 PLAC Krnjevo, Velika Plana, Srbija
+1 DEAT
+2 DATE ABT 1965
+1 FAMS @F48@
+1 FAMC @F11004@
+0 @I145@ INDI
+1 NAME Tomaž6 Marta6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 28 APR 2013
+1 BIRT
+2 DATE 15 MAR 1930
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 27 APR 2013
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 28 APR 2013
+2 PLAC Lozovik, Vlaško groblje
+1 FAMS @F59@
+1 FAMC @F48@
+0 @I146@ INDI
+1 NAME Filip6 Angela6 /Zajecšek/
+1 SEX M
+1 CHAN
+2 DATE 08 MAY 2011
+1 BIRT
+2 DATE 1932
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 2002
+1 FAMS @F60@
+1 FAMC @F48@
+0 @I147@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F49@
+0 @I148@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F2520@
+1 FAMC @F49@
+0 @I149@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F2521@
+1 FAMC @F49@
+0 @I150@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F50@
+1 FAMC @F199@
+0 @I151@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F50@
+0 @I152@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F51@
+1 FAMC @F9320@
+0 @I153@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F12255@
+1 FAMC @F51@
+0 @I154@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F51@
+0 @I155@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F52@
+1 FAMC @F233@
+0 @I156@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F53@
+0 @I157@ INDI
+1 NAME Cecilija5 /Žnidariè/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F54@
+0 @I158@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F61@
+1 FAMC @F54@
+0 @I159@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F62@
+1 FAMC @F54@
+0 @I160@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F55@
+0 @I161@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F259@
+1 FAMC @F55@
+0 @I162@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F55@
+0 @I163@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F3228@
+1 FAMC @F55@
+0 @I164@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F56@
+1 FAMC @F6133@
+0 @I165@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F56@
+0 @I166@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F56@
+0 @I167@ INDI
+1 NAME Regina5 /Žnidariè/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F57@
+0 @I168@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F10901@
+1 FAMC @F57@
+0 @I169@ INDI
+1 NAME Pavel6 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F11006@
+1 FAMC @F57@
+0 @I170@ INDI
+1 NAME Štefan5 /Žnidariè/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F58@
+0 @I171@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F10903@
+1 FAMC @F58@
+0 @I172@ INDI
+1 NAME Cecilija5 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F10904@
+1 FAMC @F58@
+0 @I173@ INDI
+1 NAME Cecilija6 /Zajecšek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F10905@
+1 FAMC @F58@
+0 @I174@ INDI
+1 NAME Cecilija5 /Žnidarek/
+1 SEX F
+1 CHAN
+2 DATE 11 JUL 2011
+1 BIRT
+2 DATE 1935
+1 DEAT
+2 DATE 2003
+1 FAMS @F59@
+1 FAMC @F11005@
+0 @I175@ INDI
+1 NAME Elizabeta /Žnidariè/
+1 SEX F
+1 CHAN
+2 DATE 26 JAN 2014
+1 BIRT
+2 DATE 1934
+1 DEAT
+2 DATE JAN 2014
+1 FAMS @F60@
+0 @I176@ INDI
+1 NAME Boštjan6 /Zajecšek/
+1 SEX F
+1 CHAN
+2 DATE 28 OCT 2004
+1 BIRT
+2 DATE 1953
+1 DEAT
+2 DATE 1997
+1 FAMS @F10861@
+1 FAMC @F60@
+0 @I177@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F4627@
+1 FAMS @F4628@
+1 FAMC @F60@
+0 @I178@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F257@
+1 FAMC @F60@
+0 @I179@ INDI
+1 NAME Veronika6 Nace6 /Žnidariè/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F61@
+0 @I180@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F473@
+1 FAMC @F61@
+0 @I181@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F474@
+1 FAMC @F61@
+0 @I182@ INDI
+1 NAME Veronika6 /Zajecnc/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F62@
+0 @I183@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F475@
+1 FAMC @F62@
+0 @I184@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F476@
+1 FAMC @F62@
+0 @I185@ INDI
+1 NAME Emerik /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 20 OCT 2020
+1 BIRT
+2 DATE 08 NOV 1855
+2 PLAC Obrisch 50/57
+1 BAPM
+2 DATE 09 NOV 1855
+1 DEAT
+2 DATE 07 JAN 1931
+2 PLAC Maribor, Štajerska
+1 BURI
+2 DATE 09 JAN 1931
+2 PLAC Maribor, Pobrežje
+1 FAMS @F63@
+1 FAMC @F82@
+0 @I186@ INDI
+1 NAME Janez3 /Žnidarnik/ Edle von Krinnerstorff
+1 SEX F
+1 CHAN
+2 DATE 24 NOV 2020
+1 BIRT
+2 DATE 26 SEP 1863
+2 PLAC Dubrovnik, Dalmacija
+1 DEAT
+2 DATE 25 NOV 1956
+2 PLAC Tržaška 1, Ljubljana, Slovenija
+1 BURI
+2 DATE 27 NOV 1956
+2 PLAC Ljubljana, Žale
+1 FAMS @F63@
+1 FAMC @F79@
+0 @I187@ INDI
+1 NAME Ivana6 Štefan6 /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 24 NOV 2020
+1 BIRT
+2 DATE 23 OCT 1901
+2 PLAC Sarajevo, Bosna
+1 DEAT
+2 DATE 15 DEC 1959
+2 PLAC Ljubljana, Trg mladinskih brigad, bolnica
+1 BURI
+2 DATE 17 DEC 1959
+2 PLAC Ljubljana, Žale
+1 FAMS @F64@
+1 FAMC @F63@
+0 @I188@ INDI
+1 NAME Johana6 /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 09 MAY 2012
+1 BIRT
+2 DATE 29 JUN 1904
+2 PLAC Sarajevo, Bosna
+1 DEAT
+2 DATE 15 FEB 1976
+2 PLAC Ljubljana, Slovenija
+1 FAMS @F65@
+1 FAMC @F63@
+0 @I189@ INDI
+1 NAME Franèiška2 /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE 24 JUN 1906
+1 DEAT
+2 DATE 06 SEP 1975
+1 FAMC @F63@
+0 @I190@ INDI
+1 NAME Vinko6 /Žnidaršek/
+1 SEX F
+1 CHAN
+2 DATE 11 FEB 2007
+1 BIRT
+2 DATE 17 FEB 1906
+1 DEAT
+2 DATE 25 JUL 1987
+1 FAMS @F64@
+0 @I191@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F66@
+1 FAMC @F64@
+0 @I192@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F67@
+1 FAMC @F64@
+0 @I193@ INDI
+1 NAME Amalija6 Janez3 /Žnidarnc/
+1 SEX F
+1 CHAN
+2 DATE 17 NOV 2020
+1 BIRT
+2 DATE 18 DEC 1905
+2 PLAC Brod 2, Dobrova pri Dravogradu
+1 BAPM
+2 DATE 14 JAN 1906
+2 PLAC Èrneèe, Sv. Andrej in Jakob, apostola
+1 DEAT
+2 DATE 20 AUG 1996
+2 PLAC Ljubljana, Slovenija
+1 FAMS @F65@
+1 FAMC @F72@
+0 @I194@ INDI
+1 NAME Alojzija /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 02 SEP 2020
+1 BIRT
+2 DATE 31 OCT 1933
+2 PLAC Maribor, Slovenija
+1 DEAT
+2 DATE 05 AUG 2020
+2 PLAC Ljubljana, Èrnuèe
+1 FAMS @F68@
+1 FAMC @F65@
+0 @I195@ INDI
+1 NAME Cvetka2 /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE 11 MAY 1936
+1 DEAT
+2 DATE 12 MAY 1995
+1 FAMS @F69@
+1 FAMC @F65@
+0 @I196@ INDI
+1 NAME Rok6 /Žnidarman/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE 13 MAY 1936
+1 DEAT
+2 DATE 15 JUN 1989
+1 FAMS @F66@
+0 @I197@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F66@
+0 @I198@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F4605@
+1 FAMC @F66@
+0 @I199@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F67@
+0 @I200@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F67@
+0 @I201@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F67@
+0 @I202@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F68@
+1 FAMC @F74@
+0 @I203@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F70@
+1 FAMC @F68@
+0 @I204@ INDI
+1 NAME Marjeta2 /Žnidarovec/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE ABT 1935
+1 DEAT
+2 DATE 10 JUN 1977
+1 FAMS @F69@
+0 @I205@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F71@
+1 FAMC @F69@
+0 @I206@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F70@
+1 FAMC @F94@
+0 @I207@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F70@
+0 @I208@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F71@
+1 FAMC @F95@
+0 @I209@ INDI
+1 NAME Mihael Danijela6 /Žnidarnc/
+1 SEX M
+1 CHAN
+2 DATE 18 NOV 2020
+1 BIRT
+2 DATE 25 MAY 1869
+2 PLAC Meža 8, Šentjanž pri Dravogradu
+1 BAPM
+2 DATE 02 JUN 1869
+2 PLAC Št. Janž pri Dravogradu, Sv. Janez Krstnik
+1 DEAT
+2 DATE 26 JAN 1941
+2 PLAC Šentjanž pri Dravogradu
+1 OCCU velepos. sin, lastnik tovarne
+1 FAMS @F72@
+1 FAMC @F91@
+0 @I210@ INDI
+1 NAME Elizabeta /Žnidarin/
+1 SEX F
+1 CHAN
+2 DATE 24 OCT 2020
+1 BIRT
+2 DATE 30 NOV 1881
+2 PLAC Lechen 69 (Rdeèi breg 72, Bunc)
+1 BAPM
+2 DATE 30 NOV 1881
+1 DEAT
+2 DATE 23 MAY 1963
+2 PLAC Ranelagh, Buenos Aires, Argentina
+1 FAMS @F72@
+1 FAMC @F44781@
+0 @I211@ INDI
+1 NAME Cvetka2 Janez3 Andrej5 /Žnidarnc/
+1 SEX F
+1 CHAN
+2 DATE 17 NOV 2020
+1 BIRT
+2 DATE 17 FEB 1904
+2 PLAC Brod 2, Dobrova pri Dravogradu
+1 CHR 
+2 DATE 28 FEB 1904
+2 PLAC Èrneèe, Sv. Andrej in Jakob, apostola
+1 DEAT
+2 DATE 28 AUG 1994
+2 PLAC Bahía Blanca, Buenos Aires, Argentina
+1 FAMS @F73@
+1 FAMC @F72@
+0 @I212@ INDI
+1 NAME Elizabeta Janez3 Andrej5 /Žnidarnc/
+1 SEX F
+1 CHAN
+2 DATE 17 NOV 2020
+1 BIRT
+2 DATE 31 JAN 1901
+2 PLAC Meža 2, Dobrova pri Dravogradu
+1 BAPM
+2 DATE 02 FEB 1901
+2 PLAC Èrneèe, Sv. Andrej in Jakob, apostola
+1 DEAT
+2 DATE 30 APR 1988
+1 FAMC @F72@
+0 @I213@ INDI
+1 NAME Karel6 /Žnidarnc/
+1 SEX M
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1909
+1 DEAT
+2 DATE 1985
+1 FAMS @F8833@
+1 FAMS @F8832@
+1 FAMC @F72@
+0 @I214@ INDI
+1 NAME Danijela5 /Žnidarel/
+1 SEX M
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1905
+1 DEAT
+2 DATE ____
+1 FAMS @F73@
+1 FAMC @F43712@
+0 @I215@ INDI
+1 NAME Zofija6 Janez6 /Žnidarniè/
+1 SEX M
+1 CHAN
+2 DATE 17 DEC 2019
+1 BIRT
+2 DATE 29 JUL 1905
+2 PLAC Spodnja Šiška 64
+1 DEAT
+2 DATE 11 JUL 1971
+1 FAMS @F74@
+1 FAMC @F194@
+0 @I216@ INDI
+1 NAME Anton2 /Verbièar/
+1 SEX F
+1 CHAN
+2 DATE 22 DEC 2007
+1 BIRT
+2 DATE 06 JUL 1911
+1 DEAT
+2 DATE 21 AUG 2000
+1 FAMS @F74@
+1 FAMC @F76@
+0 @I217@ INDI
+1 NAME Rok5 /Žnidarniè/
+1 SEX F
+1 CHAN
+2 DATE 08 JAN 2015
+1 BIRT
+2 DATE .__.1939
+1 DEAT
+2 DATE 05 JAN 2015
+1 FAMC @F74@
+0 @I218@ INDI
+1 NAME Simon /Žnidarniè/
+1 SEX M
+1 CHAN
+2 DATE 13 FEB 2023
+1 BIRT
+2 DATE 1940
+1 DEAT
+2 DATE 2019
+1 BURI
+2 DATE 2019
+2 PLAC Ljubljana, Žale
+1 FAMS @F75@
+1 FAMC @F74@
+0 @I219@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F74@
+0 @I220@ INDI
+1 NAME Tomaž5 /Zajecar/
+1 SEX F
+1 CHAN
+2 DATE 13 FEB 2023
+1 BIRT
+2 DATE 1948
+1 DEAT
+2 DATE 2022
+1 BURI
+2 DATE 2022
+2 PLAC Ljubljana, Žale
+1 FAMS @F75@
+0 @I221@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F75@
+0 @I222@ INDI
+1 NAME Veronika2 /Verbièar/
+1 SEX M
+1 CHAN
+2 DATE 30 JAN 2006
+1 BIRT
+2 DATE 22 APR 1879
+2 PLAC Žiri
+1 DEAT
+2 DATE 01 NOV 1953
+2 PLAC Reteèe
+1 FAMS @F76@
+1 FAMC @F197@
+0 @I223@ INDI
+1 NAME Egidij2 /Žnidaroviè/
+1 SEX F
+1 CHAN
+2 DATE 03 OCT 2019
+1 BIRT
+2 DATE 29 OCT 1881
+2 PLAC Gorica, Goriška
+1 BAPM
+2 DATE 11 JAN 1882
+2 PLAC Gorica, Goriška
+1 DEAT
+2 DATE 04 OCT 1966
+2 PLAC Reteèe
+1 FAMS @F76@
+1 FAMC @F198@
+0 @I224@ INDI
+1 NAME Simon /Verbièar/
+1 SEX M
+1 CHAN
+2 DATE 19 JUL 2017
+1 BIRT
+2 DATE 20 MAY 1913
+1 DEAT
+2 DATE 22 FEB 1979
+1 FAMC @F76@
+0 @I225@ INDI
+1 NAME Alojzija6 /Žnidarak/
+1 SEX M
+1 CHAN
+2 DATE 31 JAN 2020
+1 BIRT
+2 DATE 23 MAR 1790
+2 PLAC Popoviæi, Konavle
+1 CHR 
+2 DATE 1790
+2 PLAC Popoviæi, Konavle
+1 DEAT
+2 DATE 23 FEB 1861
+2 PLAC Dubrovnik
+1 BURI
+2 DATE 24 FEB 1861
+2 PLAC Dubrovnik, Boninovo
+1 FAMS @F77@
+1 FAMC @F13406@
+0 @I226@ INDI
+1 NAME Ljudmila Vinko /Žnidarveè/
+1 SEX F
+1 CHAN
+2 DATE 31 JAN 2020
+1 BIRT
+2 DATE 10 JUN 1795
+2 PLAC Dubrovnik, Pile
+1 CHR 
+2 DATE 12 JUN 1795
+2 PLAC Dubrovnik - Grad
+1 DEAT
+2 DATE 03 AUG 1881
+2 PLAC Dubrovnik, Dalmacija
+1 BURI
+2 DATE 04 AUG 1881
+2 PLAC Dubrovnik, Boninovo
+1 FAMS @F77@
+1 FAMC @F14155@
+0 @I227@ INDI
+1 NAME Mihael6 /Žnidarak/
+1 SEX M
+1 CHAN
+2 DATE 29 JAN 2020
+1 BIRT
+2 DATE 19 AUG 1829
+2 PLAC Dubrovnik, Dalmacija
+1 CHR 
+2 DATE 25 AUG 1829
+2 PLAC Dubrovnik, Pile, crkva sv. Andrije
+1 DEAT
+2 DATE 03 JAN 1896
+2 PLAC Zadar, Dalmacija
+1 FAMS @F12947@
+1 FAMC @F77@
+0 @I228@ INDI
+1 NAME Elizabeta4 /Žnidarak/
+1 SEX F
+1 CHAN
+2 DATE 21 OCT 2025
+1 BIRT
+2 DATE 20 JAN 1835
+2 PLAC Dubrovnik, Pile
+1 CHR 
+2 DATE 24 JAN 1835
+2 PLAC Dubrovnik, Pile, crkva sv. Andrije
+1 DEAT
+2 DATE AFT 1906
+1 FAMS @F79@
+1 FAMC @F77@
+0 @I229@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F4622@
+0 @I230@ INDI
+1 NAME Jera6 /Žnidarnik/ Edler von Krinnerstorff
+1 SEX M
+1 CHAN
+2 DATE 26 NOV 2020
+1 BIRT
+2 DATE 22 NOV 1830
+2 PLAC Jièín 24, Bydžovský (Hradecký) kraj, Èeška
+1 BAPM
+2 DATE 23 NOV 1830
+2 PLAC Jièín
+1 DEAT
+2 DATE 02 SEP 1903
+2 PLAC Dubrovnik, Pile
+1 BURI
+2 DATE 04 SEP 1903
+2 PLAC Dubrovnik, groblje Sv. Križa na Boninovu
+1 FAMS @F79@
+1 FAMC @F13434@
+0 @I231@ INDI
+1 NAME Rozalija5 /Žnidarièek/
+1 SEX M
+1 CHAN
+2 DATE 09 NOV 2007
+1 BIRT
+2 DATE ABT 1970
+1 DEAT
+2 DATE 16 AUG 2007
+1 FAMS @F4605@
+0 @I232@ INDI
+1 NAME Elizabeta /Žnidariè/
+1 SEX F
+1 CHAN
+2 DATE 29 MAY 2007
+1 FAMS @F4621@
+0 @I233@ INDI
+1 NAME Sebastijan6 Kristina6 /Žnidarnjak/
+1 SEX M
+1 CHAN
+2 DATE 26 OCT 2020
+1 BIRT
+2 DATE 25 DEC 1818
+2 PLAC Babinec 76
+1 BAPM
+2 DATE 25 DEC 1818
+2 PLAC Crkva Uzvišenja sv . Križa, Radovec
+1 DEAT
+2 DATE 24 NOV 1883
+2 PLAC Obrež 67
+1 BURI
+2 DATE 26 NOV 1883
+1 FAMS @F44460@
+1 FAMS @F82@
+1 FAMC @F44462@
+0 @I234@ INDI
+1 NAME Ljudmila /Bregariè/
+1 SEX F
+1 CHAN
+2 DATE 12 SEP 2023
+1 BIRT
+2 DATE 23 JUL 1817
+2 PLAC Grabe 15, Središèe ob Dravi
+1 BAPM
+2 DATE 1817
+1 DEAT
+2 DATE 02 SEP 1885
+2 PLAC Obrež 67
+1 BURI
+2 DATE 04 SEP 1885
+1 FAMS @F82@
+1 FAMC @F44464@
+0 @I235@ INDI
+1 NAME Genovefa /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 20 OCT 2020
+1 BIRT
+2 DATE 29 NOV 1861
+2 PLAC Obrisch 57
+1 BAPM
+2 DATE 29 NOV 1861
+1 FAMS @F83@
+1 FAMC @F82@
+0 @I236@ INDI
+1 NAME Genovefa /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1885
+1 DEAT
+2 DATE 02 SEP 1961
+2 PLAC Ptuj
+1 FAMS @F84@
+1 FAMC @F83@
+0 @I237@ INDI
+1 NAME Valburga4 /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 20 FEB 2011
+1 BIRT
+2 DATE ABT 1924
+1 FAMS @F8867@
+1 FAMC @F84@
+0 @I238@ INDI
+1 NAME Elizabeta /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1911
+1 DEAT
+2 DATE 1975
+1 FAMS @F85@
+1 FAMC @F84@
+0 @I239@ INDI
+1 NAME Silvester2 /Žnidarar/
+1 SEX M
+1 CHAN
+2 DATE 20 FEB 2011
+1 BIRT
+2 DATE ABT 1919
+1 FAMS @F10425@
+1 FAMC @F84@
+0 @I240@ INDI
+1 NAME Egidij4 Urban6 /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1912
+1 DEAT
+2 DATE 2002
+1 FAMS @F8870@
+1 FAMC @F84@
+0 @I241@ INDI
+1 NAME Klara6 /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1916
+1 DEAT
+2 DATE 2001
+1 FAMS @F8881@
+1 FAMC @F84@
+0 @I242@ INDI
+1 NAME Genovefa4 /Žnidarar/
+1 SEX F
+1 CHAN
+2 DATE 08 MAY 2010
+1 BIRT
+2 DATE 1922
+1 DEAT
+2 DATE 1954
+1 FAMC @F84@
+0 @I243@ INDI
+1 NAME Emerik /Bregarek/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 BIRT
+2 DATE ABT 1907
+1 DEAT
+2 DATE ABT 1990
+1 FAMS @F85@
+1 FAMC @F193@
+0 @I244@ INDI
+1 NAME Magdalena3 Ferdinand6 /Bregarek/
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F86@
+1 FAMC @F85@
+0 @I245@ INDI
+1 NAME Emerik /Bregarek/
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F87@
+1 FAMC @F85@
+0 @I246@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F88@
+1 FAMC @F85@
+0 @I247@ INDI
+1 NAME Karolina /Bregarar/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMS @F86@
+0 @I248@ INDI
+1 NAME Helena2 /Bregarar/
+1 SEX F
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMC @F86@
+0 @I249@ INDI
+1 NAME Johana2 /Bregarar/
+1 SEX F
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMC @F86@
+0 @I250@ INDI
+1 NAME Alojzija /Bregarar/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMC @F86@
+0 @I251@ INDI
+1 NAME Marko5 /Zajecnc/
+1 SEX F
+1 CHAN
+2 DATE 28 OCT 2004
+1 FAMS @F87@
+0 @I252@ INDI
+1 NAME Emerik /Bregarek/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMC @F87@
+0 @I253@ INDI
+1 NAME Ljudmila6 /Bregarek/
+1 SEX M
+1 CHAN
+2 DATE 03 JAN 2002
+1 FAMC @F87@
+0 @I254@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F88@
+0 @I255@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F88@
+0 @I256@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F88@
+0 @I257@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F88@
+0 @I258@ INDI
+1 NAME Pavel4 Ignac6 /Žnidarnik/
+1 SEX M
+1 CHAN
+2 DATE 13 JAN 2020
+1 BIRT
+2 DATE 16 JUN 1791
+2 PLAC Žihle 24, Žatecký kraj
+1 BAPM
+2 DATE 16 JUN 1791
+2 PLAC Žihle, kostel sv. Václava
+1 DEAT
+2 DATE 10 JUN 1878
+2 PLAC Plzeò 490, øíšské pøedm.
+1 BURI
+2 DATE 12 JUN 1878
+2 PLAC Plzeò, sv. Mikuláš
+1 FAMS @F13434@
+1 FAMC @F13538@
+0 @I259@ INDI
+1 NAME Karolina6 Bernard6 Genovefa6 /Bregarnik/
+1 SEX F
+1 CHAN
+2 DATE 13 JAN 2020
+1 BIRT
+2 DATE 03 NOV 1791
+2 PLAC Praha, Staré Mìsto 196
+1 BAPM
+2 DATE 03 NOV 1791
+2 PLAC Praha, sv. Havel
+1 DEAT
+2 DATE 06 NOV 1853
+2 PLAC Praha, Nové Mìsto 969
+1 BURI
+2 DATE 08 NOV 1853
+2 PLAC Praha, Olšany
+1 FAMS @F13434@
+1 FAMC @F13525@
+0 @I260@ INDI
+1 NAME Pavel4 /Žnidarnc/
+1 SEX M
+1 CHAN
+2 DATE 20 NOV 2020
+1 BIRT
+2 DATE 29 MAR 1776
+2 PLAC Greifenburg 69, Koroška
+1 BAPM
+2 PLAC Greifenburg, Koroška
+1 BURI
+2 PLAC Lavamünd/Labot, Koroška
+1 FAMS @F44840@
+1 FAMS @F90@
+1 FAMC @F8859@
+0 @I261@ INDI
+1 NAME Karolina6 /Bregaršek/
+1 SEX F
+1 CHAN
+2 DATE 20 NOV 2020
+1 BIRT
+2 DATE 22 FEB 1791
+2 PLAC Mauthen, Koroška
+1 FAMS @F90@
+1 FAMC @F8864@
+0 @I262@ INDI
+1 NAME Urban4 Karel6 /Žnidarnc/
+1 SEX M
+1 CHAN
+2 DATE 19 NOV 2020
+1 BIRT
+2 DATE 19 JUN 1818
+2 PLAC Greifenburg, Koroška
+1 DEAT
+2 DATE 04 OCT 1898
+2 PLAC Meža 24
+1 BURI
+2 DATE 06 OCT 1898
+1 FAMS @F44833@
+1 FAMS @F91@
+1 FAMC @F90@
+0 @I263@ INDI
+1 NAME Blaž Matevž6 /Bregarnc/
+1 SEX F
+1 CHAN
+2 DATE 28 OCT 2020
+1 BIRT
+2 DATE 11 SEP 1845
+2 PLAC Feldbach, Štajerska
+1 BAPM
+2 DATE 12 SEP 1845
+2 PLAC Feldbach, Pfarrkirche St. Leonhard
+1 DEAT
+2 DATE .__.1917
+1 FAMS @F91@
+1 FAMC @F92@
+0 @I264@ INDI
+1 NAME Anton /Bregarnc/
+1 SEX M
+1 CHAN
+2 DATE 29 OCT 2020
+1 BIRT
+2 DATE 1819
+1 DEAT
+2 DATE .__.1896
+1 FAMS @F92@
+1 FAMC @F44799@
+0 @I265@ INDI
+1 NAME Genovefa6 Bernard6 /Bregarman/
+1 SEX F
+1 CHAN
+2 DATE 04 JAN 2021
+1 BIRT
+2 DATE 12 AUG 1816
+2 PLAC Gradec / Graz, Lendplatz 308
+1 BAPM
+2 DATE 12 AUG 1816
+2 PLAC Gradec / Graz, Mariahilf (doma)
+1 FAMS @F92@
+1 FAMC @F44800@
+0 @I266@ INDI
+1 NAME Štefan /Žnidarin/
+1 SEX M
+1 CHAN
+2 DATE 07 DEC 2019
+1 BIRT
+2 DATE 22 JAN 1854
+2 PLAC Lehen 54 žup. Ribnica na Pohorju
+1 DEAT
+2 DATE 28 MAR 1928
+0 @I267@ INDI
+1 NAME Suzana6 /Bregarovec/
+1 SEX F
+1 CHAN
+2 DATE 24 OCT 2020
+1 BIRT
+2 DATE 18 DEC 1861
+2 PLAC Rdeèi breg/Rottenberg, Pohorje, Štajerska
+1 DEAT
+2 DATE 14 JUL 1904
+1 FAMS @F44781@
+1 FAMC @F44651@
+0 @I268@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F94@
+0 @I269@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F10426@
+1 FAMC @F94@
+0 @I270@ INDI
+1 NAME Primož6 /Bregarin/
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F95@
+0 @I271@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMC @F95@
+0 @I272@ INDI
+1 NAME Dorotea6 /Bregarel/
+1 SEX F
+1 CHAN
+2 DATE 05 MAR 2009
+1 BIRT
+2 DATE 10 AUG 1851
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S10@
+3 PAGE 71, redni broj 71
+1 BAPM
+2 DATE 10 AUG 1850
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE AFT 1919
+1 FAMS @F135@
+1 FAMC @F362@
+0 @I273@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F4631@
+1 FAMC @F48@
+0 @I274@ INDI
+1 NAME Elizabeta /Bregarniè/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 1859
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S14@
+3 PAGE red. br. 2027
+1 FAMS @F30@
+1 FAMC @F364@
+0 @I275@ INDI
+1 NAME Aleš6 /Zajecšek/
+1 SEX F
+1 CHAN
+2 DATE 15 FEB 2009
+1 BIRT
+2 DATE 10 MAR 1879
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 18 MAR 1879
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 REFN Kurcan-Petka
+1 FAMS @F351@
+1 FAMC @F30@
+0 @I276@ INDI
+1 NAME Regina6 Benjamin6 /Bregaroviè/
+1 SEX F
+1 CHAN
+2 DATE 06 DEC 2009
+1 BIRT
+2 DATE 01 MAR 1870
+2 PLAC Vodanj, Smederevo, Srbija
+1 BAPM
+2 DATE 15 MAR 1870
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+1 DEAT
+2 DATE ABT 1951
+1 FAMS @F256@
+1 FAMC @F1861@
+0 @I277@ INDI
+1 NAME Terezija6 Silvester6 /Verbièoviè/
+1 SEX M
+1 CHAN
+2 DATE 04 JUL 2009
+1 BIRT
+2 DATE 1857
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S6@
+1 DEAT
+2 DATE 31 MAY 1934
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 01 JUN 1934
+2 PLAC Lozovik, Srpsko groblje
+1 OCCU "zadrugar"
+1 FAMS @F99@
+1 FAMC @F108@
+0 @I278@ INDI
+1 NAME Margareta6 /Bregarak/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 06 MAR 1858
+2 PLAC Saraorci, Smederevo, Srbija
+2 SOUR @S13@
+3 PAGE 82, redni broj 55
+1 BAPM
+2 DATE 24 MAR 1858
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 19 AUG 1935
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 20 AUG 1935
+2 PLAC Lozovik, Srpsko groblje
+1 FAMS @F99@
+1 FAMC @F361@
+0 @I279@ INDI
+1 NAME Emerik5 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 01 NOV 2010
+1 BIRT
+2 DATE 06 JAN 1888
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 10 JAN 1888
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 FAMS @F100@
+1 FAMC @F99@
+0 @I280@ INDI
+1 NAME Sebastijan5 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 15 NOV 2008
+1 BIRT
+2 DATE 03 DEC 1890
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 09 DEC 1890
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 FAMS @F288@
+1 FAMC @F99@
+0 @I281@ INDI
+1 NAME Suzana4 Adolf6 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 01 NOV 1896
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 10 NOV 1896
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE ____
+1 FAMS @F2846@
+1 FAMS @F101@
+1 FAMC @F99@
+0 @I282@ INDI
+1 NAME Egidij6 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 27 OCT 1898
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 01 NOV 1898
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 04 FEB 1978
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 05 FEB 1978
+2 PLAC Lozovik, Srpsko groblje
+1 FAMS @F102@
+1 FAMC @F99@
+0 @I283@ INDI
+1 NAME Marta3 Jakob6 /Bregarveè/
+1 SEX M
+1 CHAN
+2 DATE 01 NOV 2010
+1 BIRT
+2 DATE 06 SEP 1889
+2 PLAC Skobalj, Smederevo, Srbija
+1 BAPM
+2 DATE 24 SEP 1889
+2 PLAC Skobalj, crkva Uspenja Presv. Bogorodice
+1 DEAT
+2 DATE ____
+1 FAMS @F100@
+1 FAMC @F5133@
+0 @I284@ INDI
+1 NAME Fortunat6 /Bregarveè/
+1 SEX F
+1 CHAN
+2 DATE 10 APR 2005
+1 BIRT
+2 DATE 09 SEP 1910
+2 PLAC Skobalj, Smederevo, Srbija
+1 DEAT
+2 DATE ____
+1 FAMS @F2074@
+1 FAMC @F100@
+0 @I285@ INDI
+1 NAME Marina6 /Bregarveè/
+1 SEX M
+1 CHAN
+2 DATE 10 APR 2005
+1 BIRT
+2 DATE 1914
+2 PLAC Skobalj, Smederevo, Srbija
+1 DEAT
+2 DATE 1986
+1 FAMS @F287@
+1 FAMC @F100@
+0 @I286@ INDI
+1 NAME Danijela5 /Bregarièek/
+1 SEX M
+1 CHAN
+2 DATE 26 APR 2023
+1 BIRT
+2 DATE 1899
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE ABT 1955
+1 FAMS @F101@
+1 FAMC @F2180@
+0 @I287@ INDI
+1 NAME Luka5 Valburga6 /Bregarièek/
+1 SEX F
+1 CHAN
+2 DATE 26 APR 2023
+1 BIRT
+2 DATE 17 JUN 1927
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 2001
+1 FAMS @F289@
+1 FAMC @F101@
+0 @I288@ INDI
+1 NAME Kajetan6 /Bregarièek/
+1 SEX F
+1 CHAN
+2 DATE 08 OCT 2022
+1 BIRT
+2 DATE ABT 1925
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE ____
+1 FAMC @F101@
+0 @I289@ INDI
+1 NAME Marta3 /Verbièniè/
+1 SEX M
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 14 JAN 1900
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 16 JAN 1900
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 21 FEB 1963
+1 REFN Šajkoviæ
+1 FAMS @F102@
+1 FAMC @F2540@
+0 @I290@ INDI
+1 NAME Emerik6 /Verbièniè/
+1 SEX F
+1 CHAN
+2 DATE 10 JUL 2010
+1 BIRT
+2 DATE 1932
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 01 JUL 2001
+1 REFN Šajkoviæ
+1 FAMS @F103@
+1 FAMS @F104@
+1 FAMC @F102@
+0 @I291@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F105@
+1 FAMC @F103@
+0 @I292@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F106@
+1 FAMC @F103@
+0 @I293@ INDI
+1 NAME Nežka6 Cvetka6 /Bregarnjak/
+1 SEX M
+1 CHAN
+2 DATE 22 DEC 2007
+1 BIRT
+2 DATE 1928
+2 PLAC Krnjevo, Velika Plana, Srbija
+1 DEAT
+2 DATE 29 NOV 2003
+1 FAMS @F10971@
+1 FAMS @F104@
+0 @I294@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F107@
+1 FAMC @F104@
+0 @I295@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F10214@
+1 FAMC @F105@
+0 @I296@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMS @F5146@
+1 FAMC @F105@
+0 @I297@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F5147@
+1 FAMC @F106@
+0 @I298@ INDI
+1 NAME Lucija
+1 SEX M
+1 NOTE Lorem ipsum note.
+1 FAMS @F5148@
+1 FAMC @F106@
+0 @I299@ INDI
+1 NAME Lucija
+1 SEX F
+1 NOTE Lorem ipsum note.
+1 FAMC @F107@
+0 @I300@ INDI
+1 NAME Ana7 Jakob6 /Verbièoviè/
+1 SEX M
+1 CHAN
+2 DATE 11 APR 2009
+1 BIRT
+2 DATE 1817
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S8@
+3 PAGE red. br. 60
+1 DEAT
+2 DATE 31 DEC 1892
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 01 JAN 1893
+2 PLAC Lozovik, Srpsko groblje
+1 FAMS @F3617@
+1 FAMS @F108@
+1 FAMS @F2948@
+1 FAMC @F468@
+0 @I301@ INDI
+1 NAME Marija7 /Verbièoviè/
+1 SEX M
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 24 APR 1861
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S13@
+3 PAGE 306, redni broj 74
+1 BAPM
+2 DATE 07 MAY 1861
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 FAMS @F109@
+1 FAMC @F108@
+0 @I302@ INDI
+1 NAME Jožef6 Franc6 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 29 JUN 1864
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S11@
+3 PAGE 39, redni broj 153
+1 BAPM
+2 DATE 12 JUL 1864
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 FAMS @F110@
+1 FAMC @F108@
+0 @I303@ INDI
+1 NAME Suzana4 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 17 MAY 2009
+1 BIRT
+2 DATE 09 MAY 1848
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BAPM
+2 DATE 29 MAY 1848
+2 PLAC Lozovik, Velika Plana, Srbija
+1 DEAT
+2 DATE 19 SEP 1912
+2 PLAC Lozovik, Velika Plana, Srbija
+1 BURI
+2 DATE 20 SEP 1912
+2 PLAC Lozovik, Srpsko groblje
+1 FAMS @F5028@
+1 FAMC @F108@
+0 @I304@ INDI
+1 NAME Valentin4 /Verbièoviè/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 24 APR 1861
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S13@
+3 PAGE 306, redni broj 75
+1 BAPM
+2 DATE 07 MAY 1861
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 FAMS @F3226@
+1 FAMC @F108@
+0 @I305@ INDI
+1 NAME Ivan7 /Verbièiè/
+1 SEX F
+1 CHAN
+2 DATE 18 MAY 2009
+1 BIRT
+2 DATE 1859
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S14@
+3 PAGE redni broj 2090
+1 DEAT
+2 DATE ABT 1947
+1 FAMS @F109@
+1 FAMC @F2556@
+0 @I306@ INDI
+1 NAME Marta Nace5 /Verbièoviè/
+1 SEX M
+1 CHAN
+2 DATE 04 JUL 2009
+1 BIRT
+2 DATE 13 FEB 1886
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 163, red. br. ---
+1 BAPM
+2 DATE 16 FEB 1886
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+1 DEAT
+2 DATE 24 AUG 1967
+2 PLAC Lozovik, Velika Plana, Srbija
+2 SOUR @S3@
+3 PAGE 163, red. br. ---
+1 BURI
+2 DATE 25 AUG 1967
+2 PLAC Lozovik, Srpsko groblje
+1 OCCU "zadrugar"
+1 FAMS @F112@
+1 FAMC @F109@
+0 @F44207@ FAM
+1 HUSB @I1@
+1 CHIL @I5@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I4@
+1 CHIL @I1@
+0 @F8@ FAM
+1 HUSB @I21@
+1 WIFE @I22@
+1 CHIL @I23@
+1 CHIL @I24@
+1 CHIL @I2@
+1 MARR
+2 DATE 04 OCT 1925
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F12@ FAM
+1 HUSB @I31@
+1 WIFE @I32@
+1 CHIL @I3@
+1 MARR
+2 DATE 08 FEB 1942
+2 PLAC Smederevo, crkva sv. Ðorða
+0 @F40655@ FAM
+1 HUSB @I4@
+1 WIFE @I20@
+1 CHIL @I6@
+1 CHIL @I7@
+0 @F3@ FAM
+1 HUSB @I8@
+1 WIFE @I9@
+1 CHIL @I10@
+1 CHIL @I11@
+1 MARR
+2 DATE ABT 1935
+0 @F76@ FAM
+1 HUSB @I222@
+1 WIFE @I223@
+1 CHIL @I9@
+1 CHIL @I216@
+1 CHIL @I224@
+1 MARR
+2 DATE ABT 1906
+2 PLAC Gorica, Goriška
+0 @F4@ FAM
+1 HUSB @I12@
+1 WIFE @I10@
+1 CHIL @I13@
+0 @F5@ FAM
+1 HUSB @I14@
+1 WIFE @I11@
+1 CHIL @I15@
+1 CHIL @I16@
+0 @F6@ FAM
+1 HUSB @I17@
+1 WIFE @I13@
+1 CHIL @I18@
+1 CHIL @I19@
+0 @F40654@ FAM
+1 HUSB @I15@
+0 @F43743@ FAM
+1 HUSB @I18@
+0 @F68@ FAM
+1 HUSB @I194@
+1 WIFE @I202@
+1 CHIL @I203@
+1 CHIL @I20@
+0 @S1@ SOUR
+1 ABBR Knjiga roðenih crkve u Lozoviku,
+1 NOTE Lorem ipsum note.
+0 @F13@ FAM
+1 HUSB @I33@
+1 WIFE @I34@
+1 CHIL @I21@
+1 MARR
+2 DATE 28 JAN 1901
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @S2@ SOUR
+1 ABBR Knjiga roðenih crkve u Skobalju, 1902 - 1915
+1 NOTE Lorem ipsum note.
+0 @F14@ FAM
+1 HUSB @I35@
+1 WIFE @I36@
+1 CHIL @I22@
+1 MARR
+2 DATE 05 FEB 1906
+2 PLAC Skobalj, crkva Uspenja Presv. Bogorodice
+0 @F9@ FAM
+1 HUSB @I25@
+1 WIFE @I23@
+1 CHIL @I26@
+1 MARR
+2 DATE 1955
+0 @F10@ FAM
+1 HUSB @I27@
+1 WIFE @I24@
+1 CHIL @I28@
+0 @F214@ FAM
+1 CHIL @I25@
+0 @F42370@ FAM
+1 CHIL @I27@
+0 @F11@ FAM
+1 HUSB @I29@
+1 WIFE @I28@
+1 CHIL @I30@
+0 @F5617@ FAM
+1 CHIL @I29@
+0 @F16@ FAM
+1 HUSB @I41@
+1 WIFE @I42@
+1 CHIL @I43@
+1 CHIL @I44@
+1 CHIL @I31@
+1 CHIL @I45@
+1 CHIL @I46@
+1 MARR
+2 DATE 25 FEB 1918
+2 PLAC Smederevo, crkva sv. Ðorða
+0 @F21@ FAM
+1 HUSB @I56@
+1 WIFE @I57@
+1 CHIL @I32@
+1 CHIL @I58@
+1 CHIL @I59@
+1 CHIL @I60@
+1 CHIL @I61@
+1 CHIL @I62@
+1 MARR
+2 DATE 17 JAN 1921
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+0 @S3@ SOUR
+1 ABBR Knjiga roðenih crkve u Lozoviku, 1879 - 1886
+1 NOTE Lorem ipsum note.
+0 @F29@ FAM
+1 HUSB @I79@
+1 WIFE @I84@
+1 CHIL @I85@
+1 CHIL @I86@
+1 CHIL @I88@
+1 CHIL @I33@
+1 CHIL @I89@
+1 CHIL @I90@
+1 MARR
+2 DATE 12 NOV 1872
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F135@ FAM
+1 WIFE @I272@
+1 CHIL @I34@
+1 MARR
+2 DATE 11 JAN 1870
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F195@ FAM
+1 CHIL @I35@
+1 MARR
+2 DATE ABT 1874
+0 @F2501@ FAM
+1 HUSB @I37@
+1 WIFE @I36@
+1 CHIL @I38@
+1 CHIL @I39@
+1 CHIL @I40@
+1 MARR
+2 DATE ABT 1919
+0 @F99@ FAM
+1 HUSB @I277@
+1 WIFE @I278@
+1 CHIL @I36@
+1 CHIL @I279@
+1 CHIL @I280@
+1 CHIL @I281@
+1 CHIL @I282@
+1 MARR
+2 DATE 15 JAN 1878
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F4633@ FAM
+1 CHIL @I37@
+0 @F285@ FAM
+1 WIFE @I38@
+0 @F10973@ FAM
+1 WIFE @I38@
+0 @F281@ FAM
+1 HUSB @I39@
+0 @F2967@ FAM
+1 WIFE @I40@
+0 @F222@ FAM
+1 WIFE @I40@
+1 MARR
+2 DATE 08 MAY 1960
+0 @F17@ FAM
+1 HUSB @I41@
+1 WIFE @I47@
+1 CHIL @I48@
+1 MARR
+2 DATE 1933/1934
+0 @F196@ FAM
+1 CHIL @I41@
+1 MARR
+2 DATE 03 MAY 1898
+2 PLAC Smederevo, crkva sv. Ðorða
+1 RESI
+2 DATE ABT 1894
+0 @S4@ SOUR
+1 ABBR Knjiga roðenih crkve u Kolarima, 1897 - 1899
+1 NOTE Lorem ipsum note.
+0 @F1329@ FAM
+1 CHIL @I42@
+1 MARR
+2 DATE 04 NOV 1890
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+0 @F230@ FAM
+1 WIFE @I43@
+0 @F232@ FAM
+1 WIFE @I44@
+1 MARR
+2 DATE ABT 1940
+0 @F18@ FAM
+1 HUSB @I45@
+1 WIFE @I49@
+1 CHIL @I50@
+1 CHIL @I51@
+1 MARR
+2 DATE ABT 1947
+0 @F226@ FAM
+1 WIFE @I46@
+1 MARR
+2 DATE 1948
+0 @F239@ FAM
+1 WIFE @I47@
+0 @F46104@ FAM
+1 CHIL @I47@
+0 @F2656@ FAM
+1 CHIL @I49@
+0 @F223@ FAM
+1 WIFE @I50@
+0 @F19@ FAM
+1 HUSB @I52@
+1 WIFE @I51@
+1 CHIL @I53@
+0 @F3514@ FAM
+1 CHIL @I52@
+0 @F20@ FAM
+1 HUSB @I53@
+1 WIFE @I54@
+1 CHIL @I55@
+0 @F119@ FAM
+1 CHIL @I56@
+1 MARR
+2 DATE 20 OCT 1896
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+0 @S5@ SOUR
+1 ABBR Knjiga roðenih crkve u Kolarima, 1900 - 1902
+1 NOTE Lorem ipsum note.
+0 @F134@ FAM
+1 CHIL @I57@
+1 MARR
+2 DATE 09 FEB 1886
+2 PLAC Kolari, crkva sv. apostola Petra i Pavla
+0 @F22@ FAM
+1 HUSB @I58@
+1 WIFE @I63@
+1 CHIL @I64@
+1 CHIL @I65@
+1 MARR
+2 DATE ABT 1947
+0 @F23@ FAM
+1 HUSB @I62@
+1 WIFE @I66@
+1 CHIL @I67@
+1 CHIL @I68@
+0 @F4256@ FAM
+1 CHIL @I63@
+1 MARR
+2 DATE 01 NOV 1926
+2 PLAC Selevac, crkva sv. Duha
+0 @F1745@ FAM
+1 CHIL @I66@
+0 @F24@ FAM
+1 HUSB @I69@
+1 WIFE @I67@
+1 CHIL @I70@
+0 @F25@ FAM
+1 HUSB @I68@
+1 WIFE @I71@
+1 CHIL @I72@
+1 CHIL @I73@
+0 @F46835@ FAM
+1 WIFE @I73@
+0 @F329@ FAM
+1 HUSB @I74@
+1 CHIL @I75@
+0 @S6@ SOUR
+1 ABBR Popis stanovništva za Lozovik iz 1863. godine - mikrofilm, rolna 39
+1 NOTE Lorem ipsum note.
+0 @S7@ SOUR
+1 ABBR Knjiga umrlih crkve u Lozoviku, 1875 - 1879
+1 NOTE Lorem ipsum note.
+0 @F28@ FAM
+1 HUSB @I77@
+1 WIFE @I75@
+1 CHIL @I83@
+1 CHIL @I82@
+1 MARR
+2 DATE 28 JAN 1838
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F27@ FAM
+1 HUSB @I76@
+1 WIFE @I78@
+1 CHIL @I79@
+1 CHIL @I81@
+1 CHIL @I80@
+1 MARR
+2 DATE 1848 - 1850
+0 @F12232@ FAM
+1 HUSB @I87@
+1 CHIL @I76@
+0 @S8@ SOUR
+1 ABBR Araèki tefter za 1832./1833. godinu
+1 NOTE Lorem ipsum note.
+0 @S9@ SOUR
+1 ABBR Knjiga umrlih crkve u Lozoviku, 1879 - 1891
+1 NOTE Lorem ipsum note.
+0 @F3659@ FAM
+1 CHIL @I77@
+0 @S10@ SOUR
+1 ABBR Knjiga roðenih crkve u Lozoviku, 1849 - 1857
+1 NOTE Lorem ipsum note.
+0 @S11@ SOUR
+1 ABBR Knjiga roðenih crkve u Lozoviku, 1862 - 1871
+1 NOTE Lorem ipsum note.
+0 @S12@ SOUR
+1 ABBR Knjiga umrlih za Veliko Orašje 1914 - 1935
+1 NOTE Lorem ipsum note.
+0 @F328@ FAM
+1 WIFE @I80@
+1 MARR
+2 DATE ABT 1884
+0 @S13@ SOUR
+1 ABBR Knjiga roðenih crkve u Lozoviku, 1857 - 1862
+1 NOTE Lorem ipsum note.
+0 @F327@ FAM
+1 WIFE @I81@
+1 MARR
+2 DATE 15 FEB 1881
+2 PLAC Miloševac, Velika Plana, Srbija
+0 @F10118@ FAM
+1 WIFE @I81@
+1 MARR
+2 DATE ABT 1882
+0 @F30@ FAM
+1 HUSB @I82@
+1 WIFE @I274@
+1 CHIL @I92@
+1 CHIL @I275@
+1 CHIL @I91@
+1 CHIL @I93@
+1 CHIL @I94@
+1 CHIL @I95@
+1 MARR
+2 DATE 08 FEB 1876
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @S14@ SOUR
+1 ABBR Popis stanovništva i poljoprivrede u srezu Podunavskom 1863. godine
+1 NOTE Lorem ipsum note.
+0 @S15@ SOUR
+1 ABBR Knjiga umrlih crkve u Lozoviku, 1913 - 1919
+1 NOTE Lorem ipsum note.
+0 @F31@ FAM
+1 HUSB @I83@
+1 CHIL @I96@
+1 MARR
+2 DATE 31 JAN 1865
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F330@ FAM
+1 HUSB @I83@
+1 MARR
+2 DATE 08 JAN 1887
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F189@ FAM
+1 CHIL @I84@
+1 MARR
+2 DATE 1846 - 1850
+0 @F212@ FAM
+1 CHIL @I87@
+0 @F205@ FAM
+1 WIFE @I88@
+1 MARR
+2 DATE 12 NOV 1895
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F32@ FAM
+1 HUSB @I89@
+1 WIFE @I97@
+1 CHIL @I98@
+1 MARR
+2 DATE 03 FEB 1908
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F33@ FAM
+1 HUSB @I90@
+1 WIFE @I99@
+1 CHIL @I100@
+1 CHIL @I101@
+1 CHIL @I102@
+1 CHIL @I103@
+1 MARR
+2 DATE 07 NOV 1910
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F34@ FAM
+1 HUSB @I91@
+1 WIFE @I104@
+1 CHIL @I105@
+1 MARR
+2 DATE 31 JUL 1905
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F35@ FAM
+1 HUSB @I92@
+1 WIFE @I106@
+1 CHIL @I107@
+1 MARR
+2 DATE 28 JAN 1901
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F36@ FAM
+1 HUSB @I93@
+1 WIFE @I108@
+1 CHIL @I109@
+1 CHIL @I110@
+0 @F37@ FAM
+1 HUSB @I94@
+1 WIFE @I111@
+1 CHIL @I112@
+1 CHIL @I113@
+1 MARR
+2 DATE 05 FEB 1917
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F38@ FAM
+1 HUSB @I95@
+1 WIFE @I114@
+1 CHIL @I115@
+1 CHIL @I116@
+0 @F39@ FAM
+1 HUSB @I96@
+1 CHIL @I117@
+1 CHIL @I118@
+1 MARR
+2 DATE 14 NOV 1893
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F46018@ FAM
+1 WIFE @I97@
+1 MARR
+2 DATE ABT 1939
+0 @F9050@ FAM
+1 WIFE @I97@
+1 MARR
+2 DATE ABT 1941
+0 @F3174@ FAM
+1 CHIL @I97@
+1 MARR
+2 DATE ABT 1868
+0 @F2817@ FAM
+1 CHIL @I99@
+1 MARR
+2 DATE 20 JAN 1885
+0 @F2518@ FAM
+1 WIFE @I100@
+0 @F40@ FAM
+1 HUSB @I119@
+1 WIFE @I101@
+1 CHIL @I120@
+1 MARR
+2 DATE ABT 1939
+0 @F41@ FAM
+1 HUSB @I102@
+1 WIFE @I121@
+1 CHIL @I122@
+1 CHIL @I123@
+1 CHIL @I124@
+1 MARR
+2 DATE 15 MAR 1947
+0 @F6746@ FAM
+1 CHIL @I104@
+0 @F42@ FAM
+1 HUSB @I105@
+1 WIFE @I125@
+1 CHIL @I126@
+1 CHIL @I127@
+1 CHIL @I128@
+1 MARR
+2 DATE ABT 1926
+0 @F380@ FAM
+1 CHIL @I106@
+0 @F43@ FAM
+1 HUSB @I107@
+1 CHIL @I129@
+1 CHIL @I130@
+0 @F44@ FAM
+1 HUSB @I109@
+1 WIFE @I131@
+1 CHIL @I132@
+1 CHIL @I133@
+1 CHIL @I134@
+0 @F2865@ FAM
+1 CHIL @I111@
+0 @F5068@ FAM
+1 WIFE @I113@
+0 @F45@ FAM
+1 HUSB @I115@
+1 WIFE @I135@
+1 CHIL @I136@
+1 CHIL @I137@
+0 @F46@ FAM
+1 HUSB @I116@
+1 CHIL @I138@
+1 CHIL @I139@
+0 @F2843@ FAM
+1 HUSB @I117@
+1 CHIL @I140@
+1 CHIL @I141@
+1 CHIL @I142@
+1 CHIL @I143@
+1 MARR
+2 DATE 07 FEB 1921
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F48@ FAM
+1 HUSB @I118@
+1 WIFE @I144@
+1 CHIL @I145@
+1 CHIL @I146@
+1 CHIL @I273@
+0 @F49@ FAM
+1 HUSB @I147@
+1 WIFE @I120@
+1 CHIL @I148@
+1 CHIL @I149@
+0 @F7174@ FAM
+1 CHIL @I121@
+1 MARR
+2 DATE ABT 1921
+0 @F50@ FAM
+1 HUSB @I150@
+1 WIFE @I122@
+1 CHIL @I151@
+0 @F51@ FAM
+1 HUSB @I123@
+1 WIFE @I152@
+1 CHIL @I153@
+1 CHIL @I154@
+0 @F52@ FAM
+1 HUSB @I124@
+1 WIFE @I155@
+0 @F2667@ FAM
+1 CHIL @I125@
+1 MARR
+2 DATE 04 FEB 1907
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F53@ FAM
+1 HUSB @I127@
+1 WIFE @I156@
+0 @F54@ FAM
+1 HUSB @I128@
+1 WIFE @I157@
+1 CHIL @I158@
+1 CHIL @I159@
+0 @F258@ FAM
+1 WIFE @I130@
+0 @F55@ FAM
+1 HUSB @I132@
+1 WIFE @I160@
+1 CHIL @I161@
+1 CHIL @I162@
+1 CHIL @I163@
+0 @F353@ FAM
+1 CHIL @I135@
+0 @F56@ FAM
+1 HUSB @I136@
+1 WIFE @I164@
+1 CHIL @I165@
+1 CHIL @I166@
+0 @F478@ FAM
+1 WIFE @I138@
+0 @F479@ FAM
+1 WIFE @I139@
+0 @F480@ FAM
+1 WIFE @I139@
+0 @F57@ FAM
+1 HUSB @I141@
+1 WIFE @I167@
+1 CHIL @I168@
+1 CHIL @I169@
+0 @F58@ FAM
+1 HUSB @I142@
+1 WIFE @I170@
+1 CHIL @I172@
+1 CHIL @I171@
+1 CHIL @I173@
+0 @F4629@ FAM
+1 WIFE @I143@
+0 @F11004@ FAM
+1 CHIL @I144@
+0 @F59@ FAM
+1 HUSB @I145@
+1 WIFE @I174@
+0 @F60@ FAM
+1 HUSB @I146@
+1 WIFE @I175@
+1 CHIL @I176@
+1 CHIL @I177@
+1 CHIL @I178@
+0 @F2520@ FAM
+1 WIFE @I148@
+0 @F2521@ FAM
+1 HUSB @I149@
+0 @F199@ FAM
+1 CHIL @I150@
+0 @F9320@ FAM
+1 CHIL @I152@
+0 @F12255@ FAM
+1 HUSB @I153@
+0 @F233@ FAM
+1 CHIL @I155@
+0 @F61@ FAM
+1 HUSB @I158@
+1 WIFE @I179@
+1 CHIL @I180@
+1 CHIL @I181@
+0 @F62@ FAM
+1 HUSB @I159@
+1 WIFE @I182@
+1 CHIL @I183@
+1 CHIL @I184@
+0 @F259@ FAM
+1 HUSB @I161@
+0 @F3228@ FAM
+1 WIFE @I163@
+0 @F6133@ FAM
+1 CHIL @I164@
+0 @F10901@ FAM
+1 HUSB @I168@
+0 @F11006@ FAM
+1 WIFE @I169@
+0 @F10903@ FAM
+1 WIFE @I171@
+0 @F10904@ FAM
+1 WIFE @I172@
+0 @F10905@ FAM
+1 WIFE @I173@
+0 @F11005@ FAM
+1 CHIL @I174@
+0 @F10861@ FAM
+1 WIFE @I176@
+0 @F4627@ FAM
+1 WIFE @I177@
+0 @F4628@ FAM
+1 WIFE @I177@
+0 @F257@ FAM
+1 WIFE @I178@
+0 @F473@ FAM
+1 WIFE @I180@
+0 @F474@ FAM
+1 HUSB @I181@
+0 @F475@ FAM
+1 HUSB @I183@
+0 @F476@ FAM
+1 HUSB @I184@
+0 @F63@ FAM
+1 HUSB @I185@
+1 WIFE @I186@
+1 CHIL @I187@
+1 CHIL @I188@
+1 CHIL @I189@
+1 MARR
+2 DATE 07 JAN 1899
+2 PLAC Dubrovnik
+0 @F82@ FAM
+1 HUSB @I233@
+1 WIFE @I234@
+1 CHIL @I185@
+1 CHIL @I235@
+1 MARR
+2 DATE 13 JUN 1852
+2 PLAC cerkev Svetega Duha, Grabe, Središèe ob Dravi
+0 @F79@ FAM
+1 HUSB @I230@
+1 WIFE @I228@
+1 CHIL @I186@
+1 MARR
+2 DATE 06 NOV 1860
+2 PLAC Dubrovnik, Dalmacija
+0 @F64@ FAM
+1 HUSB @I187@
+1 WIFE @I190@
+1 CHIL @I191@
+1 CHIL @I192@
+0 @F65@ FAM
+1 HUSB @I188@
+1 WIFE @I193@
+1 CHIL @I194@
+1 CHIL @I195@
+1 MARR
+2 DATE ABT 1932
+2 PLAC Maribor
+0 @F66@ FAM
+1 HUSB @I196@
+1 WIFE @I191@
+1 CHIL @I197@
+1 CHIL @I198@
+0 @F67@ FAM
+1 HUSB @I192@
+1 WIFE @I199@
+1 CHIL @I200@
+1 CHIL @I201@
+0 @F72@ FAM
+1 HUSB @I209@
+1 WIFE @I210@
+1 CHIL @I212@
+1 CHIL @I211@
+1 CHIL @I193@
+1 CHIL @I213@
+1 MARR
+2 DATE 17 JUN 1900
+2 PLAC Rdeèi breg 75
+0 @F69@ FAM
+1 HUSB @I204@
+1 WIFE @I195@
+1 CHIL @I205@
+0 @F4605@ FAM
+1 HUSB @I231@
+1 WIFE @I198@
+0 @F74@ FAM
+1 HUSB @I215@
+1 WIFE @I216@
+1 CHIL @I202@
+1 CHIL @I217@
+1 CHIL @I218@
+1 CHIL @I219@
+1 MARR
+2 DATE 1937
+0 @F70@ FAM
+1 HUSB @I203@
+1 WIFE @I206@
+1 CHIL @I207@
+0 @F71@ FAM
+1 HUSB @I208@
+1 WIFE @I205@
+0 @F94@ FAM
+1 HUSB @I268@
+1 CHIL @I206@
+1 CHIL @I269@
+0 @F95@ FAM
+1 HUSB @I270@
+1 CHIL @I208@
+1 CHIL @I271@
+0 @F91@ FAM
+1 HUSB @I262@
+1 WIFE @I263@
+1 CHIL @I209@
+1 MARR
+2 DATE 15 JAN 1866
+2 PLAC Leoben, St. Xaver
+0 @F44781@ FAM
+1 WIFE @I267@
+1 CHIL @I210@
+1 MARR
+2 DATE 17 FEB 1879
+2 PLAC Sv. Jernej, Ribnica na Pohorju
+0 @F73@ FAM
+1 HUSB @I214@
+1 WIFE @I211@
+1 MARR
+2 DATE 10 FEB 1924
+2 PLAC Meža pri Dravogradu
+0 @F8833@ FAM
+1 HUSB @I213@
+0 @F8832@ FAM
+1 HUSB @I213@
+0 @F43712@ FAM
+1 CHIL @I214@
+0 @F194@ FAM
+1 CHIL @I215@
+1 MARR
+2 DATE 04 SEP 1898
+2 PLAC Ljubljana, cerkev Marijinega oznanjenja
+0 @F75@ FAM
+1 HUSB @I218@
+1 WIFE @I220@
+1 CHIL @I221@
+1 MARR
+2 DATE ABT 1970
+0 @F197@ FAM
+1 CHIL @I222@
+1 MARR
+2 DATE 06 FEB 1865
+0 @F198@ FAM
+1 CHIL @I223@
+1 MARR
+2 DATE ABT 1875
+0 @F77@ FAM
+1 HUSB @I225@
+1 WIFE @I226@
+1 CHIL @I227@
+1 CHIL @I228@
+1 MARR
+2 DATE 11 AUG 1827
+2 PLAC Dubrovnik, Pile, crkva sv. Andrije
+0 @F13406@ FAM
+1 CHIL @I225@
+0 @F14155@ FAM
+1 CHIL @I226@
+1 MARR
+2 DATE ABT 1790 - 1792
+0 @F12947@ FAM
+1 HUSB @I227@
+1 MARR
+2 DATE 12 MAY 1858
+2 PLAC Zadar, Sv. Stošija
+0 @F4622@ FAM
+1 CHIL @I229@
+0 @F13434@ FAM
+1 HUSB @I258@
+1 WIFE @I259@
+1 CHIL @I230@
+1 MARR
+2 DATE 15 AUG 1818
+2 PLAC Praha, Staré Mìsto, Kostel sv. Havla
+0 @F4621@ FAM
+1 WIFE @I232@
+0 @F44460@ FAM
+1 HUSB @I233@
+1 MARR
+2 DATE 20 AUG 1840
+2 PLAC cerkev Svetega Duha, Grabe, Središèe ob Dravi
+0 @F44462@ FAM
+1 CHIL @I233@
+1 MARR
+2 DATE 11 FEB 1811
+2 PLAC Crkva Uzvišenja sv . Križa, Radovec
+0 @F44464@ FAM
+1 CHIL @I234@
+1 MARR
+2 DATE 12 FEB 1810
+2 PLAC Središèe ob Dravi
+0 @F83@ FAM
+1 HUSB @I235@
+1 CHIL @I236@
+0 @F84@ FAM
+1 HUSB @I236@
+1 CHIL @I238@
+1 CHIL @I240@
+1 CHIL @I241@
+1 CHIL @I239@
+1 CHIL @I242@
+1 CHIL @I237@
+0 @F8867@ FAM
+1 WIFE @I237@
+0 @F85@ FAM
+1 HUSB @I243@
+1 WIFE @I238@
+1 CHIL @I244@
+1 CHIL @I245@
+1 CHIL @I246@
+0 @F10425@ FAM
+1 HUSB @I239@
+0 @F8870@ FAM
+1 WIFE @I240@
+0 @F8881@ FAM
+1 WIFE @I241@
+0 @F193@ FAM
+1 CHIL @I243@
+0 @F86@ FAM
+1 HUSB @I247@
+1 WIFE @I244@
+1 CHIL @I248@
+1 CHIL @I249@
+1 CHIL @I250@
+0 @F87@ FAM
+1 HUSB @I245@
+1 WIFE @I251@
+1 CHIL @I252@
+1 CHIL @I253@
+0 @F88@ FAM
+1 HUSB @I246@
+1 WIFE @I254@
+1 CHIL @I255@
+1 CHIL @I256@
+1 CHIL @I257@
+0 @F13538@ FAM
+1 CHIL @I258@
+1 MARR
+2 DATE 18 JUL 1785
+2 PLAC Plzeò, kostel sv. Bartolomìje
+0 @F13525@ FAM
+1 CHIL @I259@
+1 MARR
+2 DATE 02 JAN 1791
+2 PLAC Praha, Staré Mìsto, Kostel sv. Jiljí
+0 @F44840@ FAM
+1 HUSB @I260@
+1 MARR
+2 DATE ABT 1802
+0 @F90@ FAM
+1 HUSB @I260@
+1 WIFE @I261@
+1 CHIL @I262@
+1 MARR
+2 DATE 05 MAR 1810
+2 PLAC Greifenburg, Koroška
+0 @F8859@ FAM
+1 CHIL @I260@
+1 MARR
+2 DATE 24 JAN 1769
+2 PLAC Greifenburg, Koroška
+0 @F8864@ FAM
+1 CHIL @I261@
+0 @F44833@ FAM
+1 HUSB @I262@
+1 MARR
+2 DATE ABT 1844
+0 @F92@ FAM
+1 HUSB @I264@
+1 WIFE @I265@
+1 CHIL @I263@
+1 MARR
+2 DATE 27 OCT 1844
+2 PLAC Gradec / Graz, Mariahilf
+0 @F44799@ FAM
+1 CHIL @I264@
+0 @F44800@ FAM
+1 CHIL @I265@
+1 MARR
+2 DATE 04 FEB 1816
+2 PLAC Gradec / Graz, Mariahilf
+0 @F44651@ FAM
+1 CHIL @I267@
+1 MARR
+2 DATE 26 NOV 1860
+2 PLAC Ribnica 27
+0 @F10426@ FAM
+1 HUSB @I269@
+0 @F362@ FAM
+1 CHIL @I272@
+1 MARR
+2 DATE 12 FEB 1850
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F4631@ FAM
+1 WIFE @I273@
+0 @F364@ FAM
+1 CHIL @I274@
+0 @F351@ FAM
+1 WIFE @I275@
+1 MARR
+2 DATE 21 JAN 1901
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F256@ FAM
+1 WIFE @I276@
+1 MARR
+2 DATE 17 JAN 1893
+2 PLAC Smederevo, crkva sv. Ðorða
+0 @F1861@ FAM
+1 CHIL @I276@
+0 @F108@ FAM
+1 HUSB @I300@
+1 CHIL @I303@
+1 CHIL @I277@
+1 CHIL @I301@
+1 CHIL @I304@
+1 CHIL @I302@
+1 MARR
+2 DATE 1843 - 1847
+0 @F361@ FAM
+1 CHIL @I278@
+1 MARR
+2 DATE 1845 - 1849
+0 @F100@ FAM
+1 HUSB @I283@
+1 WIFE @I279@
+1 CHIL @I284@
+1 CHIL @I285@
+1 MARR
+2 DATE 08 NOV 1909
+2 PLAC Skobalj, crkva Uspenja Presv. Bogorodice
+0 @F288@ FAM
+1 WIFE @I280@
+0 @F2846@ FAM
+1 WIFE @I281@
+1 MARR
+2 DATE 17 FEB 1918
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F101@ FAM
+1 HUSB @I286@
+1 WIFE @I281@
+1 CHIL @I288@
+1 CHIL @I287@
+1 MARR
+2 DATE 1935
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F102@ FAM
+1 HUSB @I289@
+1 WIFE @I282@
+1 CHIL @I290@
+1 MARR
+2 DATE 31 JAN 1921
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F5133@ FAM
+1 CHIL @I283@
+1 MARR
+2 DATE 29 SEP 1886
+0 @F2074@ FAM
+1 WIFE @I284@
+0 @F287@ FAM
+1 HUSB @I285@
+0 @F2180@ FAM
+1 CHIL @I286@
+1 MARR
+2 DATE 28 FEB 1888
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F289@ FAM
+1 WIFE @I287@
+0 @F2540@ FAM
+1 CHIL @I289@
+1 MARR
+2 DATE ABT 1894
+0 @F103@ FAM
+1 WIFE @I290@
+1 CHIL @I291@
+1 CHIL @I292@
+0 @F104@ FAM
+1 HUSB @I293@
+1 WIFE @I290@
+1 CHIL @I294@
+1 MARR
+2 DATE ABT 1960
+0 @F105@ FAM
+1 WIFE @I291@
+1 CHIL @I296@
+1 CHIL @I295@
+0 @F106@ FAM
+1 WIFE @I292@
+1 CHIL @I297@
+1 CHIL @I298@
+0 @F10971@ FAM
+1 HUSB @I293@
+0 @F107@ FAM
+1 WIFE @I294@
+1 CHIL @I299@
+0 @F10214@ FAM
+1 HUSB @I295@
+0 @F5146@ FAM
+1 WIFE @I296@
+0 @F5147@ FAM
+1 HUSB @I297@
+0 @F5148@ FAM
+1 HUSB @I298@
+0 @F3617@ FAM
+1 HUSB @I300@
+1 MARR
+2 DATE ABT 1835 - 1840
+0 @F2948@ FAM
+1 HUSB @I300@
+1 MARR
+2 DATE 11 JUL 1866
+2 PLAC Lozovik, Velika Plana, Srbija
+0 @F468@ FAM
+1 CHIL @I300@
+1 MARR
+2 DATE ABT 1810
+0 @F109@ FAM
+1 HUSB @I301@
+1 WIFE @I305@
+1 CHIL @I306@
+1 MARR
+2 DATE 10 FEB 1880
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F110@ FAM
+1 WIFE @I302@
+1 MARR
+2 DATE 02 FEB 1886
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F5028@ FAM
+1 WIFE @I303@
+1 MARR
+2 DATE 16 FEB 1869
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F3226@ FAM
+1 WIFE @I304@
+1 MARR
+2 DATE 24 JAN 1882
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @F2556@ FAM
+1 CHIL @I305@
+0 @F112@ FAM
+1 HUSB @I306@
+1 MARR
+2 DATE 28 OCT 1907
+2 PLAC Lozovik, crkva sv. apost. Petra i Pavla
+0 @SUB1@ SUBM
+1 NAME Jožef7
+1 ADDR Naslov 1
+1 EMAIL user1@example.test
+0 TRLR

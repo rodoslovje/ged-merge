@@ -1,0 +1,3538 @@
+﻿0 HEAD
+1 DATE 7 APR 2026
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I4@ INDI
+1 NAME Cvetka11 Genovefa /Grebencič/
+2 GIVN Ana12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 5 DEC 1924
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 95
+1 DEAT
+2 DATE 27 APR 2001
+2 PLAC Ajdovščina, Slovenija
+1 BURI
+2 DATE 30 APR 2001
+2 PLAC Velike Žablje, Slovenija
+1 FAMS @F2@
+1 FAMC @F4@
+0 @I11@ INDI
+1 NAME Alojzija8 /Grebencič/
+2 GIVN Alojzija8
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 18 JUL 1882
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 9
+1 DEAT
+2 DATE 6 FEB 1956
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F4@
+1 FAMC @F7@
+0 @I12@ INDI
+1 NAME Ivana8 /Grebencek/
+2 GIVN Ivana8
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 1 JAN 1888
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 9 NOV 1955
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F4@
+1 FAMC @F12@
+0 @I13@ INDI
+1 NAME Marija12 Zofija5 /Grebencič/
+2 GIVN Ivan12
+2 SURN Grebencič
+1 SEX F
+1 BIRT
+2 DATE 9 APR 1912
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 9
+1 DEAT
+2 DATE 25 MAR 1931
+1 FAMC @F4@
+0 @I14@ INDI
+1 NAME Alojzija8 /Grebencič/
+2 GIVN Alojzija8
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 1 JAN 1914
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 9
+1 DEAT
+2 DATE 7 OCT 1948
+2 PLAC Volčja Draga, Slovenija, Jugoslavija
+1 FAMS @F3698@
+1 FAMC @F4@
+0 @I15@ INDI
+1 NAME Elizabeta /Grebencič/
+2 GIVN Elizabeta
+2 SURN Grebencič
+2 NICK Gašper4
+1 SEX F
+1 BIRT
+2 DATE 18 NOV 1915
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 9
+1 FAMS @F716@
+1 FAMC @F4@
+0 @I16@ INDI
+1 NAME Jožef12 /Grebencič/
+2 GIVN Jožef12
+2 SURN Grebencič
+2 NICK Marjeta5
+1 SEX F
+1 BIRT
+2 DATE 6 JAN 1919
+2 PLAC Velike Žablje, Julijska krajina
+2 ADDR Velike Žablje 95
+1 DEAT
+2 DATE 7 DEC 2011
+2 PLAC Nova Gorica, Slovenija
+1 FAMS @F5@
+1 FAMC @F4@
+0 @I17@ INDI
+1 NAME Frančiška2 Marija4 /Grebencič/
+2 GIVN Franc12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 8 DEC 1920
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 95
+1 DEAT
+2 DATE 14 DEC 1920
+1 FAMC @F4@
+0 @I18@ INDI
+1 NAME Martin3 Lovro3 /Grebencič/
+2 GIVN Marko12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 19 NOV 1922
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 95
+1 DEAT
+2 DATE 15 NOV 1943
+2 PLAC Ravne pri Žireh, Operativna cona Jadransko morje, Socialistična republika Jugoslavija
+1 FAMC @F4@
+0 @I23@ INDI
+1 NAME Tone12 /Grebencar/
+2 GIVN Tone12
+2 SURN Grebencar
+1 SEX M
+1 BIRT
+2 DATE 1909
+1 DEAT
+2 DATE MAR 1978
+1 FAMS @F716@
+0 @I24@ INDI
+1 NAME Jera Alojz4 /Grebencnik/
+2 GIVN Neža12
+2 SURN Grebencnik
+1 SEX M
+1 BIRT
+2 DATE 17 DEC 1916
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 30 Brenček dolnji
+1 DEAT
+2 DATE 14 JUL 1994
+2 PLAC Nova Gorica, Slovenija
+1 FAMS @F5@
+1 FAMC @F4633@
+0 @I32@ INDI
+1 NAME Lovro3 /Grebencšek/
+2 GIVN Lovro3
+2 SURN Grebencšek
+1 SEX M
+1 BIRT
+2 DATE 26 JUN 1923
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 25
+1 DEAT
+2 DATE 16 OCT 1975
+2 PLAC Sežana, Slovenija, Jugoslavija
+1 FAMS @F721@
+1 FAMC @F1748@
+0 @I45@ INDI
+1 NAME Genovefa /Grebencič/
+2 GIVN Genovefa
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 23 AUG 1840
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 65
+1 DEAT
+2 DATE 17 DEC 1910
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F7@
+1 FAMC @F632@
+0 @I46@ INDI
+1 NAME Elizabeta /Grebencnc/
+2 GIVN Elizabeta
+2 SURN Grebencnc
+1 SEX F
+1 BIRT
+2 DATE 9 JAN 1847
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 5 MAR 1926
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+1 FAMS @F7@
+1 FAMC @F11@
+0 @I47@ INDI
+1 NAME Marjeta2 /Grebencič/
+2 GIVN Marjeta2
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 25 JAN 1870
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 17 MAR 1870
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 BURI
+2 DATE 18 MAR 1870
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F7@
+0 @I48@ INDI
+1 NAME Alojz12 /Grebencič/
+2 GIVN Alojz12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 3 NOV 1871
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 1871
+1 FAMC @F7@
+0 @I49@ INDI
+1 NAME Štefan /Grebencič/
+2 GIVN Štefan
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 13 FEB 1873
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 19 NOV 1874
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 BURI
+2 DATE 20 NOV 1874
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F7@
+0 @I50@ INDI
+1 NAME Aleš /Grebencič/
+2 GIVN Aleš
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 27 MAY 1875
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT Y
+1 FAMS @F8@
+1 FAMS @F1147@
+1 FAMS @F1148@
+1 FAMC @F7@
+0 @I51@ INDI
+1 NAME Terezija12 /Grebencič/
+2 GIVN Terezija12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 2 JAN 1878
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 3 NOV 1878
+1 FAMC @F7@
+0 @I52@ INDI
+1 NAME Peter12 /Grebencič/
+2 GIVN Peter12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 24 NOV 1879
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 23 DEC 1882
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 BURI
+2 DATE 24 DEC 1882
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F7@
+0 @I53@ INDI
+1 NAME Peter12 /Grebencič/
+2 GIVN Peter12
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 22 FEB 1885
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 8 DEC 1907
+1 FAMC @F7@
+0 @I54@ INDI
+1 NAME Elizabeta /Grebencič/
+2 GIVN Elizabeta
+2 SURN Grebencič
+1 SEX F
+1 BIRT
+2 DATE 3 SEP 1887
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 8
+1 DEAT
+2 DATE 29 OCT 1970
+1 FAMS @F9@
+1 FAMC @F7@
+0 @I55@ INDI
+1 NAME Marija4 /Grebencič/
+2 GIVN Marija4
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 21 MAY 1890
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 9
+1 DEAT
+2 DATE 1980
+1 FAMS @F10@
+1 FAMS @F1928@
+1 FAMC @F7@
+0 @I56@ INDI
+1 NAME Elizabeta4 /Grebencič/
+2 GIVN Elizabeta4
+2 SURN Grebencič
+1 SEX F
+1 BIRT
+2 DATE 20 SEP 1904
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 5
+1 BIRT
+2 DATE 20 SEP 1904
+2 PLAC Vipava, Vojvodina Kranjska, Avstro-Ogrska
+1 DEAT
+2 DATE 1981
+1 FAMS @F1885@
+1 FAMC @F8@
+0 @I57@ INDI
+1 NAME Aleš Martin5 /Grebencič/
+2 GIVN Katarina12
+2 SURN Grebencič
+2 NICK Aleš7
+1 SEX M
+1 BIRT
+2 DATE 31 AUG 1908
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 5
+1 DEAT
+2 DATE 5 JAN 1974
+1 FAMS @F1923@
+1 FAMC @F8@
+0 @I58@ INDI
+1 NAME Ljudmila Elizabeta /Grebencič/
+2 GIVN Elizabeta8
+2 SURN Grebencič
+1 SEX F
+1 BIRT
+2 DATE 21 DEC 1911
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 5
+1 DEAT
+2 DATE 2011
+1 FAMS @F1752@
+1 FAMC @F8@
+0 @I59@ INDI
+1 NAME Anton12 /Grebencman/
+2 GIVN Anton12
+2 SURN Grebencman
+2 NICK Lucija4
+1 SEX M
+1 BIRT
+2 DATE 2 APR 1879
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 23 Batovi
+1 DEAT
+2 DATE 20 FEB 1966
+1 FAMS @F9@
+1 FAMC @F5842@
+0 @I61@ INDI
+1 NAME Marjeta2 /Grebencman/
+2 GIVN Marjeta2
+2 SURN Grebencman
+1 SEX M
+1 BIRT
+2 DATE 18 OCT 1922
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 23 Batovi
+1 DEAT
+2 DATE JAN 1991
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F777@
+1 FAMC @F9@
+0 @I63@ INDI
+1 NAME Elizabeta /Grebencman/
+2 GIVN Elizabeta
+2 SURN Grebencman
+1 SEX F
+1 BIRT
+2 DATE 28 OCT 1925
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 23 Batovi
+1 DEAT
+2 DATE 2007
+1 FAMS @F782@
+1 FAMC @F9@
+0 @I68@ INDI
+1 NAME Uršula12 /Grebencovec/
+2 GIVN Uršula12
+2 SURN Grebencovec
+1 SEX M
+1 BIRT
+2 DATE 4 JUL 1923
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 49
+1 DEAT
+2 DATE 2 SEP 1983
+1 FAMS @F782@
+1 FAMC @F2143@
+0 @I70@ INDI
+1 NAME Marjeta2 /Grebencič/
+2 GIVN Marjeta2
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 28 MAR 1803
+2 PLAC Gabrovica, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+2 ADDR Gabrovica 26
+1 DEAT
+2 DATE 8 NOV 1888
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 66
+1 BURI
+2 DATE 10 NOV 1888
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F632@
+1 FAMC @F629@
+0 @I71@ INDI
+1 NAME Elizabeta /Grebencin/
+2 GIVN Elizabeta
+2 SURN Grebencin
+1 SEX F
+1 BIRT
+2 DATE 25 DEC 1801
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+2 ADDR Velike Žablje 11
+1 DEAT
+2 DATE 5 AUG 1884
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 66
+1 BURI
+2 DATE 6 AUG 1884
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F632@
+1 FAMC @F630@
+0 @I72@ INDI
+1 NAME Bernard4 /Grebencič/
+2 GIVN Bernard4
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 11 JUL 1834
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 65
+1 DEAT
+2 DATE 4 DEC 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 66
+1 BURI
+2 DATE 5 DEC 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F632@
+0 @I73@ INDI
+1 NAME Veronika2 /Grebencič/
+2 GIVN Veronika2
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 23 APR 1838
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 65
+1 DEAT Y
+1 FAMS @F634@
+1 FAMC @F632@
+0 @I74@ INDI
+1 NAME Alojzija /Grebencič/
+2 GIVN Alojzija
+2 SURN Grebencič
+1 SEX M
+1 BIRT
+2 DATE 23 JUN 1843
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 65
+1 DEAT Y
+1 FAMS @F635@
+1 FAMS @F5955@
+1 FAMC @F632@
+0 @I75@ INDI
+1 NAME Elizabeta /Grebencič/
+2 GIVN Elizabeta
+2 SURN Grebencič
+1 SEX F
+1 BIRT
+2 DATE 12 SEP 1836
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 65
+1 DEAT
+2 DATE 29 SEP 1917
+1 FAMS @F633@
+1 FAMC @F632@
+0 @I76@ INDI
+1 NAME Marjeta2 /Grebencnc/
+2 GIVN Marjeta2
+2 SURN Grebencnc
+1 SEX M
+1 BIRT
+2 DATE 7 FEB 1820
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 26 JUL 1855
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 BURI
+2 DATE 27 JUL 1855
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+1 FAMS @F11@
+1 FAMC @F1932@
+0 @I77@ INDI
+1 NAME Anton4 /Grebencel/
+2 GIVN Anton4
+2 SURN Grebencel
+1 SEX F
+1 BIRT
+2 DATE 14 DEC 1823
+2 PLAC Sanabor, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Sanabor 20
+1 DEAT
+2 DATE 10 AUG 1900
+1 FAMS @F11@
+1 FAMS @F726@
+1 FAMC @F1999@
+0 @I78@ INDI
+1 NAME Gašper2 /Grebencnc/
+2 GIVN Gašper2
+2 SURN Grebencnc
+1 SEX F
+1 BIRT
+2 DATE 18 JUN 1845
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 3 APR 1913
+1 FAMS @F1146@
+1 FAMS @F5269@
+1 FAMC @F11@
+0 @I79@ INDI
+1 NAME Egidij2 /Grebencnc/
+2 GIVN Egidij2
+2 SURN Grebencnc
+1 SEX F
+1 BIRT
+2 DATE 25 NOV 1849
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 16 SEP 1856
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 BURI
+2 DATE 18 SEP 1856
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+1 FAMC @F11@
+0 @I80@ INDI
+1 NAME Marjeta2 /Grebencnc/
+2 GIVN Marjeta2
+2 SURN Grebencnc
+1 SEX M
+1 BIRT
+2 DATE 15 JAN 1852
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 5 MAY 1928
+1 FAMS @F1149@
+1 FAMC @F11@
+0 @I81@ INDI
+1 NAME Genovefa /Grebencnc/
+2 GIVN Genovefa
+2 SURN Grebencnc
+1 SEX M
+1 BIRT
+2 DATE 24 NOV 1854
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 20 AUG 1860
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 BURI
+2 DATE 21 AUG 1860
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+1 FAMC @F11@
+0 @I82@ INDI
+1 NAME Janez3 /Grebencnič/
+2 GIVN Janez3
+2 SURN Grebencnič
+1 SEX F
+1 BIRT
+2 DATE 30 OCT 1858
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT Y
+1 FAMC @F726@
+0 @I83@ INDI
+1 NAME Lucija2 /Grebencnič/
+2 GIVN Lucija2
+2 SURN Grebencnič
+1 SEX F
+1 BIRT
+2 DATE 8 DEC 1860
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT Y
+1 FAMS @F2192@
+1 FAMC @F726@
+0 @I84@ INDI
+1 NAME Apolonija5 /Grebencnič/
+2 GIVN Apolonija5
+2 SURN Grebencnič
+1 SEX F
+1 BIRT
+2 DATE 2 FEB 1863
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 10 FEB 1863
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 BURI
+2 DATE 11 FEB 1863
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+1 FAMC @F726@
+0 @I85@ INDI
+1 NAME Vinko /Grebencnič/
+2 GIVN Vinko
+2 SURN Grebencnič
+1 SEX F
+1 BIRT
+2 DATE 5 JAN 1864
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT Y
+1 FAMS @F2194@
+1 FAMC @F726@
+0 @I86@ INDI
+1 NAME Genovefa /Grebencnič/
+2 GIVN Genovefa
+2 SURN Grebencnič
+1 SEX M
+1 BIRT
+2 DATE 22 OCT 1866
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 31 DEC 1949
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F2001@
+1 FAMC @F726@
+0 @I87@ INDI
+1 NAME Angela8 /Grebencnič/
+2 GIVN Angela8
+2 SURN Grebencnič
+1 SEX F
+1 BIRT
+2 DATE 19 JUL 1869
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 57
+1 DEAT
+2 DATE 4 DEC 1918
+1 FAMS @F4775@
+1 FAMC @F726@
+0 @I88@ INDI
+1 NAME Karolina /Grebencek/
+2 GIVN Karolina
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 12 SEP 1848
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 13
+1 DEAT
+2 DATE 6 OCT 1931
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+1 FAMS @F764@
+1 FAMS @F12@
+1 FAMC @F13@
+0 @I89@ INDI
+1 NAME Peter4 Jakob2 /Grebencnik/
+2 GIVN Matija12
+2 SURN Grebencnik
+1 SEX F
+1 BIRT
+2 DATE 17 OCT 1856
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 1 FEB 1920
+2 PLAC Velike Žablje, Julijska krajina
+1 FAMS @F12@
+1 FAMC @F14@
+0 @I90@ INDI
+1 NAME Vinko /Grebencek/
+2 GIVN Vinko
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 1 JAN 1878
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 84
+1 DEAT Y
+1 FAMS @F2000@
+1 FAMC @F12@
+0 @I91@ INDI
+1 NAME Helena12 /Grebencek/
+2 GIVN Helena12
+2 SURN Grebencek
+2 NICK Lovro12
+1 SEX F
+1 BIRT
+2 DATE 13 AUG 1879
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 84
+1 DEAT
+2 DATE 8 DEC 1955
+1 FAMS @F785@
+1 FAMC @F12@
+0 @I92@ INDI
+1 NAME Simon8 /Grebencek/
+2 GIVN Simon8
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 22 MAR 1881
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 10 APR 1929
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+1 BURI
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+1 FAMS @F741@
+1 FAMC @F12@
+0 @I93@ INDI
+1 NAME Marta7 /Grebencek/
+2 GIVN Marta7
+2 SURN Grebencek
+2 NICK Barbara12
+1 SEX F
+1 BIRT
+2 DATE 10 JAN 1883
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 1965
+1 FAMS @F1142@
+1 FAMC @F12@
+0 @I94@ INDI
+1 NAME Elizabeta3 /Grebencek/
+2 GIVN Elizabeta3
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 16 MAR 1885
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 85
+1 DEAT
+2 DATE 24 MAR 1886
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 BURI
+2 DATE 25 MAR 1886
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F12@
+0 @I95@ INDI
+1 NAME Angela8 /Grebencek/
+2 GIVN Angela8
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 1 NOV 1890
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 85
+1 DEAT
+2 DATE 7 APR 1971
+1 FAMS @F301@
+1 FAMC @F12@
+0 @I96@ INDI
+1 NAME Genovefa11 /Grebencek/
+2 GIVN Genovefa11
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 14 APR 1897
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT Y
+1 FAMS @F766@
+1 FAMC @F12@
+0 @I97@ INDI
+1 NAME Karolina /Grebencek/
+2 GIVN Karolina
+2 SURN Grebencek
+2 DATE 14 NOV 1876
+1 SEX M
+1 BIRT
+2 DATE 30 AUG 1796
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+2 ADDR Velike Žablje 41
+1 DEAT
+2 DATE 2 APR 1871
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 84
+1 BURI
+2 DATE 4 APR 1871
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F13@
+1 FAMC @F2107@
+0 @I98@ INDI
+1 NAME Marko3 /Grebencovič/
+2 GIVN Marko3
+2 SURN Grebencovič
+1 SEX F
+1 BIRT
+2 DATE 16 AUG 1805
+2 PLAC Vogrsko, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+2 ADDR Vogrsko 61
+1 DEAT
+2 DATE 1 APR 1891
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 BURI
+2 DATE 2 APR 1891
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F13@
+1 FAMC @F3360@
+0 @I99@ INDI
+1 NAME Vinko /Grebencek/
+2 GIVN Vinko
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 12 JAN 1841
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 13
+1 DEAT
+2 DATE 12 FEB 1915
+2 PLAC Brje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F762@
+1 FAMC @F13@
+0 @I100@ INDI
+1 NAME Ljudmila /Grebencek/
+2 GIVN Ljudmila
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 20 JUN 1846
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 13
+1 DEAT
+2 DATE 11 JUN 1916
+1 FAMS @F1143@
+1 FAMC @F13@
+0 @I101@ INDI
+1 NAME Karolina /Grebencnik/
+2 GIVN Karolina
+2 SURN Grebencnik
+1 SEX M
+1 BIRT
+2 DATE 28 JUN 1813
+2 PLAC Velike Žablje, Ilirske province, Francosko cesarstvo
+2 ADDR Velike Žablje 28
+1 DEAT
+2 DATE 11 NOV 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 42
+1 BURI
+2 DATE 13 NOV 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F14@
+1 FAMC @F1896@
+0 @I102@ INDI
+1 NAME Elizabeta /Grebencak/
+2 GIVN Elizabeta
+2 SURN Grebencak
+1 SEX F
+1 BIRT
+2 DATE 19 AUG 1816
+2 PLAC Erzelj, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Erzelj 18
+1 DEAT
+2 DATE 20 NOV 1874
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 20
+1 BURI
+2 DATE 21 NOV 1874
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F14@
+1 FAMC @F1828@
+0 @I103@ INDI
+1 NAME Karolina /Grebencnik/
+2 GIVN Karolina
+2 SURN Grebencnik
+1 SEX M
+1 BIRT
+2 DATE 19 FEB 1842
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 25 FEB 1911
+2 PLAC Plače, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F1971@
+1 FAMC @F14@
+0 @I104@ INDI
+1 NAME Marko3 /Grebencnik/
+2 GIVN Marko3
+2 SURN Grebencnik
+1 SEX F
+1 BIRT
+2 DATE 6 OCT 1853
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 15 OCT 1870
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 20
+1 BURI
+2 DATE 17 OCT 1870
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F14@
+0 @I105@ INDI
+1 NAME Genovefa /Grebencnik/
+2 GIVN Genovefa
+2 SURN Grebencnik
+1 SEX M
+1 BIRT
+2 DATE 20 NOV 1859
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 12 NOV 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 42
+1 BURI
+2 DATE 14 NOV 1895
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMS @F2196@
+1 FAMC @F14@
+0 @I106@ INDI
+1 NAME Marjeta2 /Grebencnik/
+2 GIVN Marjeta2
+2 SURN Grebencnik
+1 SEX M
+1 BIRT
+2 DATE 5 OCT 1862
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 7 AUG 1866
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 20
+1 BURI
+2 DATE 9 AUG 1866
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+1 FAMC @F14@
+0 @I107@ INDI
+1 NAME Marjeta2 /Grebencveč/
+2 GIVN Marjeta2
+2 SURN Grebencveč
+1 SEX M
+1 BIRT
+2 DATE 24 AUG 1897
+2 PLAC Studor, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Studor 9
+1 DEAT
+2 DATE 31 JUL 1965
+2 PLAC Jesenice, Slovenija, Jugoslavija
+1 BURI
+2 DATE 3 AUG 1965
+2 PLAC Srednja vas v Bohinju, Slovenija, Jugoslavija
+1 FAMS @F15@
+1 FAMC @F19@
+0 @I108@ INDI
+1 NAME Jakob2 /Grebenciček/
+2 GIVN Jakob2
+2 SURN Grebenciček
+1 SEX F
+1 BIRT
+2 DATE 1 JAN 1902
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 25 DEC 1967
+2 PLAC Studor, Slovenija, Jugoslavija
+1 FAMS @F15@
+1 FAMC @F20@
+0 @I109@ INDI
+1 NAME Miha12 /Grebencveč/
+2 GIVN Miha12
+2 SURN Grebencveč
+2 NICK Emerik7
+1 SEX F
+1 BIRT
+2 DATE 2 MAR 1923
+2 PLAC Laški Rovt, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 9 JUN 1923
+2 PLAC Laški Rovt, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Laški Rovt 31
+1 FAMC @F15@
+0 @I123@ INDI
+1 NAME Marjeta2 /Grebencveč/
+2 GIVN Marjeta2
+2 SURN Grebencveč
+1 SEX M
+1 BIRT
+2 DATE 12 APR 1860
+2 PLAC Stara Fužina, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Stara Fužina 40
+1 DEAT
+2 DATE 30 AUG 1905
+2 PLAC Studor, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F19@
+1 FAMC @F330@
+0 @I124@ INDI
+1 NAME Franc2 /Grebencnjak/
+2 GIVN Franc2
+2 SURN Grebencnjak
+1 SEX F
+1 BIRT
+2 DATE 13 JUL 1860
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Srednja vas 1
+1 DEAT
+2 DATE 14 DEC 1921
+2 PLAC Studor, Ljubljanska pokrajina, Kraljevina Srbov, Hrvatov in Slovencev
+1 FAMS @F329@
+1 FAMS @F19@
+1 FAMC @F320@
+0 @I125@ INDI
+1 NAME Emerik /Grebencveč/
+2 GIVN Emerik
+2 SURN Grebencveč
+1 SEX M
+1 BIRT
+2 DATE 6 NOV 1892
+2 PLAC Studor, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Studor 9
+1 DEAT
+2 DATE 11 JUL 1983
+2 PLAC Radovljica, Slovenija, Jugoslavija
+1 FAMS @F7521@
+1 FAMC @F19@
+0 @I126@ INDI
+1 NAME Rozalija2 /Grebencveč/
+2 GIVN Rozalija2
+2 SURN Grebencveč
+1 SEX M
+1 BIRT
+2 DATE 6 OCT 1902
+2 PLAC Studor, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Studor 9
+1 DEAT
+2 DATE 25 OCT 1993
+2 PLAC Jesenice, Slovenija
+1 FAMS @F231@
+1 FAMC @F19@
+0 @I127@ INDI
+1 NAME Janez /Grebencveč/
+2 GIVN Janez
+2 SURN Grebencveč
+1 SEX F
+1 BIRT
+2 DATE 19 MAR 1906
+2 PLAC Studor, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Studor 9
+1 DEAT
+2 DATE 20 JAN 1987
+2 PLAC Golnik, Slovenija, Jugoslavija
+1 FAMS @F1769@
+1 FAMS @F1797@
+1 FAMC @F19@
+0 @I128@ INDI
+1 NAME Dorotea2 /Kavčičič/
+2 GIVN Dorotea2
+2 SURN Kavčičič
+1 SEX M
+1 BIRT
+2 DATE 29 JAN 1899
+2 PLAC Mlače, Vojvodina Štajerska, Avstro-Ogrska
+2 ADDR Mlače 18
+1 DEAT
+2 DATE 25 FEB 1968
+2 PLAC Dobriša vas, Slovenija, Jugoslavija
+1 BURI
+2 DATE 27 FEB 1968
+2 PLAC Loče pri Poljčanah, Slovenija, Jugoslavija
+1 FAMS @F1797@
+1 FAMC @F7750@
+0 @I129@ INDI
+1 NAME Marjeta2 /Grebenciček/
+2 GIVN Marjeta2
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 1 DEC 1871
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 20 MAY 1939
+2 PLAC Ribčev Laz, Dravska banovina, Kraljevina Jugoslavija
+1 BURI
+2 DATE 22 MAY 1939
+2 PLAC Srednja vas, Dravska banovina, Kraljevina Jugoslavija
+1 FAMS @F20@
+1 FAMC @F313@
+0 @I130@ INDI
+1 NAME Elizabeta /Kavčiček/
+2 GIVN Elizabeta
+2 SURN Kavčiček
+1 SEX F
+1 BIRT
+2 DATE 31 AUG 1874
+2 PLAC Bač, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Bač 104 Paladin
+1 DEAT
+2 DATE 21 AUG 1963
+2 PLAC Ribčev Laz, Slovenija, Jugoslavija
+1 FAMS @F20@
+1 FAMC @F745@
+0 @I131@ INDI
+1 NAME Lucija7 /Grebenciček/
+2 GIVN Lucija7
+2 SURN Grebenciček
+2 NICK Rozalija12
+1 SEX M
+1 BIRT
+2 DATE 19 NOV 1905
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 11 SEP 1997
+2 PLAC Ribčev Laz, Slovenija
+1 FAMC @F20@
+0 @I132@ INDI
+1 NAME Elizabeta /Grebenciček/
+2 GIVN Elizabeta
+2 SURN Grebenciček
+2 NICK Jakob12
+1 SEX F
+1 BIRT
+2 DATE 6 OCT 1913
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 29 MAY 2001
+2 PLAC Ribčev Laz, Slovenija
+1 FAMS @F1836@
+1 FAMC @F20@
+0 @I133@ INDI
+1 NAME Mihael /Grebenciček/
+2 GIVN Mihael
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 22 OCT 1903
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 20 OCT 1971
+2 PLAC Polje, Slovenija, Jugoslavija
+1 FAMS @F21@
+1 FAMC @F20@
+0 @I134@ INDI
+1 NAME Aleš /Grebenciček/
+2 GIVN Aleš
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 7 JUN 1908
+1 BIRT
+2 DATE 17 JUN 1908
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 2 DEC 2001
+2 PLAC Kamnje, Slovenija
+1 BURI
+2 DATE 5 DEC 2001
+2 PLAC Bohinjska Bistrica, Slovenija
+1 FAMS @F23@
+1 FAMC @F20@
+0 @I135@ INDI
+1 NAME Marta3 /Grebenciček/
+2 GIVN Marta3
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 29 MAR 1899
+2 PLAC Bač, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Bač 104 Paladin
+1 DEAT
+2 DATE 1917
+2 PLAC Poknežena grofija Tirolska, Avstro-Ogrska
+1 FAMC @F20@
+0 @I136@ INDI
+1 NAME Marjeta2 /Grebenciček/
+2 GIVN Marjeta2
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 25 SEP 1896
+2 PLAC Bač, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Bač 104 Paladin
+1 DEAT
+2 DATE 1916
+2 PLAC Sibirija, Ruski imperij
+1 FAMC @F20@
+0 @I137@ INDI
+1 NAME Cvetka2 /Grebenciček/
+2 GIVN Cvetka2
+2 SURN Grebenciček
+1 SEX F
+1 BIRT
+2 DATE 10 MAR 1911
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 8 JUN 1993
+2 PLAC Jesenice, Slovenija
+1 FAMS @F24@
+1 FAMC @F20@
+0 @I138@ INDI
+1 NAME Miha12 /Grebenciček/
+2 GIVN Miha12
+2 SURN Grebenciček
+2 NICK Emerik7
+1 SEX F
+1 BIRT
+2 DATE 28 MAY 1918
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 6 AUG 1992
+2 PLAC Ribčev Laz, Slovenija
+1 FAMS @F1889@
+1 FAMC @F20@
+0 @I145@ INDI
+1 NAME Janez /Kavčičar/
+2 GIVN Janez
+2 SURN Kavčičar
+1 SEX F
+1 BIRT
+2 DATE 27 MAR 1911
+2 PLAC Polje, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Polje 25
+1 DEAT
+2 DATE 29 OCT 1975
+2 PLAC Polje, Slovenija, Jugoslavija
+1 FAMS @F23@
+1 FAMC @F10134@
+0 @I151@ INDI
+1 NAME Štefan /Kavčičar/
+2 GIVN Štefan
+2 SURN Kavčičar
+1 SEX M
+1 BIRT
+2 DATE 4 MAR 1909
+2 PLAC Polje, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Polje 25
+1 DEAT
+2 DATE 1945
+2 PLAC Nikova
+1 FAMS @F24@
+0 @I168@ INDI
+1 NAME Rozalija2 /Kavčičnik/
+2 GIVN Rozalija2
+2 SURN Kavčičnik
+1 SEX M
+1 BIRT
+2 DATE 27 FEB 1910
+2 PLAC Boldraž, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Boldraž 20 Mikolovi
+1 DEAT
+2 DATE 19 MAY 1937
+2 PLAC Boldraž, Dravska banovina, Kraljevina Jugoslavija
+1 BURI
+2 DATE 21 MAY 1937
+2 PLAC Radovica, Dravska banovina, Kraljevina Jugoslavija
+1 FAMS @F25@
+1 FAMC @F641@
+0 @I169@ INDI
+1 NAME Ema12 /Kavčičšek/
+2 GIVN Ema12
+2 SURN Kavčičšek
+1 SEX F
+1 BIRT
+2 DATE 17 MAY 1910
+2 PLAC Boldraž, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Boldraž 19
+1 DEAT
+2 DATE 11 JUL 1971
+2 PLAC Boldraž, Slovenija, Jugoslavija
+1 FAMS @F25@
+1 FAMS @F645@
+1 FAMS @F646@
+1 FAMC @F65@
+0 @I183@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+2 DATE 13 JAN 1900
+1 SEX M
+1 BIRT
+2 DATE 13 JAN 1900
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 31 MAR 1979
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 BURI
+2 DATE 2 APR 1979
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 FAMS @F29@
+1 FAMC @F32@
+0 @I184@ INDI
+1 NAME Egidij2 /Kavčičnc/
+2 GIVN Egidij2
+2 SURN Kavčičnc
+2 DATE 14 JUN 1899
+1 SEX F
+1 BIRT
+2 DATE 15 JUN 1899
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 7 JUL 1981
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 BURI
+2 DATE JUL 1981
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 FAMS @F29@
+1 FAMC @F45@
+0 @I192@ INDI
+1 NAME Štefan /Kavčičnc/
+2 GIVN Štefan
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 18 JAN 1852
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 14 DEC 1928
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+1 FAMS @F40@
+1 FAMS @F32@
+1 FAMC @F43@
+0 @I193@ INDI
+1 NAME Elizabeta /Kavčičman/
+2 GIVN Elizabeta
+2 SURN Kavčičman
+1 SEX F
+1 BIRT
+2 DATE 5 DEC 1875
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 12 Gajan
+1 DEAT
+2 DATE 19 AUG 1950
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 FAMS @F32@
+1 FAMC @F119@
+0 @I194@ INDI
+1 NAME Silvester /Kavčičnc/
+2 GIVN Silvester
+2 SURN Kavčičnc
+2 DATE 25 SEP 1901
+1 SEX M
+1 BIRT
+2 DATE 25 SEP 1901
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 13 FEB 1930
+2 PLAC Adlešiči, Dravska banovina, Kraljevina Jugoslavija
+1 FAMC @F32@
+0 @I195@ INDI
+1 NAME Apolonija7 /Kavčičnc/
+2 GIVN Apolonija7
+2 SURN Kavčičnc
+2 TYPE birth
+2 DATE 12 OCT 1903
+1 SEX F
+1 BIRT
+2 DATE 12 OCT 1903
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 28 OCT 1990
+2 PLAC Zagreb, Hrvaška, Jugoslavija
+1 FAMS @F33@
+1 FAMC @F32@
+0 @I196@ INDI
+1 NAME Uršula4 /Kavčičnc/
+2 GIVN Uršula4
+2 SURN Kavčičnc
+2 DATE 8 SEP 1905
+1 SEX M
+1 BIRT
+2 DATE 8 SEP 1905
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 4 NOV 1985
+2 PLAC Hrast pri Vinici, Slovenija, Jugoslavija
+1 FAMS @F34@
+1 FAMC @F32@
+0 @I197@ INDI
+1 NAME Egidij2 /Kavčičnc/
+2 GIVN Egidij2
+2 SURN Kavčičnc
+2 DATE 29 MAR 1908
+1 SEX F
+1 BIRT
+2 DATE 29 MAR 1908
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 25 SEP 1909
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 BURI
+2 DATE 27 SEP 1909
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F32@
+0 @I198@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+2 DATE 19 DEC 1909
+1 SEX F
+1 BIRT
+2 DATE 19 DEC 1909
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 1986
+1 FAMS @F36@
+1 FAMC @F32@
+0 @I199@ INDI
+1 NAME Karolina /Kavčičnc/
+2 GIVN Karolina
+2 SURN Kavčičnc
+2 DATE 11 JUL 1912
+1 SEX M
+1 BIRT
+2 DATE 11 JUL 1912
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 10 JUL 1934
+2 PLAC Adlešiči, Dravska banovina, Kraljevina Jugoslavija
+1 FAMC @F32@
+0 @I200@ INDI
+1 NAME Ljudmila /Kavčičnc/
+2 GIVN Ljudmila
+2 SURN Kavčičnc
+2 DATE 25 JUL 1915
+1 SEX F
+1 BIRT
+2 DATE 25 JUL 1915
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 20 OCT 1998
+2 PLAC Novo mesto, Slovenija
+1 BURI
+2 DATE 22 OCT 1998
+2 PLAC Adlešiči, Slovenija
+1 FAMC @F32@
+0 @I201@ INDI
+1 NAME Andrej12 /Kavčičovec/
+2 GIVN Andrej12
+2 SURN Kavčičovec
+1 SEX M
+1 BIRT
+2 DATE ABT 1901
+1 DEAT
+2 PLAC Zagreb, Hrvaška, Jugoslavija
+1 FAMS @F33@
+0 @I202@ INDI
+1 NAME Klara6 /Kavčičin/
+2 GIVN Klara6
+2 SURN Kavčičin
+1 SEX F
+1 BIRT
+2 DATE 17 FEB 1910
+2 PLAC Hrast pri Vinici, Vojvodina Kranjska, Avstro-Ogrska
+1 DEAT
+2 DATE 24 FEB 1986
+1 FAMS @F34@
+0 @I209@ INDI
+1 NAME Štefan /Kavčičel/
+2 GIVN Štefan
+2 SURN Kavčičel
+1 SEX M
+1 BIRT
+2 DATE 6 DEC 1908
+2 PLAC Bedenj, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Bedenj 13 Kacan
+1 DEAT
+2 DATE 1943
+1 FAMS @F36@
+1 FAMC @F8739@
+0 @I222@ INDI
+1 NAME Elizabeta /Kavčičnič/
+2 GIVN Elizabeta
+2 SURN Kavčičnič
+1 SEX F
+1 BIRT
+2 DATE 10 DEC 1854
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Adlešiči 11 Dolnji Vrebec
+1 DEAT
+2 DATE 14 NOV 1898
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 BURI
+2 DATE 16 NOV 1898
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F40@
+1 FAMC @F1113@
+0 @I223@ INDI
+1 NAME Karolina /Kavčičnc/
+2 GIVN Karolina
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 13 JAN 1883
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 11 Husič
+1 DEAT
+2 DATE 13 JUN 1892
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 11 Husič
+1 BURI
+2 DATE 15 JUN 1892
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F40@
+0 @I224@ INDI
+1 NAME Gašper2 /Kavčičnc/
+2 GIVN Gašper2
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 16 APR 1885
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 11 Husič
+1 DEAT
+2 DATE 13 JAN 1893
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 1 Gornji Skube
+1 BURI
+2 DATE 15 JAN 1893
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F40@
+0 @I225@ INDI
+1 NAME Štefan /Kavčičnc/
+2 GIVN Štefan
+2 SURN Kavčičnc
+2 DATE 9 DEC 1897
+1 SEX M
+1 BIRT
+2 DATE 9 DEC 1897
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 26 Škrpelar
+1 DEAT
+2 DATE 20 OCT 1972
+2 PLAC Beograd, Srbija, Jugoslavija
+1 FAMS @F41@
+1 FAMC @F40@
+0 @I226@ INDI
+1 NAME Jakob2 /Kavčičovič/
+2 GIVN Jakob2
+2 SURN Kavčičovič
+1 SEX F
+1 BIRT
+2 DATE 6 FEB 1905
+2 PLAC Dolenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Dolenjci 25 Tišler
+1 DEAT
+2 PLAC Ogulin, Hrvaška, Jugoslavija
+1 FAMS @F41@
+1 FAMC @F2523@
+0 @I227@ INDI
+1 NAME Frančiška12 /Kavčičnc/
+2 GIVN Frančiška12
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE ABT 1923
+1 BURI
+2 PLAC Zagreb, Hrvaška
+1 FAMC @F41@
+0 @I236@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 23 MAR 1811
+2 PLAC Gorenjci, Ilirske province, Francosko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 28 JAN 1876
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 29 JAN 1876
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F43@
+1 FAMC @F61@
+0 @I237@ INDI
+1 NAME Elizabeta /Kavčičak/
+2 GIVN Elizabeta
+2 SURN Kavčičak
+1 SEX F
+1 BIRT
+2 DATE 25 JUN 1809
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Adlešiči 3 Kirin
+1 DEAT
+2 DATE 23 FEB 1892
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 25 FEB 1892
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F43@
+1 FAMC @F163@
+0 @I238@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 29 MAY 1836
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 27 OCT 1899
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 1 Gornji Skube
+1 BURI
+2 DATE 29 OCT 1899
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F128@
+1 FAMS @F129@
+1 FAMC @F43@
+0 @I239@ INDI
+1 NAME Ljudmila /Kavčičnc/
+2 GIVN Ljudmila
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 13 AUG 1841
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 7 FEB 1873
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 9 FEB 1873
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F43@
+0 @I240@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 20 SEP 1843
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 6 MAY 1872
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 8 MAY 1872
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F44@
+1 FAMC @F43@
+0 @I241@ INDI
+1 NAME Gašper /Kavčičnc/
+2 GIVN Gašper
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 12 FEB 1847
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 14 DEC 1850
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 16 DEC 1850
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMC @F43@
+0 @I242@ INDI
+1 NAME Dorotea /Kavčičnc/
+2 GIVN Dorotea
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 18 JAN 1852
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 10 OCT 1865
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 11 OCT 1865
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMC @F43@
+0 @I243@ INDI
+1 NAME Egidij2 /Kavčičak/
+2 GIVN Egidij2
+2 SURN Kavčičak
+1 SEX F
+1 BIRT
+2 DATE 7 APR 1841
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Adlešiči 1 Gornji Skube
+1 DEAT
+2 DATE 23 JAN 1913
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 25 JAN 1913
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F44@
+1 FAMC @F148@
+0 @I244@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 24 FEB 1868
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 16 NOV 1930
+2 PLAC Gorenjci, Dravska banovina, Kraljevina Jugoslavija
+1 FAMS @F45@
+1 FAMC @F44@
+0 @I245@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 20 JAN 1870
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 14 NOV 1872
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 15 NOV 1872
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F44@
+0 @I246@ INDI
+1 NAME Gašper /Kavčičak/
+2 GIVN Gašper
+2 SURN Kavčičak
+2 DATE 8 FEB 1897
+1 SEX M
+1 BIRT
+2 DATE 8 FEB 1897
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 1 Gornji Skube
+1 DEAT
+2 DATE 24 MAR 1951
+2 PLAC Metlika, Slovenija, Jugoslavija
+1 FAMS @F131@
+1 FAMC @F130@
+0 @I247@ INDI
+1 NAME Egidij2 /Kavčičveč/
+2 GIVN Egidij2
+2 SURN Kavčičveč
+1 SEX F
+1 BIRT
+2 DATE 8 NOV 1870
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 20 Dolnji Grgan
+1 DEAT
+2 DATE 11 MAR 1941
+2 PLAC Gorenjci, Dravska banovina, Kraljevina Jugoslavija
+1 FAMS @F45@
+1 FAMC @F100@
+0 @I248@ INDI
+1 NAME Klara6 /Kavčičnc/
+2 GIVN Klara6
+2 SURN Kavčičnc
+2 DATE 24 JUN 1913
+1 SEX F
+1 BIRT
+2 DATE 24 JUN 1913
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 26 APR 1974
+1 FAMS @F55@
+1 FAMC @F45@
+0 @I249@ INDI
+1 NAME Apolonija4 /Kavčičnc/
+2 GIVN Apolonija4
+2 SURN Kavčičnc
+2 DATE 26 SEP 1910
+1 SEX M
+1 BIRT
+2 DATE 26 SEP 1910
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 10 MAY 1989
+2 PLAC Zagreb, Hrvaška, Jugoslavija
+1 BURI
+2 PLAC Zagreb, Hrvaška, Jugoslavija
+1 FAMS @F1272@
+1 FAMC @F45@
+0 @I250@ INDI
+1 NAME Lucija3 /Kavčičnc/
+2 GIVN Lucija3
+2 SURN Kavčičnc
+2 DATE 11 OCT 1904
+1 SEX M
+1 BIRT
+2 DATE 11 OCT 1904
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 5 MAR 1905
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 7 MAR 1905
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMC @F45@
+0 @I251@ INDI
+1 NAME Jakob2 /Kavčičnc/
+2 GIVN Jakob2
+2 SURN Kavčičnc
+2 DATE 11 OCT 1904
+1 SEX F
+1 BIRT
+2 DATE 11 OCT 1904
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE MAR 1981
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 FAMS @F56@
+1 FAMC @F45@
+0 @I252@ INDI
+1 NAME Karolina /Kavčičnc/
+2 GIVN Karolina
+2 SURN Kavčičnc
+2 DATE 20 SEP 1907
+1 SEX M
+1 BIRT
+2 DATE 20 SEP 1907
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 12 MAY 1984
+2 PLAC Novo mesto, Slovenija, Jugoslavija
+1 FAMS @F60@
+1 FAMC @F45@
+0 @I253@ INDI
+1 NAME Ljudmila /Kavčičnc/
+2 GIVN Ljudmila
+2 SURN Kavčičnc
+2 DATE 2 JAN 1902
+1 SEX F
+1 BIRT
+2 DATE 2 JAN 1902
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 31 DEC 1946
+2 PLAC Velika sela, Slovenija, Jugoslavija
+1 FAMS @F81@
+1 FAMC @F45@
+0 @I254@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+2 DATE 19 JAN 1896
+1 SEX F
+1 BIRT
+2 DATE 19 JAN 1896
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 29 MAR 1977
+2 PLAC Jankoviči, Slovenija, Jugoslavija
+1 FAMS @F51@
+1 FAMC @F45@
+0 @I255@ INDI
+1 NAME Štefan /Kavčičnc/
+2 GIVN Štefan
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 3 MAR 1893
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE SEP 1979
+2 PLAC St. Louis, Missouri, United States of America
+1 FAMS @F1066@
+1 FAMC @F45@
+0 @I256@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+2 DATE 9 DEC 1889
+1 SEX M
+1 BIRT
+2 DATE 9 DEC 1889
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 11 NOV 1976
+2 PLAC Gorenjci, Slovenija, Jugoslavija
+1 FAMS @F46@
+1 FAMC @F45@
+0 @I257@ INDI
+1 NAME Martin12 /Kavčičveč/
+2 GIVN Martin12
+2 SURN Kavčičveč
+2 DATE 18 JUL 1901
+1 SEX F
+1 BIRT
+2 DATE 18 JUL 1901
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 13 Gortnar
+1 DEAT
+2 DATE 21 JAN 1976
+2 PLAC Gorenjci, Slovenija, Jugoslavija
+1 FAMS @F46@
+1 FAMC @F331@
+0 @I259@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+2 DATE 8 JUL 1921
+1 SEX F
+1 BIRT
+2 DATE 8 JUL 1921
+2 PLAC Gorenjci, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 13 DEC 1982
+2 PLAC Gorenjci, Slovenija, Jugoslavija
+1 BURI
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+1 FAMS @F1824@
+1 FAMC @F46@
+0 @I260@ INDI
+1 NAME Štefan /Kavčičnc/
+2 GIVN Štefan
+2 SURN Kavčičnc
+2 DATE 13 DEC 1924
+1 SEX M
+1 BIRT
+2 DATE 13 DEC 1924
+2 PLAC Gorenjci, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 9 JUN 2007
+1 BURI
+2 DATE 14 JUN 2007
+2 PLAC Adlešiči, Slovenija
+1 FAMS @F71@
+1 FAMC @F46@
+0 @I274@ INDI
+1 NAME Matija7 /Kavčičiček/
+2 GIVN Matija7
+2 SURN Kavčičiček
+1 SEX F
+1 BIRT
+2 DATE 11 DEC 1901
+2 PLAC St. Louis, Missouri, United States of America
+1 DEAT
+2 DATE 26 MAR 1935
+2 PLAC Affton, St. Louis, Missouri, United States of America
+1 BURI
+2 DATE 30 MAR 1935
+2 PLAC St. Louis, Missouri, United States of America
+1 FAMS @F1066@
+0 @I275@ INDI
+1 NAME Miha Martin /Kavčičnjak/
+2 GIVN Julijana12
+2 SURN Kavčičnjak
+1 SEX M
+1 BIRT
+2 DATE 7 JUL 1921
+2 PLAC St. Louis, Missouri, United States of America
+1 DEAT
+2 DATE 11 FEB 2011
+1 FAMS @F1872@
+1 FAMC @F1066@
+0 @I276@ INDI
+1 NAME Jurij12 Tomaž9 /Lesjakič/
+2 GIVN Apolonija12
+2 SURN Lesjakič
+1 SEX F
+1 BIRT
+2 DATE 22 FEB 1922
+2 PLAC Affton, St. Louis, Missouri, United States of America
+1 DEAT
+2 DATE 1 OCT 2023
+1 FAMS @F1872@
+0 @I279@ INDI
+1 NAME Blaž12 Marjeta12 /Kavčičnjak/
+2 GIVN Valentin12
+2 SURN Kavčičnjak
+1 SEX F
+1 BIRT
+2 DATE 14 AUG 1923
+2 PLAC St. Louis, Missouri, United States of America
+1 DEAT
+2 DATE 9 JUL 1945
+2 PLAC St. Louis, Missouri, United States of America
+1 BURI
+2 DATE 12 JUL 1945
+2 PLAC St. Louis, Missouri, United States of America
+1 FAMS @F1067@
+1 FAMC @F1066@
+0 @I281@ INDI
+1 NAME Uršula4 /Kavčičveč/
+2 GIVN Uršula4
+2 SURN Kavčičveč
+2 DATE 21 MAY 1895
+1 SEX M
+1 BIRT
+2 DATE 21 MAY 1895
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 13 Gortnar
+1 DEAT
+2 DATE 6 JUL 1960
+2 PLAC Novo mesto, Slovenija, Jugoslavija
+1 FAMS @F51@
+1 FAMC @F331@
+0 @I283@ INDI
+1 NAME Jera /Kavčičveč/
+2 GIVN Jera
+2 SURN Kavčičveč
+1 SEX M
+1 BIRT
+2 DATE 14 APR 1922
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Adlešiči 13 Gortnar
+1 DEAT
+2 DATE 23 AUG 1985
+1 FAMS @F52@
+1 FAMC @F51@
+0 @I284@ INDI
+1 NAME Uršula4 /Kavčičveč/
+2 GIVN Uršula4
+2 SURN Kavčičveč
+2 DATE 20 MAY 1924
+1 SEX M
+1 BIRT
+2 DATE 20 MAY 1924
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Adlešiči 13 Gortnar
+1 DEAT
+2 DATE 21 JUL 1972
+1 FAMS @F53@
+1 FAMC @F51@
+0 @I294@ INDI
+1 NAME Alojzija /Lesjakek/
+2 GIVN Alojzija
+2 SURN Lesjakek
+2 DATE 29 JAN 1917
+1 SEX M
+1 BIRT
+2 DATE 29 JAN 1917
+2 PLAC Mala sela, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Mala sela 4 Vuče
+1 DEAT
+2 DATE 14 JUN 1982
+1 FAMS @F55@
+1 FAMC @F2390@
+0 @I295@ INDI
+1 NAME Silvester /Kavčičveč/
+2 GIVN Silvester
+2 SURN Kavčičveč
+2 DATE 9 SEP 1905
+1 SEX M
+1 BIRT
+2 DATE 9 SEP 1905
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Adlešiči 28 Gortnar
+1 DEAT
+2 DATE 18 APR 1945
+2 PLAC Koncentracijsko taborišče Dachau, Velikonemški rajh
+1 FAMS @F56@
+1 FAMC @F403@
+0 @I296@ INDI
+1 NAME Agata12 /Kavčičveč/
+2 GIVN Agata12
+2 SURN Kavčičveč
+2 DATE 4 DEC 1925
+1 SEX F
+1 BIRT
+2 DATE 4 DEC 1925
+2 PLAC Gorenjci, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 8 JAN 2011
+1 FAMS @F57@
+1 FAMC @F56@
+0 @I303@ INDI
+1 NAME Gašper /Kavčičak/
+2 GIVN Gašper
+2 SURN Kavčičak
+2 DATE 20 NOV 1922
+1 SEX M
+1 BIRT
+2 DATE 20 NOV 1922
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Adlešiči 8 Gornji Milek
+1 BIRT
+2 DATE 20 DEC 1922
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+2 ADDR Adlešiči 8 Gornji Milek
+1 DEAT
+2 DATE 9 SEP 1994
+1 FAMS @F57@
+1 FAMC @F215@
+0 @I310@ INDI
+1 NAME Ljudmila /Lesjakar/
+2 GIVN Ljudmila
+2 SURN Lesjakar
+2 DATE 19 JUN 1908
+1 SEX F
+1 BIRT
+2 DATE 19 JUN 1908
+2 PLAC Vrhovci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Vrhovci 7 Pintar
+1 DEAT
+2 DATE 18 MAY 1984
+2 PLAC Gorenjci, Slovenija, Jugoslavija
+1 FAMS @F60@
+1 FAMC @F1201@
+0 @I318@ INDI
+1 NAME Alojzija /Kavčičnc/
+2 GIVN Alojzija
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 29 JAN 1775
+2 PLAC Gorenjci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Gorenjci 11
+1 DEAT
+2 DATE 20 NOV 1839
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 FAMS @F61@
+1 FAMS @F64@
+1 FAMC @F370@
+0 @I319@ INDI
+1 NAME Elizabeta /Lesjaknik/
+2 GIVN Elizabeta
+2 SURN Lesjaknik
+1 SEX F
+1 BIRT
+2 DATE 5 OCT 1779
+2 PLAC Fučkovci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Fučkovci 1 Šegina
+1 DEAT
+2 DATE 14 FEB 1825
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 FAMS @F61@
+1 FAMC @F2576@
+0 @I320@ INDI
+1 NAME Lucija2 /Kavčičnc/
+2 GIVN Lucija2
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 7 JAN 1808
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 17 NOV 1862
+2 PLAC Vrhovci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Vrhovci 3 Kralj
+1 BURI
+2 DATE 19 NOV 1862
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMS @F241@
+1 FAMC @F61@
+0 @I321@ INDI
+1 NAME Martin12 /Kavčičnc/
+2 GIVN Martin12
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 3 FEB 1814
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 27 MAR 1836
+2 PLAC Karlovac, Kraljevina Hrvaška, Avstrijsko cesarstvo
+1 FAMC @F61@
+0 @I322@ INDI
+1 NAME Egidij2 /Kavčičnc/
+2 GIVN Egidij2
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 9 NOV 1816
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 24 OCT 1848
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Adlešiči 8 Milek
+1 BURI
+2 DATE 26 OCT 1848
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+1 FAMS @F62@
+1 FAMC @F61@
+0 @I324@ INDI
+1 NAME Gašper /Lesjakšek/
+2 GIVN Gašper
+2 SURN Lesjakšek
+1 SEX M
+1 BIRT
+2 DATE 12 NOV 1808
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Adlešiči 8 Milek
+1 DEAT
+2 DATE 12 MAY 1850
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Adlešiči 8 Milek
+1 BURI
+2 DATE 14 MAY 1850
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMS @F62@
+1 FAMS @F714@
+1 FAMC @F711@
+0 @I325@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 10 OCT 1751
+2 PLAC Gorenjci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+1 DEAT
+2 DATE 7 FEB 1825
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 FAMS @F370@
+1 FAMS @F625@
+1 FAMS @F63@
+1 FAMC @F670@
+0 @I326@ INDI
+1 NAME Ljudmila /Lesjakek/
+2 GIVN Ljudmila
+2 SURN Lesjakek
+1 SEX F
+1 BIRT
+2 DATE ABT 1770
+1 DEAT
+2 DATE 18 NOV 1830
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 FAMS @F63@
+0 @I327@ INDI
+1 NAME Adolf2 /Kavčičnc/
+2 GIVN Adolf2
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 14 JAN 1779
+2 PLAC Gorenjci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Gorenjci 11
+1 DEAT Y
+1 FAMC @F370@
+0 @I329@ INDI
+1 NAME Alojzija8 Štefan /Grebencek/
+2 GIVN Simon12
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 10 MAR 1909
+2 PLAC Koper, Mejna grofija Istra, Avstro-Ogrska
+2 ADDR Koper 354, Calle S. Leonardo 24, IV
+1 DEAT
+2 DATE 3 FEB 1987
+1 FAMS @F1752@
+1 FAMC @F785@
+0 @I336@ INDI
+1 NAME Elizabeta /Grebencek/
+2 GIVN Elizabeta
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 11 DEC 1894
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT Y
+1 FAMS @F767@
+1 FAMC @F12@
+0 @I337@ INDI
+1 NAME Lucija12 /Lesjaknc/
+2 GIVN Lucija12
+2 SURN Lesjaknc
+2 NICK Emerik7
+1 SEX F
+1 BIRT
+2 DATE 8 OCT 1892
+2 PLAC Batuje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Batuje 40
+1 DEAT
+2 DATE 4 APR 1971
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F741@
+1 FAMC @F7469@
+0 @I338@ INDI
+1 NAME Marija10 /Grebencek/
+2 GIVN Marija10
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 2 JAN 1916
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 BIRT
+2 DATE 6 JAN 1916
+1 DEAT
+2 DATE OCT 1999
+2 PLAC Velike Žablje, Slovenija
+1 BURI
+2 PLAC Velike Žablje, Slovenija
+1 FAMS @F1205@
+1 FAMC @F741@
+0 @I340@ INDI
+1 NAME Gašper12 /Grebencek/
+2 GIVN Gašper12
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 22 APR 1920
+2 PLAC Velike Žablje, Julijska krajina
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 28 FEB 2003
+2 PLAC Trst, Italija
+1 BURI
+2 DATE 3 MAR 2004
+2 PLAC Trst, Italija
+1 FAMS @F1983@
+1 FAMC @F741@
+0 @I342@ INDI
+1 NAME Magdalena12 /Grebencek/
+2 GIVN Magdalena12
+2 SURN Grebencek
+1 SEX F
+1 BIRT
+2 DATE 10 MAR 1924
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 21 FEB 2009
+2 PLAC Šempeter pri Gorici, Slovenija
+1 BURI
+2 PLAC Velike Žablje, Slovenija
+1 FAMS @F1765@
+1 FAMC @F741@
+0 @I343@ INDI
+1 NAME Klara8 /Grebencek/
+2 GIVN Klara8
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 9 JAN 1918
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 15
+1 DEAT
+2 DATE 13 NOV 1979
+2 PLAC Šempeter pri Gorici, Slovenija, Jugoslavija
+1 BURI
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F1206@
+1 FAMC @F741@
+0 @I344@ INDI
+1 NAME Angela2 /Grebencek/
+2 GIVN Angela2
+2 SURN Grebencek
+1 SEX M
+1 BIRT
+2 DATE 15 JUL 1910
+1 BIRT
+2 DATE 14 AUG 1910
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+2 ADDR Velike Žablje 20
+1 DEAT
+2 DATE 1958
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 DEAT
+2 DATE 27 FEB 1959
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 BURI
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+1 FAMS @F1205@
+1 FAMC @F2080@
+0 @I348@ INDI
+1 NAME Marjeta2 /Grebencek/
+2 GIVN Marjeta2
+2 SURN Grebencek
+2 NICK Ignac9
+1 SEX M
+1 BIRT
+2 DATE 26 MAR 1924
+2 PLAC Velike Žablje, Furlanska pokrajina, Kraljevina Italija
+2 ADDR Velike Žablje 46
+1 DEAT
+2 DATE 2010
+2 PLAC Ajdovščina, Slovenija
+1 BURI
+2 PLAC Velike Žablje, Slovenija
+1 FAMS @F1765@
+1 FAMC @F2118@
+0 @I352@ INDI
+1 NAME Egidij2 /Lesjakman/
+2 GIVN Egidij2
+2 SURN Lesjakman
+1 SEX F
+1 BIRT
+2 DATE 16 AUG 1794
+2 PLAC Tribuče, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Tribuče 19
+1 DEAT
+2 DATE 17 SEP 1842
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 FAMS @F64@
+0 @I353@ INDI
+1 NAME Gašper /Kavčičnc/
+2 GIVN Gašper
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 20 MAR 1802
+2 PLAC Gorenjci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Gorenjci 7 Jurkov
+1 DEAT
+1 FAMC @F63@
+0 @I354@ INDI
+1 NAME Silvester /Kavčičnc/
+2 GIVN Silvester
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 3 SEP 1804
+2 PLAC Gorenjci, Vojvodina Kranjska, Sveto rimsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 1 JAN 1865
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 3 JAN 1865
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMS @F1132@
+1 FAMC @F63@
+0 @I355@ INDI
+1 NAME Elizabeta /Kavčičnc/
+2 GIVN Elizabeta
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 20 DEC 1827
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 12 AUG 1855
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 13 AUG 1855
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+1 FAMC @F64@
+0 @I356@ INDI
+1 NAME Dorotea /Kavčičnc/
+2 GIVN Dorotea
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 23 FEB 1830
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 15 NOV 1845
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 17 NOV 1845
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+1 FAMC @F64@
+0 @I357@ INDI
+1 NAME Franc2 /Kavčičnc/
+2 GIVN Franc2
+2 SURN Kavčičnc
+1 SEX F
+1 BIRT
+2 DATE 10 APR 1833
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 17 JAN 1889
+2 PLAC Gorenjci, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Gorenjci 3 Jurkov
+1 BURI
+2 DATE 19 JAN 1889
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F1790@
+1 FAMC @F64@
+0 @I358@ INDI
+1 NAME Alojzija /Kavčičnc/
+2 GIVN Alojzija
+2 SURN Kavčičnc
+1 SEX M
+1 BIRT
+2 DATE 5 FEB 1836
+2 PLAC Gorenjci, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Gorenjci 3 Jurkov
+1 DEAT
+2 DATE 1864
+2 PLAC Karlovac, Kraljevina Hrvaška, Avstrijsko cesarstvo
+1 FAMS @F1091@
+1 FAMC @F64@
+0 @I359@ INDI
+1 NAME Miha12 Elizabeta /Lesjakovec/
+2 GIVN Luka12
+2 SURN Lesjakovec
+2 NICK Emerik7
+1 SEX F
+1 BIRT
+2 DATE 13 SEP 1923
+2 PLAC Vrtovin, Furlanska pokrajina, Kraljevina Italija
+1 DEAT
+2 DATE 2005
+2 PLAC Šempeter pri Gorici, Slovenija
+1 BURI
+2 PLAC Velike Žablje, Slovenija
+1 FAMS @F1206@
+0 @I364@ INDI
+1 NAME Adolf4 /Grebenciček/
+2 GIVN Adolf4
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 8 OCT 1834
+2 PLAC Laški Rovt, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 19 NOV 1894
+1 FAMS @F313@
+1 FAMC @F434@
+0 @I365@ INDI
+1 NAME Elizabeta /Lesjakin/
+2 GIVN Elizabeta
+2 SURN Lesjakin
+1 SEX F
+1 BIRT
+2 DATE 1 DEC 1835
+2 PLAC Bitnje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+2 ADDR Bitnje 2
+1 DEAT
+2 DATE 21 JUL 1879
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 BURI
+2 DATE 23 JUL 1879
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstro-Ogrska
+1 FAMS @F313@
+1 FAMC @F926@
+0 @I366@ INDI
+1 NAME Štefan /Grebenciček/
+2 GIVN Štefan
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 29 MAR 1875
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 10 JUN 1945
+2 PLAC Prem, Cona B, Julijska krajina
+1 FAMS @F5649@
+1 FAMC @F313@
+0 @I369@ INDI
+1 NAME Martin3 /Grebenciček/
+2 GIVN Martin3
+2 SURN Grebenciček
+1 SEX M
+1 BIRT
+2 DATE 4 FEB 1864
+2 PLAC Laški Rovt, Vojvodina Kranjska, Avstrijsko cesarstvo
+2 ADDR Laški Rovt 31
+1 DEAT
+2 DATE 3 MAR 1938
+1 BURI
+2 PLAC Prem, Reška pokrajina, Kraljevina Italija
+1 FAMS @F5647@
+1 FAMC @F313@
+0 @I377@ INDI
+1 NAME Rozalija2 /Kavčičnik/
+2 GIVN Rozalija2
+2 SURN Kavčičnik
+1 SEX M
+1 BIRT
+2 DATE 26 AUG 1879
+2 PLAC Boldraž, Vojvodina Kranjska, Avstro-Ogrska
+2 ADDR Boldraž 20 Mikolovi
+1 DEAT
+2 DATE 9 MAR 1960
+2 PLAC Boldraž, Slovenija, Jugoslavija
+1 BURI
+2 DATE 11 MAR 1960
+2 PLAC Radovica, Slovenija, Jugoslavija
+1 FAMS @F641@
+1 FAMC @F363@
+0 @F2@ FAM
+1 HUSB @I4@
+1 MARR
+2 DATE 23 NOV 1957
+2 PLAC Srednja vas v Bohinju, Slovenija, Jugoslavija
+1 MARR
+2 DATE 30 NOV 1957
+2 PLAC Ajdovščina, Slovenija, Jugoslavija
+0 @F4@ FAM
+1 HUSB @I11@
+1 WIFE @I12@
+1 CHIL @I13@
+1 CHIL @I14@
+1 CHIL @I15@
+1 CHIL @I16@
+1 CHIL @I17@
+1 CHIL @I18@
+1 CHIL @I4@
+1 MARR
+2 DATE 26 NOV 1910
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F7@ FAM
+1 HUSB @I45@
+1 WIFE @I46@
+1 CHIL @I47@
+1 CHIL @I48@
+1 CHIL @I49@
+1 CHIL @I50@
+1 CHIL @I51@
+1 CHIL @I52@
+1 CHIL @I11@
+1 CHIL @I53@
+1 CHIL @I54@
+1 CHIL @I55@
+1 MARR
+2 DATE 26 OCT 1869
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F12@ FAM
+1 HUSB @I88@
+1 WIFE @I89@
+1 CHIL @I90@
+1 CHIL @I91@
+1 CHIL @I92@
+1 CHIL @I93@
+1 CHIL @I94@
+1 CHIL @I12@
+1 CHIL @I95@
+1 CHIL @I336@
+1 CHIL @I96@
+1 MARR
+2 DATE 14 NOV 1876
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F3698@ FAM
+1 HUSB @I14@
+1 MARR
+2 DATE 21 AUG 1948
+2 PLAC Solkan, Slovenija, Jugoslavija
+0 @F716@ FAM
+1 HUSB @I23@
+1 WIFE @I15@
+1 MARR
+2 DATE ABT 1960
+0 @F5@ FAM
+1 HUSB @I24@
+1 WIFE @I16@
+1 MARR
+2 DATE 25 MAR 1950
+2 PLAC Ajdovščina, Slovenija, Jugoslavija
+1 MARR
+2 DATE 13 MAY 1950
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+0 @F4633@ FAM
+1 CHIL @I24@
+1 MARR
+2 DATE 18 FEB 1911
+2 PLAC Batuje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F721@ FAM
+1 HUSB @I32@
+1 MARR
+2 DATE 4 MAY 1957
+2 PLAC Ajdovščina, Slovenija, Jugoslavija
+1 MARR
+2 DATE 11 MAY 1957
+0 @F1748@ FAM
+1 CHIL @I32@
+1 MARR
+2 DATE 5 FEB 1921
+0 @F632@ FAM
+1 HUSB @I70@
+1 WIFE @I71@
+1 CHIL @I72@
+1 CHIL @I75@
+1 CHIL @I73@
+1 CHIL @I45@
+1 CHIL @I74@
+1 MARR
+2 DATE 13 FEB 1827
+2 PLAC Sveti Križ, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F11@ FAM
+1 HUSB @I76@
+1 WIFE @I77@
+1 CHIL @I78@
+1 CHIL @I46@
+1 CHIL @I79@
+1 CHIL @I80@
+1 CHIL @I81@
+1 MARR
+2 DATE 29 JAN 1845
+2 PLAC Velike Žablje, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F8@ FAM
+1 HUSB @I50@
+1 CHIL @I56@
+1 CHIL @I57@
+1 CHIL @I58@
+1 MARR
+2 DATE 28 SEP 1901
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F1147@ FAM
+1 HUSB @I50@
+1 MARR
+2 DATE 29 JAN 1921
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+0 @F1148@ FAM
+1 HUSB @I50@
+1 MARR
+2 DATE 5 OCT 1936
+1 MARR
+2 DATE 5 NOV 1936
+2 PLAC Šempas, Goriška pokrajina, Kraljevina Italija
+0 @F9@ FAM
+1 HUSB @I59@
+1 WIFE @I54@
+1 CHIL @I61@
+1 CHIL @I63@
+1 MARR
+2 DATE 26 AUG 1911
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F10@ FAM
+1 HUSB @I55@
+1 MARR
+2 DATE 27 MAY 1925
+2 PLAC Budanje, Furlanska pokrajina, Kraljevina Italija
+0 @F1928@ FAM
+1 HUSB @I55@
+1 MARR
+0 @F1885@ FAM
+1 WIFE @I56@
+1 MARR
+2 DATE 18 SEP 1927
+2 PLAC Trst, Tržaška pokrajina, Kraljevina Italija
+0 @F1923@ FAM
+1 HUSB @I57@
+1 MARR
+2 DATE 6 MAY 1961
+2 PLAC Ajdovščina, Slovenija, Jugoslavija
+0 @F1752@ FAM
+1 HUSB @I329@
+1 WIFE @I58@
+1 MARR
+2 DATE 25 JUN 1938
+0 @F5842@ FAM
+1 CHIL @I59@
+1 MARR
+2 DATE FEB 1877
+0 @F777@ FAM
+1 HUSB @I61@
+1 MARR
+2 DATE 1 DEC 1956
+2 PLAC Brje, Slovenija, Jugoslavija
+0 @F782@ FAM
+1 HUSB @I68@
+1 WIFE @I63@
+1 MARR
+2 DATE 1 DEC 1956
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+0 @F2143@ FAM
+1 CHIL @I68@
+1 MARR
+2 DATE 13 NOV 1920
+2 PLAC Sveti Križ, Goriška pokrajina, Kraljevina Italija
+0 @F629@ FAM
+1 CHIL @I70@
+1 MARR
+2 DATE 3 FEB 1801
+2 PLAC Sveti Križ, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+0 @F630@ FAM
+1 CHIL @I71@
+1 MARR
+2 DATE 3 FEB 1790
+2 PLAC Sveti Križ, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+0 @F634@ FAM
+1 HUSB @I73@
+1 MARR
+2 DATE ABT 1860
+2 PLAC Gorica, Avstrijsko primorje, Avstrijsko cesarstvo
+0 @F635@ FAM
+1 HUSB @I74@
+1 MARR
+2 DATE ABT 1865
+2 PLAC Trst, Avstrijsko primorje, Avstrijsko cesarstvo
+0 @F5955@ FAM
+1 HUSB @I74@
+1 MARR
+2 DATE 25 JAN 1904
+2 PLAC Trst, Avstrijsko primorje, Avstro-Ogrska
+2 ADDR Cerkev Sant'Antonio Taumaturgo
+0 @F633@ FAM
+1 WIFE @I75@
+1 MARR
+2 DATE 6 FEB 1861
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+0 @F1932@ FAM
+1 CHIL @I76@
+0 @F726@ FAM
+1 WIFE @I77@
+1 CHIL @I82@
+1 CHIL @I83@
+1 CHIL @I84@
+1 CHIL @I85@
+1 CHIL @I86@
+1 CHIL @I87@
+1 MARR
+2 DATE 8 FEB 1860
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+0 @F1999@ FAM
+1 CHIL @I77@
+1 MARR
+2 DATE 13 FEB 1811
+2 PLAC Col, Ilirske province, Francosko cesarstvo
+0 @F1146@ FAM
+1 WIFE @I78@
+1 MARR
+2 DATE 17 NOV 1869
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F5269@ FAM
+1 WIFE @I78@
+1 MARR
+2 DATE JUN 1896
+1 MARR
+2 DATE JUL 1896
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F1149@ FAM
+1 HUSB @I80@
+1 MARR
+2 DATE 23 JUN 1874
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F2192@ FAM
+1 WIFE @I83@
+0 @F2194@ FAM
+1 WIFE @I85@
+0 @F2001@ FAM
+1 HUSB @I86@
+1 MARR
+2 DATE 27 FEB 1889
+0 @F4775@ FAM
+1 WIFE @I87@
+1 MARR
+2 DATE 2 JUN 1895
+2 PLAC Trst, Avstrijsko primorje, Avstro-Ogrska
+0 @F764@ FAM
+1 HUSB @I88@
+1 MARR
+2 DATE 1 JUL 1873
+2 PLAC Šmarje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F13@ FAM
+1 HUSB @I97@
+1 WIFE @I98@
+1 CHIL @I99@
+1 CHIL @I100@
+1 CHIL @I88@
+1 MARR
+2 DATE 6 FEB 1827
+2 PLAC Sveti Križ, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F14@ FAM
+1 HUSB @I101@
+1 WIFE @I102@
+1 CHIL @I103@
+1 CHIL @I104@
+1 CHIL @I89@
+1 CHIL @I105@
+1 CHIL @I106@
+1 MARR
+2 DATE 28 JAN 1839
+2 PLAC Erzelj, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F2000@ FAM
+1 WIFE @I90@
+1 MARR
+2 DATE 20 FEB 1900
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F785@ FAM
+1 WIFE @I91@
+1 CHIL @I329@
+1 MARR
+2 DATE 14 JUN 1902
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F741@ FAM
+1 HUSB @I92@
+1 WIFE @I337@
+1 CHIL @I338@
+1 CHIL @I343@
+1 CHIL @I340@
+1 CHIL @I342@
+1 MARR
+2 DATE 13 FEB 1915
+2 PLAC Batuje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F1142@ FAM
+1 WIFE @I93@
+1 MARR
+2 DATE 10 SEP 1906
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F301@ FAM
+1 WIFE @I95@
+1 MARR
+2 DATE 27 MAY 1914
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F766@ FAM
+1 HUSB @I96@
+1 MARR
+2 DATE 3 FEB 1923
+2 PLAC Šmarje, Furlanska pokrajina, Kraljevina Italija
+0 @F2107@ FAM
+1 CHIL @I97@
+1 MARR
+2 DATE 9 NOV 1795
+2 PLAC Šmarje, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+0 @F3360@ FAM
+1 CHIL @I98@
+1 MARR
+2 DATE 14 NOV 1796
+2 PLAC Vogrsko, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+0 @F762@ FAM
+1 WIFE @I99@
+1 MARR
+2 DATE 18 NOV 1862
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstrijsko cesarstvo
+0 @F1143@ FAM
+1 WIFE @I100@
+1 MARR
+2 DATE 10 JUN 1868
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F1896@ FAM
+1 CHIL @I101@
+1 MARR
+2 DATE 11 FEB 1806
+2 PLAC Štjak, Poknežena grofija Goriška in Gradiščanska, Sveto rimsko cesarstvo
+0 @F1828@ FAM
+1 CHIL @I102@
+1 MARR
+2 DATE 1 FEB 1804
+2 PLAC Goče, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F1971@ FAM
+1 HUSB @I103@
+1 MARR
+2 DATE 23 NOV 1869
+2 PLAC Col, Vojvodina Kranjska, Avstro-Ogrska
+0 @F2196@ FAM
+1 HUSB @I105@
+1 MARR
+2 DATE FEB 1888
+0 @F15@ FAM
+1 HUSB @I107@
+1 WIFE @I108@
+1 CHIL @I109@
+1 MARR
+2 DATE 2 JAN 1928
+2 PLAC Srednja vas, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F19@ FAM
+1 HUSB @I123@
+1 WIFE @I124@
+1 CHIL @I125@
+1 CHIL @I107@
+1 CHIL @I126@
+1 CHIL @I127@
+1 MARR
+2 DATE 24 MAY 1891
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstro-Ogrska
+0 @F20@ FAM
+1 HUSB @I129@
+1 WIFE @I130@
+1 CHIL @I136@
+1 CHIL @I135@
+1 CHIL @I108@
+1 CHIL @I133@
+1 CHIL @I131@
+1 CHIL @I134@
+1 CHIL @I137@
+1 CHIL @I132@
+1 CHIL @I138@
+1 MARR
+2 DATE 10 MAY 1896
+2 PLAC Knežak, Vojvodina Kranjska, Avstro-Ogrska
+0 @F330@ FAM
+1 CHIL @I123@
+1 MARR
+2 DATE 8 FEB 1858
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F329@ FAM
+1 WIFE @I124@
+1 MARR
+2 DATE 1 MAR 1886
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstro-Ogrska
+0 @F320@ FAM
+1 CHIL @I124@
+1 MARR
+2 DATE 19 AUG 1855
+2 PLAC Srednja vas, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F7521@ FAM
+1 HUSB @I125@
+1 MARR
+2 DATE 21 FEB 1927
+2 PLAC Srednja vas, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F231@ FAM
+1 HUSB @I126@
+1 MARR
+2 DATE 7 FEB 1937
+2 PLAC Srednja vas, Dravska banovina, Kraljevina Jugoslavija
+0 @F1769@ FAM
+1 WIFE @I127@
+0 @F1797@ FAM
+1 HUSB @I128@
+1 WIFE @I127@
+1 MARR
+2 DATE 10 APR 1932
+2 PLAC Karlovac, Savska banovina, Kraljevina Jugoslavija
+0 @F7750@ FAM
+1 CHIL @I128@
+1 MARR
+0 @F313@ FAM
+1 HUSB @I364@
+1 WIFE @I365@
+1 CHIL @I369@
+1 CHIL @I129@
+1 CHIL @I366@
+1 MARR
+2 DATE 4 FEB 1861
+2 PLAC Bohinjska Bistrica, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F745@ FAM
+1 CHIL @I130@
+1 MARR
+2 DATE 30 JUN 1869
+2 PLAC Knežak, Vojvodina Kranjska, Avstro-Ogrska
+0 @F1836@ FAM
+1 WIFE @I132@
+0 @F21@ FAM
+1 HUSB @I133@
+1 MARR
+2 DATE 7 JUN 1931
+2 PLAC Ribčev Laz, Dravska banovina, Kraljevina Jugoslavija
+0 @F23@ FAM
+1 HUSB @I134@
+1 WIFE @I145@
+1 MARR
+2 DATE 7 JAN 1936
+2 PLAC Srednja vas, Dravska banovina, Kraljevina Jugoslavija
+0 @F24@ FAM
+1 HUSB @I151@
+1 WIFE @I137@
+1 MARR
+2 DATE 13 MAY 1934
+0 @F1889@ FAM
+1 WIFE @I138@
+0 @F10134@ FAM
+1 CHIL @I145@
+0 @F25@ FAM
+1 HUSB @I168@
+1 WIFE @I169@
+1 MARR
+2 DATE 5 FEB 1933
+2 PLAC Radovica, Dravska banovina, Kraljevina Jugoslavija
+0 @F641@ FAM
+1 HUSB @I377@
+1 CHIL @I168@
+1 MARR
+2 DATE 13 FEB 1905
+2 PLAC Radovica, Vojvodina Kranjska, Avstro-Ogrska
+0 @F645@ FAM
+1 WIFE @I169@
+1 MARR
+2 DATE 13 JUN 1942
+2 PLAC Radovica, Ljubljanska pokrajina, Kraljevina Italija
+0 @F646@ FAM
+1 WIFE @I169@
+1 MARR
+2 DATE 2 MAR 1946
+2 PLAC Črnomelj, Slovenija, Jugoslavija
+0 @F65@ FAM
+1 CHIL @I169@
+1 MARR
+2 DATE 15 FEB 1904
+2 PLAC Radovica, Vojvodina Kranjska, Avstro-Ogrska
+0 @F29@ FAM
+1 HUSB @I183@
+1 WIFE @I184@
+1 MARR
+2 DATE 26 MAY 1934
+2 PLAC Adlešiči, Dravska banovina, Kraljevina Jugoslavija
+0 @F32@ FAM
+1 HUSB @I192@
+1 WIFE @I193@
+1 CHIL @I183@
+1 CHIL @I194@
+1 CHIL @I195@
+1 CHIL @I196@
+1 CHIL @I197@
+1 CHIL @I198@
+1 CHIL @I199@
+1 CHIL @I200@
+1 MARR
+2 DATE 8 FEB 1899
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F45@ FAM
+1 HUSB @I244@
+1 WIFE @I247@
+1 CHIL @I256@
+1 CHIL @I255@
+1 CHIL @I254@
+1 CHIL @I184@
+1 CHIL @I253@
+1 CHIL @I251@
+1 CHIL @I250@
+1 CHIL @I252@
+1 CHIL @I249@
+1 CHIL @I248@
+1 MARR
+2 DATE 2 JUL 1888
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F40@ FAM
+1 HUSB @I192@
+1 WIFE @I222@
+1 CHIL @I223@
+1 CHIL @I224@
+1 CHIL @I225@
+1 MARR
+2 DATE 22 NOV 1897
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F43@ FAM
+1 HUSB @I236@
+1 WIFE @I237@
+1 CHIL @I238@
+1 CHIL @I239@
+1 CHIL @I240@
+1 CHIL @I241@
+1 CHIL @I192@
+1 CHIL @I242@
+1 MARR
+2 DATE 4 MAR 1832
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F119@ FAM
+1 CHIL @I193@
+1 MARR
+2 DATE 12 FEB 1868
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F33@ FAM
+1 HUSB @I201@
+1 WIFE @I195@
+1 MARR
+2 DATE 3 MAR 1951
+0 @F34@ FAM
+1 HUSB @I196@
+1 WIFE @I202@
+1 MARR
+2 DATE 23 FEB 1936
+2 PLAC Adlešiči, Dravska banovina, Kraljevina Jugoslavija
+0 @F36@ FAM
+1 HUSB @I209@
+1 WIFE @I198@
+1 MARR
+2 DATE 30 JAN 1933
+2 PLAC Adlešiči, Dravska banovina, Kraljevina Jugoslavija
+0 @F8739@ FAM
+1 CHIL @I209@
+1 MARR
+2 DATE 6 MAY 1901
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F1113@ FAM
+1 CHIL @I222@
+1 MARR
+2 DATE 26 FEB 1854
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F41@ FAM
+1 HUSB @I225@
+1 WIFE @I226@
+1 CHIL @I227@
+1 MARR
+2 DATE 4 SEP 1921
+2 PLAC Karlovac, Hrvaška
+0 @F2523@ FAM
+1 CHIL @I226@
+1 MARR
+2 DATE 23 JUL 1906
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F61@ FAM
+1 HUSB @I318@
+1 WIFE @I319@
+1 CHIL @I320@
+1 CHIL @I236@
+1 CHIL @I321@
+1 CHIL @I322@
+1 MARR
+2 DATE 29 NOV 1797
+2 PLAC Adlešiči, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F163@ FAM
+1 CHIL @I237@
+1 MARR
+2 DATE 19 NOV 1794
+2 PLAC Adlešiči, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F128@ FAM
+1 WIFE @I238@
+1 MARR
+2 DATE 25 NOV 1863
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F129@ FAM
+1 WIFE @I238@
+1 MARR
+2 DATE 24 FEB 1879
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F44@ FAM
+1 HUSB @I240@
+1 WIFE @I243@
+1 CHIL @I244@
+1 CHIL @I245@
+1 MARR
+2 DATE 27 FEB 1867
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F148@ FAM
+1 CHIL @I243@
+1 MARR
+2 DATE 1 MAR 1829
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F131@ FAM
+1 HUSB @I246@
+1 MARR
+2 DATE 6 NOV 1921
+2 PLAC Adlešiči, Ljubljanska pokrajina, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F130@ FAM
+1 CHIL @I246@
+1 MARR
+2 DATE 21 SEP 1891
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F100@ FAM
+1 CHIL @I247@
+1 MARR
+2 DATE 13 NOV 1865
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F55@ FAM
+1 HUSB @I294@
+1 WIFE @I248@
+1 MARR
+2 DATE 21 FEB 1938
+0 @F1272@ FAM
+1 HUSB @I249@
+1 MARR
+2 DATE ABT 1934
+0 @F56@ FAM
+1 HUSB @I295@
+1 WIFE @I251@
+1 CHIL @I296@
+1 MARR
+2 DATE 6 JUN 1927
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F60@ FAM
+1 HUSB @I252@
+1 WIFE @I310@
+1 MARR
+2 DATE 3 FEB 1932
+0 @F81@ FAM
+1 WIFE @I253@
+1 MARR
+2 DATE 25 JAN 1926
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F51@ FAM
+1 HUSB @I281@
+1 WIFE @I254@
+1 CHIL @I283@
+1 CHIL @I284@
+1 MARR
+2 DATE 3 MAY 1920
+2 PLAC Adlešiči, Ljubljanska oblast, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F1066@ FAM
+1 HUSB @I255@
+1 WIFE @I274@
+1 CHIL @I275@
+1 CHIL @I279@
+1 MARR
+2 DATE 26 JUN 1920
+2 PLAC St. Louis, Missouri, United States of America
+0 @F46@ FAM
+1 HUSB @I256@
+1 WIFE @I257@
+1 CHIL @I259@
+1 CHIL @I260@
+1 MARR
+2 DATE 3 MAY 1920
+2 PLAC Adlešiči, Ljubljanska pokrajina, Kraljevina Srbov, Hrvatov in Slovencev
+0 @F331@ FAM
+1 CHIL @I281@
+1 CHIL @I257@
+1 MARR
+2 DATE 6 NOV 1882
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F1824@ FAM
+1 WIFE @I259@
+0 @F71@ FAM
+1 HUSB @I260@
+1 MARR
+2 DATE 22 JAN 1951
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+0 @F1872@ FAM
+1 HUSB @I275@
+1 WIFE @I276@
+1 MARR
+2 DATE 3 AUG 1945
+2 PLAC St. Louis, Missouri, United States of America
+0 @F1067@ FAM
+1 WIFE @I279@
+1 MARR
+2 DATE 9 OCT 1943
+2 PLAC Affton, St. Louis, Missouri, United States of America
+0 @F52@ FAM
+1 HUSB @I283@
+1 MARR
+2 DATE 11 JUN 1966
+2 PLAC Adlešiči, Slovenija, Jugoslavija
+0 @F53@ FAM
+1 HUSB @I284@
+1 MARR
+2 DATE 30 JAN 1950
+0 @F2390@ FAM
+1 CHIL @I294@
+1 MARR
+2 DATE 22 NOV 1909
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F403@ FAM
+1 CHIL @I295@
+1 MARR
+2 DATE 26 SEP 1904
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F57@ FAM
+1 HUSB @I303@
+1 WIFE @I296@
+1 MARR
+2 DATE 7 FEB 1949
+0 @F215@ FAM
+1 CHIL @I303@
+1 MARR
+2 DATE 6 FEB 1922
+0 @F1201@ FAM
+1 CHIL @I310@
+1 MARR
+2 DATE 5 FEB 1911
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstro-Ogrska
+0 @F64@ FAM
+1 HUSB @I318@
+1 WIFE @I352@
+1 CHIL @I355@
+1 CHIL @I356@
+1 CHIL @I357@
+1 CHIL @I358@
+1 MARR
+2 DATE 5 FEB 1826
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F370@ FAM
+1 HUSB @I325@
+1 CHIL @I318@
+1 CHIL @I327@
+1 MARR
+2 DATE 24 NOV 1773
+2 PLAC Podzemelj, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F2576@ FAM
+1 CHIL @I319@
+1 MARR
+2 DATE 27 NOV 1758
+2 PLAC Podzemelj, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F241@ FAM
+1 WIFE @I320@
+1 MARR
+2 DATE 21 FEB 1827
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F62@ FAM
+1 HUSB @I324@
+1 WIFE @I322@
+1 MARR
+2 DATE 6 FEB 1839
+2 PLAC Adlešiči, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F714@ FAM
+1 HUSB @I324@
+1 MARR
+2 DATE 6 FEB 1850
+2 PLAC Adlešiči, Vojvodina Kranjska, Avstrijsko cesarstvo
+0 @F711@ FAM
+1 CHIL @I324@
+1 MARR
+2 DATE 19 NOV 1794
+2 PLAC Adlešiči, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F625@ FAM
+1 HUSB @I325@
+1 MARR
+2 DATE 1 MAY 1786
+2 PLAC Podzemelj, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F63@ FAM
+1 HUSB @I325@
+1 WIFE @I326@
+1 CHIL @I353@
+1 CHIL @I354@
+1 MARR
+2 DATE 16 JUL 1792
+2 PLAC Adlešiči, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F670@ FAM
+1 CHIL @I325@
+1 MARR
+2 DATE 31 JAN 1742
+2 PLAC Podzemelj, Vojvodina Kranjska, Sveto rimsko cesarstvo
+0 @F767@ FAM
+1 WIFE @I336@
+1 MARR
+2 DATE 14 FEB 1920
+2 PLAC Velike Žablje, Julijska krajina
+0 @F7469@ FAM
+1 CHIL @I337@
+0 @F1205@ FAM
+1 HUSB @I344@
+1 WIFE @I338@
+1 MARR
+2 DATE 15 FEB 1942
+2 PLAC Velike Žablje, Goriška pokrajina, Kraljevina Italija
+0 @F1983@ FAM
+1 WIFE @I340@
+1 MARR
+0 @F1765@ FAM
+1 HUSB @I348@
+1 WIFE @I342@
+1 MARR
+2 DATE 26 JUN 1954
+2 PLAC Velike Žablje, Slovenija, Jugoslavija
+0 @F1206@ FAM
+1 HUSB @I343@
+1 WIFE @I359@
+1 MARR
+2 DATE 14 FEB 1953
+0 @F2080@ FAM
+1 CHIL @I344@
+1 MARR
+2 DATE 1 DEC 1900
+2 PLAC Velike Žablje, Poknežena grofija Goriška in Gradiščanska, Avstro-Ogrska
+0 @F2118@ FAM
+1 CHIL @I348@
+1 MARR
+2 DATE 7 JUL 1923
+0 @F1132@ FAM
+1 HUSB @I354@
+0 @F1790@ FAM
+1 WIFE @I357@
+0 @F1091@ FAM
+1 HUSB @I358@
+1 MARR
+0 @F434@ FAM
+1 CHIL @I364@
+1 MARR
+2 DATE 6 MAY 1822
+2 PLAC Srednja vas, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F926@ FAM
+1 CHIL @I365@
+1 MARR
+2 DATE 10 FEB 1834
+2 PLAC Bohinjska Bistrica, Ilirsko kraljestvo, Avstrijsko cesarstvo
+0 @F5649@ FAM
+1 HUSB @I366@
+1 MARR
+0 @F5647@ FAM
+1 HUSB @I369@
+1 MARR
+0 @F363@ FAM
+1 CHIL @I377@
+1 MARR
+2 DATE 7 FEB 1872
+2 PLAC Metlika, Vojvodina Kranjska, Avstro-Ogrska
+0 TRLR

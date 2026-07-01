@@ -1,0 +1,215 @@
+[
+  {
+    "file": "ancestry-5.5.1-utf8.ged",
+    "exporter": "Ancestry.com Family Trees",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 70744,
+    "records": {
+      "INDI": 12,
+      "FAM": 13,
+      "other": 29
+    }
+  },
+  {
+    "file": "rootsmagic-5.5.1-utf8.ged",
+    "exporter": "RootsMagic",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "LF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 59730,
+    "records": {
+      "INDI": 54,
+      "FAM": 27,
+      "other": 10
+    }
+  },
+  {
+    "file": "familyhistorian-5.5.1-utf8.ged",
+    "exporter": "Family Historian 7",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": true,
+    "bytes": 79091,
+    "records": {
+      "INDI": 198,
+      "FAM": 173,
+      "other": 10
+    }
+  },
+  {
+    "file": "familyhistorian-5.5.1-w1250.ged",
+    "exporter": "Family Historian 7 (ANSI)",
+    "version": "5.5.1",
+    "charset": "windows-1250",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 69754,
+    "records": {
+      "INDI": 208,
+      "FAM": 62,
+      "other": 0
+    }
+  },
+  {
+    "file": "brotherskeeper-5.5.1-w1250.ged",
+    "exporter": "Brother's Keeper",
+    "version": "5.5.1",
+    "charset": "windows-1250",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 79921,
+    "records": {
+      "INDI": 257,
+      "FAM": 206,
+      "other": 20
+    }
+  },
+  {
+    "file": "brotherskeeper-5.5-w1250.ged",
+    "exporter": "Brother's Keeper",
+    "version": "5.5",
+    "charset": "windows-1250",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 74673,
+    "records": {
+      "INDI": 306,
+      "FAM": 239,
+      "other": 16
+    },
+    "note": "GEDCOM 5.5 (not 5.5.1)"
+  },
+  {
+    "file": "geneanet-5.5.1-utf8.ged",
+    "exporter": "Geneanet",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "LF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 65783,
+    "records": {
+      "INDI": 195,
+      "FAM": 71,
+      "other": 0
+    }
+  },
+  {
+    "file": "geneanet-5.5.1-w1250.ged",
+    "exporter": "Geneanet (ANSI)",
+    "version": "5.5.1",
+    "charset": "windows-1250",
+    "eol": "LF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 67721,
+    "records": {
+      "INDI": 270,
+      "FAM": 176,
+      "other": 0
+    }
+  },
+  {
+    "file": "gramps-5.5.1-utf8.ged",
+    "exporter": "Gramps",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 78020,
+    "records": {
+      "INDI": 207,
+      "FAM": 116,
+      "other": 13
+    }
+  },
+  {
+    "file": "myheritage-5.5.1-utf8.ged",
+    "exporter": "MyHeritage",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": true,
+    "bytes": 61470,
+    "records": {
+      "INDI": 75,
+      "FAM": 48,
+      "other": 12
+    }
+  },
+  {
+    "file": "webtrees-5.5.1-utf8.ged",
+    "exporter": "webtrees",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 49003,
+    "records": {
+      "INDI": 110,
+      "FAM": 68,
+      "other": 39
+    }
+  },
+  {
+    "file": "reunion-5.5.1-utf8.ged",
+    "exporter": "Reunion",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "CR",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 84657,
+    "records": {
+      "INDI": 377,
+      "FAM": 284,
+      "other": 1
+    }
+  },
+  {
+    "file": "synium-7.0-utf8.ged",
+    "exporter": "Synium MacFamilyTree",
+    "version": "7.0",
+    "charset": "utf-8",
+    "eol": "LF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 86377,
+    "records": {
+      "INDI": 88,
+      "FAM": 108,
+      "other": 42
+    },
+    "note": "GEDCOM 7.0"
+  },
+  {
+    "file": "unknown-5.5.1-utf8.ged",
+    "exporter": "(no HEAD.SOUR)",
+    "version": "5.5.1",
+    "charset": "utf-8",
+    "eol": "LF",
+    "finalNewline": true,
+    "bom": true,
+    "bytes": 75277,
+    "records": {
+      "INDI": 177,
+      "FAM": 150,
+      "other": 0
+    },
+    "note": "HEAD without a SOUR line"
+  }
+]

@@ -1,0 +1,2243 @@
+0 HEAD
+1 SOUR RootsMagic
+2 NAME Agata
+2 CORP RootsMagic, Inc.
+3 ADDR Naslov 1
+4 CONT Springville, UT 84663
+4 CONT USA
+3 PHON +000 000 000
+3 WWW www.RootsMagic.com
+1 DEST RootsMagic
+1 DATE 27 MAY 2026
+1 SUBM @f1_SUB1@
+1 FILE media/file1.ged
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @f1_I5@ INDI
+1 NAME Simon /Cvetkoič/
+2 GIVN Simon
+2 SURN Cvetkoič
+1 SEX M
+1 _UID 681344FE5F72A1F02389000000000000CB26
+1 _AMTID 412781982829:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 BIRT
+2 DATE 15 OCT 1954
+2 PLAC Koper, Slovenija
+1 DEAT
+2 DATE 2 AUG 2015
+2 PLAC Cellole, Italija
+1 FAMS @f1_F3@
+1 FAMS @f2_F3@
+1 NOTE Lorem ipsum note.
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+2 CONT lorem ipsum
+0 @f1_I6@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 681344FE4DC701F023890000000000006EB5
+1 _AMTID 412781982832:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F4@
+0 @f1_I7@ INDI
+1 NAME Lucija
+1 SEX F
+1 _UID 681344FE68AC51F02389000000000000BEF0
+1 _AMTID 412781982836:1030:210595317
+1 CHAN
+2 DATE 15 MAY 2026
+1 FAMS @f1_F164@
+1 FAMC @f1_F3@
+0 @f1_I8@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 681344FEC2A591F02389000000000000515B
+1 _AMTID 412781982840:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMC @f1_F3@
+0 @f1_I9@ INDI
+1 NAME Lucija
+1 SEX F
+1 _UID 681344FE227AE1F02389000000000000D622
+1 _AMTID 412781982843:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F5@
+1 FAMC @f1_F15@
+0 @f1_I10@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 681344FE3E7661F023890000000000006E46
+1 _AMTID 412781982849:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F5@
+0 @f1_I11@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 681344FE1B1D31F02389000000000000C2EF
+1 _AMTID 412781982806:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMC @f1_F5@
+0 @f1_I49@ INDI
+1 NAME Lucija
+1 SEX F
+1 _UID 676074CBD5DB56250AF39E2DE81CBE571216
+1 _AMTID 412781982852:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F3@
+1 FAMS @f1_F4@
+1 FAMC @f1_F15@
+0 @f1_I50@ INDI
+1 NAME Lucija
+1 SEX F
+1 _UID 6762B17553DB079C4EC2A86851D8AFFFB7BB
+1 _AMTID 412781982853:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F15@
+0 @f1_I51@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 67F37ACCA1B7C46D9E26D74E8AF4CE318FF6
+1 _AMTID 412781982859:1030:210595317
+1 CHAN
+2 DATE 15 MAY 2026
+1 FAMS @f1_F15@
+1 FAMC @f1_F82@
+0 @f1_I256@ INDI
+1 NAME Gašper /Cvetkoek/
+2 GIVN Gašper
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB5585EBA623632B0450513AD85FD16683
+1 _AMTID 412781983112:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 BIRT
+2 DATE 22 OCT 1902
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=19
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=19
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=19
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS bolezen
+2 DATE 13 OCT 1974
+2 PLAC Izola, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 NAME Luka//en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+1 FAMS @f1_F82@
+1 FAMS @f1_F84@
+1 FAMC @f1_F83@
+0 @f1_I257@ INDI
+1 NAME Elizabeta /Cvetkoar/
+2 GIVN Elizabeta
+2 SURN Cvetkoar
+1 SEX F
+1 _UID 68FB55863832C3652B0450513AD85FD1E282
+1 _AMTID 412781983115:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S32@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-5000132/marija-katarin%C4%8Di%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-5000132/marija-katarin%C4%8Di%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-5000132/marija-katarin%C4%8Di%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 19 DEC 1905
+2 PLAC Boškarji, Zrenj, Hrvaška
+1 DEAT
+2 DATE 28 OCT 1945
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMS @f1_F82@
+0 @f1_I258@ INDI
+1 NAME Tomaž /Cvetkoek/
+2 GIVN Tomaž
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FB55866CE4A3662B0450513AD85FD1A961
+1 _AMTID 412781983118:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 BIRT
+2 DATE 4 JAN 1929
+2 PLAC Gračišče, Slovenija
+1 DEAT
+2 DATE 3 FEB 1929
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 NAME Luka//en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+1 FAMC @f1_F82@
+0 @f1_I259@ INDI
+1 NAME Marta Filip Angela Pavel /Cvetkonik/
+2 GIVN Cecilija
+2 SURN Cvetkonik
+1 SEX M
+1 _UID 68FB55869F8903672B0450513AD85FD1E2A5
+1 _AMTID 412781983121:1030:210595317
+1 CHAN
+2 DATE 15 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000031/darko-ted-udovi%C4%8D-odoni
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000031/darko-ted-udovi%C4%8D-odoni
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000031/darko-ted-udovi%C4%8D-odoni
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 30 APR 1930
+2 PLAC Gračišče, Slovenija
+1 DEAT
+2 DATE 30 MAY 2013
+2 PLAC Stoney Creek, Canada
+1 BURI
+2 PLAC Ancaster, Hamilton-Wentworth, Ontario, Canada
+2 SOUR @f1_S11@
+3 PAGE https://www.findagrave.com/memorial/266115040/ted-odoni#view-photo=290771809
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://www.findagrave.com/memorial/266115040/ted-odoni#view-photo=290771809
+3 NAME Luka//www.findagrave.com/memorial/266115040/ted-odoni#view-photo=290771809
+1 FAMS @f1_F116@
+1 FAMC @f1_F82@
+0 @f1_I260@ INDI
+1 NAME Lucija
+1 SEX M
+1 _UID 68FB5586D06FC3682B0450513AD85FD1BA5C
+1 _AMTID 412781983124:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 FAMS @f1_F121@
+1 FAMC @f1_F82@
+0 @f1_I261@ INDI
+1 NAME Boštjan /Cvetkoek/
+2 GIVN Boštjan
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB55870D6F23692B0450513AD85FD1590E
+1 _AMTID 412781983108:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 BIRT
+2 DATE 3 MAY 1938
+2 PLAC Gračišče, Slovenija
+1 DEAT
+2 CAUS Rak
+2 DATE 6 JUL 2023
+2 PLAC Weland Ont. Kanada
+1 EVEN rak
+2 TYPE Pokop
+2 DATE 13 JUL 2023
+2 PLAC East, Hamilton Canada
+1 BURI
+2 PLAC East, Hamilton Canada
+1 FAMS @f1_F155@
+1 FAMC @f1_F82@
+0 @f1_I262@ INDI
+1 NAME Veronika Nace /Cvetkoek/
+2 GIVN Ivana
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB55873E0E836A2B0450513AD85FD18AF8
+1 _AMTID 412781983111:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 BIRT
+2 DATE 10 JUL 1940
+2 PLAC Trst, Italija
+1 DEAT
+2 DATE 13 JUL 1940
+2 PLAC Trst, Italija
+1 BURI
+2 PLAC Trst, Italija
+1 FAMC @f1_F82@
+0 @f1_I263@ INDI
+1 NAME Štefan /Cvetkoek/
+2 GIVN Štefan
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB8112BC484D898DB3AC71B5E83B2A2F9E
+1 _AMTID 412781983114:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE JOŽEF UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE JOŽEF UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Štefan Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 5 FEB 1874
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=14
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=14
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=14
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 18 OCT 1930
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 NAME Luka//en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+1 FAMS @f1_F83@
+1 FAMC @f1_F86@
+0 @f1_I264@ INDI
+1 NAME Vinko /Cvetkošek/
+2 GIVN Vinko
+2 SURN Cvetkošek
+1 SEX F
+1 _UID 68FB8112D9989D8C8DB3AC71B5E83B2AEFA5
+1 _AMTID 412781983117:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE ANTONIJA FRANCA
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE ANTONIJA FRANCA
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Vinko Amalija
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000021/antonija-franca
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000021/antonija-franca
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000021/antonija-franca
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 29 MAR 1875
+2 PLAC Gračišče 4/6, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS Bolezen
+2 DATE 12 JUN 1943
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 NAME Luka//en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+1 FAMS @f1_F83@
+0 @f1_I265@ INDI
+1 NAME Elizabeta /Cvetkonc/
+2 GIVN Elizabeta
+2 SURN Cvetkonc
+1 SEX F
+1 _UID 68FB81130759ED8F8DB3AC71B5E83B2A3260
+1 _AMTID 412781983120:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE MARIJA MARKOVČIČ - KOCJANČIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE MARIJA MARKOVČIČ - KOCJANČIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Elizabeta Rok Danijela Karel
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 3 APR 1921
+2 PLAC Hrastovlje, Slovenija
+1 DEAT
+2 CAUS Bolezen
+2 DATE 1981
+2 PLAC Koper, Slovenija
+1 BURI
+2 PLAC Koper, Slovenija
+1 FAMS @f1_F84@
+0 @f1_I268@ INDI
+1 NAME Zofija /Cvetkoek/
+2 GIVN Zofija
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB81135C9AED998DB3AC71B5E83B2AD281
+1 _AMTID 412781983128:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE DOMENIKO UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE DOMENIKO UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Zofija Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000009/domeniko-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000009/domeniko-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000009/domeniko-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 23 JAN 1848
+2 PLAC Gračišče 32, Slovenia
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=69
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=69
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=69
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 7 FEB 1932
+2 PLAC Gračišče 32, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMS @f1_F86@
+1 FAMC @f1_F99@
+0 @f1_I269@ INDI
+1 NAME Janez /Cvetkoman/
+2 GIVN Janez
+2 SURN Cvetkoman
+1 SEX F
+1 _UID 68FB811372001D9C8DB3AC71B5E83B2A81E6
+1 _AMTID 412781983130:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE IVANA KOCJANČIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE IVANA KOCJANČIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Janez Karel
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000013/ivana-kocjančič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000013/ivana-kocjančič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000013/ivana-kocjančič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S30@
+2 PAGE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-4000013/ivana-kocjan%C4%8Di%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-4000013/ivana-kocjan%C4%8Di%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-4000013/ivana-kocjan%C4%8Di%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 27 APR 1846
+2 PLAC Hrastovlje 3, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=67
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=67
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=67
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 26 FEB 1913
+2 PLAC Beli kamen, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMS @f1_F86@
+0 @f1_I270@ INDI
+1 NAME Štefan /Cvetkoek/
+2 GIVN Štefan
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB811391840D9F8DB3AC71B5E83B2A1781
+1 _AMTID 412781983132:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE JOŽEF UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE JOŽEF UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Štefan Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 15 FEB 1904
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=23
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=23
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=23
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 19 OCT 1922
+2 PLAC Beli kamen, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMC @f1_F83@
+0 @f1_I271@ INDI
+1 NAME Alojzija /Cvetkoek/
+2 GIVN Alojzija
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB8113A6AD4DA18DB3AC71B5E83B2A97D2
+1 _AMTID 412781983107:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE PETER UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE PETER UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Alojzija Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 19 MAY 1907
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=33
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=33
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=33
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS padel v NOB
+2 DATE 3 MAY 1944
+2 PLAC Žužemberk, Slovenija
+2 SOUR @f1_S13@
+3 PAGE https://www.sistory.si/ww2/1D9AE009-1EBD-4658-9DB0-C1A731ABBC30
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://www.sistory.si/ww2/1D9AE009-1EBD-4658-9DB0-C1A731ABBC30
+3 QUAY 3
+3 _QUAL
+4 _INFO P
+3 NAME Luka//www.sistory.si/ww2/1D9AE009-1EBD-4658-9DB0-C1A731ABBC30
+3 DATA
+4 TEXT Lorem ipsum note.
+1 BURI
+2 PLAC Žužemberk, Slovenija
+1 FAMC @f1_F83@
+0 @f1_I272@ INDI
+1 NAME Mihael /Cvetkoek/
+2 GIVN Mihael
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB8113BBDB1DA38DB3AC71B5E83B2AACFA
+1 _AMTID 412781983110:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE VIKTOR UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE VIKTOR UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Mihael Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 28 NOV 1908
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=42
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=42
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=42
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 17 OCT 1920
+2 PLAC Gračišče 40, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMC @f1_F83@
+0 @f1_I273@ INDI
+1 NAME Jera /Cvetkoek/
+2 GIVN Jera
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB8113D15FBDA58DB3AC71B5E83B2AE800
+1 _AMTID 412781983113:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE STANISLAV UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE STANISLAV UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Jera Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 13 NOV 1910
+2 PLAC Poletiči 25, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=55
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=55
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=55
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS nesreča v vojski
+2 DATE 31 OCT 1945
+2 PLAC Semič, Slovenija
+2 SOUR @f1_S13@
+3 PAGE https://www.sistory.si/ww2/33DEFD31-226A-43BD-8898-38DB9D9CD750
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://www.sistory.si/ww2/33DEFD31-226A-43BD-8898-38DB9D9CD750
+3 QUAY 3
+3 _QUAL
+4 _INFO P
+3 NAME Luka//www.sistory.si/ww2/33DEFD31-226A-43BD-8898-38DB9D9CD750
+3 DATA
+4 TEXT Lorem ipsum note.
+1 BURI
+2 PLAC Rožni dol, Semič
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538736/persons/?individu_filter=UDOVIC%2BStanislav
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538736/persons/?individu_filter=UDOVIC%2BStanislav
+3 NAME Luka//en.geneanet.org/cemetery/view/9538736/persons/?individu_filter=UDOVIC%2BStanislav
+1 FAMS @f1_F120@
+1 FAMC @f1_F83@
+0 @f1_I274@ INDI
+1 NAME Sebastijan /Cvetkoek/
+2 GIVN Sebastijan
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FB8113E9B9DDA78DB3AC71B5E83B2A7C50
+1 _AMTID 412781983116:1030:210595317
+1 CHAN
+2 DATE 15 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE JUSTIN UDOVIČ
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE JUSTIN UDOVIČ
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Sebastijan Johana
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000027/justin-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000027/justin-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000027/justin-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 31 MAR 1913
+2 PLAC Poletiči 25, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=66
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=66
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=66
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS ustreljen
+2 DATE 1943
+2 PLAC Predvideno Zabavlje, Slovenija
+1 FAMS @f1_F124@
+1 FAMC @f1_F83@
+0 @f1_I347@ INDI
+1 NAME Elizabeta Kristina /Cvetkoek/
+2 GIVN Urban
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE31911E0FA38527B5FD008BD69B15D1D
+1 _AMTID 412781983227:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.com/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000028/marija-nives-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 16 AUG 1916
+2 PLAC Poletiči 25, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=86
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=86
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=86
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 16 MAR 2006
+2 PLAC Rim, Italija
+1 BURI
+2 PLAC Monteverchi, Italija
+1 FAMS @f1_F118@
+1 FAMC @f1_F83@
+0 @f1_I348@ INDI
+1 NAME Gašper Elizabeta Klara /Cvetkoek/
+2 GIVN Ferdinand
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE614248EF8D1C8F55E5FE61C68A76305
+1 _AMTID 412781983232:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000003/ivan-joa-marijo-nuco-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000003/ivan-joa-marijo-nuco-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000003/ivan-joa-marijo-nuco-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 12 NOV 1812
+2 PLAC Gračišče 32, Slovenija
+1 DEAT
+2 CAUS starostna oslabelost
+2 DATE 30 JAN 1899
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=38
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=38
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=38
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 OCCU vojak (militaris)
+1 FAMS @f1_F99@
+1 FAMC @f1_F101@
+0 @f1_I349@ INDI
+1 NAME Elizabeta /Cvetkoovec/
+2 GIVN Elizabeta
+2 SURN Cvetkoovec
+1 SEX F
+1 _UID 68FBE6145C7CD8D3C8F55E5FE61C68A76BB1
+1 _AMTID 412781983237:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000007/marija-opara
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000007/marija-opara
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000007/marija-opara
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 23 AUG 1816
+2 PLAC Rožice 15, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKK+5/?pg=92
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKK+5/?pg=92
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKK+5/?pg=92
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 9 OCT 1891
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=28
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=28
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=28
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMS @f1_F99@
+0 @f1_I350@ INDI
+1 NAME Gašper /Cvetkoek/
+2 GIVN Gašper
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE6148E13D8D4C8F55E5FE61C68A7358F
+1 _AMTID 412781983243:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000008/ivan-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000008/ivan-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000008/ivan-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 19 JAN 1847
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=68
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=68
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=68
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS angina (gnojna)
+2 DATE 9 DEC 1863
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMC @f1_F99@
+0 @f1_I351@ INDI
+1 NAME Ljudmila /Cvetkoek/
+2 GIVN Ljudmila
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE614BB8EF8D5C8F55E5FE61C68A7FE3D
+1 _AMTID 412781983195:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000010/ana-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000010/ana-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000010/ana-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 25 OCT 1849
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=71
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=71
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=71
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 25 NOV 1863
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=62
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 FAMC @f1_F99@
+0 @f1_I352@ INDI
+1 NAME Elizabeta /Cvetkoek/
+2 GIVN Elizabeta
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE614E6F788D6C8F55E5FE61C68A7236D
+1 _AMTID 412781983200:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000011/marija-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000011/marija-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000011/marija-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 25 JAN 1851
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=73
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=73
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=73
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 27 JAN 1851
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=48
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=48
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=48
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 FAMC @f1_F99@
+0 @f1_I353@ INDI
+1 NAME Ignac /Cvetkoek/
+2 GIVN Ignac
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE615208D38D7C8F55E5FE61C68A7A58D
+1 _AMTID 412781983205:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000206/uršula-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000206/uršula-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000206/uršula-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 23 JUL 1853
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=76
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=76
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=76
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS tuberkoloza
+2 DATE 1 DEC 1871
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=7
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=7
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=7
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 FAMC @f1_F99@
+0 @f1_I354@ INDI
+1 NAME Štefan /Cvetkoek/
+2 GIVN Štefan
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE6154AE608D8C8F55E5FE61C68A7F981
+1 _AMTID 412781983210:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000012/jožef-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000012/jožef-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000012/jožef-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 13 JUL 1856
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=80
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=80
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=80
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 PLAC GALANTIČI
+1 BURI
+2 PLAC KUBED
+1 FAMS @f1_F129@
+1 FAMC @f1_F99@
+0 @f1_I355@ INDI
+1 NAME Ljudmila /Cvetkoek/
+2 GIVN Ljudmila
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE615770EA8D9C8F55E5FE61C68A7EF9E
+1 _AMTID 412781983215:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 BIRT
+2 DATE 29 JUN 1875
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 26 AUG 1947
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMS @f1_F122@
+1 FAMC @f1_F86@
+0 @f1_I356@ INDI
+1 NAME Karolina /Cvetkoek/
+2 GIVN Karolina
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE615A98A98DAC8F55E5FE61C68A78EB3
+1 _AMTID 412781983221:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000016/anton-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000016/anton-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000016/anton-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 15 SEP 1877
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=18
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=18
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=18
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 7 FEB 1917
+2 PLAC BELI  KAMEN
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMC @f1_F86@
+0 @f1_I357@ INDI
+1 NAME Bernard /Cvetkoek/
+2 GIVN Bernard
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE615DB9F48DBC8F55E5FE61C68A786DB
+1 _AMTID 412781983226:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000017/karel-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000017/karel-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000017/karel-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 12 JUL 1882
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=25
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=25
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=25
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+1 FAMC @f1_F86@
+0 @f1_I358@ INDI
+1 NAME Genovefa /Cvetkoek/
+2 GIVN Genovefa
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE6161CD2A8DCC8F55E5FE61C68A75CEE
+1 _AMTID 412781983231:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000018/andrej-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000018/andrej-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000018/andrej-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 17 NOV 1884
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=29
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=29
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=29
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 1979
+2 PLAC Trst, Italija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538702/persons/?individu_filter=UDOVIC%2BAndrej
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538702/persons/?individu_filter=UDOVIC%2BAndrej
+3 NAME Luka//en.geneanet.org/cemetery/view/9538702/persons/?individu_filter=UDOVIC%2BAndrej
+1 OCCU kovač in kolar
+1 FAMS @f1_F160@
+1 FAMC @f1_F86@
+0 @f1_I359@ INDI
+1 NAME Ignac /Cvetkoek/
+2 GIVN Ignac
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE6164FBAE8DDC8F55E5FE61C68A7B8D3
+1 _AMTID 412781983236:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000020/urša-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000020/urša-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000020/urša-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 18 MAR 1893
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=40
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=40
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=40
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 1968
+2 PLAC Lopar, Slovenija
+1 BURI
+2 PLAC LOPAR
+1 FAMS @f1_F123@
+1 FAMC @f1_F86@
+0 @f1_I365@ INDI
+1 NAME Zofija /Cvetkoek/
+2 GIVN Zofija
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE868179E7B497A6209AE557E2C3EFCE8
+1 _AMTID 412781983218:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000001/domenico-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000001/domenico-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000001/domenico-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 25 MAY 1781
+2 PLAC BELI  KAMEN
+2 SOUR @f1_S9@
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+3 DATA
+4 TEXT Lorem ipsum note.
+1 DEAT
+2 CAUS hydrops
+2 DATE 12 APR 1844
+2 PLAC Gračišče 30, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=42
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=42
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=42
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 OCCU kmet
+1 FAMS @f1_F101@
+1 FAMC @f1_F115@
+0 @f1_I366@ INDI
+1 NAME Matevž /Cvetkošek/
+2 GIVN Matevž
+2 SURN Cvetkošek
+1 SEX F
+1 _UID 68FBE868571E7B4B7A6209AE557E2C3EBE7A
+1 _AMTID 412781983224:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000002/mihaela-mihalič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000002/mihaela-mihalič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000002/mihaela-mihalič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 2 OCT 1779
+2 PLAC ?
+1 DEAT
+2 CAUS kap
+2 DATE 29 DEC 1851
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=49
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=49
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=49
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 FAMS @f1_F101@
+0 @f1_I367@ INDI
+1 NAME Gašper Suzana /Cvetkoek/
+2 GIVN Primož
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE8688C3B2B4C7A6209AE557E2C3EC11E
+1 _AMTID 412781983229:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000004/joanes-ruško-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000004/joanes-ruško-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000004/joanes-ruško-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 22 AUG 1809
+2 PLAC Gračišče 32, Slovenija
+1 DEAT
+2 DATE 17 NOV 1894
+2 PLAC Gračišče 17, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=32
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=32
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=32
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 BURI
+2 PLAC KUBED
+1 FAMS @f1_F114@
+1 FAMC @f1_F101@
+0 @f1_I368@ INDI
+1 NAME Elizabeta /Cvetkoek/
+2 GIVN Elizabeta
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 68FBE868BC44AB4D7A6209AE557E2C3E7BCA
+1 _AMTID 412781983234:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000005/marija-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000005/marija-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000005/marija-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 26 MAY 1820
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S5@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=18
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=18
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=18
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 PLAC Gračišče 32, Slovenija
+1 FAMS @f1_F125@
+1 FAMC @f1_F101@
+0 @f1_I369@ INDI
+1 NAME Dorotea /Cvetkoek/
+2 GIVN Dorotea
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 68FBE868EF71EB4E7A6209AE557E2C3E1CA6
+1 _AMTID 412781983239:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000006/matija-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000006/matija-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000006/matija-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 24 FEB 1824
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=19
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=19
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+4/?pg=19
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 2 MAR 1824
+2 PLAC Gračišče 32, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=12
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=12
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+4/?pg=12
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 FAMC @f1_F101@
+0 @f1_I374@ INDI
+1 NAME Dorotea /Cvetkoek/
+2 GIVN Dorotea
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 69005DD3B4F1FAAF6F77682F69D44CB9A698
+1 _AMTID 412781983212:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovič
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovič
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovič
+2 DATA
+3 TEXT Lorem ipsum note.
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000019/matija-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 6 FEB 1887
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=32
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=32
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=32
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 DATE 1958
+2 PLAC Poletiči, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 NAME Luka//en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+1 FAMS @f1_F104@
+1 FAMC @f1_F86@
+0 @f1_I378@ INDI
+1 NAME Ljudmila /Cvetkoin/
+2 GIVN Ljudmila
+2 SURN Cvetkoin
+1 SEX F
+1 _UID 6919A8CABDE732A816C3EB6B98C7D47C5095
+1 _AMTID 412781983233:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 BIRT
+2 DATE 20 DEC 1894
+2 PLAC Gračišče 30, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+5/?pg=15
+1 DEAT
+2 CAUS Podatek v MKK.
+2 DATE 27 DEC 1951
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 NAME Luka//en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+1 FAMS @f1_F104@
+0 @f1_I379@ INDI
+1 NAME Aleš /Cvetkoek/
+2 GIVN Aleš
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 6919A8CB1FF112AB16C3EB6B98C7D47CA083
+1 _AMTID 412781983238:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000063/alojz-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000063/alojz-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000063/alojz-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 23 MAR 1918
+2 PLAC Gračišče, Slovenija
+1 DEAT
+2 DATE 1994
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 NAME Luka//en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+1 FAMS @f1_F127@
+1 FAMC @f1_F104@
+0 @f1_I380@ INDI
+1 NAME Mihael /Cvetkoek/
+2 GIVN Mihael
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 6919A8CB51CD92AC16C3EB6B98C7D47C2F58
+1 _AMTID 412781983245:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000064/viktor-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000064/viktor-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000064/viktor-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 13 JAN 1921
+2 PLAC Gračišče, Slovenija
+1 DEAT
+2 DATE 24 AUG 1944
+2 PLAC Sandžak, Srbija
+1 BURI
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+3 NAME Luka//en.geneanet.org/cemetery/view/9538697/persons/?individu_filter=UDOVIC%2BAna
+1 FAMC @f1_F104@
+0 @f1_I381@ INDI
+1 NAME Regina /Cvetkoek/
+2 GIVN Regina
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 6919A8CB82AB32AD16C3EB6B98C7D47CDF77
+1 _AMTID 412781983198:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 SOUR @f1_S23@
+2 PAGE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000065/kristjan-udovi%C4%8D
+2 _TMPLT
+3 FIELD
+4 NAME Magdalena
+4 VALUE https://www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000065/kristjan-udovi%C4%8D
+2 QUAY 3
+2 _QUAL
+3 _INFO P
+2 NAME Luka//www.myheritage.si/profile-OYYV6LLTHJT3JIZP2FIS4RAGFL4RQBI-1000065/kristjan-udovi%C4%8D
+2 DATA
+3 TEXT Lorem ipsum note.
+1 BIRT
+2 DATE 12 JUN 1922
+2 PLAC BELI  KAMEN
+1 DEAT
+2 DATE 12 MAR 1928
+2 PLAC Gračišče, Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+1 FAMC @f1_F104@
+0 @f1_I402@ INDI
+1 NAME Elizabeta /Cvetkoek/
+2 GIVN Elizabeta
+2 SURN Cvetkoek
+1 SEX F
+1 _UID 692CC31633C2313ED8BA9AFF1C2F9D17FC79
+1 _AMTID 412781983278:1030:210595317
+1 CHAN
+2 DATE 14 MAY 2026
+1 BIRT
+2 DATE 24 DEC 1905
+2 PLAC Gračišče 40, Slovenija
+2 SOUR @f1_S4@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=30
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=30
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=30
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 DEAT
+2 CAUS Bolezen
+2 DATE 14 MAY 1906
+2 PLAC Gračišče 32 (40), Slovenija
+1 BURI
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S11@
+3 PAGE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+3 NAME Luka//en.geneanet.org/cemetery/view/9538698/persons/?individu_filter=UDOVIC%2BIvan
+1 FAMC @f1_F83@
+0 @f1_I403@ INDI
+1 NAME Benjamin /Cvetkoel/
+2 GIVN Benjamin
+2 SURN Cvetkoel
+1 SEX F
+1 _UID 693298A2636A8343F6DFDB2C9BF79E0B7F12
+1 _AMTID 412781983283:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 BIRT
+2 DATE 16 OCT 1805
+2 PLAC Kubed, Slovenija
+1 DEAT
+2 DATE 2 JUL 1884
+2 PLAC Gračišče 17, Slovenija
+2 SOUR @f1_S9@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=21
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=21
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKU+5/?pg=21
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+1 FAMS @f1_F114@
+0 @f1_I404@ INDI
+1 NAME Silvester /Cvetkoek/
+2 GIVN Silvester
+2 SURN Cvetkoek
+1 SEX M
+1 _UID 6932A19F2ADDC9AFAC835994A0A0BC289AC6
+1 _AMTID 412781983288:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 DEAT Y
+1 FAMS @f1_F115@
+0 @f1_I405@ INDI
+1 NAME Lucija
+1 SEX F
+1 _UID 69356CD38B64981182C62CCC1F42A29A5241
+1 _AMTID 412781983293:1030:210595317
+1 CHAN
+2 DATE 13 MAY 2026
+1 FAMS @f1_F116@
+0 @f1_F3@ FAM
+1 HUSB @f1_I5@
+1 WIFE @f1_I49@
+1 CHIL @f1_I7@
+1 CHIL @f1_I8@
+0 @f2_F3@ FAM
+1 HUSB @f1_I5@
+0 @f1_F4@ FAM
+1 HUSB @f1_I6@
+1 WIFE @f1_I49@
+0 @f1_F164@ FAM
+1 WIFE @f1_I7@
+0 @f1_F5@ FAM
+1 HUSB @f1_I10@
+1 WIFE @f1_I9@
+1 CHIL @f1_I11@
+0 @f1_F15@ FAM
+1 HUSB @f1_I51@
+1 WIFE @f1_I50@
+1 CHIL @f1_I49@
+1 CHIL @f1_I9@
+0 @f1_F82@ FAM
+1 HUSB @f1_I256@
+1 WIFE @f1_I257@
+1 CHIL @f1_I258@
+1 CHIL @f1_I259@
+1 CHIL @f1_I260@
+1 CHIL @f1_I261@
+1 CHIL @f1_I51@
+1 CHIL @f1_I262@
+1 MARR
+2 DATE 16 FEB 1928
+0 @f1_S4@ SOUR
+1 ABBR Matična krstna knjiga
+1 TITL Matična krstna knjiga
+1 _SUBQ Matična krstna knjiga
+1 _BIBL Matična krstna knjiga.
+1 NOTE Lorem ipsum note.
+2 CONC lorem ipsum
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Matična krstna knjiga
+2 FIELD
+3 NAME Adolf
+3 VALUE Matična krstna knjiga
+2 FIELD
+3 NAME Egidij
+3 VALUE Matična krstna knjiga.
+0 @f1_S11@ SOUR
+1 ABBR Pokopališče
+1 TITL Pokopališče
+1 _SUBQ Pokopališče
+1 _BIBL Pokopališče.
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Pokopališče
+2 FIELD
+3 NAME Adolf
+3 VALUE Pokopališče
+2 FIELD
+3 NAME Egidij
+3 VALUE Pokopališče.
+0 @f1_F84@ FAM
+1 HUSB @f1_I256@
+1 WIFE @f1_I265@
+1 MARR
+2 DATE 18 SEP 1948
+2 PLAC Gračišče, Slovenija
+0 @f1_F83@ FAM
+1 HUSB @f1_I263@
+1 WIFE @f1_I264@
+1 CHIL @f1_I256@
+1 CHIL @f1_I270@
+1 CHIL @f1_I402@
+1 CHIL @f1_I271@
+1 CHIL @f1_I272@
+1 CHIL @f1_I273@
+1 CHIL @f1_I274@
+1 CHIL @f1_I347@
+1 MARR
+2 DATE 27 NOV 1901
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=32
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=32
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=32
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_S32@ SOUR
+1 ABBR Viktor Web Site
+1 TITL Viktor Udovič, Viktor Web Site
+1 _SUBQ Viktor Udovič, Viktor Web Site
+1 _BIBL Viktor Udovič. Viktor Web Site.
+1 TEXT Lorem ipsum note.
+2 CONC lorem ipsum
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Adolf
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Egidij
+3 VALUE Viktor Udovič. Viktor Web Site.
+0 @f1_S23@ SOUR
+1 ABBR Viktor Web Site
+1 TITL Viktor Udovič, Viktor Web Site
+1 _SUBQ Viktor Udovič, Viktor Web Site
+1 _BIBL Viktor Udovič. Viktor Web Site.
+1 TEXT Lorem ipsum note.
+2 CONC lorem ipsum
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Adolf
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Egidij
+3 VALUE Viktor Udovič. Viktor Web Site.
+0 @f1_F116@ FAM
+1 HUSB @f1_I259@
+1 WIFE @f1_I405@
+0 @f1_F121@ FAM
+1 HUSB @f1_I260@
+0 @f1_F155@ FAM
+1 HUSB @f1_I261@
+1 MARR
+0 @f1_F86@ FAM
+1 HUSB @f1_I268@
+1 WIFE @f1_I269@
+1 CHIL @f1_I263@
+1 CHIL @f1_I355@
+1 CHIL @f1_I356@
+1 CHIL @f1_I357@
+1 CHIL @f1_I358@
+1 CHIL @f1_I374@
+1 CHIL @f1_I359@
+1 MARR
+2 DATE 20 NOV 1872
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=9
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=9
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=9
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_F99@ FAM
+1 HUSB @f1_I348@
+1 WIFE @f1_I349@
+1 CHIL @f1_I350@
+1 CHIL @f1_I268@
+1 CHIL @f1_I351@
+1 CHIL @f1_I352@
+1 CHIL @f1_I353@
+1 CHIL @f1_I354@
+1 MARR
+2 DATE 28 JAN 1846
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKP+3/?pg=88
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKP+3/?pg=88
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Brezovica/%25C5%25A0AK+%25C5%25BD+Brz+MKP+3/?pg=88
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_S30@ SOUR
+1 ABBR Viktor Web Site
+1 TITL Viktor Udovič, Viktor Web Site
+1 _SUBQ Viktor Udovič, Viktor Web Site
+1 _BIBL Viktor Udovič. Viktor Web Site.
+1 TEXT Lorem ipsum note.
+2 CONC lorem ipsum
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Adolf
+3 VALUE Viktor Udovič, Viktor Web Site
+2 FIELD
+3 NAME Egidij
+3 VALUE Viktor Udovič. Viktor Web Site.
+0 @f1_S13@ SOUR
+1 ABBR Sistory
+1 TITL Sistory
+1 _SUBQ Sistory
+1 _BIBL Sistory.
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Sistory
+2 FIELD
+3 NAME Adolf
+3 VALUE Sistory
+2 FIELD
+3 NAME Egidij
+3 VALUE Sistory.
+0 @f1_F120@ FAM
+1 HUSB @f1_I273@
+1 MARR
+2 DATE 27 NOV 1937
+0 @f1_F124@ FAM
+1 HUSB @f1_I274@
+1 MARR
+2 DATE 6 MAY 1939
+0 @f1_F118@ FAM
+1 WIFE @f1_I347@
+1 MARR
+0 @f1_S9@ SOUR
+1 ABBR Matična knjiga umrlih
+1 TITL Matična knjiga umrlih
+1 _SUBQ Matična knjiga umrlih
+1 _BIBL Matična knjiga umrlih.
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Matična knjiga umrlih
+2 FIELD
+3 NAME Adolf
+3 VALUE Matična knjiga umrlih
+2 FIELD
+3 NAME Egidij
+3 VALUE Matična knjiga umrlih.
+0 @f1_F101@ FAM
+1 HUSB @f1_I365@
+1 WIFE @f1_I366@
+1 CHIL @f1_I367@
+1 CHIL @f1_I348@
+1 CHIL @f1_I368@
+1 CHIL @f1_I369@
+1 MARR
+2 DATE 17 JUL 1804
+0 @f1_F129@ FAM
+1 HUSB @f1_I354@
+1 MARR
+2 DATE 21 JUN 1882
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=16
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=16
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+5/?pg=16
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_F122@ FAM
+1 WIFE @f1_I355@
+1 MARR
+2 DATE 8 FEB 1899
+2 PLAC Kubed, Slovenija
+0 @f1_F160@ FAM
+1 HUSB @f1_I358@
+0 @f1_F123@ FAM
+1 WIFE @f1_I359@
+0 @f1_F115@ FAM
+1 HUSB @f1_I404@
+1 CHIL @f1_I365@
+0 @f1_F114@ FAM
+1 HUSB @f1_I367@
+1 WIFE @f1_I403@
+1 MARR
+2 DATE 28 NOV 1827
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=15
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=15
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=15
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_S5@ SOUR
+1 ABBR Matična krstna knjiga
+1 TITL Matična krstna knjiga
+1 _SUBQ Matična krstna knjiga
+1 _BIBL Matična krstna knjiga.
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Matična krstna knjiga
+2 FIELD
+3 NAME Adolf
+3 VALUE Matična krstna knjiga
+2 FIELD
+3 NAME Egidij
+3 VALUE Matična krstna knjiga.
+0 @f1_F125@ FAM
+1 WIFE @f1_I368@
+1 MARR
+2 DATE 23 NOV 1848
+2 PLAC Kubed, Slovenija
+2 SOUR @f1_S3@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=32
+3 _TMPLT
+4 FIELD
+5 NAME Magdalena
+5 VALUE https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=32
+3 NAME Luka//data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKP+4/?pg=32
+3 DATA
+4 TEXT Lorem ipsum note.
+5 CONC lorem ipsum
+0 @f1_F104@ FAM
+1 HUSB @f1_I374@
+1 WIFE @f1_I378@
+1 CHIL @f1_I379@
+1 CHIL @f1_I380@
+1 CHIL @f1_I381@
+1 MARR
+2 DATE 27 DEC 1917
+2 PLAC Kubed, Slovenija
+0 @f1_F127@ FAM
+1 HUSB @f1_I379@
+1 MARR
+0 @f1_S3@ SOUR
+1 ABBR Matična poročna knjiga
+1 TITL Matična poročna knjiga
+1 _SUBQ Matična poročna knjiga
+1 _BIBL Matična poročna knjiga.
+1 _TMPLT
+2 TID 0
+2 FIELD
+3 NAME Margareta
+3 VALUE Matična poročna knjiga
+2 FIELD
+3 NAME Adolf
+3 VALUE Matična poročna knjiga
+2 FIELD
+3 NAME Egidij
+3 VALUE Matična poročna knjiga.
+0 @f1_SUB1@ SUBM
+1 NAME Fortunat Marina
+0 TRLR

@@ -75,4 +75,17 @@ describe("parseGedcom", () => {
     expect(birth?.date?.qualifier).toBe("about");
     expect(birth?.date?.year).toBe(1902);
   });
+
+  it.each([
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+    ["CR", "\r"], // classic-Mac, e.g. Reunion exports
+  ])("detects %s line endings and round-trips them", (_name, eol) => {
+    const text = SAMPLE.replace(/\n/g, eol);
+    const parsed = parseGedcom(toBuffer(text));
+    expect(parsed.eol).toBe(eol);
+    // Lines still split correctly regardless of ending.
+    const ds = buildDataset(parsed);
+    expect(ds.individuals.size).toBe(3);
+  });
 });
