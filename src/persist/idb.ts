@@ -87,6 +87,13 @@ function openDb(): Promise<IDBDatabase | null> {
   return dbPromise;
 }
 
+/** Run `fn` against the shared connection; never throws (returns `fallback`). */
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>, fallback: T): Promise<T> {
+  const db = await openDb();
+  if (!db) return fallback;
+  return fn(db);
+}
+
 function idbGet<T>(db: IDBDatabase, store: string, key: string): Promise<T | undefined> {
   return new Promise((resolve) => {
     try {
@@ -126,45 +133,42 @@ function idbDelete(db: IDBDatabase, store: string, key: string): Promise<void> {
 }
 
 /** Read the whole cached workspace in one shot for startup hydration. */
-export async function loadWorkspace(): Promise<{
+export function loadWorkspace(): Promise<{
   master?: StoredFile;
   compare?: StoredFile;
   session?: StoredSession;
 }> {
-  const db = await openDb();
-  if (!db) return {};
-  const [master, compare, session] = await Promise.all([
-    idbGet<StoredFile>(db, FILES_STORE, "master"),
-    idbGet<StoredFile>(db, FILES_STORE, "compare"),
-    idbGet<StoredSession>(db, SESSION_STORE, SESSION_KEY),
-  ]);
-  return { master, compare, session };
+  return withDb<{ master?: StoredFile; compare?: StoredFile; session?: StoredSession }>(async (db) => {
+    const [master, compare, session] = await Promise.all([
+      idbGet<StoredFile>(db, FILES_STORE, "master"),
+      idbGet<StoredFile>(db, FILES_STORE, "compare"),
+      idbGet<StoredSession>(db, SESSION_STORE, SESSION_KEY),
+    ]);
+    return { master, compare, session };
+  }, {});
 }
 
-export async function saveFile(role: FileRole, file: StoredFile): Promise<void> {
-  const db = await openDb();
-  if (db) await idbPut(db, FILES_STORE, role, file);
+export function saveFile(role: FileRole, file: StoredFile): Promise<void> {
+  return withDb((db) => idbPut(db, FILES_STORE, role, file), undefined);
 }
 
-export async function deleteFile(role: FileRole): Promise<void> {
-  const db = await openDb();
-  if (db) await idbDelete(db, FILES_STORE, role);
+export function deleteFile(role: FileRole): Promise<void> {
+  return withDb((db) => idbDelete(db, FILES_STORE, role), undefined);
 }
 
-export async function saveSession(session: StoredSession): Promise<void> {
-  const db = await openDb();
-  if (db) await idbPut(db, SESSION_STORE, SESSION_KEY, session);
+export function saveSession(session: StoredSession): Promise<void> {
+  return withDb((db) => idbPut(db, SESSION_STORE, SESSION_KEY, session), undefined);
 }
 
 /** Wipe every cached file and the session — the Settings "clear cached data" path. */
-export async function clearWorkspace(): Promise<void> {
-  const db = await openDb();
-  if (!db) return;
-  await Promise.all([
-    idbDelete(db, FILES_STORE, "master"),
-    idbDelete(db, FILES_STORE, "compare"),
-    idbDelete(db, SESSION_STORE, SESSION_KEY),
-  ]);
+export function clearWorkspace(): Promise<void> {
+  return withDb(async (db) => {
+    await Promise.all([
+      idbDelete(db, FILES_STORE, "master"),
+      idbDelete(db, FILES_STORE, "compare"),
+      idbDelete(db, SESSION_STORE, SESSION_KEY),
+    ]);
+  }, undefined);
 }
 
 /** Ask the browser to make storage durable (survive eviction under pressure).

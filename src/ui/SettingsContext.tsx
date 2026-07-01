@@ -16,6 +16,10 @@ import {
 export interface AppSettings extends NameDisplayOptions {
   /** Show each person's record id (xref) alongside their name. */
   showXref: boolean;
+  /** Show the kinship-to-start-person label/badge throughout the app (person
+   *  headers, relative cards, match candidates, tree nodes). When off, no
+   *  kinship is shown anywhere even if a start person is set. */
+  showKinship: boolean;
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
@@ -28,6 +32,7 @@ export interface AppSettings extends NameDisplayOptions {
 const DEFAULTS: AppSettings = {
   ...DEFAULT_NAME_DISPLAY,
   showXref: false,
+  showKinship: true,
   allowLinkFetch: false,
   persistWorkspace: false,
 };
@@ -56,6 +61,7 @@ function load(): AppSettings {
       uppercaseSurname: bool(parsed.uppercaseSurname, DEFAULTS.uppercaseSurname),
       marriedSurname: bool(parsed.marriedSurname, DEFAULTS.marriedSurname),
       showXref: bool(parsed.showXref, DEFAULTS.showXref),
+      showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
     };

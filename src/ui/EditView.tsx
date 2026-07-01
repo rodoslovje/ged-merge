@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { defaultStartId, primaryName } from "../match/relatives";
-import { useNameOf } from "./SettingsContext";
+import { useNameOf, useSettings } from "./SettingsContext";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
@@ -143,6 +143,7 @@ interface Props {
 export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
+  const { settings } = useSettings();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => startId ?? defaultStartId(dataset) ?? dataset.individuals.keys().next().value,
   );
@@ -1289,7 +1290,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     .filter((f): f is NonNullable<typeof f> => !!f);
 
   const lifespan = lifespanOf(person);
-  const startInfo = startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
+  const startInfo = settings.showKinship && startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
   const startPersonName = startId
     ? formatName(dataset.individuals.get(startId)!)
     : undefined;
@@ -1300,7 +1301,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     : undefined;
 
   function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string; kinshipLineage?: string } {
-    if (!startId || !id) return {};
+    if (!settings.showKinship || !startId || !id) return {};
     const info = kinshipInfo(dataset, startId, id, t);
     if (!info) return {};
     return {

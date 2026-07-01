@@ -39,6 +39,7 @@ import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EditTree } from "./ui/EditTree";
 import { RelationshipChart } from "./ui/RelationshipChart";
 import { Landing } from "./ui/Landing";
+import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
@@ -204,6 +205,11 @@ function AppContent() {
   // enabling persistence mid-session can cache the compare exactly, including a
   // CSV that can't be re-serialized from its dataset.
   const compareBlobRef = useRef<Blob | null>(null);
+  // Whether the master blob has been cached this session. The debounced effect
+  // is the *sole* writer of the master key (serializing the live dataset), so a
+  // fire-and-forget original write from loadFile can't race and clobber a later
+  // edited write. False after a fresh master load → the next debounce caches it.
+  const masterCachedRef = useRef(false);
   // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
@@ -546,6 +552,7 @@ function AppContent() {
       pendingSessionRef.current = ws.session ?? null;
       pendingEditStateRef.current = ws.session?.editState ?? null;
       expectCompareRef.current = !!ws.compare;
+      masterCachedRef.current = true; // restored master is already in the cache
       if (ws.compare) compareBlobRef.current = ws.compare.blob;
       // A cached start person will be restored explicitly; suppress the one-time
       // auto-default so it doesn't fight the restore.
@@ -600,11 +607,17 @@ function AppContent() {
     const fileName = file.name.normalize("NFC");
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     setter({ status: "loading", fileName });
-    if (role === "compare") compareBlobRef.current = file;
-    // Cache the raw file so a reload restores the workspace (only when the user
-    // has opted into caching). Persist the original bytes as a Blob (exact
-    // charset round-trips); the parse-error branch deletes it if unloadable.
-    if (persistEnabled) void saveFile(role, { fileName, blob: file, isCsv, savedAt: Date.now() });
+    // Cache the compare's raw bytes so a reload restores it (only when opted in).
+    // The master is NOT written here — the debounced effect owns the master key
+    // (it serializes the live, possibly-edited dataset), so a stale original
+    // write can't land after and clobber an edit. A fresh master resets the flag
+    // so the next debounce re-caches it.
+    if (role === "compare") {
+      compareBlobRef.current = file;
+      if (persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now() });
+    } else {
+      masterCachedRef.current = false;
+    }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
@@ -708,16 +721,19 @@ function AppContent() {
       const editState: StoredEditState | undefined = edited
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
         : undefined;
-      // Cache the *edited* serialization first so the re-parsed dataset is
-      // post-edit (pure-merge sessions keep the originally-loaded file). The
-      // session is written last, so its presence implies the master it points
-      // to is already committed — the invariant the reload restore relies on.
-      if (edited && masterDataset) {
+      // Cache the master's *current* serialization (edited or original) — this
+      // effect is the sole master writer. Re-serialize when the dataset has been
+      // edited, or once when it hasn't been cached yet this session (a pure-merge
+      // session then serializes only that first time, not on every decision). It
+      // is written before the session below, so a session record always points
+      // at an already-committed master.
+      if (masterDataset && (edited || !masterCachedRef.current)) {
         await saveFile("master", {
           fileName: masterFileName,
           blob: new Blob([serializeGedcom(masterDataset.records, { eol: masterDataset.eol, finalNewline: masterDataset.finalNewline })]),
           savedAt: Date.now(),
         });
+        masterCachedRef.current = true;
       }
       await saveSession({
         masterFileName,
@@ -1386,9 +1402,10 @@ function AppContent() {
     // that no longer exists, so there's nothing left to meaningfully undo into.
     undoRedo.clearAll();
     // The cached master text (written just above) now equals the live dataset,
-    // so drop the "dataset is edited" flag — the edited-text persist pauses until
-    // the next edit.
+    // so drop the "dataset is edited" flag and mark the master cached — the
+    // debounce (sole master writer) then leaves it alone until the next edit.
     setEditVersion(0);
+    masterCachedRef.current = true;
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
@@ -1637,6 +1654,7 @@ function AppContent() {
 
   return (
     <>
+    <PwaReloadPrompt />
     {treeOverlay}
     <AutoMediaOffer master={master} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>

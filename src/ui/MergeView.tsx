@@ -8,7 +8,7 @@ import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from ".
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
-import { useNameOf } from "./SettingsContext";
+import { useNameOf, useSettings } from "./SettingsContext";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
@@ -93,6 +93,8 @@ export function MergeView({
 }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
+  const { settings } = useSettings();
+  const showKinship = settings.showKinship;
 
   const compareBodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -133,7 +135,7 @@ export function MergeView({
     </div>
   ) : undefined;
 
-  const startInfo = current && startId && masterDataset
+  const startInfo = showKinship && current && startId && masterDataset
     ? kinshipInfo(masterDataset, startId, current.masterId, t)
     : undefined;
   const startPersonName = startId && masterDataset
@@ -150,7 +152,7 @@ export function MergeView({
   // master that matches several compare records is computed once; memoized on
   // the result set so filtering/sorting/selection don't rebuild it.
   const kinshipByMaster = useMemo(() => {
-    if (!startId || !masterDataset || !matches) return undefined;
+    if (!showKinship || !startId || !masterDataset || !matches) return undefined;
     const map = new Map<string, { label: string; lineageClass: string; tooltip?: string }>();
     for (const c of matches.individuals) {
       if (map.has(c.masterId)) continue;
@@ -164,7 +166,7 @@ export function MergeView({
       }
     }
     return map;
-  }, [matches, masterDataset, startId, startPersonName, t]);
+  }, [showKinship, matches, masterDataset, startId, startPersonName, t]);
 
   const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
   const currentDecision = current

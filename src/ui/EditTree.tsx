@@ -31,6 +31,7 @@ import { DownloadIcon } from "./icons/DownloadIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useSettings } from "./SettingsContext";
 
 // Color for unmodified nodes (master pine green) and modified (amber/minor).
 const COLOR_NORMAL = "var(--node-master)";
@@ -76,6 +77,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   const { settings, setType } = useChartSettings();
+  const { settings: appSettings } = useSettings();
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
@@ -84,8 +86,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && !!startId }),
-    [settings, startId],
+    () => ({ ...settings, showKinship: settings.showKinship && appSettings.showKinship && !!startId }),
+    [settings, appSettings.showKinship, startId],
   );
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.

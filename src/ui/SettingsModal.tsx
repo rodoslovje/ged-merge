@@ -79,24 +79,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           {tab === "general" && (
           <>
           <section className="settings-section">
-            <h3>{t("settings.appearance.title")}</h3>
-            <div className="settings-radio-row">
-              {THEME_MODES.map((mode) => (
-                <label key={mode} className="settings-radio">
-                  <input
-                    type="radio"
-                    name="settings-theme"
-                    value={mode}
-                    checked={themeMode === mode}
-                    onChange={() => onThemeMode(mode)}
-                  />
-                  <span className="settings-row-label">{t(`settings.theme.${mode}`)}</span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section className="settings-section">
             <h3>{t("settings.language.title")}</h3>
             <div className="settings-radio-row">
               {SUPPORTED_LANGUAGES.map((lng) => (
@@ -109,6 +91,24 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     onChange={() => i18n.changeLanguage(lng)}
                   />
                   <span className="settings-row-label">{LANG_LABELS[lng] ?? lng}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.appearance.title")}</h3>
+            <div className="settings-radio-row">
+              {THEME_MODES.map((mode) => (
+                <label key={mode} className="settings-radio">
+                  <input
+                    type="radio"
+                    name="settings-theme"
+                    value={mode}
+                    checked={themeMode === mode}
+                    onChange={() => onThemeMode(mode)}
+                  />
+                  <span className="settings-row-label">{t(`settings.theme.${mode}`)}</span>
                 </label>
               ))}
             </div>
@@ -173,6 +173,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.display.title")}</h3>
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showKinship}
+                onChange={(e) => set({ showKinship: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.kinship")}</span>
+                <span className="settings-hint">{t("settings.display.kinship.hint")}</span>
+              </span>
+            </label>
+
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"

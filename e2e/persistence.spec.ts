@@ -2,18 +2,28 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import os from "os";
 import path from "path";
-import { fileURLToPath } from "url";
 
 // IndexedDB workspace persistence: a reload should restore the loaded files,
 // the pending merge session, and unsaved edits (with undo history) — instead of
 // dropping back to the landing page. Each Playwright test gets a fresh browser
 // context, so IndexedDB + localStorage start empty and are isolated per test.
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
-
-const MASTER = path.join(os.tmpdir(), "persist-master.ged");
-const COMPARE = path.join(os.tmpdir(), "persist-compare.ged");
+// Unique per worker process: parallel workers each evaluate this module, and
+// sharing fixed temp paths lets one worker's write truncate a file another is
+// reading (a NotReadableError, and flaky loads). pid is unique per worker.
+const uid = `${process.pid}`;
+const MASTER = path.join(os.tmpdir(), `persist-master-${uid}.ged`);
+const COMPARE = path.join(os.tmpdir(), `persist-compare-${uid}.ged`);
+// A small single-person master for the edit/clear tests — a real sample file is
+// megabytes, and re-serializing it on the persist debounce + re-parsing it on
+// reload makes restore timing-sensitive; a tiny file keeps the tests fast and
+// deterministic. (The merge test uses MASTER/COMPARE above.)
+const EDIT_MASTER = path.join(os.tmpdir(), `persist-edit-master-${uid}.ged`);
+writeFileSync(EDIT_MASTER, [
+  "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+  "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1 JAN 1900",
+  "0 TRLR", "",
+].join("\n"), "utf-8");
 
 // One individual that matches across both files, so loading them yields exactly
 // one merge candidate to confirm.
@@ -34,36 +44,55 @@ writeFileSync(COMPARE, [
 
 const saveBtn = (page: Page) => page.locator(".app-head-actions .export-btn");
 
-// The persistence writer is debounced, and under parallel load the debounce
-// callback can be starved past any fixed delay — so wait for the actual write
-// by polling the IndexedDB session record, rather than a timeout. `need` narrows
-// what must be present: the merge decisions, the edit-state, or just anything.
-async function waitForCache(page: Page, need: "any" | "decisions" | "editState" = "any") {
+// The persistence writer is debounced and its writes span two IndexedDB stores,
+// so a fixed delay is unreliable. Wait for the exact artifacts a reload restore
+// depends on to be durably readable: for edits, the master blob must actually
+// contain the edited text; for merges, the session must hold decisions and the
+// compare file must be cached. Polling those directly avoids the race where the
+// session record appears before the (separately written) master blob is visible.
+async function waitForCache(
+  page: Page,
+  opts: { masterContains?: string; decisions?: boolean; compare?: boolean },
+) {
   await page.waitForFunction(
-    (need) =>
+    (opts) =>
       new Promise<boolean>((resolve) => {
         const req = indexedDB.open("gedmerge-session");
         req.onsuccess = () => {
-          try {
-            const store = req.result.transaction("session", "readonly").objectStore("session");
-            const r = store.get("current");
-            r.onsuccess = () => {
-              const s = r.result as { decisions?: unknown[]; editState?: unknown } | undefined;
-              if (!s) return resolve(false);
-              if (need === "decisions") return resolve(Array.isArray(s.decisions) && s.decisions.length > 0);
-              if (need === "editState") return resolve(!!s.editState);
-              resolve(true);
-            };
-            r.onerror = () => resolve(false);
-          } catch {
-            resolve(false); // stores not created yet
-          }
+          const db = req.result;
+          const get = (store: string, key: string) =>
+            new Promise<unknown>((res) => {
+              try {
+                const r = db.transaction(store, "readonly").objectStore(store).get(key);
+                r.onsuccess = () => res(r.result);
+                r.onerror = () => res(undefined);
+              } catch {
+                res(undefined); // stores not created yet
+              }
+            });
+          void (async () => {
+            const session = (await get("session", "current")) as { decisions?: unknown[] } | undefined;
+            const master = (await get("files", "master")) as { blob?: Blob } | undefined;
+            const compare = await get("files", "compare");
+            if (opts.decisions && !(session && Array.isArray(session.decisions) && session.decisions.length > 0)) return resolve(false);
+            if (opts.compare && !compare) return resolve(false);
+            if (opts.masterContains) {
+              if (!master?.blob) return resolve(false);
+              const text = await master.blob.text();
+              if (!text.includes(opts.masterContains)) return resolve(false);
+            }
+            resolve(true);
+          })();
         };
         req.onerror = () => resolve(false);
       }),
-    need,
-    { timeout: 10000 },
+    opts,
+    { timeout: 15000 },
   );
+  // Chromium defers flushing IndexedDB to disk briefly; a reload within ~1s of
+  // the write can lose it (a real user never reloads that fast, and the
+  // unsaved-changes prompt guards them). Give the flush a margin before reload.
+  await page.waitForTimeout(1500);
 }
 
 // Workspace caching is opt-in (off by default). Seed the settings blob before
@@ -90,7 +119,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
   await page.locator(".decision-bar button").first().click();
   await expect(saveBtn(page)).toBeVisible();
 
-  await waitForCache(page, "decisions");
+  await waitForCache(page, { masterContains: "Kukic", decisions: true, compare: true });
   await page.reload();
 
   // Merge mode is restored from localStorage; the files + match recompute, and
@@ -106,7 +135,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
 test("reload restores unsaved edits", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -119,7 +148,7 @@ test("reload restores unsaved edits", async ({ page }) => {
   await page.locator(".edit-name-input").nth(1).click(); // blur to commit
   await expect(saveBtn(page)).toBeVisible();
 
-  await waitForCache(page, "editState");
+  await waitForCache(page, { masterContains: `${original} TEST` });
   await page.reload();
 
   // Edit mode + the same (start) person are restored, with the edit intact and
@@ -132,7 +161,7 @@ test("reload restores unsaved edits", async ({ page }) => {
 test("reload restores undo history, so an edit can be undone after reloading", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -141,7 +170,7 @@ test("reload restores undo history, so an edit can be undone after reloading", a
   await given.fill(`${original} TEST`);
   await page.locator(".edit-name-input").nth(1).click(); // blur to commit
 
-  await waitForCache(page, "editState");
+  await waitForCache(page, { masterContains: `${original} TEST` });
   await page.reload();
 
   await page.locator(".edit-person").waitFor();
@@ -157,10 +186,10 @@ test("reload restores undo history, so an edit can be undone after reloading", a
 test("clearing cached data drops the workspace, so a reload returns to the landing page", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
-  await waitForCache(page, "any"); // let the workspace get cached
+  await waitForCache(page, { masterContains: "Janez" }); // ensure the workspace is cached
 
   // Settings → Advanced tab → Clear cached data → confirm.
   await page.getByRole("button", { name: "Settings" }).first().click();
@@ -178,7 +207,7 @@ test("clearing cached data drops the workspace, so a reload returns to the landi
 test("with caching disabled (default), a reload does not restore the workspace", async ({ page }) => {
   // No enablePersist — default off. Load a file, edit it, reload.
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 

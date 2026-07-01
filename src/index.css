@@ -3899,6 +3899,31 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* PWA "new version available" prompt — same anchored-toast idiom as save-toast,
+   but with explicit Reload / Dismiss actions (not click-anywhere). */
+.pwa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px 12px 20px;
+  z-index: 200;
+  box-shadow: inset 3px 0 0 var(--accent), 0 8px 32px rgba(0, 0, 0, 0.35);
+  animation: save-toast-in 0.2s ease-out;
+}
+.pwa-toast-actions { display: flex; gap: 8px; }
+.pwa-toast-reload {
+  background: var(--accent); border: 1px solid var(--accent); color: var(--bg);
+  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.pwa-toast-reload:hover { filter: brightness(1.08); }
+
 /* --- modal --- */
 .modal-overlay {
   position: fixed;
@@ -4743,6 +4768,14 @@ kbd {
 /* Really narrow: one field per full-width row (label + toggle stay paired on
  * the header line). */
 @media (max-width: 560px) {
+  /* Stack the name-display preview so the person sample gets its own row
+     instead of being squeezed next to the "Preview" label. */
+  .settings-preview {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
   .edit-events > .edit-event {
     grid-template-columns: 1fr;
   }

@@ -50,6 +50,7 @@ import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { DownloadIcon } from "./icons/DownloadIcon";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useSettings } from "./SettingsContext";
 
 interface Props {
   masterDs: Dataset;
@@ -228,6 +229,7 @@ export function CompareTree({
   }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
 
   const { settings, setType } = useChartSettings();
+  const { settings: appSettings } = useSettings();
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
@@ -236,8 +238,8 @@ export function CompareTree({
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && !!startId }),
-    [settings, startId],
+    () => ({ ...settings, showKinship: settings.showKinship && appSettings.showKinship && !!startId }),
+    [settings, appSettings.showKinship, startId],
   );
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
