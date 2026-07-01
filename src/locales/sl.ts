@@ -367,7 +367,7 @@ export const sl = {
   "start.clear": "Počisti izhodiščno osebo",
   "start.goto": "Pojdi na izhodiščno osebo",
   "start.noMatches": "Ni zadetkov",
-  "start.tooltip": "Nastavite izhodiščno osebo za razvrščanje ujemanj po sorodstveni razdalji",
+  "start.tooltip": "Nastavite izhodiščno osebo – za oznake sorodstva, sorodstvene diagrame in razvrščanje ujemanj",
   "filter.search": "Iskanje imena…",
   "filter.searchTooltip": "Filtriraj ujemanja po imenu ali priimku (F)",
   "globalSearch.title": "Iskanje oseb",
