@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
+import { useTheme } from "./ui/useTheme";
+import { useMode, type Mode } from "./ui/useMode";
+import { useLegalModal } from "./ui/useLegalModal";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -107,12 +110,6 @@ const SAMPLE_FILES = [
   { file: "USPresidents.ged", key: "presidents" },
 ];
 
-type Theme = "light" | "dark";
-type ThemeMode = "auto" | "light" | "dark";
-const THEME_KEY = "gedmerge.theme";
-
-type Mode = "merge" | "edit" | "tools";
-const MODE_KEY = "gedmerge.mode";
 // Matching can finish in under a millisecond once the engine is JIT-warm, far
 // too fast to ever paint a "matching" state — so keep the spinner up for at
 // least this long once it starts.
@@ -125,16 +122,6 @@ const MIN_MATCHING_DISPLAY_MS = 300;
 // wrapper to auto height and break the layout.
 const modeLayerStyle: CSSProperties = { display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 };
 const modeLayerHiddenStyle: CSSProperties = { display: "none" };
-
-/** The OS's current colour-scheme preference. */
-function osTheme(): Theme {
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-/** The persisted theme *mode*; absent/invalid means "follow the OS" (auto). */
-function detectThemeMode(): ThemeMode {
-  const saved = localStorage.getItem(THEME_KEY);
-  return saved === "light" || saved === "dark" ? saved : "auto";
-}
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -242,14 +229,12 @@ function AppContent() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selectedId, setSelectedId] = useState<{ masterId: string; compareId: string } | null>(null);
   const [showFilters, setShowFilters] = useState(true);
-  const [showLegal, setShowLegal] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<
     { message: string; confirmLabel: string; resolve: (ok: boolean) => void; onConfirmAction?: () => void } | null
   >(null);
-  const [legalPage, setLegalPage] = useState<"privacy" | "terms">("privacy");
   const [preview, setPreview] = useState<{
     records: GedNode[];
     report: ChangeReport;
@@ -287,63 +272,14 @@ function AppContent() {
   // selection.
   const [editPersonId, setEditPersonId] = useState<string | undefined>(undefined);
 
-  // Merge / Edit mode; defaults to "edit" on first use.
-  const [mode, setMode] = useState<Mode>(
-    () => {
-      const saved = localStorage.getItem(MODE_KEY);
-      return saved === "merge" || saved === "edit" ? saved : "edit";
-    },
-  );
-  useEffect(() => {
-    try {
-      localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      // ignore storage failures (private mode); the in-memory choice still applies
-    }
-  }, [mode]);
+  // Merge / Edit / Tools mode; persisted to localStorage in a small hook.
+  const [mode, setMode] = useMode();
 
-  // Light/dark theme. The mode is "auto" (follow the OS), "light" or "dark"; the
-  // applied theme resolves "auto" against the live OS preference. Persisted in
-  // localStorage and kept in sync with the inline boot script in index.html.
-  const [themeMode, setThemeMode] = useState<ThemeMode>(detectThemeMode);
-  const [osPref, setOsPref] = useState<Theme>(osTheme);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
-    const onChange = (e: MediaQueryListEvent) => setOsPref(e.matches ? "light" : "dark");
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  const theme: Theme = themeMode === "auto" ? osPref : themeMode;
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+  // Light/dark theme mode + applied `data-theme`, in a self-contained hook.
+  const { themeMode, changeThemeMode } = useTheme();
 
-  // Open the Privacy/Terms modal when arrived at via `?legal=privacy|terms`
-  // (the standalone guide pages link here, having no React modal of their own).
-  // The param is then stripped so a reload or Back doesn't reopen it.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const legal = params.get("legal");
-    if (legal !== "privacy" && legal !== "terms") return;
-    setLegalPage(legal);
-    setShowLegal(true);
-    params.delete("legal");
-    const search = params.toString();
-    window.history.replaceState(
-      window.history.state,
-      "",
-      window.location.pathname + (search ? `?${search}` : "") + window.location.hash,
-    );
-  }, []);
-  function changeThemeMode(mode: ThemeMode) {
-    setThemeMode(mode);
-    try {
-      if (mode === "auto") localStorage.removeItem(THEME_KEY);
-      else localStorage.setItem(THEME_KEY, mode);
-    } catch {
-      // ignore storage failures (private mode); the in-memory choice still applies
-    }
-  }
+  // Privacy/Terms modal (also opened via a `?legal=` URL param), in a hook.
+  const { legalOpen, legalPage, openLegal, closeLegal } = useLegalModal();
 
   // Full-page "Compare tree" view, kept in sync with browser history so the
   // back button returns to the main view.
@@ -1594,7 +1530,7 @@ function AppContent() {
   // in-app modal.
   const appModals = (
     <>
-      <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} page={legalPage} />
+      <LegalModal isOpen={legalOpen} onClose={closeLegal} page={legalPage} />
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       <GlobalSearchModal
         isOpen={showGlobalSearch}
@@ -1645,14 +1581,14 @@ function AppContent() {
       <span className="app-footer-sep">·</span>
       <button
         className="app-footer-link"
-        onClick={() => { setLegalPage("privacy"); setShowLegal(true); }}
+        onClick={() => openLegal("privacy")}
       >
         {t("footer.privacy")}
       </button>
       <span className="app-footer-sep">·</span>
       <button
         className="app-footer-link"
-        onClick={() => { setLegalPage("terms"); setShowLegal(true); }}
+        onClick={() => openLegal("terms")}
       >
         {t("footer.terms")}
       </button>
