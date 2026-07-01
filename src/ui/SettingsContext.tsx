@@ -19,12 +19,17 @@ export interface AppSettings extends NameDisplayOptions {
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
+  /** Cache the loaded files + progress to IndexedDB so a reload restores the
+   *  workspace. Opt-in: off by default, and only when on may the browser be
+   *  asked for persistent storage. */
+  persistWorkspace: boolean;
 }
 
 const DEFAULTS: AppSettings = {
   ...DEFAULT_NAME_DISPLAY,
   showXref: false,
   allowLinkFetch: false,
+  persistWorkspace: false,
 };
 
 const STORAGE_KEY = "gedmerge.settings";
@@ -52,6 +57,7 @@ function load(): AppSettings {
       marriedSurname: bool(parsed.marriedSurname, DEFAULTS.marriedSurname),
       showXref: bool(parsed.showXref, DEFAULTS.showXref),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
+      persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
     };
   } catch {
     return DEFAULTS;

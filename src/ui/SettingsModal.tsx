@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf } from "./SettingsContext";
@@ -16,6 +17,9 @@ interface Props {
   /** Wipe the cached workspace (loaded files + merge session) from IndexedDB. */
   onClearCache: () => void;
 }
+
+type SettingsTab = "general" | "advanced";
+const SETTINGS_TABS: SettingsTab[] = ["general", "advanced"];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
@@ -36,6 +40,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
+  const [tab, setTab] = useState<SettingsTab>("general");
 
   if (!isOpen) return null;
 
@@ -56,7 +61,23 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             ×
           </button>
         </div>
+        <div className="settings-tabs" role="tablist" aria-label={t("settings.title")}>
+          {SETTINGS_TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              className={tab === id ? "active" : ""}
+              onClick={() => setTab(id)}
+            >
+              {t(`settings.tab.${id}`)}
+            </button>
+          ))}
+        </div>
         <div className="modal-body">
+          {tab === "general" && (
+          <>
           <section className="settings-section">
             <h3>{t("settings.appearance.title")}</h3>
             <div className="settings-radio-row">
@@ -164,7 +185,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               </span>
             </label>
           </section>
+          </>
+          )}
 
+          {tab === "advanced" && (
+          <>
           <section className="settings-section">
             <h3>{t("settings.links.title")}</h3>
             <label className="settings-row settings-row-toggle">
@@ -182,16 +207,31 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.data.title")}</h3>
-            <div className="settings-row">
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.persistWorkspace}
+                onChange={(e) => set({ persistWorkspace: e.target.checked })}
+              />
               <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.data.clear")}</span>
-                <span className="settings-hint">{t("settings.data.clear.hint")}</span>
+                <span className="settings-row-label">{t("settings.data.persist")}</span>
+                <span className="settings-hint">{t("settings.data.persist.hint")}</span>
               </span>
-              <button type="button" className="settings-danger-btn" onClick={onClearCache}>
-                {t("settings.data.clear")}
-              </button>
-            </div>
+            </label>
+            {settings.persistWorkspace && (
+              <div className="settings-row">
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t("settings.data.clear")}</span>
+                  <span className="settings-hint">{t("settings.data.clear.hint")}</span>
+                </span>
+                <button type="button" className="settings-danger-btn" onClick={onClearCache}>
+                  {t("settings.data.clear")}
+                </button>
+              </div>
+            )}
           </section>
+          </>
+          )}
         </div>
       </div>
     </div>

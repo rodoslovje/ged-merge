@@ -3978,6 +3978,36 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
 .settings-modal { max-width: 520px; height: auto; max-height: 88vh; }
 
+/* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
+ * sized to span the modal width just under the header. */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 12px 32px;
+  padding: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.settings-tabs button {
+  flex: 1 1 0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.settings-tabs button:hover:not(.active) { color: var(--text); }
+.settings-tabs button.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
+}
+
 .settings-section { margin: 0 0 22px; }
 .settings-section:last-child { margin-bottom: 4px; }
 .settings-section > h3 {

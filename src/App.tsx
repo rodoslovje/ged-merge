@@ -44,7 +44,7 @@ import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
 import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
-import { SettingsProvider } from "./ui/SettingsContext";
+import { SettingsProvider, useSettings } from "./ui/SettingsContext";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
 import type { TreeMode } from "./tree/compareTree";
 import {
@@ -136,6 +136,13 @@ function detectThemeMode(): ThemeMode {
 // would silently lose it and force the user to re-pick the folder.
 function AppContent() {
   const { t, i18n } = useTranslation();
+  const { settings } = useSettings();
+  // Opt-in workspace caching (off by default). Mirrored into a ref so the
+  // mount-only worker/hydration effect reads the current value without needing
+  // to re-run, and the (non-memoized) loadFile closure always sees it fresh.
+  const persistEnabled = settings.persistWorkspace;
+  const persistEnabledRef = useRef(persistEnabled);
+  persistEnabledRef.current = persistEnabled;
 
   const workerRef = useRef<Worker | null>(null);
   // Whether we've already attempted the one-time default start person for the
@@ -193,6 +200,10 @@ function AppContent() {
   // Edit-state cached from a previous session, applied (instead of resetOnLoad)
   // once the edited master re-parses. Null when there is nothing to restore.
   const pendingEditStateRef = useRef<StoredEditState | null>(null);
+  // The raw compare Blob (File on load, cached Blob on hydrate) — kept so that
+  // enabling persistence mid-session can cache the compare exactly, including a
+  // CSV that can't be re-serialized from its dataset.
+  const compareBlobRef = useRef<Blob | null>(null);
   // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
@@ -521,7 +532,12 @@ function AppContent() {
     // exactly as a fresh load would. The merge session is stashed and applied in
     // `applyMatched` once the candidate list exists.
     let cancelled = false;
-    void loadWorkspace().then((ws) => {
+    // Only read the cache when the user has opted in; otherwise there is nothing
+    // stored and we go straight to the landing page.
+    const hydrate: ReturnType<typeof loadWorkspace> = persistEnabledRef.current
+      ? loadWorkspace()
+      : Promise.resolve({});
+    void hydrate.then((ws) => {
       if (cancelled) return;
       if (!ws.master) {
         hydratedRef.current = true; // nothing cached — persist freely from here
@@ -530,6 +546,7 @@ function AppContent() {
       pendingSessionRef.current = ws.session ?? null;
       pendingEditStateRef.current = ws.session?.editState ?? null;
       expectCompareRef.current = !!ws.compare;
+      if (ws.compare) compareBlobRef.current = ws.compare.blob;
       // A cached start person will be restored explicitly; suppress the one-time
       // auto-default so it doesn't fight the restore.
       if (ws.session?.startId) autoStartRef.current = true;
@@ -583,11 +600,11 @@ function AppContent() {
     const fileName = file.name.normalize("NFC");
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     setter({ status: "loading", fileName });
-    // Cache the raw file so a reload restores the workspace. Persist the original
-    // bytes as a Blob (exact charset round-trips); the parse-error branch deletes
-    // it again if it turns out to be unloadable.
-    void saveFile(role, { fileName, blob: file, isCsv, savedAt: Date.now() });
-    if (role === "master") void requestPersistentStorage();
+    if (role === "compare") compareBlobRef.current = file;
+    // Cache the raw file so a reload restores the workspace (only when the user
+    // has opted into caching). Persist the original bytes as a Blob (exact
+    // charset round-trips); the parse-error branch deletes it if unloadable.
+    if (persistEnabled) void saveFile(role, { fileName, blob: file, isCsv, savedAt: Date.now() });
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
     setMatches(null);
@@ -682,15 +699,27 @@ function AppContent() {
   // history). Debounced because these change rapidly while working; keyed to the
   // loaded master/compare so a stale restore can be skipped.
   useEffect(() => {
+    if (!persistEnabled) return; // caching is opt-in
     const masterFileName = lastMasterFile?.fileName;
     if (!masterFileName) return; // nothing loaded yet → nothing to cache
     if (!hydratedRef.current) return; // a startup restore is still settling
-    const handle = window.setTimeout(() => {
+    const handle = window.setTimeout(async () => {
       const edited = editVersion > 0; // dataset differs from the cached original
       const editState: StoredEditState | undefined = edited
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
         : undefined;
-      void saveSession({
+      // Cache the *edited* serialization first so the re-parsed dataset is
+      // post-edit (pure-merge sessions keep the originally-loaded file). The
+      // session is written last, so its presence implies the master it points
+      // to is already committed — the invariant the reload restore relies on.
+      if (edited && masterDataset) {
+        await saveFile("master", {
+          fileName: masterFileName,
+          blob: new Blob([serializeGedcom(masterDataset.records, { eol: masterDataset.eol, finalNewline: masterDataset.finalNewline })]),
+          savedAt: Date.now(),
+        });
+      }
+      await saveSession({
         masterFileName,
         compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
         decisions: Array.from(decisions),
@@ -699,19 +728,41 @@ function AppContent() {
         editState,
         savedAt: Date.now(),
       });
-      // Cache the *edited* serialization so the re-parsed dataset is post-edit
-      // (pure-merge sessions keep the originally-loaded file untouched).
-      if (edited && masterDataset) {
-        void saveFile("master", {
-          fileName: masterFileName,
-          blob: new Blob([serializeGedcom(masterDataset.records, { eol: masterDataset.eol, finalNewline: masterDataset.finalNewline })]),
-          savedAt: Date.now(),
-        });
-      }
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decisions, importBranches, startId, compare, lastMasterFile, editVersion, changedPersonIds, changedFamilyIds]);
+  }, [persistEnabled, decisions, importBranches, startId, compare, lastMasterFile, editVersion, changedPersonIds, changedFamilyIds]);
+
+  // React to the opt-in toggle: on enable, request durable storage (the only
+  // place that may prompt) and cache the current workspace right away; on
+  // disable, wipe the cache. The debounced effect above writes the session.
+  const prevPersistRef = useRef(persistEnabled);
+  useEffect(() => {
+    if (persistEnabled === prevPersistRef.current) return; // includes the mount no-op
+    prevPersistRef.current = persistEnabled;
+    if (!persistEnabled) {
+      void clearWorkspace();
+      return;
+    }
+    void requestPersistentStorage();
+    const ds = lastMasterFile?.dataset;
+    if (ds && lastMasterFile) {
+      void saveFile("master", {
+        fileName: lastMasterFile.fileName,
+        blob: new Blob([serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })]),
+        savedAt: Date.now(),
+      });
+    }
+    if (compareBlobRef.current && compare.status === "loaded") {
+      void saveFile("compare", {
+        fileName: compare.file.fileName,
+        blob: compareBlobRef.current,
+        isCsv: /\.csv$/i.test(compare.file.fileName),
+        savedAt: Date.now(),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistEnabled]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) => nextSort(prev, key));
@@ -1294,11 +1345,13 @@ function AppContent() {
     // The saved file is the new master baseline — refresh the cache so a reload
     // restores the saved state (the confirmed decisions are now baked in and
     // cleared below, so the persisted session debounce will write them away).
-    void saveFile("master", {
-      fileName: lastMasterFile?.fileName ?? `${preview.base}.ged`,
-      blob: new Blob([text]),
-      savedAt: Date.now(),
-    });
+    if (persistEnabled) {
+      void saveFile("master", {
+        fileName: lastMasterFile?.fileName ?? `${preview.base}.ged`,
+        blob: new Blob([text]),
+        savedAt: Date.now(),
+      });
+    }
 
     // The downloaded file is the new master baseline — rebuild the live dataset
     // from the same records so the app reflects exactly what was saved, instead
