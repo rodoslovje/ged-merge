@@ -136,8 +136,7 @@ function AppContent() {
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { master, compare, lastMasterFile, matches, matching, decisions, importBranches } = workspace;
-  const [startId, setStartId] = useState<string | undefined>(undefined);
+  const { master, compare, lastMasterFile, matches, matching, decisions, importBranches, startId } = workspace;
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
@@ -537,7 +536,7 @@ function AppContent() {
       sortEligiblePersonIdsRef.current = new Set();
       setEditTreeId(null);
       setRelTargetId(null);
-      setStartId(undefined); // start person is opt-in; reset on (re)load
+      dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
       setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
     } else {
@@ -553,7 +552,7 @@ function AppContent() {
   }
 
   function changeStart(id: string | undefined) {
-    setStartId(id);
+    dispatch({ type: "setStart", id });
     post({ type: "setStart", id: id ?? "" });
   }
 
