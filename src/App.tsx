@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
@@ -8,7 +8,7 @@ import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
-import type { LoadedFile, SlotState } from "./state/workspace";
+import { initialWorkspace, workspaceReducer, type LoadedFile, type SlotState } from "./state/workspace";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "./gedcom/types";
@@ -128,13 +128,14 @@ function AppContent() {
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
   const matchingStartRef = useRef<number | null>(null);
   const matchedTimerRef = useRef<number | null>(null);
-  const [master, setMaster] = useState<SlotState>({ status: "empty" });
-  const [compare, setCompare] = useState<SlotState>({ status: "empty" });
-  // The most recently *successfully* loaded master file, kept around while a
-  // reload is in progress so the Merge/Edit views stay mounted (showing the
-  // previous data) instead of falling back to the landing page while
-  // `master` is transiently "loading" or "error".
-  const [lastMasterFile, setLastMasterFile] = useState<LoadedFile | null>(null);
+  // The shared workspace store (reducer). Migrating in slices — the file slots
+  // live here now; matches/decisions/etc. are still separate useState below and
+  // move over in later steps. `lastMasterFile` is the most recently *successfully*
+  // loaded master, kept while a reload is in progress so the Merge/Edit views
+  // stay mounted (showing the previous data) instead of flashing the landing
+  // page while `master` is transiently "loading" or "error".
+  const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
+  const { master, compare, lastMasterFile } = workspace;
   const [matches, setMatches] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
   const [startId, setStartId] = useState<string | undefined>(undefined);
@@ -405,7 +406,6 @@ function AppContent() {
         }
         return;
       }
-      const setter = msg.role === "master" ? setMaster : setCompare;
       if (msg.type === "parsed") {
         const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
         if (msg.report) file.report = msg.report;
@@ -416,9 +416,9 @@ function AppContent() {
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
-        setter({ status: "loaded", file });
+        // slotLoaded also records lastMasterFile when role is "master".
+        dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "master") {
-          setLastMasterFile(file);
           // Restore the cached start person as soon as the master is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a master-only workspace would otherwise never restore it.
@@ -428,7 +428,7 @@ function AppContent() {
           if (!expectCompareRef.current) hydratedRef.current = true;
         }
       } else {
-        setter({ status: "error", fileName: msg.fileName, message: msg.message });
+        dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: msg.message });
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
         void deleteFile(msg.role);
@@ -466,7 +466,7 @@ function AppContent() {
       // auto-default so it doesn't fight the restore.
       if (ws.session?.startId) autoStartRef.current = true;
       const feed = (role: DatasetRole, sf: NonNullable<typeof ws.master>) => {
-        (role === "master" ? setMaster : setCompare)({ status: "loading", fileName: sf.fileName });
+        dispatch({ type: "slotLoading", role, fileName: sf.fileName });
         void sf.blob.arrayBuffer().then((buffer) => {
           if (cancelled) return;
           post(
@@ -509,13 +509,12 @@ function AppContent() {
       if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
 
-    const setter = role === "master" ? setMaster : setCompare;
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
     // c + combining caron. Our subset fonts don't carry the combining marks, so
     // the accent mispositions; normalize to NFC (precomposed) for display.
     const fileName = file.name.normalize("NFC");
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
-    setter({ status: "loading", fileName });
+    dispatch({ type: "slotLoading", role, fileName });
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
     // The master is NOT written here — the debounced effect owns the master key
     // (it serializes the live, possibly-edited dataset), so a stale original
