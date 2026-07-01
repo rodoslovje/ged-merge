@@ -6,6 +6,7 @@ import { useMode, type Mode } from "./ui/useMode";
 import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
+import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -138,7 +139,6 @@ function AppContent() {
   const persistEnabledRef = useRef(persistEnabled);
   persistEnabledRef.current = persistEnabled;
 
-  const workerRef = useRef<Worker | null>(null);
   // Whether we've already attempted the one-time default start person for the
   // currently loaded master, so a user who clears it isn't re-defaulted.
   const autoStartRef = useRef(false);
@@ -382,14 +382,9 @@ function AppContent() {
     });
   }
 
-  useEffect(() => {
-    const worker = new Worker(new URL("./worker/gedcom.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    workerRef.current = worker;
-
-    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const msg = e.data;
+  // Dispatch a message from the GEDCOM worker to the right state. Invoked on
+  // every worker message via useGedcomWorker's latest-handler ref.
+  const handleWorkerMessage = (msg: WorkerResponse) => {
       if (msg.type === "matching") {
         if (matchedTimerRef.current != null) {
           window.clearTimeout(matchedTimerRef.current);
@@ -464,12 +459,15 @@ function AppContent() {
         // persistence so later user-loaded files still get cached.
         hydratedRef.current = true;
       }
-    };
+  };
+  // Owns the worker's lifecycle; always dispatches to the latest handler above.
+  const { post } = useGedcomWorker(handleWorkerMessage);
 
-    // Restore a cached workspace: re-feed the stored files through the worker so
-    // the parse → normalize → match pipeline (and start-person ranking) rebuilds
-    // exactly as a fresh load would. The merge session is stashed and applied in
-    // `applyMatched` once the candidate list exists.
+  // Restore a cached workspace on mount: re-feed the stored files through the
+  // worker so the parse → normalize → match pipeline (and start-person ranking)
+  // rebuilds exactly as a fresh load would. The merge session is stashed and
+  // applied in `applyMatched` once the candidate list exists.
+  useEffect(() => {
     let cancelled = false;
     // Only read the cache when the user has opted in; otherwise there is nothing
     // stored and we go straight to the landing page.
@@ -494,7 +492,7 @@ function AppContent() {
         (role === "master" ? setMaster : setCompare)({ status: "loading", fileName: sf.fileName });
         void sf.blob.arrayBuffer().then((buffer) => {
           if (cancelled) return;
-          worker.postMessage(
+          post(
             sf.isCsv
               ? { type: "parseCsv", fileName: sf.fileName, buffer }
               : { type: "parse", role, fileName: sf.fileName, buffer },
@@ -505,12 +503,13 @@ function AppContent() {
       feed("master", ws.master); // master first so its profile is set before compare normalizes
       if (ws.compare) feed("compare", ws.compare);
     });
+    return () => { cancelled = true; };
+  }, [post]);
 
-    return () => {
-      cancelled = true;
-      if (matchedTimerRef.current != null) window.clearTimeout(matchedTimerRef.current);
-      worker.terminate();
-    };
+  // On unmount, cancel a pending "hold the spinner" timer so it can't fire a
+  // setState after teardown.
+  useEffect(() => () => {
+    if (matchedTimerRef.current != null) window.clearTimeout(matchedTimerRef.current);
   }, []);
 
   async function loadSample(role: DatasetRole, fileName: string) {
@@ -575,7 +574,7 @@ function AppContent() {
       undoRedo.dropMergeEntries();
     }
     const buffer = await file.arrayBuffer();
-    workerRef.current?.postMessage(
+    post(
       isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role, fileName, buffer },
       [buffer], // transfer ownership — avoids copying large files
     );
@@ -583,7 +582,7 @@ function AppContent() {
 
   function changeStart(id: string | undefined) {
     setStartId(id);
-    workerRef.current?.postMessage({ type: "setStart", id: id ?? "" });
+    post({ type: "setStart", id: id ?? "" });
   }
 
   // Capture the set of IDs that exist at load time so we can later distinguish
