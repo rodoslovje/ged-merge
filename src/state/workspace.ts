@@ -73,11 +73,11 @@ export type WorkspaceAction =
   | { type: "matched"; result: MatchResult }
   | { type: "matchesCleared" }
   | { type: "setStart"; id: string | undefined }
-  | { type: "decide"; key: string; decision: CandidateDecision }
-  | { type: "undecide"; key: string }
-  | { type: "decisionsRestored"; decisions: Map<string, CandidateDecision> }
+  | { type: "decisionsSet"; decisions: Map<string, CandidateDecision> }
   | { type: "decisionsCleared" }
-  | { type: "importBranchesRestored"; branches: Set<string> }
+  | { type: "confirmedDecisionsCleared" }
+  | { type: "importBranchesSet"; branches: Set<string> }
+  | { type: "importBranchesCleared" }
   | { type: "reset" };
 
 function slotKey(role: DatasetRole): "master" | "compare" {
@@ -119,27 +119,30 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
     case "setStart":
       return { ...state, startId: action.id };
 
-    case "decide": {
-      const decisions = new Map(state.decisions);
-      decisions.set(action.key, action.decision);
-      return { ...state, decisions };
-    }
-
-    case "undecide": {
-      if (!state.decisions.has(action.key)) return state;
-      const decisions = new Map(state.decisions);
-      decisions.delete(action.key);
-      return { ...state, decisions };
-    }
-
-    case "decisionsRestored":
+    case "decisionsSet":
+      // Replace the whole decision map (session restore, undo/redo, a decision
+      // handler's freshly-built result). Defensively copied so the store can't
+      // alias a caller's map (e.g. one also held in the undo stack).
       return { ...state, decisions: new Map(action.decisions) };
 
     case "decisionsCleared":
       return state.decisions.size === 0 ? state : { ...state, decisions: new Map() };
 
-    case "importBranchesRestored":
+    case "confirmedDecisionsCleared": {
+      // After a save bakes confirmed decisions into the dataset, drop them so the
+      // pending-changes count and edit highlighting reset. ALWAYS returns a fresh
+      // map (even if none were confirmed) — the caller relies on the identity
+      // change to bump EditView's merge generation.
+      const decisions = new Map(state.decisions);
+      for (const [key, d] of decisions) if (d.status === "confirmed") decisions.delete(key);
+      return { ...state, decisions };
+    }
+
+    case "importBranchesSet":
       return { ...state, importBranches: new Set(action.branches) };
+
+    case "importBranchesCleared":
+      return state.importBranches.size === 0 ? state : { ...state, importBranches: new Set() };
 
     case "reset":
       return {

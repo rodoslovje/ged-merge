@@ -88,43 +88,49 @@ describe("workspaceReducer — matching", () => {
 describe("workspaceReducer — decisions & branches", () => {
   const key = decisionKey("individual", "@I1@", "@I9@");
 
-  it("decide adds/updates a decision without mutating the previous map", () => {
-    const s1 = workspaceReducer(initialWorkspace, { type: "decide", key, decision: decision("confirmed") });
+  it("decisionsSet replaces the map as a fresh copy, without aliasing", () => {
+    const src = new Map([[key, decision("confirmed")]]);
+    const s1 = workspaceReducer(initialWorkspace, { type: "decisionsSet", decisions: src });
     expect(s1.decisions.get(key)?.status).toBe("confirmed");
+    expect(s1.decisions).not.toBe(src); // copied, not aliased
     expect(initialWorkspace.decisions.size).toBe(0); // original untouched
-    expect(s1.decisions).not.toBe(initialWorkspace.decisions);
 
-    const s2 = workspaceReducer(s1, { type: "decide", key, decision: decision("rejected") });
+    const s2 = workspaceReducer(s1, { type: "decisionsSet", decisions: new Map([[key, decision("rejected")]]) });
     expect(s2.decisions.get(key)?.status).toBe("rejected");
     expect(s1.decisions.get(key)?.status).toBe("confirmed"); // s1 unchanged
   });
 
-  it("undecide removes a key, and is a no-op (stable ref) when absent", () => {
-    const s1 = workspaceReducer(initialWorkspace, { type: "decide", key, decision: decision() });
-    const s2 = workspaceReducer(s1, { type: "undecide", key });
-    expect(s2.decisions.has(key)).toBe(false);
-    expect(workspaceReducer(s2, { type: "undecide", key })).toBe(s2); // nothing to remove
-  });
-
-  it("restores decisions and branches from a session as fresh copies", () => {
-    const src = new Map([[key, decision("deferred")]]);
+  it("importBranchesSet replaces the set as a fresh copy", () => {
     const branches = new Set(["b1", "b2"]);
-    const s = reduce(
-      initialWorkspace,
-      { type: "decisionsRestored", decisions: src },
-      { type: "importBranchesRestored", branches },
-    );
-    expect(s.decisions.get(key)?.status).toBe("deferred");
-    expect(s.decisions).not.toBe(src); // copied, not aliased
+    const s = workspaceReducer(initialWorkspace, { type: "importBranchesSet", branches });
     expect([...s.importBranches]).toEqual(["b1", "b2"]);
     expect(s.importBranches).not.toBe(branches);
   });
 
-  it("decisionsCleared empties the map (and is a no-op when already empty)", () => {
-    const s1 = workspaceReducer(initialWorkspace, { type: "decide", key, decision: decision() });
-    const s2 = workspaceReducer(s1, { type: "decisionsCleared" });
+  it("confirmedDecisionsCleared drops only confirmed entries, always as a fresh map", () => {
+    const s1 = workspaceReducer(initialWorkspace, {
+      type: "decisionsSet",
+      decisions: new Map([
+        ["a", decision("confirmed")],
+        ["b", decision("rejected")],
+        ["c", decision("confirmed")],
+      ]),
+    });
+    const s2 = workspaceReducer(s1, { type: "confirmedDecisionsCleared" });
+    expect([...s2.decisions.keys()]).toEqual(["b"]); // confirmed a & c dropped
+    // Always a new map (even with no confirmed), for the identity-based bump.
+    const s3 = workspaceReducer(s2, { type: "confirmedDecisionsCleared" });
+    expect(s3.decisions).not.toBe(s2.decisions);
+  });
+
+  it("decisionsCleared / importBranchesCleared empty their collections (no-op when already empty)", () => {
+    const s1 = workspaceReducer(initialWorkspace, {
+      type: "decisionsSet", decisions: new Map([[key, decision()]]),
+    });
+    const s2 = reduce(s1, { type: "decisionsCleared" }, { type: "importBranchesCleared" });
     expect(s2.decisions.size).toBe(0);
     expect(workspaceReducer(s2, { type: "decisionsCleared" })).toBe(s2);
+    expect(workspaceReducer(s2, { type: "importBranchesCleared" })).toBe(s2);
   });
 });
 
@@ -139,7 +145,7 @@ describe("workspaceReducer — start & reset", () => {
       initialWorkspace,
       { type: "slotLoaded", role: "master", file: file("m.ged") },
       { type: "matched", result: result() },
-      { type: "decide", key: decisionKey("individual", "@I1@", "@I2@"), decision: decision() },
+      { type: "decisionsSet", decisions: new Map([[decisionKey("individual", "@I1@", "@I2@"), decision()]]) },
       { type: "setStart", id: "@I1@" },
     );
     const s = workspaceReducer(dirty, { type: "reset" });

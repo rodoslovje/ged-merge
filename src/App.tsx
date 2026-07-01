@@ -134,12 +134,13 @@ function AppContent() {
   // stay mounted (showing the previous data) instead of flashing the landing
   // page while `master` is transiently "loading" or "error".
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
-  const { master, compare, lastMasterFile, matches, matching } = workspace;
+  // decisions/importBranches live in the workspace store too; the destructured
+  // values keep every read site (and the sync refs below) unchanged.
+  const { master, compare, lastMasterFile, matches, matching, decisions, importBranches } = workspace;
   const [startId, setStartId] = useState<string | undefined>(undefined);
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
-  const [decisions, setDecisions] = useState<Map<string, CandidateDecision>>(new Map());
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
@@ -147,7 +148,6 @@ function AppContent() {
   // Opt-in "graft this whole incoming branch on save" selections, made from the
   // compare tree. Each entry is an `importKey(direction, incomingId)`. Kept
   // outside `decisions` because it's a bulk-add, not a per-candidate decision.
-  const [importBranches, setImportBranches] = useState<Set<string>>(new Set());
   const importBranchesRef = useRef(importBranches);
   importBranchesRef.current = importBranches;
   // Tracks whether there are unsaved changes — updated each render so the
@@ -384,8 +384,8 @@ function AppContent() {
           const restored = pendingSessionRef.current;
           if (restored) {
             pendingSessionRef.current = null;
-            if (restored.decisions.length) setDecisions(new Map(restored.decisions));
-            if (restored.importBranches.length) setImportBranches(new Set(restored.importBranches));
+            if (restored.decisions.length) dispatch({ type: "decisionsSet", decisions: new Map(restored.decisions) });
+            if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
           }
           hydratedRef.current = true; // restore settled — persistence may resume
         };
@@ -525,8 +525,8 @@ function AppContent() {
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
     dispatch({ type: "matchesCleared" });
-    setDecisions(new Map());
-    setImportBranches(new Set());
+    dispatch({ type: "decisionsCleared" });
+    dispatch({ type: "importBranchesCleared" });
     setPendingEditApply(null);
     setPreview(null);
     setOpenMatches(false);
@@ -772,12 +772,12 @@ function AppContent() {
       setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "undo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
-      setImportBranches(entry.before);
+      dispatch({ type: "importBranchesSet", branches: entry.before });
     } else {
       setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
       setMode("merge");
       requestAnimationFrame(() => {
-        setDecisions(entry.before);
+        dispatch({ type: "decisionsSet", decisions: entry.before });
       });
     }
   }
@@ -791,12 +791,12 @@ function AppContent() {
       setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "redo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
-      setImportBranches(entry.after);
+      dispatch({ type: "importBranchesSet", branches: entry.after });
     } else {
       setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
       setMode("merge");
       requestAnimationFrame(() => {
-        setDecisions(entry.after);
+        dispatch({ type: "decisionsSet", decisions: entry.after });
       });
     }
   }
@@ -934,7 +934,7 @@ function AppContent() {
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
     undoRedo.push({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
-    setDecisions(after);
+    dispatch({ type: "decisionsSet", decisions: after });
   }
 
   // Same as `updateDecision`, but for EditView: the person being edited there
@@ -948,7 +948,7 @@ function AppContent() {
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
     undoRedo.push({ mode: "merge", before, after, masterId, compareId });
-    setDecisions(after);
+    dispatch({ type: "decisionsSet", decisions: after });
   }
 
   // Set a pair's status while keeping its field choices; clicking the active
@@ -962,7 +962,7 @@ function AppContent() {
       const nextStatus = cur?.status === status ? "undecided" : status;
       const after = new Map(before).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
       undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, masterId, compareId });
-      setDecisions(after);
+      dispatch({ type: "decisionsSet", decisions: after });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
@@ -979,7 +979,7 @@ function AppContent() {
       if (after.has(key)) after.delete(key);
       else after.add(key);
       undoRedo.pushRef.current({ mode: "import", before: new Set(before), after });
-      setImportBranches(after);
+      dispatch({ type: "importBranchesSet", branches: after });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // undoRedo.pushRef/importBranchesRef are stable refs — no re-registration needed
@@ -1314,16 +1314,13 @@ function AppContent() {
     sortEligiblePersonIdsRef.current = new Set();
 
     // These confirmed decisions are now baked into the live dataset — clear them
-    // so the pending-changes count doesn't still include them. Always replace the
-    // map (even when nothing was confirmed) so EditView's merge-generation bump
-    // remounts event rows and drops their stale "dirty since edit" highlighting.
-    setDecisions((prev) => {
-      const next = new Map(prev);
-      for (const [key, d] of next) if (d.status === "confirmed") next.delete(key);
-      return next;
-    });
+    // so the pending-changes count doesn't still include them. The action always
+    // replaces the map (even when nothing was confirmed) so EditView's
+    // merge-generation bump remounts event rows and drops their stale
+    // "dirty since edit" highlighting.
+    dispatch({ type: "confirmedDecisionsCleared" });
     // Imported branches are now baked into the live dataset — clear the requests.
-    setImportBranches(new Set());
+    dispatch({ type: "importBranchesCleared" });
     setSaveToast(t("save.toast", { count: preview.files.length }));
     setPreview(null);
     // The saved file is the new baseline — undo/redo entries refer to a state
