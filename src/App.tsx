@@ -8,9 +8,10 @@ import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
+import type { LoadedFile, SlotState } from "./state/workspace";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "./gedcom/types";
+import type { GedNode } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
@@ -19,7 +20,6 @@ import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchReque
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
-import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "./normalize/types";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
 import type { MatchResult } from "./match/types";
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
@@ -70,25 +70,6 @@ import {
   type SortKey,
   type SortState,
 } from "./ui/matchView";
-
-interface LoadedFile {
-  fileName: string;
-  dataset: Dataset;
-  report?: NormalizationReport;
-  placeLayout?: PlaceLayout;
-  dateFormat?: string;
-  datePlaceholder?: string;
-  sourceLayout?: SourceLayout;
-  nameLayout?: NameLayout;
-  unknownNameStyle?: string;
-  marriedNameTag?: boolean;
-}
-
-type SlotState =
-  | { status: "empty" }
-  | { status: "loading"; fileName: string }
-  | { status: "loaded"; file: LoadedFile }
-  | { status: "error"; fileName: string; message: string };
 
 /** Which candidate pair the full-page compare tree is showing, and how. */
 interface TreeView {
