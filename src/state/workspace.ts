@@ -71,6 +71,7 @@ export type WorkspaceAction =
   | { type: "slotCleared"; role: DatasetRole }
   | { type: "matchingStarted" }
   | { type: "matched"; result: MatchResult }
+  | { type: "matchesCleared" }
   | { type: "setStart"; id: string | undefined }
   | { type: "decide"; key: string; decision: CandidateDecision }
   | { type: "undecide"; key: string }
@@ -109,6 +110,11 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "matched":
       return { ...state, matches: action.result, matching: false };
+
+    case "matchesCleared":
+      // Drop stale results on a file (re)load; the worker emits fresh matches
+      // once both sides are re-normalized. Leaves `matching` untouched.
+      return state.matches === null ? state : { ...state, matches: null };
 
     case "setStart":
       return { ...state, startId: action.id };

@@ -76,6 +76,13 @@ describe("workspaceReducer — matching", () => {
     const started = workspaceReducer(initialWorkspace, { type: "matchingStarted" });
     expect(workspaceReducer(started, { type: "matchingStarted" })).toBe(started);
   });
+
+  it("matchesCleared drops results and is a no-op when already null", () => {
+    const done = workspaceReducer(initialWorkspace, { type: "matched", result: result() });
+    const cleared = workspaceReducer(done, { type: "matchesCleared" });
+    expect(cleared.matches).toBeNull();
+    expect(workspaceReducer(cleared, { type: "matchesCleared" })).toBe(cleared);
+  });
 });
 
 describe("workspaceReducer — decisions & branches", () => {

@@ -21,7 +21,6 @@ import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerResponse } from "./worker/messages";
-import type { MatchResult } from "./match/types";
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
@@ -135,9 +134,7 @@ function AppContent() {
   // stay mounted (showing the previous data) instead of flashing the landing
   // page while `master` is transiently "loading" or "error".
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
-  const { master, compare, lastMasterFile } = workspace;
-  const [matches, setMatches] = useState<MatchResult | null>(null);
-  const [matching, setMatching] = useState(false);
+  const { master, compare, lastMasterFile, matches, matching } = workspace;
   const [startId, setStartId] = useState<string | undefined>(undefined);
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
@@ -369,15 +366,14 @@ function AppContent() {
           matchedTimerRef.current = null;
         }
         if (matchingStartRef.current === null) matchingStartRef.current = performance.now();
-        setMatching(true);
+        dispatch({ type: "matchingStarted" });
         return;
       }
       if (msg.type === "matched") {
         const applyMatched = () => {
           matchingStartRef.current = null;
           matchedTimerRef.current = null;
-          setMatches(msg.result);
-          setMatching(false);
+          dispatch({ type: "matched", result: msg.result });
           setSelectedId(null);
           setOpenMatches(true);
           setShowInfoPanel(false);
@@ -528,7 +524,7 @@ function AppContent() {
     }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
-    setMatches(null);
+    dispatch({ type: "matchesCleared" });
     setDecisions(new Map());
     setImportBranches(new Set());
     setPendingEditApply(null);
