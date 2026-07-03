@@ -15,7 +15,7 @@ import type { GedNode } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
-import { serializeGedcom } from "./gedcom/serialize";
+import { ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
@@ -1360,6 +1360,10 @@ function AppContent() {
       );
     }
 
+    // The download is always UTF-8 bytes; a header still declaring the source
+    // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
+    ensureUtf8Charset(preview.records, masterDataset);
+
     const text = serializeGedcom(preview.records, {
       eol: masterDataset.eol,
       finalNewline: masterDataset.finalNewline,
@@ -1384,7 +1388,9 @@ function AppContent() {
     // only ever wrote them into a clone for serialization).
     const rebuilt = buildDataset({
       version: masterDataset.version,
-      charset: masterDataset.charset,
+      // The saved text declares (and is) UTF-8 — see ensureUtf8Charset above —
+      // so the new baseline's charset must agree with it.
+      charset: "UTF-8",
       records: preview.records,
       warnings: masterDataset.warnings,
       eol: masterDataset.eol,

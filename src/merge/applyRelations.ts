@@ -4,7 +4,7 @@ import {
   insertOrdered,
   insertRecord,
 } from "../gedcom/edit";
-import { childrenByTag, firstChild, removeChildren } from "../gedcom/node";
+import { childrenByTag, firstChild } from "../gedcom/node";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
@@ -20,6 +20,7 @@ import {
   collectCustomTags,
   combineEventEdits,
   newNode,
+  stripForeignPointers,
   SUB_LABEL_KEY,
   SUB_TAG,
   type EventSubEdit,
@@ -123,8 +124,18 @@ export function makeContext(
     const node = cloneNodeRemapped(incIndi.raw, sourXrefMap);
     collectCustomTags(node, report.customTags);
     node.xref = newId;
-    // Drop incoming family pointers; we re-link only into the family being merged.
-    removeChildren(node, ["FAMC", "FAMS"]);
+    // Drop pointers into the compare file's namespace: family links (re-linked
+    // only into the family being merged) plus associations/submitter links,
+    // which have no import path and would dangle — or hit an unrelated master
+    // record — if kept. Dropped associations are surfaced as deferred.
+    const dropped = stripForeignPointers(node);
+    if (dropped.some((tag) => tag === "ASSO" || tag === "ALIA")) {
+      report.deferred.push({
+        recordId: newId,
+        field: t("merge.field.associations"),
+        reason: t("merge.reason.assoNotImported"),
+      });
+    }
     insertRecord(records, node);
     indiNodes.set(newId, node);
     addedFromIncoming.set(incomingId, newId);
@@ -330,7 +341,7 @@ export function applyIndividualFamilies(
       if (!subTag) continue;
       const rowKey = `${famKey}.MARR.${sub}`;
       const rowIncoming = rows.find((r) => r.key === rowKey)?.incoming ?? "";
-      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
+      const applied = applyEventSub(famNode, incFam.raw, "MARR", subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags);
       if (applied) {
         marrEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
         ctx.touched.add(famNode.xref!);
@@ -356,7 +367,7 @@ export function applyIndividualFamilies(
         const subTag = SUB_TAG[sub];
         if (!subTag) continue;
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
-        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.report.customTags);
+        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags);
         if (applied) {
           evEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
           ctx.touched.add(famNode.xref!);

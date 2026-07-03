@@ -1,3 +1,4 @@
+import { firstChild } from "./node";
 import type { Dataset, GedNode } from "./types";
 
 export interface SerializeOptions {
@@ -35,6 +36,39 @@ export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {})
 /** Serialize a whole dataset, preserving its source line-ending conventions. */
 export function serializeDataset(ds: Dataset): string {
   return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+}
+
+/**
+ * Make the HEAD.CHAR declaration match the bytes a download actually produces.
+ *
+ * Serialized text always leaves the app UTF-8 encoded (a `Blob` of a JS string
+ * is UTF-8), so a file loaded from ANSEL/ANSI/Windows-125x/UTF-16 must not
+ * keep its original declaration — other software would trust the header and
+ * misdecode every non-ASCII character. Mutates the HEAD record in place;
+ * call it on the records about to be downloaded, never as part of plain
+ * serialization (round-tripping an unsaved file must stay byte-faithful).
+ *
+ * A missing CHAR line is only added when the source charset wasn't UTF-8
+ * (otherwise the output already reads correctly) and never for GEDCOM 7,
+ * which is UTF-8 by definition and defines no CHAR structure.
+ */
+export function ensureUtf8Charset(
+  records: GedNode[],
+  ds: Pick<Dataset, "version" | "charset">,
+): void {
+  const head = records.find((r) => r.tag === "HEAD");
+  if (!head) return;
+  const char = firstChild(head, "CHAR");
+  if (char) {
+    if (char.value?.trim().toUpperCase() !== "UTF-8") char.value = "UTF-8";
+    return;
+  }
+  if (ds.version === "7.0" || ds.charset === "UTF-8") return;
+  const node: GedNode = { level: 1, tag: "CHAR", value: "UTF-8", children: [] };
+  // 5.5.1's header structure places CHAR right after the GEDC block.
+  const gedcIdx = head.children.findIndex((c) => c.tag === "GEDC");
+  if (gedcIdx >= 0) head.children.splice(gedcIdx + 1, 0, node);
+  else head.children.push(node);
 }
 
 function emitNode(node: GedNode, depth: number, lines: string[]): void {

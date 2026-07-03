@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { setEventField } from "./edit";
 import { parseGedcom } from "./parser";
-import { serializeGedcom } from "./serialize";
+import { ensureUtf8Charset, serializeGedcom } from "./serialize";
 
 /** Parse text (as bytes) then serialize back, using the detected conventions. */
 function roundTrip(text: string): string {
@@ -113,6 +113,46 @@ describe("serializeGedcom", () => {
     expect(out).toContain("2 DATE 15 FEB 1850");
     expect(out).toContain("2 PLAC Kranj, Slovenija");
     expect(out).toContain("1 NAME Janez /Novak/");
+  });
+
+  describe("ensureUtf8Charset", () => {
+    const parse = (text: string) => parseGedcom(new TextEncoder().encode(text).buffer);
+
+    it("rewrites a stale CHAR declaration to UTF-8", () => {
+      const parsed = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR ANSEL\n0 TRLR\n");
+      ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "ANSEL" });
+      expect(serializeGedcom(parsed.records)).toContain("1 CHAR UTF-8");
+      expect(serializeGedcom(parsed.records)).not.toContain("ANSEL");
+    });
+
+    it("leaves an already-correct CHAR UTF-8 untouched (byte-faithful)", () => {
+      const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n";
+      const parsed = parse(text);
+      ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "UTF-8" });
+      expect(serializeGedcom(parsed.records)).toBe(text);
+    });
+
+    it("adds CHAR UTF-8 after GEDC when a non-UTF-8 file declared none", () => {
+      const parsed = parse("0 HEAD\n1 SOUR TEST\n1 GEDC\n2 VERS 5.5.1\n0 TRLR\n");
+      ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "WINDOWS-1250" });
+      expect(serializeGedcom(parsed.records)).toBe(
+        "0 HEAD\n1 SOUR TEST\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n",
+      );
+    });
+
+    it("does not add a CHAR line when the source was already UTF-8", () => {
+      const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 TRLR\n";
+      const parsed = parse(text);
+      ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "UTF-8" });
+      expect(serializeGedcom(parsed.records)).toBe(text);
+    });
+
+    it("does not add a CHAR line to a GEDCOM 7 file", () => {
+      const text = "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n";
+      const parsed = parse(text);
+      ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "UNICODE" });
+      expect(serializeGedcom(parsed.records)).toBe(text);
+    });
   });
 
   it("renders an inserted node tree at the right depth (ignores node.level)", () => {

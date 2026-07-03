@@ -1185,6 +1185,82 @@ describe("materializeEventSources", () => {
   });
 });
 
+describe("mergeDecisions — pointers on a newly added person", () => {
+  // Master @I1@ matches compare @P1@; taking the partner brings in @P2@, who
+  // carries pointer-valued tags into the compare file's xref namespace.
+  const masterBase =
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+    "0 @I9@ INDI\n1 NAME Franc /Zupan/\n1 SEX M\n";
+  const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+  const takePartner = () =>
+    new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@PF@.partner": "incoming" } }],
+    ]);
+  const compareWith = (spouseExtras: string, records = "") =>
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        `0 @P2@ INDI\n1 NAME Marija /Kovač/\n1 SEX F\n1 FAMS @PF@\n${spouseExtras}` +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n" +
+        records,
+    );
+
+  it("remaps a colliding NOTE pointer and imports the compare note record", () => {
+    // Master's @N1@ is an unrelated note; the new person must not point at it.
+    const master = dataset(wrap(masterBase + "0 @N1@ NOTE Master note about someone else\n"));
+    const compare = dataset(
+      compareWith("1 NOTE @N1@\n", "0 @N1@ NOTE Compare note about Marija\n"),
+    );
+    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @N1@ NOTE Master note about someone else"); // untouched
+    const noteXref = out.match(/1 NAME Marija \/Kovač\/[\s\S]*?1 NOTE (@[^@]+@)/)?.[1];
+    expect(noteXref).toBeDefined();
+    expect(noteXref).not.toBe("@N1@");
+    expect(out).toContain(`0 ${noteXref} NOTE Compare note about Marija`);
+  });
+
+  it("reuses an existing master NOTE record with identical text", () => {
+    const master = dataset(wrap(masterBase + "0 @N7@ NOTE Shared family chronicle\n"));
+    const compare = dataset(
+      compareWith("1 NOTE @N1@\n", "0 @N1@ NOTE Shared family chronicle\n"),
+    );
+    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 NOTE @N7@");
+    expect(out.match(/0 @[^@]+@ NOTE/g)).toHaveLength(1); // no duplicate minted
+  });
+
+  it("imports the OBJE record a new person's OBJE pointer references", () => {
+    const master = dataset(wrap(masterBase));
+    const compare = dataset(
+      compareWith("1 OBJE @O7@\n", "0 @O7@ OBJE\n1 FILE https://example.com/marija.jpg\n"),
+    );
+    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 OBJE @O7@");
+    expect(out).toContain("0 @O7@ OBJE\n1 FILE https://example.com/marija.jpg");
+  });
+
+  it("strips ASSO/ALIA and nested family pointers, reporting associations as deferred", () => {
+    const master = dataset(wrap(masterBase));
+    const compare = dataset(
+      compareWith(
+        // ASSO @I9@ means the compare's own @I9@ (a different person than the
+        // master's @I9@ Franc Zupan); ADOP carries an event-level FAMC.
+        "1 ASSO @I9@\n2 ROLE GODP\n1 ALIA @P1@\n1 ADOP\n2 FAMC @PF@\n" +
+          "0 @I9@ INDI\n1 NAME Peter /Drugi/\n1 SEX M\n",
+      ),
+    );
+    const { records, report } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("1 ASSO");
+    expect(out).not.toContain("1 ALIA");
+    expect(out).not.toContain("2 FAMC"); // ADOP's event-level family pointer
+    expect(out).toContain("1 ADOP"); // the event itself survives
+    expect(report.deferred.some((d) => d.field === "merge.field.associations")).toBe(true);
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();
