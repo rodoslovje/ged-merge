@@ -45,11 +45,12 @@ export interface GedNode {
    */
   reshapedFrom?: string;
   /**
-   * Runtime-only marker (never serialized, dropped by `cloneNode`): set on an
-   * event node when an edit or merge adds it ("new") or modifies it
-   * ("changed"), so save-time audit stamping (`stampChanCrea`) writes CHAN/CREA
-   * onto exactly the events that changed rather than guessing. Consumed (and
-   * cleared) during stamping.
+   * Runtime-only marker (never serialized): set on an event node when an edit
+   * or merge adds it ("new") or modifies it ("changed"), so save-time audit
+   * stamping (`stampChanCrea`) writes CHAN/CREA onto exactly the events that
+   * changed rather than guessing. Preserved by `cloneNode` — the merge stamps
+   * a clone of the edit-marked master, and undo/redo snapshots restore the
+   * marker state of their side. Consumed (and cleared) during stamping.
    */
   auditStamp?: "new" | "changed";
   /**

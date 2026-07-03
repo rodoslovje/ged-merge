@@ -23,6 +23,7 @@ import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
+import { findDanglingXrefs } from "./tools/structure";
 import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
@@ -223,6 +224,8 @@ function AppContent() {
     editRecordIds: Set<string>;
     /** Whether this save includes confirmed merge matches (vs. edits only). */
     isMerge: boolean;
+    /** Dangling-pointer findings on the output — shown as a warning strip. */
+    integrityWarnings: string[];
   } | null>(null);
   const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
   // Brief confirmation shown after a successful download; auto-dismisses.
@@ -1326,6 +1329,16 @@ function AppContent() {
       if (r.tag === "INDI" && r.xref && changedPersonIds.has(r.xref) && sortEligiblePersonIdsRef.current.has(r.xref)) sortEventsByDate(r);
     }
 
+    // Consistency gate: a pointer in the output referencing a record that
+    // doesn't exist would corrupt the file for other software — surface it in
+    // the preview before the user confirms (capped so a systemic problem
+    // doesn't flood the dialog).
+    const dangling = findDanglingXrefs(records);
+    const integrityWarnings = dangling.slice(0, 8).map((d) =>
+      t("save.preview.dangling", { tag: d.tag, xref: d.xref, count: d.count }),
+    );
+    if (dangling.length > 8) integrityWarnings.push(t("save.preview.danglingMore", { count: dangling.length - 8 }));
+
     setPreview({
       records,
       report,
@@ -1336,6 +1349,7 @@ function AppContent() {
       base,
       editRecordIds,
       isMerge,
+      integrityWarnings,
     });
   }
 
@@ -2018,6 +2032,7 @@ function AppContent() {
           downloadLabel={preview.downloadLabel}
           masterRecordCount={preview.masterRecordCount}
           editRecordIds={preview.editRecordIds}
+          integrityWarnings={preview.integrityWarnings}
           dataset={masterDataset}
           onConfirm={handleConfirmSave}
           onClose={() => setPreview(null)}

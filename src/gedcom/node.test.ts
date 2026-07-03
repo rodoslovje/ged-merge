@@ -120,4 +120,16 @@ describe("cloneNode", () => {
     c.children[0].value = "changed";
     expect(firstChild(i, "NAME")?.value).toBe("John /Smith/");
   });
+
+  it("preserves the auditStamp marker and verbatim lines", () => {
+    // The merge stamps CHAN/CREA on a *clone* of the edit-marked master, so a
+    // clone that dropped the marker would lose event-level audit stamps in a
+    // combined edit+merge save.
+    const i = indi();
+    firstChild(i, "BIRT")!.auditStamp = "changed";
+    i.children.push({ level: 1, tag: "", children: [], verbatim: "1GARBLED line" });
+    const c = cloneNode(i);
+    expect(firstChild(c, "BIRT")?.auditStamp).toBe("changed");
+    expect(c.children.at(-1)?.verbatim).toBe("1GARBLED line");
+  });
 });

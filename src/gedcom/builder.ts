@@ -44,6 +44,22 @@ export function buildDataset(parsed: ParseResult): Dataset {
   // (`1 NOTE @xref@`), so resolve those to real text up front.
   const notes = buildNoteIndex(parsed.records);
 
+  // Duplicate xrefs would silently last-win in the Maps below (and in every
+  // shared-record index above), leaving matching/merge working against a
+  // half-hidden record — surface that instead of hiding it.
+  const seenXrefs = new Set<string>();
+  for (const record of parsed.records) {
+    if (!record.xref) continue;
+    if (seenXrefs.has(record.xref)) {
+      parsed.warnings.push({
+        kind: "structure",
+        message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id.`,
+      });
+    } else {
+      seenXrefs.add(record.xref);
+    }
+  }
+
   for (const record of parsed.records) {
     if (record.tag === "INDI" && record.xref) {
       individuals.set(record.xref, buildIndividual(record, media, sourceCtx, notes));

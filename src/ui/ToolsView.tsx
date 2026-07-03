@@ -460,6 +460,8 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "syntax",
   "level",
   "strayCont",
+  "danglingXref",
+  "duplicateXref",
   "encoding",
   "version",
   "unknownTag",

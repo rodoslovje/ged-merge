@@ -22,6 +22,8 @@ export type StructCategory =
   | "syntax"
   | "level"
   | "strayCont"
+  | "danglingXref"
+  | "duplicateXref"
   | "version"
   | "unknownTag"
   | "customTag"
@@ -65,6 +67,8 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   syntax: 0,
   level: 0,
   strayCont: 0,
+  danglingXref: 0,
+  duplicateXref: 0,
   version: 0,
   unknownTag: 0,
   customTag: 0,
@@ -138,15 +142,61 @@ function fromWarning(w: ParseWarning): StructIssue | undefined {
     case "version":
       return { ...base, category: "version", severity: "warning" };
     case "structure": {
-      // The parser emits two structure cases: a stray CONT/CONC with no parent,
-      // and a line whose level skips its parent. Tell them apart by the message.
-      const stray = /CONT|CONC/.test(w.message);
-      return { ...base, category: stray ? "strayCont" : "level", severity: "error" };
+      // Structure warnings cover three cases, told apart by the message: a
+      // stray CONT/CONC with no parent, a duplicate record xref (from
+      // buildDataset), and a line whose level skips its parent.
+      if (/CONT|CONC/.test(w.message)) return { ...base, category: "strayCont", severity: "error" };
+      if (w.message.startsWith("Duplicate xref")) return { ...base, category: "duplicateXref", severity: "error" };
+      return { ...base, category: "level", severity: "error" };
     }
     default:
       // "unknown-tag" / "date" / "place" are detected by our own tree walk below.
       return undefined;
   }
+}
+
+/** One missing pointer target: every occurrence of a pointer to a record that doesn't exist. */
+export interface DanglingXref {
+  /** The referenced-but-undefined xref, e.g. "@N12@". */
+  xref: string;
+  /** How many pointer lines reference it. */
+  count: number;
+  /** The tag of the first pointer line seen (SOUR, NOTE, OBJE, ASSO, …). */
+  tag: string;
+  /** Enclosing level-0 record of the first occurrence, for navigation. */
+  recordId?: string;
+  recordTag?: string;
+  /** Reconstructed first offending line, for a hover tooltip. */
+  tooltip: string;
+}
+
+/**
+ * Find every pointer value (`@xref@`) whose target record does not exist,
+ * grouped by missing xref. Covers all standard-tag pointers anywhere in the
+ * tree — SOUR/NOTE/OBJE citations, ASSO/ALIA associations, HEAD.SUBM, … —
+ * the classes of reference the FAMC/FAMS/CHIL health check doesn't see.
+ * Vendor-extension (`_`) subtrees are skipped: their values follow the
+ * vendor's own vocabulary, not ours to audit. Pure; also used as the
+ * save-time consistency check on the records about to be downloaded.
+ */
+export function findDanglingXrefs(records: GedNode[]): DanglingXref[] {
+  const defined = new Set<string>();
+  for (const r of records) if (r.xref) defined.add(r.xref);
+
+  const missing = new Map<string, DanglingXref>();
+  const visit = (node: GedNode, recordId?: string, recordTag?: string): void => {
+    if (node.tag.startsWith("_")) return;
+    const v = node.value?.trim();
+    // "@#…@" is a GEDCOM escape (e.g. a DATE calendar escape), not a pointer.
+    if (v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") && !defined.has(v)) {
+      const seen = missing.get(v);
+      if (seen) seen.count++;
+      else missing.set(v, { xref: v, count: 1, tag: node.tag, recordId, recordTag, tooltip: nodeLine(node) });
+    }
+    for (const child of node.children) visit(child, recordId, recordTag);
+  };
+  for (const rec of records) visit(rec, rec.xref, rec.tag);
+  return [...missing.values()];
 }
 
 export function validateStructure(ds: Dataset): StructureReport {
@@ -228,6 +278,20 @@ export function validateStructure(ds: Dataset): StructureReport {
 
   for (const rec of ds.records) visit(rec, rec.xref, rec.tag);
 
+  // (c) Pointers into nowhere: references to records that don't exist.
+  for (const d of findDanglingXrefs(ds.records)) {
+    push({
+      category: "danglingXref",
+      severity: "error",
+      recordId: d.recordId,
+      recordTag: d.recordTag,
+      sample: d.xref,
+      tooltip: d.tooltip,
+      messageKey: "tools.validate.struct.issue.danglingXref",
+      messageVars: { tag: d.tag, xref: d.xref, count: d.count },
+    });
+  }
+
   for (const [tag, { count, recordId, recordTag, tooltip }] of unknown) {
     push({
       category: "unknownTag",
@@ -255,7 +319,7 @@ export function validateStructure(ds: Dataset): StructureReport {
   }
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "version", "unknownTag", "badDate", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

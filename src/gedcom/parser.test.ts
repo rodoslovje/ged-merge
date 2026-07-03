@@ -127,4 +127,22 @@ describe("parseGedcom", () => {
       expect(indi.events.some((e) => e.tag === "BIRT" && e.date?.year === 1850)).toBe(true);
     });
   });
+
+  it("warns when two records define the same xref (last one wins)", () => {
+    const text = [
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NAME Ana /Novak/",
+      "0 @I1@ INDI",
+      "1 NAME Bo /Kos/",
+      "0 TRLR",
+      "",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(toBuffer(text)));
+    expect(ds.individuals.size).toBe(1);
+    expect(ds.individuals.get("@I1@")?.names[0].full).toContain("Bo");
+    expect(
+      ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@")),
+    ).toBe(true);
+  });
 });

@@ -37,6 +37,9 @@ interface Props {
   onRemove?: (id: string, kind: "individual" | "family") => void;
   /** When provided, individual records show sex colour and lifespan. */
   dataset?: Dataset;
+  /** Consistency findings on the output (e.g. dangling pointers) — shown as a
+   *  warning strip so the user sees them before confirming the download. */
+  integrityWarnings?: string[];
 }
 
 interface RecordGroup {
@@ -61,6 +64,7 @@ export function SaveDialog({
   onNavigate,
   onRemove,
   dataset,
+  integrityWarnings,
 }: Props) {
   const { t } = useTranslation();
   const modalRef = useModalKeyboard(true, onClose);
@@ -142,6 +146,17 @@ export function SaveDialog({
               <Stat value={report.deferred.length} label={t("preview.stat.deferred")} warn />
             )}
           </div>
+
+          {integrityWarnings && integrityWarnings.length > 0 && (
+            <section className="preview-section">
+              <h3 className="preview-warn">{t("preview.integrity")}</h3>
+              <ul className="preview-deferred">
+                {integrityWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {report.deferred.length > 0 && (
             <section className="preview-section">

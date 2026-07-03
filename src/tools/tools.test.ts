@@ -427,6 +427,41 @@ describe("validateStructure", () => {
 0 TRLR`);
     expect(validateStructure(ds).issues).toHaveLength(0);
   });
+
+  it("flags pointers to records that don't exist, but not calendar escapes", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 NOTE @N9@
+1 BIRT
+2 DATE @#DJULIAN@ 4 MAR 1799
+2 SOUR @S1@
+1 ASSO @I7@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+0 TRLR`);
+    const dangling = validateStructure(ds).issues.filter((i) => i.category === "danglingXref");
+    const byXref = Object.fromEntries(dangling.map((i) => [i.messageVars?.xref, i.messageVars?.tag]));
+    // @S1@ resolves; the DATE calendar escape is not a pointer.
+    expect(byXref).toEqual({ "@N9@": "NOTE", "@I7@": "ASSO" });
+    expect(dangling.every((i) => i.severity === "error")).toBe(true);
+    expect(dangling[0].recordId).toBe("@I1@");
+  });
+
+  it("surfaces a duplicate record xref (detected at load) as its own category", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+0 @I1@ INDI
+1 NAME Bo /Kos/
+0 TRLR`);
+    expect(ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@"))).toBe(true);
+    const dup = validateStructure(ds).issues.filter((i) => i.category === "duplicateXref");
+    expect(dup).toHaveLength(1);
+    expect(dup[0].severity).toBe("error");
+  });
 });
 
 describe("fixDates", () => {
