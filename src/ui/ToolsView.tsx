@@ -26,7 +26,7 @@ import { buildPlaceTree, countDistinctPlaces, type PlaceNode, type PlaceTree, UN
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../tools/placeEdit";
 import { collectNodeUseIds } from "../tools/places";
 import { countryCode } from "../gedcom/countryCode";
-import { ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
+import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
 import { downloadText } from "./download";
 import { revealEdgeWhitespace } from "./whitespace";
 import { individualFieldRows } from "../review/fields";
@@ -937,10 +937,7 @@ function NormalizePanel({ dataset, fileName, active }: { dataset: Dataset; fileN
     const { dataset: out } = bulkNormalize(dataset, selected);
     const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(out.records, out); // downloads are UTF-8 bytes
-    const text = serializeGedcom(out.records, {
-      eol: dataset.eol,
-      finalNewline: dataset.finalNewline,
-    });
+    const text = serializeGedcom(out.records, downloadOptions(dataset));
     downloadText(`${base}.gedmerge.ged`, text);
   }
 
@@ -1113,7 +1110,7 @@ function PrivacyPanel({
     const { records, report } = privatizeDataset(dataset, options);
     const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
-    downloadText(`${base}.gedmerge.ged`, serializeGedcom(records, { eol: dataset.eol, finalNewline: dataset.finalNewline }));
+    downloadText(`${base}.gedmerge.ged`, serializeGedcom(records, downloadOptions(dataset)));
     downloadText(`${base}.gedmerge.report.txt`, privacyReportText(report.flagged, options));
   }
 
@@ -1867,7 +1864,7 @@ function SourceDuplicatesView({
     const { records } = dedupeSources(dataset.records, selectedGroups);
     const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
-    const text = serializeGedcom(records, { eol: dataset.eol, finalNewline: dataset.finalNewline });
+    const text = serializeGedcom(records, downloadOptions(dataset));
     downloadText(`${base}.gedmerge.ged`, text);
   }
 

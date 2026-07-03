@@ -15,7 +15,7 @@ import type { GedNode } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
-import { ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
+import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
@@ -1364,10 +1364,7 @@ function AppContent() {
     // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
     ensureUtf8Charset(preview.records, masterDataset);
 
-    const text = serializeGedcom(preview.records, {
-      eol: masterDataset.eol,
-      finalNewline: masterDataset.finalNewline,
-    });
+    const text = serializeGedcom(preview.records, downloadOptions(masterDataset));
     downloadText(`${preview.base}.gedmerge.ged`, text);
     downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
 

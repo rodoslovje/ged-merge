@@ -6,7 +6,21 @@ export interface SerializeOptions {
   eol?: string;
   /** Emit a trailing newline after the last line. Defaults to true. */
   finalNewline?: boolean;
+  /**
+   * Wrap physical lines longer than this many characters by splitting the
+   * value across `CONC` continuation lines. GEDCOM 5.5.1 caps a line at 255
+   * characters *including* the terminator, so downloads pass
+   * {@link LINE_LIMIT_551}; leave unset for GEDCOM 7 (no CONC, no limit) and
+   * for internal round-trips, which must stay byte-faithful.
+   */
+  maxLineLength?: number;
 }
+
+/**
+ * GEDCOM 5.5.1's physical line limit, as content characters: the spec allows
+ * 255 including the terminator, and CRLF is the widest terminator we emit.
+ */
+export const LINE_LIMIT_551 = 253;
 
 /**
  * Render a GEDCOM line tree back to text.
@@ -22,13 +36,17 @@ export interface SerializeOptions {
  *
  * Caveat: GEDCOM `CONC` (continue without a line break) is folded into the value
  * at parse time and cannot be told apart from a value that was simply long, so
- * long values originally wrapped with CONC re-emit as a single line. `CONT`
- * (line break) round-trips exactly. Tag case is normalized to upper-case.
+ * the original wrap positions are not reproduced. By default a folded value
+ * re-emits as a single line (byte-faithful for unwrapped sources, and what the
+ * internal parse↔serialize round-trips rely on); with `maxLineLength` set the
+ * value is re-wrapped at that width instead, so downloads never exceed the
+ * 5.5.1 line limit that strict importers enforce. `CONT` (line break)
+ * round-trips exactly. Tag case is normalized to upper-case.
  */
 export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {}): string {
   const eol = opts.eol ?? "\n";
   const lines: string[] = [];
-  for (const record of records) emitNode(record, 0, lines);
+  for (const record of records) emitNode(record, 0, lines, opts.maxLineLength);
   const text = lines.join(eol);
   return opts.finalNewline === false ? text : text + eol;
 }
@@ -36,6 +54,23 @@ export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {})
 /** Serialize a whole dataset, preserving its source line-ending conventions. */
 export function serializeDataset(ds: Dataset): string {
   return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+}
+
+/**
+ * Serialize options for a file leaving the app as a download: the source's
+ * line-ending conventions plus, for 5.5.1-family files, CONC re-wrapping at
+ * the spec's line limit. GEDCOM 7 output is never wrapped — 7.0 abolished
+ * CONC and has no line-length limit. (An "unknown" version is treated as
+ * legacy 5.5.x, which is what undeclared exports in practice are.)
+ */
+export function downloadOptions(
+  ds: Pick<Dataset, "eol" | "finalNewline" | "version">,
+): SerializeOptions {
+  return {
+    eol: ds.eol,
+    finalNewline: ds.finalNewline,
+    maxLineLength: ds.version === "7.0" ? undefined : LINE_LIMIT_551,
+  };
 }
 
 /**
@@ -71,7 +106,7 @@ export function ensureUtf8Charset(
   else head.children.push(node);
 }
 
-function emitNode(node: GedNode, depth: number, lines: string[]): void {
+function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number): void {
   const head = node.xref
     ? `${depth} ${node.xref} ${node.tag}`
     : `${depth} ${node.tag}`;
@@ -84,12 +119,74 @@ function emitNode(node: GedNode, depth: number, lines: string[]): void {
     // text begins on a CONT line (e.g. "0 @N@ NOTE" then "1 CONT ..."), so the
     // head line gets no trailing space.
     const segments = node.value.split("\n");
-    lines.push(segments[0] === "" ? head : `${head} ${segments[0]}`);
+    pushSegment(lines, head, segments[0], depth, maxLen);
     for (let i = 1; i < segments.length; i++) {
-      const seg = segments[i];
-      lines.push(seg.length ? `${depth + 1} CONT ${seg}` : `${depth + 1} CONT`);
+      pushSegment(lines, `${depth + 1} CONT`, segments[i], depth, maxLen);
     }
   }
 
-  for (const child of node.children) emitNode(child, depth + 1, lines);
+  for (const child of node.children) emitNode(child, depth + 1, lines, maxLen);
+}
+
+/**
+ * Emit one logical line (`prefix` + segment text), splitting overlong text
+ * across `CONC` continuation lines when `maxLen` is set. Applies to the tag
+ * line and to each CONT line alike — a single CONT segment can itself exceed
+ * the limit.
+ */
+function pushSegment(
+  lines: string[],
+  prefix: string,
+  text: string,
+  depth: number,
+  maxLen: number | undefined,
+): void {
+  if (text.length === 0) {
+    lines.push(prefix);
+    return;
+  }
+  // "+ 1" for the space between prefix and value on each physical line.
+  if (maxLen === undefined || prefix.length + 1 + text.length <= maxLen) {
+    lines.push(`${prefix} ${text}`);
+    return;
+  }
+  const concPrefix = `${depth + 1} CONC`;
+  const chunks = splitForConc(
+    text,
+    maxLen - prefix.length - 1,
+    maxLen - concPrefix.length - 1,
+  );
+  lines.push(`${prefix} ${chunks[0]}`);
+  for (let i = 1; i < chunks.length; i++) lines.push(`${concPrefix} ${chunks[i]}`);
+}
+
+/**
+ * Split a value into CONC-sized chunks: the first at most `firstAvail`
+ * characters, the rest at most `restAvail`. Cut points prefer the middle of a
+ * word — readers are permitted to trim spaces around CONC pieces, so neither
+ * side of a cut may touch a space — and never land inside a surrogate pair.
+ */
+function splitForConc(text: string, firstAvail: number, restAvail: number): string[] {
+  // Floor keeps pathological inputs (a prefix near the limit) progressing.
+  const first = Math.max(firstAvail, 16);
+  const rest = Math.max(restAvail, 16);
+  const chunks: string[] = [];
+  let start = 0;
+  let avail = first;
+  while (text.length - start > avail) {
+    let cut = start + avail;
+    // Back the cut up to a space-free boundary when one exists in this chunk.
+    let c = cut;
+    while (c - start > 1 && (text[c] === " " || text[c - 1] === " ")) c--;
+    if (text[c] !== " " && text[c - 1] !== " ") cut = c;
+    // Never split a surrogate pair (e.g. an emoji) across two lines.
+    const u = text.charCodeAt(cut - 1);
+    if (u >= 0xd800 && u <= 0xdbff) cut--;
+    if (cut <= start) cut = start + 1;
+    chunks.push(text.slice(start, cut));
+    start = cut;
+    avail = rest;
+  }
+  chunks.push(text.slice(start));
+  return chunks;
 }
