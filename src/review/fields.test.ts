@@ -574,6 +574,24 @@ describe("multi-RESI pairing by date", () => {
     expect(compareDate?.state).toBe("incoming-only");
   });
 
+  it("pairs identical undated events instead of splitting them", () => {
+    // Undated events have no date signal, so scoring alone can never clear the
+    // pairing threshold — the identical-content fast path must pair them, or
+    // an identical incoming copy shows as "incoming-only" and a confirm with
+    // default choices imports a duplicate.
+    const body =
+      `1 EVEN\n2 TYPE Departure\n2 PLAC Bremen\n` +
+      `1 EVEN\n2 TYPE Departure\n2 PLAC Rotterdam\n` +
+      `1 OCCU Farmer\n`;
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n${body}0 TRLR\n`);
+    const c = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n${body}0 TRLR\n`);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // Every row pairs and agrees; nothing is master-only or incoming-only.
+    expect(rows.filter((r) => r.state !== "agree")).toEqual([]);
+    // The two Departures stay distinct paired instances (not collapsed).
+    expect(rows.filter((r) => /^EVEN(\.\d+)?\.type$/.test(r.key))).toHaveLength(2);
+  });
+
   it("does not pair residences 7 years apart even when they share a locality", () => {
     // 7-year gap now scores 0.2 (not 0.4), so shared locality alone cannot push
     // the total above the 0.35 pairing threshold.

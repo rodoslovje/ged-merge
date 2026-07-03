@@ -1185,6 +1185,21 @@ describe("materializeEventSources", () => {
   });
 });
 
+describe("mergeDecisions — confirm without changes is a no-op", () => {
+  it("does not reorder out-of-canonical-order events when nothing was applied", () => {
+    // DEAT before BIRT in the source: a confirmed match that takes no fields
+    // must leave the record byte-identical, not silently canonicalize it.
+    const text = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n1 BIRT\n2 DATE 1850\n",
+    );
+    const master = dataset(text);
+    const compare = dataset(text.replace(/@I1@/g, "@P1@"));
+    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    expect(report.changes).toHaveLength(0);
+    expect(serializeGedcom(records)).toBe(text);
+  });
+});
+
 describe("mergeDecisions — pointers on a newly added person", () => {
   // Master @I1@ matches compare @P1@; taking the partner brings in @P2@, who
   // carries pointer-valued tags into the compare file's xref namespace.

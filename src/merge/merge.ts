@@ -212,7 +212,10 @@ export function mergeDecisions(
     applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
     const takenChildIds = new Set(decision.takenChildren ?? []);
     applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx, takenChildIds);
-    sortEventsByDate(target);
+    // Canonical event order, but only when this decision actually wrote
+    // something — a confirmed match that took no fields must leave the record
+    // byte-identical (the minimal-diff guarantee), not silently reorder it.
+    if (touched.has(masterId)) sortEventsByDate(target);
   }
 
   // Graft any whole subtrees the user asked for from the compare tree, now that

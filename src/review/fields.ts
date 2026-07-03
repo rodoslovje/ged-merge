@@ -1010,7 +1010,18 @@ function pairEventsByDatePlace(
   return pairs;
 }
 
+/** The comparable content of an event, for the identical-pair fast path. */
+function eventContentKey(e: GedEvent): string {
+  return [e.type ?? "", e.value ?? "", e.date?.raw ?? "", e.place?.raw ?? "", e.address?.raw ?? "", e.note ?? ""].join("\x1f");
+}
+
 function eventPairScore(me: GedEvent, ce: GedEvent): number {
+  // Two events with identical content are the same event, full stop. Without
+  // this, two *undated* copies can never pair (missing dates cap the score
+  // below the threshold), so comparing overlapping files showed the incoming
+  // copy as a separate "incoming-only" event — and a confirm with default
+  // choices then imported it as a duplicate.
+  if (eventContentKey(me) === eventContentKey(ce)) return 1;
   return datePairSim(me.date, ce.date) * 0.6 + eventPlaceSim(me, ce) * 0.4;
 }
 
