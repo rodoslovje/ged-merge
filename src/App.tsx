@@ -646,13 +646,25 @@ function AppContent() {
     // serialization, so adopt the cached pre-edit tracking and undo history
     // instead of treating the current (edited) records as the clean baseline.
     const es = pendingEditStateRef.current;
+    let hydrated = false;
     if (es) {
       pendingEditStateRef.current = null;
-      dirty.hydrate(es);
-      undoRedo.hydrate(es.undo, es.redo);
-      sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
-      setEditVersion(1); // mark dataset as edited so further edits keep persisting
-    } else {
+      // Defense in depth on top of the SESSION_SCHEMA gate in persist/idb.ts:
+      // a cached edit-state whose shape no longer matches the app must never
+      // brick startup — fall back to a clean baseline (the cached master text
+      // already contains the edits; only their change-tracking is lost).
+      try {
+        dirty.hydrate(es);
+        undoRedo.hydrate(es.undo, es.redo);
+        sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
+        setEditVersion(1); // mark dataset as edited so further edits keep persisting
+        hydrated = true;
+      } catch (err) {
+        console.warn("Discarding incompatible cached edit state:", err);
+        undoRedo.clearAll();
+      }
+    }
+    if (!hydrated) {
       dirty.resetOnLoad(master.file.dataset);
       sortEligiblePersonIdsRef.current = new Set();
     }

@@ -88,4 +88,43 @@ describe("parseGedcom", () => {
     const ds = buildDataset(parsed);
     expect(ds.individuals.size).toBe(3);
   });
+
+  describe("unparsable lines", () => {
+    // A malformed line (no space after the level) inside a record, plus junk
+    // before the header.
+    const BAD = [
+      "garbage before header",
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1SEX M",
+      "1 BIRT",
+      "2 DATE 1850",
+      "0 TRLR",
+      "",
+    ].join("\n");
+
+    it("keeps them as verbatim nodes at their original position, with a syntax warning", () => {
+      const parsed = parseGedcom(toBuffer(BAD));
+      expect(parsed.warnings.filter((w) => w.kind === "syntax")).toHaveLength(2);
+      // The bad line follows "1 NAME …", so it hangs off the deepest open node
+      // (NAME) — depth-first serialization re-emits it at the same stream position.
+      const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+      const name = indi.children.find((c) => c.tag === "NAME")!;
+      const bad = name.children.find((c) => c.verbatim !== undefined);
+      expect(bad?.verbatim).toBe("1SEX M");
+      expect(bad?.tag).toBe(""); // never matches any tag lookup
+      // Junk before the first record becomes a verbatim root.
+      expect(parsed.records[0].verbatim).toBe("garbage before header");
+    });
+
+    it("does not disturb the surrounding structure", () => {
+      const ds = buildDataset(parseGedcom(toBuffer(BAD)));
+      const indi = ds.individuals.get("@I1@")!;
+      expect(indi.names[0].full).toContain("Janez");
+      expect(indi.events.some((e) => e.tag === "BIRT" && e.date?.year === 1850)).toBe(true);
+    });
+  });
 });

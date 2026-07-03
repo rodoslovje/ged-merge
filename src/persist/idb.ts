@@ -26,6 +26,18 @@ const DB_VERSION = 1;
 const FILES_STORE = "files"; // keyed "master" | "compare"
 const SESSION_STORE = "session"; // keyed "current"
 
+/**
+ * Version of the *shapes* persisted in the session store (`DB_VERSION` only
+ * covers the store layout). `StoredSession` embeds `CandidateDecision`,
+ * `UndoEntry` and dirty-tracking snapshots whose types evolve with the app;
+ * hydrating a stale shape after a deploy could throw during startup. Bump
+ * this whenever any of those persisted types changes incompatibly — an older
+ * session is then discarded on load instead of hydrated (the cached files
+ * themselves are plain blobs and always survive). Sessions written before
+ * this field existed carry the version-1 shapes, so absence reads as 1.
+ */
+const SESSION_SCHEMA = 1;
+
 type FileRole = "master" | "compare";
 const SESSION_KEY = "current";
 
@@ -58,6 +70,8 @@ export interface StoredEditState {
 
 /** The pending merge session, co-persisted with the master it belongs to. */
 export interface StoredSession {
+  /** {@link SESSION_SCHEMA} at write time; stamped by `saveSession`. */
+  schema?: number;
   masterFileName: string;
   compareFileName?: string;
   /** `Array.from(decisions)` — Maps don't survive JSON but the entry array does. */
@@ -144,7 +158,10 @@ export function loadWorkspace(): Promise<{
       idbGet<StoredFile>(db, FILES_STORE, "compare"),
       idbGet<StoredSession>(db, SESSION_STORE, SESSION_KEY),
     ]);
-    return { master, compare, session };
+    // A session written by an incompatible app version is discarded rather
+    // than hydrated into the wrong shapes; the cached files still restore.
+    const compatible = session && (session.schema ?? 1) === SESSION_SCHEMA ? session : undefined;
+    return { master, compare, session: compatible };
   }, {});
 }
 
@@ -157,7 +174,10 @@ export function deleteFile(role: FileRole): Promise<void> {
 }
 
 export function saveSession(session: StoredSession): Promise<void> {
-  return withDb((db) => idbPut(db, SESSION_STORE, SESSION_KEY, session), undefined);
+  return withDb(
+    (db) => idbPut(db, SESSION_STORE, SESSION_KEY, { ...session, schema: SESSION_SCHEMA }),
+    undefined,
+  );
 }
 
 /** Wipe every cached file and the session — the Settings "clear cached data" path. */

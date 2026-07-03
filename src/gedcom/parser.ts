@@ -35,7 +35,15 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
 
     const m = LINE_RE.exec(line);
     if (!m) {
-      warnings.push({ kind: "syntax", message: `Unparsable line: ${truncate(line)}`, line: i + 1 });
+      warnings.push({ kind: "syntax", message: `Unparsable line (kept verbatim): ${truncate(line)}`, line: i + 1 });
+      // Keep the line losslessly: attach a verbatim node at the current point
+      // in the stream (the deepest open node's children, or the root list), so
+      // depth-first serialization re-emits it at exactly its original position.
+      const raw: GedNode = { level: 0, tag: "", children: [], verbatim: line };
+      let parent: GedNode | undefined;
+      for (let l = stack.length - 1; l >= 0 && !parent; l--) parent = stack[l];
+      if (parent) parent.children.push(raw);
+      else roots.push(raw);
       continue;
     }
 

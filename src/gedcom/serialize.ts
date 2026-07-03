@@ -107,6 +107,13 @@ export function ensureUtf8Charset(
 }
 
 function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number): void {
+  // A line the parser couldn't interpret re-emits exactly as it came in —
+  // never reformatted, never CONC-wrapped (its structure is unknown).
+  if (node.verbatim !== undefined) {
+    lines.push(node.verbatim);
+    return;
+  }
+
   const head = node.xref
     ? `${depth} ${node.xref} ${node.tag}`
     : `${depth} ${node.tag}`;

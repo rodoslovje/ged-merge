@@ -52,6 +52,13 @@ export interface GedNode {
    * cleared) during stamping.
    */
   auditStamp?: "new" | "changed";
+  /**
+   * A source line the parser could not interpret, kept verbatim so saving
+   * never silently drops it. Such a node carries the empty tag "" (so no
+   * tag-matching logic ever picks it up), has no children, and serializes
+   * back as exactly this text at its original position in the stream.
+   */
+  verbatim?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */

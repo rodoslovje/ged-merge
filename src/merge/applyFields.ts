@@ -772,6 +772,7 @@ export function buildSourXrefMap(compareRecords: GedNode[], masterRecords: GedNo
 export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
   const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
   if (n.xref !== undefined) c.xref = n.xref;
+  if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.value !== undefined) {
     const isSharedPointer = SHARED_RECORD_TAGS.has(n.tag) && /^@[^@]+@$/.test(n.value);
     c.value = isSharedPointer ? (sourMap.get(n.value) ?? n.value) : n.value;

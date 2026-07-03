@@ -53,6 +53,21 @@ describe("serializeGedcom", () => {
     expect(out).toContain("1 NOTE First line\n2 CONT second line\n2 CONT third line");
   });
 
+  it("round-trips unparsable lines verbatim, at their original positions", () => {
+    const text = [
+      "junk line",
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1SEX M",
+      "0 TRLR",
+      "",
+    ].join("\n");
+    expect(roundTrip(text)).toBe(text);
+  });
+
   it("does not add a trailing space when the value starts on a CONT line", () => {
     // A NOTE record with no inline value, text beginning on the next CONT line.
     const text = ["0 @N1@ NOTE", "1 CONT vzgojiteljica v vrtcu", "0 TRLR", ""].join("\n");
