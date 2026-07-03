@@ -20,7 +20,7 @@ import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchReque
 import { sortEventsByDate } from "./merge/applyFields";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
-import type { DatasetRole, WorkerResponse } from "./worker/messages";
+import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { downloadText } from "./ui/download";
@@ -417,8 +417,17 @@ function AppContent() {
           // Restore the cached start person as soon as the master is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a master-only workspace would otherwise never restore it.
+          // Only restore a start person that still exists in this master — a
+          // stale id (e.g. cached against a different file) would leave the
+          // views pointing at a person that isn't there ("no individuals").
           const restoredStart = pendingSessionRef.current?.startId;
-          if (restoredStart) changeStart(restoredStart);
+          if (restoredStart && file.dataset.individuals.has(restoredStart)) {
+            changeStart(restoredStart);
+          } else {
+            // No valid cached start person → let the default one apply (hydration
+            // suppressed it in anticipation of a restore that isn't coming).
+            autoStartRef.current = false;
+          }
           // Master-only restore (no compare to match): nothing more to wait for.
           if (!expectCompareRef.current) hydratedRef.current = true;
         }
@@ -433,7 +442,7 @@ function AppContent() {
       }
   };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
-  const { post } = useGedcomWorker(handleWorkerMessage);
+  const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage);
 
   // Restore a cached workspace on mount: re-feed the stored files through the
   // worker so the parse → normalize → match pipeline (and start-person ranking)
@@ -545,9 +554,56 @@ function AppContent() {
       undoRedo.dropMergeEntries();
     }
     const buffer = await file.arrayBuffer();
+    const newMsg: WorkerRequest = isCsv
+      ? { type: "parseCsv", fileName, buffer }
+      : { type: "parse", role, fileName, buffer };
+
+    // A new file supersedes any match still being computed. The worker can't
+    // interrupt its own synchronous scoring pass, so when one is in flight we
+    // hard-abort it: tear the worker down (which stops the computation at once)
+    // and stand up a fresh one, re-feeding the kept slot so the pipeline restarts
+    // cleanly on the new file. When nothing is matching there is nothing to abort,
+    // so we keep the existing worker (and its cached datasets) and just re-parse.
+    const otherLoaded = role === "master" ? compare.status === "loaded" : master.status === "loaded";
+    const keptMaster = lastMasterFile;
+    if (matching && otherLoaded) {
+      resetWorker();
+      // Always feed master before compare so the compare normalizes against the
+      // master's profile.
+      if (role === "master") {
+        post(newMsg, [buffer]); // new master first
+        await refeedCompare(); // kept compare second (re-parsed from its raw bytes)
+      } else if (keptMaster) {
+        // Silent re-feed rebuilds the worker's master without touching the main
+        // thread's (possibly edited) master file or the edit tracking bound to it.
+        const text = serializeGedcom(keptMaster.dataset.records, {
+          eol: keptMaster.dataset.eol,
+          finalNewline: keptMaster.dataset.finalNewline,
+        });
+        const masterBuf = await new Blob([text]).arrayBuffer();
+        post(
+          { type: "parse", role: "master", fileName: keptMaster.fileName, buffer: masterBuf, silent: true },
+          [masterBuf],
+        );
+        if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
+        post(newMsg, [buffer]); // new compare last
+      }
+      return;
+    }
+    post(newMsg, [buffer]); // transfer ownership — avoids copying large files
+  }
+
+  /** Re-parse the currently-loaded compare from its retained raw bytes — used to
+   *  restock a freshly-recreated worker after a hard-abort (see loadFile). */
+  async function refeedCompare() {
+    const blob = compareBlobRef.current;
+    if (!blob || compare.status !== "loaded") return;
+    const fileName = compare.file.fileName;
+    const isCsv = /\.csv$/i.test(fileName);
+    const buffer = await blob.arrayBuffer();
     post(
-      isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role, fileName, buffer },
-      [buffer], // transfer ownership — avoids copying large files
+      isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role: "compare", fileName, buffer },
+      [buffer],
     );
   }
 

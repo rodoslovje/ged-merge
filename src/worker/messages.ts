@@ -10,6 +10,11 @@ export interface ParseRequest {
   role: DatasetRole;
   fileName: string;
   buffer: ArrayBuffer;
+  /** Rebuild the worker's internal dataset/profile without emitting `parsed`.
+   *  Used to re-feed a kept slot into a freshly-recreated worker (after a
+   *  hard-abort) so a match can run again, while leaving the main thread's
+   *  loaded-file state — and any edit tracking bound to it — untouched. */
+  silent?: boolean;
 }
 
 /** Load a matches CSV from indeks.rodoslovje.si into the compare slot. */

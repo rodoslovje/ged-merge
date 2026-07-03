@@ -13,26 +13,41 @@ import type { WorkerRequest, WorkerResponse } from "../worker/messages";
  */
 export function useGedcomWorker(
   onMessage: (msg: WorkerResponse) => void,
-): { post: (msg: WorkerRequest, transfer?: Transferable[]) => void } {
+): {
+  post: (msg: WorkerRequest, transfer?: Transferable[]) => void;
+  /** Terminate the running worker and start a fresh one. Used to hard-abort an
+   *  in-flight match (the worker can't interrupt its own synchronous scoring
+   *  pass) when a new file supersedes it — the caller then re-feeds the slots. */
+  reset: () => void;
+} {
   const workerRef = useRef<Worker | null>(null);
   const handlerRef = useRef(onMessage);
   handlerRef.current = onMessage;
 
-  useEffect(() => {
+  const spawn = useCallback(() => {
     const worker = new Worker(new URL("../worker/gedcom.worker.ts", import.meta.url), {
       type: "module",
     });
-    workerRef.current = worker;
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => handlerRef.current(e.data);
+    workerRef.current = worker;
+  }, []);
+
+  useEffect(() => {
+    spawn();
     return () => {
-      worker.terminate();
+      workerRef.current?.terminate();
       workerRef.current = null;
     };
-  }, []);
+  }, [spawn]);
+
+  const reset = useCallback(() => {
+    workerRef.current?.terminate();
+    spawn();
+  }, [spawn]);
 
   const post = useCallback((msg: WorkerRequest, transfer?: Transferable[]) => {
     workerRef.current?.postMessage(msg, transfer ?? []);
   }, []);
 
-  return { post };
+  return { post, reset };
 }

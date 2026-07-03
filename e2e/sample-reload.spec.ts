@@ -1,64 +1,52 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function enablePersist(page: Page) {
-  await page.addInitScript(() => {
-    localStorage.setItem("gedmerge.settings", JSON.stringify({ persistWorkspace: true }));
-  });
-}
+const MASTER_TEXT = [
+  "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+  "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1 JAN 1900",
+  "0 @I2@ INDI", "1 NAME Ana /Novak/", "1 SEX F",
+  "0 TRLR", "",
+].join("\n");
 
-async function waitMasterCached(page: Page) {
-  await page.waitForFunction(
-    () =>
-      new Promise<boolean>((resolve) => {
-        const req = indexedDB.open("gedmerge-session");
-        req.onsuccess = () => {
-          const db = req.result;
-          try {
-            const r = db.transaction("files", "readonly").objectStore("files").get("master");
-            r.onsuccess = () => resolve(!!(r.result as { blob?: Blob } | undefined)?.blob);
-            r.onerror = () => resolve(false);
-          } catch {
-            resolve(false);
-          }
-        };
-        req.onerror = () => resolve(false);
-      }),
-    undefined,
-    { timeout: 20000 },
+// Seed a cached workspace whose session.startId points at a person that does
+// NOT exist in the master (e.g. a stale id from a previously-loaded file).
+async function seedBadStart(page: Page, masterText: string, badStartId: string) {
+  await page.addInitScript(
+    ([text, startId]) => {
+      localStorage.setItem("gedmerge.settings", JSON.stringify({ persistWorkspace: true }));
+      const req = indexedDB.open("gedmerge-session", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("files")) db.createObjectStore("files");
+        if (!db.objectStoreNames.contains("session")) db.createObjectStore("session");
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(["files", "session"], "readwrite");
+        tx.objectStore("files").put(
+          { fileName: "Seeded.ged", blob: new Blob([text]), savedAt: Date.now() },
+          "master",
+        );
+        tx.objectStore("session").put(
+          {
+            masterFileName: "Seeded.ged",
+            decisions: [],
+            importBranches: [],
+            startId,
+            savedAt: Date.now(),
+          },
+          "current",
+        );
+      };
+    },
+    [masterText, badStartId] as const,
   );
-  await page.waitForTimeout(1500);
 }
 
-// Repro: a cached workspace exists. On the next open, while the async
-// loadWorkspace() read is still in flight, the user clicks a sample. The stale
-// cached master then clobbers the freshly-clicked sample.
-test("clicking a sample during startup hydration is not clobbered by cache", async ({ page }) => {
-  test.setTimeout(120000);
-  await enablePersist(page);
-
-  // Session 1: load a sample so a workspace is cached.
+test("restore with a stale start id still shows the individuals", async ({ page }) => {
+  await seedBadStart(page, MASTER_TEXT, "@I999@");
   await page.goto("/");
-  await page.locator(".lb-sample-row").first().click();
-  await page.locator(".edit-person").first().waitFor({ timeout: 30000 });
-  await waitMasterCached(page);
-
-  // Session 2: open the app and click a DIFFERENT sample as fast as possible,
-  // before the cached-workspace restore resolves.
-  await page.goto("/");
-  // Click the 2nd sample the instant the tray is visible.
-  await page.locator(".lb-sample-row").nth(1).click({ timeout: 5000 });
-
-  // Give both the sample load and the hydration restore time to settle/fight.
-  await page.waitForTimeout(8000);
-
-  const headerChip = await page.locator(".header-file-btn.master").first().textContent();
+  await page.waitForTimeout(3000);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  const emptyMsg = await page.getByText("no individuals to edit").count();
-  const editPersons = await page.locator(".edit-person").count();
-  console.log("HEADER master chip:", headerChip, "emptyMsg=", emptyMsg, "editPersons=", editPersons);
-
-  // The visible master file name must match the dataset actually loaded — the
-  // sample the user clicked, with real individuals.
-  expect(emptyMsg).toBe(0);
-  expect(editPersons).toBeGreaterThan(0);
+  await expect(page.getByText("no individuals to edit")).toHaveCount(0);
+  await expect(page.locator(".edit-person").first()).toBeVisible();
 });

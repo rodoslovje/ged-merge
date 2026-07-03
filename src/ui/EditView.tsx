@@ -145,7 +145,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const formatName = useNameOf();
   const { settings } = useSettings();
   const [selectedId, setSelectedId] = useState<string | undefined>(
-    () => startId ?? defaultStartId(dataset) ?? dataset.individuals.keys().next().value,
+    // Guard against a stale start person (id not in this dataset) so we land on a
+    // real individual rather than a dead id that renders the empty state.
+    () =>
+      (startId && dataset.individuals.has(startId) ? startId : undefined) ??
+      defaultStartId(dataset) ??
+      dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
   // Bumped after every edit to force a re-render — the dataset is mutated

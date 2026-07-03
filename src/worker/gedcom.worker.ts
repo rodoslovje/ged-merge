@@ -91,19 +91,23 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (req.role === "master") {
       masterDataset = dataset;
       profile = inferMasterProfile(dataset);
-      post({
-        type: "parsed",
-        role: "master",
-        fileName: req.fileName,
-        dataset,
-        placeLayout: profile.place.layout,
-        dateFormat: inferDateLayout(dataset),
-        datePlaceholder: inferDatePlaceholder(dataset),
-        sourceLayout: inferSourceFormat(dataset.records).layout,
-        nameLayout: inferNameLayout(dataset),
-        unknownNameStyle: detectUnknownNameToken(dataset),
-        marriedNameTag: profile.nameVariants.married.form === "tag",
-      });
+      // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
+      // the main thread keeps its existing master file + edit tracking.
+      if (!req.silent) {
+        post({
+          type: "parsed",
+          role: "master",
+          fileName: req.fileName,
+          dataset,
+          placeLayout: profile.place.layout,
+          dateFormat: inferDateLayout(dataset),
+          datePlaceholder: inferDatePlaceholder(dataset),
+          sourceLayout: inferSourceFormat(dataset.records).layout,
+          nameLayout: inferNameLayout(dataset),
+          unknownNameStyle: detectUnknownNameToken(dataset),
+          marriedNameTag: profile.nameVariants.married.form === "tag",
+        });
+      }
       // A compare loaded earlier can now be normalized against this master.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
