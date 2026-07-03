@@ -71,6 +71,8 @@ interface Props {
   title: string;
   state: SlotState;
   onLoad: (file: File) => void;
+  /** When set on a loaded slot, offers an "unload" button that removes the file. */
+  onUnload?: () => void;
   /** Role colour applied to the loaded filename. */
   accent: "master" | "incoming";
   highlight?: boolean;
@@ -79,7 +81,7 @@ interface Props {
   description?: string;
 }
 
-export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip, description }: Props) {
+export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight, tooltip, description }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { t } = useTranslation();
@@ -154,7 +156,7 @@ export function GedcomLoader({ title, state, onLoad, accent, highlight, tooltip,
       )}
 
       {(state.status === "loaded" || state.status === "error") && (
-        <div className="summary">{renderSummary(state, accent, t, folderUi)}</div>
+        <div className="summary">{renderSummary(state, accent, t, folderUi, onUnload)}</div>
       )}
 
       {state.status !== "loading" && (
@@ -215,6 +217,7 @@ function renderSummary(
   accent: "master" | "incoming",
   t: Translate,
   folderUi: React.ReactNode,
+  onUnload?: () => void,
 ): React.ReactNode {
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
@@ -282,7 +285,14 @@ function renderSummary(
 
   return (
     <>
-      <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "master" ? "tree.master" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
+      <div className="loader-filename-row">
+        <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "master" ? "tree.master" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
+        {onUnload && (
+          <button className="loader-unload-btn" onClick={onUnload} title={t("loader.unload.tooltip")}>
+            {t("loader.unload")}
+          </button>
+        )}
+      </div>
       <div className="loader-cols">
         <div className="loader-info">
           <dl className="loader-meta">

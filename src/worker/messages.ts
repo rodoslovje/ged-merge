@@ -25,7 +25,13 @@ export interface SetStartRequest {
   id: string;
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest;
+/** Drop the compare slot so the worker holds only the master again. Emits no
+ *  response — the app clears its own match/decision state when it unloads. */
+export interface ClearCompareRequest {
+  type: "clearCompare";
+}
+
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest;
 
 export interface ParseSuccess {
   type: "parsed";

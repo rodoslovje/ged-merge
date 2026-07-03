@@ -55,6 +55,16 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     }
     return;
   }
+  if (req.type === "clearCompare") {
+    // Forget the incoming file so a later master reload/re-match doesn't resurrect
+    // it. The start person stays set for a subsequent compare.
+    compareRaw = undefined;
+    compareNormalized = undefined;
+    compareCsvPairs = undefined;
+    lastResult = undefined;
+    lastCompareMeta = undefined;
+    return;
+  }
   if (req.type === "parseCsv") {
     try {
       const text = decodeCsv(req.buffer);

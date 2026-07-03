@@ -551,6 +551,32 @@ function AppContent() {
     );
   }
 
+  /** Remove the incoming file and go back to working on the master alone. Drops
+   *  the match result and any merge decisions/import branches (edits to the master
+   *  are untouched), and forgets the cached compare so a reload stays master-only. */
+  async function unloadCompare() {
+    if (compare.status !== "loaded") return;
+    if (confirmedCount > 0 || importCount > 0) {
+      if (!(await confirmDialog(t("load.incomingUnloadConfirm"), t("confirm.continue")))) return;
+    }
+    // A user-initiated unload supersedes any in-flight startup restore of the
+    // compare, mirroring loadFile.
+    expectCompareRef.current = false;
+    compareBlobRef.current = null;
+    if (persistEnabled) void deleteFile("compare");
+    // Merge entries reference the now-gone incoming file; edits stay valid.
+    undoRedo.dropMergeEntries();
+    dispatch({ type: "slotCleared", role: "compare" });
+    dispatch({ type: "matchesCleared" });
+    dispatch({ type: "decisionsCleared" });
+    dispatch({ type: "importBranchesCleared" });
+    setPendingEditApply(null);
+    setPreview(null);
+    setOpenMatches(false);
+    setSelectedId(null);
+    post({ type: "clearCompare" });
+  }
+
   function changeStart(id: string | undefined) {
     dispatch({ type: "setStart", id });
     post({ type: "setStart", id: id ?? "" });
@@ -1727,6 +1753,7 @@ function AppContent() {
                   title={t("load.incoming")}
                   state={compare}
                   onLoad={(f) => loadFile("compare", f)}
+                  onUnload={unloadCompare}
                   accent="incoming"
                   highlight={compare.status === "empty"}
                   tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}

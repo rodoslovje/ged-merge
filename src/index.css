@@ -890,9 +890,34 @@ button:focus-visible {
   color: var(--muted);
   white-space: pre-wrap;
 }
+.loader-filename-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
 .loader-filename {
   font-weight: 600;
-  margin-bottom: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.loader-unload-btn {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.loader-unload-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .loader-cols {
   display: flex;
