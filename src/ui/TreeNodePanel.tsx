@@ -31,6 +31,8 @@ interface Props {
   kinshipLineage?: string;
   /** Chips shown on the actions row, left of the Set-as-root button. */
   badges?: ReactNode;
+  /** Extra action buttons after Set-as-root (Compare Tree: open the Charts hub). */
+  extraActions?: ReactNode;
   /** Extra control rows shown between the actions row and the field table
    *  (Compare Tree: the decision bar and import button). */
   controls?: ReactNode;
@@ -59,6 +61,7 @@ export function TreeNodePanel({
   kinship,
   kinshipLineage,
   badges,
+  extraActions,
   controls,
 }: Props) {
   const { t } = useTranslation();
@@ -91,6 +94,7 @@ export function TreeNodePanel({
         <button className="nav-btn tree-compare-root" onClick={onSetRoot}>
           {rootLabel ?? t("edit.tree.reroot")}
         </button>
+        {extraActions}
       </div>
       {controls}
       <div className="tree-compare-body">

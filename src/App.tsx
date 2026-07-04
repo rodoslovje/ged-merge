@@ -48,6 +48,7 @@ import { Landing } from "./ui/Landing";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
+import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
 import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
@@ -337,6 +338,7 @@ function AppContent() {
     const view: TreeView = { masterId, compareId, mode: "ancestors" };
     window.history.pushState({ gedTree: view }, "");
     setTreeView(view);
+    setChartsRootId(null); // overlays are exclusive (see openCharts)
   }
   /** Re-root the open tree on another person, as a new history entry. */
   function rerootTree(masterId?: string, compareId?: string) {
@@ -1106,6 +1108,21 @@ function AppContent() {
     if (kind) setChartKind(kind);
     window.history.pushState({ gedChartsId: id }, "");
     setChartsRootId(id);
+    // The overlays are exclusive; opened from inside the Compare Tree, the hub
+    // replaces it on screen and the browser Back button returns to the tree.
+    setTreeView(null);
+  }
+
+  /** The header Charts trigger: the person the active mode is looking at, or
+   *  the start person, or the file's default — so charts are reachable from
+   *  every mode without first switching to Edit. */
+  function openChartsFromHeader() {
+    if (!masterDataset) return;
+    const id =
+      (mode === "edit" ? editPersonId : mode === "merge" ? selectedId?.masterId : undefined) ??
+      startId ??
+      defaultStartId(masterDataset);
+    if (id) openCharts(id);
   }
 
   // Whole-file search index for the global search dialog. Rebuilt when the
@@ -1664,6 +1681,7 @@ function AppContent() {
         importBranches={importBranches}
         onToggleImport={toggleImportBranch}
         startId={startId}
+        onOpenCharts={openCharts}
       />
     );
   } else if (chartsRootId && masterDataset) {
@@ -1733,6 +1751,16 @@ function AppContent() {
             )}
           </div>
           <div className="lang-switcher">
+            {masterDataset && (
+              <button
+                className="nav-btn icon-only"
+                onClick={openChartsFromHeader}
+                title={t("charts.header.tooltip")}
+                aria-label={t("edit.charts.button")}
+              >
+                <ChartIcon size={18} />
+              </button>
+            )}
             {masterDataset && (
               <button
                 className="nav-btn icon-only"

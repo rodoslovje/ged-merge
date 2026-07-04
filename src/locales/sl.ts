@@ -770,6 +770,7 @@ export const sl = {
   "save.toast": "Shranjeno — prenesenih datotek: {{count}}.",
   "edit.charts.button": "Diagrami",
   "edit.charts.tooltip": "Diagrami za trenutno osebo — drevo, pahljača, sorodstvo … (V)",
+  "charts.header.tooltip": "Diagrami — rodoslovno drevo, pahljača in sorodstvo",
   "edit.tree.title": "Drevo",
   "edit.tree.back": "Nazaj na urejanje",
   "edit.tree.unmodified": "Nespremenjeno",

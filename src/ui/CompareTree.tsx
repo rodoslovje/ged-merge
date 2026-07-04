@@ -78,6 +78,8 @@ interface Props {
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   /** Start person ID in the master dataset, used to show kinship labels on nodes. */
   startId?: string;
+  /** Open the Charts hub on a master-side person (from the node panel). */
+  onOpenCharts?: (masterId: string) => void;
 }
 
 /** The three actionable decisions, in button order. */
@@ -131,6 +133,7 @@ export function CompareTree({
   importBranches,
   onToggleImport,
   startId,
+  onOpenCharts,
 }: Props) {
   const { t } = useTranslation();
 
@@ -574,6 +577,7 @@ export function CompareTree({
                 onDecide(selected.master.id, selected.incoming.id, status);
               }
             }}
+            onOpenCharts={onOpenCharts}
           />
         )}
       </div>
@@ -874,6 +878,7 @@ function NodeCompare({
   kinshipLineage,
   decision,
   onDecide,
+  onOpenCharts,
 }: {
   node: Placed;
   masterDs: Dataset;
@@ -889,6 +894,7 @@ function NodeCompare({
   kinshipLineage: string | undefined;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
+  onOpenCharts?: (masterId: string) => void;
 }) {
   const { t } = useTranslation();
   // Both sides present → an actionable match the user can confirm/reject/defer.
@@ -970,6 +976,17 @@ function NodeCompare({
       kinship={kinship}
       kinshipLineage={kinshipLineage}
       badges={decisionBar}
+      extraActions={
+        node.master && onOpenCharts ? (
+          <button
+            className="nav-btn tree-compare-root"
+            onClick={() => onOpenCharts(node.master!.id)}
+            title={t("edit.charts.tooltip")}
+          >
+            {t("edit.charts.button")}
+          </button>
+        ) : undefined
+      }
       controls={controls}
     />
   );

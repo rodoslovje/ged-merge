@@ -766,6 +766,7 @@ export const en = {
   "save.toast": "Saved — {{count}} file(s) downloaded.",
   "edit.charts.button": "Charts",
   "edit.charts.tooltip": "Charts for the current person — tree, fan, relationship… (V)",
+  "charts.header.tooltip": "Charts — family tree, fan chart & relationship diagrams",
   "edit.tree.title": "Tree",
   "edit.tree.back": "Back to Edit",
   "edit.tree.unmodified": "Unmodified",
