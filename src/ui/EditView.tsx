@@ -7,6 +7,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
+import { ChartIcon } from "./icons/ChartIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
@@ -1409,12 +1410,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               <span className="edit-back-label">{t("edit.back")}</span>
             </button>
             <button
-              className="tree-open-btn"
+              className="tree-open-btn charts-open-btn"
               onClick={() => selectedId && onShowCharts(selectedId)}
               disabled={!selectedId}
               title={t("edit.charts.tooltip")}
             >
-              {t("edit.charts.button")}
+              <ChartIcon size={14} /> {t("edit.charts.button")}
             </button>
           </div>
         </div>

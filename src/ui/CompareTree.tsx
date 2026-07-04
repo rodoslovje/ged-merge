@@ -46,6 +46,7 @@ import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
+import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
 import { ChartSettings } from "./ChartSettings";
@@ -979,11 +980,11 @@ function NodeCompare({
       extraActions={
         node.master && onOpenCharts ? (
           <button
-            className="nav-btn tree-compare-root"
+            className="nav-btn tree-compare-root charts-open-btn"
             onClick={() => onOpenCharts(node.master!.id)}
             title={t("edit.charts.tooltip")}
           >
-            {t("edit.charts.button")}
+            <ChartIcon size={13} /> {t("edit.charts.button")}
           </button>
         ) : undefined
       }

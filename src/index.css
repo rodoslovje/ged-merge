@@ -3147,6 +3147,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 5px;
 }
 .tree-export-btn svg { flex: 0 0 auto; }
+/* Charts-hub triggers pair the app's tree glyph with the label, matching the
+   icon-only header trigger so the glyph reads as "charts" everywhere. */
+.charts-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.charts-open-btn svg { flex: 0 0 auto; }
 .tree-export-btn.open { border-color: var(--accent); }
 /* Export dropdown: one menu for every download format (mirrors the
    chart-settings popover placement). */
