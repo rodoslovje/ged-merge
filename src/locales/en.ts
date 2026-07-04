@@ -564,6 +564,7 @@ export const en = {
   "register.gen.2": "Grandchildren",
   "register.gen.3": "Great-grandchildren",
   "register.childrenOf": "Children of no. {{n}} — {{name}}:",
+  "register.childrenOfBoth": "Children of no. {{n}} — {{name}} and {{spouse}}:",
   "tree.node.living": "Living",
   "tree.openInMatches": "Open this match in the Matches list",
   "tree.master": "Master",

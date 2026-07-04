@@ -568,6 +568,7 @@ export const sl = {
   "register.gen.2": "Vnuki",
   "register.gen.3": "Pravnuki",
   "register.childrenOf": "Otroci št. {{n}} — {{name}}:",
+  "register.childrenOfBoth": "Otroci št. {{n}} — {{name}} in {{spouse}}:",
   "tree.node.living": "Živ(a)",
   "tree.openInMatches": "Odpri to ujemanje na seznamu ujemanj",
   "tree.master": "Glavni",

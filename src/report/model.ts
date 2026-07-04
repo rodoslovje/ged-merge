@@ -51,7 +51,32 @@ export interface ReportEntry {
   parentNum?: number;
   /** Register report: the parent's display name, for the group heading. */
   parentName?: string;
+  /** Register report: the other parent's display name — children are grouped
+   *  per union, and the heading names both parents. */
+  parentSpouse?: string;
+  /** Register report: the union's family xref (the grouping boundary — a
+   *  parent's remarriage starts a new children list). */
+  parentFam?: string;
+  /** Register report: position among the union's children in birth order
+   *  (1-based), rendered as the NGSQ small roman numeral (i, ii, iii …). */
+  childIndex?: number;
   facts: FactLine[];
+}
+
+/** Lowercase roman numeral for an NGSQ child index (1 → i, 4 → iv …). */
+export function romanIndex(n: number): string {
+  const steps: [number, string][] = [
+    [1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"],
+    [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"],
+  ];
+  let out = "";
+  for (const [value, numeral] of steps) {
+    while (n >= value) {
+      out += numeral;
+      n -= value;
+    }
+  }
+  return out;
 }
 
 export interface ReportGeneration {

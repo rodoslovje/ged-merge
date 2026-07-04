@@ -55,11 +55,25 @@ describe("buildDescendants", () => {
     expect(data.total).toBe(7);
   });
 
-  it("groups each generation's children under their parent", () => {
+  it("groups each generation's children per union, naming both parents", () => {
     const gen2 = data.generations[2].entries;
     expect(gen2.map((e) => `${e.num}<${e.parentNum}`)).toEqual(["5<2", "6<2", "7<3"]);
-    expect(gen2[0].parentName).toBe("Peter Novak");
-    expect(gen2[2].parentName).toBe("Ana Novak");
+    expect(gen2[0]).toMatchObject({ parentName: "Peter Novak", parentSpouse: "Eva Zajc", parentFam: "@F3@" });
+    expect(gen2[2]).toMatchObject({ parentName: "Ana Novak", parentSpouse: "Franc Kos", parentFam: "@F4@" });
+    // The root's two unions are two separate groups in generation 1.
+    const gen1 = data.generations[1].entries;
+    expect(gen1.map((e) => `${e.parentFam}:${e.parentSpouse}`)).toEqual([
+      "@F1@:Marija Oblak", "@F1@:Marija Oblak", "@F2@:Neza Kovac",
+    ]);
+  });
+
+  it("indexes a union's children with roman numerals in birth order", () => {
+    const all2 = data.generations.flatMap((g) => g.entries);
+    expect(all2.map((e) => `${e.num}:${e.childIndex ?? "-"}`)).toEqual([
+      "1:-", // the root has no child index
+      "2:1", "3:2", "4:1", // Peter i, Ana ii (F1); Tone i (F2)
+      "5:1", "6:2", "7:1", // Mira i, Ivan ii (F3); Vida i (F4)
+    ]);
   });
 
   it("lists every union as its own ⚭ line, spouses named but not numbered", () => {
@@ -110,12 +124,12 @@ describe("reportToText (descendants)", () => {
   const ds = dataset(DESCENDANTS);
   const data = buildDescendants(ds, "@I1@", nameOf, NOW)!;
 
-  it("renders register generation headings and children-of groups", () => {
+  it("renders register generation headings and both-parent children groups", () => {
     const text = reportToText(tr, data, "descendants", "Janez Novak — Register");
     expect(text).toContain("register.gen.1");
     expect(text).toContain("register.gen.2");
-    expect(text).toContain("register.childrenOf"); // group heading key
-    expect(text).toContain("2. Peter Novak (1896–1960)");
-    expect(text).toContain("   ⚭ 1922 — Eva Zajc");
+    expect(text).toContain("register.childrenOfBoth"); // both parents known
+    expect(text).toContain("2 i. Peter Novak (1896–1960)"); // register no. + roman child index
+    expect(text).toContain("     ⚭ 1922 — Eva Zajc");
   });
 });

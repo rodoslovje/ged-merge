@@ -41,33 +41,51 @@ export function buildDescendants(
   const generations: ReportGeneration[] = [];
   let counter = 0;
   let total = 0;
-  let queue: { indi: Individual; parentNum?: number; parentName?: string }[] = [{ indi: root }];
+  interface QueueItem {
+    indi: Individual;
+    parentNum?: number;
+    parentName?: string;
+    parentSpouse?: string;
+    parentFam?: string;
+    childIndex?: number;
+  }
+  let queue: QueueItem[] = [{ indi: root }];
 
   for (let gen = 0; queue.length > 0; gen++) {
     const entries: ReportEntry[] = [];
-    const next: typeof queue = [];
+    const next: QueueItem[] = [];
 
-    for (const { indi, parentNum, parentName } of queue) {
+    for (const { indi, ...family } of queue) {
       const dupOf = firstNum.get(indi.id);
       // A repeat appearance keeps the person's original register number.
       const num = dupOf ?? ++counter;
       const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts), nowYear, dupOf);
-      entry.parentNum = parentNum;
-      entry.parentName = parentName;
+      Object.assign(entry, family);
       entries.push(entry);
       total++;
       if (dupOf !== undefined) continue; // their children are listed there
       firstNum.set(indi.id, num);
 
       // Each union's children in birth order; union order follows the record.
+      // Children are grouped per union, so each carries the union's family id,
+      // the other parent's name, and its roman child index.
       for (const fam of familiesOf(ds, indi.spouseOf)) {
+        const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
+        const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
         const kids = fam.children
           .map((id) => ds.individuals.get(id))
           .filter((c): c is Individual => c !== undefined)
           .sort((a, b) => birthSortKey(a) - birthSortKey(b));
-        for (const kid of kids) {
-          next.push({ indi: kid, parentNum: num, parentName: entry.name });
-        }
+        kids.forEach((kid, i) => {
+          next.push({
+            indi: kid,
+            parentNum: num,
+            parentName: entry.name,
+            parentSpouse: partner && nameOf(partner),
+            parentFam: fam.id,
+            childIndex: i + 1,
+          });
+        });
       }
     }
 

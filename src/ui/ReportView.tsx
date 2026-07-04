@@ -5,7 +5,7 @@ import type { TreeMode } from "../tree/compareTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
 import { generationHeading, type ReportData, type ReportEntry } from "../report/model";
-import { factText, reportToText } from "../report/text";
+import { childrenOfLabel, entryNum, factText, reportToText } from "../report/text";
 import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
@@ -201,12 +201,13 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                   </h3>
                   {g.entries.map((e, i) => (
                     <div key={`${e.num}-${i}`}>
-                      {/* Register generations group children under their parent;
-                          the heading jumps back to that parent's entry. */}
-                      {e.parentNum !== undefined && e.parentNum !== g.entries[i - 1]?.parentNum && (
+                      {/* Register generations group children per union, both
+                          parents named; the heading jumps back to the
+                          descendant parent's entry. */}
+                      {e.parentNum !== undefined && e.parentFam !== g.entries[i - 1]?.parentFam && (
                         <h4 className="report-family-head">
                           <button className="report-jump" onClick={() => jumpTo(e.parentNum!)}>
-                            {t("register.childrenOf", { n: e.parentNum, name: e.parentName })}
+                            {childrenOfLabel(t, e)}
                           </button>
                         </h4>
                       )}
@@ -216,7 +217,9 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                         onClick={() => setSelectedId(e.id)}
                         title={t("tree.node.clickHint")}
                       >
-                        <span className="report-num gm-data">{e.num}.</span>
+                        <span className={`report-num gm-data${e.childIndex !== undefined ? " with-roman" : ""}`}>
+                          {entryNum(e)}
+                        </span>
                         <div className="report-entry-body">
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
@@ -291,15 +294,15 @@ function printDoc(
     const h = generationHeading(t, g, direction);
     const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${escapeHtml(s!)}`).join(" ");
     parts.push(`<h2>${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
-    let lastParent: number | undefined;
+    let lastFam: string | undefined;
     for (const e of g.entries) {
-      if (e.parentNum !== undefined && e.parentNum !== lastParent) {
-        parts.push(`<h3>${escapeHtml(t("register.childrenOf", { n: e.parentNum, name: e.parentName }))}</h3>`);
-        lastParent = e.parentNum;
+      if (e.parentNum !== undefined && e.parentFam !== lastFam) {
+        parts.push(`<h3>${escapeHtml(childrenOfLabel(t, e))}</h3>`);
+        lastFam = e.parentFam;
       }
       const hidden = privacy && e.living;
       const head =
-        `<span class="num">${e.num}.</span> <strong>${escapeHtml(e.name)}</strong>` +
+        `<span class="num">${escapeHtml(entryNum(e))}</span> <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
       const facts = hidden ? [] : e.facts.map((f) => `<div class="fact">${escapeHtml(factText(f))}</div>`);
@@ -316,7 +319,7 @@ function printDoc(
   h2 .range { font-weight: 400; text-transform: none; letter-spacing: 0; color: #444; font-size: 10pt; }
   h3 { font-size: 11pt; margin: 10pt 0 4pt; font-style: italic; font-weight: 500; }
   .entry { margin: 0 0 7pt; page-break-inside: avoid; }
-  .num { display: inline-block; min-width: 2.2em; }
+  .num { display: inline-block; min-width: 3em; text-align: right; }
   .years, .dup { color: #444; }
   .fact { margin-left: 2.6em; color: #222; }
 </style></head><body>${parts.join("")}</body></html>`;

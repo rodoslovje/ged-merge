@@ -3744,7 +3744,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border-radius: 12px;
 }
 .report-page {
-  max-width: 720px;
   padding: 20px 28px 40px;
 }
 /* Generation bands: a strong uppercase heading with the entry-number range,
@@ -3787,13 +3786,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .report-entry:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .report-entry.selected { background: var(--accent-soft); }
-/* Right-aligned Ahnentafel numbers keep the name column flush. */
+/* Right-aligned Ahnentafel numbers keep the name column flush; register
+   children carry the roman child index too ("5 ii.") and need more room. */
 .report-num {
   flex: 0 0 auto;
   min-width: 2.4em;
   text-align: right;
   color: var(--muted);
 }
+.report-num.with-roman { min-width: 4em; }
 .report-name { font-weight: 600; }
 .report-years,
 .report-dup {
