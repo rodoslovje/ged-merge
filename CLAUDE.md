@@ -16,6 +16,16 @@ npm run test:e2e     # Playwright end-to-end tests
 
 To run a single test file: `npx vitest run src/gedcom/date.test.ts`
 
+## Development workflow
+
+- **Minimal change.** Implement a feature with the smallest change that does the job. If you spot a broader improvement (refactor, better abstraction, adjacent cleanup), suggest it to the user instead of doing it unasked.
+- **Reuse before writing.** When making changes, actively look for opportunities to reuse existing code and deduplicate — prefer extending an existing helper/component over adding a parallel one.
+- **One workspace per chat.** Each chat session works in its own separate workspace (git worktree), not directly in the main checkout, so parallel sessions don't step on each other.
+- **Test and commit per feature/phase.** Every feature or development phase is run through basic tests (`npm run typecheck`, `npm run lint`, relevant `vitest` files) and committed before moving on.
+- **Merge to main = merge + full regression.** When the user requests a merge to main, perform the merge, then run the complete regression suite (`npm run build`, `npm run lint`, `npm run test`, `npm run test:e2e`).
+- **Keep CI green after merge.** After merging, the automatic CI test runs must be back in a working state — fix any breakage on main immediately rather than leaving it for later.
+- **Ask when unsure.** If you need help understanding a requirement or existing behavior, ask the user rather than guessing.
+
 ## Architecture
 
 **Browser-only React + TypeScript + Vite app.** No backend; all data stays local.
