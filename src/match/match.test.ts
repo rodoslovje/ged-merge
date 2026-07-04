@@ -384,6 +384,38 @@ describe("placeholder names and bare-year identity keys", () => {
   });
 });
 
+describe("no-hard-evidence ceiling", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+
+  it("caps a surname + approximate-year-only pair below the probable band", () => {
+    // Skeleton records: no given name, estimated years. Surname agreement plus
+    // fuzzy-year proximity used to average out at ~80 — in a big file every
+    // same-surname skeleton pairs with every other one, quadratically.
+    const m = "0 @M@ INDI\n1 NAME /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1900\n";
+    const c = "0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1900\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeLessThanOrEqual(60);
+    expect(r[0].category).toBe("weak");
+  });
+
+  it("keeps a surname-less pair anchored by a day-exact birth agreement", () => {
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE 18 MAR 1947\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE 18 MAR 1947\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(70);
+  });
+
+  it("keeps an undated pair anchored by a comparable full name", () => {
+    const m = "0 @M@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
+    const c = "0 @C@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(65);
+  });
+});
+
 describe("given-name conflict penalty", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   const master =

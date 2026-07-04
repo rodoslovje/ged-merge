@@ -134,6 +134,21 @@ export function scoreIndividualPair(
     score01 *= PARENT_CONFLICT_PENALTY;
   }
 
+  // A pair needs at least one hard discriminator to be worth a reviewer's
+  // time (see UNANCHORED_CEILING): a comparable full name, an exact
+  // month-or-better birth-date agreement, or comparable relative names.
+  // Index files are full of skeleton records — a missing/placeholder name
+  // part plus an estimated "~1900" year — and shared surname + approximate-
+  // year proximity alone scores into the high 70s; in a big file every
+  // same-surname skeleton pairs with every other one, quadratically.
+  const anchored =
+    Boolean(mn?.given && cn?.given && mn?.surname && cn?.surname) ||
+    (birthSim !== undefined && birthSim >= 0.9 &&
+      mb?.date?.qualifier === "exact" && cb?.date?.qualifier === "exact" &&
+      mb.date.month !== undefined && cb.date.month !== undefined) ||
+    components.some((c) => c.key === "parents" || c.key === "partners" || c.key === "children");
+  if (!anchored) score01 = Math.min(score01, UNANCHORED_CEILING);
+
   // The identity key — surname, given name and birth date — is conclusive: when
   // all three are present and an exact match the pair is the same person and
   // scores a flat 100. Conversely 100 is reserved for that case, so secondary
@@ -213,6 +228,20 @@ const PARENT_GIVEN_MATCH = 0.6;
  * plausible band.
  */
 const PARENT_CONFLICT_PENALTY = 0.8;
+
+/**
+ * Score ceiling (0..1) for a pair with no hard discriminator: no comparable
+ * full name (a real given *and* surname on both sides), no exact
+ * month-or-better birth-date agreement, and no comparable parent, partner or
+ * child names. Such pairs — skeleton records offering only a shared surname
+ * (or bare given name) and an estimated year — are unreviewable and multiply
+ * quadratically in large files (Hawlina: ~977-person same-surname clusters,
+ * ~146k sub-80 pairs). The ceiling keeps them below the within-file
+ * duplicate-list cutoff (0.7) and the probable band (0.65), so they surface
+ * at most as weak cross-file suggestions; relationship linking/boosting still
+ * recovers any that turn out to be corroborated by matched relatives.
+ */
+const UNANCHORED_CEILING = 0.6;
 
 /** True when both records name a father and a mother (given names on both
  *  sides) and *each* role's given names are too dissimilar to be the same
