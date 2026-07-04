@@ -110,12 +110,17 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
     [masterDs, startId, t],
   );
 
-  const tree = useMemo(
-    () => rootPerson
-      ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, effectiveMode)
-      : undefined,
-    [t, rootPerson, masterDs, effectiveMode],
+  // Both directions build once per root/dataset: they feed the mode-button
+  // head-counts, the current direction's layered chart, and (ancestors) the
+  // radial chart — so switching direction or chart type never rebuilds a tree.
+  const trees = useMemo(
+    () => ({
+      ancestors: rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
+      descendants: rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
+    }),
+    [t, rootPerson, masterDs],
   );
+  const tree = trees[effectiveMode];
 
   const laid = useMemo(
     () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
@@ -136,13 +141,11 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
-  // buttons so the user can tell at a glance whether either way is worth
-  // opening. Built independently of the current mode (memoized on the root), so
-  // switching modes doesn't recompute them.
+  // buttons so the user can tell at a glance whether either way is worth opening.
   const peopleCounts = useMemo(() => ({
-    ancestors: countTreePeople(rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined),
-    descendants: countTreePeople(rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined),
-  }), [t, rootPerson, masterDs]);
+    ancestors: countTreePeople(trees.ancestors),
+    descendants: countTreePeople(trees.descendants),
+  }), [trees]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, Placed>();
@@ -178,14 +181,14 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // so it's independent of the (forced-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
   const fan = useMemo(() => {
-    if (!radial || !rootPerson) return undefined;
-    const at = buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors");
+    // The radial chart always draws ancestors — reuse the prebuilt ancestors tree.
+    const at = radial ? trees.ancestors : undefined;
     if (!at) return undefined;
     const hasPhoto = (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records);
     // Kinship to the start person, shown in place of a redacted living person's name.
     const kinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
     return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootPerson, masterDs, settings.type, display, t, folderName, livingLabel, kinship]);
+  }, [radial, trees, masterDs, settings.type, display, folderName, livingLabel, kinship]);
 
   const fanNodes = useMemo(() => {
     const m = new Map<string, Placed>();

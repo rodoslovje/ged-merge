@@ -214,28 +214,30 @@ export function CompareTree({
   // direction, never a change to it, so leaving Fan/Circle restores the choice.
   const effectiveMode = radial ? "ancestors" : mode;
 
-  const tree = useMemo(
-    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected],
+  // Both directions build once per root/dataset/decisions: they feed the
+  // mode-button counts, the current direction's layered chart, and (ancestors)
+  // the radial chart — so switching direction or chart type never rebuilds a tree.
+  const trees = useMemo(
+    () => ({
+      ancestors: buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected),
+      descendants: buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected),
+    }),
+    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected],
   );
+  const tree = trees[effectiveMode];
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
-  // the same counts the Compare Tree button surfaces in Merge mode. Built for
-  // both directions (independent of the current mode) so switching reflects them.
-  const { importCounts, peopleCounts } = useMemo(() => {
-    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
-    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected);
-    return {
-      importCounts: {
-        ancestors: ancestors ? countImportable(ancestors) : 0,
-        descendants: descendants ? countImportable(descendants) : 0,
-      },
-      peopleCounts: {
-        ancestors: countTreePeople(ancestors),
-        descendants: countTreePeople(descendants),
-      },
-    };
-  }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
+  // the same counts the Compare Tree button surfaces in Merge mode.
+  const { importCounts, peopleCounts } = useMemo(() => ({
+    importCounts: {
+      ancestors: trees.ancestors ? countImportable(trees.ancestors) : 0,
+      descendants: trees.descendants ? countImportable(trees.descendants) : 0,
+    },
+    peopleCounts: {
+      ancestors: countTreePeople(trees.ancestors),
+      descendants: countTreePeople(trees.descendants),
+    },
+  }), [trees]);
 
   const { settings: appSettings } = useSettings();
   const { alignment } = settings;
@@ -271,8 +273,8 @@ export function CompareTree({
   // so it's independent of the (overridden-to-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
   const fan = useMemo(() => {
-    if (!radial) return undefined;
-    const at = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
+    // The radial chart always draws ancestors — reuse the prebuilt ancestors tree.
+    const at = radial ? trees.ancestors : undefined;
     if (!at) return undefined;
     const hasPhoto = (n: TreeNode) =>
       !!folderName &&
@@ -281,7 +283,7 @@ export function CompareTree({
     // Kinship to the start person, shown in place of a redacted living person's name.
     const fanKinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
     return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf });
-  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, kinship]);
+  }, [radial, trees, masterDs, compareDs, settings.type, display, folderName, livingLabel, kinship]);
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
