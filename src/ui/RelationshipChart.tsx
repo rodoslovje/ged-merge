@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
-import { PAD, nodeHeight, type Placed } from "../tree/treeLayout";
+import { PAD, nodeHeight } from "../tree/treeLayout";
 import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -115,17 +115,17 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     [masterDs, current, alignment, nodeH],
   );
 
-  // Adapt the chart boxes to the shapes `useTreeCanvas` / `TreeMinimap` expect
-  // (they only read key/x/y). The start box pins the initial scroll.
+  // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
+  // structurally). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const b of chart?.boxes ?? []) m.set(b.key, b as unknown as Placed);
+    const m = new Map<string, ChartBox>();
+    for (const b of chart?.boxes ?? []) m.set(b.key, b);
     return m;
   }, [chart]);
   const laid = useMemo(
     () =>
       chart
-        ? { root: (nodesByKey.get(chart.rootKey) ?? chart.boxes[0]) as unknown as Placed, width: chart.width, height: chart.height }
+        ? { root: nodesByKey.get(chart.rootKey) ?? chart.boxes[0], width: chart.width, height: chart.height }
         : undefined,
     [chart, nodesByKey],
   );
@@ -302,8 +302,8 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
             contentH={chart.height}
             viewport={viewport}
             zoom={zoom}
-            nodes={chart.boxes as unknown as Placed[]}
-            fill={(n) => ((n as unknown as ChartBox).onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+            nodes={chart.boxes}
+            fill={(b) => (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
             nodeH={nodeH}
             onScrollTo={scrollTo}
           />
@@ -315,7 +315,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
 
         {selectedBox && selectedIndi && (
           <TreeNodePanel
-            node={selectedBox as unknown as Placed}
+            node={selectedBox}
             swatch={selectedBox.onSpine ? COLOR_SPINE : COLOR_CONTEXT}
             rows={selectedRows}
             masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}

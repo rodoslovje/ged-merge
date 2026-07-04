@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { buildFanChart, type FanChart, type FanShape } from "../tree/fanLayout";
+import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../tree/fanLayout";
 import type { TreeNode } from "../tree/compareTree";
 import type { NodeDisplayOptions } from "../tree/nodeDisplay";
-import type { Placed } from "../tree/treeLayout";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
 // Compare trees: build the FanChart from the (prebuilt) ancestors tree and
@@ -13,9 +12,9 @@ import type { Placed } from "../tree/treeLayout";
 export interface FanChartState {
   fan: FanChart | undefined;
   /** Segments keyed for canvas selection (they carry key/x/y like tree nodes). */
-  nodes: Map<string, Placed>;
+  nodes: Map<string, FanSegment>;
   /** Layout envelope for useTreeCanvas: the root segment + full extent. */
-  laid: { root: Placed; width: number; height: number } | undefined;
+  laid: { root: FanSegment; width: number; height: number } | undefined;
 }
 
 export function useFanChart(
@@ -37,14 +36,14 @@ export function useFanChart(
     [tree, shape, hasPhoto, display, livingLabel, kinshipOf],
   );
   const nodes = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const s of fan?.segments ?? []) m.set(s.key, s as unknown as Placed);
+    const m = new Map<string, FanSegment>();
+    for (const s of fan?.segments ?? []) m.set(s.key, s);
     return m;
   }, [fan]);
   const laid = useMemo(
     () =>
       fan
-        ? { root: (nodes.get(fan.rootKey) ?? fan.segments[0]) as unknown as Placed, width: fan.width, height: fan.height }
+        ? { root: nodes.get(fan.rootKey) ?? fan.segments[0], width: fan.width, height: fan.height }
         : undefined,
     [fan, nodes],
   );

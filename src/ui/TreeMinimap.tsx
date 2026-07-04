@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { NODE_H, NODE_W, PAD, type Placed, type Viewport } from "../tree/treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../tree/treeLayout";
 
 /** Fraction of the visible canvas the minimap box may occupy on each axis —
    kept small so the overview stays a corner aid rather than covering the chart
@@ -11,14 +11,14 @@ const MINIMAP_MAX_H_FRACTION = 0.24;
 /** Hard pixel floor so a tiny tree still renders a usable, clickable map. */
 const MINIMAP_MIN = 120;
 
-interface Props {
-  nodes: Placed[];
+interface Props<T extends ChartNode> {
+  nodes: T[];
   contentW: number;
   contentH: number;
   viewport: Viewport;
   onScrollTo: (left: number, top: number) => void;
   /** Fill colour for a node dot — each view colours by its own scheme. */
-  fill: (n: Placed) => string;
+  fill: (n: T) => string;
   /** Box height for the current display settings (grows when the place line shows). */
   nodeH?: number;
   /** Canvas zoom. Node coords are native but the viewport rect is in scaled
@@ -26,9 +26,10 @@ interface Props {
   zoom?: number;
 }
 
-/** Overview map of the whole tree with a draggable viewport rectangle. Shared by
- *  the Edit Tree and Compare Tree; only the node colouring differs (via `fill`). */
-export function TreeMinimap({ nodes, contentW, contentH, viewport, onScrollTo, fill, nodeH = NODE_H, zoom = 1 }: Props) {
+/** Overview map of the whole chart with a draggable viewport rectangle. Generic
+ *  over the node shape ({@link ChartNode}), so each view colours by its own
+ *  scheme without casting. */
+export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, viewport, onScrollTo, fill, nodeH = NODE_H, zoom = 1 }: Props<T>) {
   const dragging = useRef(false);
   // Work in scaled (on-screen) space so the viewport rectangle — which is in
   // zoomed scroll pixels — lines up with the node dots.

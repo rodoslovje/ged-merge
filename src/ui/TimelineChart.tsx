@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../tree/timeline";
 import { formatMarriage } from "../tree/nodeDisplay";
-import { PAD, type Placed } from "../tree/treeLayout";
+import { PAD, type ChartNode } from "../tree/treeLayout";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
@@ -185,14 +185,14 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     [redacted, kinship, livingLabel],
   );
 
-  // Adapt the rows to the shapes useTreeCanvas expects (it only reads key/x/y);
-  // the root person's row pins the initial scroll.
+  // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
+  // an x/y); the root person's row pins the initial scroll.
   const rows = useMemo(() => data?.rows ?? [], [data]);
   const nodesByKey = useMemo(() => {
-    const m = new Map<string, Placed>();
+    const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
       const x = geom && r.from !== undefined ? geom.xOf(r.from) : 0;
-      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH } as unknown as Placed);
+      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH });
     });
     return m;
   }, [rows, geom, rowH]);
@@ -203,7 +203,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     if (!placed) return undefined;
     // Pin the initial scroll to the chart's left edge, not the root's bar —
     // the parents' bars (and labels) usually start earlier than the root.
-    const root = { ...placed, x: 0 } as Placed;
+    const root = { ...placed, x: 0 };
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
@@ -494,7 +494,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
 
         {selectedRow && selectedIndi && (
           <TreeNodePanel
-            node={selectedRow as unknown as Placed}
+            node={selectedRow}
             swatch={selectedRow.role === "person" ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             masterPerson={masterNav}

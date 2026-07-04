@@ -62,6 +62,16 @@ export const PAD = 24;
 
 // ─── Layout types ─────────────────────────────────────────────────────────────
 
+/** The minimal node shape the shared canvas machinery (useTreeCanvas,
+ *  TreeMinimap, selection) needs: a selection key plus a position in native
+ *  (pre-zoom) canvas px. Every chart's nodes satisfy it structurally — layered
+ *  `Placed` boxes, fan segments, relationship boxes, timeline rows. */
+export interface ChartNode {
+  key: string;
+  x: number;
+  y: number;
+}
+
 /** A tree node with absolute pixel coordinates assigned by `layout`. */
 export interface Placed extends TreeNode {
   x: number;

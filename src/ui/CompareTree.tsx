@@ -517,7 +517,7 @@ export function CompareTree({
         )}
         {selected && (
           <NodeCompare
-            node={selected as unknown as Placed}
+            node={selected}
             masterDs={masterDs}
             compareDs={compareDs}
             maps={maps}
@@ -667,7 +667,8 @@ function NodeCompare({
   onOpenCharts,
   onOpenInEdit,
 }: {
-  node: Placed;
+  /** The selected node — a laid tree node or a fan segment's person node. */
+  node: TreeNode;
   masterDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;

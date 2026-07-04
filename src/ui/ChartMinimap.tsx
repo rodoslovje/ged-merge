@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { minimapDefaultOpen, type Placed, type Viewport } from "../tree/treeLayout";
+import { minimapDefaultOpen, type ChartNode, type Viewport } from "../tree/treeLayout";
 import { TreeMinimap } from "./TreeMinimap";
 import { MapIcon } from "./icons/MapIcon";
 
@@ -10,22 +10,22 @@ import { MapIcon } from "./icons/MapIcon";
 // only when the chart dwarfs the screen (minimapDefaultOpen); once the user
 // toggles it by hand, their choice wins for the rest of the page's life.
 
-interface Props {
+interface Props<T extends ChartNode> {
   /** Full chart extent in native px (the layout's width/height, PAD included). */
   contentW: number;
   contentH: number;
   viewport: Viewport;
   /** Canvas zoom — the visibility test compares scaled extent to the viewport. */
   zoom: number;
-  nodes: Placed[];
+  nodes: T[];
   /** Fill colour for a node dot — each view colours by its own scheme. */
-  fill: (n: Placed) => string;
+  fill: (n: T) => string;
   /** Box height for the current display settings. */
   nodeH?: number;
   onScrollTo: (left: number, top: number) => void;
 }
 
-export function ChartMinimap({ contentW, contentH, viewport, zoom, nodes, fill, nodeH, onScrollTo }: Props) {
+export function ChartMinimap<T extends ChartNode>({ contentW, contentH, viewport, zoom, nodes, fill, nodeH, onScrollTo }: Props<T>) {
   const { t } = useTranslation();
   // null = follow the automatic default (collapsed unless the chart dwarfs the
   // screen); true/false once the user has toggled it by hand.

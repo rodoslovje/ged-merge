@@ -1,12 +1,21 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { Sex } from "../gedcom/types";
 import type { FieldRow } from "../review/types";
-import type { Placed } from "../tree/treeLayout";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { sexClass } from "./sex";
 
+/** The header fields the panel reads off the selected node — every chart's
+ *  node shape (tree node, fan segment, relationship box, timeline row, report
+ *  entry) carries them structurally. */
+export interface PanelNode {
+  name: string;
+  years?: string;
+  sex?: Sex | string;
+}
+
 interface Props {
-  node: Placed;
+  node: PanelNode;
   /** Swatch colour beside the name (status colour, or modified/normal colour). */
   swatch: string;
   rows: FieldRow[];

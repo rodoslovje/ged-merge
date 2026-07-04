@@ -424,7 +424,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
 
         {selected && selected.master && (
           <TreeNodePanel
-            node={selected as unknown as Placed}
+            node={selected}
             swatch={colorOf(selected)}
             rows={selectedRows}
             masterPerson={masterNav}

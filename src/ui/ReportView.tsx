@@ -13,7 +13,6 @@ import {
   type SourceLine,
 } from "../report/model";
 import { childrenOfLabel, factText, reportToText } from "../report/text";
-import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
@@ -317,7 +316,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
 
         {selectedEntry && selectedIndi && (
           <TreeNodePanel
-            node={selectedEntry as unknown as Placed}
+            node={selectedEntry}
             swatch={selectedEntry.num === 1 ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             masterPerson={masterNav}
