@@ -18,9 +18,10 @@ import { TreeMinimap } from "./TreeMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu } from "./ExportMenu";
 import { BackButton } from "./BackButton";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { FileTextIcon, GedIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -200,6 +201,15 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
+            },
+            {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () =>
+                chart &&
+                exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
             },
           ]}
         />
