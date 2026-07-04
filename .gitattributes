@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# GEDCOM files must keep their exact bytes: the parser detects and round-trips
+# the file's own line endings (CR/LF/CRLF), and the corpus round-trip tests
+# assert them. Never EOL-normalize these.
+*.ged -text
+*.gedcom -text
