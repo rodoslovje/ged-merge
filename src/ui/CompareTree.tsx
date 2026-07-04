@@ -18,7 +18,7 @@ import {
   type TreeMode,
   type TreeNode,
 } from "../tree/compareTree";
-import { buildFanChart } from "../tree/fanLayout";
+import { useFanChart } from "./useFanChart";
 import { FanChartBody } from "./FanChartBody";
 import {
   flatten,
@@ -269,21 +269,26 @@ export function CompareTree({
     [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
-  // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
+  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
   // so it's independent of the (overridden-to-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
-  const fan = useMemo(() => {
-    // The radial chart always draws ancestors — reuse the prebuilt ancestors tree.
-    const at = radial ? trees.ancestors : undefined;
-    if (!at) return undefined;
-    const hasPhoto = (n: TreeNode) =>
+  const hasPhoto = useCallback(
+    (n: TreeNode) =>
       !!folderName &&
       ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
-        (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records)));
-    // Kinship to the start person, shown in place of a redacted living person's name.
-    const fanKinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
-    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf });
-  }, [radial, trees, masterDs, compareDs, settings.type, display, folderName, livingLabel, kinship]);
+        (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records))),
+    [folderName, masterDs, compareDs],
+  );
+  // Kinship to the start person, shown in place of a redacted living person's name.
+  const fanKinshipOf = useCallback(
+    (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined),
+    [kinship],
+  );
+  const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
+    radial ? trees.ancestors : undefined,
+    settings.type === "circle" ? "circle" : "fan",
+    { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf },
+  );
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
@@ -348,15 +353,6 @@ export function CompareTree({
     return map;
   }, [flat]);
 
-  const fanNodes = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const s of fan?.segments ?? []) m.set(s.key, s as unknown as Placed);
-    return m;
-  }, [fan]);
-  const fanLaid = useMemo(
-    () => (fan ? { root: (fanNodes.get(fan.rootKey) ?? fan.segments[0]) as unknown as Placed, width: fan.width, height: fan.height } : undefined),
-    [fan, fanNodes],
-  );
   const activeLaid = radial ? fanLaid : laid;
   const activeNodes = radial ? fanNodes : nodesByKey;
 

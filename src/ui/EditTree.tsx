@@ -10,7 +10,7 @@ import {
   nodeHeight,
   type Placed,
 } from "../tree/treeLayout";
-import { buildFanChart } from "../tree/fanLayout";
+import { useFanChart } from "./useFanChart";
 import { formatMarriage } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
@@ -177,27 +177,22 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
     [masterDs, changeRoot],
   );
 
-  // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
+  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
   // so it's independent of the (forced-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
-  const fan = useMemo(() => {
-    // The radial chart always draws ancestors — reuse the prebuilt ancestors tree.
-    const at = radial ? trees.ancestors : undefined;
-    if (!at) return undefined;
-    const hasPhoto = (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records);
-    // Kinship to the start person, shown in place of a redacted living person's name.
-    const kinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
-    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, trees, masterDs, settings.type, display, folderName, livingLabel, kinship]);
-
-  const fanNodes = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const s of fan?.segments ?? []) m.set(s.key, s as unknown as Placed);
-    return m;
-  }, [fan]);
-  const fanLaid = useMemo(
-    () => (fan ? { root: (fanNodes.get(fan.rootKey) ?? fan.segments[0]) as unknown as Placed, width: fan.width, height: fan.height } : undefined),
-    [fan, fanNodes],
+  const hasPhoto = useCallback(
+    (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records),
+    [folderName, masterDs],
+  );
+  // Kinship to the start person, shown in place of a redacted living person's name.
+  const fanKinshipOf = useCallback(
+    (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined),
+    [kinship],
+  );
+  const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
+    radial ? trees.ancestors : undefined,
+    settings.type === "circle" ? "circle" : "fan",
+    { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf },
   );
 
   const fanBadgeOf = useCallback(
