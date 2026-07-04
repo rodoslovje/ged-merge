@@ -7,7 +7,7 @@ import {
 } from "./scoreIndividual";
 import { birthYear } from "../gedcom/lifespan";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
-import { givenSimilarity } from "./similarity";
+import { comparableName, givenSimilarity } from "./similarity";
 import { primaryName } from "./relatives";
 import { clearTextCaches, soundex } from "./text";
 import {
@@ -88,8 +88,8 @@ const PARENT_GIVEN_MATCH = 0.6;
 
 /** Given names too dissimilar to be one person (e.g. siblings sharing a surname). */
 function differentGiven(a: Individual, b: Individual): boolean {
-  const ga = primaryName(a)?.given;
-  const gb = primaryName(b)?.given;
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
   if (!ga || !gb) return false;
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
 }
@@ -106,8 +106,8 @@ function birthYearsTooFar(a: Individual, b: Individual): boolean {
  *  disagrees — same-named cousins, not one person twice. */
 function parentsConflict(a: Individual, b: Individual, ds: Dataset): boolean {
   const roles: Array<[string | undefined, string | undefined]> = [
-    [cachedFatherName(a, ds)?.given, cachedFatherName(b, ds)?.given],
-    [cachedMotherName(a, ds)?.given, cachedMotherName(b, ds)?.given],
+    [comparableName(cachedFatherName(a, ds))?.given, comparableName(cachedFatherName(b, ds))?.given],
+    [comparableName(cachedMotherName(a, ds))?.given, comparableName(cachedMotherName(b, ds))?.given],
   ];
   let comparable = false;
   let agree = false;

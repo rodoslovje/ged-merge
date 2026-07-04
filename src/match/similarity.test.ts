@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
-import { dateSimilarity, dateCompareKey, givenNameSetSimilarity, placeSimilarity } from "./similarity";
-import { compareKey } from "./text";
+import { comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, placeSimilarity } from "./similarity";
+import { compareKey, isPlaceholderName } from "./text";
 import { placeCompareKey } from "./place";
 
 describe("parseDate qualifier variants", () => {
@@ -27,6 +27,25 @@ describe("parseDate qualifier variants", () => {
       year: 1900,
       year2: 1905,
     });
+  });
+});
+
+describe("comparableName / placeholder names", () => {
+  it("detects placeholder tokens and leaves real names alone", () => {
+    for (const s of ["Living", "Privat", "NN", "nn", "N.N.", "?", "???", "?Ime?", "?Priimek?", "neznana", "unknown", "__"]) {
+      expect(isPlaceholderName(s), s).toBe(true);
+    }
+    for (const s of ["Janez", "Marija Ana", "O'Brien", "Neža", "de la Cruz"]) {
+      expect(isPlaceholderName(s), s).toBe(false);
+    }
+  });
+
+  it("drops placeholder parts, keeping real ones", () => {
+    expect(comparableName({ full: "Marija NN", given: "Marija", surname: "NN" }))
+      .toMatchObject({ given: "Marija", surname: undefined });
+    expect(comparableName({ full: "Living", given: "Living" })).toBeUndefined();
+    const real = { full: "Janez Novak", given: "Janez", surname: "Novak" };
+    expect(comparableName(real)).toBe(real); // untouched names pass through by identity
   });
 });
 
@@ -60,10 +79,14 @@ describe("givenNameSetSimilarity", () => {
 describe("dateSimilarity", () => {
   const d = (s: string) => parseDate(s);
 
-  it("scores identical exact dates 1.0 at every precision", () => {
+  it("reserves 1.0 for identical day-precision dates; coarser agreement scores 0.9", () => {
     expect(dateSimilarity(d("12 JAN 1900"), d("12 JAN 1900"))).toBe(1);
-    expect(dateSimilarity(d("JAN 1900"), d("JAN 1900"))).toBe(1);
-    expect(dateSimilarity(d("1900"), d("1900"))).toBe(1);
+    // Two bare years (or bare months) merely agree on a period — in a dense
+    // cluster two same-named people born the same year are routine, so this
+    // must stay short of the day-exact 1.0 (which also gates the flat-100
+    // perfect identity key).
+    expect(dateSimilarity(d("JAN 1900"), d("JAN 1900"))).toBe(0.9);
+    expect(dateSimilarity(d("1900"), d("1900"))).toBe(0.9);
   });
 
   it("keeps a precision mismatch below a perfect match", () => {

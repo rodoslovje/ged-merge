@@ -118,16 +118,26 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   //    (≥90 rather than ≥95: royals missing a birth date on one side now
   //    carry the honest missing-key penalty instead of the marriage-derived
   //    0.85, so corroborated true pairs sit in the 91–92 relative-boost band),
-  //  - take all children of the first two confirmed people (family stitching
+  //  - take all children of two anchor confirmed people (family stitching
   //    incl. new-person creation),
-  //  - graft whole branches (ancestors of the 1st, descendants of the 2nd),
+  //  - graft whole branches (ancestors of the 1st anchor, descendants of the
+  //    2nd),
   //  - reject the best sub-90 candidate, so grafts must import that person as
   //    new instead of reusing the rejected join point.
   const picked = uniquePairs(result, 90);
   const rejected = uniquePairs(result, 0).find((c) => c.score < 90);
+  // Graft/stitch anchors: two confirmed people chosen by stable id order, NOT
+  // by score rank. Rank order among near-ties shifts whenever the scoring is
+  // tuned, and a swapped anchor regrafts an entirely different branch —
+  // thousands of golden lines of churn with no mechanics change. Id order
+  // keeps the goldens pinned to the same two branches.
+  const anchors = [...picked]
+    .sort((a, b) => a.masterId.localeCompare(b.masterId) || a.compareId.localeCompare(b.compareId))
+    .slice(0, 2);
+  const anchorIds = new Set(anchors.map((c) => c.compareId));
   const decisions = new Map<string, CandidateDecision>();
-  for (const [i, c] of picked.entries()) {
-    const takenChildren = i < 2
+  for (const c of picked) {
+    const takenChildren = anchorIds.has(c.compareId)
       ? (compare.individuals.get(c.compareId)?.spouseOf ?? []).flatMap(
           (fid) => compare.families.get(fid)?.children ?? [],
         )
@@ -145,8 +155,8 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
     });
   }
   const branches: ImportBranchRequest[] = [
-    { incomingId: picked[0].compareId, direction: "ancestors" },
-    { incomingId: picked[1].compareId, direction: "descendants" },
+    { incomingId: anchors[0].compareId, direction: "ancestors" },
+    { incomingId: anchors[1].compareId, direction: "descendants" },
   ];
 
   const { records, report } = mergeDecisions(master, compare, decisions, result, tr, branches);

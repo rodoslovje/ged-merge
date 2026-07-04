@@ -11,6 +11,7 @@ import {
   cachedPartnerNames,
 } from "./profileCache";
 import {
+  comparableName,
   dateSimilarity,
   givenNameSetSimilarity,
   givenSimilarity,
@@ -40,8 +41,11 @@ export function scoreIndividualPair(
 ): IndividualCandidate {
   const w = config.individualWeights;
   const components: ScoreComponent[] = [];
-  const mn = primaryName(master);
-  const cn = primaryName(compare);
+  // Placeholder name parts ("Living", "NN", "?Ime?") are treated as missing —
+  // see comparableName — so they earn the missing-key penalty instead of a
+  // perfect placeholder-to-placeholder match.
+  const mn = comparableName(primaryName(master));
+  const cn = comparableName(primaryName(compare));
 
   // Surname, given name and birth year form the identity key: each is always
   // scored, and a side that's missing the field is charged `missingKeyScore`
@@ -219,10 +223,10 @@ function bothParentsConflict(
   masterDs: Dataset,
   compareDs: Dataset,
 ): boolean {
-  const fm = cachedFatherName(master, masterDs)?.given;
-  const fc = cachedFatherName(compare, compareDs)?.given;
-  const mm = cachedMotherName(master, masterDs)?.given;
-  const mc = cachedMotherName(compare, compareDs)?.given;
+  const fm = comparableName(cachedFatherName(master, masterDs))?.given;
+  const fc = comparableName(cachedFatherName(compare, compareDs))?.given;
+  const mm = comparableName(cachedMotherName(master, masterDs))?.given;
+  const mc = comparableName(cachedMotherName(compare, compareDs))?.given;
   if (!fm || !fc || !mm || !mc) return false;
   return (
     givenSimilarity(fm, fc) < PARENT_GIVEN_MATCH &&
@@ -244,10 +248,10 @@ function parentSimilarity(
   masterDs: Dataset,
   compareDs: Dataset,
 ): number | undefined {
-  const fm = cachedFatherName(master, masterDs);
-  const fc = cachedFatherName(compare, compareDs);
-  const mm = cachedMotherName(master, masterDs);
-  const mc = cachedMotherName(compare, compareDs);
+  const fm = comparableName(cachedFatherName(master, masterDs));
+  const fc = comparableName(cachedFatherName(compare, compareDs));
+  const mm = comparableName(cachedMotherName(master, masterDs));
+  const mc = comparableName(cachedMotherName(compare, compareDs));
   const parts: number[] = [];
   if (fm?.given && fc?.given) parts.push(givenSimilarity(fm.given, fc.given));
   if (mm && mc) {
@@ -352,10 +356,10 @@ function relativeMatchBonus(
   config: MatchConfig,
 ): number {
   let bonus = 0;
-  if (fullNameMatch(cachedFatherName(master, masterDs), cachedFatherName(compare, compareDs))) {
+  if (fullNameMatch(comparableName(cachedFatherName(master, masterDs)), comparableName(cachedFatherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
-  if (fullNameMatch(cachedMotherName(master, masterDs), cachedMotherName(compare, compareDs))) {
+  if (fullNameMatch(comparableName(cachedMotherName(master, masterDs)), comparableName(cachedMotherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
   if (anyFullNameMatch(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs))) {
@@ -433,8 +437,8 @@ export function plausibleIndividualMatch(
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
-  const an = primaryName(a);
-  const bn = primaryName(b);
+  const an = comparableName(primaryName(a));
+  const bn = comparableName(primaryName(b));
   const surname =
     an?.surname && bn?.surname
       ? jaroWinkler(foldToken(an.surname), foldToken(bn.surname))
@@ -506,7 +510,10 @@ export function individualBlockKeys(
   soundex: (s: string) => string,
   ds: Dataset,
 ): string[] {
-  const n = primaryName(indi);
+  // A record whose only name parts are placeholders gets no blocking key at
+  // all — it can't be meaningfully matched by name. (Relationship linking can
+  // still connect it through matched relatives, which needs no name.)
+  const n = comparableName(primaryName(indi));
   const surname = n?.surname;
   const given = n?.given;
   const sdx = soundex(surname ?? given ?? "");

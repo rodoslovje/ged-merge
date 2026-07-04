@@ -6,7 +6,7 @@ import {
   sexConflicts,
 } from "../match/scoreIndividual";
 import { cachedFatherName, cachedFindEvent, cachedMotherName } from "../match/profileCache";
-import { givenSimilarity } from "../match/similarity";
+import { comparableName, givenSimilarity } from "../match/similarity";
 import { soundex } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label, primaryName } from "../match/relatives";
@@ -185,7 +185,7 @@ function distinctRelatives(a: Individual, b: Individual, ds: Dataset): boolean {
   if (differentGiven(a, b)) return true; // different first name → different person
   if (conflictingBirthYears(a, b)) return true; // namesake child
   if (sameExactBirthDay(a, b)) return false; // same christening entry → parent variants can't outvote it
-  if (parentGivens(cachedFatherName(a, ds), cachedFatherName(b, ds)) === "conflict") return true; // different father → different family
+  if (parentGivens(comparableName(cachedFatherName(a, ds)), comparableName(cachedFatherName(b, ds))) === "conflict") return true; // different father → different family
   if (parentAgreement(a, b, ds) === "conflict") return true; // same-named cousins
   return false;
 }
@@ -228,8 +228,8 @@ function parentGivens(a: PersonName | undefined, b: PersonName | undefined): "ag
  * there's too little linked-parent data on either side to tell.
  */
 function parentAgreement(a: Individual, b: Individual, ds: Dataset): "agree" | "conflict" | "unknown" {
-  const father = parentGivens(cachedFatherName(a, ds), cachedFatherName(b, ds));
-  const mother = parentGivens(cachedMotherName(a, ds), cachedMotherName(b, ds));
+  const father = parentGivens(comparableName(cachedFatherName(a, ds)), comparableName(cachedFatherName(b, ds)));
+  const mother = parentGivens(comparableName(cachedMotherName(a, ds)), comparableName(cachedMotherName(b, ds)));
   if (father === "agree" || mother === "agree") return "agree";
   if (father === "conflict" || mother === "conflict") return "conflict";
   return "unknown";
@@ -238,8 +238,8 @@ function parentAgreement(a: Individual, b: Individual, ds: Dataset): "agree" | "
 /** True when both records have a given name and they're too dissimilar to be the
  *  same person (distinct sibling names rather than spelling variants of one). */
 function differentGiven(a: Individual, b: Individual): boolean {
-  const ga = primaryName(a)?.given;
-  const gb = primaryName(b)?.given;
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
   if (!ga || !gb) return false;
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
 }
