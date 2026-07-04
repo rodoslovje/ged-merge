@@ -286,4 +286,14 @@ export interface Dataset {
   finalNewline: boolean;
   /** Detected CHAN/CREA usage — governs whether save stamps audit timestamps. */
   chanCreaUsage: ChanCreaUsage;
+  /**
+   * Set on datasets imported from a source whose format doesn't reliably carry
+   * birth dates (the genealogical-index matches CSV, whose family rows often
+   * record only a marriage date). Matching uses it to scope the marriage-based
+   * birth plausibility fallback: only a record from such a source may
+   * substitute marriage-year plausibility for a missing birth date. For a
+   * regular GEDCOM a missing birth date is a data gap, and the flat
+   * missing-key penalty stands.
+   */
+  sparseBirthDates?: boolean;
 }

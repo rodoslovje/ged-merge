@@ -153,7 +153,11 @@ export function normalizeDataset(
     eol: compare.eol,
     finalNewline: compare.finalNewline,
   };
-  return { dataset: buildDataset(parsed), report };
+  const dataset = buildDataset(parsed);
+  // Provenance isn't derivable from the records — carry it onto the rebuild so
+  // matching still knows a CSV-imported compare is a sparse-birth source.
+  if (compare.sparseBirthDates) dataset.sparseBirthDates = true;
+  return { dataset, report };
 }
 
 /**

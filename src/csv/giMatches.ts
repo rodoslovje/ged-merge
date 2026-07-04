@@ -443,7 +443,12 @@ function finish(records: GedNode[], pairs: GiPair[]): GiMatchesImport {
     eol: "\n",
     finalNewline: true,
   };
-  return { dataset: buildDataset(parsed), pairs };
+  const dataset = buildDataset(parsed);
+  // The GI matches CSV doesn't reliably carry birth dates (family rows often
+  // have only a marriage date), so let matching use the marriage-plausibility
+  // fallback for birth-less records instead of the missing-key penalty.
+  dataset.sparseBirthDates = true;
+  return { dataset, pairs };
 }
 
 function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatchesImport {

@@ -269,11 +269,18 @@ describe("birth date plausibility from marriage date", () => {
   const compareNoBirth = (marriageDate: string) =>
     "0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @CF@\n" +
     `0 @CF@ FAM\n1 HUSB @C@\n1 MARR\n2 DATE ${marriageDate}\n`;
+  // The fallback is scoped to sparse-birth sources; the GI CSV importer sets
+  // this flag on the datasets it builds.
+  const csvLike = (text: string) => {
+    const ds = doc(text);
+    ds.sparseBirthDates = true;
+    return ds;
+  };
 
   it("scores the birth-date key well (not the flat missing penalty) when the master's birth year is a plausible age at the matched marriage", () => {
     // 1850 birth, 1880 marriage: 30 years old — squarely plausible.
     const master = doc(masterWithMarriage("1880"));
-    const compare = doc(compareNoBirth("1880"));
+    const compare = csvLike(compareNoBirth("1880"));
     const r = matchDatasets(master, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");
@@ -282,7 +289,7 @@ describe("birth date plausibility from marriage date", () => {
     // The no-marriage-evidence case (below) scores noticeably lower.
     const bare = matchDatasets(
       doc("0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n"),
-      doc("0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"),
+      csvLike("0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"),
     ).individuals;
     expect(r[0].score).toBeGreaterThan(bare[0].score);
   });
@@ -290,7 +297,32 @@ describe("birth date plausibility from marriage date", () => {
   it("falls back to the flat missing-key penalty when the implied age is implausible", () => {
     // 1850 birth, 1860 marriage: 10 years old — outside the plausible range.
     const master = doc(masterWithMarriage("1860"));
-    const compare = doc(compareNoBirth("1860"));
+    const compare = csvLike(compareNoBirth("1860"));
+    const r = matchDatasets(master, compare).individuals;
+    expect(r).toHaveLength(1);
+    const birth = r[0].components.find((c) => c.key === "birthDate");
+    expect(birth?.missing).toBe(true);
+    expect(birth?.score).toBe(0.3);
+  });
+
+  it("charges the flat penalty for an ordinary GEDCOM compare (no sparse-birth flag), even with plausible marriage evidence", () => {
+    // Identical data to the plausible case above — only the flag differs. A
+    // regular GEDCOM record without a birth date is a data gap, not a format
+    // limitation, so the fallback must not fire.
+    const master = doc(masterWithMarriage("1880"));
+    const compare = doc(compareNoBirth("1880"));
+    const r = matchDatasets(master, compare).individuals;
+    expect(r).toHaveLength(1);
+    const birth = r[0].components.find((c) => c.key === "birthDate");
+    expect(birth?.missing).toBe(true);
+    expect(birth?.score).toBe(0.3);
+  });
+
+  it("ignores the known-birth side's own marriage date (evidence must be cross-side)", () => {
+    // The compare record is flagged sparse-birth but has no dated marriage of
+    // its own; the master's own marriage says nothing about the compare.
+    const master = doc(masterWithMarriage("1880"));
+    const compare = csvLike("0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
     const r = matchDatasets(master, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");

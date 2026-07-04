@@ -114,14 +114,17 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   );
 
   // Scripted decisions, chosen to exercise the whole mechanics surface:
-  //  - confirm every unique pair scoring ≥95 with default field choices,
+  //  - confirm every unique pair scoring ≥90 with default field choices
+  //    (≥90 rather than ≥95: royals missing a birth date on one side now
+  //    carry the honest missing-key penalty instead of the marriage-derived
+  //    0.85, so corroborated true pairs sit in the 91–92 relative-boost band),
   //  - take all children of the first two confirmed people (family stitching
   //    incl. new-person creation),
   //  - graft whole branches (ancestors of the 1st, descendants of the 2nd),
-  //  - reject the best sub-95 candidate, so grafts must import that person as
+  //  - reject the best sub-90 candidate, so grafts must import that person as
   //    new instead of reusing the rejected join point.
-  const picked = uniquePairs(result, 95);
-  const rejected = uniquePairs(result, 0).find((c) => c.score < 95);
+  const picked = uniquePairs(result, 90);
+  const rejected = uniquePairs(result, 0).find((c) => c.score < 90);
   const decisions = new Map<string, CandidateDecision>();
   for (const [i, c] of picked.entries()) {
     const takenChildren = i < 2

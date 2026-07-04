@@ -58,15 +58,15 @@ export function scoreIndividualPair(
   const mb = cachedFindEvent(master, "BIRT");
   const cb = cachedFindEvent(compare, "BIRT");
   const birthSim = dateSimilarity(mb?.date, cb?.date);
-  // Some import formats (e.g. the genealogical-index "family matches" CSV)
-  // never carry a birth date at all — only a marriage date. Rather than
+  // Some import formats (the genealogical-index "family matches" CSV) don't
+  // reliably carry a birth date — often only a marriage date. Rather than
   // charging the flat `missingKeyScore` penalty for data the source simply
   // doesn't have, fall back to a marriage-derived plausibility check: if the
   // side that *does* have a birth year sits within a typical age-at-marriage
-  // range of the marriage date, that's meaningful corroboration.
+  // range of the other side's marriage date, that's meaningful corroboration.
+  // Strictly scoped to sparse-birth sources (see `birthScoreFromMarriage`).
   const birthMissingScore = birthSim === undefined
-    ? birthScoreFromMarriage(mb?.date?.year, master, compare, masterDs, compareDs)
-      ?? birthScoreFromMarriage(cb?.date?.year, master, compare, masterDs, compareDs)
+    ? birthScoreFromMarriage(mb?.date?.year, cb?.date?.year, master, compare, masterDs, compareDs)
       ?? config.missingKeyScore
     : config.missingKeyScore;
   addKey(components, "birthDate", w.birthDate, birthSim, birthMissingScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
@@ -172,27 +172,51 @@ const MARRIAGE_AGE_RANGE = { min: 15, max: 60 };
 const PLAUSIBLE_BIRTH_FROM_MARRIAGE_SCORE = 0.85;
 
 /**
- * Fallback for the birth-date key when one side has no birth date at all —
- * common for import formats (e.g. the genealogical-index "family matches"
- * CSV) that only ever record a marriage date, never a birth date. If
- * `knownBirthYear` (recorded on whichever side does have one) sits within a
- * typical age-at-marriage range of either side's marriage date, that's
- * meaningful corroboration that the identity key likely holds — undefined
- * (the caller's flat penalty applies) otherwise.
+ * Fallback for the birth-date key when one side has no birth year. Two strict
+ * conditions keep this from inflating ordinary sparse records (unscoped, it
+ * scored 0.85×weight for near-every missing-birth pair across two GEDCOMs and
+ * flooded the results with same-named look-alikes at 85+):
+ *
+ *  - The birth-less record must come from a *sparse-birth source* (see
+ *    {@link Dataset.sparseBirthDates} — the GI matches CSV): only there is a
+ *    missing birth date a format limitation rather than a data gap.
+ *  - The evidence must be cross-side: the known birth year is checked against
+ *    the *birth-less* record's marriage year. (A record's own marriage date
+ *    says nothing about its counterpart.)
+ *
+ * Returns the plausibility score when the implied age at marriage is typical,
+ * undefined (the caller's flat penalty applies) otherwise.
  */
 function birthScoreFromMarriage(
-  knownBirthYear: number | undefined,
+  masterYear: number | undefined,
+  compareYear: number | undefined,
   master: Individual,
   compare: Individual,
   masterDs: Dataset,
   compareDs: Dataset,
 ): number | undefined {
-  if (knownBirthYear === undefined) return undefined;
-  const marriageYear =
-    cachedMarriageEvents(compare, compareDs).map((e) => e.date?.year).find((y): y is number => y !== undefined) ??
-    cachedMarriageEvents(master, masterDs).map((e) => e.date?.year).find((y): y is number => y !== undefined);
+  if (masterYear !== undefined && compareYear === undefined && compareDs.sparseBirthDates) {
+    return plausibleAgeAtMarriage(masterYear, compare, compareDs);
+  }
+  if (compareYear !== undefined && masterYear === undefined && masterDs.sparseBirthDates) {
+    return plausibleAgeAtMarriage(compareYear, master, masterDs);
+  }
+  return undefined;
+}
+
+/** The plausibility score when `birthYear` implies a typical age at the
+ *  birth-less record's (first dated) marriage; undefined when the record has
+ *  no dated marriage or the implied age is atypical. */
+function plausibleAgeAtMarriage(
+  birthYear: number,
+  birthless: Individual,
+  ds: Dataset,
+): number | undefined {
+  const marriageYear = cachedMarriageEvents(birthless, ds)
+    .map((e) => e.date?.year)
+    .find((y): y is number => y !== undefined);
   if (marriageYear === undefined) return undefined;
-  const age = marriageYear - knownBirthYear;
+  const age = marriageYear - birthYear;
   return age >= MARRIAGE_AGE_RANGE.min && age <= MARRIAGE_AGE_RANGE.max ? PLAUSIBLE_BIRTH_FROM_MARRIAGE_SCORE : undefined;
 }
 

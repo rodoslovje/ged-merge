@@ -17,6 +17,9 @@ The general Settings panel exists (language, theme, name display, kinship, link-
 ### Photos
 - **Drag & drop** — improve adding new photos by supporting drag-and-drop.
 
+### Matching quality
+- **Reduce false positives in dense name clusters** — in regions with many people sharing the same/similar names, pairs with the same name and a similar birth date but **different parents** still score too high. Give conflicting parents (and other distinguishing evidence) more weight — ideally a stronger penalty or a soft gate — so same-name/near-date pairs with mismatched families are pushed down.
+
 ### GEDCOM custom tags support
 Build a system for custom/proprietary GEDCOM tags supported by GED Merge — allow them to be edited and merged, with simple reshaping rules to convert between different supported custom types (e.g. MacFamilyTree extensions). Goal: support all major software, including **Brother's Keeper**, **Family Historian**, **RootsMagic**, and **MacFamilyTree**.
 
@@ -29,7 +32,7 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 - **Place gazetteer standardization** — validate & fix place spelling and hierarchy against GeoNames / GOV, beyond the current reshape.
 
 ### Reports & analysis
-- **Ahnentafel / narrative (register) report** — exportable ancestor/descendant report.
+- **Ahnentafel / narrative (register) report** — exportable ancestor/descendant report. Include a **register report in NGSQ (National Genealogical Society Quarterly) format** for a person's ascendants/descendants, exported as text / RTF (or similar).
 - **Research to-do / log** — per-person open questions, flags, research notes.
 
 ### Visualization
@@ -42,6 +45,5 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 
 ### Import / export
 - **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media bundles.
-- **Subset / format export** — export a selected branch, or export to CSV / JSON.
-</content>
-</invoke>
+- **Subset / format export** — export part of the master as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch, or export to CSV / JSON.
+
