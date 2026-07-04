@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
+import type { TreeMode } from "../tree/compareTree";
 import type { CandidateDecision } from "../review/types";
 import { useChartSettings } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -35,6 +36,10 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   // re-roots (tree) / target swaps (relationship), so switching kinds stays on
   // the person the user is actually looking at.
   const [rootId, setRootId] = useState(initialRootId);
+  // The user's ancestors/descendants choice — owned here (not by EditTree) so
+  // it survives kind switches, including a relationship round-trip that
+  // remounts the pedigree chart.
+  const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
   const kindSwitcher = (
     <ChartKindTabs
@@ -100,6 +105,8 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       changedPersonIds={changedPersonIds}
       decisions={decisions}
       onBack={onBack}
+      mode={treeMode}
+      onModeChange={setTreeMode}
       onRootChange={setRootId}
       kindSwitcher={kindSwitcher}
     />

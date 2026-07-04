@@ -29,6 +29,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           role="tab"
           aria-selected={value === k}
           className={value === k ? "active" : ""}
+          title={k === "fan" || k === "circle" ? t("charts.kind.ancestorsOnly") : undefined}
           onClick={() => { if (value !== k) onChange(k); }}
         >
           {label(k)}

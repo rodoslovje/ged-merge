@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildCompareTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
@@ -66,6 +66,10 @@ interface Props {
   /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
   decisions?: Map<string, CandidateDecision>;
   onBack: () => void;
+  /** The user's chosen direction — owned by the Charts hub so it survives kind
+   *  switches (including a round-trip through the relationship diagram). */
+  mode: TreeMode;
+  onModeChange: (mode: TreeMode) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
   /** Reports re-roots up to the Charts hub, so switching to the relationship
@@ -73,9 +77,8 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const changeRoot = useCallback((id: string) => {
     setCurrentRootId(id);
@@ -103,18 +106,17 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const nodeH = nodeHeight(display);
   const livingLabel = t("tree.node.living");
 
-  // A radial chart only draws ancestors; force the mode so the toggle reflects it.
-  useEffect(() => {
-    if (radial) setMode("ancestors");
-  }, [radial]);
+  // A radial chart only draws ancestors — an override on top of the user's
+  // direction, never a change to it, so leaving Fan/Circle restores the choice.
+  const effectiveMode = radial ? "ancestors" : mode;
 
   const rootPerson = masterDs.individuals.get(currentRootId);
 
   const tree = useMemo(
     () => rootPerson
-      ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, mode)
+      ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, effectiveMode)
       : undefined,
-    [t, rootPerson, masterDs, mode],
+    [t, rootPerson, masterDs, effectiveMode],
   );
 
   const laid = useMemo(
@@ -130,9 +132,9 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const flat = useMemo(
     () =>
       laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, effectiveMode === "ancestors")
         : undefined,
-    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
+    [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
@@ -257,7 +259,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
 
   // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart".
-  const chartKind = `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
+  const chartKind = `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
   // Shared title for the SVG / PDF export header.
   const editTreeTitle = [tree?.name, tree?.years, "—", chartKind].filter(Boolean).join(" ");
 
@@ -292,13 +294,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               key: "svg",
               label: t("export.svg"),
               title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${mode}`)), editTreeTitle),
+              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
             },
             {
               key: "pdf",
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${mode}`)), editTreeTitle),
+              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
             },
           ]}
         />
@@ -310,17 +312,18 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
         <div className="tree-controls-left">
           {kindSwitcher}
           <div className="tree-mode">
-            <button className={mode === "ancestors" ? "active" : ""} onClick={() => setMode("ancestors")}>
+            <button className={effectiveMode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
               {t("tree.ancestors")}
               <span className="tree-mode-count">{peopleCounts.ancestors}</span>
             </button>
             <button
-              className={mode === "descendants" ? "active" : ""}
+              className={effectiveMode === "descendants" ? "active" : ""}
+              title={radial ? t("tree.mode.backToTree") : undefined}
               onClick={() => {
                 // Radial charts are ancestor-only; switching to descendants reverts
                 // to the layered tree.
                 if (radial) setType("tree");
-                setMode("descendants");
+                onModeChange("descendants");
               }}
             >
               {t("tree.descendants")}

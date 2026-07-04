@@ -517,6 +517,8 @@ export const sl = {
   "tree.settings.privacy.hideLiving": "Skrij žive osebe",
   "tree.settings.notForRadial": "Ni na voljo za pahljačo / krog",
   "charts.kind.label": "Vrsta diagrama",
+  "charts.kind.ancestorsOnly": "Prikazuje samo prednike",
+  "tree.mode.backToTree": "Pahljača in krog prikazujeta samo prednike — to preklopi nazaj na drevo",
   "tree.node.living": "Živ(a)",
   "tree.openInMatches": "Odpri to ujemanje na seznamu ujemanj",
   "tree.master": "Glavni",

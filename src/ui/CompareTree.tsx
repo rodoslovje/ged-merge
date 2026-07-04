@@ -210,9 +210,18 @@ export function CompareTree({
     [decisions],
   );
 
+  const { settings, setType } = useChartSettings();
+  // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
+  // are radial.
+  const radial = settings.type === "fan" || settings.type === "circle";
+  const isGrid = settings.type === "grid";
+  // A radial chart only draws ancestors — an override on top of the user's
+  // direction, never a change to it, so leaving Fan/Circle restores the choice.
+  const effectiveMode = radial ? "ancestors" : mode;
+
   const tree = useMemo(
-    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode, isRejected),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, mode, isRejected],
+    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected),
+    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected],
   );
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
@@ -233,13 +242,8 @@ export function CompareTree({
     };
   }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
 
-  const { settings, setType } = useChartSettings();
   const { settings: appSettings } = useSettings();
   const { alignment } = settings;
-  // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
-  // are radial.
-  const radial = settings.type === "fan" || settings.type === "circle";
-  const isGrid = settings.type === "grid";
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
@@ -263,18 +267,13 @@ export function CompareTree({
   const flat = useMemo(
     () =>
       laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, effectiveMode === "ancestors")
         : undefined,
-    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
+    [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
-  // A radial chart only draws ancestors; force the mode so the toggle reflects it.
-  useEffect(() => {
-    if (radial) onModeChange("ancestors");
-  }, [radial, onModeChange]);
-
   // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
-  // so it's independent of the (forced-ancestors) mode toggle.
+  // so it's independent of the (overridden-to-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
   const fan = useMemo(() => {
     if (!radial) return undefined;
@@ -299,7 +298,7 @@ export function CompareTree({
   const willImport = useMemo(() => {
     const set = new Set<string>();
     if (!laid) return set;
-    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(mode, n.incoming.id));
+    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(effectiveMode, n.incoming.id));
     (function walk(n: Placed, covered: boolean) {
       const active = covered || isAnchor(n);
       if (active && n.status === "incoming-only") set.add(n.key);
@@ -311,7 +310,7 @@ export function CompareTree({
       for (const c of n.children) walk(c, active);
     })(laid.root, false);
     return set;
-  }, [laid, importBranches, mode]);
+  }, [laid, importBranches, effectiveMode]);
 
   // The badge a node shows next to its lifespan: a decided match's C/D/R, or "I"
   // (Incoming) for an incoming-only person an active graft will bring in.
@@ -421,13 +420,13 @@ export function CompareTree({
               key: "svg",
               label: t("export.svg"),
               title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle),
+              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
             },
             {
               key: "pdf",
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle),
+              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
             },
           ]}
         />
@@ -442,7 +441,7 @@ export function CompareTree({
           />
           <div className="tree-mode">
             <button
-              className={mode === "ancestors" ? "active" : ""}
+              className={effectiveMode === "ancestors" ? "active" : ""}
               onClick={() => onModeChange("ancestors")}
             >
               {t("tree.ancestors")}
@@ -452,7 +451,8 @@ export function CompareTree({
               )}
             </button>
             <button
-              className={mode === "descendants" ? "active" : ""}
+              className={effectiveMode === "descendants" ? "active" : ""}
+              title={radial ? t("tree.mode.backToTree") : undefined}
               onClick={() => {
                 // Radial charts are ancestor-only; switching to descendants reverts
                 // to the layered tree.
@@ -560,8 +560,8 @@ export function CompareTree({
             masterDs={masterDs}
             compareDs={compareDs}
             maps={maps}
-            mode={mode}
-            importActive={!!selected.incoming && importBranches.has(importKey(mode, selected.incoming.id))}
+            mode={effectiveMode}
+            importActive={!!selected.incoming && importBranches.has(importKey(effectiveMode, selected.incoming.id))}
             onToggleImport={onToggleImport}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
