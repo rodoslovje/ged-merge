@@ -1191,7 +1191,9 @@ function AppContent() {
       return;
     }
     if (how === "relationship") {
-      if (startId && startId !== id) openCharts(id, "relationship");
+      // No start person set → the hub's relationship kind prompts for one
+      // inline; only relating the start person to themselves falls back to Edit.
+      if (startId !== id) openCharts(id, "relationship");
       else { setNavigateToId(id); setMode("edit"); }
       return;
     }

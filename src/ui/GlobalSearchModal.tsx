@@ -264,7 +264,9 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
 
         <ul className="global-search-results" ref={listRef}>
           {results.map((row, i) => {
-            const canRelate = !!startId && startId !== row.id;
+            // Relating a person to themselves is meaningless; without a start
+            // person the hub shows its inline "set a start person" prompt.
+            const canRelate = startId !== row.id;
             const meta = metaOf(row.id);
             return (
               <li
