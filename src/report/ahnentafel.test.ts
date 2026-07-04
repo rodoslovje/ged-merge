@@ -144,14 +144,14 @@ describe("buildAhnentafel", () => {
     expect(entry(entries, 2).living).toBe(false); // born 1870 — outside the window
   });
 
-  it("joins a fact's street address and locality when both are recorded", () => {
+  it("keeps the complete address and place hierarchy, unstripped", () => {
     const addressed = wrap(
       "0 @I1@ INDI\n1 NAME Solo /One/\n1 BIRT\n2 DATE 1900\n2 PLAC Kranj, Slovenija\n2 ADDR Dunajska 5\n" +
         "1 DEAT\n2 DATE 1970\n2 ADDR Glavni trg 1\n",
     );
     const entries = flat(addressed, "@I1@");
     expect(entry(entries, 1).facts).toEqual([
-      { tag: "BIRT", glyph: "*", date: "1900", place: "Dunajska 5, Kranj" },
+      { tag: "BIRT", glyph: "*", date: "1900", place: "Dunajska 5, Kranj, Slovenija" },
       { tag: "DEAT", glyph: "†", date: "1970", place: "Glavni trg 1" },
     ]);
   });

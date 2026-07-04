@@ -5,7 +5,6 @@
 
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
-import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../tree/timeline";
 import { MARRIAGE_SYMBOL } from "../tree/nodeDisplay";
@@ -105,12 +104,12 @@ export function marriageFact(fam: Family, spouse: string | undefined): FactLine 
 }
 
 /** A fact's display location. Unlike the Timeline's compact one-word labels,
- *  the report has room for both: the street address (house number kept) and
- *  the place's most-specific locality — "Dunajska 5, Kranj" when both are
- *  recorded, either one alone otherwise. */
+ *  the report keeps everything exactly as recorded: the complete street
+ *  address followed by the complete place hierarchy — "Dunajska 5, Kranj,
+ *  Slovenija" when both are recorded, either one alone otherwise. */
 export function factPlace(e: GedEvent): string | undefined {
-  const addr = e.address?.parts[0];
-  const loc = e.place ? localityParts(e.place)[0] : undefined;
+  const addr = e.address?.raw;
+  const loc = e.place?.raw;
   const parts = addr === loc ? [addr] : [addr, loc];
   return parts.filter(Boolean).join(", ") || undefined;
 }
