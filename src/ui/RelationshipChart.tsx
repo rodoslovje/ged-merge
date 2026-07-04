@@ -189,6 +189,15 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
           disabled={!chart}
           items={[
             {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () =>
+                chart &&
+                exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
+            },
+            {
               key: "svg",
               icon: <ImageIcon />,
               label: t("export.svg"),
@@ -201,15 +210,6 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-            },
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () =>
-                chart &&
-                exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
             },
           ]}
         />

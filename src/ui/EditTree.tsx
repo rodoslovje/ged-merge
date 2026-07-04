@@ -306,6 +306,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           disabled={!activeLaid}
           items={[
             {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: chartPersonIds.length }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
+            },
+            {
               key: "svg",
               icon: <ImageIcon />,
               label: t("export.svg"),
@@ -318,13 +325,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
-            },
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: chartPersonIds.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
             },
           ]}
         />

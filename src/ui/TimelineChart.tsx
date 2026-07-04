@@ -242,6 +242,13 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
           disabled={!laid}
           items={[
             {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: rows.length }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
+            },
+            {
               key: "svg",
               icon: <ImageIcon />,
               label: t("export.svg"),
@@ -254,13 +261,6 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-            },
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: rows.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
             },
           ]}
         />
