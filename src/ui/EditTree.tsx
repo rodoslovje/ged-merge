@@ -29,6 +29,7 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
+import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
@@ -66,6 +67,8 @@ interface Props {
   /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
   decisions?: Map<string, CandidateDecision>;
   onBack: () => void;
+  /** Jump to a person in Edit mode (closes the hub). */
+  onNavigate?: (id: string) => void;
   /** The user's chosen direction — owned by the Charts hub so it survives kind
    *  switches (including a round-trip through the relationship diagram). */
   mode: TreeMode;
@@ -77,7 +80,7 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const changeRoot = useCallback((id: string) => {
@@ -292,12 +295,14 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           items={[
             {
               key: "svg",
+              icon: <ImageIcon />,
               label: t("export.svg"),
               title: t("tree.export.tooltip"),
               onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
             },
             {
               key: "pdf",
+              icon: <FileTextIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
@@ -518,6 +523,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               changeRoot(selected.master!.id);
               setSelectedKey(null);
             }}
+            extraActions={
+              onNavigate ? (
+                <button className="nav-btn tree-compare-root" onClick={() => onNavigate(selected.master!.id)}>
+                  {t("relpath.openInEdit")}
+                </button>
+              ) : undefined
+            }
             badges={
               selectedDecision || selectedModified ? (
                 <>

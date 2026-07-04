@@ -1682,6 +1682,11 @@ function AppContent() {
         onToggleImport={toggleImportBranch}
         startId={startId}
         onOpenCharts={openCharts}
+        onOpenInEdit={(id) => {
+          window.history.back(); // close the tree overlay
+          setNavigateToId(id);
+          setMode("edit");
+        }}
       />
     );
   } else if (chartsRootId && masterDataset) {
@@ -1738,12 +1743,12 @@ function AppContent() {
             {(lastMasterFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
                 {lastMasterFile && (
-                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={`${t("tree.master")}: ${lastMasterFile.fileName}`}>
+                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={`${t("tree.master")}: ${lastMasterFile.fileName} — ${t("header.filePill.hint")}`}>
                     {lastMasterFile.fileName}
                   </button>
                 )}
                 {compare.status === "loaded" && (
-                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName}`}>
+                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
                     {compare.file.fileName}
                   </button>
                 )}

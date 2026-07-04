@@ -50,6 +50,7 @@ import { MapIcon } from "./icons/MapIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
+import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -82,6 +83,8 @@ interface Props {
   startId?: string;
   /** Open the Charts hub on a master-side person (from the node panel). */
   onOpenCharts?: (masterId: string) => void;
+  /** Jump to a master-side person in Edit mode (closes the tree). */
+  onOpenInEdit?: (masterId: string) => void;
 }
 
 /** The three actionable decisions, in button order. */
@@ -136,6 +139,7 @@ export function CompareTree({
   onToggleImport,
   startId,
   onOpenCharts,
+  onOpenInEdit,
 }: Props) {
   const { t } = useTranslation();
 
@@ -419,12 +423,14 @@ export function CompareTree({
           items={[
             {
               key: "svg",
+              icon: <ImageIcon />,
               label: t("export.svg"),
               title: t("tree.export.tooltip"),
               onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
             },
             {
               key: "pdf",
+              icon: <FileTextIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
@@ -578,6 +584,7 @@ export function CompareTree({
               }
             }}
             onOpenCharts={onOpenCharts}
+            onOpenInEdit={onOpenInEdit}
           />
         )}
       </div>
@@ -880,6 +887,7 @@ function NodeCompare({
   decision,
   onDecide,
   onOpenCharts,
+  onOpenInEdit,
 }: {
   node: Placed;
   masterDs: Dataset;
@@ -896,6 +904,7 @@ function NodeCompare({
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
   onOpenCharts?: (masterId: string) => void;
+  onOpenInEdit?: (masterId: string) => void;
 }) {
   const { t } = useTranslation();
   // Both sides present → an actionable match the user can confirm/reject/defer.
@@ -978,14 +987,23 @@ function NodeCompare({
       kinshipLineage={kinshipLineage}
       badges={decisionBar}
       extraActions={
-        node.master && onOpenCharts ? (
-          <button
-            className="nav-btn tree-compare-root charts-open-btn"
-            onClick={() => onOpenCharts(node.master!.id)}
-            title={t("edit.charts.tooltip")}
-          >
-            <ChartIcon size={13} /> {t("edit.charts.button")}
-          </button>
+        node.master ? (
+          <>
+            {onOpenCharts && (
+              <button
+                className="nav-btn tree-compare-root charts-open-btn"
+                onClick={() => onOpenCharts(node.master!.id)}
+                title={t("edit.charts.tooltip")}
+              >
+                <ChartIcon size={13} /> {t("edit.charts.button")}
+              </button>
+            )}
+            {onOpenInEdit && (
+              <button className="nav-btn tree-compare-root" onClick={() => onOpenInEdit(node.master!.id)}>
+                {t("relpath.openInEdit")}
+              </button>
+            )}
+          </>
         ) : undefined
       }
       controls={controls}

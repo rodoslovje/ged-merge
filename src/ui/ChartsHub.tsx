@@ -105,6 +105,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       changedPersonIds={changedPersonIds}
       decisions={decisions}
       onBack={onBack}
+      onNavigate={onNavigate}
       mode={treeMode}
       onModeChange={setTreeMode}
       onRootChange={setRootId}
