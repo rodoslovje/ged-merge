@@ -160,27 +160,48 @@ function relationshipCount(indi: Individual, ds: Dataset): number {
  *    language variants — Janez/Ivan, William/Bill ≈ 0.7 — are sacrificed: they
  *    can't be told apart from a sibling by name alone, and twins vastly
  *    outnumber them in parish-record data.)
- *  - **Conflicting parents** — same given name, but the two records resolve a
- *    father (and/or mother) whose given names clearly differ and none agree:
- *    different families, i.e. same-named cousins, not the same person. (A shared
- *    surname between the two fathers is ignored — within one family every father
- *    shares it, so only the given name discriminates.)
  *  - **Conflicting exact birth years** — same given name and family, but both
  *    record an exact birth date and the years differ: a namesake child given a
  *    dead sibling's name. (A same-year pair differing only in month/day is kept
  *    — that's a transcription-error duplicate worth merging.)
+ *  - **Conflicting father** — the two records resolve fathers whose given
+ *    names clearly differ: different families. The mother is deliberately NOT
+ *    allowed to rescue such a pair: mother given names are dominated by a
+ *    handful of ubiquitous names (Marija, Ana, Marjana …), so a mother
+ *    "agreement" is nearly free — same-named cousins born the same year to
+ *    different fathers routinely both have a mother Marija.
+ *  - **Conflicting parents** — no comparable parental role agrees and at least
+ *    one conflicts: same-named cousins, not the same person. (A shared surname
+ *    between the two fathers is ignored — within one family every father
+ *    shares it, so only the given name discriminates.)
+ *
+ * The parent vetoes are skipped when both records assert the **same exact
+ * calendar birth day**: that is in practice two copies of one christening
+ * entry, and a conflicting parent name there (Gertrud vs Jera — the same name
+ * in the German vs Slovene register) is a recording variant, never a
+ * different family.
  */
 function distinctRelatives(a: Individual, b: Individual, ds: Dataset): boolean {
   if (differentGiven(a, b)) return true; // different first name → different person
-  if (parentAgreement(a, b, ds) === "conflict") return true; // same-named cousins
   if (conflictingBirthYears(a, b)) return true; // namesake child
+  if (sameExactBirthDay(a, b)) return false; // same christening entry → parent variants can't outvote it
+  if (parentGivens(cachedFatherName(a, ds), cachedFatherName(b, ds)) === "conflict") return true; // different father → different family
+  if (parentAgreement(a, b, ds) === "conflict") return true; // same-named cousins
   return false;
 }
 
-/** Minimum given-name similarity (0..1) for two parents to count as the same
- *  person — above the looser individual-name gate, since here only the given
- *  name discriminates (the surname is shared family-wide). */
-const PARENT_GIVEN_MATCH = 0.6;
+/**
+ * Given-name similarity bands for one parental role. Distinct parents measure
+ * ≤ 0.6 (Anton/Jakob exactly 0.600, Primož/Janez 0.46, Mihael/Florijan 0.53)
+ * while recording variants of one parent sit at 0.69+ (Miko/Mihael 0.69,
+ * Janez/Johann 0.73, Anton/Antonius 0.93) — so a conflict is only called
+ * below 0.65, agreement only from 0.75 up, and the gap between the bands
+ * stays "unknown" rather than forcing an unreliable call either way. (The
+ * old single 0.6 threshold counted Anton/Jakob as an *agreement*, which let
+ * same-named cousins through the veto.)
+ */
+const PARENT_GIVEN_AGREE = 0.75;
+const PARENT_GIVEN_CONFLICT = 0.65;
 
 /** Minimum given-name similarity (0..1) for two records to be the same person
  *  rather than distinct relatives. Sits in the gap between distinct given names
@@ -190,10 +211,14 @@ const PARENT_GIVEN_MATCH = 0.6;
 const SAME_PERSON_GIVEN = 0.85;
 
 /** Compare one parental role across the two records: do the given names agree,
- *  conflict, or is there too little data to tell? */
+ *  conflict, or is there too little data to tell? (Also "unknown" for the
+ *  band between the conflict and agree thresholds — see the bands above.) */
 function parentGivens(a: PersonName | undefined, b: PersonName | undefined): "agree" | "conflict" | "unknown" {
   if (!a?.given || !b?.given) return "unknown";
-  return givenSimilarity(a.given, b.given) >= PARENT_GIVEN_MATCH ? "agree" : "conflict";
+  const sim = givenSimilarity(a.given, b.given);
+  if (sim >= PARENT_GIVEN_AGREE) return "agree";
+  if (sim < PARENT_GIVEN_CONFLICT) return "conflict";
+  return "unknown";
 }
 
 /**
@@ -217,6 +242,20 @@ function differentGiven(a: Individual, b: Individual): boolean {
   const gb = primaryName(b)?.given;
   if (!ga || !gb) return false;
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
+}
+
+/** True when both records assert the same exact calendar birth day — in
+ *  practice two copies of the same christening entry, which the parent-based
+ *  vetoes must not override (see {@link distinctRelatives}). */
+function sameExactBirthDay(a: Individual, b: Individual): boolean {
+  const da = cachedFindEvent(a, "BIRT")?.date;
+  const db = cachedFindEvent(b, "BIRT")?.date;
+  if (da?.qualifier !== "exact" || db?.qualifier !== "exact") return false;
+  return (
+    da.year !== undefined && da.year === db.year &&
+    da.month !== undefined && da.month === db.month &&
+    da.day !== undefined && da.day === db.day
+  );
 }
 
 /** True when both records carry an exact birth date and the years differ —

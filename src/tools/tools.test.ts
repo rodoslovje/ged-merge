@@ -825,6 +825,129 @@ describe("findDuplicates", () => {
     expect(findDuplicates(ds)).toHaveLength(0);
   });
 
+  it("does not flag same-named cousins whose fathers differ, even with both mothers named Marija", () => {
+    // The classic dense-cluster false positive: same name, same birth year
+    // (different months), fathers Anton vs Jakob (similarity 0.600 — the old
+    // single 0.6 threshold called that an *agreement*), and the ubiquitous
+    // mother given name agreeing on both sides. The father conflict must veto;
+    // the cheap mother agreement must not rescue the pair.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Sattler/
+1 SEX F
+1 BIRT
+2 DATE 16 JUN 1903
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Marija /Sattler/
+1 SEX F
+1 BIRT
+2 DATE 25 SEP 1903
+1 FAMC @F2@
+0 @I3@ INDI
+1 NAME Anton /Sattler/
+1 SEX M
+0 @I4@ INDI
+1 NAME Marija /Horvat/
+1 SEX F
+0 @I5@ INDI
+1 NAME Jakob /Sattler/
+1 SEX M
+0 @I6@ INDI
+1 NAME Marija /Zupan/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
+  it("still flags a same-day pair whose mother is recorded under a cross-language variant", () => {
+    // Two copies of one christening entry (identical exact birth day) with the
+    // mother written Gertrud in one and Jera in the other (the same name in
+    // the German vs Slovene register). The parent vetoes must not fire on a
+    // day-identical pair.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Rihtaršič/
+1 SEX M
+1 BIRT
+2 DATE 18 OCT 1869
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Janez /Rihtaršič/
+1 SEX M
+1 BIRT
+2 DATE 18 OCT 1869
+1 FAMC @F2@
+0 @I3@ INDI
+1 NAME Jakob /Rihtaršič/
+1 SEX M
+0 @I4@ INDI
+1 NAME Gertrud /Kos/
+1 SEX F
+0 @I5@ INDI
+1 NAME Jakob /Rihtaršič/
+1 SEX M
+0 @I6@ INDI
+1 NAME Jera /Kos/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I2@
+0 TRLR`);
+    const pairs = findDuplicates(ds);
+    expect(pairs.some((p) => [p.aId, p.bId].sort().join("|") === "@I1@|@I2@")).toBe(true);
+  });
+
+  it("still flags a same-day pair whose father is recorded under a cross-language variant", () => {
+    // Same christening entry, father written Georg vs Jurij (similarity 0.47,
+    // deep in the conflict band) — the same-exact-birth-day escape must
+    // pre-empt the father veto.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Potokar/
+1 SEX F
+1 BIRT
+2 DATE 14 NOV 1843
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Marija /Potokar/
+1 SEX F
+1 BIRT
+2 DATE 14 NOV 1843
+1 FAMC @F2@
+0 @I3@ INDI
+1 NAME Georg /Potokar/
+1 SEX M
+0 @I4@ INDI
+1 NAME Jurij /Potokar/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @I3@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I2@
+0 TRLR`);
+    const pairs = findDuplicates(ds);
+    expect(pairs.some((p) => [p.aId, p.bId].sort().join("|") === "@I1@|@I2@")).toBe(true);
+  });
+
   it("does not flag different given names sharing only a surname and era", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
