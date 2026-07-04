@@ -154,7 +154,7 @@
             <li class="guide-toc-part">IV · Shared Features</li>
             <li><a href="#photos">12. Photos &amp; media</a></li>
             <li><a href="#sources">13. Sources &amp; citations</a></li>
-            <li><a href="#saving">14. Saving &amp; reports</a></li>
+            <li><a href="#saving">14. Saving &amp; the change report</a></li>
 
             <li class="guide-toc-part">V · Reference</li>
             <li><a href="#legend">15. Icon &amp; badge legend</a></li>
@@ -323,9 +323,10 @@
               Kinship labels are <strong>colour-coded by blood line</strong>: relatives on the father's side show in
               <strong>blue</strong>, the mother's side in <strong>purple-magenta</strong>, while full siblings (“both
               lines”), descendants and the start person keep the neutral green accent. When two people share a bloodline
-              but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. The colours
-              appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship diagram (see
-              the <a href="#legend">legend</a>, §15).
+              but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. Kinship also
+              recognizes half-siblings and step-relations (step-parent, step-child, step-sibling) with their own labels.
+              The colours appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship
+              diagram (see the <a href="#legend">legend</a>, §15).
             </p>
           </section>
 
@@ -376,37 +377,110 @@
               that comparison. Every change is held in memory and reversible with
               <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
             </p>
-            <h3>Family tree &amp; relationship diagrams</h3>
-            <p>Two visual diagrams open from the Edit toolbar:</p>
-            <ul>
-              <li><strong>Show Tree</strong> (<span class="gm-key">V</span>) draws the current person's ancestors and descendants as a family tree.</li>
-              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) traces how the selected person is related to your <a href="#home-person">start person</a> (§6) — it needs a start person set and a different person selected. The diagram lays out the chain of relatives between the two, labelled with the exact kinship (e.g. <em>2nd cousin once removed</em>). When more than one route exists, the <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
-            </ul>
+            <h3>Charts hub</h3>
             <p>
-              The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear) in any diagram toolbar opens a
-              settings panel that controls how the diagram looks. Your choices are remembered across sessions and apply to
-              every diagram at once:
+              One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the header's
+              chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for the
+              selected person. A tab strip switches between seven kinds (digits <span class="gm-key">1</span>–<span
+              class="gm-key">7</span> jump straight to one); GED Merge remembers whichever you used last:
             </p>
             <ul>
-              <li><strong>Type</strong> — switch between four styles. <em>Tree</em> is the tidy layered family tree;
-                <em>Grid</em> aligns generations into columns (a pedigree grid for ancestors, an indented outline for
-                descendants); <em>Fan</em> and <em>Circle</em> are radial ancestor charts that fan the generations out in
-                curved rings. (The relationship diagram is always a tree.)</li>
-              <li><strong>Alignment</strong> (tree only) — lay the tree out <em>Left → Right</em> or <em>Top → Bottom</em>.</li>
-              <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em> (birth–death years),
-                <em>Place</em>, <em>Photo</em> (when a media folder is loaded) and <em>Kinship</em> (the relationship label
-                to your start person; not drawn on fan / circle charts).</li>
+              <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
+                four pedigree styles. <em>Tree</em> is the tidy layered family tree; <em>Grid</em> aligns generations into
+                columns (a pedigree grid for ancestors, an indented outline for descendants); <em>Fan</em> and
+                <em>Circle</em> are radial ancestor charts (ancestors only — there's no descendants view to fan out).</li>
+              <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
+                below.</li>
+              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
+                related to your <a href="#home-person">start person</a> (§6); if none is set yet, it prompts for one
+                inline. The diagram lays out the chain of relatives between the two, labelled with the exact kinship (e.g.
+                <em>2nd cousin once removed</em>). When more than one route exists, the <strong>Available paths</strong>
+                menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click
+                either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or
+                open a node in <span class="gm-pill">Edit</span>.</li>
+              <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
+                <a href="#reports">below</a>.</li>
+            </ul>
+            <p>
+              The pedigree kinds and the Report also carry an <strong>Ancestors / Descendants</strong> toggle (each
+              option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
+              opens a settings panel whose options adapt to whichever kind is open; every choice is remembered across
+              sessions:
+            </p>
+            <ul>
+              <li><strong>Alignment</strong> (Tree only) — lay the tree out <em>Left → Right</em> or <em>Top →
+                Bottom</em>.</li>
+              <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em>, <em>Place</em>,
+                <em>Photo</em> (when a media folder is loaded), <em>Kinship</em> (the relationship label to your start
+                person; not drawn on Fan/Circle) and <strong>Badges</strong> (the working-state letters — see
+                <a href="#legend">§15</a> — on by default). This group isn't shown while the Report is open; switch to
+                another kind to change it, and the Report picks up whatever it's set to.</li>
               <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
-                connector (on the fan / circle charts these appear on the collar). Both are off by default.</li>
-              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing only
-                their relationship or “Living” (see <a href="#privacy">§19</a>) so the diagram is safe to share.</li>
+                connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
+                Both off by default.</li>
+              <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
+                people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
+                shared <strong>Residence bar</strong> (see Reports, below).</li>
+              <li><strong>Facts</strong> (Report only) — see <a href="#reports">below</a>.</li>
+              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
+                only their relationship or “Living” (see <a href="#privacy">§19</a>), so the diagram is safe to
+                share.</li>
             </ul>
             <p>
               Use the <strong>zoom controls</strong> to zoom in and out, reset to 100%, or fit the whole diagram to the
-              screen; large diagrams also show an overview minimap — drag the canvas to pan. Every diagram carries
-              <strong>SVG</strong> and <strong>PDF</strong> buttons in its toolbar. <strong>SVG</strong> downloads a sharp,
-              infinitely scalable image of the diagram; <strong>PDF</strong> opens your browser's print dialog, where you
-              choose <em>Save as PDF</em>.
+              screen; large diagrams also show an overview minimap — drag the canvas to pan. Every kind carries an
+              <strong>Export ▾</strong> menu: <strong>GEDCOM</strong> (first — downloads just the people currently drawn
+              as a standalone file a friend can merge into their own tree), <strong>SVG</strong> (a sharp, infinitely
+              scalable image) and <strong>PDF</strong> (opens your browser's print dialog, where you choose <em>Save as
+              PDF</em>). The Report adds a <strong>Text file</strong> option instead of SVG.
+            </p>
+            <h3>Timeline</h3>
+            <p>
+              The <strong>Timeline</strong> kind draws the selected person's immediate family as horizontal lifespan bars
+              on one shared year axis: parents (and a step-parent row, if one remarried) above, the person's own
+              generation — siblings and half-siblings interleaved by birth order — beside them, then each union's spouse
+              and children (and step-children) below. Small glyphs mark dated events on each bar
+              (<span aria-hidden="true">*</span> born, <span aria-hidden="true">~</span> baptized,
+              <span aria-hidden="true">†</span> died, <span aria-hidden="true">▭</span> buried,
+              <span aria-hidden="true">⌂</span> residence, <span aria-hidden="true">⚒</span> occupation,
+              <span aria-hidden="true">✎</span> education, <span aria-hidden="true">→</span>/<span
+              aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
+              marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
+              if the person is presumed living.
+            </p>
+            <h3 id="reports">Reports</h3>
+            <p>
+              The <strong>Report</strong> kind renders a text-based, numbered report instead of a diagram — the same
+              <strong>Ancestors / Descendants</strong> toggle as the pedigree charts switches between two classic
+              genealogical formats:
+            </p>
+            <ul>
+              <li><strong>Ahnentafel</strong> (Ancestors) — the standard ancestor numbering: the root person is no. 1,
+                their father 2<em>n</em>, their mother 2<em>n</em>+1, grouped by generation. A generation's heading shows
+                its entry-number range and how many of its ancestors are actually known (e.g. <em>3 of 4 known</em>). A
+                person who appears twice through a shared ancestor (pedigree collapse) shows once in full, with later
+                appearances as a clickable <em>“→ same as no. X”</em> link back to the original.</li>
+              <li><strong>Descendant register (NGSQ)</strong> (Descendants) — sequential numbering in the order each
+                person appears; every generation groups children under a clickable <em>“Children of NAME and
+                SPOUSE”</em> heading that jumps back to the parents' entry.</li>
+            </ul>
+            <p>A second toggle switches the writing style:</p>
+            <ul>
+              <li><strong>List</strong> — compact numbered fact lines (the Timeline's glyph vocabulary).</li>
+              <li><strong>Narrative</strong> — the same facts as flowing prose paragraphs, book-style, written in your
+                interface language. Sentences use the correct tense for people presumed still living, and Slovenian
+                narrative correctly declines dates and pronouns (place names are never inflected). Sources become
+                numbered footnote markers on the sentence they support; short notes are woven in parenthetically, longer
+                ones become their own footnote.</li>
+            </ul>
+            <p>
+              The <strong>Facts</strong> group in Chart settings adds optional lines (or narrative sentences) per person:
+              <strong>Occupation</strong>, <strong>Education</strong>, <strong>Residence</strong> (shared with the
+              Timeline's Residence bar), <strong>Notes</strong> and <strong>Sources</strong> (with a link to the cited
+              page or image, where one resolves). Click any entry to open its detail panel, re-root the report on that
+              person, or jump to <span class="gm-pill">Edit</span>. Export <strong>GEDCOM</strong> (everyone currently
+              listed), a plain <strong>Text file</strong>, or <strong>PDF</strong> — all three carry the same headings,
+              numbering and facts as the page.
             </p>
             <h3>Names &amp; identity</h3>
             <p>
@@ -531,8 +605,9 @@
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
               into your master on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
-              <strong>SVG</strong> / <strong>PDF</strong> export all work here just like the other diagrams
-              (see <a href="#edit">§9</a>).
+              <strong>Export ▾</strong> menu all work here just like the other diagrams (see <a href="#edit">§9</a>) —
+              except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
+              master.
             </p>
             <h3>Merging</h3>
             <p>
@@ -674,7 +749,11 @@
           </section>
 
           <section id="saving">
-            <h2><span class="guide-num">14</span>Saving &amp; reports</h2>
+            <h2><span class="guide-num">14</span>Saving &amp; the change report</h2>
+            <p>
+              <em>Looking for the Ahnentafel or descendant-register report? That's the Charts hub's
+              <a href="#reports">Report kind</a> (§9) — this section covers saving your file and its change log.</em>
+            </p>
             <p>
               Saving is one unified flow for both edits and merges. <strong>Save GEDCOM</strong>
               (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>) opens a <strong>preview</strong> listing
@@ -713,14 +792,16 @@
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
-            <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and tree nodes:</p>
+            <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and on every chart's nodes or
+              entries. The <strong>Badges</strong> toggle in Chart settings (§9) shows or hides these on charts; they
+              always show on the Merge match list.</p>
             <table class="gm-table">
               <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-badge c round">C</span></td><td>Confirmed match — it will be merged on save</td></tr>
                 <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match</td></tr>
                 <tr><td><span class="gm-badge d round">D</span></td><td>Deferred — decide later</td></tr>
-                <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on tree nodes)</td></tr>
+                <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts)</td></tr>
               </tbody>
             </table>
             <p><strong>Field-choice badges</strong> — rectangular, in the compare panel:</p>
@@ -766,15 +847,28 @@
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Redo</td></tr>
                 <tr><td><span class="gm-key">/</span></td><td>Search everyone in the file</td></tr>
                 <tr><td><span class="gm-key">?</span></td><td>Show the shortcut list</td></tr>
-                <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave the tree</td></tr>
+                <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave a chart page</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next person or item</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the open panel</td></tr>
                 <tr><td><span class="gm-key">Enter</span></td><td>Open the highlighted item (Tools)</td></tr>
-                <tr><td><span class="gm-key">V</span></td><td>Open the family / compare tree</td></tr>
-                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram (Edit)</td></tr>
+                <tr><td><span class="gm-key">V</span></td><td>Open the person's chart (tree, grid, fan, circle)</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
+                <tr><td><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Filter the match list by name (Merge)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
+              </tbody>
+            </table>
+            <p><strong>On a chart page</strong> (§9), these bare keys apply too:</p>
+            <table class="gm-table">
+              <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-key">1</span> … <span class="gm-key">7</span></td><td>Switch chart kind (Tree … Report)</td></tr>
+                <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
+                <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>
+                <tr><td><span class="gm-key">0</span></td><td>Reset zoom to 100%</td></tr>
+                <tr><td><span class="gm-key">F</span></td><td>Fit the whole chart on screen</td></tr>
               </tbody>
             </table>
           </section>
