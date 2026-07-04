@@ -496,7 +496,7 @@ export const sl = {
   "export.tooltip": "Prenesi ali natisni ta diagram",
   "export.svg": "Slika SVG",
   "export.pdf": "PDF (tiskanje)",
-  "export.txt": "Besedilna datoteka",
+  "export.txt": "Tekstovna datoteka",
   "tree.settings.button": "Diagram",
   "tree.settings.tooltip": "Nastavitve diagrama: polja in zasebnost",
   "tree.settings.type.tree": "Drevo",

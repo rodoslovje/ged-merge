@@ -16,7 +16,7 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { ZoomControls } from "./ZoomControls";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -249,7 +249,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
             },
             {
               key: "pdf",
-              icon: <FileTextIcon />,
+              icon: <PrinterIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),

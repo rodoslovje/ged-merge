@@ -51,7 +51,7 @@ import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
 import { BackButton } from "./BackButton";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -443,7 +443,7 @@ export function CompareTree({
             },
             {
               key: "pdf",
-              icon: <FileTextIcon />,
+              icon: <PrinterIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),

@@ -30,7 +30,7 @@ import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
 import { BackButton } from "./BackButton";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
@@ -308,7 +308,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
             },
             {
               key: "pdf",
-              icon: <FileTextIcon />,
+              icon: <PrinterIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
