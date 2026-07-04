@@ -166,11 +166,15 @@ describe("buildAhnentafel", () => {
     expect(generationHeading(tri, data.generations[2], "ancestors")).toEqual({
       title: "report.gen.n(n=2) — ahnentafel.gen.2",
       range: "report.gen.nos(from=4,to=7)",
+      coverage: "report.gen.known(known=3,of=4)", // no. 6 is unrecorded
     });
     expect(generationHeading(tri, data.generations[3], "ancestors")).toEqual({
       title: "report.gen.n(n=3) — ahnentafel.gen.3",
       range: "report.gen.no(n=8)", // a single-entry generation
+      coverage: "report.gen.known(known=1,of=8)",
     });
+    // Descendant generations are open-ended — no slot coverage.
+    expect(generationHeading(tri, data.generations[1], "descendants").coverage).toBeUndefined();
   });
 
   it("returns undefined for an unknown root", () => {

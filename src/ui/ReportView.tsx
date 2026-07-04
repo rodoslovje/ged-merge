@@ -111,6 +111,17 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
     [masterDs, changeRoot],
   );
 
+  // Cross-reference jump: scroll a numbered entry into view and flash it.
+  const jumpTo = useCallback((num: number) => {
+    const el = document.getElementById(`report-entry-${num}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Restart the flash animation on repeated jumps to the same entry.
+    el.classList.remove("report-flash");
+    void el.offsetWidth;
+    el.classList.add("report-flash");
+  }, []);
+
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
@@ -182,16 +193,21 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                   <h3 className="report-gen-head">
                     <span>{heading.title}</span>
                     {heading.range && <span className="report-gen-range gm-data">{heading.range}</span>}
+                    {heading.coverage && <span className="report-gen-range gm-data">· {heading.coverage}</span>}
                   </h3>
                   {g.entries.map((e, i) => (
                     <div key={`${e.num}-${i}`}>
-                      {/* Register generations group children under their parent. */}
+                      {/* Register generations group children under their parent;
+                          the heading jumps back to that parent's entry. */}
                       {e.parentNum !== undefined && e.parentNum !== g.entries[i - 1]?.parentNum && (
                         <h4 className="report-family-head">
-                          {t("register.childrenOf", { n: e.parentNum, name: e.parentName })}
+                          <button className="report-jump" onClick={() => jumpTo(e.parentNum!)}>
+                            {t("register.childrenOf", { n: e.parentNum, name: e.parentName })}
+                          </button>
                         </h4>
                       )}
                       <div
+                        id={e.dupOf === undefined ? `report-entry-${e.num}` : undefined}
                         className={`report-entry${e.id === selectedId ? " selected" : ""}`}
                         onClick={() => setSelectedId(e.id)}
                         title={t("tree.node.clickHint")}
@@ -202,7 +218,15 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                             <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
                             {e.dupOf !== undefined && (
-                              <span className="report-dup">→ {t("ahnentafel.dup", { n: e.dupOf })}</span>
+                              <button
+                                className="report-dup report-jump"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  jumpTo(e.dupOf!);
+                                }}
+                              >
+                                → {t("ahnentafel.dup", { n: e.dupOf })}
+                              </button>
                             )}
                           </div>
                           {!redacted(e) &&
@@ -261,7 +285,8 @@ function printDoc(
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
-    parts.push(`<h2>${escapeHtml(h.title)}${h.range ? ` <span class="range">· ${escapeHtml(h.range)}</span>` : ""}</h2>`);
+    const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${escapeHtml(s!)}`).join(" ");
+    parts.push(`<h2>${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
     let lastParent: number | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentNum !== lastParent) {

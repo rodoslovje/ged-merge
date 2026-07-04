@@ -3805,6 +3805,23 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.92em;
   margin-top: 1px;
 }
+/* Cross-reference jumps: the "same as no. X" ref and the "Children of no. X"
+   group heading scroll to the numbered entry, which flashes on arrival. */
+.report-jump {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.report-jump:hover { color: var(--accent); text-decoration: underline; }
+.report-flash { animation: report-flash 1.4s ease-out; }
+@keyframes report-flash {
+  0%, 30% { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
 
 /* Relationship chart: orthogonal connectors (top-down pedigree). */
 .relchart-edge {

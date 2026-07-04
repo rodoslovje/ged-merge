@@ -553,6 +553,7 @@ export const sl = {
   "report.gen.n": "{{n}}. generacija",
   "report.gen.no": "št. {{n}}",
   "report.gen.nos": "št. {{from}}–{{to}}",
+  "report.gen.known": "znanih {{known}} od {{of}}",
   "ahnentafel.pageTitle": "Seznam prednikov (Ahnentafel)",
   "ahnentafel.empty": "Ni osebe za poročilo.",
   "ahnentafel.gen.1": "Starši",

@@ -59,10 +59,12 @@ export interface ReportData {
 }
 
 /** A generation's band heading: "Generation 2 — Grandparents" plus the
- *  number range its entries span ("nos. 4–7"). */
+ *  number range its entries span ("nos. 4–7") and, for ancestors, how many
+ *  of the generation's slots are filled ("3 of 4 known"). */
 export interface GenerationHeading {
   title: string;
   range?: string;
+  coverage?: string;
 }
 
 /** The localized band heading for a generation, per report direction. */
@@ -80,12 +82,18 @@ export function generationHeading(
       : nums.length === 1
         ? t("report.gen.no", { n: nums[0] })
         : t("report.gen.nos", { from: Math.min(...nums), to: Math.max(...nums) });
+  // Ancestor generations have a fixed slot count (2^gen), so the entry count
+  // doubles as a research-coverage measure. Descendant counts are open-ended.
+  const coverage =
+    direction === "ancestors"
+      ? t("report.gen.known", { known: g.entries.length, of: 2 ** g.gen })
+      : undefined;
   const genN = t("report.gen.n", { n: g.gen });
   // Beyond great-grandparents/-children there's no everyday word — the
   // numbered title stands alone.
-  if (g.gen > 3) return { title: genN, range };
+  if (g.gen > 3) return { title: genN, range, coverage };
   const word = t(`${direction === "ancestors" ? "ahnentafel" : "register"}.gen.${g.gen}`);
-  return { title: `${genN} — ${word}`, range };
+  return { title: `${genN} — ${word}`, range, coverage };
 }
 
 export function makeEntry(

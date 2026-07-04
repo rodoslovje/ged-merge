@@ -21,7 +21,7 @@ export function reportToText(
   const lines: string[] = [title, "=".repeat(title.length), ""];
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
-    lines.push([h.title, h.range].filter(Boolean).join(" · "), "");
+    lines.push([h.title, h.range, h.coverage].filter(Boolean).join(" · "), "");
     let lastParent: number | undefined;
     for (const entry of g.entries) {
       // Register generations group children under their parent's entry.
