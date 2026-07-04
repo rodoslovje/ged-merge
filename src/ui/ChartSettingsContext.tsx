@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import type { ChartAlignment } from "../tree/treeLayout";
+import type { ChartAlignment } from "../chart/treeLayout";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
 // Compare Tree, Relationship chart). One instance drives all three so a change

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
-import { PAD, type Flat, type Placed } from "../tree/treeLayout";
-import type { NodeDisplayOptions } from "../tree/nodeDisplay";
+import { PAD, type Flat, type Placed } from "../chart/treeLayout";
+import type { NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { NodeBadge, TreeNodeBox } from "./TreeNodeBox";

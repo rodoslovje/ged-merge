@@ -11,8 +11,8 @@ import {
   TEXT_X_PLAIN,
   nameFit,
   truncate,
-} from "../tree/treeLayout";
-import { ALL_DISPLAY, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
+} from "../chart/treeLayout";
+import { ALL_DISPLAY, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../tree/treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../chart/treeLayout";
 
 /** Fraction of the visible canvas the minimap box may occupy on each axis —
    kept small so the overview stays a corner aid rather than covering the chart

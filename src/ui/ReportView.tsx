@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { TreeMode } from "../tree/compareTree";
+import type { TreeMode } from "../chart/personTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
 import {

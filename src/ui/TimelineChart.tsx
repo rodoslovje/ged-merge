@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "../tree/timeline";
-import { formatMarriage } from "../tree/nodeDisplay";
-import { PAD, type ChartNode } from "../tree/treeLayout";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
+import { buildTimeline, type TimelineRow } from "../chart/timeline";
+import { formatMarriage } from "../chart/nodeDisplay";
+import { PAD, type ChartNode } from "../chart/treeLayout";
+import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildRelationshipChart } from "./relationshipChartLayout";
-import { bloodPath, shortestPath } from "./relationshipPath";
+import { buildRelationshipChart } from "./relationshipLayout";
+import { bloodPath, shortestPath } from "../match/relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));

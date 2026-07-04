@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
-import { buildPersonTree, buildMatchMaps, countImportable } from "../tree/compareTree";
+import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";

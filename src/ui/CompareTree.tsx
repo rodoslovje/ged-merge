@@ -17,7 +17,7 @@ import {
   type NodeStatus,
   type TreeMode,
   type TreeNode,
-} from "../tree/compareTree";
+} from "../chart/personTree";
 import { useFanChart } from "./useFanChart";
 import { FanChartBody } from "./FanChartBody";
 import {
@@ -26,9 +26,9 @@ import {
   layoutGrid,
   nodeHeight,
   type Placed,
-} from "../tree/treeLayout";
-import { formatMarriage } from "../tree/nodeDisplay";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
+} from "../chart/treeLayout";
+import { formatMarriage } from "../chart/nodeDisplay";
+import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartMinimap } from "./ChartMinimap";
 import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";

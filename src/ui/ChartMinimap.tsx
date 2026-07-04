@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { minimapDefaultOpen, type ChartNode, type Viewport } from "../tree/treeLayout";
+import { minimapDefaultOpen, type ChartNode, type Viewport } from "../chart/treeLayout";
 import { TreeMinimap } from "./TreeMinimap";
 import { MapIcon } from "./icons/MapIcon";
 

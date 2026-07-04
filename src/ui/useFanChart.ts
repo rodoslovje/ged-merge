@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../tree/fanLayout";
-import type { TreeNode } from "../tree/compareTree";
-import type { NodeDisplayOptions } from "../tree/nodeDisplay";
+import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../chart/fanLayout";
+import type { TreeNode } from "../chart/personTree";
+import type { NodeDisplayOptions } from "../chart/nodeDisplay";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
 // Compare trees: build the FanChart from the (prebuilt) ancestors tree and

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { TreeMode } from "../tree/compareTree";
+import type { TreeMode } from "../chart/personTree";
 import type { CandidateDecision } from "../review/types";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";

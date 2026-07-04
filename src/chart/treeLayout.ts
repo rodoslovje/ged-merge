@@ -3,7 +3,7 @@
 // SVG connector paths. Both views render different node contents on top of this
 // identical skeleton, so the geometry lives here once.
 
-import type { TreeNode } from "./compareTree";
+import type { TreeNode } from "./personTree";
 
 /** Which way a layered diagram grows: left→right (default) or top→bottom. The
  *  canonical home for the type — the UI's ChartSettings re-exports it. */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NODE_H, NODE_W, PAD, type ChartAlignment, type ChartNode, type Viewport } from "./treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartAlignment, type ChartNode, type Viewport } from "../chart/treeLayout";
 
 /** Zoom range and the per-click button step. Wheel zoom is continuous within this
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */

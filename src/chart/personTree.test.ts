@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "../match/engine";
-import { buildPersonTree, buildMatchMaps, countTreePeople, type TreeNode } from "./compareTree";
+import { buildPersonTree, buildMatchMaps, countTreePeople, type TreeNode } from "./personTree";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));

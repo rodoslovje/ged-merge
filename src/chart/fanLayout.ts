@@ -16,7 +16,7 @@
 // `TreeNode` from `buildPersonTree(..., "ancestors")`.
 
 import { PAD } from "./treeLayout";
-import type { TreeNode } from "./compareTree";
+import type { TreeNode } from "./personTree";
 import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";

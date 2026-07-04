@@ -60,7 +60,7 @@ import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { PhotoViewerProvider } from "./ui/PhotoViewer";
-import type { TreeMode } from "./tree/compareTree";
+import type { TreeMode } from "./chart/personTree";
 import {
   applyFilters,
   DEFAULT_FILTERS,

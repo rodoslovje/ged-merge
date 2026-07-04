@@ -2,17 +2,17 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
-import { buildPersonTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
+import { buildPersonTree, countTreePeople, type TreeMode, type TreeNode } from "../chart/personTree";
 import {
   flatten,
   layout,
   layoutGrid,
   nodeHeight,
   type Placed,
-} from "../tree/treeLayout";
+} from "../chart/treeLayout";
 import { useFanChart } from "./useFanChart";
-import { formatMarriage } from "../tree/nodeDisplay";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
+import { formatMarriage } from "../chart/nodeDisplay";
+import { useTreeCanvas } from "./useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";

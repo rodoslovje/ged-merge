@@ -11,11 +11,11 @@
 
 import type { Dataset, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
-import { NODE_H, NODE_W, PAD, type ChartAlignment } from "../tree/treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
 import { localityParts } from "../gedcom/place";
-import { displayName, primaryName } from "./relatives";
-import type { MarriageInfo } from "../tree/compareTree";
-import type { RelationshipPath } from "./relationshipPath";
+import { displayName, primaryName } from "../match/relatives";
+import type { MarriageInfo } from "./personTree";
+import type { RelationshipPath } from "../match/relationshipPath";
 
 export const ROW_GAP_TD = 72;
 export const COL_GAP_TD = 44;

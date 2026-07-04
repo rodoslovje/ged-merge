@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
-import { PAD } from "../tree/treeLayout";
-import type { FanChart, FanSegment } from "../tree/fanLayout";
-import type { TreeNode } from "../tree/compareTree";
+import { PAD } from "../chart/treeLayout";
+import type { FanChart, FanSegment } from "../chart/fanLayout";
+import type { TreeNode } from "../chart/personTree";
 import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { NodeBadge } from "./TreeNodeBox";

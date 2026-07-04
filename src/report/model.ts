@@ -6,12 +6,12 @@
 import type { Dataset, Family, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS } from "../tree/timeline";
-import { MARRIAGE_SYMBOL } from "../tree/nodeDisplay";
+import { EVENT_GLYPHS } from "../chart/timeline";
+import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
-export type { NameOf } from "../tree/timeline";
-import type { NameOf } from "../tree/timeline";
+export type { NameOf } from "../chart/timeline";
+import type { NameOf } from "../chart/timeline";
 
 /** One fact line under an entry: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`. */
 export interface FactLine {
