@@ -56,6 +56,10 @@ export interface ChartSettings {
   showResidence: boolean;
   /** Report: add ⚒ occupation fact lines. */
   showOccupation: boolean;
+  /** Report: add ✎ education fact lines. */
+  showEducation: boolean;
+  /** Report: show person notes under the name and event notes under the fact. */
+  showNotes: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -73,6 +77,8 @@ const DEFAULTS: ChartSettings = {
   timelineEventLabels: false,
   showResidence: false,
   showOccupation: false,
+  showEducation: false,
+  showNotes: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -133,6 +139,8 @@ function load(): ChartSettings {
         DEFAULTS.showResidence,
       ),
       showOccupation: bool(parsed.showOccupation, DEFAULTS.showOccupation),
+      showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
+      showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
     };
   } catch {
     return DEFAULTS;

@@ -26,12 +26,17 @@ export interface FactLine {
   place?: string;
   /** Marriage lines carry the partner's display name. */
   spouse?: string;
+  /** The event's note, shown under the fact line when notes are enabled. */
+  note?: string;
 }
 
 /** The optional fact lines a report can add beyond the vitals. */
 export interface ReportFactOptions {
   occupation?: boolean;
+  education?: boolean;
   residence?: boolean;
+  /** Person notes under the name, event notes under their fact line. */
+  notes?: boolean;
 }
 
 /** One numbered person in a report. */
@@ -60,6 +65,8 @@ export interface ReportEntry {
   /** Register report: position among the union's children in birth order
    *  (1-based), rendered as the NGSQ small roman numeral (i, ii, iii …). */
   childIndex?: number;
+  /** Record-level person notes, shown under the name when notes are enabled. */
+  notes?: string[];
   facts: FactLine[];
 }
 
@@ -149,42 +156,53 @@ export function makeEntry(
   };
 }
 
-/** The optional mid-life fact lines: every ⚒ occupation and ✎ education,
- *  then every ⌂ residence, in record order. No conventional genealogy symbol
- *  exists for these; ⚒ and ✎ are the closest widely-understood glyphs. */
+/** The optional mid-life fact lines: every ⚒ occupation, ✎ education and
+ *  ⌂ residence, in record order per kind. No conventional genealogy symbol
+ *  exists for the first two; ⚒ and ✎ are the closest widely-understood glyphs. */
 export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[] {
   const out: FactLine[] = [];
   if (opts.occupation) {
     for (const e of indi.events) {
-      if ((e.tag !== "OCCU" && e.tag !== "EDUC") || (!e.value && !dated(e))) continue;
-      out.push({ tag: e.tag, glyph: e.tag === "OCCU" ? "⚒" : "✎", value: e.value, date: e.date?.raw, place: factPlace(e) });
+      if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
+      out.push(withNote({ tag: "OCCU", glyph: "⚒", value: e.value, date: e.date?.raw, place: factPlace(e) }, e, opts));
+    }
+  }
+  if (opts.education) {
+    for (const e of indi.events) {
+      if (e.tag !== "EDUC" || (!e.value && !dated(e))) continue;
+      out.push(withNote({ tag: "EDUC", glyph: "✎", value: e.value, date: e.date?.raw, place: factPlace(e) }, e, opts));
     }
   }
   if (opts.residence) {
     for (const e of indi.events) {
       if (e.tag !== "RESI" || !dated(e)) continue;
-      out.push({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, place: factPlace(e) });
+      out.push(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, place: factPlace(e) }, e, opts));
     }
   }
   return out;
 }
 
 /** A fact line for the first of the given events that has a date or a place. */
-export function factFor(indi: Individual, tags: string[]): FactLine | undefined {
+export function factFor(indi: Individual, tags: string[], opts: ReportFactOptions = {}): FactLine | undefined {
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      return { tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) };
+      return withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) }, e, opts);
     }
   }
   return undefined;
 }
 
 /** The union's ⚭ line, when its MARR event carries a date or a place. */
-export function marriageFact(fam: Family, spouse: string | undefined): FactLine | undefined {
+export function marriageFact(fam: Family, spouse: string | undefined, opts: ReportFactOptions = {}): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr || !dated(marr)) return undefined;
-  return { tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse };
+  return withNote({ tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse }, marr, opts);
+}
+
+function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
+  if (opts.notes && e.note) fact.note = e.note;
+  return fact;
 }
 
 /** A fact's display location. Unlike the Timeline's compact one-word labels,

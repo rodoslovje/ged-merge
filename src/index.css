@@ -3806,6 +3806,16 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.92em;
   margin-top: 1px;
 }
+/* Notes (gear toggle): person notes under the name, event notes under their
+   fact line — italic, and preserving the note's own line breaks. */
+.report-note {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  margin: 1px 0 2px;
+}
+.report-fact > .report-note { margin-left: 1.2em; }
 /* Cross-reference jumps: the "same as no. X" ref and the "Children of no. X"
    group heading scroll to the numbered entry, which flashes on arrival. */
 .report-jump {

@@ -37,11 +37,12 @@ export function reportToText(
   return lines.join("\n").replace(/\n+$/, "\n");
 }
 
-/** The per-union group heading, naming both parents when the spouse is known. */
+/** The per-union group heading, naming both parents when the spouse is known
+ *  (the parent's register number is redundant next to their name). */
 export function childrenOfLabel(t: Translate, entry: ReportEntry): string {
   return entry.parentSpouse
-    ? t("register.childrenOfBoth", { n: entry.parentNum, name: entry.parentName, spouse: entry.parentSpouse })
-    : t("register.childrenOf", { n: entry.parentNum, name: entry.parentName });
+    ? t("register.childrenOfBoth", { name: entry.parentName, spouse: entry.parentSpouse })
+    : t("register.childrenOf", { name: entry.parentName });
 }
 
 /** The entry's leading number: "5." for ancestors and the root, the NGSQ
@@ -59,7 +60,19 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   }
   if (redacted) return [head];
   const indent = " ".repeat(num.length + 1);
-  return [head, ...entry.facts.map((f) => indent + factText(f))];
+  const lines = [head];
+  // Person notes under the name, event notes indented under their fact line.
+  for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
+  for (const f of entry.facts) {
+    lines.push(indent + factText(f));
+    if (f.note) lines.push(...noteLines(f.note, indent + "  "));
+  }
+  return lines;
+}
+
+/** A note's text as indented lines (notes may span several lines). */
+function noteLines(note: string, indent: string): string[] {
+  return note.split("\n").map((l) => indent + l);
 }
 
 /** One fact line, date always first: `⚭ 4 FEB 1866, Škofja Loka — Marija

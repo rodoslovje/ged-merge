@@ -163,15 +163,19 @@ describe("buildAhnentafel", () => {
         "1 RESI\n2 DATE 1950\n2 PLAC Kranj\n2 ADDR Dunajska 5\n1 RESI\n", // the undated, placeless RESI is dropped
     );
     const ds2 = dataset(busy);
-    // Off by default.
+    // Off by default; each kind has its own toggle.
     expect(buildAhnentafel(ds2, "@I1@", nameOf, NOW)!.generations[0].entries[0].facts.map((f) => f.tag))
       .toEqual(["BIRT", "DEAT"]);
-    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { occupation: true, residence: true })!;
+    expect(
+      buildAhnentafel(ds2, "@I1@", nameOf, NOW, { education: true })!
+        .generations[0].entries[0].facts.map((f) => f.tag),
+    ).toEqual(["BIRT", "EDUC", "DEAT"]);
+    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { occupation: true, education: true, residence: true })!;
     expect(on.generations[0].entries[0].facts).toEqual([
       { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
-      { tag: "EDUC", glyph: "✎", value: "Gimnazija", date: "1918", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
+      { tag: "EDUC", glyph: "✎", value: "Gimnazija", date: "1918", place: undefined },
       { tag: "RESI", glyph: "⌂", date: "1950", place: "Dunajska 5, Kranj" },
       { tag: "DEAT", glyph: "†", date: "1980", place: undefined },
     ]);
@@ -179,6 +183,24 @@ describe("buildAhnentafel", () => {
     const text = reportToText(tr, on, "ancestors", "T");
     expect(text).toContain("⚒ 1930, Farmer");
     expect(text).toContain("✎ 1918, Gimnazija");
+  });
+
+  it("carries person and event notes when the notes option is on", () => {
+    const noted = wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE Emigrated twice.\n" +
+        "1 BIRT\n2 DATE 1900\n2 NOTE Born at home.\n1 DEAT\n2 DATE 1980\n",
+    );
+    const ds2 = dataset(noted);
+    // Off by default.
+    const off = buildAhnentafel(ds2, "@I1@", nameOf, NOW)!.generations[0].entries[0];
+    expect(off.notes).toBeUndefined();
+    expect(off.facts[0].note).toBeUndefined();
+    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { notes: true })!.generations[0].entries[0];
+    expect(on.notes).toEqual(["Emigrated twice."]);
+    expect(on.facts[0].note).toBe("Born at home.");
+    // Text: person note under the name, event note indented under its fact.
+    const text = reportToText(tr, buildAhnentafel(ds2, "@I1@", nameOf, NOW, { notes: true })!, "ancestors", "T");
+    expect(text).toContain("1. Solo One (1900–1980)\n   Emigrated twice.\n   * 1900\n     Born at home.");
   });
 
   it("composes generation band headings with the entries' number range", () => {

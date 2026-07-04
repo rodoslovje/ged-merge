@@ -61,6 +61,7 @@ export function buildDescendants(
       const num = dupOf ?? ++counter;
       const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts), nowYear, dupOf);
       Object.assign(entry, family);
+      if (dupOf === undefined && opts.notes && indi.notes?.length) entry.notes = indi.notes;
       entries.push(entry);
       total++;
       if (dupOf !== undefined) continue; // their children are listed there
@@ -102,15 +103,15 @@ function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactO
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner));
+      return marriageFact(fam, partner && nameOf(partner), opts);
     })
     .filter((f): f is FactLine => f !== undefined);
   return [
-    factFor(indi, ["BIRT"]),
-    factFor(indi, ["BAPM", "CHR"]),
+    factFor(indi, ["BIRT"], opts),
+    factFor(indi, ["BAPM", "CHR"], opts),
     ...marriages,
     ...extraFacts(indi, opts),
-    factFor(indi, ["DEAT"]),
-    factFor(indi, ["BURI", "CREM"]),
+    factFor(indi, ["DEAT"], opts),
+    factFor(indi, ["BURI", "CREM"], opts),
   ].filter((f): f is FactLine => f !== undefined);
 }

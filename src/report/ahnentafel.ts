@@ -45,7 +45,9 @@ export function buildAhnentafel(
 
     for (const { num, indi, marriage } of queue) {
       const dupOf = firstNum.get(indi.id);
-      entries.push(makeEntry(indi, num, nameOf, vitals(indi, marriage, opts), nowYear, dupOf));
+      const entry = makeEntry(indi, num, nameOf, vitals(indi, marriage, opts), nowYear, dupOf);
+      if (dupOf === undefined && opts.notes && indi.notes?.length) entry.notes = indi.notes;
+      entries.push(entry);
       total++;
       if (dupOf !== undefined) continue; // the line already continues there
       firstNum.set(indi.id, num);
@@ -65,13 +67,13 @@ export function buildAhnentafel(
       // to the mother's entry so the date/place isn't lost.
       if (father) {
         const wife = famF!.wife ? ds.individuals.get(famF!.wife) : undefined;
-        next.push({ num: 2 * num, indi: father, marriage: marriageFact(famF!, wife && nameOf(wife)) });
+        next.push({ num: 2 * num, indi: father, marriage: marriageFact(famF!, wife && nameOf(wife), opts) });
       }
       if (mother) {
         next.push({
           num: 2 * num + 1,
           indi: mother,
-          marriage: father ? undefined : marriageFact(famM!, undefined),
+          marriage: father ? undefined : marriageFact(famM!, undefined, opts),
         });
       }
     }
@@ -86,11 +88,11 @@ export function buildAhnentafel(
 /** Facts in report order: * ~ ⚭, the optional ⚒/⌂ lines, then † ▭. */
 function vitals(indi: Individual, marriage: FactLine | undefined, opts: ReportFactOptions): FactLine[] {
   return [
-    factFor(indi, ["BIRT"]),
-    factFor(indi, ["BAPM", "CHR"]),
+    factFor(indi, ["BIRT"], opts),
+    factFor(indi, ["BAPM", "CHR"], opts),
     marriage,
     ...extraFacts(indi, opts),
-    factFor(indi, ["DEAT"]),
-    factFor(indi, ["BURI", "CREM"]),
+    factFor(indi, ["DEAT"], opts),
+    factFor(indi, ["BURI", "CREM"], opts),
   ].filter((f): f is FactLine => f !== undefined);
 }

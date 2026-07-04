@@ -71,8 +71,13 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
   // Both directions build (they also feed the toggle's count badges); the
   // toggle picks which one the page shows.
   const factOpts = useMemo(
-    () => ({ occupation: settings.showOccupation, residence: settings.showResidence }),
-    [settings.showOccupation, settings.showResidence],
+    () => ({
+      occupation: settings.showOccupation,
+      education: settings.showEducation,
+      residence: settings.showResidence,
+      notes: settings.showNotes,
+    }),
+    [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes],
   );
   const ancestors = useMemo(
     () => buildAhnentafel(masterDs, currentRootId, nameOf, undefined, factOpts),
@@ -237,9 +242,16 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                             )}
                           </div>
                           {!redacted(e) &&
+                            (e.notes ?? []).map((note, j) => (
+                              <div key={`n${j}`} className="report-note">
+                                {note}
+                              </div>
+                            ))}
+                          {!redacted(e) &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
                                 {factText(f)}
+                                {f.note && <div className="report-note">{f.note}</div>}
                               </div>
                             ))}
                         </div>
@@ -305,8 +317,14 @@ function printDoc(
         `<span class="num">${escapeHtml(entryNum(e))}</span> <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
-      const facts = hidden ? [] : e.facts.map((f) => `<div class="fact">${escapeHtml(factText(f))}</div>`);
-      parts.push(`<div class="entry">${head}${facts.join("")}</div>`);
+      const notes = hidden ? [] : (e.notes ?? []).map((n) => `<div class="note">${escapeHtml(n)}</div>`);
+      const facts = hidden
+        ? []
+        : e.facts.map(
+            (f) =>
+              `<div class="fact">${escapeHtml(factText(f))}${f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : ""}</div>`,
+          );
+      parts.push(`<div class="entry">${head}${notes.join("")}${facts.join("")}</div>`);
     }
   }
   // Browsers seed the "Save as PDF" filename from the document <title>.
@@ -322,5 +340,8 @@ function printDoc(
   .num { display: inline-block; min-width: 3em; text-align: right; }
   .years, .dup { color: #444; }
   .fact { margin-left: 2.6em; color: #222; }
+  .note { font-style: italic; color: #444; white-space: pre-wrap; }
+  .entry > .note { margin-left: 2.6em; }
+  .fact > .note { margin-left: 1.2em; }
 </style></head><body>${parts.join("")}</body></html>`;
 }

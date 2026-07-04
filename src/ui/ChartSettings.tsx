@@ -173,11 +173,25 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
                   {t("tree.settings.report.occupation")}
                 </button>
                 <button
+                  className={settings.showEducation ? "active" : ""}
+                  aria-pressed={settings.showEducation}
+                  onClick={() => set({ showEducation: !settings.showEducation })}
+                >
+                  {t("tree.settings.report.education")}
+                </button>
+                <button
                   className={settings.showResidence ? "active" : ""}
                   aria-pressed={settings.showResidence}
                   onClick={() => set({ showResidence: !settings.showResidence })}
                 >
                   {t("tree.settings.report.residence")}
+                </button>
+                <button
+                  className={settings.showNotes ? "active" : ""}
+                  aria-pressed={settings.showNotes}
+                  onClick={() => set({ showNotes: !settings.showNotes })}
+                >
+                  {t("tree.settings.report.notes")}
                 </button>
               </div>
             </div>
