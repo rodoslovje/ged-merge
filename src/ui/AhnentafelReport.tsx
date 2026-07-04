@@ -110,7 +110,7 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
             pageKind
           )}
         </h2>
-        <ChartSettings lockedType="ahnentafel" />
+        <ChartSettings lockedType="report" />
         <ExportMenu
           disabled={!data}
           items={[

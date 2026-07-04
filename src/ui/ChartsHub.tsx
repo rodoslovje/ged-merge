@@ -23,7 +23,7 @@ import { StartPersonSelector } from "./StartPersonSelector";
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship,
  *  then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "ahnentafel"];
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "report"];
 
 interface Props {
   masterDs: Dataset;
@@ -67,7 +67,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
     />
   );
 
-  if (settings.kind === "ahnentafel") {
+  if (settings.kind === "report") {
     return (
       <AhnentafelReport
         masterDs={masterDs}
