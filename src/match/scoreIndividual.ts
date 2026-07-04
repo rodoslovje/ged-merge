@@ -1,4 +1,4 @@
-import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
 import { birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { estimatedBirthYear } from "./birthEstimate";
 import { displayName, pairTitle, primaryName } from "./relatives";
@@ -17,6 +17,7 @@ import {
   givenSimilarity,
   nameSetSimilarity,
   nameSimilarity,
+  parentGivenVerdict,
   placeSimilarity,
 } from "./similarity";
 import { foldToken, jaroWinkler } from "./text";
@@ -81,7 +82,8 @@ export function scoreIndividualPair(
   // absence (e.g. living people) is skipped rather than penalized.
   const md = cachedFindEvent(master, "DEAT");
   const cd = cachedFindEvent(compare, "DEAT");
-  add(components, "deathDate", w.deathDate, dateSimilarity(md?.date, cd?.date), `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
+  const deathSim = dateSimilarity(md?.date, cd?.date);
+  add(components, "deathDate", w.deathDate, deathSim, `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
 
   if (master.sex !== "U" && compare.sex !== "U") {
@@ -143,9 +145,8 @@ export function scoreIndividualPair(
   // same-surname skeleton pairs with every other one, quadratically.
   const anchored =
     Boolean(mn?.given && cn?.given && mn?.surname && cn?.surname) ||
-    (birthSim !== undefined && birthSim >= 0.9 &&
-      mb?.date?.qualifier === "exact" && cb?.date?.qualifier === "exact" &&
-      mb.date.month !== undefined && cb.date.month !== undefined) ||
+    anchoringDate(birthSim, mb?.date, cb?.date) ||
+    anchoringDate(deathSim, md?.date, cd?.date) ||
     components.some((c) => c.key === "parents" || c.key === "partners" || c.key === "children");
   if (!anchored) score01 = Math.min(score01, UNANCHORED_CEILING);
 
@@ -213,15 +214,6 @@ const GIVEN_CONFLICT_SIM = 0.7;
 const GIVEN_CONFLICT_PENALTY = 0.8;
 
 /**
- * Minimum given-name similarity for two parents in one role to count as the
- * same person (mirrors the threshold the duplicate passes use). Measured:
- * distinct fathers sit at ≤0.6 (Miko/Franc 0.0, Mihael/Florijan 0.53), while
- * recording variants of one father sit above it (Miko/Mihael 0.69,
- * Janez/Johann 0.73, Anton/Antonius 0.93).
- */
-const PARENT_GIVEN_MATCH = 0.6;
-
-/**
  * Multiplier when both parents conflict (see the call site). Same magnitude
  * as the given-name conflict penalty, and stacking with it: a pair wrong on
  * both its own name and its family is crushed to ~0.64× — firmly out of the
@@ -243,6 +235,22 @@ const PARENT_CONFLICT_PENALTY = 0.8;
  */
 const UNANCHORED_CEILING = 0.6;
 
+/** True when a date pair anchors the identity: both sides assert an exact
+ *  date with at least month precision and they agree (>= 0.9 — same month, at
+ *  worst a day apart). Approximate/estimated years and bare-year agreements
+ *  don't qualify. Used for birth and death alike. */
+function anchoringDate(
+  sim: number | undefined,
+  a: GedDate | undefined,
+  b: GedDate | undefined,
+): boolean {
+  return (
+    sim !== undefined && sim >= 0.9 &&
+    a?.qualifier === "exact" && b?.qualifier === "exact" &&
+    a.month !== undefined && b.month !== undefined
+  );
+}
+
 /** True when both records name a father and a mother (given names on both
  *  sides) and *each* role's given names are too dissimilar to be the same
  *  person — different-family evidence strong enough for a score penalty. */
@@ -257,9 +265,11 @@ function bothParentsConflict(
   const mm = comparableName(cachedMotherName(master, masterDs))?.given;
   const mc = comparableName(cachedMotherName(compare, compareDs))?.given;
   if (!fm || !fc || !mm || !mc) return false;
+  // Both roles must sit in the shared conflict band (see parentGivenVerdict) —
+  // the same boundary the duplicate vetoes use.
   return (
-    givenSimilarity(fm, fc) < PARENT_GIVEN_MATCH &&
-    givenSimilarity(mm, mc) < PARENT_GIVEN_MATCH
+    parentGivenVerdict(fm, fc) === "conflict" &&
+    parentGivenVerdict(mm, mc) === "conflict"
   );
 }
 

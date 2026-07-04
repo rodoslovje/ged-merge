@@ -7,7 +7,7 @@ import {
 } from "./scoreIndividual";
 import { birthYear } from "../gedcom/lifespan";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
-import { comparableName, givenSimilarity } from "./similarity";
+import { comparableName, givenSimilarity, parentGivenVerdict } from "./similarity";
 import { primaryName } from "./relatives";
 import { clearTextCaches, soundex } from "./text";
 import {
@@ -83,9 +83,6 @@ const SAME_PERSON_GIVEN = 0.85;
 /** Max birth-year gap tolerated between duplicate copies. Small enough to reject
  *  a namesake parent/child (decades apart) but to allow a transcription slip. */
 const DUP_MAX_YEAR_DIFF = 3;
-/** Min given-name similarity for two parents (one role) to count as the same. */
-const PARENT_GIVEN_MATCH = 0.6;
-
 /** Given names too dissimilar to be one person (e.g. siblings sharing a surname). */
 function differentGiven(a: Individual, b: Individual): boolean {
   const ga = comparableName(primaryName(a))?.given;
@@ -102,21 +99,22 @@ function birthYearsTooFar(a: Individual, b: Individual): boolean {
   return Math.abs(ya - yb) > DUP_MAX_YEAR_DIFF;
 }
 
-/** True when both records have comparable parents and every comparable role
- *  disagrees — same-named cousins, not one person twice. */
+/** True when some comparable parental role clearly conflicts and none agrees
+ *  — same-named cousins, not one person twice. Uses the shared three-band
+ *  verdict (see `parentGivenVerdict`), so a similarity in the ambiguous gap
+ *  between the bands neither vetoes nor rescues. */
 function parentsConflict(a: Individual, b: Individual, ds: Dataset): boolean {
-  const roles: Array<[string | undefined, string | undefined]> = [
-    [comparableName(cachedFatherName(a, ds))?.given, comparableName(cachedFatherName(b, ds))?.given],
-    [comparableName(cachedMotherName(a, ds))?.given, comparableName(cachedMotherName(b, ds))?.given],
+  const verdicts = [
+    parentGivenVerdict(
+      comparableName(cachedFatherName(a, ds))?.given,
+      comparableName(cachedFatherName(b, ds))?.given,
+    ),
+    parentGivenVerdict(
+      comparableName(cachedMotherName(a, ds))?.given,
+      comparableName(cachedMotherName(b, ds))?.given,
+    ),
   ];
-  let comparable = false;
-  let agree = false;
-  for (const [x, y] of roles) {
-    if (!x || !y) continue;
-    comparable = true;
-    if (givenSimilarity(x, y) >= PARENT_GIVEN_MATCH) agree = true;
-  }
-  return comparable && !agree;
+  return verdicts.includes("conflict") && !verdicts.includes("agree");
 }
 
 /**

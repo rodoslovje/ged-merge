@@ -6,7 +6,7 @@ import {
   sexConflicts,
 } from "../match/scoreIndividual";
 import { cachedFatherName, cachedFindEvent, cachedMotherName } from "../match/profileCache";
-import { comparableName, givenSimilarity } from "../match/similarity";
+import { comparableName, givenSimilarity, parentGivenVerdict } from "../match/similarity";
 import { soundex } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label, primaryName } from "../match/relatives";
@@ -189,18 +189,6 @@ function distinctRelatives(a: Individual, b: Individual, ds: Dataset): boolean {
   return false;
 }
 
-/**
- * Given-name similarity bands for one parental role. Distinct parents measure
- * ≤ 0.6 (Anton/Jakob exactly 0.600, Primož/Janez 0.46, Mihael/Florijan 0.53)
- * while recording variants of one parent sit at 0.69+ (Miko/Mihael 0.69,
- * Janez/Johann 0.73, Anton/Antonius 0.93) — so a conflict is only called
- * below 0.65, agreement only from 0.75 up, and the gap between the bands
- * stays "unknown" rather than forcing an unreliable call either way. (The
- * old single 0.6 threshold counted Anton/Jakob as an *agreement*, which let
- * same-named cousins through the veto.)
- */
-const PARENT_GIVEN_AGREE = 0.75;
-const PARENT_GIVEN_CONFLICT = 0.65;
 
 /** Minimum given-name similarity (0..1) for two records to be the same person
  *  rather than distinct relatives. Sits in the gap between distinct given names
@@ -211,13 +199,9 @@ const SAME_PERSON_GIVEN = 0.85;
 
 /** Compare one parental role across the two records: do the given names agree,
  *  conflict, or is there too little data to tell? (Also "unknown" for the
- *  band between the conflict and agree thresholds — see the bands above.) */
+ *  band between the conflict and agree thresholds — see `parentGivenVerdict`.) */
 function parentGivens(a: PersonName | undefined, b: PersonName | undefined): "agree" | "conflict" | "unknown" {
-  if (!a?.given || !b?.given) return "unknown";
-  const sim = givenSimilarity(a.given, b.given);
-  if (sim >= PARENT_GIVEN_AGREE) return "agree";
-  if (sim < PARENT_GIVEN_CONFLICT) return "conflict";
-  return "unknown";
+  return parentGivenVerdict(a?.given, b?.given);
 }
 
 /**

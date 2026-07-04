@@ -407,6 +407,15 @@ describe("no-hard-evidence ceiling", () => {
     expect(r[0].score).toBeGreaterThan(70);
   });
 
+  it("keeps a surname-less pair anchored by a day-exact death agreement", () => {
+    // Born-year estimates only, but the death date matches to the day.
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1880\n1 DEAT\n2 DATE 2 FEB 1955\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1882\n1 DEAT\n2 DATE 2 FEB 1955\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(60);
+  });
+
   it("keeps an undated pair anchored by a comparable full name", () => {
     const m = "0 @M@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
     const c = "0 @C@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";

@@ -29,6 +29,33 @@ export function comparableName(n: PersonName | undefined): PersonName | undefine
   return { ...n, given, surname, full };
 }
 
+/**
+ * Given-name similarity bands for one parental role. Distinct parents measure
+ * ≤ 0.6 (Anton/Jakob exactly 0.600, Primož/Janez 0.46, Mihael/Florijan 0.53)
+ * while recording variants of one parent sit at 0.69+ (Miko/Mihael 0.69,
+ * Janez/Johann 0.73, Anton/Antonius 0.93) — so a conflict is only called
+ * below 0.65, agreement only from 0.75 up, and the gap between the bands
+ * stays "unknown" rather than forcing an unreliable call either way. (An
+ * earlier single 0.6 threshold counted Anton/Jakob as an *agreement*, which
+ * let same-named cousins through the duplicate vetoes.)
+ */
+export const PARENT_GIVEN_AGREE = 0.75;
+export const PARENT_GIVEN_CONFLICT = 0.65;
+
+/** Verdict for one parental role given the two (real, non-placeholder) given
+ *  names — see the band constants above. "unknown" when either is absent or
+ *  the similarity falls between the bands. */
+export function parentGivenVerdict(
+  a: string | undefined,
+  b: string | undefined,
+): "agree" | "conflict" | "unknown" {
+  if (!a || !b) return "unknown";
+  const sim = givenSimilarity(a, b);
+  if (sim >= PARENT_GIVEN_AGREE) return "agree";
+  if (sim < PARENT_GIVEN_CONFLICT) return "conflict";
+  return "unknown";
+}
+
 export function nameSimilarity(a: PersonName, b: PersonName): number | undefined {
   const parts: Array<[number, number]> = []; // [weight, score]
 
