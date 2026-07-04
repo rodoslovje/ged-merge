@@ -1,4 +1,4 @@
-import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
 import { birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { estimatedBirthYear } from "./birthEstimate";
 import { displayName, pairTitle, primaryName } from "./relatives";
@@ -8,14 +8,16 @@ import {
   cachedFindEvent,
   cachedMarriageEvents,
   cachedMotherName,
-  cachedParentNames,
   cachedPartnerNames,
 } from "./profileCache";
 import {
+  comparableName,
   dateSimilarity,
+  givenNameSetSimilarity,
   givenSimilarity,
   nameSetSimilarity,
   nameSimilarity,
+  parentGivenVerdict,
   placeSimilarity,
 } from "./similarity";
 import { foldToken, jaroWinkler } from "./text";
@@ -40,8 +42,11 @@ export function scoreIndividualPair(
 ): IndividualCandidate {
   const w = config.individualWeights;
   const components: ScoreComponent[] = [];
-  const mn = primaryName(master);
-  const cn = primaryName(compare);
+  // Placeholder name parts ("Living", "NN", "?Ime?") are treated as missing —
+  // see comparableName — so they earn the missing-key penalty instead of a
+  // perfect placeholder-to-placeholder match.
+  const mn = comparableName(primaryName(master));
+  const cn = comparableName(primaryName(compare));
 
   // Surname, given name and birth year form the identity key: each is always
   // scored, and a side that's missing the field is charged `missingKeyScore`
@@ -77,16 +82,24 @@ export function scoreIndividualPair(
   // absence (e.g. living people) is skipped rather than penalized.
   const md = cachedFindEvent(master, "DEAT");
   const cd = cachedFindEvent(compare, "DEAT");
-  add(components, "deathDate", w.deathDate, dateSimilarity(md?.date, cd?.date), `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
+  const deathSim = dateSimilarity(md?.date, cd?.date);
+  add(components, "deathDate", w.deathDate, deathSim, `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
 
   if (master.sex !== "U" && compare.sex !== "U") {
     add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
   }
 
-  add(components, "parents", w.parents, nameSetSimilarity(cachedParentNames(master, masterDs), cachedParentNames(compare, compareDs)), "parents");
+  // Parents are compared role-wise (father↔father, mother↔mother) with the
+  // father reduced to his given name — his surname is the family surname the
+  // surname component already scored, so including it only inflated the score
+  // for *any* same-surname pair (different fathers still reached ~0.6+).
+  // Children likewise share the person's surname, so they compare by given
+  // names only. Partners keep the full-name comparison: a spouse's family
+  // name genuinely discriminates.
+  add(components, "parents", w.parents, parentSimilarity(master, compare, masterDs, compareDs), "parents");
   add(components, "partners", w.partners, nameSetSimilarity(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs)), "partners");
-  add(components, "children", w.children, nameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
+  add(components, "children", w.children, givenNameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
 
   // Marriage corroboration, folded in from the person's spouse family: a matching
   // marriage date/place is strong evidence (and disambiguates same-named people).
@@ -109,6 +122,33 @@ export function scoreIndividualPair(
   if (givenSim !== undefined && givenSim < GIVEN_CONFLICT_SIM) {
     score01 *= GIVEN_CONFLICT_PENALTY;
   }
+
+  // Both parents named and both clearly different: the two records belong to
+  // different families, however well the person's own name and dates agree —
+  // the dense-name-cluster false positive (same-name cousins born nearby).
+  // The parents *component* alone can't express this: at weight 2 in a ~10.5
+  // weight total, even a 0 score only shaves a few points. A single
+  // conflicting role is deliberately not penalized — one parent recorded
+  // under a cross-language variant (Jurij/Georg 0.47) is routine in bilingual
+  // parish records, and mothers agreeing on a ubiquitous given name (Marija)
+  // are too weak a confirmation to matter either way.
+  if (bothParentsConflict(master, compare, masterDs, compareDs)) {
+    score01 *= PARENT_CONFLICT_PENALTY;
+  }
+
+  // A pair needs at least one hard discriminator to be worth a reviewer's
+  // time (see UNANCHORED_CEILING): a comparable full name, an exact
+  // month-or-better birth-date agreement, or comparable relative names.
+  // Index files are full of skeleton records — a missing/placeholder name
+  // part plus an estimated "~1900" year — and shared surname + approximate-
+  // year proximity alone scores into the high 70s; in a big file every
+  // same-surname skeleton pairs with every other one, quadratically.
+  const anchored =
+    Boolean(mn?.given && cn?.given && mn?.surname && cn?.surname) ||
+    anchoringDate(birthSim, mb?.date, cb?.date) ||
+    anchoringDate(deathSim, md?.date, cd?.date) ||
+    components.some((c) => c.key === "parents" || c.key === "partners" || c.key === "children");
+  if (!anchored) score01 = Math.min(score01, UNANCHORED_CEILING);
 
   // The identity key — surname, given name and birth date — is conclusive: when
   // all three are present and an exact match the pair is the same person and
@@ -172,6 +212,94 @@ const GIVEN_CONFLICT_SIM = 0.7;
  * still scores high enough to be relationship-boosted back into the 90s.
  */
 const GIVEN_CONFLICT_PENALTY = 0.8;
+
+/**
+ * Multiplier when both parents conflict (see the call site). Same magnitude
+ * as the given-name conflict penalty, and stacking with it: a pair wrong on
+ * both its own name and its family is crushed to ~0.64× — firmly out of the
+ * plausible band.
+ */
+const PARENT_CONFLICT_PENALTY = 0.8;
+
+/**
+ * Score ceiling (0..1) for a pair with no hard discriminator: no comparable
+ * full name (a real given *and* surname on both sides), no exact
+ * month-or-better birth-date agreement, and no comparable parent, partner or
+ * child names. Such pairs — skeleton records offering only a shared surname
+ * (or bare given name) and an estimated year — are unreviewable and multiply
+ * quadratically in large files (Hawlina: ~977-person same-surname clusters,
+ * ~146k sub-80 pairs). The ceiling keeps them below the within-file
+ * duplicate-list cutoff (0.7) and the probable band (0.65), so they surface
+ * at most as weak cross-file suggestions; relationship linking/boosting still
+ * recovers any that turn out to be corroborated by matched relatives.
+ */
+const UNANCHORED_CEILING = 0.6;
+
+/** True when a date pair anchors the identity: both sides assert an exact
+ *  date with at least month precision and they agree (>= 0.9 — same month, at
+ *  worst a day apart). Approximate/estimated years and bare-year agreements
+ *  don't qualify. Used for birth and death alike. */
+function anchoringDate(
+  sim: number | undefined,
+  a: GedDate | undefined,
+  b: GedDate | undefined,
+): boolean {
+  return (
+    sim !== undefined && sim >= 0.9 &&
+    a?.qualifier === "exact" && b?.qualifier === "exact" &&
+    a.month !== undefined && b.month !== undefined
+  );
+}
+
+/** True when both records name a father and a mother (given names on both
+ *  sides) and *each* role's given names are too dissimilar to be the same
+ *  person — different-family evidence strong enough for a score penalty. */
+function bothParentsConflict(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): boolean {
+  const fm = comparableName(cachedFatherName(master, masterDs))?.given;
+  const fc = comparableName(cachedFatherName(compare, compareDs))?.given;
+  const mm = comparableName(cachedMotherName(master, masterDs))?.given;
+  const mc = comparableName(cachedMotherName(compare, compareDs))?.given;
+  if (!fm || !fc || !mm || !mc) return false;
+  // Both roles must sit in the shared conflict band (see parentGivenVerdict) —
+  // the same boundary the duplicate vetoes use.
+  return (
+    parentGivenVerdict(fm, fc) === "conflict" &&
+    parentGivenVerdict(mm, mc) === "conflict"
+  );
+}
+
+/**
+ * Role-wise parent similarity: father compared to father, mother to mother.
+ * The father contributes his given name only (his surname is the shared
+ * family surname — no information). The mother is compared as a full name:
+ * her recorded maiden surname genuinely discriminates between families when
+ * both sides carry it. Averages the comparable roles; undefined when neither
+ * role can be compared.
+ */
+function parentSimilarity(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): number | undefined {
+  const fm = comparableName(cachedFatherName(master, masterDs));
+  const fc = comparableName(cachedFatherName(compare, compareDs));
+  const mm = comparableName(cachedMotherName(master, masterDs));
+  const mc = comparableName(cachedMotherName(compare, compareDs));
+  const parts: number[] = [];
+  if (fm?.given && fc?.given) parts.push(givenSimilarity(fm.given, fc.given));
+  if (mm && mc) {
+    const s = nameSimilarity(mm, mc);
+    if (s !== undefined) parts.push(s);
+  }
+  if (parts.length === 0) return undefined;
+  return parts.reduce((s, v) => s + v, 0) / parts.length;
+}
 
 /** Best marriage date/place similarity over the cross-product of both people's
  *  marriages (handles re-marriages; undefined when a side lacks the data). */
@@ -267,10 +395,10 @@ function relativeMatchBonus(
   config: MatchConfig,
 ): number {
   let bonus = 0;
-  if (fullNameMatch(cachedFatherName(master, masterDs), cachedFatherName(compare, compareDs))) {
+  if (fullNameMatch(comparableName(cachedFatherName(master, masterDs)), comparableName(cachedFatherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
-  if (fullNameMatch(cachedMotherName(master, masterDs), cachedMotherName(compare, compareDs))) {
+  if (fullNameMatch(comparableName(cachedMotherName(master, masterDs)), comparableName(cachedMotherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
   if (anyFullNameMatch(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs))) {
@@ -348,8 +476,8 @@ export function plausibleIndividualMatch(
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
-  const an = primaryName(a);
-  const bn = primaryName(b);
+  const an = comparableName(primaryName(a));
+  const bn = comparableName(primaryName(b));
   const surname =
     an?.surname && bn?.surname
       ? jaroWinkler(foldToken(an.surname), foldToken(bn.surname))
@@ -421,7 +549,10 @@ export function individualBlockKeys(
   soundex: (s: string) => string,
   ds: Dataset,
 ): string[] {
-  const n = primaryName(indi);
+  // A record whose only name parts are placeholders gets no blocking key at
+  // all — it can't be meaningfully matched by name. (Relationship linking can
+  // still connect it through matched relatives, which needs no name.)
+  const n = comparableName(primaryName(indi));
   const surname = n?.surname;
   const given = n?.given;
   const sdx = soundex(surname ?? given ?? "");

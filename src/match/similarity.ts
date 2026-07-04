@@ -2,13 +2,59 @@ import type { GedDate, GedPlace, PersonName } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
-import { compareKey, foldToken, jaroWinkler } from "./text";
+import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
 
 /**
  * Field-level similarity functions. Each returns a score in 0..1, or
  * `undefined` when there isn't enough data on both sides to compare — callers
  * skip undefined components rather than penalizing missing data.
  */
+
+/**
+ * A name reduced to its comparable parts: placeholder tokens ("Living",
+ * "NN", "?Ime?", "?" — see {@link isPlaceholderName}) are dropped, because
+ * two placeholders compare as a perfect match while identifying nothing.
+ * Returns the input object unchanged when nothing needed filtering, and
+ * undefined when no part survives — callers then treat the name as missing
+ * (key-field penalty, skipped component, no blocking key), exactly as if the
+ * record had no name at all.
+ */
+export function comparableName(n: PersonName | undefined): PersonName | undefined {
+  if (!n) return undefined;
+  const given = n.given && !isPlaceholderName(n.given) ? n.given : undefined;
+  const surname = n.surname && !isPlaceholderName(n.surname) ? n.surname : undefined;
+  const full = n.full && !isPlaceholderName(n.full) ? n.full : "";
+  if (given === n.given && surname === n.surname && full === n.full) return n;
+  if (!given && !surname && !full) return undefined;
+  return { ...n, given, surname, full };
+}
+
+/**
+ * Given-name similarity bands for one parental role. Distinct parents measure
+ * ≤ 0.6 (Anton/Jakob exactly 0.600, Primož/Janez 0.46, Mihael/Florijan 0.53)
+ * while recording variants of one parent sit at 0.69+ (Miko/Mihael 0.69,
+ * Janez/Johann 0.73, Anton/Antonius 0.93) — so a conflict is only called
+ * below 0.65, agreement only from 0.75 up, and the gap between the bands
+ * stays "unknown" rather than forcing an unreliable call either way. (An
+ * earlier single 0.6 threshold counted Anton/Jakob as an *agreement*, which
+ * let same-named cousins through the duplicate vetoes.)
+ */
+export const PARENT_GIVEN_AGREE = 0.75;
+export const PARENT_GIVEN_CONFLICT = 0.65;
+
+/** Verdict for one parental role given the two (real, non-placeholder) given
+ *  names — see the band constants above. "unknown" when either is absent or
+ *  the similarity falls between the bands. */
+export function parentGivenVerdict(
+  a: string | undefined,
+  b: string | undefined,
+): "agree" | "conflict" | "unknown" {
+  if (!a || !b) return "unknown";
+  const sim = givenSimilarity(a, b);
+  if (sim >= PARENT_GIVEN_AGREE) return "agree";
+  if (sim < PARENT_GIVEN_CONFLICT) return "conflict";
+  return "unknown";
+}
 
 export function nameSimilarity(a: PersonName, b: PersonName): number | undefined {
   const parts: Array<[number, number]> = []; // [weight, score]
@@ -57,17 +103,22 @@ export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): 
   if (diff > tolerance) return 0;
   if (diff !== 0) return 1 - diff / (tolerance + 1);
 
-  // Same year. A perfect 1.0 is reserved for two exact dates of equal precision
+  // Same year. A perfect 1.0 is reserved for two exact *day-precision* dates
   // that agree in full. Anything less is a strong but imperfect match:
   //  - a genuine disagreement (different month, or different day same month),
   //  - a precision mismatch, e.g. a full date vs a bare year ("12 JAN 1900" vs
   //    "1900") — they're consistent but not the same assertion,
-  //  - an approximate qualifier (ABT/EST/~) — the year isn't asserted exactly.
+  //  - an approximate qualifier (ABT/EST/~) — the year isn't asserted exactly,
+  //  - two bare years (or bare months) that agree: "1709" ~ "1709" merely
+  //    shares a year — in a dense cluster two same-named people born the same
+  //    year are routine, and scoring this like a day-exact birth match
+  //    inflated sparse pairs into the strong band (and, via the perfect
+  //    identity key, to flat 100s).
   if (a.month && b.month && a.month !== b.month) return 0.55; // different month
   if (a.day && b.day && a.day !== b.day) return 0.9; // same month, different day
 
-  const precision = (d: GedDate) => (d.day ? 3 : d.month ? 2 : 1);
-  const exact = !approx && precision(a) === precision(b);
+  const dayPrecise = (d: GedDate) => d.day !== undefined && d.month !== undefined;
+  const exact = !approx && dayPrecise(a) && dayPrecise(b);
   return exact ? 1 : 0.9;
 }
 
@@ -163,8 +214,8 @@ export function nameSetSimilarity(
   b: PersonName[],
 ): number | undefined {
   // Ignore blank/placeholder names so they neither match nor penalize.
-  const av = a.filter(hasNameContent);
-  const bv = b.filter(hasNameContent);
+  const av = a.map(comparableName).filter(isPresent).filter(hasNameContent);
+  const bv = b.map(comparableName).filter(isPresent).filter(hasNameContent);
   if (av.length === 0 || bv.length === 0) return undefined;
   const oneWay = (xs: PersonName[], ys: PersonName[]) =>
     xs.reduce((s, x) => {
@@ -176,6 +227,32 @@ export function nameSetSimilarity(
 
 function hasNameContent(n: PersonName): boolean {
   return Boolean(n.surname || n.given || n.full);
+}
+
+function isPresent<T>(x: T | undefined): x is T {
+  return x !== undefined;
+}
+
+/**
+ * Symmetric set similarity over given names only. For relatives who share the
+ * person's own family surname by construction — children, or the father in a
+ * parent comparison — full-name similarity is inflated: the surname part
+ * (weighted 0.6 in `nameSimilarity`) matches for any two families the pair's
+ * own surname gate already found similar, so two entirely different sets of
+ * children still scored ~0.6+. Only the given names discriminate, so only
+ * they are compared. Members without a given name are ignored; undefined when
+ * either side has none left.
+ */
+export function givenNameSetSimilarity(
+  a: PersonName[],
+  b: PersonName[],
+): number | undefined {
+  const av = a.map((n) => comparableName(n)?.given).filter((g): g is string => Boolean(g));
+  const bv = b.map((n) => comparableName(n)?.given).filter((g): g is string => Boolean(g));
+  if (av.length === 0 || bv.length === 0) return undefined;
+  const oneWay = (xs: string[], ys: string[]) =>
+    xs.reduce((s, x) => s + Math.max(...ys.map((y) => givenSimilarity(x, y))), 0) / xs.length;
+  return (oneWay(av, bv) + oneWay(bv, av)) / 2;
 }
 
 /**

@@ -133,12 +133,17 @@ describe("self-match (same file as master and compare)", () => {
   const ds = dataset(MASTER);
   const r = matchDatasets(ds, ds);
 
-  it("yields only identical pairs, each scoring 100", () => {
+  it("yields only identical pairs at or just under a perfect score", () => {
     expect(r.individuals.length).toBe(ds.individuals.size);
     for (const c of r.individuals) {
       expect(c.masterId).toBe(c.compareId);
-      expect(c.score).toBe(100);
+      // Year-only records cap just below 100 even against themselves — a bare
+      // year is not a conclusive identity key (see dateSimilarity), and the
+      // matcher cannot know the two sides are literally the same record.
+      expect(c.score).toBeGreaterThanOrEqual(95);
     }
+    // The record with a full day-precision birth date still self-matches at 100.
+    expect(r.individuals.find((c) => c.masterId === "@I1@")?.score).toBe(100);
   });
 
   it("produces no cross matches between different people", () => {
@@ -206,12 +211,19 @@ describe("key-field penalty (name, surname, birth year)", () => {
       dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${compareIndi}\n0 TRLR\n`),
     ).individuals;
 
-  it("scores 100 only when all key fields are present and equal", () => {
+  it("scores 100 only when all key fields are present and equal (day-precision date)", () => {
     const r = pair(
+      "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1850",
+      "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 12 JAN 1850",
+    );
+    expect(r[0].score).toBe(100);
+    // The same pair with bare-year dates merely agrees on a year — namesakes
+    // born the same year are routine, so it stays below the flat 100.
+    const bare = pair(
       "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
       "0 @C@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
     );
-    expect(r[0].score).toBe(100);
+    expect(bare[0].score).toBeLessThan(100);
   });
 
   it("awards 100 for a perfect key even when a secondary field differs", () => {
@@ -331,6 +343,88 @@ describe("birth date plausibility from marriage date", () => {
   });
 });
 
+describe("placeholder names and bare-year identity keys", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+
+  it("never matches records whose only name is a placeholder", () => {
+    // Privacy-scrubbed exports are full of "Living" children: two unnamed
+    // siblings of the same parents used to score ~70 on the perfect
+    // "Living" ~ "Living" name match.
+    const m = "0 @M@ INDI\n1 NAME Living\n1 SEX M\n1 BIRT\n2 DATE 1950\n";
+    const c = "0 @C@ INDI\n1 NAME Living\n1 SEX M\n1 BIRT\n2 DATE 1950\n";
+    expect(matchDatasets(doc(m), doc(c)).individuals).toHaveLength(0);
+  });
+
+  it("treats a placeholder surname as missing, not as a perfect match", () => {
+    const m = "0 @M@ INDI\n1 NAME Marija /NN/\n1 SEX F\n1 BIRT\n2 DATE 1910\n";
+    const c = "0 @C@ INDI\n1 NAME Marija /NN/\n1 SEX F\n1 BIRT\n2 DATE 1911\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    // Still findable via the given name, but the surname key carries the
+    // missing penalty — nowhere near the ~75 a "matching" NN used to earn.
+    if (r.length > 0) {
+      const surname = r[0].components.find((x) => x.key === "surname");
+      expect(surname?.missing).toBe(true);
+      expect(r[0].category).not.toBe("strong");
+    }
+  });
+
+  it("reserves the flat 100 for a day-precision birth-date agreement", () => {
+    // Same name + the same bare year is NOT a conclusive identity key: two
+    // namesakes born the same year are routine in dense clusters. (This pair
+    // used to hit keyPerfect and score a flat 100.)
+    const year = (id: string) =>
+      `0 ${id} INDI\n1 NAME Anton /Špruk/\n1 SEX M\n1 BIRT\n2 DATE 1923\n`;
+    const ry = matchDatasets(doc(year("@M@")), doc(year("@C@"))).individuals;
+    expect(ry[0].score).toBeLessThan(100);
+    // A full day-precision agreement still earns the flat 100.
+    const day = (id: string) =>
+      `0 ${id} INDI\n1 NAME Anton /Špruk/\n1 SEX M\n1 BIRT\n2 DATE 4 MAR 1923\n`;
+    const rd = matchDatasets(doc(day("@M@")), doc(day("@C@"))).individuals;
+    expect(rd[0].score).toBe(100);
+  });
+});
+
+describe("no-hard-evidence ceiling", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+
+  it("caps a surname + approximate-year-only pair below the probable band", () => {
+    // Skeleton records: no given name, estimated years. Surname agreement plus
+    // fuzzy-year proximity used to average out at ~80 — in a big file every
+    // same-surname skeleton pairs with every other one, quadratically.
+    const m = "0 @M@ INDI\n1 NAME /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1900\n";
+    const c = "0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1900\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeLessThanOrEqual(60);
+    expect(r[0].category).toBe("weak");
+  });
+
+  it("keeps a surname-less pair anchored by a day-exact birth agreement", () => {
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE 18 MAR 1947\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE 18 MAR 1947\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(70);
+  });
+
+  it("keeps a surname-less pair anchored by a day-exact death agreement", () => {
+    // Born-year estimates only, but the death date matches to the day.
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1880\n1 DEAT\n2 DATE 2 FEB 1955\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1882\n1 DEAT\n2 DATE 2 FEB 1955\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(60);
+  });
+
+  it("keeps an undated pair anchored by a comparable full name", () => {
+    const m = "0 @M@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
+    const c = "0 @C@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(65);
+  });
+});
+
 describe("given-name conflict penalty", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   const master =
@@ -381,6 +475,50 @@ describe("given-name conflict penalty", () => {
     const mother = r.find((x) => x.masterId === "@M@");
     expect(mother?.compareId).toBe("@C@");
     expect(mother!.score).toBeGreaterThanOrEqual(91);
+  });
+});
+
+describe("parent-conflict penalty and role-wise parent comparison", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  // Same person key on both sides (birth years one apart so keyPerfect can't
+  // pin the score at 100); only the linked parents' names vary.
+  const side = (p: "M" | "C", year: number, dadName: string, momName: string) =>
+    `0 @${p}@ INDI\n1 NAME Marija /Bajuk/\n1 SEX F\n1 BIRT\n2 DATE ${year}\n1 FAMC @${p}F@\n` +
+    `0 @${p}D@ INDI\n1 NAME ${dadName} /Bajuk/\n1 SEX M\n` +
+    `0 @${p}W@ INDI\n1 NAME ${momName} /Kovač/\n1 SEX F\n` +
+    `0 @${p}F@ FAM\n1 HUSB @${p}D@\n1 WIFE @${p}W@\n1 CHIL @${p}@\n`;
+  const master = doc(side("M", 1850, "Miko", "Neža"));
+  const scoreAgainst = (dadName: string, momName: string) => {
+    const compare = doc(side("C", 1851, dadName, momName));
+    return matchDatasets(master, compare).individuals.find(
+      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    )!;
+  };
+
+  it("penalizes a pair whose father AND mother both clearly differ", () => {
+    // Miko/Franc = 0.0, Neža/Katarina ≪ 0.6: a different family entirely.
+    const conflict = scoreAgainst("Franc", "Katarina");
+    expect(conflict.category).not.toBe("strong");
+    expect(conflict.score).toBeLessThan(75);
+    // The same records with matching parents score far higher.
+    const same = scoreAgainst("Miko", "Neža");
+    expect(same.score).toBeGreaterThan(90);
+  });
+
+  it("does not penalize a single conflicting role (cross-language variants are routine)", () => {
+    // Father differs, mother agrees: only the parents component moves — the
+    // score must stay well above the both-conflict case's penalized band.
+    const oneRole = scoreAgainst("Franc", "Neža");
+    expect(oneRole.score).toBeGreaterThan(85);
+  });
+
+  it("scores the parents component by given names, not the shared surname", () => {
+    // Different fathers, same family surname: the old full-name comparison
+    // held this component at ~0.6+ on the surname alone.
+    const conflict = scoreAgainst("Franc", "Katarina");
+    const parents = conflict.components.find((c) => c.key === "parents");
+    expect(parents).toBeDefined();
+    expect(parents!.score).toBeLessThan(0.5);
   });
 });
 

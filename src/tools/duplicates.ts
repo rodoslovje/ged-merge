@@ -6,7 +6,7 @@ import {
   sexConflicts,
 } from "../match/scoreIndividual";
 import { cachedFatherName, cachedFindEvent, cachedMotherName } from "../match/profileCache";
-import { givenSimilarity } from "../match/similarity";
+import { comparableName, givenSimilarity, parentGivenVerdict } from "../match/similarity";
 import { soundex } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label, primaryName } from "../match/relatives";
@@ -52,7 +52,6 @@ export function findDuplicates(
     }
   }
 
-  const seen = new Set<string>();
   const out: DuplicatePair[] = [];
 
   for (const a of ds.individuals.values()) {
@@ -63,11 +62,11 @@ export function findDuplicates(
     }
 
     for (const bId of candidates) {
-      if (bId === a.id) continue;
-      // Each unordered pair scored once.
-      const pairKey = a.id < bId ? `${a.id}|${bId}` : `${bId}|${a.id}`;
-      if (seen.has(pairKey)) continue;
-      seen.add(pairKey);
+      // Each unordered pair is scored once: only from its lower-id side. (The
+      // per-individual `candidates` set already dedups multi-key hits, so no
+      // global seen-pairs set is needed — on a 500k-person file such a set
+      // exceeded V8's ~16.7M-entry Set limit and crashed the whole scan.)
+      if (bId <= a.id) continue;
 
       const b = ds.individuals.get(bId)!;
       if (sexConflicts(a, b)) continue;
@@ -160,27 +159,36 @@ function relationshipCount(indi: Individual, ds: Dataset): number {
  *    language variants — Janez/Ivan, William/Bill ≈ 0.7 — are sacrificed: they
  *    can't be told apart from a sibling by name alone, and twins vastly
  *    outnumber them in parish-record data.)
- *  - **Conflicting parents** — same given name, but the two records resolve a
- *    father (and/or mother) whose given names clearly differ and none agree:
- *    different families, i.e. same-named cousins, not the same person. (A shared
- *    surname between the two fathers is ignored — within one family every father
- *    shares it, so only the given name discriminates.)
  *  - **Conflicting exact birth years** — same given name and family, but both
  *    record an exact birth date and the years differ: a namesake child given a
  *    dead sibling's name. (A same-year pair differing only in month/day is kept
  *    — that's a transcription-error duplicate worth merging.)
+ *  - **Conflicting father** — the two records resolve fathers whose given
+ *    names clearly differ: different families. The mother is deliberately NOT
+ *    allowed to rescue such a pair: mother given names are dominated by a
+ *    handful of ubiquitous names (Marija, Ana, Marjana …), so a mother
+ *    "agreement" is nearly free — same-named cousins born the same year to
+ *    different fathers routinely both have a mother Marija.
+ *  - **Conflicting parents** — no comparable parental role agrees and at least
+ *    one conflicts: same-named cousins, not the same person. (A shared surname
+ *    between the two fathers is ignored — within one family every father
+ *    shares it, so only the given name discriminates.)
+ *
+ * The parent vetoes are skipped when both records assert the **same exact
+ * calendar birth day**: that is in practice two copies of one christening
+ * entry, and a conflicting parent name there (Gertrud vs Jera — the same name
+ * in the German vs Slovene register) is a recording variant, never a
+ * different family.
  */
 function distinctRelatives(a: Individual, b: Individual, ds: Dataset): boolean {
   if (differentGiven(a, b)) return true; // different first name → different person
-  if (parentAgreement(a, b, ds) === "conflict") return true; // same-named cousins
   if (conflictingBirthYears(a, b)) return true; // namesake child
+  if (sameExactBirthDay(a, b)) return false; // same christening entry → parent variants can't outvote it
+  if (parentGivens(comparableName(cachedFatherName(a, ds)), comparableName(cachedFatherName(b, ds))) === "conflict") return true; // different father → different family
+  if (parentAgreement(a, b, ds) === "conflict") return true; // same-named cousins
   return false;
 }
 
-/** Minimum given-name similarity (0..1) for two parents to count as the same
- *  person — above the looser individual-name gate, since here only the given
- *  name discriminates (the surname is shared family-wide). */
-const PARENT_GIVEN_MATCH = 0.6;
 
 /** Minimum given-name similarity (0..1) for two records to be the same person
  *  rather than distinct relatives. Sits in the gap between distinct given names
@@ -190,10 +198,10 @@ const PARENT_GIVEN_MATCH = 0.6;
 const SAME_PERSON_GIVEN = 0.85;
 
 /** Compare one parental role across the two records: do the given names agree,
- *  conflict, or is there too little data to tell? */
+ *  conflict, or is there too little data to tell? (Also "unknown" for the
+ *  band between the conflict and agree thresholds — see `parentGivenVerdict`.) */
 function parentGivens(a: PersonName | undefined, b: PersonName | undefined): "agree" | "conflict" | "unknown" {
-  if (!a?.given || !b?.given) return "unknown";
-  return givenSimilarity(a.given, b.given) >= PARENT_GIVEN_MATCH ? "agree" : "conflict";
+  return parentGivenVerdict(a?.given, b?.given);
 }
 
 /**
@@ -203,8 +211,8 @@ function parentGivens(a: PersonName | undefined, b: PersonName | undefined): "ag
  * there's too little linked-parent data on either side to tell.
  */
 function parentAgreement(a: Individual, b: Individual, ds: Dataset): "agree" | "conflict" | "unknown" {
-  const father = parentGivens(cachedFatherName(a, ds), cachedFatherName(b, ds));
-  const mother = parentGivens(cachedMotherName(a, ds), cachedMotherName(b, ds));
+  const father = parentGivens(comparableName(cachedFatherName(a, ds)), comparableName(cachedFatherName(b, ds)));
+  const mother = parentGivens(comparableName(cachedMotherName(a, ds)), comparableName(cachedMotherName(b, ds)));
   if (father === "agree" || mother === "agree") return "agree";
   if (father === "conflict" || mother === "conflict") return "conflict";
   return "unknown";
@@ -213,10 +221,24 @@ function parentAgreement(a: Individual, b: Individual, ds: Dataset): "agree" | "
 /** True when both records have a given name and they're too dissimilar to be the
  *  same person (distinct sibling names rather than spelling variants of one). */
 function differentGiven(a: Individual, b: Individual): boolean {
-  const ga = primaryName(a)?.given;
-  const gb = primaryName(b)?.given;
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
   if (!ga || !gb) return false;
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
+}
+
+/** True when both records assert the same exact calendar birth day — in
+ *  practice two copies of the same christening entry, which the parent-based
+ *  vetoes must not override (see {@link distinctRelatives}). */
+function sameExactBirthDay(a: Individual, b: Individual): boolean {
+  const da = cachedFindEvent(a, "BIRT")?.date;
+  const db = cachedFindEvent(b, "BIRT")?.date;
+  if (da?.qualifier !== "exact" || db?.qualifier !== "exact") return false;
+  return (
+    da.year !== undefined && da.year === db.year &&
+    da.month !== undefined && da.month === db.month &&
+    da.day !== undefined && da.day === db.day
+  );
 }
 
 /** True when both records carry an exact birth date and the years differ —
