@@ -52,7 +52,6 @@ export function findDuplicates(
     }
   }
 
-  const seen = new Set<string>();
   const out: DuplicatePair[] = [];
 
   for (const a of ds.individuals.values()) {
@@ -63,11 +62,11 @@ export function findDuplicates(
     }
 
     for (const bId of candidates) {
-      if (bId === a.id) continue;
-      // Each unordered pair scored once.
-      const pairKey = a.id < bId ? `${a.id}|${bId}` : `${bId}|${a.id}`;
-      if (seen.has(pairKey)) continue;
-      seen.add(pairKey);
+      // Each unordered pair is scored once: only from its lower-id side. (The
+      // per-individual `candidates` set already dedups multi-key hits, so no
+      // global seen-pairs set is needed — on a 500k-person file such a set
+      // exceeded V8's ~16.7M-entry Set limit and crashed the whole scan.)
+      if (bId <= a.id) continue;
 
       const b = ds.individuals.get(bId)!;
       if (sexConflicts(a, b)) continue;
