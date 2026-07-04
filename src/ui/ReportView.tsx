@@ -70,13 +70,17 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
 
   // Both directions build (they also feed the toggle's count badges); the
   // toggle picks which one the page shows.
+  const factOpts = useMemo(
+    () => ({ occupation: settings.showOccupation, residence: settings.showResidence }),
+    [settings.showOccupation, settings.showResidence],
+  );
   const ancestors = useMemo(
-    () => buildAhnentafel(masterDs, currentRootId, nameOf),
-    [masterDs, currentRootId, nameOf],
+    () => buildAhnentafel(masterDs, currentRootId, nameOf, undefined, factOpts),
+    [masterDs, currentRootId, nameOf, factOpts],
   );
   const descendants = useMemo(
-    () => buildDescendants(masterDs, currentRootId, nameOf),
-    [masterDs, currentRootId, nameOf],
+    () => buildDescendants(masterDs, currentRootId, nameOf, undefined, factOpts),
+    [masterDs, currentRootId, nameOf, factOpts],
   );
   const data = mode === "descendants" ? descendants : ancestors;
 

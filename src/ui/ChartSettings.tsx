@@ -150,11 +150,34 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
                   {t("tree.settings.timeline.labels")}
                 </button>
                 <button
-                  className={settings.timelineResidence ? "active" : ""}
-                  aria-pressed={settings.timelineResidence}
-                  onClick={() => set({ timelineResidence: !settings.timelineResidence })}
+                  className={settings.showResidence ? "active" : ""}
+                  aria-pressed={settings.showResidence}
+                  onClick={() => set({ showResidence: !settings.showResidence })}
                 >
                   {t("tree.settings.timeline.residence")}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Report-only: the optional fact lines. Residence is the same shared
+              choice the Timeline's strip uses — one semantic, per-view drawing. */}
+          {effectiveType === "report" && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("tree.settings.report.facts")}</span>
+              <div className="chart-settings-segmented chart-settings-toggles">
+                <button
+                  className={settings.showOccupation ? "active" : ""}
+                  aria-pressed={settings.showOccupation}
+                  onClick={() => set({ showOccupation: !settings.showOccupation })}
+                >
+                  {t("tree.settings.report.occupation")}
+                </button>
+                <button
+                  className={settings.showResidence ? "active" : ""}
+                  aria-pressed={settings.showResidence}
+                  onClick={() => set({ showResidence: !settings.showResidence })}
+                >
+                  {t("tree.settings.report.residence")}
                 </button>
               </div>
             </div>

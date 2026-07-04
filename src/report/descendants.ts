@@ -8,6 +8,7 @@
 import type { Dataset, Individual } from "../gedcom/types";
 import { birthSortKey } from "../gedcom/lifespan";
 import {
+  extraFacts,
   factFor,
   familiesOf,
   makeEntry,
@@ -16,6 +17,7 @@ import {
   type NameOf,
   type ReportData,
   type ReportEntry,
+  type ReportFactOptions,
   type ReportGeneration,
 } from "./model";
 
@@ -30,6 +32,7 @@ export function buildDescendants(
   rootId: string,
   nameOf: NameOf,
   nowYear: number = new Date().getFullYear(),
+  opts: ReportFactOptions = {},
 ): ReportData | undefined {
   const root = ds.individuals.get(rootId);
   if (!root) return undefined;
@@ -48,7 +51,7 @@ export function buildDescendants(
       const dupOf = firstNum.get(indi.id);
       // A repeat appearance keeps the person's original register number.
       const num = dupOf ?? ++counter;
-      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf), nowYear, dupOf);
+      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts), nowYear, dupOf);
       entry.parentNum = parentNum;
       entry.parentName = parentName;
       entries.push(entry);
@@ -75,8 +78,8 @@ export function buildDescendants(
   return { generations, total };
 }
 
-/** Vitals in report order: * ~ then every union's ⚭, then † ▭. */
-function vitals(ds: Dataset, indi: Individual, nameOf: NameOf): FactLine[] {
+/** Facts in report order: * ~, every union's ⚭, the optional ⚒/⌂ lines, † ▭. */
+function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions): FactLine[] {
   const marriages = familiesOf(ds, indi.spouseOf)
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
@@ -88,6 +91,7 @@ function vitals(ds: Dataset, indi: Individual, nameOf: NameOf): FactLine[] {
     factFor(indi, ["BIRT"]),
     factFor(indi, ["BAPM", "CHR"]),
     ...marriages,
+    ...extraFacts(indi, opts),
     factFor(indi, ["DEAT"]),
     factFor(indi, ["BURI", "CREM"]),
   ].filter((f): f is FactLine => f !== undefined);

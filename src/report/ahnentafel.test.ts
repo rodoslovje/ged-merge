@@ -156,6 +156,26 @@ describe("buildAhnentafel", () => {
     ]);
   });
 
+  it("adds optional ⚒ occupation and ⌂ residence lines between ⚭ and †", () => {
+    const busy = wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 BIRT\n2 DATE 1900\n1 DEAT\n2 DATE 1980\n" +
+        "1 OCCU Farmer\n2 DATE 1930\n1 OCCU Miller\n" +
+        "1 RESI\n2 DATE 1950\n2 PLAC Kranj\n2 ADDR Dunajska 5\n1 RESI\n", // the undated, placeless RESI is dropped
+    );
+    const ds2 = dataset(busy);
+    // Off by default.
+    expect(buildAhnentafel(ds2, "@I1@", nameOf, NOW)!.generations[0].entries[0].facts.map((f) => f.tag))
+      .toEqual(["BIRT", "DEAT"]);
+    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { occupation: true, residence: true })!;
+    expect(on.generations[0].entries[0].facts).toEqual([
+      { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
+      { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
+      { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
+      { tag: "RESI", glyph: "⌂", date: "1950", place: "Dunajska 5, Kranj" },
+      { tag: "DEAT", glyph: "†", date: "1980", place: undefined },
+    ]);
+  });
+
   it("composes generation band headings with the entries' number range", () => {
     // A translator that shows its interpolation values, so ranges are visible.
     const tri = (key: string, opts?: Record<string, unknown>) =>

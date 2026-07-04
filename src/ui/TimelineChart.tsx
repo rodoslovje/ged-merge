@@ -115,7 +115,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   // labels, and the residence strip (which shifts the label lane down).
   const eventsScope = settings.timelineEvents;
   const labelsOn = settings.timelineEventLabels;
-  const stripOn = settings.timelineResidence;
+  const stripOn = settings.showResidence;
   const barY = BAR_Y + (photosOn ? PHOTO_SHIFT : 0);
   const rowH = ROW_H + (photosOn ? PHOTO_SHIFT : 0) + (stripOn ? STRIP_H + STRIP_GAP : 0);
   const laneY = barY + BAR_H + 10 + (stripOn ? STRIP_H + STRIP_GAP : 0);

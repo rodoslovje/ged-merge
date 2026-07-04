@@ -15,15 +15,23 @@ import type { NameOf } from "../tree/timeline";
 
 /** One fact line under an entry: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`. */
 export interface FactLine {
-  /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, BURI, …). */
+  /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, OCCU, …). */
   tag: string;
-  /** Classic genealogy symbol (* ~ ⚭ † ▭ — see {@link EVENT_GLYPHS}). */
+  /** Classic genealogy symbol (* ~ ⚭ † ▭ ⚒ ⌂ — see {@link EVENT_GLYPHS}). */
   glyph: string;
+  /** The event's own value, leading the line ("Farmer" on an occupation). */
+  value?: string;
   /** Original date text, exactly as recorded. */
   date?: string;
   place?: string;
   /** Marriage lines carry the partner's display name. */
   spouse?: string;
+}
+
+/** The optional fact lines a report can add beyond the vitals. */
+export interface ReportFactOptions {
+  occupation?: boolean;
+  residence?: boolean;
 }
 
 /** One numbered person in a report. */
@@ -114,6 +122,26 @@ export function makeEntry(
     dupOf,
     facts: dupOf === undefined ? facts : [],
   };
+}
+
+/** The optional mid-life fact lines: every ⚒ occupation (its value leads the
+ *  line), then every ⌂ residence, in record order. No conventional symbol
+ *  exists for occupation; ⚒ is the closest widely-understood glyph. */
+export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[] {
+  const out: FactLine[] = [];
+  if (opts.occupation) {
+    for (const e of indi.events) {
+      if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
+      out.push({ tag: "OCCU", glyph: "⚒", value: e.value, date: e.date?.raw, place: factPlace(e) });
+    }
+  }
+  if (opts.residence) {
+    for (const e of indi.events) {
+      if (e.tag !== "RESI" || !dated(e)) continue;
+      out.push({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, place: factPlace(e) });
+    }
+  }
+  return out;
 }
 
 /** A fact line for the first of the given events that has a date or a place. */

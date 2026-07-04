@@ -51,8 +51,11 @@ export interface ChartSettings {
   timelineEvents: TimelineEventScope;
   /** Timeline: label the event dots with small text under the bar. */
   timelineEventLabels: boolean;
-  /** Timeline: draw the residence periods as a thin strip under the bar. */
-  timelineResidence: boolean;
+  /** Show residence information — the Timeline draws it as a thin strip under
+   *  the lifespan bar, the Report as ⌂ fact lines. One shared choice. */
+  showResidence: boolean;
+  /** Report: add ⚒ occupation fact lines. */
+  showOccupation: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -68,7 +71,8 @@ const DEFAULTS: ChartSettings = {
   privacyLiving: false,
   timelineEvents: "person",
   timelineEventLabels: false,
-  timelineResidence: false,
+  showResidence: false,
+  showOccupation: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -122,7 +126,13 @@ function load(): ChartSettings {
           ? parsed.timelineEvents
           : DEFAULTS.timelineEvents,
       timelineEventLabels: bool(parsed.timelineEventLabels, DEFAULTS.timelineEventLabels),
-      timelineResidence: bool(parsed.timelineResidence, DEFAULTS.timelineResidence),
+      // showResidence replaced the timeline-only `timelineResidence` when the
+      // Report gained residence lines; older blobs carry the old name.
+      showResidence: bool(
+        parsed.showResidence ?? (parsed as { timelineResidence?: unknown }).timelineResidence,
+        DEFAULTS.showResidence,
+      ),
+      showOccupation: bool(parsed.showOccupation, DEFAULTS.showOccupation),
     };
   } catch {
     return DEFAULTS;

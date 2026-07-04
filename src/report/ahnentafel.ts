@@ -6,6 +6,7 @@
 
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import {
+  extraFacts,
   factFor,
   makeEntry,
   marriageFact,
@@ -13,6 +14,7 @@ import {
   type NameOf,
   type ReportData,
   type ReportEntry,
+  type ReportFactOptions,
   type ReportGeneration,
 } from "./model";
 
@@ -27,6 +29,7 @@ export function buildAhnentafel(
   rootId: string,
   nameOf: NameOf,
   nowYear: number = new Date().getFullYear(),
+  opts: ReportFactOptions = {},
 ): ReportData | undefined {
   const root = ds.individuals.get(rootId);
   if (!root) return undefined;
@@ -42,7 +45,7 @@ export function buildAhnentafel(
 
     for (const { num, indi, marriage } of queue) {
       const dupOf = firstNum.get(indi.id);
-      entries.push(makeEntry(indi, num, nameOf, vitals(indi, marriage), nowYear, dupOf));
+      entries.push(makeEntry(indi, num, nameOf, vitals(indi, marriage, opts), nowYear, dupOf));
       total++;
       if (dupOf !== undefined) continue; // the line already continues there
       firstNum.set(indi.id, num);
@@ -80,12 +83,13 @@ export function buildAhnentafel(
   return { generations, total };
 }
 
-/** Vitals in report order: * ~ ⚭ † ▭. */
-function vitals(indi: Individual, marriage: FactLine | undefined): FactLine[] {
+/** Facts in report order: * ~ ⚭, the optional ⚒/⌂ lines, then † ▭. */
+function vitals(indi: Individual, marriage: FactLine | undefined, opts: ReportFactOptions): FactLine[] {
   return [
     factFor(indi, ["BIRT"]),
     factFor(indi, ["BAPM", "CHR"]),
     marriage,
+    ...extraFacts(indi, opts),
     factFor(indi, ["DEAT"]),
     factFor(indi, ["BURI", "CREM"]),
   ].filter((f): f is FactLine => f !== undefined);
