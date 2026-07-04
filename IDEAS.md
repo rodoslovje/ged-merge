@@ -6,7 +6,7 @@ A running list of ideas, features, and todos for ged-merge.
 
 ### Settings
 The general Settings panel exists (language, theme, name display, kinship, link-fetch, workspace persistence). Remaining candidate settings:
-- **Living persons privacy** — option to hide data of living persons throughout the app and in matching. *(A Tools-tab privacy action that strips living persons already exists; this would make it a global display/matching toggle.)*
+- **Living persons privacy** — option to hide data of living persons throughout the app and in matching. *(A Tools-tab privacy action that strips living persons, and a per-chart/report "hide living people" display toggle, already exist; this would fold them into one global setting that also reaches matching.)*
 - **Local media photos in SVG** — choose how to save people's local media photos when exporting SVG: embedded in the SVG, or as links to a URL prefix.
 
 ### New Tools (Tools tab)
@@ -35,18 +35,18 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 - **Place gazetteer standardization** — validate & fix place spelling and hierarchy against GeoNames / GOV, beyond the current reshape.
 
 ### Reports & analysis
-- **Ahnentafel / narrative (register) report** — exportable ancestor/descendant report. Include a **register report in NGSQ (National Genealogical Society Quarterly) format** for a person's ascendants/descendants, exported as text / RTF (or similar).
+- ~~**Ahnentafel / narrative (register) report** — exportable ancestor/descendant report. Include a **register report in NGSQ (National Genealogical Society Quarterly) format** for a person's ascendants/descendants, exported as text / RTF (or similar).~~ *Done: the Report chart kind covers Ahnentafel + an NGSQ-format descendant register behind an A/D toggle, plus a List ↔ Pripoved narrative-text view (English + Slovenian). Exports as text; RTF export is still open.*
 - **Research to-do / log** — per-person open questions, flags, research notes.
 
 ### Visualization
 - **Map view** — plot birth/death/marriage places (geocoded) and migration paths.
-- **Descendant & classic pedigree charts** — complement the existing fan, circle, grid and relationship charts.
+- ~~**Descendant & classic pedigree charts** — complement the existing fan, circle, grid and relationship charts.~~ *Done: the Tree and Grid chart kinds have an Ancestors ↔ Descendants direction toggle (keyboard A/D) with LR/TB alignment, covering both classic pedigree and descendant layouts.*
 - ~~**Timeline view** — per-person or per-family chronological timeline.~~ *Done: the Charts hub's Timeline kind (family lifespan bars + event/marriage markers).*
 
 ### Editing / UX
-- **Global search & filter** — find individuals across the whole file.
+- ~~**Global search & filter** — find individuals across the whole file.~~ *Done: the header search (`GlobalSearchModal`/`globalSearch.ts`) matches every name form + lifespan text, with facets for sex, birth year, place and attachments (links/notes/sources).*
 
 ### Import / export
 - **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media bundles.
-- **Subset / format export** — export part of the master as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch, or export to CSV / JSON.
+- **Subset / format export** — ~~export part of the master as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch~~ *(done — every chart's Export menu offers a branch-GEDCOM export: master dataset + that chart's people, ≥2-member-family rule, no dangling xrefs)*, or export to CSV / JSON *(still open)*.
 
