@@ -13,10 +13,8 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ZoomControls } from "./ZoomControls";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
-import { ExportMenu } from "./ExportMenu";
-import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
+import { diagramSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -278,31 +276,12 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
       actions={
         <>
           <ChartSettings lockedType="timeline" />
-          <ExportMenu
+          <ChartExportMenu
             disabled={!laid}
-            items={[
-              {
-                key: "ged",
-                icon: <GedIcon />,
-                label: t("export.gedcom", { count: rows.length }),
-                title: t("tree.exportGedcom.tooltip"),
-                onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
-              },
-              {
-                key: "svg",
-                icon: <ImageIcon />,
-                label: t("export.svg"),
-                title: t("tree.export.tooltip"),
-                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-              },
-              {
-                key: "pdf",
-                icon: <PrinterIcon />,
-                label: t("export.pdf"),
-                title: t("tree.exportPdf.tooltip"),
-                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-              },
-            ]}
+            slug={diagramSlug(rootRow?.name, pageKind)}
+            title={exportTitle}
+            gedcom={{ ds: masterDs, personIds: rows.map((r) => r.id) }}
+            canvasRef={canvasRef}
           />
         </>
       }

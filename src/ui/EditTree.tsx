@@ -25,11 +25,9 @@ import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionSta
 import { sexClass } from "./sex";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
-import { ExportMenu } from "./ExportMenu";
+import { diagramSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
-import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
@@ -295,31 +293,12 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
       actions={
         <>
           <ChartSettings />
-          <ExportMenu
+          <ChartExportMenu
             disabled={!activeLaid}
-            items={[
-              {
-                key: "ged",
-                icon: <GedIcon />,
-                label: t("export.gedcom", { count: chartPersonIds.length }),
-                title: t("tree.exportGedcom.tooltip"),
-                onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
-              },
-              {
-                key: "svg",
-                icon: <ImageIcon />,
-                label: t("export.svg"),
-                title: t("tree.export.tooltip"),
-                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
-              },
-              {
-                key: "pdf",
-                icon: <PrinterIcon />,
-                label: t("export.pdf"),
-                title: t("tree.exportPdf.tooltip"),
-                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
-              },
-            ]}
+            slug={diagramSlug(tree?.name, t(`tree.${effectiveMode}`))}
+            title={editTreeTitle}
+            gedcom={{ ds: masterDs, personIds: chartPersonIds }}
+            canvasRef={canvasRef}
           />
         </>
       }

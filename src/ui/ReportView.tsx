@@ -20,10 +20,9 @@ import { ChartPage } from "./ChartPage";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { diagramSlug, escapeHtml, printDocument } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
 import { downloadText } from "./download";
-import { ExportMenu } from "./ExportMenu";
-import { FileTextIcon, GedIcon, PrinterIcon } from "./icons/FormatIcons";
+import { ChartExportMenu } from "./ChartExportMenu";
+import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf } from "./SettingsContext";
@@ -189,16 +188,11 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
       actions={
         <>
           <ChartSettings lockedType="report" />
-          <ExportMenu
+          <ChartExportMenu
             disabled={!data}
-            items={[
-              {
-                key: "ged",
-                icon: <GedIcon />,
-                label: t("export.gedcom", { count: reportIds.length }),
-                title: t("tree.exportGedcom.tooltip"),
-                onSelect: () => exportChartGedcom(masterDs, reportIds, diagramSlug(rootEntry?.name, pageKind)),
-              },
+            slug={diagramSlug(rootEntry?.name, pageKind)}
+            gedcom={{ ds: masterDs, personIds: reportIds }}
+            extraItems={[
               {
                 key: "txt",
                 icon: <FileTextIcon />,

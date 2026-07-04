@@ -16,11 +16,9 @@ import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
-import { ExportMenu } from "./ExportMenu";
+import { diagramSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
-import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -150,8 +148,9 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
   const kinshipOf = useMemo(() => createKinshipResolver(masterDs, startSel, t), [masterDs, startSel, t]);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
-  // Shared title for the SVG / PDF export header.
+  // Shared title for the SVG / PDF export header, and the download slug.
   const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
+  const relchartSlug = diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {
@@ -186,33 +185,12 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
       actions={
         <>
           <ChartSettings lockedType="tree" />
-          <ExportMenu
+          <ChartExportMenu
             disabled={!chart}
-            items={[
-              {
-                key: "ged",
-                icon: <GedIcon />,
-                label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
-                title: t("tree.exportGedcom.tooltip"),
-                onSelect: () =>
-                  chart &&
-                  exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
-              },
-              {
-                key: "svg",
-                icon: <ImageIcon />,
-                label: t("export.svg"),
-                title: t("tree.export.tooltip"),
-                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-              },
-              {
-                key: "pdf",
-                icon: <PrinterIcon />,
-                label: t("export.pdf"),
-                title: t("tree.exportPdf.tooltip"),
-                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-              },
-            ]}
+            slug={relchartSlug}
+            title={relchartTitle}
+            gedcom={{ ds: masterDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
+            canvasRef={canvasRef}
           />
         </>
       }

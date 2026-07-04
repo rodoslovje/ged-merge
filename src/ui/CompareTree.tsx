@@ -46,10 +46,9 @@ import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartIcon } from "./icons/ChartIcon";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { ExportMenu } from "./ExportMenu";
+import { diagramSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
-import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -420,24 +419,11 @@ export function CompareTree({
       actions={
         <>
           <ChartSettings />
-          <ExportMenu
+          <ChartExportMenu
             disabled={!activeLaid}
-            items={[
-              {
-                key: "svg",
-                icon: <ImageIcon />,
-                label: t("export.svg"),
-                title: t("tree.export.tooltip"),
-                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-              },
-              {
-                key: "pdf",
-                icon: <PrinterIcon />,
-                label: t("export.pdf"),
-                title: t("tree.exportPdf.tooltip"),
-                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-              },
-            ]}
+            slug={diagramSlug(rootName, t(`tree.${effectiveMode}`))}
+            title={compareTreeTitle}
+            canvasRef={canvasRef}
           />
         </>
       }
