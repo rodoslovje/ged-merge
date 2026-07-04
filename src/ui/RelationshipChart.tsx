@@ -19,6 +19,7 @@ import { ZoomControls } from "./ZoomControls";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
+import { BackButton } from "./BackButton";
 import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -31,6 +32,8 @@ interface Props {
   masterDs: Dataset;
   startId: string;
   targetId: string;
+  /** Translated label for where Back lands (from the hub / App). */
+  backLabel: string;
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the chart). */
   onNavigate: (id: string) => void;
@@ -53,7 +56,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const [optionIdx, setOptionIdx] = useState(0);
@@ -172,9 +175,7 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
-          ← <span className="tree-back-label">{t("edit.tree.back")}</span>
-        </button>
+        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
         <h2 className="tree-title">
           {renderEndpoint("start", startSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>

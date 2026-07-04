@@ -2,11 +2,11 @@ import { useTranslation } from "react-i18next";
 import type { ChartKind } from "./ChartSettingsContext";
 
 // The chart-kind switcher shown on the full-page diagram views: a first-class
-// segmented control (Tree / Grid / Fan / Circle / Relationship) so every
-// visualization is one click away instead of hiding inside the Chart-settings
-// popover. The Charts hub shows all kinds; the Compare Tree passes only the
-// pedigree kinds (a relationship diagram has no meaning for a master/incoming
-// pair). Future kinds (timeline, map, reports) become new entries here.
+// segmented control (Tree / Grid / Fan / Circle / Timeline / Relationship) so
+// every visualization is one click away instead of hiding inside the
+// Chart-settings popover. The Charts hub shows all kinds; the Compare Tree
+// passes only the pedigree kinds (a relationship diagram has no meaning for a
+// master/incoming pair). Future kinds (map, reports) become new entries here.
 
 /** Pedigree chart kinds, in display order. */
 export const PEDIGREE_KINDS: ChartKind[] = ["tree", "grid", "fan", "circle"];
@@ -20,7 +20,9 @@ interface Props {
 export function ChartKindTabs({ kinds, value, onChange }: Props) {
   const { t } = useTranslation();
   const label = (k: ChartKind) =>
-    k === "relationship" ? t("relpath.button") : t(`tree.settings.type.${k}`);
+    k === "relationship" ? t("relpath.button")
+      : k === "timeline" ? t("timeline.button")
+        : t(`tree.settings.type.${k}`);
   return (
     <div className="tree-mode charts-kind" role="tablist" aria-label={t("charts.kind.label")}>
       {kinds.map((k) => (

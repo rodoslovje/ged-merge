@@ -20,8 +20,10 @@ interface Handlers {
   /** A / D switch the direction; D is ignored when descendants are unavailable. */
   onMode?: (mode: TreeMode) => void;
   allowDescendants?: boolean;
-  /** Escape leaves the page (each chart registers its own — never the hub too,
-   *  or one keypress would pop two history entries). */
+  /** Escape / Backspace leave the page (each chart registers its own — never
+   *  the hub too, or one keypress would pop two history entries). Backspace
+   *  mirrors "back to the previous person" in Edit: the overlays are history
+   *  entries, so going back is what leaving means here. */
   onLeave?: () => void;
 }
 
@@ -36,7 +38,7 @@ export function useChartShortcuts(handlers: Handlers) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const h = ref.current;
       const key = e.key;
-      if (key === "Escape") {
+      if (key === "Escape" || key === "Backspace") {
         if (h.onLeave) { e.preventDefault(); h.onLeave(); }
         return;
       }

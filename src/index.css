@@ -1669,7 +1669,6 @@ button:focus-visible {
   justify-content: flex-end;
   gap: 8px;
 }
-.edit-back-btn { display: inline-flex; align-items: center; gap: 6px; }
 
 .edit-parents {
   display: flex;
@@ -3250,9 +3249,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-title-break {
   display: none;
 }
-/* The back button is icon-only at every size; the label lives in the tooltip. */
-.tree-back-btn .tree-back-label {
-  display: none;
+/* Back buttons (BackButton): icon-only on chart toolbars — the label lives in
+   the tooltip — while the Edit / Tools instances render a visible label. */
+.tree-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 /* Keep the decision chip centred against the baseline-aligned title text. */
 .tree-title .status-chip {
@@ -3644,6 +3646,60 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-edge-label {
   fill: var(--muted);
   font-size: 11px;
+  stroke: var(--panel);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+/* Timeline chart: lifespan bars on a year axis. Bar fills come inline from the
+   component (accent for the root person, master green for family); everything
+   else is themed here. */
+.timeline-axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.timeline-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+/* Today's year — a dashed accent rule, like the grid but unmistakably "now". */
+.timeline-now {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+.timeline-row { cursor: pointer; }
+/* Full-width hit/selection strip behind each row. */
+.timeline-row-bg { fill: transparent; }
+.timeline-row:hover .timeline-row-bg { fill: color-mix(in srgb, var(--accent) 7%, transparent); }
+.timeline-row.selected .timeline-row-bg { fill: var(--accent-soft); }
+.timeline-row:hover .timeline-bar { filter: brightness(1.12); }
+/* Open bar ends (unknown birth / death, still living) taper off, half-faded. */
+.timeline-bar-open { opacity: 0.45; }
+/* Name coloured by sex via an inline style; this fill is the unknown-sex default. */
+.timeline-row-name {
+  fill: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.timeline-row.is-person .timeline-row-name { font-weight: 700; }
+.timeline-row-meta {
+  fill: var(--muted);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+/* Dated life events: a small dot riding the lifespan bar. */
+.timeline-mark {
+  fill: var(--panel);
+  stroke: var(--text);
+  stroke-width: 1;
+}
+/* Marriages: the ⚭ glyph (plus the optional date/place label) just under the
+   bar, meta-sized, with a panel halo (paint-order stroke) so it stays readable
+   where it crosses a gridline or another bar. */
+.timeline-mark-marriage {
+  fill: var(--muted);
+  font-size: 10.5px;
   stroke: var(--panel);
   stroke-width: 3;
   paint-order: stroke;

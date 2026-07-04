@@ -6,18 +6,22 @@ import type { CandidateDecision } from "../review/types";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { BackButton } from "./BackButton";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
+import { TimelineChart } from "./TimelineChart";
 import { StartPersonSelector } from "./StartPersonSelector";
 
 // The full-page "Charts" hub for a person in the master file: one overlay that
 // hosts every per-person diagram — the pedigree charts (tree / grid / fan /
-// circle, drawn by EditTree) and the relationship-to-start diagram — behind a
-// first-class kind switcher. The chosen kind persists (ChartSettingsContext),
-// so the Edit view's single "Charts" button reopens whatever was used last.
+// circle, drawn by EditTree), the relationship-to-start diagram, and the family
+// timeline — behind a first-class kind switcher. The chosen kind persists
+// (ChartSettingsContext), so the Edit view's single "Charts" button reopens
+// whatever was used last.
 
-/** The hub's kinds, in tab (and digit-shortcut) order. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "relationship"];
+/** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
+ *  (pedigrees, then the timeline) first, the two-person relationship last. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship"];
 
 interface Props {
   masterDs: Dataset;
@@ -26,6 +30,8 @@ interface Props {
   startId?: string;
   changedPersonIds: Set<string>;
   decisions?: Map<string, CandidateDecision>;
+  /** Translated label for where Back lands (App knows the hub's origin). */
+  backLabel: string;
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the hub). */
   onNavigate: (id: string) => void;
@@ -33,7 +39,7 @@ interface Props {
   onPickStart?: (id: string) => void;
 }
 
-export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, decisions, onBack, onNavigate, onPickStart }: Props) {
+export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The hub's current person: starts at the person it was opened on and follows
@@ -45,7 +51,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   // remounts the pedigree chart.
   const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
-  // Digits 1–5 switch the kind (the chart-level keys — zoom, A/D, Esc — are
+  // Digits 1–6 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
   // on the start-person prompt page, where no chart is mounted to own it.
   const showingPrompt = settings.kind === "relationship" && !startId;
@@ -59,6 +65,21 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
     />
   );
 
+  if (settings.kind === "timeline") {
+    return (
+      <TimelineChart
+        masterDs={masterDs}
+        rootId={rootId}
+        startId={startId}
+        backLabel={backLabel}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        onRootChange={setRootId}
+        kindSwitcher={kindSwitcher}
+      />
+    );
+  }
+
   if (settings.kind === "relationship") {
     // The diagram needs a start person to measure from; prompt inline instead of
     // hiding the kind behind a disabled control.
@@ -66,9 +87,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       return (
         <div className="tree-page">
           <div className="tree-toolbar">
-            <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
-              ← <span className="tree-back-label">{t("edit.tree.back")}</span>
-            </button>
+            <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
             <h2 className="tree-title">
               <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
             </h2>
@@ -99,6 +118,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
         masterDs={masterDs}
         startId={startId}
         targetId={rootId}
+        backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
         onTargetChange={setRootId}
@@ -114,6 +134,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       startId={startId}
       changedPersonIds={changedPersonIds}
       decisions={decisions}
+      backLabel={backLabel}
       onBack={onBack}
       onNavigate={onNavigate}
       mode={treeMode}

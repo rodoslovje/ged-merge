@@ -34,6 +34,7 @@ import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplica
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { type PersonNav } from "./ReadOnlyCompare";
 import { isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { BackButton } from "./BackButton";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -1832,11 +1833,18 @@ function SourceDuplicatesView({
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const back = (
-    <button className="tools-chip tools-dup-toggle" onClick={onBack}>
-      ← {t("tools.sources.dupBack")}
-    </button>
-  );
+  // Esc leaves the sub-page, matching the chart overlays.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || isEditableTarget(e.target) || isModalOpen()) return;
+      e.preventDefault();
+      onBack();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onBack]);
+
+  const back = <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />;
 
   const toggleGroup = (id: string) =>
     setExcluded((s) => {

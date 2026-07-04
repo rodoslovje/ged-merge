@@ -50,6 +50,7 @@ import { MapIcon } from "./icons/MapIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
+import { BackButton } from "./BackButton";
 import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
@@ -410,9 +411,7 @@ export function CompareTree({
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("tree.back")} (Esc)`} aria-label={t("tree.back")}>
-          ← <span className="tree-back-label">{t("tree.back")}</span>
-        </button>
+        <BackButton label={t("tree.back")} shortcutHint="Esc" onClick={onBack} />
         <h2 className="tree-title">
           {rootName ? (
             <>

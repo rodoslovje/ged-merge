@@ -27,9 +27,9 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
 ];
 
 /** `lockedType` pins the effective diagram type (used by the Relationship
- *  chart, which always lays out as a tree) so the right option rows show even
- *  when the shared (persisted) type is something else. */
-export function ChartSettings({ lockedType }: { lockedType?: ChartType } = {}) {
+ *  chart, which always lays out as a tree, and by the Timeline) so the right
+ *  option rows show even when the shared (persisted) type is something else. */
+export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeline" } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);
@@ -101,7 +101,8 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType } = {}) {
             </div>
           </div>
           {/* Per-couple marriage fields (date / place) — drawn on the couple's
-              connector (tree / grid) or the fan collar; both default off. */}
+              connector (tree / grid), the fan collar, or beside the timeline's
+              ⚭ markers; both default off. */}
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.marriage")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">

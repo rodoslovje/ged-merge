@@ -29,6 +29,7 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
+import { BackButton } from "./BackButton";
 import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -67,6 +68,8 @@ interface Props {
   changedPersonIds: Set<string>;
   /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
   decisions?: Map<string, CandidateDecision>;
+  /** Translated label for where Back lands (from the hub / App). */
+  backLabel: string;
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the hub). */
   onNavigate?: (id: string) => void;
@@ -81,7 +84,7 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const changeRoot = useCallback((id: string) => {
@@ -276,9 +279,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
-          ← <span className="tree-back-label">{t("edit.tree.back")}</span>
-        </button>
+        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
         <h2 className="tree-title">
           {tree ? (
             <>

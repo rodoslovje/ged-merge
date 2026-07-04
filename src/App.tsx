@@ -272,7 +272,8 @@ function AppContent() {
     function onPop(e: PopStateEvent) {
       const st = (e.state ?? {}) as {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
-        gedChartsId?: string; gedEditTreeId?: string; gedRelId?: string;
+        gedChartsId?: string; gedChartsBack?: string;
+        gedEditTreeId?: string; gedRelId?: string;
         gedMode?: Mode; gedNavigateTo?: string;
       };
       // Landing on the leave-guard = the user pressed Back from the app's main
@@ -299,6 +300,9 @@ function AppContent() {
       // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
       // history can still carry them, so they map onto the hub too.
       setChartsRootId(st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null);
+      // Each charts entry records where its Back returns to (set at push time),
+      // so forward/back through several chart entries keeps the label honest.
+      setChartsBackKey(st.gedChartsBack ?? "edit.tree.back");
       // Restore the mode recorded for this entry (e.g. returning to the Tools tab
       // after opening a person from it). Absent on older/plain entries, in which
       // case the current mode is left untouched.
@@ -1107,13 +1111,26 @@ function AppContent() {
   // Charts hub: the full-page per-person diagram overlay (pedigree charts +
   // relationship). Which diagram it shows is the persisted chart "kind".
   const [chartsRootId, setChartsRootId] = useState<string | null>(null);
+  // i18n key for where the hub's Back lands (the history entry beneath the
+  // hub's): the previous chart on a re-root, the Compare Tree, or the mode view.
+  const [chartsBackKey, setChartsBackKey] = useState("edit.tree.back");
   overlayOpenRef.current = !!(treeView || chartsRootId);
   const overlayOpen = overlayOpenRef.current;
 
   /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
   function openCharts(id: string, kind?: ChartKind) {
     if (kind) setChartKind(kind);
-    window.history.pushState({ gedChartsId: id }, "");
+    const backKey = chartsRootId
+      ? "edit.back" // re-root on top of an open chart: Back = the previous chart
+      : treeView
+        ? "charts.back.tree"
+        : mode === "merge"
+          ? "charts.back.merge"
+          : mode === "tools"
+            ? "charts.back.tools"
+            : "edit.tree.back";
+    window.history.pushState({ gedChartsId: id, gedChartsBack: backKey }, "");
+    setChartsBackKey(backKey);
     setChartsRootId(id);
     // The overlays are exclusive; opened from inside the Compare Tree, the hub
     // replaces it on screen and the browser Back button returns to the tree.
@@ -1713,6 +1730,7 @@ function AppContent() {
         startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
+        backLabel={t(chartsBackKey)}
         onBack={() => window.history.back()}
         onNavigate={(id) => {
           window.history.back(); // close the chart overlay

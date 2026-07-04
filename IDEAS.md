@@ -38,7 +38,7 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 ### Visualization
 - **Map view** — plot birth/death/marriage places (geocoded) and migration paths.
 - **Descendant & classic pedigree charts** — complement the existing fan, circle, grid and relationship charts.
-- **Timeline view** — per-person or per-family chronological timeline.
+- ~~**Timeline view** — per-person or per-family chronological timeline.~~ *Done: the Charts hub's Timeline kind (family lifespan bars + event/marriage markers).*
 
 ### Editing / UX
 - **Global search & filter** — find individuals across the whole file.

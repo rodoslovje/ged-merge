@@ -130,7 +130,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: "shortcuts.group.charts",
     category: "app",
     items: [
-      { keys: [["1"], ["5"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [["1"], ["6"]], descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },

@@ -7,6 +7,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
+import { BackButton } from "./BackButton";
 import { ChartIcon } from "./icons/ChartIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
@@ -1411,15 +1412,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             );
           })}
           <div className="edit-actions">
-            <button
-              className="tree-open-btn edit-back-btn"
-              onClick={goBack}
+            <BackButton
+              label={t("edit.back")}
+              shortcutHint="⌫"
+              showLabel
               disabled={history.length === 0}
-              title={`${t("edit.back")} (⌫)`}
-            >
-              <span aria-hidden="true">←</span>
-              <span className="edit-back-label">{t("edit.back")}</span>
-            </button>
+              onClick={goBack}
+            />
             <button
               className="tree-open-btn charts-open-btn"
               onClick={() => selectedId && onShowCharts(selectedId)}

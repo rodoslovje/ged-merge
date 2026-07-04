@@ -11,11 +11,12 @@ import type { ChartAlignment } from "../tree/treeLayout";
  *  "fan"/"circle" (radial, curved-text ancestor charts) are all implemented. */
 export type ChartType = "tree" | "grid" | "fan" | "circle";
 
-/** What the Charts hub is showing: one of the pedigree chart types, or the
- *  relationship-to-start diagram. The hub's kind switcher drives this; `type`
- *  keeps tracking the last pedigree chart so display logic (radial vs layered)
- *  stays valid while the relationship diagram is open. */
-export type ChartKind = ChartType | "relationship";
+/** What the Charts hub is showing: one of the pedigree chart types, the
+ *  relationship-to-start diagram, or the family timeline. The hub's kind
+ *  switcher drives this; `type` keeps tracking the last pedigree chart so
+ *  display logic (radial vs layered) stays valid while a non-pedigree view
+ *  is open. */
+export type ChartKind = ChartType | "relationship" | "timeline";
 
 export type { ChartAlignment };
 
@@ -59,7 +60,8 @@ interface ChartSettingsCtx {
   settings: ChartSettings;
   setType: (type: ChartType) => void;
   /** Switch the hub view. A pedigree kind also becomes the chart `type`;
-   *  "relationship" leaves `type` untouched so leaving it restores the chart. */
+   *  "relationship" / "timeline" leave `type` untouched so leaving them
+   *  restores the chart. */
   setKind: (kind: ChartKind) => void;
   setAlignment: (alignment: ChartAlignment) => void;
   /** Patch any subset of the settings (used by the display/privacy toggles). */
@@ -89,7 +91,7 @@ function load(): ChartSettings {
     return {
       type,
       // Older saved blobs lack `kind`; fall back to the chart type they saved.
-      kind: parsed.kind === "relationship" ? "relationship" : type,
+      kind: parsed.kind === "relationship" || parsed.kind === "timeline" ? parsed.kind : type,
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
@@ -128,7 +130,7 @@ export function ChartSettingsProvider({ children }: { children: React.ReactNode 
       settings,
       // Changing the chart type is also a hub-view choice, so both move together.
       setType: (type) => update({ type, kind: type }),
-      setKind: (kind) => update(kind === "relationship" ? { kind } : { kind, type: kind }),
+      setKind: (kind) => update(kind === "relationship" || kind === "timeline" ? { kind } : { kind, type: kind }),
       setAlignment: (alignment) => update({ alignment }),
       set: update,
     }),

@@ -3,8 +3,13 @@
 // lean on the app's stylesheet (CSS classes + `var(--…)` tokens + `color-mix`)
 // and on photos served from object URLs — none of which survive once the markup
 // leaves the page. So we clone the node, bake every visual property into inline
-// styles (getComputedStyle resolves tokens and color-mix to plain rgb), embed
-// the photos as data URIs, and paint the canvas background behind it.
+// styles (getComputedStyle resolves tokens and color-mix to plain rgb) and embed
+// the photos as data URIs.
+//
+// Exports are theme-independent: styles are resolved with the light palette
+// temporarily forced (so the same file comes out of a dark or light UI) and the
+// background stays transparent — light-theme ink reads fine on white paper and
+// on the white/checker canvas of most SVG viewers.
 
 // The presentation properties worth baking in. Deliberately omits `transform`
 // (kept as the element's attribute — a CSS matrix would fight it) and layout
@@ -236,10 +241,6 @@ async function embedImages(clone: SVGSVGElement): Promise<void> {
  * @param opts colours plus the header title / footer text band
  */
 export interface SvgExportOptions {
-  /** Canvas colour painted behind everything (resolved, e.g. rgb). */
-  background: string;
-  /** Title / footer text colour (resolved). */
-  foreground: string;
   /** Diagram title shown centred in the header band. */
   title: string;
   /** Download base name (no extension); used as the print-to-PDF default name. */
@@ -290,6 +291,43 @@ function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
 const HEADER_H = 52;
 const FOOTER_H = 34;
 const MARGIN_X = 20;
+const BADGE_SIZE = 18;
+// Minimum gap between the footer's site link and timestamp.
+const FOOTER_GAP = 24;
+// Narrow diagrams (e.g. a single relationship card) still get a visible band.
+const MIN_DIAGRAM_H = 80;
+
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+/** Rendered width of `text` at the given CSS font, for sizing the export bands. */
+function textWidth(text: string, font: string): number {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return text.length * 8;
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+
+// The export background is transparent, so hairlines and text would vanish on a
+// dark backdrop. A soft white halo behind everything keeps them readable there
+// while staying invisible on white. Built from core SVG 1.1 primitives (dilate +
+// blur + flood) rather than feDropShadow for maximum viewer compatibility.
+const HALO_ID = "gm-halo";
+
+function svgHaloFilter(): SVGDefsElement {
+  const defs = document.createElementNS(SVG_NS, "defs");
+  defs.innerHTML =
+    `<filter id="${HALO_ID}" x="-2%" y="-2%" width="104%" height="104%">` +
+    `<feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="spread"></feMorphology>` +
+    `<feGaussianBlur in="spread" stdDeviation="1" result="blurred"></feGaussianBlur>` +
+    `<feFlood flood-color="#ffffff" flood-opacity="0.85"></feFlood>` +
+    `<feComposite in2="blurred" operator="in" result="halo"></feComposite>` +
+    `<feMerge>` +
+    `<feMergeNode in="halo"></feMergeNode>` +
+    `<feMergeNode in="SourceGraphic"></feMergeNode>` +
+    `</feMerge>` +
+    `</filter>`;
+  return defs;
+}
 
 function svgText(text: string, x: number, y: number, attrs: Record<string, string>): SVGTextElement {
   const el = document.createElementNS(SVG_NS, "text");
@@ -298,16 +336,6 @@ function svgText(text: string, x: number, y: number, attrs: Record<string, strin
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   el.textContent = text;
   return el;
-}
-
-function svgRect(x: number, y: number, w: number, h: number, fill: string): SVGRectElement {
-  const r = document.createElementNS(SVG_NS, "rect");
-  r.setAttribute("x", String(x));
-  r.setAttribute("y", String(y));
-  r.setAttribute("width", String(w));
-  r.setAttribute("height", String(h));
-  r.setAttribute("fill", fill);
-  return r;
 }
 
 interface BuiltSvg {
@@ -323,7 +351,23 @@ interface BuiltSvg {
  */
 async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const clone = live.cloneNode(true) as SVGSVGElement;
-  inlineComputedStyles(live, clone);
+
+  // Resolve every colour with the light palette forced, so the export looks the
+  // same whichever scheme the UI is in. The attribute flip, the style reads and
+  // the restore all happen synchronously (before any await), so the page never
+  // paints a frame in the wrong theme.
+  const root = document.documentElement;
+  const prevTheme = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "light");
+  let foreground: string;
+  try {
+    inlineComputedStyles(live, clone);
+    // Header/footer ink: the canvas text colour as the light theme resolves it.
+    foreground = getComputedStyle(live).color || "#000000";
+  } finally {
+    if (prevTheme === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", prevTheme);
+  }
 
   // SVG <title> children surface as hover tooltips (the on-screen nodes carry a
   // "click to…" hint). In a static export they're useless and misleading, so
@@ -341,19 +385,35 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Prom
   const diagramH = viewBox.length === 4 && viewBox[3] > 0
     ? viewBox[3]
     : parseFloat(live.getAttribute("height") ?? "") || live.clientHeight;
-  const totalW = diagramW;
-  const totalH = HEADER_H + diagramH + FOOTER_H;
 
-  // Move the diagram into a group shifted below the header band, leaving the
-  // root svg free to host the background, header and footer.
+  // A narrow diagram must not squeeze the bands: keep the export at least wide
+  // enough for the header title and the footer's badge + site link + timestamp.
+  const timestamp = new Date().toLocaleString();
+  const titleNeeds = textWidth(opts.title, `600 18px ${SANS}`) + 2 * MARGIN_X;
+  const footerNeeds =
+    2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(SITE, `600 12px ${SANS}`) +
+    FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
+  const totalW = Math.ceil(Math.max(diagramW, titleNeeds, footerNeeds));
+  const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
+  const totalH = HEADER_H + bandH + FOOTER_H;
+
+  // Move the diagram into a group shifted below the header band (centred when
+  // the bands force a larger canvas), leaving the root svg free to host the
+  // header and footer.
   const content = document.createElementNS(SVG_NS, "g");
-  content.setAttribute("transform", `translate(0,${HEADER_H})`);
+  content.setAttribute(
+    "transform",
+    `translate(${(totalW - diagramW) / 2},${HEADER_H + (bandH - diagramH) / 2})`,
+  );
   while (clone.firstChild) content.appendChild(clone.firstChild);
 
-  // Bottom-most: the canvas background, so the export isn't transparent (text /
-  // edges are tuned for the panel colour behind them).
-  clone.appendChild(svgRect(0, 0, totalW, totalH, opts.background));
-  clone.appendChild(content);
+  // Everything renders through the white-halo filter so the export stays
+  // legible on dark backdrops despite the transparent background.
+  const frame = document.createElementNS(SVG_NS, "g");
+  frame.setAttribute("filter", `url(#${HALO_ID})`);
+  clone.appendChild(svgHaloFilter());
+  clone.appendChild(frame);
+  frame.appendChild(content);
 
   // Header: hairline divider + centred title.
   const headLine = document.createElementNS(SVG_NS, "line");
@@ -361,50 +421,49 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Prom
   headLine.setAttribute("y1", String(HEADER_H));
   headLine.setAttribute("x2", String(totalW));
   headLine.setAttribute("y2", String(HEADER_H));
-  headLine.setAttribute("stroke", opts.foreground);
+  headLine.setAttribute("stroke", foreground);
   headLine.setAttribute("stroke-opacity", "0.15");
-  clone.appendChild(headLine);
-  clone.appendChild(
+  frame.appendChild(headLine);
+  frame.appendChild(
     svgText(opts.title, totalW / 2, HEADER_H / 2 + 6, {
       "text-anchor": "middle",
       "font-family": SANS,
       "font-size": "18",
       "font-weight": "600",
-      fill: opts.foreground,
+      fill: foreground,
     }),
   );
 
   // Footer: hairline divider, site on the left, timestamp on the right.
-  const footY = HEADER_H + diagramH;
+  const footY = HEADER_H + bandH;
   const footLine = headLine.cloneNode() as SVGLineElement;
   footLine.setAttribute("y1", String(footY));
   footLine.setAttribute("y2", String(footY));
-  clone.appendChild(footLine);
+  frame.appendChild(footLine);
   const footTextY = footY + FOOTER_H / 2 + 4;
   // Small green brand badge, vertically centred in the footer band, with the
   // site name as a clickable link beside it (works in browsers and print-to-PDF).
-  const badgeSize = 18;
   const link = document.createElementNS(SVG_NS, "a");
   link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
   link.setAttribute("href", SITE_URL);
   link.setAttribute("target", "_blank");
-  link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - badgeSize) / 2, badgeSize));
+  link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
   link.appendChild(
-    svgText(SITE, MARGIN_X + badgeSize + 8, footTextY, {
+    svgText(SITE, MARGIN_X + BADGE_SIZE + 8, footTextY, {
       "font-family": SANS,
       "font-size": "12",
       "font-weight": "600",
-      fill: opts.foreground,
+      fill: foreground,
       "text-decoration": "underline",
     }),
   );
-  clone.appendChild(link);
-  clone.appendChild(
-    svgText(new Date().toLocaleString(), totalW - MARGIN_X, footTextY, {
+  frame.appendChild(link);
+  frame.appendChild(
+    svgText(timestamp, totalW - MARGIN_X, footTextY, {
       "text-anchor": "end",
       "font-family": SANS,
       "font-size": "12",
-      fill: opts.foreground,
+      fill: foreground,
       "fill-opacity": "0.7",
     }),
   );
@@ -484,14 +543,14 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Find the diagram SVG inside a `.tree-canvas` element and export it, wrapping it
- * in a titled header + site/timestamp footer and painting the canvas's own
- * (resolved) colours behind it. No-op if the SVG is absent.
+ * Find the diagram SVG inside a `.tree-canvas` element and export it, wrapped in
+ * a titled header + site/timestamp footer (light palette, transparent
+ * background). No-op if the SVG is absent.
  */
 export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
-  if (!svg || !canvas) return;
-  void downloadSvg(svg, fileName, canvasExportOptions(canvas, title, fileName));
+  if (!svg) return;
+  void downloadSvg(svg, fileName, { title, fileName });
 }
 
 /**
@@ -500,18 +559,8 @@ export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, ti
  */
 export function exportCanvasPdf(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
-  if (!svg || !canvas) return;
-  void printSvg(svg, canvasExportOptions(canvas, title, fileName));
-}
-
-function canvasExportOptions(canvas: HTMLElement, title: string, fileName: string): SvgExportOptions {
-  const cs = getComputedStyle(canvas);
-  return {
-    background: cs.backgroundColor || "#ffffff",
-    foreground: cs.color || "#000000",
-    title,
-    fileName,
-  };
+  if (!svg) return;
+  void printSvg(svg, { title, fileName });
 }
 
 /**
