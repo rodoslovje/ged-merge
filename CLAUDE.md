@@ -92,7 +92,8 @@ Sanity check after CSS edits: every referenced var must resolve to a definition,
 | `src/match/` | Scoring engine, similarity functions, kinship distance ranking |
 | `src/merge/` | Apply decisions → produce merged `GedNode[]` + change report |
 | `src/review/` | Field-comparison rows (`FieldRow`), diff counts for the results table |
-| `src/tree/` | Compare-tree and edit-tree logic |
+| `src/chart/` | Pure chart data + geometry: person tree builder (`personTree`), layered/fan/relationship layouts, timeline rows, per-node display rules (`nodeDisplay`) — no React |
+| `src/report/` | Pure text-report builders: Ahnentafel + NGSQ descendant register (`model`, `text`) |
 | `src/csv/` | Genealogical index CSV import |
 | `src/tools/` | Whole-file maintenance tools (Tools tab): validation/health check, within-file duplicate finder, bulk normalize — pure functions run on the main thread |
 | `src/ui/` | React components |

@@ -1,23 +1,22 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "../tree/timeline";
-import { formatMarriage } from "../tree/nodeDisplay";
-import { PAD, type Placed } from "../tree/treeLayout";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage } from "../match/relationshipPath";
+import { buildTimeline, type TimelineRow } from "../chart/timeline";
+import { formatMarriage } from "../chart/nodeDisplay";
+import { PAD, type ChartNode } from "../chart/treeLayout";
+import { useTreeCanvas } from "./useTreeCanvas";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ZoomControls } from "./ZoomControls";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
-import { ExportMenu } from "./ExportMenu";
-import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
+import { chartSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -108,6 +107,10 @@ interface Props {
   masterDs: Dataset;
   rootId: string;
   startId?: string;
+  /** Master ids with unsaved edits — those rows show the "M" chip. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D chip here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -120,9 +123,10 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -168,6 +172,12 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     return { x0, x1, contentW, contentH, xOf, ticks };
   }, [data, rowH]);
 
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
+    [masterDs, startId, t],
+  );
+
   // Redact people inferred to be living: label only (a bar would betray the
   // dates), name replaced by their kinship to the start person or "Living".
   const redacted = useCallback(
@@ -177,19 +187,19 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   const rowName = useCallback(
     (row: TimelineRow) => {
       if (!redacted(row)) return row.name;
-      return (startId && kinshipLabel(masterDs, startId, row.id, t)) || livingLabel;
+      return kinship?.label(row.id) || livingLabel;
     },
-    [redacted, startId, masterDs, t, livingLabel],
+    [redacted, kinship, livingLabel],
   );
 
-  // Adapt the rows to the shapes useTreeCanvas expects (it only reads key/x/y);
-  // the root person's row pins the initial scroll.
+  // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
+  // an x/y); the root person's row pins the initial scroll.
   const rows = useMemo(() => data?.rows ?? [], [data]);
   const nodesByKey = useMemo(() => {
-    const m = new Map<string, Placed>();
+    const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
       const x = geom && r.from !== undefined ? geom.xOf(r.from) : 0;
-      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH } as unknown as Placed);
+      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH });
     });
     return m;
   }, [rows, geom, rowH]);
@@ -200,7 +210,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     if (!placed) return undefined;
     // Pin the initial scroll to the chart's left edge, not the root's bar —
     // the parents' bars (and labels) usually start earlier than the root.
-    const root = { ...placed, x: 0 } as Placed;
+    const root = { ...placed, x: 0 };
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
@@ -255,54 +265,35 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   };
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {rootRow ? (
-            <>
-              <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
-              {!redacted(rootRow) && rootRow.years && <span className="tree-title-years gm-data">{rootRow.years}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              <span className="tree-title-kind">{pageKind}</span>
-            </>
-          ) : (
-            pageKind
-          )}
-        </h2>
-        <ChartSettings lockedType="timeline" />
-        <ExportMenu
-          disabled={!laid}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: rows.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
-            },
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-            },
-          ]}
-        />
-      </div>
-
-      <div className="tree-controls">
-        <div className="tree-controls-left">{kindSwitcher}</div>
-      </div>
-
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        rootRow ? (
+          <>
+            <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
+            {!redacted(rootRow) && rootRow.years && <span className="tree-title-years gm-data">{rootRow.years}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            <span className="tree-title-kind">{pageKind}</span>
+          </>
+        ) : (
+          pageKind
+        )
+      }
+      actions={
+        <>
+          <ChartSettings lockedType="timeline" />
+          <ChartExportMenu
+            disabled={!laid}
+            slug={chartSlug(rootRow?.name, pageKind)}
+            title={exportTitle}
+            gedcom={{ ds: masterDs, personIds: rows.map((r) => r.id) }}
+            canvasRef={canvasRef}
+          />
+        </>
+      }
+      controlsLeft={kindSwitcher}
+    >
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
@@ -484,15 +475,37 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                             tree charts, so it reads apart from the role chip. */}
                         {showKinship && !hidden && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(bloodLineage(masterDs, startId!, row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id))}`}
                             dx={8}
                           >
-                            {kinshipLabel(masterDs, startId!, row.id, t)}
+                            {kinship?.label(row.id)}
                           </tspan>
                         )}
                         {!hidden && row.from === undefined && (
                           <tspan className="timeline-row-meta" dx={8}>{t("timeline.undated")}</tspan>
                         )}
+                        {/* Working-state chips (decision C/R/D + unsaved-edit M) —
+                            text tspans here, matching the tree charts' badges. */}
+                        {settings.showBadges && !hidden && (() => {
+                          const dec = nodeStatus.decisionOf(row.id);
+                          const mod = nodeStatus.modifiedOf(row.id);
+                          return (
+                            <>
+                              {dec && (
+                                <tspan className={`timeline-row-badge ${dec.status}`} dx={8}>
+                                  {dec.letter}
+                                  <title>{t(`status.${dec.status}`)}</title>
+                                </tspan>
+                              )}
+                              {mod && (
+                                <tspan className="timeline-row-badge modified" dx={8}>
+                                  {nodeStatus.modifiedLetter}
+                                  <title>{t("edit.tree.modified")}</title>
+                                </tspan>
+                              )}
+                            </>
+                          );
+                        })()}
                       </text>
                     </g>
                   );
@@ -510,7 +523,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
 
         {selectedRow && selectedIndi && (
           <TreeNodePanel
-            node={selectedRow as unknown as Placed}
+            node={selectedRow}
             swatch={selectedRow.role === "person" ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             masterPerson={masterNav}
@@ -531,7 +544,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 

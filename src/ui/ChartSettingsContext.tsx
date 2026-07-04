@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import type { ChartAlignment } from "../tree/treeLayout";
+import type { ChartAlignment } from "../chart/treeLayout";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
 // Compare Tree, Relationship chart). One instance drives all three so a change
@@ -9,7 +9,7 @@ import type { ChartAlignment } from "../tree/treeLayout";
 /** Diagram rendering style. "tree" (tidy layered), "grid" (aligned columns —
  *  a pedigree grid for ancestors, an indented outline for descendants), and
  *  "fan"/"circle" (radial, curved-text ancestor charts) are all implemented. */
-export type ChartType = "tree" | "grid" | "fan" | "circle";
+export type PedigreeType = "tree" | "grid" | "fan" | "circle";
 
 /** What the Charts hub is showing: one of the pedigree chart types, the
  *  relationship-to-start diagram, the family timeline, or the report page
@@ -17,7 +17,7 @@ export type ChartType = "tree" | "grid" | "fan" | "circle";
  *  The hub's kind switcher drives this; `type` keeps tracking the last
  *  pedigree chart so display logic (radial vs layered) stays valid while a
  *  non-pedigree view is open. */
-export type ChartKind = ChartType | "relationship" | "timeline" | "report";
+export type ChartKind = PedigreeType | "relationship" | "timeline" | "report";
 
 /** The hub kinds that are not pedigree charts: choosing them leaves `type`
  *  untouched, so leaving them restores the last pedigree chart. */
@@ -29,7 +29,7 @@ export type { ChartAlignment };
 export type TimelineEventScope = "person" | "all" | "off";
 
 export interface ChartSettings {
-  type: ChartType;
+  type: PedigreeType;
   /** Last-used hub view; also decides what the Edit "Charts" button reopens. */
   kind: ChartKind;
   alignment: ChartAlignment;
@@ -41,6 +41,9 @@ export interface ChartSettings {
   showLifespan: boolean;
   /** Show a place line (first available of birth / residence / death). */
   showPlace: boolean;
+  /** Show the status badges on nodes — the merge-decision C/R/D letters, the
+   *  unsaved-edit "M" and the import "I" (Edit and Compare trees). */
+  showBadges: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -72,6 +75,7 @@ const DEFAULTS: ChartSettings = {
   showPhoto: true,
   showLifespan: true,
   showPlace: false,
+  showBadges: true,
   showMarriageDate: false,
   showMarriagePlace: false,
   privacyLiving: false,
@@ -88,7 +92,7 @@ const STORAGE_KEY = "gedmerge.chartSettings";
 
 interface ChartSettingsCtx {
   settings: ChartSettings;
-  setType: (type: ChartType) => void;
+  setType: (type: PedigreeType) => void;
   /** Switch the hub view. A pedigree kind also becomes the chart `type`;
    *  "relationship" / "timeline" leave `type` untouched so leaving them
    *  restores the chart. */
@@ -127,6 +131,7 @@ function load(): ChartSettings {
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
+      showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       privacyLiving: bool(parsed.privacyLiving, DEFAULTS.privacyLiving),
@@ -176,7 +181,7 @@ export function ChartSettingsProvider({ children }: { children: React.ReactNode 
       // Changing the chart type is also a hub-view choice, so both move together.
       setType: (type) => update({ type, kind: type }),
       setKind: (kind) =>
-        update((NON_PEDIGREE_KINDS as readonly string[]).includes(kind) ? { kind } : { kind, type: kind as ChartType }),
+        update((NON_PEDIGREE_KINDS as readonly string[]).includes(kind) ? { kind } : { kind, type: kind as PedigreeType }),
       setAlignment: (alignment) => update({ alignment }),
       set: update,
     }),

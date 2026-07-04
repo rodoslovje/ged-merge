@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { TreeMode } from "../tree/compareTree";
+import type { TreeMode } from "../chart/personTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
 import {
@@ -13,19 +13,19 @@ import {
   type SourceLine,
 } from "../report/model";
 import { childrenOfLabel, factText, reportToText } from "../report/text";
-import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { diagramSlug, escapeHtml, printDocument } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
+import { chartSlug, escapeHtml, printDocument } from "./exportSvg";
 import { downloadText } from "./download";
-import { ExportMenu } from "./ExportMenu";
-import { FileTextIcon, GedIcon, PrinterIcon } from "./icons/FormatIcons";
+import { ChartExportMenu } from "./ChartExportMenu";
+import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
@@ -48,6 +48,10 @@ const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
 interface Props {
   masterDs: Dataset;
   rootId: string;
+  /** Master ids with unsaved edits — those entries show the "M" chip. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D chip here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -64,9 +68,10 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ masterDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -171,58 +176,55 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
   }, []);
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {rootEntry ? (
-            <>
-              <span className={`tree-title-name ${sexClass(rootEntry.sex)}`}>{rootEntry.name}</span>
-              {!redacted(rootEntry) && rootEntry.years && <span className="tree-title-years gm-data">{rootEntry.years}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              <span className="tree-title-kind">{pageKind}</span>
-            </>
-          ) : (
-            pageKind
-          )}
-        </h2>
-        <ChartSettings lockedType="report" />
-        <ExportMenu
-          disabled={!data}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: reportIds.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, reportIds, diagramSlug(rootEntry?.name, pageKind)),
-            },
-            {
-              key: "txt",
-              icon: <FileTextIcon />,
-              label: t("export.txt"),
-              title: t("report.exportTxt.tooltip"),
-              onSelect: () =>
-                data &&
-                downloadText(
-                  `${diagramSlug(rootEntry?.name, pageKind)}.txt`,
-                  reportToText(t, data, mode, exportTitle, { privacyLiving: privacy }),
-                ),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () =>
-                data && printDocument(printDoc(t, data, mode, exportTitle, diagramSlug(rootEntry?.name, pageKind), privacy)),
-            },
-          ]}
-        />
-      </div>
-
-      <div className="tree-controls">
-        <div className="tree-controls-left">
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        rootEntry ? (
+          <>
+            <span className={`tree-title-name ${sexClass(rootEntry.sex)}`}>{rootEntry.name}</span>
+            {!redacted(rootEntry) && rootEntry.years && <span className="tree-title-years gm-data">{rootEntry.years}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            <span className="tree-title-kind">{pageKind}</span>
+          </>
+        ) : (
+          pageKind
+        )
+      }
+      actions={
+        <>
+          <ChartSettings lockedType="report" />
+          <ChartExportMenu
+            disabled={!data}
+            slug={chartSlug(rootEntry?.name, pageKind)}
+            gedcom={{ ds: masterDs, personIds: reportIds }}
+            extraItems={[
+              {
+                key: "txt",
+                icon: <FileTextIcon />,
+                label: t("export.txt"),
+                title: t("report.exportTxt.tooltip"),
+                onSelect: () =>
+                  data &&
+                  downloadText(
+                    `${chartSlug(rootEntry?.name, pageKind)}.txt`,
+                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy }),
+                  ),
+              },
+              {
+                key: "pdf",
+                icon: <PrinterIcon />,
+                label: t("export.pdf"),
+                title: t("tree.exportPdf.tooltip"),
+                onSelect: () =>
+                  data && printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy)),
+              },
+            ]}
+          />
+        </>
+      }
+      controlsLeft={
+        <>
           {kindSwitcher}
           <div className="tree-mode">
             <button className={mode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
@@ -234,9 +236,9 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
               {descendants && <span className="tree-mode-count">{descendants.total}</span>}
             </button>
           </div>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       <div className="tree-canvas-wrap">
         <div className="report-scroll">
           {data ? (
@@ -279,6 +281,27 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
+                            {/* Working-state chips (decision C/R/D + unsaved-edit M) —
+                                same letters and tokens as the tree charts' badges.
+                                Page only; the txt/PDF exports carry data, not state. */}
+                            {settings.showBadges && (() => {
+                              const dec = nodeStatus.decisionOf(e.id);
+                              const mod = nodeStatus.modifiedOf(e.id);
+                              return (
+                                <>
+                                  {dec && (
+                                    <span className={`status-chip ${dec.status}`} title={t(`status.${dec.status}`)}>
+                                      {dec.letter}
+                                    </span>
+                                  )}
+                                  {mod && (
+                                    <span className="status-chip modified" title={t("edit.tree.modified")}>
+                                      {nodeStatus.modifiedLetter}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                             {e.dupOf !== undefined && (
                               <button
                                 className="report-dup report-jump"
@@ -321,7 +344,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
 
         {selectedEntry && selectedIndi && (
           <TreeNodePanel
-            node={selectedEntry as unknown as Placed}
+            node={selectedEntry}
             swatch={selectedEntry.num === 1 ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             masterPerson={masterNav}
@@ -339,7 +362,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 

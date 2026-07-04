@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
-import { PAD } from "../tree/treeLayout";
-import type { FanChart, FanSegment } from "../tree/fanLayout";
-import type { TreeNode } from "../tree/compareTree";
+import { PAD } from "../chart/treeLayout";
+import type { FanChart, FanSegment } from "../chart/fanLayout";
+import type { TreeNode } from "../chart/personTree";
 import { TreeNodePhoto } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
+import { NodeBadge } from "./TreeNodeBox";
 import { sexColorVar } from "./sex";
 
 /** A small badge dot a host can attach to a segment (decision / modified / import). */
@@ -188,12 +189,14 @@ function Segment({
         </g>
       )}
       {badge && (
-        <g className={`fan-badge ${badge.cls ?? ""}`} transform={`translate(${seg.badge.x},${seg.badge.y})`}>
-          <circle r={7} fill={badge.fill} />
-          <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill={badge.textFill}>
-            {badge.letter}
-          </text>
-        </g>
+        <NodeBadge
+          x={seg.badge.x}
+          y={seg.badge.y}
+          cls={`fan-badge ${badge.cls ?? ""}`}
+          fill={badge.fill}
+          textFill={badge.textFill}
+          letter={badge.letter}
+        />
       )}
     </g>
   );

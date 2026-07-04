@@ -188,10 +188,32 @@ export function bloodLineage(
   startId: string,
   targetId: string,
 ): Lineage | undefined {
-  if (startId === targetId) return undefined;
-  if (!ds.individuals.has(startId) || !ds.individuals.has(targetId)) return undefined;
+  if (!ds.individuals.has(startId)) return undefined;
+  return bloodLineageFrom(ds, startId, ancestors(ds, startId), targetId);
+}
 
+/**
+ * A blood-lineage resolver fixed to one start person: the start-side ancestor
+ * walk runs once up front, so resolving many targets (every node of a chart)
+ * costs only each target's own walk. Same results as {@link bloodLineage}.
+ */
+export function makeBloodLineageResolver(
+  ds: Dataset,
+  startId: string,
+): (targetId: string) => Lineage | undefined {
+  if (!ds.individuals.has(startId)) return () => undefined;
   const startAnc = ancestors(ds, startId);
+  return (targetId) => bloodLineageFrom(ds, startId, startAnc, targetId);
+}
+
+function bloodLineageFrom(
+  ds: Dataset,
+  startId: string,
+  startAnc: Map<string, { gen: number; from?: string }>,
+  targetId: string,
+): Lineage | undefined {
+  if (startId === targetId || !ds.individuals.has(targetId)) return undefined;
+
   const targetAnc = ancestors(ds, targetId);
 
   // Closest common ancestor(s), by total hops; ties (e.g. both parents) all count.

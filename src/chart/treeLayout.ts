@@ -3,7 +3,7 @@
 // SVG connector paths. Both views render different node contents on top of this
 // identical skeleton, so the geometry lives here once.
 
-import type { TreeNode } from "./compareTree";
+import type { TreeNode } from "./personTree";
 
 /** Which way a layered diagram grows: left→right (default) or top→bottom. The
  *  canonical home for the type — the UI's ChartSettings re-exports it. */
@@ -61,6 +61,16 @@ export const ROW_STEP_TB = NODE_H + ROW_GAP_TB;
 export const PAD = 24;
 
 // ─── Layout types ─────────────────────────────────────────────────────────────
+
+/** The minimal node shape the shared canvas machinery (useTreeCanvas,
+ *  TreeMinimap, selection) needs: a selection key plus a position in native
+ *  (pre-zoom) canvas px. Every chart's nodes satisfy it structurally — layered
+ *  `Placed` boxes, fan segments, relationship boxes, timeline rows. */
+export interface ChartNode {
+  key: string;
+  x: number;
+  y: number;
+}
 
 /** A tree node with absolute pixel coordinates assigned by `layout`. */
 export interface Placed extends TreeNode {

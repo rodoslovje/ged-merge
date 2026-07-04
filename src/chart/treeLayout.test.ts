@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TreeNode } from "./compareTree";
+import type { TreeNode } from "./personTree";
 import { COL_STEP, NODE_H, NODE_W, ROW_STEP, flatten, layout, layoutGrid } from "./treeLayout";
 
 /** Minimal TreeNode for geometry tests — only the layout-relevant fields matter. */

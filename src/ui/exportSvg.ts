@@ -580,7 +580,7 @@ export function exportCanvasPdf(canvas: HTMLElement | null, fileName: string, ti
  * Accented letters are transliterated to ASCII (Č→C, Š→S, Ž→Z, Ä→A, …) so the
  * download name stays plain ASCII instead of dropping those characters.
  */
-export function diagramSlug(...parts: (string | undefined)[]): string {
+export function chartSlug(...parts: (string | undefined)[]): string {
   const s = parts
     .filter(Boolean)
     .join("-")

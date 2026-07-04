@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildFanChart } from "./fanLayout";
 import { ALL_DISPLAY } from "./nodeDisplay";
-import type { TreeNode } from "./compareTree";
+import type { TreeNode } from "./personTree";
 import type { Sex } from "../gedcom/types";
 
 // Minimal TreeNode factory — the fan layout only reads key/sex/name/years/children.

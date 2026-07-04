@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type ChartType, type TimelineEventScope } from "./ChartSettingsContext";
+import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the Tree alignment (left→right / top→bottom)
@@ -12,12 +12,14 @@ import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, 
 const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
 /** The boolean display toggles, in popover order. */
-/** Per-person fields (the "Person" group). */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showPhoto" | "showKinship" | "showPlace"; label: string }[] = [
+/** Per-person fields (the "Person" group). Badges = the on-node status letters
+ *  (merge decision C/R/D, unsaved-edit M, import I) drawn by the tree charts. */
+const DISPLAY_FIELDS: { key: "showLifespan" | "showPhoto" | "showKinship" | "showPlace" | "showBadges"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
+  { key: "showBadges", label: "badges" },
 ];
 
 /** Per-couple marriage fields (the "Marriage" group — both default off). */
@@ -33,7 +35,7 @@ const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
  *  chart, which always lays out as a tree, and by the Timeline and the
  *  Ahnentafel report) so the right option rows show even when the shared
  *  (persisted) type is something else. */
-export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeline" | "report" } = {}) {
+export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "timeline" | "report" } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);

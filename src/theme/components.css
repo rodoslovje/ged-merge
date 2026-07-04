@@ -96,6 +96,14 @@
 .tree-node-decision.rejected text    { fill: var(--state-major); }
 .tree-node-decision.incoming text    { fill: var(--state-incoming); }
 
+/* The same working-state letters on a Timeline row — plain text chips (an SVG
+   tspan can't carry the circle), coloured from the same state tokens. */
+.timeline-row-badge           { font-weight: 700; font-size: 10.5px; }
+.timeline-row-badge.confirmed { fill: var(--state-match); }
+.timeline-row-badge.deferred  { fill: var(--state-minor); }
+.timeline-row-badge.rejected  { fill: var(--state-major); }
+.timeline-row-badge.modified  { fill: var(--node-minor); }
+
 /* Legend swatches already use .tree-swatch — fill them from the node tokens. */
 .tree-swatch.match    { background: var(--node-match); }
 .tree-swatch.minor    { background: var(--node-minor); }

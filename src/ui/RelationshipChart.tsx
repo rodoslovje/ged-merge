@@ -1,27 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
-import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
-import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage, bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
-import { buildRelationshipChart, type ChartBox } from "../match/relationshipChartLayout";
+import { PAD, nodeHeight } from "../chart/treeLayout";
+import { formatMarriage, placeLabel } from "../chart/nodeDisplay";
+import { useTreeCanvas } from "./useTreeCanvas";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { StartPersonSelector } from "./StartPersonSelector";
-import { TreeNodeBox } from "./TreeNodeBox";
+import { nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { TreeMinimap } from "./TreeMinimap";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
+import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { MapIcon } from "./icons/MapIcon";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { exportChartGedcom } from "./exportGedcom";
-import { ExportMenu } from "./ExportMenu";
-import { BackButton } from "./BackButton";
-import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
+import { chartSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
+import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -33,6 +32,10 @@ interface Props {
   masterDs: Dataset;
   startId: string;
   targetId: string;
+  /** Master ids with unsaved edits — those boxes show the "M" badge. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D badge here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (from the hub / App). */
   backLabel: string;
   onBack: () => void;
@@ -57,9 +60,10 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ masterDs, startId, targetId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -76,10 +80,13 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     setPicking(null);
   };
 
-  const nameOf = (id: string) => {
-    const indi = masterDs.individuals.get(id);
-    return indi ? formatName(indi) : id;
-  };
+  const nameOf = useCallback(
+    (id: string) => {
+      const indi = masterDs.individuals.get(id);
+      return indi ? formatName(indi) : id;
+    },
+    [masterDs, formatName],
+  );
   const yearsOf = (id: string) => {
     const indi = masterDs.individuals.get(id);
     return (indi && lifespanOf(indi)) || undefined;
@@ -98,8 +105,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
       opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterDs, startSel, targetSel, t]);
+  }, [masterDs, startSel, targetSel, t, nameOf]);
 
   const settings = useChartSettings().settings;
   const { alignment } = settings;
@@ -116,17 +122,17 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     [masterDs, current, alignment, nodeH],
   );
 
-  // Adapt the chart boxes to the shapes `useTreeCanvas` / `TreeMinimap` expect
-  // (they only read key/x/y). The start box pins the initial scroll.
+  // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
+  // structurally). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const b of chart?.boxes ?? []) m.set(b.key, b as unknown as Placed);
+    const m = new Map<string, ChartBox>();
+    for (const b of chart?.boxes ?? []) m.set(b.key, b);
     return m;
   }, [chart]);
   const laid = useMemo(
     () =>
       chart
-        ? { root: (nodesByKey.get(chart.rootKey) ?? chart.boxes[0]) as unknown as Placed, width: chart.width, height: chart.height }
+        ? { root: nodesByKey.get(chart.rootKey) ?? chart.boxes[0], width: chart.width, height: chart.height }
         : undefined,
     [chart, nodesByKey],
   );
@@ -136,9 +142,6 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
-  // null = follow the automatic default (collapsed unless the chart dwarfs the
-  // screen); true/false once the user has toggled it by hand.
-  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
   const selectedIndi = selectedBox ? masterDs.individuals.get(selectedBox.id) : undefined;
@@ -147,14 +150,14 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     [t, selectedIndi, masterDs],
   );
 
-  const kinship = kinshipLabel(masterDs, startSel, targetSel, t);
-  const kinshipLineage = bloodLineage(masterDs, startSel, targetSel);
-  // Shared title for the SVG / PDF export header.
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
+  // (every box on the chart carries a kinship label).
+  const kinshipOf = useMemo(() => createKinshipResolver(masterDs, startSel, t), [masterDs, startSel, t]);
+  const kinship = kinshipOf.label(targetSel);
+  const kinshipLineage = kinshipOf.lineage(targetSel);
+  // Shared title for the SVG / PDF export header, and the download slug.
   const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
-  const needsMinimap =
-    !!chart && viewport.width > 0 &&
-    (chart.width * zoom > viewport.width + 1 || chart.height * zoom > viewport.height + 1);
-  const minimapOpen = mapOpen ?? (!!chart && minimapDefaultOpen(chart.width, chart.height, viewport));
+  const relchartSlug = chartSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {
@@ -174,53 +177,32 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
   };
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        <>
           {renderEndpoint("start", startSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>
           {renderEndpoint("target", targetSel)}
           {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
-        </h2>
-        <ChartSettings lockedType="tree" />
-        <ExportMenu
-          disabled={!chart}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () =>
-                chart &&
-                exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
-            },
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-            },
-          ]}
-        />
-      </div>
-
-      {kindSwitcher && (
-        <div className="tree-controls">
-          <div className="tree-controls-left">{kindSwitcher}</div>
-        </div>
-      )}
-
+        </>
+      }
+      actions={
+        <>
+          <ChartSettings lockedType="tree" />
+          <ChartExportMenu
+            disabled={!chart}
+            slug={relchartSlug}
+            title={relchartTitle}
+            gedcom={{ ds: masterDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
+            canvasRef={canvasRef}
+          />
+        </>
+      }
+      controlsLeft={kindSwitcher}
+    >
       {picking && (
         <div className="tree-controls relchart-picker-bar">
           <span className="relchart-picker-label">
@@ -303,13 +285,18 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
-                        kinship={kinshipLabel(masterDs, startSel, b.id, t)}
-                        kinshipLineage={bloodLineage(masterDs, startSel, b.id)}
-                        photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
+                        kinship={kinshipOf.label(b.id)}
+                        kinshipLineage={kinshipOf.lineage(b.id)}
+                        photo={indi ? { node: { master: { raw: indi.raw } }, masterRecords: masterDs.records, masterRefCtx: { dataset: masterDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
                         livingLabel={livingLabel}
                         nodeH={nodeH}
+                        badges={
+                          settings.showBadges
+                            ? nodeStatusBadges(nodeStatus.decisionOf(b.id), nodeStatus.modifiedOf(b.id), nodeStatus.modifiedLetter)
+                            : undefined
+                        }
                       />
                     </g>
                   );
@@ -321,28 +308,17 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
           )}
         </div>
 
-        {needsMinimap && chart && (
-          minimapOpen ? (
-            <div className="tree-minimap-box">
-              <button className="tree-minimap-collapse" onClick={() => setMapOpen(false)} title={t("tree.minimap.hide")} aria-label={t("tree.minimap.hide")}>
-                ×
-              </button>
-              <TreeMinimap
-                nodes={chart.boxes as unknown as Placed[]}
-                contentW={chart.width}
-                contentH={chart.height}
-                viewport={viewport}
-                onScrollTo={scrollTo}
-                fill={(n) => ((n as unknown as ChartBox).onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
-                nodeH={nodeH}
-                zoom={zoom}
-              />
-            </div>
-          ) : (
-            <button className="tree-minimap-show" onClick={() => setMapOpen(true)} title={t("tree.minimap.show")} aria-label={t("tree.minimap.show")}>
-              <MapIcon />
-            </button>
-          )
+        {chart && (
+          <ChartMinimap
+            contentW={chart.width}
+            contentH={chart.height}
+            viewport={viewport}
+            zoom={zoom}
+            nodes={chart.boxes}
+            fill={(b) => (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+            nodeH={nodeH}
+            onScrollTo={scrollTo}
+          />
         )}
 
         {chart && (
@@ -351,21 +327,21 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
 
         {selectedBox && selectedIndi && (
           <TreeNodePanel
-            node={selectedBox as unknown as Placed}
+            node={selectedBox}
             swatch={selectedBox.onSpine ? COLOR_SPINE : COLOR_CONTEXT}
             rows={selectedRows}
             masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}
             masterLabel={t("tree.master")}
             singleColumn
-            kinship={kinshipLabel(masterDs, startSel, selectedBox.id, t)}
-            kinshipLineage={lineageClass(bloodLineage(masterDs, startSel, selectedBox.id))}
+            kinship={kinshipOf.label(selectedBox.id)}
+            kinshipLineage={lineageClass(kinshipOf.lineage(selectedBox.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 

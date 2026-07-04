@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage, type Lineage } from "../match/relationshipPath";
-import { sexClass, sexColorVar } from "./sex";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
+import type { Lineage } from "../match/relationshipPath";
+import { sexClass } from "./sex";
 import {
-  buildCompareTree,
+  buildPersonTree,
   buildMatchMaps,
   countImportable,
   countTreePeople,
@@ -17,43 +17,29 @@ import {
   type NodeStatus,
   type TreeMode,
   type TreeNode,
-} from "../tree/compareTree";
-import { buildFanChart, type FanSegment } from "../tree/fanLayout";
+} from "../chart/personTree";
+import { useFanChart } from "./useFanChart";
 import { FanChartBody } from "./FanChartBody";
 import {
-  DETAIL_ROW_H,
-  DETAIL_ROW_TOP,
-  NODE_W,
-  PAD,
-  PHOTO_SIZE,
-  PHOTO_X,
-  TEXT_X_PHOTO,
-  TEXT_X_PLAIN,
   flatten,
   layout,
   layoutGrid,
-  minimapDefaultOpen,
-  nameFit,
   nodeHeight,
-  truncate,
-  type Flat,
   type Placed,
-} from "../tree/treeLayout";
-import { formatMarriage, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
-import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { TreeMinimap } from "./TreeMinimap";
+} from "../chart/treeLayout";
+import { formatMarriage } from "../chart/nodeDisplay";
+import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartMinimap } from "./ChartMinimap";
+import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";
-import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
-import type { PhotoRefContext } from "./PhotoViewer";
+import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
-import { MapIcon } from "./icons/MapIcon";
 import { ChartIcon } from "./icons/ChartIcon";
-import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { ExportMenu } from "./ExportMenu";
-import { BackButton } from "./BackButton";
-import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
+import { chartSlug } from "./exportSvg";
+import { ChartExportMenu } from "./ChartExportMenu";
+import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings, type ChartType } from "./ChartSettingsContext";
+import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useSettings } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -180,17 +166,19 @@ export function CompareTree({
       ? decisions.get(decisionKey("individual", rootMasterId, rootCompareId))?.status
       : undefined;
 
-  const kinshipOf = useCallback(
-    (n: TreeNode): string | undefined => {
-      if (!startId || !n.master) return undefined;
-      return kinshipLabel(masterDs, startId, n.master.id, t) ?? undefined;
-    },
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
+  // labelling every node costs each person once, not two walks per node per render.
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
     [startId, masterDs, t],
   );
+  const kinshipOf = useCallback(
+    (n: TreeNode): string | undefined => (n.master ? kinship?.label(n.master.id) : undefined),
+    [kinship],
+  );
   const lineageOf = useCallback(
-    (n: TreeNode): Lineage | undefined =>
-      startId && n.master ? bloodLineage(masterDs, startId, n.master.id) : undefined,
-    [startId, masterDs],
+    (n: TreeNode): Lineage | undefined => (n.master ? kinship?.lineage(n.master.id) : undefined),
+    [kinship],
   );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
@@ -210,7 +198,7 @@ export function CompareTree({
   const maps = useMemo(() => buildMatchMaps(matches), [matches]);
 
   // A rejected pairing prunes the incoming side from the tree (see
-  // buildCompareTree): the two records are declared different people.
+  // buildPersonTree): the two records are declared different people.
   const isRejected = useCallback(
     (masterId: string, compareId: string) =>
       decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected",
@@ -226,28 +214,30 @@ export function CompareTree({
   // direction, never a change to it, so leaving Fan/Circle restores the choice.
   const effectiveMode = radial ? "ancestors" : mode;
 
-  const tree = useMemo(
-    () => buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, effectiveMode, isRejected],
+  // Both directions build once per root/dataset/decisions: they feed the
+  // mode-button counts, the current direction's layered chart, and (ancestors)
+  // the radial chart — so switching direction or chart type never rebuilds a tree.
+  const trees = useMemo(
+    () => ({
+      ancestors: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected),
+      descendants: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected),
+    }),
+    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected],
   );
+  const tree = trees[effectiveMode];
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
-  // the same counts the Compare Tree button surfaces in Merge mode. Built for
-  // both directions (independent of the current mode) so switching reflects them.
-  const { importCounts, peopleCounts } = useMemo(() => {
-    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
-    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected);
-    return {
-      importCounts: {
-        ancestors: ancestors ? countImportable(ancestors) : 0,
-        descendants: descendants ? countImportable(descendants) : 0,
-      },
-      peopleCounts: {
-        ancestors: countTreePeople(ancestors),
-        descendants: countTreePeople(descendants),
-      },
-    };
-  }, [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected]);
+  // the same counts the Compare Tree button surfaces in Merge mode.
+  const { importCounts, peopleCounts } = useMemo(() => ({
+    importCounts: {
+      ancestors: trees.ancestors ? countImportable(trees.ancestors) : 0,
+      descendants: trees.descendants ? countImportable(trees.descendants) : 0,
+    },
+    peopleCounts: {
+      ancestors: countTreePeople(trees.ancestors),
+      descendants: countTreePeople(trees.descendants),
+    },
+  }), [trees]);
 
   const { settings: appSettings } = useSettings();
   const { alignment } = settings;
@@ -279,22 +269,26 @@ export function CompareTree({
     [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
-  // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
+  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
   // so it's independent of the (overridden-to-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
-  const fan = useMemo(() => {
-    if (!radial) return undefined;
-    const at = buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected);
-    if (!at) return undefined;
-    const hasPhoto = (n: TreeNode) =>
+  const hasPhoto = useCallback(
+    (n: TreeNode) =>
       !!folderName &&
       ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
-        (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records)));
-    // Kinship to the start person, shown in place of a redacted living person's name.
-    const kinshipOf = (n: TreeNode) =>
-      startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined;
-    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, startId]);
+        (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records))),
+    [folderName, masterDs, compareDs],
+  );
+  // Kinship to the start person, shown in place of a redacted living person's name.
+  const fanKinshipOf = useCallback(
+    (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined),
+    [kinship],
+  );
+  const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
+    radial ? trees.ancestors : undefined,
+    settings.type === "circle" ? "circle" : "fan",
+    { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf },
+  );
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
@@ -336,8 +330,8 @@ export function CompareTree({
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
   // Root person's kinship to the start person, shown in the title.
-  const rootKinship = startId && rootMasterId ? kinshipLabel(masterDs, startId, rootMasterId, t) : undefined;
-  const rootLineage = startId && rootMasterId ? bloodLineage(masterDs, startId, rootMasterId) : undefined;
+  const rootKinship = rootMasterId ? kinship?.label(rootMasterId) : undefined;
+  const rootLineage = rootMasterId ? kinship?.lineage(rootMasterId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
@@ -359,21 +353,8 @@ export function CompareTree({
     return map;
   }, [flat]);
 
-  const fanNodes = useMemo(() => {
-    const m = new Map<string, Placed>();
-    for (const s of fan?.segments ?? []) m.set(s.key, s as unknown as Placed);
-    return m;
-  }, [fan]);
-  const fanLaid = useMemo(
-    () => (fan ? { root: (fanNodes.get(fan.rootKey) ?? fan.segments[0]) as unknown as Placed, width: fan.width, height: fan.height } : undefined),
-    [fan, fanNodes],
-  );
   const activeLaid = radial ? fanLaid : laid;
   const activeNodes = radial ? fanNodes : nodesByKey;
-
-  // null = follow the automatic default (collapsed unless the chart dwarfs the
-  // screen); true/false once the user has toggled it by hand.
-  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
@@ -388,7 +369,7 @@ export function CompareTree({
     onMode: onModeChange,
     allowDescendants: !radial,
     kinds: PEDIGREE_KINDS,
-    onKind: (k) => setType(k as ChartType),
+    onKind: (k) => setType(k as PedigreeType),
     onLeave: onBack,
   });
 
@@ -400,64 +381,45 @@ export function CompareTree({
       ? nodesByKey.get(selectedKey)
       : undefined;
 
-  // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
-  const needsMinimap =
-    !radial &&
-    !!activeLaid &&
-    viewport.width > 0 &&
-    (activeLaid.width * zoom > viewport.width + 1 || activeLaid.height * zoom > viewport.height + 1);
-  const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
-
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={t("tree.back")} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {rootName ? (
-            <>
-              <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
-              {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
-              {rootStatus && rootStatus !== "undecided" && (
-                <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
-                  {t(`status.${rootStatus}`).charAt(0)}
-                </span>
-              )}
-              <span className="tree-title-kind">{t("tree.title")}</span>
-            </>
-          ) : (
-            t("tree.title")
-          )}
-        </h2>
-        <ChartSettings />
-        <ExportMenu
-          disabled={!activeLaid}
-          items={[
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-            },
-          ]}
-        />
-      </div>
-
-      <div className="tree-controls">
-        <div className="tree-controls-left">
+    <ChartPage
+      backLabel={t("tree.back")}
+      onBack={onBack}
+      title={
+        rootName ? (
+          <>
+            <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
+            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
+            {rootStatus && rootStatus !== "undecided" && (
+              <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
+                {t(`status.${rootStatus}`).charAt(0)}
+              </span>
+            )}
+            <span className="tree-title-kind">{t("tree.title")}</span>
+          </>
+        ) : (
+          t("tree.title")
+        )
+      }
+      actions={
+        <>
+          <ChartSettings />
+          <ChartExportMenu
+            disabled={!activeLaid}
+            slug={chartSlug(rootName, t(`tree.${effectiveMode}`))}
+            title={compareTreeTitle}
+            canvasRef={canvasRef}
+          />
+        </>
+      }
+      controlsLeft={
+        <>
           <ChartKindTabs
             kinds={PEDIGREE_KINDS}
             value={settings.type}
-            onChange={(k) => setType(k as ChartType)}
+            onChange={(k) => setType(k as PedigreeType)}
           />
           <div className="tree-mode">
             <button
@@ -485,10 +447,10 @@ export function CompareTree({
               </button>
             )}
           </div>
-        </div>
-        <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
-      </div>
-
+        </>
+      }
+      controlsRight={<TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />}
+    >
       <div className="tree-canvas-wrap">
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
@@ -507,7 +469,7 @@ export function CompareTree({
                 compareRecords={compareDs.records}
                 masterRefCtx={masterRefCtx}
                 compareRefCtx={compareRefCtx}
-                badgeOf={fanBadgeOf}
+                badgeOf={display.showBadges ? fanBadgeOf : undefined}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
@@ -520,8 +482,9 @@ export function CompareTree({
               zoom={zoom}
               selectedKey={selectedKey}
               onSelect={selectNode}
-              decisionOf={badgeOf}
-              modifiedOf={isModified}
+              colorOf={colorOf}
+              badgeOf={display.showBadges ? badgeOf : undefined}
+              modifiedOf={display.showBadges ? isModified : undefined}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
               masterRecords={masterDs.records}
@@ -536,45 +499,25 @@ export function CompareTree({
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
-        {needsMinimap && activeLaid && (
-          minimapOpen ? (
-            <div className="tree-minimap-box">
-              <button
-                className="tree-minimap-collapse"
-                onClick={() => setMapOpen(false)}
-                title={t("tree.minimap.hide")}
-                aria-label={t("tree.minimap.hide")}
-              >
-                ×
-              </button>
-              <TreeMinimap
-                nodes={radial ? (fan!.segments as unknown as Placed[]) : flat!.nodes}
-                contentW={activeLaid.width}
-                contentH={activeLaid.height}
-                viewport={viewport}
-                onScrollTo={scrollTo}
-                fill={radial ? (n) => STATUS_COLOR[(n as unknown as FanSegment).node.status] : (n) => STATUS_COLOR[n.status]}
-                nodeH={radial ? undefined : nodeH}
-                zoom={zoom}
-              />
-            </div>
-          ) : (
-            <button
-              className="tree-minimap-show"
-              onClick={() => setMapOpen(true)}
-              title={t("tree.minimap.show")}
-              aria-label={t("tree.minimap.show")}
-            >
-              <MapIcon />
-            </button>
-          )
+        {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
+        {!radial && laid && flat && (
+          <ChartMinimap
+            contentW={laid.width}
+            contentH={laid.height}
+            viewport={viewport}
+            zoom={zoom}
+            nodes={flat.nodes}
+            fill={(n) => STATUS_COLOR[n.status]}
+            nodeH={nodeH}
+            onScrollTo={scrollTo}
+          />
         )}
         {activeLaid && (
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
         )}
         {selected && (
           <NodeCompare
-            node={selected as unknown as Placed}
+            node={selected}
             masterDs={masterDs}
             compareDs={compareDs}
             maps={maps}
@@ -601,185 +544,7 @@ export function CompareTree({
           />
         )}
       </div>
-    </div>
-  );
-}
-
-function TreeSvg({
-  flat,
-  width,
-  height,
-  zoom,
-  selectedKey,
-  onSelect,
-  decisionOf,
-  modifiedOf,
-  kinshipOf,
-  lineageOf,
-  masterRecords,
-  compareRecords,
-  masterRefCtx,
-  compareRefCtx,
-  display,
-  nodeH,
-  livingLabel,
-}: {
-  flat: Flat;
-  width: number;
-  height: number;
-  zoom: number;
-  selectedKey: string | null;
-  onSelect: (key: string) => void;
-  decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
-  modifiedOf: (n: Placed) => boolean;
-  kinshipOf: (n: Placed) => string | undefined;
-  lineageOf: (n: Placed) => Lineage | undefined;
-  masterRecords: GedNode[];
-  compareRecords: GedNode[];
-  masterRefCtx: PhotoRefContext;
-  compareRefCtx: PhotoRefContext;
-  display: NodeDisplayOptions;
-  nodeH: number;
-  livingLabel: string;
-}) {
-  const { t } = useTranslation();
-  const { nodes, edges } = flat;
-  const { folderName } = useMediaFolder();
-  const photoY = (nodeH - PHOTO_SIZE) / 2;
-  return (
-    <svg className="tree-svg" width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img">
-      <g transform={`translate(${PAD},${PAD})`}>
-        {edges.map((e) => (
-          <path
-            key={e.id}
-            className={e.partner ? "tree-edge tree-edge-partner" : "tree-edge"}
-            d={e.d}
-          />
-        ))}
-        {edges.map(
-          (e) =>
-            e.label && (
-              <text
-                key={`${e.id}-m`}
-                className="tree-edge-label gm-data"
-                x={e.label.x}
-                y={e.label.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-              >
-                {e.label.text}
-              </text>
-            ),
-        )}
-        {nodes.map((n) => {
-          const dec = decisionOf(n);
-          const modified = modifiedOf(n);
-          const disp = nodeDisplay(display, {
-            name: n.name,
-            years: n.years,
-            place: n.place,
-            kinship: kinshipOf(n),
-            kinshipLineage: lineageOf(n),
-            living: n.living,
-            livingLabel,
-          });
-          const { years } = disp;
-          // Text shifts right of the photo column whenever a media folder is loaded
-          // and photos are shown (privacy hides them).
-          const showPhoto = disp.showPhoto && !!folderName;
-          const textX = showPhoto ? TEXT_X_PHOTO : TEXT_X_PLAIN;
-          // Lifespan, then place, then kinship — each on its own stacked row.
-          const rows: { text: string; cls: string }[] = [];
-          if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
-          if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
-          if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
-          // Badges sit on the lifespan row, just past the years label.
-          const yearsRowY = DETAIL_ROW_TOP;
-          const decBadgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
-          const modBadgeX = dec ? decBadgeX + 18 : decBadgeX;
-          return (
-            <g
-              key={n.key}
-              transform={`translate(${n.x},${n.y})`}
-              className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
-              onClick={() => onSelect(n.key)}
-            >
-              <title>{t("tree.node.clickHint")}</title>
-              <rect
-                width={NODE_W}
-                height={nodeH}
-                rx={10}
-                ry={10}
-                fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
-                stroke={STATUS_COLOR[n.status]}
-                strokeWidth={2.5}
-              />
-              <text
-                className="tree-node-name"
-                x={textX}
-                y={23}
-                style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
-                {...nameFit(disp.name, textX)}
-              >
-                {disp.name}
-              </text>
-              {rows.map((r, i) => (
-                <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
-                  {r.text}
-                </text>
-              ))}
-              {/* Decision badge next to the lifespan (matched, decided nodes) — same
-                  colours as the status chip used in Edit and Merge. */}
-              {dec && (
-                <g className={`tree-node-decision ${dec.status}`} transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
-                  <circle r={7} />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    x={0}
-                    y={0.5}
-                    fontSize={9}
-                    fontWeight={700}
-                  >
-                    {dec.letter}
-                  </text>
-                </g>
-              )}
-              {/* M badge for a master record with unsaved edits — solid fill, same
-                  as the Edit tree. */}
-              {modified && (
-                <g className="tree-node-decision" transform={`translate(${modBadgeX},${yearsRowY - 4})`}>
-                  <circle r={7} fill="var(--node-minor)" />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    x={0}
-                    y={0.5}
-                    fontSize={9}
-                    fontWeight={700}
-                    fill="var(--bg)"
-                  >
-                    {t("edit.tree.modified").charAt(0)}
-                  </text>
-                </g>
-              )}
-              {disp.showPhoto && (
-                <TreeNodePhoto
-                  node={n}
-                  masterRecords={masterRecords}
-                  compareRecords={compareRecords}
-                  masterRefCtx={masterRefCtx}
-                  compareRefCtx={compareRefCtx}
-                  x={PHOTO_X}
-                  y={photoY}
-                  size={PHOTO_SIZE}
-                />
-              )}
-            </g>
-          );
-        })}
-      </g>
-    </svg>
+    </ChartPage>
   );
 }
 
@@ -902,7 +667,8 @@ function NodeCompare({
   onOpenCharts,
   onOpenInEdit,
 }: {
-  node: Placed;
+  /** The selected node — a laid tree node or a fan segment's person node. */
+  node: TreeNode;
   masterDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;

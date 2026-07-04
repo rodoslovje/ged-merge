@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NODE_H, NODE_W, PAD, type ChartAlignment, type Placed, type Viewport } from "./treeLayout";
+import { NODE_H, NODE_W, PAD, type ChartAlignment, type ChartNode, type Viewport } from "../chart/treeLayout";
 
 /** Zoom range and the per-click button step. Wheel zoom is continuous within this
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
@@ -31,7 +31,7 @@ export interface TreeCanvas {
   selectedKey: string | null;
   setSelectedKey: (key: string | null) => void;
   /** The selected node, resolved against the current layout. */
-  selected: Placed | undefined;
+  selected: ChartNode | undefined;
   /** Select a node (clicking the selected one again deselects) and centre it. */
   selectNode: (key: string) => void;
   /** Current zoom factor (1 = native); multiply the SVG's width/height by it
@@ -59,8 +59,8 @@ export interface TreeCanvas {
  * @param nodesByKey the laid-out nodes indexed by key, for selection lookup.
  */
 export function useTreeCanvas(
-  laid: { root: Placed; width?: number; height?: number } | undefined,
-  nodesByKey: Map<string, Placed>,
+  laid: { root: ChartNode; width?: number; height?: number } | undefined,
+  nodesByKey: Map<string, ChartNode>,
   alignment: ChartAlignment = "lr",
   /** Radial charts (fan/circle) centre the whole diagram on the root instead of
    *  pinning it to the leading edge — the root sits at the chart's centre. */

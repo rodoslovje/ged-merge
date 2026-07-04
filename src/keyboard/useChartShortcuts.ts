@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CHART_KEY, isEditableTarget, isModalOpen } from "./shortcuts";
 import type { ChartKind } from "../ui/ChartSettingsContext";
-import type { TreeMode } from "../tree/compareTree";
+import type { TreeMode } from "../chart/personTree";
 
 // Bare-key shortcuts for the full-page chart overlays: +/− zoom, 0 reset,
 // F fit-to-screen, A/D ancestors/descendants, and digits 1–n for the kind
