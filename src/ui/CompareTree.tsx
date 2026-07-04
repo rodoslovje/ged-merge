@@ -388,6 +388,7 @@ export function CompareTree({
     allowDescendants: !radial,
     kinds: PEDIGREE_KINDS,
     onKind: (k) => setType(k as ChartType),
+    onLeave: onBack,
   });
 
   // The selected person — a laid tree node or a fan segment's ancestor node;
@@ -409,7 +410,7 @@ export function CompareTree({
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("tree.back")} aria-label={t("tree.back")}>
+        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("tree.back")} (Esc)`} aria-label={t("tree.back")}>
           ← <span className="tree-back-label">{t("tree.back")}</span>
         </button>
         <h2 className="tree-title">

@@ -20,6 +20,9 @@ interface Handlers {
   /** A / D switch the direction; D is ignored when descendants are unavailable. */
   onMode?: (mode: TreeMode) => void;
   allowDescendants?: boolean;
+  /** Escape leaves the page (each chart registers its own — never the hub too,
+   *  or one keypress would pop two history entries). */
+  onLeave?: () => void;
 }
 
 export function useChartShortcuts(handlers: Handlers) {
@@ -33,6 +36,10 @@ export function useChartShortcuts(handlers: Handlers) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const h = ref.current;
       const key = e.key;
+      if (key === "Escape") {
+        if (h.onLeave) { e.preventDefault(); h.onLeave(); }
+        return;
+      }
       if ((CHART_KEY.zoomIn as readonly string[]).includes(key)) {
         if (h.zoomIn) { e.preventDefault(); h.zoomIn(); }
         return;

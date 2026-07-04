@@ -1208,6 +1208,12 @@ function AppContent() {
   // their tree, Alt their relationship-to-start (falling back to Edit when there
   // is no start person to measure from).
   function openSearchResult(id: string, how: OpenHow) {
+    // Opened from a chart overlay, plain "open" re-roots the chart on the
+    // chosen person instead of invisibly navigating the hidden views beneath.
+    if ((chartsRootId || treeView) && how === "open") {
+      openCharts(id);
+      return;
+    }
     // "Tree" reopens the last pedigree chart (tree / grid / fan / circle) — but
     // never the relationship diagram, which has its own action below.
     if (how === "tree") {
@@ -2088,7 +2094,9 @@ function AppContent() {
         </div>
       )}
       {appFooter}
-      {appModals}
+      {/* While a full-page overlay is up, its own shell renders the modals —
+          mounting them here too would duplicate every dialog in the DOM. */}
+      {!treeOverlay && appModals}
     </div>
     </>
   );

@@ -130,8 +130,8 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
 
-  // +/− zoom, 0 reset, F fit (kind digits are registered by the Charts hub).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen });
+  // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
   // null = follow the automatic default (collapsed unless the chart dwarfs the
   // screen); true/false once the user has toggled it by hand.
   const [mapOpen, setMapOpen] = useState<boolean | null>(null);
@@ -172,7 +172,7 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("edit.tree.back")} aria-label={t("edit.tree.back")}>
+        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
           ← <span className="tree-back-label">{t("edit.tree.back")}</span>
         </button>
         <h2 className="tree-title">

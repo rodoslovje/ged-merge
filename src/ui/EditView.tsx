@@ -1415,7 +1415,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               className="tree-open-btn edit-back-btn"
               onClick={goBack}
               disabled={history.length === 0}
-              title={t("edit.back")}
+              title={`${t("edit.back")} (⌫)`}
             >
               <span aria-hidden="true">←</span>
               <span className="edit-back-label">{t("edit.back")}</span>

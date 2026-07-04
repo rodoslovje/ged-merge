@@ -215,8 +215,9 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
 
-  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onMode: onModeChange, allowDescendants: !radial });
+  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
+  // Esc leaves the page.
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onMode: onModeChange, allowDescendants: !radial, onLeave: onBack });
 
   // The selected person — a laid tree node, or a fan segment's ancestor node.
   // Both are `TreeNode`s (Placed extends TreeNode), so the panel reads them alike.
@@ -275,7 +276,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
-        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("edit.tree.back")} aria-label={t("edit.tree.back")}>
+        <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
           ← <span className="tree-back-label">{t("edit.tree.back")}</span>
         </button>
         <h2 className="tree-title">

@@ -45,9 +45,11 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   // remounts the pedigree chart.
   const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
-  // Digits 1–5 switch the kind (the chart-level keys — zoom, A/D — are
-  // registered by whichever chart the hub is showing).
-  useChartShortcuts({ kinds: HUB_KINDS, onKind: setKind });
+  // Digits 1–5 switch the kind (the chart-level keys — zoom, A/D, Esc — are
+  // registered by whichever chart the hub is showing). Esc is handled here only
+  // on the start-person prompt page, where no chart is mounted to own it.
+  const showingPrompt = settings.kind === "relationship" && !startId;
+  useChartShortcuts({ kinds: HUB_KINDS, onKind: setKind, onLeave: showingPrompt ? onBack : undefined });
 
   const kindSwitcher = (
     <ChartKindTabs
@@ -64,7 +66,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       return (
         <div className="tree-page">
           <div className="tree-toolbar">
-            <button className="tree-open-btn tree-back-btn" onClick={onBack} title={t("edit.tree.back")} aria-label={t("edit.tree.back")}>
+            <button className="tree-open-btn tree-back-btn" onClick={onBack} title={`${t("edit.tree.back")} (Esc)`} aria-label={t("edit.tree.back")}>
               ← <span className="tree-back-label">{t("edit.tree.back")}</span>
             </button>
             <h2 className="tree-title">

@@ -4052,33 +4052,22 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
   z-index: 100;
+  /* Center whatever dialog the overlay carries; compact dialogs (shortcuts,
+     settings, confirm) float mid-screen, full-height ones fill the padding box. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
 }
 /* Confirm dialogs sit over a preview the user needs to read (e.g. the
-   Health-Check findings behind a fix confirmation) — dim but don't blur, and
-   sit near the top so the results below stay visible. */
+   Health-Check findings behind a fix confirmation) — dim but don't blur. */
 .modal-overlay:has(> .confirm-dialog) {
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: none;
-  align-items: flex-start;
-  padding-top: 10vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-}
-/* The settings modal is compact (auto height), so unlike the near-full-viewport
-   modals it needs the overlay to actually center it. */
-.modal-overlay:has(> .settings-modal) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
 }
 /* Global search is a command-palette: compact, dropped from near the top. */
 .modal-overlay:has(> .global-search-modal) {
-  display: flex;
   align-items: flex-start;
-  justify-content: center;
   padding: 10vh 24px 24px;
 }
 .global-search-modal {
@@ -4672,7 +4661,9 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 4px 24px;
+  /* Visually centred between the border above and the viewport edge below
+     (the .app wrapper adds 8px of its own bottom padding). */
+  padding: 10px 24px 2px;
   font-size: 0.78rem;
   color: var(--faint);
   flex-wrap: wrap;
@@ -5048,8 +5039,6 @@ kbd {
 /* Really narrow: one field per full-width row (label + toggle stay paired on
  * the header line). */
 @media (max-width: 560px) {
-  /* Save width on phones: the Back button collapses to just its arrow. */
-  .edit-back-label { display: none; }
   /* Stack the name-display preview so the person sample gets its own row
      instead of being squeezed next to the "Preview" label. */
   .settings-preview {
