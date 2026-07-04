@@ -41,8 +41,10 @@ interface Props {
   /** Master photo source; the thumbnail shows only when a file is actually
    *  present — a person without a photo leaves no reserved gap (text goes hard left). */
   photo?: NodePhotoSource;
-  /** SVG badges to overlay, given the resolved text geometry. */
-  badges?: (ctx: { yearsY: number; textX: number }) => ReactNode;
+  /** SVG badges to overlay, given the resolved text geometry. `years` is the
+   *  lifespan as actually displayed (absent when hidden or privacy-redacted),
+   *  so badge offsets track the real text, not the raw data. */
+  badges?: (ctx: { yearsY: number; textX: number; years?: string }) => ReactNode;
   /** Which fields to show; defaults to all-on. */
   display?: NodeDisplayOptions;
   /** Presumed living — redacted under the privacy toggle. */
@@ -117,7 +119,7 @@ export function TreeNodeBox({
           size={PHOTO_SIZE}
         />
       )}
-      {badges?.({ yearsY: DETAIL_ROW_TOP, textX })}
+      {badges?.({ yearsY: DETAIL_ROW_TOP, textX, years: disp.years })}
     </>
   );
 }

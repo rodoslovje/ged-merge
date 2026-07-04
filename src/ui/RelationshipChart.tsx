@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
 import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage, bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { buildRelationshipChart, type ChartBox } from "../match/relationshipChartLayout";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
@@ -76,10 +76,13 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     setPicking(null);
   };
 
-  const nameOf = (id: string) => {
-    const indi = masterDs.individuals.get(id);
-    return indi ? formatName(indi) : id;
-  };
+  const nameOf = useCallback(
+    (id: string) => {
+      const indi = masterDs.individuals.get(id);
+      return indi ? formatName(indi) : id;
+    },
+    [masterDs, formatName],
+  );
   const yearsOf = (id: string) => {
     const indi = masterDs.individuals.get(id);
     return (indi && lifespanOf(indi)) || undefined;
@@ -98,8 +101,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
       opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterDs, startSel, targetSel, t]);
+  }, [masterDs, startSel, targetSel, t, nameOf]);
 
   const settings = useChartSettings().settings;
   const { alignment } = settings;
@@ -147,8 +149,11 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
     [t, selectedIndi, masterDs],
   );
 
-  const kinship = kinshipLabel(masterDs, startSel, targetSel, t);
-  const kinshipLineage = bloodLineage(masterDs, startSel, targetSel);
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
+  // (every box on the chart carries a kinship label).
+  const kinshipOf = useMemo(() => createKinshipResolver(masterDs, startSel, t), [masterDs, startSel, t]);
+  const kinship = kinshipOf.label(targetSel);
+  const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header.
   const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
   const needsMinimap =
@@ -303,8 +308,8 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
-                        kinship={kinshipLabel(masterDs, startSel, b.id, t)}
-                        kinshipLineage={bloodLineage(masterDs, startSel, b.id)}
+                        kinship={kinshipOf.label(b.id)}
+                        kinshipLineage={kinshipOf.lineage(b.id)}
                         photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
@@ -357,8 +362,8 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
             masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}
             masterLabel={t("tree.master")}
             singleColumn
-            kinship={kinshipLabel(masterDs, startSel, selectedBox.id, t)}
-            kinshipLineage={lineageClass(bloodLineage(masterDs, startSel, selectedBox.id))}
+            kinship={kinshipOf.label(selectedBox.id)}
+            kinshipLineage={lineageClass(kinshipOf.lineage(selectedBox.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}

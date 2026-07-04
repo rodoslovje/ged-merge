@@ -30,6 +30,24 @@ export const INDI_EVENT_TAGS = new Set([
 ]);
 const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "SEPA", "MARB", "MARL"]);
 
+/** An empty, fully-typed `Dataset` — for callers that need a valid compare side
+ *  with nothing in it (e.g. single-file chart building). Fresh on every call, so
+ *  a consumer mutating its Maps can't poison another. Kept next to
+ *  {@link buildDataset} so a new `Dataset` field is added in both places. */
+export function emptyDataset(): Dataset {
+  return {
+    version: "unknown",
+    charset: "UTF-8",
+    individuals: new Map(),
+    families: new Map(),
+    records: [],
+    warnings: [],
+    eol: "\r\n",
+    finalNewline: true,
+    chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false },
+  };
+}
+
 /** Build the typed domain `Dataset` from a parsed line tree. */
 export function buildDataset(parsed: ParseResult): Dataset {
   const individuals = new Map<string, Individual>();

@@ -1,6 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
-import { bloodLineage, type Lineage } from "./relationshipPath";
+import { bloodLineage, makeBloodLineageResolver, type Lineage } from "./relationshipPath";
 
 export type { Lineage };
 
@@ -12,6 +12,49 @@ export type { Lineage };
 export function kinshipLabel(
   ds: Dataset,
   startId: string,
+  targetId: string,
+  t: Translate,
+): string | undefined {
+  return kinshipLabelFrom(ds, startId, ancestorGens(ds, startId), targetId, t);
+}
+
+/**
+ * A kinship resolver fixed to one start person, for chart renderers that label
+ * every node: the start-side ancestor walk runs once, and each target's label +
+ * lineage is computed once and then served from a cache — instead of two full
+ * pedigree walks per node per render. Same results as {@link kinshipLabel} /
+ * {@link bloodLineage}.
+ */
+export interface KinshipResolver {
+  label: (targetId: string) => string | undefined;
+  lineage: (targetId: string) => Lineage | undefined;
+}
+
+export function createKinshipResolver(ds: Dataset, startId: string, t: Translate): KinshipResolver {
+  const startAncs = ancestorGens(ds, startId);
+  const lineageOf = makeBloodLineageResolver(ds, startId);
+  const cache = new Map<string, { label?: string; lineage?: Lineage }>();
+  const resolve = (targetId: string) => {
+    let hit = cache.get(targetId);
+    if (!hit) {
+      hit = {
+        label: kinshipLabelFrom(ds, startId, startAncs, targetId, t),
+        lineage: lineageOf(targetId),
+      };
+      cache.set(targetId, hit);
+    }
+    return hit;
+  };
+  return {
+    label: (targetId) => resolve(targetId).label,
+    lineage: (targetId) => resolve(targetId).lineage,
+  };
+}
+
+function kinshipLabelFrom(
+  ds: Dataset,
+  startId: string,
+  startAncs: Map<string, number>,
   targetId: string,
   t: Translate,
 ): string | undefined {
@@ -29,8 +72,7 @@ export function kinshipLabel(
     if (spouseId === targetId) return t("kinship.spouse");
   }
 
-  // Build ancestor-generation maps for both sides
-  const startAncs = ancestorGens(ds, startId);
+  // The target-side ancestor-generation map (the start side is precomputed).
   const targetAncs = ancestorGens(ds, targetId);
 
   // Find the closest common ancestor (lowest total hops)

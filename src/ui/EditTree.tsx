@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
+import { emptyDataset } from "../gedcom/builder";
 import { buildCompareTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
 import {
   PAD,
@@ -11,7 +12,7 @@ import {
   nodeHeight,
   type Placed,
 } from "../tree/treeLayout";
-import { buildFanChart, type FanSegment } from "../tree/fanLayout";
+import { buildFanChart } from "../tree/fanLayout";
 import { formatMarriage } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
@@ -19,8 +20,7 @@ import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { TreeMinimap } from "./TreeMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage } from "../match/relationshipPath";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
@@ -42,18 +42,9 @@ const COLOR_NORMAL = "var(--node-master)";
 const COLOR_MODIFIED = "var(--node-minor)";
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
-// but won't find any incoming individuals since all Maps are empty.
-const EMPTY_DS = {
-  version: "unknown" as const,
-  charset: "UTF-8" as const,
-  individuals: new Map(),
-  families: new Map(),
-  records: [],
-  warnings: [],
-  eol: "\r\n",
-  finalNewline: true,
-  chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false },
-} as Dataset;
+// but won't find any incoming individuals since all Maps are empty. Module-level
+// so its identity is stable across renders (it sits in memo dep arrays).
+const EMPTY_DS = emptyDataset();
 
 const EMPTY_MAPS = {
   masterToCompare: new Map<string, string>(),
@@ -119,6 +110,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const effectiveMode = radial ? "ancestors" : mode;
 
   const rootPerson = masterDs.individuals.get(currentRootId);
+
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
+  // labelling every node costs each person once, not two walks per node per render.
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
+    [masterDs, startId, t],
+  );
 
   const tree = useMemo(
     () => rootPerson
@@ -187,10 +185,9 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
     if (!at) return undefined;
     const hasPhoto = (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records);
     // Kinship to the start person, shown in place of a redacted living person's name.
-    const kinshipOf = (n: TreeNode) =>
-      startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined;
+    const kinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
     return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootPerson, masterDs, settings.type, display, t, folderName, livingLabel, startId]);
+  }, [radial, rootPerson, masterDs, settings.type, display, t, folderName, livingLabel, kinship]);
 
   const fanNodes = useMemo(() => {
     const m = new Map<string, Placed>();
@@ -261,8 +258,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   ).length;
 
   // Root person's kinship to the start person, shown in the title.
-  const rootKinship = startId && rootPerson ? kinshipLabel(masterDs, startId, rootPerson.id, t) : undefined;
-  const rootLineage = startId && rootPerson ? bloodLineage(masterDs, startId, rootPerson.id) : undefined;
+  const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
+  const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
 
   // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
   const needsMinimap =
@@ -275,10 +272,15 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // Shared title for the SVG / PDF export header.
   const editTreeTitle = [tree?.name, tree?.years, "—", chartKind].filter(Boolean).join(" ");
   // Everyone drawn on the current chart (incl. spouses in descendant mode) —
-  // the person set the GEDCOM export cuts out of the master file.
-  const chartPersonIds = (radial ? (fan?.segments ?? []).map((s) => s.node) : (flat?.nodes ?? []))
-    .map((n) => n.master?.id)
-    .filter((id): id is string => id !== undefined);
+  // the person set the GEDCOM export cuts out of the master file. Deduped:
+  // pedigree collapse draws a person in several positions but exports them once,
+  // so the menu's count matches the file.
+  const chartPersonIds = useMemo(() => {
+    const ids = new Set<string>();
+    const nodes = radial ? (fan?.segments ?? []).map((s) => s.node) : (flat?.nodes ?? []);
+    for (const n of nodes) if (n.master) ids.add(n.master.id);
+    return [...ids];
+  }, [radial, fan, flat]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -448,16 +450,17 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                         place={n.place}
                         sex={n.sex}
                         color={color}
-                        kinship={startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined}
-                        kinshipLineage={startId && n.master?.id ? bloodLineage(masterDs, startId, n.master.id) : undefined}
+                        kinship={n.master ? kinship?.label(n.master.id) : undefined}
+                        kinshipLineage={n.master ? kinship?.lineage(n.master.id) : undefined}
                         photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: changeRoot } } : undefined}
                         display={display}
                         living={n.living}
                         livingLabel={livingLabel}
                         nodeH={nodeH}
-                        badges={({ yearsY, textX: tx }) => {
-                          // Estimate the years label width (~6.5px/char) so badges sit just past it.
-                          const badge1X = tx + (n.years ? n.years.length * 6.5 + 8 : 0) + 7;
+                        badges={({ yearsY, textX: tx, years }) => {
+                          // Estimate the *displayed* years label width (~6.5px/char) so badges
+                          // sit just past it — or hug the left edge when the lifespan is hidden.
+                          const badge1X = tx + (years ? years.length * 6.5 + 8 : 0) + 7;
                           const modifiedBadgeX = dec ? badge1X + 18 : badge1X;
                           return (
                             <>
@@ -502,14 +505,15 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               >
                 ×
               </button>
+              {/* Only layered charts reach here — needsMinimap excludes radial. */}
               <TreeMinimap
-                nodes={radial ? (fan!.segments as unknown as Placed[]) : flat!.nodes}
+                nodes={flat!.nodes}
                 contentW={activeLaid.width}
                 contentH={activeLaid.height}
                 viewport={viewport}
                 onScrollTo={scrollTo}
-                fill={radial ? (n) => colorOf((n as unknown as FanSegment).node) : colorOf}
-                nodeH={radial ? undefined : nodeH}
+                fill={colorOf}
+                nodeH={nodeH}
                 zoom={zoom}
               />
             </div>

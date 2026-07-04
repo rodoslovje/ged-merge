@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Translate } from "../locales/i18n";
-import { kinshipLabel } from "./kinship";
+import { createKinshipResolver, kinshipLabel } from "./kinship";
+import { bloodLineage } from "./relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -199,5 +200,35 @@ describe("kinshipLabel half and step relations", () => {
     // The wife's earlier child vs the step-mother's earlier child: no blood,
     // no marriage connecting their parents.
     expect(kinshipLabel(ds, "@I8@", "@I7@", t)).toBeUndefined();
+  });
+});
+
+describe("createKinshipResolver", () => {
+  // The resolver is a cached view over kinshipLabel/bloodLineage: for a fixed
+  // start person it must agree with the direct functions on every target and
+  // every relation shape — ancestor, sibling, spouse, step, self, unrelated.
+  const trees = { TREE, STEP_TREE };
+
+  for (const [name, text] of Object.entries(trees)) {
+    it(`matches the direct functions on every pair (${name})`, () => {
+      const ds = dataset(text);
+      for (const startId of ds.individuals.keys()) {
+        const resolver = createKinshipResolver(ds, startId, t);
+        for (const targetId of ds.individuals.keys()) {
+          // Twice, so the second read exercises the cache path.
+          for (let round = 0; round < 2; round++) {
+            expect(resolver.label(targetId)).toBe(kinshipLabel(ds, startId, targetId, t));
+            expect(resolver.lineage(targetId)).toBe(bloodLineage(ds, startId, targetId));
+          }
+        }
+      }
+    });
+  }
+
+  it("handles an unknown start person", () => {
+    const ds = dataset(TREE);
+    const resolver = createKinshipResolver(ds, "@NOPE@", t);
+    expect(resolver.label("@I1@")).toBeUndefined();
+    expect(resolver.lineage("@I1@")).toBeUndefined();
   });
 });

@@ -5,8 +5,8 @@ import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage, type Lineage } from "../match/relationshipPath";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
+import type { Lineage } from "../match/relationshipPath";
 import { sexClass, sexColorVar } from "./sex";
 import {
   buildCompareTree,
@@ -18,7 +18,7 @@ import {
   type TreeMode,
   type TreeNode,
 } from "../tree/compareTree";
-import { buildFanChart, type FanSegment } from "../tree/fanLayout";
+import { buildFanChart } from "../tree/fanLayout";
 import { FanChartBody } from "./FanChartBody";
 import {
   DETAIL_ROW_H,
@@ -180,17 +180,19 @@ export function CompareTree({
       ? decisions.get(decisionKey("individual", rootMasterId, rootCompareId))?.status
       : undefined;
 
-  const kinshipOf = useCallback(
-    (n: TreeNode): string | undefined => {
-      if (!startId || !n.master) return undefined;
-      return kinshipLabel(masterDs, startId, n.master.id, t) ?? undefined;
-    },
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
+  // labelling every node costs each person once, not two walks per node per render.
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
     [startId, masterDs, t],
   );
+  const kinshipOf = useCallback(
+    (n: TreeNode): string | undefined => (n.master ? kinship?.label(n.master.id) : undefined),
+    [kinship],
+  );
   const lineageOf = useCallback(
-    (n: TreeNode): Lineage | undefined =>
-      startId && n.master ? bloodLineage(masterDs, startId, n.master.id) : undefined,
-    [startId, masterDs],
+    (n: TreeNode): Lineage | undefined => (n.master ? kinship?.lineage(n.master.id) : undefined),
+    [kinship],
   );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
@@ -291,10 +293,9 @@ export function CompareTree({
       ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
         (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records)));
     // Kinship to the start person, shown in place of a redacted living person's name.
-    const kinshipOf = (n: TreeNode) =>
-      startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined;
-    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf });
-  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, startId]);
+    const fanKinshipOf = (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined);
+    return buildFanChart(at, settings.type === "circle" ? "circle" : "fan", { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf });
+  }, [radial, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected, settings.type, display, t, folderName, livingLabel, kinship]);
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
@@ -336,8 +337,8 @@ export function CompareTree({
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
   // Root person's kinship to the start person, shown in the title.
-  const rootKinship = startId && rootMasterId ? kinshipLabel(masterDs, startId, rootMasterId, t) : undefined;
-  const rootLineage = startId && rootMasterId ? bloodLineage(masterDs, startId, rootMasterId) : undefined;
+  const rootKinship = rootMasterId ? kinship?.label(rootMasterId) : undefined;
+  const rootLineage = rootMasterId ? kinship?.lineage(rootMasterId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
@@ -547,14 +548,15 @@ export function CompareTree({
               >
                 ×
               </button>
+              {/* Only layered charts reach here — needsMinimap excludes radial. */}
               <TreeMinimap
-                nodes={radial ? (fan!.segments as unknown as Placed[]) : flat!.nodes}
+                nodes={flat!.nodes}
                 contentW={activeLaid.width}
                 contentH={activeLaid.height}
                 viewport={viewport}
                 onScrollTo={scrollTo}
-                fill={radial ? (n) => STATUS_COLOR[(n as unknown as FanSegment).node.status] : (n) => STATUS_COLOR[n.status]}
-                nodeH={radial ? undefined : nodeH}
+                fill={(n) => STATUS_COLOR[n.status]}
+                nodeH={nodeH}
                 zoom={zoom}
               />
             </div>

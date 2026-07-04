@@ -21,7 +21,9 @@ export type NodeStatus =
   | "incoming-only"; // present only in the incoming file
 
 export interface TreeNode {
-  /** Stable key for React rendering. */
+  /** Render/selection key, unique per tree *position*: pedigree collapse repeats
+   *  a person in several places, and each occurrence is its own node (the second
+   *  and later carry a `#n` suffix). Identify the person via master/incoming. */
   key: string;
   master?: Individual;
   incoming?: Individual;
@@ -93,7 +95,18 @@ export function buildCompareTree(
   mode: TreeMode,
   isRejected?: (masterId: string, compareId: string) => boolean,
 ): TreeNode | undefined {
-  const seen = new Set<string>();
+  // Occurrence count per person: pedigree collapse (and spouses who are also
+  // blood relatives) repeat a person in several positions, and every occurrence
+  // must get its own key — duplicate keys break React rendering and selection.
+  // Key numbering is separate from the `expanded` guard below, so a person first
+  // met as a spouse still expands normally when later built as a child.
+  const occurrences = new Map<string, number>();
+  const claimKey = (baseKey: string): string => {
+    const n = (occurrences.get(baseKey) ?? 0) + 1;
+    occurrences.set(baseKey, n);
+    return n === 1 ? baseKey : `${baseKey}#${n}`;
+  };
+  const expanded = new Set<string>();
   const placeFmt = inferPlaceExportFormat(masterDs);
 
   const build = (master?: Individual, incoming?: Individual): TreeNode | undefined => {
@@ -104,10 +117,10 @@ export function buildCompareTree(
     if (master && incoming && isRejected?.(master.id, incoming.id)) {
       incoming = undefined;
     }
-    const key = `${master?.id ?? ""}|${incoming?.id ?? ""}`;
-    const node = makeNode(t, key, master, incoming, masterDs, compareDs, placeFmt);
-    if (seen.has(key)) return node; // already expanded elsewhere: stop here
-    seen.add(key);
+    const base = nodeKey(master, incoming);
+    const node = makeNode(t, claimKey(base), master, incoming, masterDs, compareDs, placeFmt);
+    if (expanded.has(base)) return node; // already expanded elsewhere: stop here
+    expanded.add(base);
     if (mode === "ancestors") {
       node.children = parents(master, incoming, masterDs, compareDs, build);
       // The marriage of this person's parents — drawn as the fan collar between
@@ -115,7 +128,7 @@ export function buildCompareTree(
       node.marriage =
         parentsMarriage(master, masterDs) ?? parentsMarriage(incoming, compareDs);
     } else {
-      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build, placeFmt);
+      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build, claimKey, placeFmt);
       node.partners = partners;
       node.children = directChildren;
     }
@@ -126,6 +139,7 @@ export function buildCompareTree(
 }
 
 type Build = (master?: Individual, incoming?: Individual) => TreeNode | undefined;
+type ClaimKey = (baseKey: string) => string;
 
 function parents(
   master: Individual | undefined,
@@ -210,6 +224,7 @@ function descend(
   compareDs: Dataset,
   maps: MatchMaps,
   build: Build,
+  claimKey: ClaimKey,
   placeFmt: PlaceTargetFormat,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
   const masterUnions = unionsOf(master, masterDs);
@@ -226,7 +241,9 @@ function descend(
     fam: Family | undefined,
   ) => {
     if (mPartner || iPartner) {
-      const node = makeNode(t, nodeKey(mPartner, iPartner), mPartner, iPartner, masterDs, compareDs, placeFmt);
+      // Partner nodes claim a key too: a spouse who is also a blood relative
+      // (or married twice into the tree) appears in several positions.
+      const node = makeNode(t, claimKey(nodeKey(mPartner, iPartner)), mPartner, iPartner, masterDs, compareDs, placeFmt);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
       node.marriage = marriageOf(fam);
@@ -300,14 +317,16 @@ function nodeKey(master: Individual | undefined, incoming: Individual | undefine
  * Count the blood relatives in a node's tree — ancestors (in an ancestors tree)
  * or descendants (in a descendants tree). The root itself and spouses (partner
  * nodes) are excluded, so the number answers "does this person have anything in
- * this direction?" at a glance. Deduped by key for any pedigree collapse.
+ * this direction?" at a glance. Deduped by person (keys are occurrence-unique,
+ * so pedigree collapse must not double-count).
  */
 export function countTreePeople(root: TreeNode | undefined): number {
   if (!root) return 0;
   const seen = new Set<string>();
   const visit = (x: TreeNode) => {
-    if (seen.has(x.key)) return;
-    seen.add(x.key);
+    const person = nodeKey(x.master, x.incoming);
+    if (seen.has(person)) return;
+    seen.add(person);
     x.children.forEach(visit);
     x.partners.forEach((p) => p.children.forEach(visit));
   };

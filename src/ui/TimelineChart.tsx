@@ -5,8 +5,7 @@ import { buildTimeline, type TimelineRow } from "../tree/timeline";
 import { formatMarriage } from "../tree/nodeDisplay";
 import { PAD, type Placed } from "../tree/treeLayout";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel, lineageClass } from "../match/kinship";
-import { bloodLineage } from "../match/relationshipPath";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { BackButton } from "./BackButton";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
@@ -168,6 +167,12 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     return { x0, x1, contentW, contentH, xOf, ticks };
   }, [data, rowH]);
 
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
+    [masterDs, startId, t],
+  );
+
   // Redact people inferred to be living: label only (a bar would betray the
   // dates), name replaced by their kinship to the start person or "Living".
   const redacted = useCallback(
@@ -177,9 +182,9 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   const rowName = useCallback(
     (row: TimelineRow) => {
       if (!redacted(row)) return row.name;
-      return (startId && kinshipLabel(masterDs, startId, row.id, t)) || livingLabel;
+      return kinship?.label(row.id) || livingLabel;
     },
-    [redacted, startId, masterDs, t, livingLabel],
+    [redacted, kinship, livingLabel],
   );
 
   // Adapt the rows to the shapes useTreeCanvas expects (it only reads key/x/y);
@@ -484,10 +489,10 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                             tree charts, so it reads apart from the role chip. */}
                         {showKinship && !hidden && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(bloodLineage(masterDs, startId!, row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id))}`}
                             dx={8}
                           >
-                            {kinshipLabel(masterDs, startId!, row.id, t)}
+                            {kinship?.label(row.id)}
                           </tspan>
                         )}
                         {!hidden && row.from === undefined && (
