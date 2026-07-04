@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
-import { dateSimilarity, dateCompareKey, placeSimilarity } from "./similarity";
+import { dateSimilarity, dateCompareKey, givenNameSetSimilarity, placeSimilarity } from "./similarity";
 import { compareKey } from "./text";
 import { placeCompareKey } from "./place";
 
@@ -27,6 +27,33 @@ describe("parseDate qualifier variants", () => {
       year: 1900,
       year2: 1905,
     });
+  });
+});
+
+describe("givenNameSetSimilarity", () => {
+  const n = (given?: string, surname?: string) => ({
+    given,
+    surname,
+    full: [given, surname].filter(Boolean).join(" "),
+  });
+
+  it("ignores the shared family surname — different children sets score low", () => {
+    // Full-name comparison scored these ~0.6+ because every child shares the
+    // surname; given-only keeps just the discriminating part.
+    const a = [n("Janez", "Novak"), n("Marija", "Novak")];
+    const b = [n("Blaž", "Novak"), n("Uršula", "Novak")];
+    expect(givenNameSetSimilarity(a, b)!).toBeLessThan(0.6);
+  });
+
+  it("scores same given names 1.0 regardless of surnames", () => {
+    const a = [n("Janez", "Novak"), n("Marija", "Novak")];
+    const b = [n("Janez", "Kovač"), n("Marija", "Kovač")];
+    expect(givenNameSetSimilarity(a, b)).toBe(1);
+  });
+
+  it("is undefined when a side has no given names to compare", () => {
+    expect(givenNameSetSimilarity([n(undefined, "Novak")], [n("Janez", "Novak")])).toBeUndefined();
+    expect(givenNameSetSimilarity([], [n("Janez")])).toBeUndefined();
   });
 });
 

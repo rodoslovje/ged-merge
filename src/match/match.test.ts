@@ -384,6 +384,50 @@ describe("given-name conflict penalty", () => {
   });
 });
 
+describe("parent-conflict penalty and role-wise parent comparison", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  // Same person key on both sides (birth years one apart so keyPerfect can't
+  // pin the score at 100); only the linked parents' names vary.
+  const side = (p: "M" | "C", year: number, dadName: string, momName: string) =>
+    `0 @${p}@ INDI\n1 NAME Marija /Bajuk/\n1 SEX F\n1 BIRT\n2 DATE ${year}\n1 FAMC @${p}F@\n` +
+    `0 @${p}D@ INDI\n1 NAME ${dadName} /Bajuk/\n1 SEX M\n` +
+    `0 @${p}W@ INDI\n1 NAME ${momName} /Kovač/\n1 SEX F\n` +
+    `0 @${p}F@ FAM\n1 HUSB @${p}D@\n1 WIFE @${p}W@\n1 CHIL @${p}@\n`;
+  const master = doc(side("M", 1850, "Miko", "Neža"));
+  const scoreAgainst = (dadName: string, momName: string) => {
+    const compare = doc(side("C", 1851, dadName, momName));
+    return matchDatasets(master, compare).individuals.find(
+      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    )!;
+  };
+
+  it("penalizes a pair whose father AND mother both clearly differ", () => {
+    // Miko/Franc = 0.0, Neža/Katarina ≪ 0.6: a different family entirely.
+    const conflict = scoreAgainst("Franc", "Katarina");
+    expect(conflict.category).not.toBe("strong");
+    expect(conflict.score).toBeLessThan(75);
+    // The same records with matching parents score far higher.
+    const same = scoreAgainst("Miko", "Neža");
+    expect(same.score).toBeGreaterThan(90);
+  });
+
+  it("does not penalize a single conflicting role (cross-language variants are routine)", () => {
+    // Father differs, mother agrees: only the parents component moves — the
+    // score must stay well above the both-conflict case's penalized band.
+    const oneRole = scoreAgainst("Franc", "Neža");
+    expect(oneRole.score).toBeGreaterThan(85);
+  });
+
+  it("scores the parents component by given names, not the shared surname", () => {
+    // Different fathers, same family surname: the old full-name comparison
+    // held this component at ~0.6+ on the surname alone.
+    const conflict = scoreAgainst("Franc", "Katarina");
+    const parents = conflict.components.find((c) => c.key === "parents");
+    expect(parents).toBeDefined();
+    expect(parents!.score).toBeLessThan(0.5);
+  });
+});
+
 describe("parent-match bonus", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   // Same child in master and compare with an imperfect key (birth years one

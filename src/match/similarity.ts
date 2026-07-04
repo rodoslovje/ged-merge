@@ -179,6 +179,28 @@ function hasNameContent(n: PersonName): boolean {
 }
 
 /**
+ * Symmetric set similarity over given names only. For relatives who share the
+ * person's own family surname by construction — children, or the father in a
+ * parent comparison — full-name similarity is inflated: the surname part
+ * (weighted 0.6 in `nameSimilarity`) matches for any two families the pair's
+ * own surname gate already found similar, so two entirely different sets of
+ * children still scored ~0.6+. Only the given names discriminate, so only
+ * they are compared. Members without a given name are ignored; undefined when
+ * either side has none left.
+ */
+export function givenNameSetSimilarity(
+  a: PersonName[],
+  b: PersonName[],
+): number | undefined {
+  const av = a.map((n) => n.given).filter((g): g is string => Boolean(g));
+  const bv = b.map((n) => n.given).filter((g): g is string => Boolean(g));
+  if (av.length === 0 || bv.length === 0) return undefined;
+  const oneWay = (xs: string[], ys: string[]) =>
+    xs.reduce((s, x) => s + Math.max(...ys.map((y) => givenSimilarity(x, y))), 0) / xs.length;
+  return (oneWay(av, bv) + oneWay(bv, av)) / 2;
+}
+
+/**
  * Canonical comparison key for a raw date string. Semantic equivalents like
  * "Abt. 1900" and "ABT 1900" produce the same key; unparseable dates fall back
  * to `compareKey`. Used by the review diff's agree/conflict detection so it

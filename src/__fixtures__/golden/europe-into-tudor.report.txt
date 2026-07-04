@@ -17,14 +17,19 @@ Elizabeth Tudor  @I265@
 -----------------------
   event.colPlace: set "Richmond Palace,London,England"
 
-Edward Tudor  @I34@
--------------------
-  event.colPlace: set "Greenwich,Palace,England"
+James Stuart  @I257@
+--------------------
+  event.colPlace: set "Theobalds Park,Hertfordshire,Herts,England"
   event.colPlace: set "Westminster,Abbey,London,England"
 
 Mary Tudor  @I266@
 ------------------
   event.colPlace: set "St. James Palace,,England"
+  event.colPlace: set "Westminster,Abbey,London,England"
+
+Edward Tudor  @I34@
+-------------------
+  event.colPlace: set "Greenwich,Palace,England"
   event.colPlace: set "Westminster,Abbey,London,England"
 
 Henry Tudor  @I14@
@@ -47,11 +52,6 @@ Henry Tudor + Catherine Howard  @F35@
 Henry Tudor + Catherine Parr  @F36@
 -----------------------------------
   event.colPlace: set "Hampton Court,Palace"
-
-James Stuart  @I257@
---------------------
-  event.colPlace: set "Theobalds Park,Hertfordshire,Herts,England"
-  event.colPlace: set "Westminster,Abbey,London,England"
 
 Henry Tudor + Elizabeth York  @F1@
 ----------------------------------
@@ -101,14 +101,6 @@ Charles Stuart  @I224@
 ----------------------
   event.colDate: set "1576"
 
-Thomas  @I155@
---------------
-  merge.field.newPerson: set "Thomas"
-
-John Beaufort + Margaret de Holland,  @F176@
---------------------------------------------
-  event.colDate: set "1412"
-
 Mary Tudor  @I39@
 -----------------
   event.colPlace: set "Richmond Palace,,England"
@@ -127,6 +119,14 @@ Jane Seymour  @I18@
 Elizabeth Cavendish  @I225@
 ---------------------------
   event.colDate: set "1581"
+
+Thomas  @I155@
+--------------
+  merge.field.newPerson: set "Thomas"
+
+John Beaufort + Margaret de Holland,  @F176@
+--------------------------------------------
+  event.colDate: set "1412"
 
 Thomas Boleyn  @I36@
 --------------------
@@ -1614,20 +1614,20 @@ Edward_IV  @I535@
 -----------------
   merge.field.newPerson: set "Edward_IV"
 
-Richard Plantagenet  @I536@
----------------------------
-  merge.field.newPerson: set "Richard Plantagenet"
-
 Richard Plantagenet + Catherine Neville  @F340@
 -----------------------------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Richard Plantagenet"
   merge.field.mother: set "Catherine Neville"
 
-Richard Plantagenet + Anne Mortimer  @F341@
--------------------------------------------
+Richard of_Cambridge Plantagenet  @I536@
+----------------------------------------
+  merge.field.newPerson: set "Richard of_Cambridge Plantagenet"
+
+Richard of_Cambridge Plantagenet + Anne Mortimer  @F341@
+--------------------------------------------------------
   merge.field.newFamily: set ""
-  merge.field.father: set "Richard Plantagenet"
+  merge.field.father: set "Richard of_Cambridge Plantagenet"
   merge.field.mother: set "Anne Mortimer"
 
 Edmund of_Langley  @I537@

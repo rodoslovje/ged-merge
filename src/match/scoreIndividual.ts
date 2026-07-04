@@ -8,11 +8,11 @@ import {
   cachedFindEvent,
   cachedMarriageEvents,
   cachedMotherName,
-  cachedParentNames,
   cachedPartnerNames,
 } from "./profileCache";
 import {
   dateSimilarity,
+  givenNameSetSimilarity,
   givenSimilarity,
   nameSetSimilarity,
   nameSimilarity,
@@ -84,9 +84,16 @@ export function scoreIndividualPair(
     add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
   }
 
-  add(components, "parents", w.parents, nameSetSimilarity(cachedParentNames(master, masterDs), cachedParentNames(compare, compareDs)), "parents");
+  // Parents are compared role-wise (father↔father, mother↔mother) with the
+  // father reduced to his given name — his surname is the family surname the
+  // surname component already scored, so including it only inflated the score
+  // for *any* same-surname pair (different fathers still reached ~0.6+).
+  // Children likewise share the person's surname, so they compare by given
+  // names only. Partners keep the full-name comparison: a spouse's family
+  // name genuinely discriminates.
+  add(components, "parents", w.parents, parentSimilarity(master, compare, masterDs, compareDs), "parents");
   add(components, "partners", w.partners, nameSetSimilarity(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs)), "partners");
-  add(components, "children", w.children, nameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
+  add(components, "children", w.children, givenNameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
 
   // Marriage corroboration, folded in from the person's spouse family: a matching
   // marriage date/place is strong evidence (and disambiguates same-named people).
@@ -108,6 +115,19 @@ export function scoreIndividualPair(
   // driven by matched relatives, not by name agreement.
   if (givenSim !== undefined && givenSim < GIVEN_CONFLICT_SIM) {
     score01 *= GIVEN_CONFLICT_PENALTY;
+  }
+
+  // Both parents named and both clearly different: the two records belong to
+  // different families, however well the person's own name and dates agree —
+  // the dense-name-cluster false positive (same-name cousins born nearby).
+  // The parents *component* alone can't express this: at weight 2 in a ~10.5
+  // weight total, even a 0 score only shaves a few points. A single
+  // conflicting role is deliberately not penalized — one parent recorded
+  // under a cross-language variant (Jurij/Georg 0.47) is routine in bilingual
+  // parish records, and mothers agreeing on a ubiquitous given name (Marija)
+  // are too weak a confirmation to matter either way.
+  if (bothParentsConflict(master, compare, masterDs, compareDs)) {
+    score01 *= PARENT_CONFLICT_PENALTY;
   }
 
   // The identity key — surname, given name and birth date — is conclusive: when
@@ -172,6 +192,71 @@ const GIVEN_CONFLICT_SIM = 0.7;
  * still scores high enough to be relationship-boosted back into the 90s.
  */
 const GIVEN_CONFLICT_PENALTY = 0.8;
+
+/**
+ * Minimum given-name similarity for two parents in one role to count as the
+ * same person (mirrors the threshold the duplicate passes use). Measured:
+ * distinct fathers sit at ≤0.6 (Miko/Franc 0.0, Mihael/Florijan 0.53), while
+ * recording variants of one father sit above it (Miko/Mihael 0.69,
+ * Janez/Johann 0.73, Anton/Antonius 0.93).
+ */
+const PARENT_GIVEN_MATCH = 0.6;
+
+/**
+ * Multiplier when both parents conflict (see the call site). Same magnitude
+ * as the given-name conflict penalty, and stacking with it: a pair wrong on
+ * both its own name and its family is crushed to ~0.64× — firmly out of the
+ * plausible band.
+ */
+const PARENT_CONFLICT_PENALTY = 0.8;
+
+/** True when both records name a father and a mother (given names on both
+ *  sides) and *each* role's given names are too dissimilar to be the same
+ *  person — different-family evidence strong enough for a score penalty. */
+function bothParentsConflict(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): boolean {
+  const fm = cachedFatherName(master, masterDs)?.given;
+  const fc = cachedFatherName(compare, compareDs)?.given;
+  const mm = cachedMotherName(master, masterDs)?.given;
+  const mc = cachedMotherName(compare, compareDs)?.given;
+  if (!fm || !fc || !mm || !mc) return false;
+  return (
+    givenSimilarity(fm, fc) < PARENT_GIVEN_MATCH &&
+    givenSimilarity(mm, mc) < PARENT_GIVEN_MATCH
+  );
+}
+
+/**
+ * Role-wise parent similarity: father compared to father, mother to mother.
+ * The father contributes his given name only (his surname is the shared
+ * family surname — no information). The mother is compared as a full name:
+ * her recorded maiden surname genuinely discriminates between families when
+ * both sides carry it. Averages the comparable roles; undefined when neither
+ * role can be compared.
+ */
+function parentSimilarity(
+  master: Individual,
+  compare: Individual,
+  masterDs: Dataset,
+  compareDs: Dataset,
+): number | undefined {
+  const fm = cachedFatherName(master, masterDs);
+  const fc = cachedFatherName(compare, compareDs);
+  const mm = cachedMotherName(master, masterDs);
+  const mc = cachedMotherName(compare, compareDs);
+  const parts: number[] = [];
+  if (fm?.given && fc?.given) parts.push(givenSimilarity(fm.given, fc.given));
+  if (mm && mc) {
+    const s = nameSimilarity(mm, mc);
+    if (s !== undefined) parts.push(s);
+  }
+  if (parts.length === 0) return undefined;
+  return parts.reduce((s, v) => s + v, 0) / parts.length;
+}
 
 /** Best marriage date/place similarity over the cross-product of both people's
  *  marriages (handles re-marriages; undefined when a side lacks the data). */
