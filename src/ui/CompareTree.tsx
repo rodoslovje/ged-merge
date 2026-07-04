@@ -32,7 +32,6 @@ import {
   flatten,
   layout,
   layoutGrid,
-  minimapDefaultOpen,
   nameFit,
   nodeHeight,
   truncate,
@@ -41,16 +40,15 @@ import {
 } from "../tree/treeLayout";
 import { formatMarriage, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { TreeMinimap } from "./TreeMinimap";
+import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
-import { MapIcon } from "./icons/MapIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { ExportMenu } from "./ExportMenu";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
@@ -372,10 +370,6 @@ export function CompareTree({
   const activeLaid = radial ? fanLaid : laid;
   const activeNodes = radial ? fanNodes : nodesByKey;
 
-  // null = follow the automatic default (collapsed unless the chart dwarfs the
-  // screen); true/false once the user has toggled it by hand.
-  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
-
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
@@ -401,60 +395,54 @@ export function CompareTree({
       ? nodesByKey.get(selectedKey)
       : undefined;
 
-  // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
-  const needsMinimap =
-    !radial &&
-    !!activeLaid &&
-    viewport.width > 0 &&
-    (activeLaid.width * zoom > viewport.width + 1 || activeLaid.height * zoom > viewport.height + 1);
-  const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
-
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={t("tree.back")} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {rootName ? (
-            <>
-              <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
-              {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
-              {rootStatus && rootStatus !== "undecided" && (
-                <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
-                  {t(`status.${rootStatus}`).charAt(0)}
-                </span>
-              )}
-              <span className="tree-title-kind">{t("tree.title")}</span>
-            </>
-          ) : (
-            t("tree.title")
-          )}
-        </h2>
-        <ChartSettings />
-        <ExportMenu
-          disabled={!activeLaid}
-          items={[
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
-            },
-          ]}
-        />
-      </div>
-
-      <div className="tree-controls">
-        <div className="tree-controls-left">
+    <ChartPage
+      backLabel={t("tree.back")}
+      onBack={onBack}
+      title={
+        rootName ? (
+          <>
+            <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
+            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
+            {rootStatus && rootStatus !== "undecided" && (
+              <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
+                {t(`status.${rootStatus}`).charAt(0)}
+              </span>
+            )}
+            <span className="tree-title-kind">{t("tree.title")}</span>
+          </>
+        ) : (
+          t("tree.title")
+        )
+      }
+      actions={
+        <>
+          <ChartSettings />
+          <ExportMenu
+            disabled={!activeLaid}
+            items={[
+              {
+                key: "svg",
+                icon: <ImageIcon />,
+                label: t("export.svg"),
+                title: t("tree.export.tooltip"),
+                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
+              },
+              {
+                key: "pdf",
+                icon: <PrinterIcon />,
+                label: t("export.pdf"),
+                title: t("tree.exportPdf.tooltip"),
+                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${effectiveMode}`)), compareTreeTitle),
+              },
+            ]}
+          />
+        </>
+      }
+      controlsLeft={
+        <>
           <ChartKindTabs
             kinds={PEDIGREE_KINDS}
             value={settings.type}
@@ -486,10 +474,10 @@ export function CompareTree({
               </button>
             )}
           </div>
-        </div>
-        <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
-      </div>
-
+        </>
+      }
+      controlsRight={<TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />}
+    >
       <div className="tree-canvas-wrap">
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
@@ -537,39 +525,18 @@ export function CompareTree({
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
-        {needsMinimap && activeLaid && (
-          minimapOpen ? (
-            <div className="tree-minimap-box">
-              <button
-                className="tree-minimap-collapse"
-                onClick={() => setMapOpen(false)}
-                title={t("tree.minimap.hide")}
-                aria-label={t("tree.minimap.hide")}
-              >
-                ×
-              </button>
-              {/* Only layered charts reach here — needsMinimap excludes radial. */}
-              <TreeMinimap
-                nodes={flat!.nodes}
-                contentW={activeLaid.width}
-                contentH={activeLaid.height}
-                viewport={viewport}
-                onScrollTo={scrollTo}
-                fill={(n) => STATUS_COLOR[n.status]}
-                nodeH={nodeH}
-                zoom={zoom}
-              />
-            </div>
-          ) : (
-            <button
-              className="tree-minimap-show"
-              onClick={() => setMapOpen(true)}
-              title={t("tree.minimap.show")}
-              aria-label={t("tree.minimap.show")}
-            >
-              <MapIcon />
-            </button>
-          )
+        {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
+        {!radial && laid && flat && (
+          <ChartMinimap
+            contentW={laid.width}
+            contentH={laid.height}
+            viewport={viewport}
+            zoom={zoom}
+            nodes={flat.nodes}
+            fill={(n) => STATUS_COLOR[n.status]}
+            nodeH={nodeH}
+            onScrollTo={scrollTo}
+          />
         )}
         {activeLaid && (
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
@@ -603,7 +570,7 @@ export function CompareTree({
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 

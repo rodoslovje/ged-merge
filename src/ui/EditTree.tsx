@@ -8,7 +8,6 @@ import {
   flatten,
   layout,
   layoutGrid,
-  minimapDefaultOpen,
   nodeHeight,
   type Placed,
 } from "../tree/treeLayout";
@@ -18,7 +17,7 @@ import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
-import { TreeMinimap } from "./TreeMinimap";
+import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
@@ -26,11 +25,10 @@ import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionSta
 import { sexClass } from "./sex";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu } from "./ExportMenu";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -83,9 +81,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
     setCurrentRootId(id);
     onRootChange?.(id);
   }, [onRootChange]);
-  // null = follow the automatic default (collapsed unless the chart dwarfs the
-  // screen); true/false once the user has toggled it by hand.
-  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
@@ -261,12 +256,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
 
-  // Radial charts fit the whole pedigree on screen; the minimap adds nothing.
-  const needsMinimap =
-    !radial && !!activeLaid && viewport.width > 0 &&
-    (activeLaid.width * zoom > viewport.width + 1 || activeLaid.height * zoom > viewport.height + 1);
-  const minimapOpen = mapOpen ?? (!!activeLaid && minimapDefaultOpen(activeLaid.width, activeLaid.height, viewport));
-
   // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart".
   const chartKind = `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
   // Shared title for the SVG / PDF export header.
@@ -285,57 +274,57 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {tree ? (
-            <>
-              <span className={`tree-title-name ${rootPerson ? sexClass(rootPerson.sex) : ""}`}>
-                {tree.name}
-              </span>
-              {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
-              <span className="tree-title-kind">{chartKind}</span>
-            </>
-          ) : (
-            chartKind
-          )}
-        </h2>
-        <ChartSettings />
-        <ExportMenu
-          disabled={!activeLaid}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: chartPersonIds.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
-            },
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
-            },
-          ]}
-        />
-      </div>
-
-      {/* Kind switcher + mode toggle (left), legend (right) — same layout as the
-          Compare Tree. */}
-      <div className="tree-controls">
-        <div className="tree-controls-left">
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        tree ? (
+          <>
+            <span className={`tree-title-name ${rootPerson ? sexClass(rootPerson.sex) : ""}`}>
+              {tree.name}
+            </span>
+            {tree.years && <span className="tree-title-years gm-data">{tree.years}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
+            <span className="tree-title-kind">{chartKind}</span>
+          </>
+        ) : (
+          chartKind
+        )
+      }
+      actions={
+        <>
+          <ChartSettings />
+          <ExportMenu
+            disabled={!activeLaid}
+            items={[
+              {
+                key: "ged",
+                icon: <GedIcon />,
+                label: t("export.gedcom", { count: chartPersonIds.length }),
+                title: t("tree.exportGedcom.tooltip"),
+                onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
+              },
+              {
+                key: "svg",
+                icon: <ImageIcon />,
+                label: t("export.svg"),
+                title: t("tree.export.tooltip"),
+                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
+              },
+              {
+                key: "pdf",
+                icon: <PrinterIcon />,
+                label: t("export.pdf"),
+                title: t("tree.exportPdf.tooltip"),
+                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${effectiveMode}`)), editTreeTitle),
+              },
+            ]}
+          />
+        </>
+      }
+      controlsLeft={
+        <>
           {kindSwitcher}
           <div className="tree-mode">
             <button className={effectiveMode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
@@ -354,10 +343,12 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               </button>
             )}
           </div>
-        </div>
-        {/* Legend: confirmed-merge badge + modified / unmodified swatches.
-            Merged and Modified overlap, so they don't sum to the total.
-            Empty groups are hidden. */}
+        </>
+      }
+      controlsRight={
+        /* Legend: confirmed-merge badge + modified / unmodified swatches.
+           Merged and Modified overlap, so they don't sum to the total.
+           Empty groups are hidden. */
         <div className="tree-legend">
           {mergedCount > 0 && (
             <div className="tree-legend-item">
@@ -384,8 +375,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
             </div>
           )}
         </div>
-      </div>
-
+      }
+    >
       <div className="tree-canvas-wrap">
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
@@ -494,39 +485,18 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           )}
         </div>
 
-        {needsMinimap && activeLaid && (
-          minimapOpen ? (
-            <div className="tree-minimap-box">
-              <button
-                className="tree-minimap-collapse"
-                onClick={() => setMapOpen(false)}
-                title={t("tree.minimap.hide")}
-                aria-label={t("tree.minimap.hide")}
-              >
-                ×
-              </button>
-              {/* Only layered charts reach here — needsMinimap excludes radial. */}
-              <TreeMinimap
-                nodes={flat!.nodes}
-                contentW={activeLaid.width}
-                contentH={activeLaid.height}
-                viewport={viewport}
-                onScrollTo={scrollTo}
-                fill={colorOf}
-                nodeH={nodeH}
-                zoom={zoom}
-              />
-            </div>
-          ) : (
-            <button
-              className="tree-minimap-show"
-              onClick={() => setMapOpen(true)}
-              title={t("tree.minimap.show")}
-              aria-label={t("tree.minimap.show")}
-            >
-              <MapIcon />
-            </button>
-          )
+        {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
+        {!radial && laid && flat && (
+          <ChartMinimap
+            contentW={laid.width}
+            contentH={laid.height}
+            viewport={viewport}
+            zoom={zoom}
+            nodes={flat.nodes}
+            fill={colorOf}
+            nodeH={nodeH}
+            onScrollTo={scrollTo}
+          />
         )}
 
         {activeLaid && (
@@ -568,6 +538,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }

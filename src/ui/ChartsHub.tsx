@@ -6,7 +6,7 @@ import type { CandidateDecision } from "../review/types";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
@@ -103,16 +103,12 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
     // hiding the kind behind a disabled control.
     if (!startId) {
       return (
-        <div className="tree-page">
-          <div className="tree-toolbar">
-            <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-            <h2 className="tree-title">
-              <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
-            </h2>
-          </div>
-          <div className="tree-controls">
-            <div className="tree-controls-left">{kindSwitcher}</div>
-          </div>
+        <ChartPage
+          backLabel={backLabel}
+          onBack={onBack}
+          title={<span className="tree-title-kind">{t("relpath.pageTitle")}</span>}
+          controlsLeft={kindSwitcher}
+        >
           <div className="charts-need-start">
             <p>{t("globalSearch.needStart")}</p>
             {onPickStart && (
@@ -128,7 +124,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
               />
             )}
           </div>
-        </div>
+        </ChartPage>
       );
     }
     return (

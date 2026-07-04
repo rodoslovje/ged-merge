@@ -7,7 +7,7 @@ import { PAD, type Placed } from "../tree/treeLayout";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
@@ -260,54 +260,54 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   };
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
-          {rootRow ? (
-            <>
-              <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
-              {!redacted(rootRow) && rootRow.years && <span className="tree-title-years gm-data">{rootRow.years}</span>}
-              <span className="tree-title-break" aria-hidden="true" />
-              <span className="tree-title-kind">{pageKind}</span>
-            </>
-          ) : (
-            pageKind
-          )}
-        </h2>
-        <ChartSettings lockedType="timeline" />
-        <ExportMenu
-          disabled={!laid}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: rows.length }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
-            },
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
-            },
-          ]}
-        />
-      </div>
-
-      <div className="tree-controls">
-        <div className="tree-controls-left">{kindSwitcher}</div>
-      </div>
-
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        rootRow ? (
+          <>
+            <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
+            {!redacted(rootRow) && rootRow.years && <span className="tree-title-years gm-data">{rootRow.years}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            <span className="tree-title-kind">{pageKind}</span>
+          </>
+        ) : (
+          pageKind
+        )
+      }
+      actions={
+        <>
+          <ChartSettings lockedType="timeline" />
+          <ExportMenu
+            disabled={!laid}
+            items={[
+              {
+                key: "ged",
+                icon: <GedIcon />,
+                label: t("export.gedcom", { count: rows.length }),
+                title: t("tree.exportGedcom.tooltip"),
+                onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
+              },
+              {
+                key: "svg",
+                icon: <ImageIcon />,
+                label: t("export.svg"),
+                title: t("tree.export.tooltip"),
+                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
+              },
+              {
+                key: "pdf",
+                icon: <PrinterIcon />,
+                label: t("export.pdf"),
+                title: t("tree.exportPdf.tooltip"),
+                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootRow?.name, pageKind), exportTitle),
+              },
+            ]}
+          />
+        </>
+      }
+      controlsLeft={kindSwitcher}
+    >
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
@@ -536,7 +536,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
-import { PAD, minimapDefaultOpen, nodeHeight, type Placed } from "../tree/treeLayout";
+import { PAD, nodeHeight, type Placed } from "../tree/treeLayout";
 import { formatMarriage, placeLabel } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -14,13 +14,12 @@ import { sexClass } from "./sex";
 import { StartPersonSelector } from "./StartPersonSelector";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { TreeMinimap } from "./TreeMinimap";
+import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu } from "./ExportMenu";
-import { BackButton } from "./BackButton";
+import { ChartPage } from "./ChartPage";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -138,9 +137,6 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
-  // null = follow the automatic default (collapsed unless the chart dwarfs the
-  // screen); true/false once the user has toggled it by hand.
-  const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
   const selectedIndi = selectedBox ? masterDs.individuals.get(selectedBox.id) : undefined;
@@ -156,10 +152,6 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header.
   const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
-  const needsMinimap =
-    !!chart && viewport.width > 0 &&
-    (chart.width * zoom > viewport.width + 1 || chart.height * zoom > viewport.height + 1);
-  const minimapOpen = mapOpen ?? (!!chart && minimapDefaultOpen(chart.width, chart.height, viewport));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {
@@ -179,53 +171,53 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
   };
 
   return (
-    <div className="tree-page">
-      <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
-        <h2 className="tree-title">
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        <>
           {renderEndpoint("start", startSel)}
           <span className="tree-title-arrow" aria-hidden="true">→</span>
           {renderEndpoint("target", targetSel)}
           {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
-        </h2>
-        <ChartSettings lockedType="tree" />
-        <ExportMenu
-          disabled={!chart}
-          items={[
-            {
-              key: "ged",
-              icon: <GedIcon />,
-              label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
-              title: t("tree.exportGedcom.tooltip"),
-              onSelect: () =>
-                chart &&
-                exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
-            },
-            {
-              key: "svg",
-              icon: <ImageIcon />,
-              label: t("export.svg"),
-              title: t("tree.export.tooltip"),
-              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-            },
-            {
-              key: "pdf",
-              icon: <PrinterIcon />,
-              label: t("export.pdf"),
-              title: t("tree.exportPdf.tooltip"),
-              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
-            },
-          ]}
-        />
-      </div>
-
-      {kindSwitcher && (
-        <div className="tree-controls">
-          <div className="tree-controls-left">{kindSwitcher}</div>
-        </div>
-      )}
-
+        </>
+      }
+      actions={
+        <>
+          <ChartSettings lockedType="tree" />
+          <ExportMenu
+            disabled={!chart}
+            items={[
+              {
+                key: "ged",
+                icon: <GedIcon />,
+                label: t("export.gedcom", { count: chart?.boxes.length ?? 0 }),
+                title: t("tree.exportGedcom.tooltip"),
+                onSelect: () =>
+                  chart &&
+                  exportChartGedcom(masterDs, chart.boxes.map((b) => b.id), diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"))),
+              },
+              {
+                key: "svg",
+                icon: <ImageIcon />,
+                label: t("export.svg"),
+                title: t("tree.export.tooltip"),
+                onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
+              },
+              {
+                key: "pdf",
+                icon: <PrinterIcon />,
+                label: t("export.pdf"),
+                title: t("tree.exportPdf.tooltip"),
+                onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
+              },
+            ]}
+          />
+        </>
+      }
+      controlsLeft={kindSwitcher}
+    >
       {picking && (
         <div className="tree-controls relchart-picker-bar">
           <span className="relchart-picker-label">
@@ -326,28 +318,17 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
           )}
         </div>
 
-        {needsMinimap && chart && (
-          minimapOpen ? (
-            <div className="tree-minimap-box">
-              <button className="tree-minimap-collapse" onClick={() => setMapOpen(false)} title={t("tree.minimap.hide")} aria-label={t("tree.minimap.hide")}>
-                ×
-              </button>
-              <TreeMinimap
-                nodes={chart.boxes as unknown as Placed[]}
-                contentW={chart.width}
-                contentH={chart.height}
-                viewport={viewport}
-                onScrollTo={scrollTo}
-                fill={(n) => ((n as unknown as ChartBox).onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
-                nodeH={nodeH}
-                zoom={zoom}
-              />
-            </div>
-          ) : (
-            <button className="tree-minimap-show" onClick={() => setMapOpen(true)} title={t("tree.minimap.show")} aria-label={t("tree.minimap.show")}>
-              <MapIcon />
-            </button>
-          )
+        {chart && (
+          <ChartMinimap
+            contentW={chart.width}
+            contentH={chart.height}
+            viewport={viewport}
+            zoom={zoom}
+            nodes={chart.boxes as unknown as Placed[]}
+            fill={(n) => ((n as unknown as ChartBox).onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+            nodeH={nodeH}
+            onScrollTo={scrollTo}
+          />
         )}
 
         {chart && (
@@ -370,7 +351,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
           />
         )}
       </div>
-    </div>
+    </ChartPage>
   );
 }
 
