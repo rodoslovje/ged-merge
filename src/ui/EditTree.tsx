@@ -33,6 +33,7 @@ import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
+import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Color for unmodified nodes (master pine green) and modified (amber/minor).
 const COLOR_NORMAL = "var(--node-master)";
@@ -213,6 +214,9 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+
+  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts).
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onMode: onModeChange, allowDescendants: !radial });
 
   // The selected person — a laid tree node, or a fan segment's ancestor node.
   // Both are `TreeNode`s (Placed extends TreeNode), so the panel reads them alike.

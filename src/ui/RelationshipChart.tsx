@@ -22,6 +22,7 @@ import { ExportMenu } from "./ExportMenu";
 import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 const COLOR_SPINE = "var(--node-master)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -128,6 +129,9 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
 
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
+
+  // +/− zoom, 0 reset, F fit (kind digits are registered by the Charts hub).
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen });
   // null = follow the automatic default (collapsed unless the chart dwarfs the
   // screen); true/false once the user has toggled it by hand.
   const [mapOpen, setMapOpen] = useState<boolean | null>(null);

@@ -21,11 +21,24 @@ export const KEY = {
   modeTools: "t",
   tree: "v",
   relationship: "s",
+  /** Edit mode: jump to the start ("home") person. */
+  home: "h",
   /** Merge mode: focus the match-list name filter (global search is `/`). */
   filter: "f",
   confirm: "c",
   reject: "r",
   defer: "d",
+} as const;
+
+/** Bare keys active on the full-page chart overlays (handled by
+ *  useChartShortcuts). Digits 1–n additionally pick a chart kind. */
+export const CHART_KEY = {
+  zoomIn: ["+", "="],
+  zoomOut: ["-", "_"],
+  zoomReset: "0",
+  fit: "f",
+  ancestors: "a",
+  descendants: "d",
 } as const;
 
 type ActiveStatus = Exclude<MatchDecisionStatus, "undecided">;
@@ -108,7 +121,20 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
+      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
+      { keys: [["⌫"]], descKey: "shortcuts.item.back" },
       { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filterMatches" },
+    ],
+  },
+  {
+    titleKey: "shortcuts.group.charts",
+    category: "app",
+    items: [
+      { keys: [["1"], ["5"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
+      { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
+      { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
+      { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
     ],
   },
   {

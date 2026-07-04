@@ -55,6 +55,7 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useSettings } from "./SettingsContext";
+import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 interface Props {
   masterDs: Dataset;
@@ -376,6 +377,18 @@ export function CompareTree({
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+
+  // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind.
+  useChartShortcuts({
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    fitToScreen,
+    onMode: onModeChange,
+    allowDescendants: !radial,
+    kinds: PEDIGREE_KINDS,
+    onKind: (k) => setType(k as ChartType),
+  });
 
   // The selected person — a laid tree node or a fan segment's ancestor node;
   // both are `TreeNode`s, read identically by the detail panel.

@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { TreeMode } from "../tree/compareTree";
 import type { CandidateDecision } from "../review/types";
-import { useChartSettings } from "./ChartSettingsContext";
+import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
+import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { StartPersonSelector } from "./StartPersonSelector";
@@ -14,6 +15,9 @@ import { StartPersonSelector } from "./StartPersonSelector";
 // circle, drawn by EditTree) and the relationship-to-start diagram — behind a
 // first-class kind switcher. The chosen kind persists (ChartSettingsContext),
 // so the Edit view's single "Charts" button reopens whatever was used last.
+
+/** The hub's kinds, in tab (and digit-shortcut) order. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "relationship"];
 
 interface Props {
   masterDs: Dataset;
@@ -41,9 +45,13 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   // remounts the pedigree chart.
   const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
+  // Digits 1–5 switch the kind (the chart-level keys — zoom, A/D — are
+  // registered by whichever chart the hub is showing).
+  useChartShortcuts({ kinds: HUB_KINDS, onKind: setKind });
+
   const kindSwitcher = (
     <ChartKindTabs
-      kinds={[...PEDIGREE_KINDS, "relationship"]}
+      kinds={HUB_KINDS}
       value={settings.kind}
       onChange={setKind}
     />

@@ -293,8 +293,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
   const chartKind = chartSettings.kind;
-  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, matchOrder, navigate, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowCharts, chartKind, matchOrder, navigate, matchDecKey, toggleMatchStatus };
+  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
+  shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -304,7 +304,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
         // A pedigree chart (the last one used) — never the relationship diagram,
@@ -314,6 +314,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       }
       if (key === KEY.relationship) {
         if (id) { e.preventDefault(); showCharts(id, "relationship"); }
+        return;
+      }
+      if (key === KEY.home) {
+        if (hId) { e.preventDefault(); nav(hId); }
+        return;
+      }
+      if (e.key === "Backspace") {
+        // Swallow it even with empty history, so it never triggers the
+        // browser's page-back navigation.
+        e.preventDefault();
+        back();
         return;
       }
       const statusHit = KEY_STATUS[key];
