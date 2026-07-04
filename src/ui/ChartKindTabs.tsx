@@ -22,7 +22,8 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
   const label = (k: ChartKind) =>
     k === "relationship" ? t("relpath.button")
       : k === "timeline" ? t("timeline.button")
-        : t(`tree.settings.type.${k}`);
+        : k === "ahnentafel" ? t("ahnentafel.button")
+          : t(`tree.settings.type.${k}`);
   return (
     <div className="tree-mode charts-kind" role="tablist" aria-label={t("charts.kind.label")}>
       {kinds.map((k) => (

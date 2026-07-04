@@ -517,6 +517,15 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Pro
   svg { display: block; }
 </style></head><body>${serialize(svg)}</body></html>`;
 
+  printDocument(doc);
+}
+
+/**
+ * Open the print dialog on a complete HTML document, via a hidden iframe (not
+ * window.open) to dodge popup blockers. Also used by the report pages, which
+ * print styled HTML instead of an SVG.
+ */
+export function printDocument(doc: string): void {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
@@ -538,7 +547,7 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Pro
   iframe.srcdoc = doc;
 }
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 

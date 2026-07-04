@@ -10,6 +10,7 @@ import { BackButton } from "./BackButton";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
+import { AhnentafelReport } from "./AhnentafelReport";
 import { StartPersonSelector } from "./StartPersonSelector";
 
 // The full-page "Charts" hub for a person in the master file: one overlay that
@@ -20,8 +21,9 @@ import { StartPersonSelector } from "./StartPersonSelector";
 // whatever was used last.
 
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
- *  (pedigrees, then the timeline) first, the two-person relationship last. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship"];
+ *  (pedigrees, then the timeline) first, then the two-person relationship,
+ *  then the text reports. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "ahnentafel"];
 
 interface Props {
   masterDs: Dataset;
@@ -64,6 +66,20 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       onChange={setKind}
     />
   );
+
+  if (settings.kind === "ahnentafel") {
+    return (
+      <AhnentafelReport
+        masterDs={masterDs}
+        rootId={rootId}
+        backLabel={backLabel}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        onRootChange={setRootId}
+        kindSwitcher={kindSwitcher}
+      />
+    );
+  }
 
   if (settings.kind === "timeline") {
     return (

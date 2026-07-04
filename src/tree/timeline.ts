@@ -51,7 +51,7 @@ export interface TimelineMark {
 /** Classic genealogy symbols for the common event types — language-neutral, so
  *  they need no translation: * born, ~ baptized, † died, ▭ buried, ⌂ residence,
  *  →/← emigrated/immigrated. Unmapped events keep the generic dot. */
-const EVENT_GLYPHS: Record<string, string> = {
+export const EVENT_GLYPHS: Record<string, string> = {
   BIRT: "*",
   BAPM: "~",
   CHR: "~",
@@ -313,7 +313,7 @@ function familiesOf(ds: Dataset, ids: string[]): Family[] {
 /** An event's display location: its street address when recorded (the leading
  *  part, house number kept — more specific than any locality), else the
  *  place's most-specific locality. */
-function eventPlace(e: GedEvent): string | undefined {
+export function eventPlace(e: GedEvent): string | undefined {
   if (e.address?.parts[0]) return e.address.parts[0];
   return e.place ? localityParts(e.place)[0] : undefined;
 }

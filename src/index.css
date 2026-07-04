@@ -3731,6 +3731,58 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   opacity: 0.9;
 }
 .timeline-residence.alt { opacity: 0.55; }
+
+/* ── Ahnentafel report ────────────────────────────────────────────────────
+   The hub's text report: same canvas shell as the charts, but a scrolling
+   document instead of a pannable SVG. */
+.report-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.report-page {
+  max-width: 720px;
+  padding: 20px 28px 40px;
+}
+.report-gen-head {
+  margin: 22px 0 8px;
+  font-size: 0.95rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.report-page section:first-child .report-gen-head { margin-top: 0; }
+.report-entry {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.report-entry:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.report-entry.selected { background: var(--accent-soft); }
+/* Right-aligned Ahnentafel numbers keep the name column flush. */
+.report-num {
+  flex: 0 0 auto;
+  min-width: 2.4em;
+  text-align: right;
+  color: var(--muted);
+}
+.report-name { font-weight: 600; }
+.report-years,
+.report-dup {
+  color: var(--muted);
+  margin-left: 8px;
+}
+.report-fact {
+  color: var(--muted);
+  font-size: 0.92em;
+  margin-top: 1px;
+}
+
 /* Relationship chart: orthogonal connectors (top-down pedigree). */
 .relchart-edge {
   fill: none;

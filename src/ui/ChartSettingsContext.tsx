@@ -12,11 +12,15 @@ import type { ChartAlignment } from "../tree/treeLayout";
 export type ChartType = "tree" | "grid" | "fan" | "circle";
 
 /** What the Charts hub is showing: one of the pedigree chart types, the
- *  relationship-to-start diagram, or the family timeline. The hub's kind
- *  switcher drives this; `type` keeps tracking the last pedigree chart so
- *  display logic (radial vs layered) stays valid while a non-pedigree view
- *  is open. */
-export type ChartKind = ChartType | "relationship" | "timeline";
+ *  relationship-to-start diagram, the family timeline, or the Ahnentafel
+ *  report. The hub's kind switcher drives this; `type` keeps tracking the
+ *  last pedigree chart so display logic (radial vs layered) stays valid
+ *  while a non-pedigree view is open. */
+export type ChartKind = ChartType | "relationship" | "timeline" | "ahnentafel";
+
+/** The hub kinds that are not pedigree charts: choosing them leaves `type`
+ *  untouched, so leaving them restores the last pedigree chart. */
+const NON_PEDIGREE_KINDS = ["relationship", "timeline", "ahnentafel"] as const;
 
 export type { ChartAlignment };
 
@@ -103,7 +107,7 @@ function load(): ChartSettings {
     return {
       type,
       // Older saved blobs lack `kind`; fall back to the chart type they saved.
-      kind: parsed.kind === "relationship" || parsed.kind === "timeline" ? parsed.kind : type,
+      kind: (NON_PEDIGREE_KINDS as readonly string[]).includes(parsed.kind as string) ? parsed.kind! : type,
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
@@ -148,7 +152,8 @@ export function ChartSettingsProvider({ children }: { children: React.ReactNode 
       settings,
       // Changing the chart type is also a hub-view choice, so both move together.
       setType: (type) => update({ type, kind: type }),
-      setKind: (kind) => update(kind === "relationship" || kind === "timeline" ? { kind } : { kind, type: kind }),
+      setKind: (kind) =>
+        update((NON_PEDIGREE_KINDS as readonly string[]).includes(kind) ? { kind } : { kind, type: kind as ChartType }),
       setAlignment: (alignment) => update({ alignment }),
       set: update,
     }),

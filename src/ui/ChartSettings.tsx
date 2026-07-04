@@ -30,9 +30,10 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
 const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 
 /** `lockedType` pins the effective diagram type (used by the Relationship
- *  chart, which always lays out as a tree, and by the Timeline) so the right
- *  option rows show even when the shared (persisted) type is something else. */
-export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeline" } = {}) {
+ *  chart, which always lays out as a tree, and by the Timeline and the
+ *  Ahnentafel report) so the right option rows show even when the shared
+ *  (persisted) type is something else. */
+export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeline" | "ahnentafel" } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);
@@ -81,7 +82,9 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
               </div>
             </div>
           )}
-          {/* Per-person fields — each independent (multi-select). */}
+          {/* Per-person fields — each independent (multi-select). The report
+              always prints its facts, so only the privacy group applies there. */}
+          {effectiveType !== "ahnentafel" && (<>
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">
@@ -121,6 +124,7 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
               ))}
             </div>
           </div>
+          </>)}
           {/* Timeline-only: whose bars carry event dots, the under-bar event
               labels, and the residence strip. */}
           {effectiveType === "timeline" && (
