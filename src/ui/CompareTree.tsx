@@ -49,7 +49,8 @@ import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { DownloadIcon } from "./icons/DownloadIcon";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings } from "./ChartSettingsContext";
+import { useChartSettings, type ChartType } from "./ChartSettingsContext";
+import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useSettings } from "./SettingsContext";
 
 interface Props {
@@ -428,32 +429,39 @@ export function CompareTree({
       </div>
 
       <div className="tree-controls">
-        <div className="tree-mode">
-          <button
-            className={mode === "ancestors" ? "active" : ""}
-            onClick={() => onModeChange("ancestors")}
-          >
-            {t("tree.ancestors")}
-            <span className="tree-mode-count">{peopleCounts.ancestors}</span>
-            {importCounts.ancestors > 0 && (
-              <span className="tree-import-count">▲{importCounts.ancestors}</span>
-            )}
-          </button>
-          <button
-            className={mode === "descendants" ? "active" : ""}
-            onClick={() => {
-              // Radial charts are ancestor-only; switching to descendants reverts
-              // to the layered tree.
-              if (radial) setType("tree");
-              onModeChange("descendants");
-            }}
-          >
-            {t("tree.descendants")}
-            <span className="tree-mode-count">{peopleCounts.descendants}</span>
-            {importCounts.descendants > 0 && (
-              <span className="tree-import-count">▼{importCounts.descendants}</span>
-            )}
-          </button>
+        <div className="tree-controls-left">
+          <ChartKindTabs
+            kinds={PEDIGREE_KINDS}
+            value={settings.type}
+            onChange={(k) => setType(k as ChartType)}
+          />
+          <div className="tree-mode">
+            <button
+              className={mode === "ancestors" ? "active" : ""}
+              onClick={() => onModeChange("ancestors")}
+            >
+              {t("tree.ancestors")}
+              <span className="tree-mode-count">{peopleCounts.ancestors}</span>
+              {importCounts.ancestors > 0 && (
+                <span className="tree-import-count">▲{importCounts.ancestors}</span>
+              )}
+            </button>
+            <button
+              className={mode === "descendants" ? "active" : ""}
+              onClick={() => {
+                // Radial charts are ancestor-only; switching to descendants reverts
+                // to the layered tree.
+                if (radial) setType("tree");
+                onModeChange("descendants");
+              }}
+            >
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{peopleCounts.descendants}</span>
+              {importCounts.descendants > 0 && (
+                <span className="tree-import-count">▼{importCounts.descendants}</span>
+              )}
+            </button>
+          </div>
         </div>
         <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
       </div>

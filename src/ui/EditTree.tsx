@@ -66,12 +66,21 @@ interface Props {
   /** Merge decisions, so confirmed/rejected/deferred matches show the same badge here as in the Compare Tree. */
   decisions?: Map<string, CandidateDecision>;
   onBack: () => void;
+  /** The Charts-hub kind switcher, rendered in the controls row. */
+  kindSwitcher?: React.ReactNode;
+  /** Reports re-roots up to the Charts hub, so switching to the relationship
+   *  diagram keeps the person the user navigated to (not the original root). */
+  onRootChange?: (id: string) => void;
 }
 
-export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack }: Props) {
+export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, onBack, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<TreeMode>("ancestors");
   const [currentRootId, setCurrentRootId] = useState(rootId);
+  const changeRoot = useCallback((id: string) => {
+    setCurrentRootId(id);
+    onRootChange?.(id);
+  }, [onRootChange]);
   // null = follow the automatic default (collapsed unless the chart dwarfs the
   // screen); true/false once the user has toggled it by hand.
   const [mapOpen, setMapOpen] = useState<boolean | null>(null);
@@ -217,9 +226,9 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const masterNav = useMemo(
     () => ({
       linkable: (id: string) => masterDs.individuals.has(id),
-      onNavigate: (id: string) => { setCurrentRootId(id); setSelectedKey(null); },
+      onNavigate: (id: string) => { changeRoot(id); setSelectedKey(null); },
     }),
-    [masterDs, setSelectedKey],
+    [masterDs, setSelectedKey, changeRoot],
   );
   const selectedDecision = selected ? decisionOf(selected) : undefined;
   const selectedModified = selected ? isModified(selected) : false;
@@ -302,25 +311,29 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
         </button>
       </div>
 
-      {/* Mode toggle (left) + legend (right) — same layout as the Compare Tree. */}
+      {/* Kind switcher + mode toggle (left), legend (right) — same layout as the
+          Compare Tree. */}
       <div className="tree-controls">
-        <div className="tree-mode">
-          <button className={mode === "ancestors" ? "active" : ""} onClick={() => setMode("ancestors")}>
-            {t("tree.ancestors")}
-            <span className="tree-mode-count">{peopleCounts.ancestors}</span>
-          </button>
-          <button
-            className={mode === "descendants" ? "active" : ""}
-            onClick={() => {
-              // Radial charts are ancestor-only; switching to descendants reverts
-              // to the layered tree.
-              if (radial) setType("tree");
-              setMode("descendants");
-            }}
-          >
-            {t("tree.descendants")}
-            <span className="tree-mode-count">{peopleCounts.descendants}</span>
-          </button>
+        <div className="tree-controls-left">
+          {kindSwitcher}
+          <div className="tree-mode">
+            <button className={mode === "ancestors" ? "active" : ""} onClick={() => setMode("ancestors")}>
+              {t("tree.ancestors")}
+              <span className="tree-mode-count">{peopleCounts.ancestors}</span>
+            </button>
+            <button
+              className={mode === "descendants" ? "active" : ""}
+              onClick={() => {
+                // Radial charts are ancestor-only; switching to descendants reverts
+                // to the layered tree.
+                if (radial) setType("tree");
+                setMode("descendants");
+              }}
+            >
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{peopleCounts.descendants}</span>
+            </button>
+          </div>
         </div>
         {/* Legend: confirmed-merge badge + modified / unmodified swatches.
             Merged and Modified overlap, so they don't sum to the total.
@@ -368,7 +381,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                 selectedKey={selectedKey}
                 onSelect={selectNode}
                 masterRecords={masterDs.records}
-                masterRefCtx={{ dataset: masterDs, onNavigate: setCurrentRootId }}
+                masterRefCtx={{ dataset: masterDs, onNavigate: changeRoot }}
                 badgeOf={fanBadgeOf}
               />
             ) : (
@@ -419,7 +432,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                         color={color}
                         kinship={startId && n.master?.id ? kinshipLabel(masterDs, startId, n.master.id, t) : undefined}
                         kinshipLineage={startId && n.master?.id ? bloodLineage(masterDs, startId, n.master.id) : undefined}
-                        photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: setCurrentRootId } } : undefined}
+                        photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: changeRoot } } : undefined}
                         display={display}
                         living={n.living}
                         livingLabel={livingLabel}
@@ -508,7 +521,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
             singleColumn
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => {
-              setCurrentRootId(selected.master!.id);
+              changeRoot(selected.master!.id);
               setSelectedKey(null);
             }}
             badges={

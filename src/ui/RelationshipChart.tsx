@@ -32,6 +32,11 @@ interface Props {
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the chart). */
   onNavigate: (id: string) => void;
+  /** The Charts-hub kind switcher, rendered under the toolbar. */
+  kindSwitcher?: React.ReactNode;
+  /** Reports target swaps up to the Charts hub, so switching to a pedigree
+   *  chart roots on the person this diagram currently points at. */
+  onTargetChange?: (id: string) => void;
 }
 
 interface PathOption {
@@ -46,7 +51,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavigate }: Props) {
+export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const [optionIdx, setOptionIdx] = useState(0);
@@ -60,6 +65,7 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
 
   const replace = (side: "start" | "target", id: string) => {
     (side === "start" ? setStartSel : setTargetSel)(id);
+    if (side === "target") onTargetChange?.(id);
     setOptionIdx(0);
     setPicking(null);
   };
@@ -197,6 +203,12 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
           <DownloadIcon /> {t("tree.exportPdf")}
         </button>
       </div>
+
+      {kindSwitcher && (
+        <div className="tree-controls">
+          <div className="tree-controls-left">{kindSwitcher}</div>
+        </div>
+      )}
 
       {picking && (
         <div className="tree-controls relchart-picker-bar">

@@ -43,15 +43,14 @@ import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
-import { EditTree } from "./ui/EditTree";
-import { RelationshipChart } from "./ui/RelationshipChart";
+import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
-import { ChartSettingsProvider } from "./ui/ChartSettingsContext";
+import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
 import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
@@ -113,6 +112,9 @@ const modeLayerHiddenStyle: CSSProperties = { display: "none" };
 function AppContent() {
   const { t, i18n } = useTranslation();
   const { settings } = useSettings();
+  // Chart kind (tree / fan / … / relationship) — read to route chart deep-links,
+  // set when an entry point asks for a specific diagram.
+  const { settings: chartSettings, setKind: setChartKind } = useChartSettings();
   const nameOf = useNameOf();
   // Opt-in workspace caching (off by default). Mirrored into a ref so the
   // mount-only worker/hydration effect reads the current value without needing
@@ -269,7 +271,8 @@ function AppContent() {
     function onPop(e: PopStateEvent) {
       const st = (e.state ?? {}) as {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
-        gedEditTreeId?: string; gedRelId?: string; gedMode?: Mode; gedNavigateTo?: string;
+        gedChartsId?: string; gedEditTreeId?: string; gedRelId?: string;
+        gedMode?: Mode; gedNavigateTo?: string;
       };
       // Landing on the leave-guard = the user pressed Back from the app's main
       // entry and is about to leave the app. Intercept it.
@@ -292,8 +295,9 @@ function AppContent() {
         return;
       }
       setTreeView(st.gedTree ?? null);
-      setEditTreeId(st.gedEditTreeId ?? null);
-      setRelTargetId(st.gedRelId ?? null);
+      // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
+      // history can still carry them, so they map onto the hub too.
+      setChartsRootId(st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null);
       // Restore the mode recorded for this entry (e.g. returning to the Tools tab
       // after opening a person from it). Absent on older/plain entries, in which
       // case the current mode is left untouched.
@@ -546,8 +550,7 @@ function AppContent() {
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
       sortEligiblePersonIdsRef.current = new Set();
-      setEditTreeId(null);
-      setRelTargetId(null);
+      setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
       setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
@@ -1094,20 +1097,15 @@ function AppContent() {
   const masterDataset = lastMasterFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
-  // Edit Tree: full-page tree view for the edit mode.
-  const [editTreeId, setEditTreeId] = useState<string | null>(null);
+  // Charts hub: the full-page per-person diagram overlay (pedigree charts +
+  // relationship). Which diagram it shows is the persisted chart "kind".
+  const [chartsRootId, setChartsRootId] = useState<string | null>(null);
 
-  function openEditTree(id: string) {
-    window.history.pushState({ gedEditTreeId: id }, "");
-    setEditTreeId(id);
-  }
-
-  // Relationship-to-start diagram: full-page view for the selected person.
-  const [relTargetId, setRelTargetId] = useState<string | null>(null);
-
-  function openRelationship(id: string) {
-    window.history.pushState({ gedRelId: id }, "");
-    setRelTargetId(id);
+  /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
+  function openCharts(id: string, kind?: ChartKind) {
+    if (kind) setChartKind(kind);
+    window.history.pushState({ gedChartsId: id }, "");
+    setChartsRootId(id);
   }
 
   // Whole-file search index for the global search dialog. Rebuilt when the
@@ -1186,9 +1184,14 @@ function AppContent() {
   // their tree, Alt their relationship-to-start (falling back to Edit when there
   // is no start person to measure from).
   function openSearchResult(id: string, how: OpenHow) {
-    if (how === "tree") { openEditTree(id); return; }
+    // "Tree" reopens the last pedigree chart (tree / grid / fan / circle) — but
+    // never the relationship diagram, which has its own action below.
+    if (how === "tree") {
+      openCharts(id, chartSettings.kind === "relationship" ? "tree" : undefined);
+      return;
+    }
     if (how === "relationship") {
-      if (startId && startId !== id) openRelationship(id);
+      if (startId && startId !== id) openCharts(id, "relationship");
       else { setNavigateToId(id); setMode("edit"); }
       return;
     }
@@ -1661,28 +1664,24 @@ function AppContent() {
         startId={startId}
       />
     );
-  } else if (editTreeId && masterDataset) {
+  } else if (chartsRootId && masterDataset) {
     treeOverlay = wrapTree(
-      <EditTree
+      <ChartsHub
+        // Remount when opened on a different person, so the hub's internal
+        // root follows a fresh open instead of a stale earlier visit.
+        key={chartsRootId}
         masterDs={masterDataset}
-        rootId={editTreeId}
+        initialRootId={chartsRootId}
         startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         onBack={() => window.history.back()}
-      />
-    );
-  } else if (relTargetId && masterDataset && startId) {
-    treeOverlay = wrapTree(
-      <RelationshipChart
-        masterDs={masterDataset}
-        startId={startId}
-        targetId={relTargetId}
-        onBack={() => window.history.back()}
         onNavigate={(id) => {
           window.history.back(); // close the chart overlay
           setNavigateToId(id);
+          setMode("edit");
         }}
+        onPickStart={changeStart}
       />
     );
   }
@@ -1924,8 +1923,7 @@ function AppContent() {
               startId={startId}
               changeStart={changeStart}
               onDirty={handleEditDirty}
-              onShowTree={(id) => openEditTree(id)}
-              onShowRelationship={(id) => openRelationship(id)}
+              onShowCharts={openCharts}
               marriedNameTag={lastMasterFile.marriedNameTag}
               navigateToId={navigateToId}
               onNavigated={() => setNavigateToId(undefined)}

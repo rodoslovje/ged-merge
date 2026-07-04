@@ -4,18 +4,10 @@ import { GearIcon } from "./icons/GearIcon";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type ChartType } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
-// that opens a small popover for the diagram Type (tree / grid / fan / circle),
-// the Tree alignment (left→right / top→bottom), and the per-person / marriage /
-// privacy display toggles. The settings themselves are shared + persisted by
-// ChartSettingsContext, so this is pure UI.
-
-/** Diagram types in button order. Fan/Circle are radial ancestor charts. */
-const TYPES: { key: ChartType; enabled: boolean }[] = [
-  { key: "tree", enabled: true },
-  { key: "grid", enabled: true },
-  { key: "fan", enabled: true },
-  { key: "circle", enabled: true },
-];
+// that opens a small popover for the Tree alignment (left→right / top→bottom)
+// and the per-person / marriage / privacy display toggles. The diagram kind
+// itself lives in the ChartKindTabs switcher on the page, not in here. The
+// settings are shared + persisted by ChartSettingsContext, so this is pure UI.
 
 const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
@@ -34,15 +26,16 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
   { key: "showMarriagePlace", label: "place" },
 ];
 
-/** `lockedType` pins the diagram to one type (used by the Relationship chart,
- *  which only ever renders a tree): that type shows active, the rest are disabled. */
+/** `lockedType` pins the effective diagram type (used by the Relationship
+ *  chart, which always lays out as a tree) so the right option rows show even
+ *  when the shared (persisted) type is something else. */
 export function ChartSettings({ lockedType }: { lockedType?: ChartType } = {}) {
   const { t } = useTranslation();
-  const { settings, setType, setAlignment, set } = useChartSettings();
+  const { settings, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  // The effective type drives the active highlight and which extra rows show; with
-  // a locked type it wins even if the shared (persisted) type is something else.
+  // The effective type drives which extra rows show; with a locked type it wins
+  // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
 
   // Close the popover on an outside click.
@@ -68,25 +61,6 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType } = {}) {
       </button>
       {open && (
         <div className="chart-settings-popover" role="dialog" aria-label={t("tree.settings.button")}>
-          <div className="chart-settings-group">
-            <span className="chart-settings-heading">{t("tree.settings.type")}</span>
-            <div className="chart-settings-segmented">
-              {TYPES.map(({ key, enabled }) => {
-                const allowed = lockedType ? key === lockedType : enabled;
-                return (
-                  <button
-                    key={key}
-                    className={effectiveType === key ? "active" : ""}
-                    disabled={!allowed}
-                    title={allowed ? undefined : t(lockedType ? "tree.settings.treeOnly" : "tree.settings.comingSoon")}
-                    onClick={() => setType(key)}
-                  >
-                    {t(`tree.settings.type.${key}`)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
           {/* Alignment only applies to the layered tree; radial charts ignore it. */}
           {effectiveType === "tree" && (
             <div className="chart-settings-group">

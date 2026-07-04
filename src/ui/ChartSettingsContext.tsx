@@ -11,10 +11,18 @@ import type { ChartAlignment } from "../tree/treeLayout";
  *  "fan"/"circle" (radial, curved-text ancestor charts) are all implemented. */
 export type ChartType = "tree" | "grid" | "fan" | "circle";
 
+/** What the Charts hub is showing: one of the pedigree chart types, or the
+ *  relationship-to-start diagram. The hub's kind switcher drives this; `type`
+ *  keeps tracking the last pedigree chart so display logic (radial vs layered)
+ *  stays valid while the relationship diagram is open. */
+export type ChartKind = ChartType | "relationship";
+
 export type { ChartAlignment };
 
 export interface ChartSettings {
   type: ChartType;
+  /** Last-used hub view; also decides what the Edit "Charts" button reopens. */
+  kind: ChartKind;
   alignment: ChartAlignment;
   /** Show the kinship-to-start label on each node. */
   showKinship: boolean;
@@ -34,6 +42,7 @@ export interface ChartSettings {
 
 const DEFAULTS: ChartSettings = {
   type: "tree",
+  kind: "tree",
   alignment: "lr",
   showKinship: true,
   showPhoto: true,
@@ -49,6 +58,9 @@ const STORAGE_KEY = "gedmerge.chartSettings";
 interface ChartSettingsCtx {
   settings: ChartSettings;
   setType: (type: ChartType) => void;
+  /** Switch the hub view. A pedigree kind also becomes the chart `type`;
+   *  "relationship" leaves `type` untouched so leaving it restores the chart. */
+  setKind: (kind: ChartKind) => void;
   setAlignment: (alignment: ChartAlignment) => void;
   /** Patch any subset of the settings (used by the display/privacy toggles). */
   set: (patch: Partial<ChartSettings>) => void;
@@ -57,6 +69,7 @@ interface ChartSettingsCtx {
 export const ChartSettingsContext = createContext<ChartSettingsCtx>({
   settings: DEFAULTS,
   setType: () => {},
+  setKind: () => {},
   setAlignment: () => {},
   set: () => {},
 });
@@ -69,11 +82,14 @@ function load(): ChartSettings {
     // Each field falls back to its default, so older saved blobs (which lack the
     // newer display/privacy flags) load cleanly.
     const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
+    const type =
+      parsed.type === "grid" || parsed.type === "fan" || parsed.type === "circle"
+        ? parsed.type
+        : DEFAULTS.type;
     return {
-      type:
-        parsed.type === "grid" || parsed.type === "fan" || parsed.type === "circle"
-          ? parsed.type
-          : DEFAULTS.type,
+      type,
+      // Older saved blobs lack `kind`; fall back to the chart type they saved.
+      kind: parsed.kind === "relationship" ? "relationship" : type,
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
@@ -110,7 +126,9 @@ export function ChartSettingsProvider({ children }: { children: React.ReactNode 
   const value = useMemo<ChartSettingsCtx>(
     () => ({
       settings,
-      setType: (type) => update({ type }),
+      // Changing the chart type is also a hub-view choice, so both move together.
+      setType: (type) => update({ type, kind: type }),
+      setKind: (kind) => update(kind === "relationship" ? { kind } : { kind, type: kind }),
       setAlignment: (alignment) => update({ alignment }),
       set: update,
     }),

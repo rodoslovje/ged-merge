@@ -3263,6 +3263,35 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--accent);
   box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
 }
+/* Left cluster of the controls row: the chart-kind switcher next to the
+   ancestors/descendants toggle, wrapping together on narrow screens. */
+.tree-controls-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* The kind switcher holds five tabs; tighter padding keeps the row compact. */
+.charts-kind button { padding: 5px 12px; }
+/* Charts hub, relationship kind without a start person: centered inline prompt
+   (message + a person search) instead of a disabled control. */
+.charts-need-start {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 24px;
+}
+.charts-need-start p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
 
 /* Chart-settings gear button + its popover (diagram type & alignment). The
    button reuses .tree-open-btn; the popover mirrors the legend dropdown, and the

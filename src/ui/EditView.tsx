@@ -6,6 +6,7 @@ import { lifespanOf } from "../gedcom/lifespan";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
+import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
@@ -86,10 +87,9 @@ interface Props {
   changeStart: (id: string | undefined) => void;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
-  /** Open the edit tree rooted on the currently selected person. */
-  onShowTree: (id: string) => void;
-  /** Open the relationship-to-start diagram for the currently selected person. */
-  onShowRelationship: (id: string) => void;
+  /** Open the Charts hub on this person — at the last-used kind, or a specific
+   *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
+  onShowCharts: (id: string, kind?: ChartKind) => void;
   /** True when the master file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
   marriedNameTag?: boolean;
@@ -140,10 +140,13 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowTree, onShowRelationship, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const { settings } = useSettings();
+  // Last-used chart kind — the V shortcut reopens it (falling back to the tree
+  // when the relationship diagram was last, since V means a pedigree chart).
+  const { settings: chartSettings } = useChartSettings();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     // Guard against a stale start person (id not in this dataset) so we land on a
     // real individual rather than a dead id that renders the empty state.
@@ -288,8 +291,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
-  const shortcutRef = useRef({ selectedId, onShowTree, onShowRelationship, startId, matchOrder, navigate, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowTree, onShowRelationship, startId, matchOrder, navigate, matchDecKey, toggleMatchStatus };
+  const chartKind = chartSettings.kind;
+  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, matchOrder, navigate, matchDecKey, toggleMatchStatus });
+  shortcutRef.current = { selectedId, onShowCharts, chartKind, matchOrder, navigate, matchDecKey, toggleMatchStatus };
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -299,14 +303,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowTree: show, onShowRelationship: showRel, startId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
-        if (id) { e.preventDefault(); show(id); }
+        // A pedigree chart (the last one used) — never the relationship diagram,
+        // which has its own key below.
+        if (id) { e.preventDefault(); showCharts(id, kind === "relationship" ? "tree" : kind); }
         return;
       }
       if (key === KEY.relationship) {
-        if (id && hId && id !== hId) { e.preventDefault(); showRel(id); }
+        if (id) { e.preventDefault(); showCharts(id, "relationship"); }
         return;
       }
       const statusHit = KEY_STATUS[key];
@@ -1404,18 +1410,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             </button>
             <button
               className="tree-open-btn"
-              onClick={() => selectedId && startId && onShowRelationship(selectedId)}
-              disabled={!startId || !selectedId || startId === selectedId}
-              title={t("relpath.tooltip")}
+              onClick={() => selectedId && onShowCharts(selectedId)}
+              disabled={!selectedId}
+              title={t("edit.charts.tooltip")}
             >
-              {t("relpath.button")}
-            </button>
-            <button
-              className="tree-open-btn"
-              onClick={() => selectedId && onShowTree(selectedId)}
-              title={t("edit.tree.tooltip")}
-            >
-              {t("edit.tree.button")}
+              {t("edit.charts.button")}
             </button>
           </div>
         </div>
