@@ -280,7 +280,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
                         kinship={kinshipOf.label(b.id)}
                         kinshipLineage={kinshipOf.lineage(b.id)}
-                        photo={indi ? { raw: indi.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate } } : undefined}
+                        photo={indi ? { node: { master: { raw: indi.raw } }, masterRecords: masterDs.records, masterRefCtx: { dataset: masterDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
                         livingLabel={livingLabel}

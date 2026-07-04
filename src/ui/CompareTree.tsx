@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
-import { sexClass, sexColorVar } from "./sex";
+import { sexClass } from "./sex";
 import {
   buildCompareTree,
   buildMatchMaps,
@@ -21,29 +21,18 @@ import {
 import { buildFanChart } from "../tree/fanLayout";
 import { FanChartBody } from "./FanChartBody";
 import {
-  DETAIL_ROW_H,
-  DETAIL_ROW_TOP,
-  NODE_W,
-  PAD,
-  PHOTO_SIZE,
-  PHOTO_X,
-  TEXT_X_PHOTO,
-  TEXT_X_PLAIN,
   flatten,
   layout,
   layoutGrid,
-  nameFit,
   nodeHeight,
-  truncate,
-  type Flat,
   type Placed,
 } from "../tree/treeLayout";
-import { formatMarriage, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
+import { formatMarriage } from "../tree/nodeDisplay";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
 import { ChartMinimap } from "./ChartMinimap";
+import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";
-import { TreeNodePhoto, collectFirstFilePath } from "./PersonPhotos";
-import type { PhotoRefContext } from "./PhotoViewer";
+import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartIcon } from "./icons/ChartIcon";
 import { diagramSlug } from "./exportSvg";
@@ -495,7 +484,8 @@ export function CompareTree({
               zoom={zoom}
               selectedKey={selectedKey}
               onSelect={selectNode}
-              decisionOf={badgeOf}
+              colorOf={colorOf}
+              badgeOf={badgeOf}
               modifiedOf={isModified}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
@@ -557,184 +547,6 @@ export function CompareTree({
         )}
       </div>
     </ChartPage>
-  );
-}
-
-function TreeSvg({
-  flat,
-  width,
-  height,
-  zoom,
-  selectedKey,
-  onSelect,
-  decisionOf,
-  modifiedOf,
-  kinshipOf,
-  lineageOf,
-  masterRecords,
-  compareRecords,
-  masterRefCtx,
-  compareRefCtx,
-  display,
-  nodeH,
-  livingLabel,
-}: {
-  flat: Flat;
-  width: number;
-  height: number;
-  zoom: number;
-  selectedKey: string | null;
-  onSelect: (key: string) => void;
-  decisionOf: (n: Placed) => { status: string; letter: string } | undefined;
-  modifiedOf: (n: Placed) => boolean;
-  kinshipOf: (n: Placed) => string | undefined;
-  lineageOf: (n: Placed) => Lineage | undefined;
-  masterRecords: GedNode[];
-  compareRecords: GedNode[];
-  masterRefCtx: PhotoRefContext;
-  compareRefCtx: PhotoRefContext;
-  display: NodeDisplayOptions;
-  nodeH: number;
-  livingLabel: string;
-}) {
-  const { t } = useTranslation();
-  const { nodes, edges } = flat;
-  const { folderName } = useMediaFolder();
-  const photoY = (nodeH - PHOTO_SIZE) / 2;
-  return (
-    <svg className="tree-svg" width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img">
-      <g transform={`translate(${PAD},${PAD})`}>
-        {edges.map((e) => (
-          <path
-            key={e.id}
-            className={e.partner ? "tree-edge tree-edge-partner" : "tree-edge"}
-            d={e.d}
-          />
-        ))}
-        {edges.map(
-          (e) =>
-            e.label && (
-              <text
-                key={`${e.id}-m`}
-                className="tree-edge-label gm-data"
-                x={e.label.x}
-                y={e.label.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-              >
-                {e.label.text}
-              </text>
-            ),
-        )}
-        {nodes.map((n) => {
-          const dec = decisionOf(n);
-          const modified = modifiedOf(n);
-          const disp = nodeDisplay(display, {
-            name: n.name,
-            years: n.years,
-            place: n.place,
-            kinship: kinshipOf(n),
-            kinshipLineage: lineageOf(n),
-            living: n.living,
-            livingLabel,
-          });
-          const { years } = disp;
-          // Text shifts right of the photo column whenever a media folder is loaded
-          // and photos are shown (privacy hides them).
-          const showPhoto = disp.showPhoto && !!folderName;
-          const textX = showPhoto ? TEXT_X_PHOTO : TEXT_X_PLAIN;
-          // Lifespan, then place, then kinship — each on its own stacked row.
-          const rows: { text: string; cls: string }[] = [];
-          if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
-          if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
-          if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
-          // Badges sit on the lifespan row, just past the years label.
-          const yearsRowY = DETAIL_ROW_TOP;
-          const decBadgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
-          const modBadgeX = dec ? decBadgeX + 18 : decBadgeX;
-          return (
-            <g
-              key={n.key}
-              transform={`translate(${n.x},${n.y})`}
-              className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
-              onClick={() => onSelect(n.key)}
-            >
-              <title>{t("tree.node.clickHint")}</title>
-              <rect
-                width={NODE_W}
-                height={nodeH}
-                rx={10}
-                ry={10}
-                fill={`color-mix(in srgb, ${STATUS_COLOR[n.status]} 16%, var(--panel))`}
-                stroke={STATUS_COLOR[n.status]}
-                strokeWidth={2.5}
-              />
-              <text
-                className="tree-node-name"
-                x={textX}
-                y={23}
-                style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
-                {...nameFit(disp.name, textX)}
-              >
-                {disp.name}
-              </text>
-              {rows.map((r, i) => (
-                <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
-                  {r.text}
-                </text>
-              ))}
-              {/* Decision badge next to the lifespan (matched, decided nodes) — same
-                  colours as the status chip used in Edit and Merge. */}
-              {dec && (
-                <g className={`tree-node-decision ${dec.status}`} transform={`translate(${decBadgeX},${yearsRowY - 4})`}>
-                  <circle r={7} />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    x={0}
-                    y={0.5}
-                    fontSize={9}
-                    fontWeight={700}
-                  >
-                    {dec.letter}
-                  </text>
-                </g>
-              )}
-              {/* M badge for a master record with unsaved edits — solid fill, same
-                  as the Edit tree. */}
-              {modified && (
-                <g className="tree-node-decision" transform={`translate(${modBadgeX},${yearsRowY - 4})`}>
-                  <circle r={7} fill="var(--node-minor)" />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    x={0}
-                    y={0.5}
-                    fontSize={9}
-                    fontWeight={700}
-                    fill="var(--bg)"
-                  >
-                    {t("edit.tree.modified").charAt(0)}
-                  </text>
-                </g>
-              )}
-              {disp.showPhoto && (
-                <TreeNodePhoto
-                  node={n}
-                  masterRecords={masterRecords}
-                  compareRecords={compareRecords}
-                  masterRefCtx={masterRefCtx}
-                  compareRefCtx={compareRefCtx}
-                  x={PHOTO_X}
-                  y={photoY}
-                  size={PHOTO_SIZE}
-                />
-              )}
-            </g>
-          );
-        })}
-      </g>
-    </svg>
   );
 }
 

@@ -4,7 +4,6 @@ import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
 import { buildCompareTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
 import {
-  PAD,
   flatten,
   layout,
   layoutGrid,
@@ -23,7 +22,7 @@ import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
-import { TreeNodeBox } from "./TreeNodeBox";
+import { TreeSvg } from "./TreeSvg";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { diagramSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
@@ -167,6 +166,12 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
       return status ? { status, letter: t(`status.${status}`).charAt(0) } : undefined;
     },
     [decisionStatusById, t],
+  );
+
+  // A photo's "referenced by" link re-roots the tree on that person.
+  const masterRefCtx = useMemo(
+    () => ({ dataset: masterDs, onNavigate: changeRoot }),
+    [masterDs, changeRoot],
   );
 
   // Radial (fan / circle) ancestor chart, built from a dedicated ancestors tree
@@ -371,94 +376,31 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                 selectedKey={selectedKey}
                 onSelect={selectNode}
                 masterRecords={masterDs.records}
-                masterRefCtx={{ dataset: masterDs, onNavigate: changeRoot }}
+                masterRefCtx={masterRefCtx}
                 badgeOf={fanBadgeOf}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
             )
           ) : laid && flat ? (
-            <svg className="tree-svg" width={laid.width * zoom} height={laid.height * zoom} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
-              <g transform={`translate(${PAD},${PAD})`}>
-                {flat.edges.map((e) => (
-                  <path
-                    key={e.id}
-                    className={e.partner ? "tree-edge tree-edge-partner" : "tree-edge"}
-                    d={e.d}
-                  />
-                ))}
-                {flat.edges.map(
-                  (e) =>
-                    e.label && (
-                      <text
-                        key={`${e.id}-m`}
-                        className="tree-edge-label gm-data"
-                        x={e.label.x}
-                        y={e.label.y}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                      >
-                        {e.label.text}
-                      </text>
-                    ),
-                )}
-                {flat.nodes.map((n) => {
-                  const color = colorOf(n);
-                  const modified = isModified(n);
-                  const dec = decisionOf(n);
-                  return (
-                    <g
-                      key={n.key}
-                      transform={`translate(${n.x},${n.y})`}
-                      className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
-                      onClick={() => selectNode(n.key)}
-                    >
-                      <title>{t("tree.node.clickHint")}</title>
-                      <TreeNodeBox
-                        name={n.name}
-                        years={n.years}
-                        place={n.place}
-                        sex={n.sex}
-                        color={color}
-                        kinship={n.master ? kinship?.label(n.master.id) : undefined}
-                        kinshipLineage={n.master ? kinship?.lineage(n.master.id) : undefined}
-                        photo={n.master ? { raw: n.master.raw, records: masterDs.records, refCtx: { dataset: masterDs, onNavigate: changeRoot } } : undefined}
-                        display={display}
-                        living={n.living}
-                        livingLabel={livingLabel}
-                        nodeH={nodeH}
-                        badges={({ yearsY, textX: tx, years }) => {
-                          // Estimate the *displayed* years label width (~6.5px/char) so badges
-                          // sit just past it — or hug the left edge when the lifespan is hidden.
-                          const badge1X = tx + (years ? years.length * 6.5 + 8 : 0) + 7;
-                          const modifiedBadgeX = dec ? badge1X + 18 : badge1X;
-                          return (
-                            <>
-                              {dec && (
-                                <g className={`tree-node-decision ${dec.status}`} transform={`translate(${badge1X},${yearsY - 4})`}>
-                                  <circle r={7} />
-                                  <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700}>
-                                    {dec.letter}
-                                  </text>
-                                </g>
-                              )}
-                              {modified && (
-                                <g className="tree-node-decision" transform={`translate(${modifiedBadgeX},${yearsY - 4})`}>
-                                  <circle r={7} fill={COLOR_MODIFIED} />
-                                  <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill="var(--bg)">
-                                    {t("edit.tree.modified").charAt(0)}
-                                  </text>
-                                </g>
-                              )}
-                            </>
-                          );
-                        }}
-                      />
-                    </g>
-                  );
-                })}
-              </g>
-            </svg>
+            <TreeSvg
+              flat={flat}
+              width={laid.width}
+              height={laid.height}
+              zoom={zoom}
+              selectedKey={selectedKey}
+              onSelect={selectNode}
+              colorOf={colorOf}
+              badgeOf={decisionOf}
+              modifiedOf={isModified}
+              kinshipOf={(n) => (n.master ? kinship?.label(n.master.id) : undefined)}
+              lineageOf={(n) => (n.master ? kinship?.lineage(n.master.id) : undefined)}
+              masterRecords={masterDs.records}
+              masterRefCtx={masterRefCtx}
+              display={display}
+              nodeH={nodeH}
+              livingLabel={livingLabel}
+            />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
