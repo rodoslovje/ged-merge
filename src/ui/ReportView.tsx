@@ -76,8 +76,9 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
       education: settings.showEducation,
       residence: settings.showResidence,
       notes: settings.showNotes,
+      sources: settings.showSources,
     }),
-    [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes],
+    [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes, settings.showSources],
   );
   const ancestors = useMemo(
     () => buildAhnentafel(masterDs, currentRootId, nameOf, undefined, factOpts),
@@ -248,10 +249,21 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                               </div>
                             ))}
                           {!redacted(e) &&
+                            (e.sources ?? []).map((src, j) => (
+                              <div key={`s${j}`} className="report-source gm-data">
+                                {src}
+                              </div>
+                            ))}
+                          {!redacted(e) &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
                                 {factText(f)}
                                 {f.note && <div className="report-note">{f.note}</div>}
+                                {(f.sources ?? []).map((src, k) => (
+                                  <div key={k} className="report-source">
+                                    {src}
+                                  </div>
+                                ))}
                               </div>
                             ))}
                         </div>
@@ -317,12 +329,20 @@ function printDoc(
         `<span class="num">${escapeHtml(entryNum(e))}</span> <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
-      const notes = hidden ? [] : (e.notes ?? []).map((n) => `<div class="note">${escapeHtml(n)}</div>`);
+      const notes = hidden
+        ? []
+        : [
+            ...(e.notes ?? []).map((n) => `<div class="note">${escapeHtml(n)}</div>`),
+            ...(e.sources ?? []).map((s) => `<div class="source">${escapeHtml(s)}</div>`),
+          ];
       const facts = hidden
         ? []
         : e.facts.map(
             (f) =>
-              `<div class="fact">${escapeHtml(factText(f))}${f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : ""}</div>`,
+              `<div class="fact">${escapeHtml(factText(f))}` +
+              (f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : "") +
+              (f.sources ?? []).map((s) => `<div class="source">${escapeHtml(s)}</div>`).join("") +
+              `</div>`,
           );
       parts.push(`<div class="entry">${head}${notes.join("")}${facts.join("")}</div>`);
     }
@@ -341,7 +361,8 @@ function printDoc(
   .years, .dup { color: #444; }
   .fact { margin-left: 2.6em; color: #222; }
   .note { font-style: italic; color: #444; white-space: pre-wrap; }
-  .entry > .note { margin-left: 2.6em; }
-  .fact > .note { margin-left: 1.2em; }
+  .source { color: #555; font-size: 10pt; }
+  .entry > .note, .entry > .source { margin-left: 2.6em; }
+  .fact > .note, .fact > .source { margin-left: 1.2em; }
 </style></head><body>${parts.join("")}</body></html>`;
 }

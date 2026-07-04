@@ -555,6 +555,7 @@ export const en = {
   "tree.settings.report.education": "Education",
   "tree.settings.report.residence": "Residence",
   "tree.settings.report.notes": "Notes",
+  "tree.settings.report.sources": "Sources",
   "ahnentafel.pageTitle": "Ahnentafel Report",
   "ahnentafel.empty": "No person to report on.",
   "ahnentafel.gen.1": "Parents",

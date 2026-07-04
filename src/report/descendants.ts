@@ -13,6 +13,7 @@ import {
   familiesOf,
   makeEntry,
   marriageFact,
+  personExtras,
   type FactLine,
   type NameOf,
   type ReportData,
@@ -61,7 +62,7 @@ export function buildDescendants(
       const num = dupOf ?? ++counter;
       const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts), nowYear, dupOf);
       Object.assign(entry, family);
-      if (dupOf === undefined && opts.notes && indi.notes?.length) entry.notes = indi.notes;
+      if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
       total++;
       if (dupOf !== undefined) continue; // their children are listed there

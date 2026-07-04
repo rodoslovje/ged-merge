@@ -559,6 +559,7 @@ export const sl = {
   "tree.settings.report.education": "Izobrazba",
   "tree.settings.report.residence": "Prebivališče",
   "tree.settings.report.notes": "Opombe",
+  "tree.settings.report.sources": "Viri",
   "ahnentafel.pageTitle": "Seznam prednikov (Ahnentafel)",
   "ahnentafel.empty": "Ni osebe za poročilo.",
   "ahnentafel.gen.1": "Starši",

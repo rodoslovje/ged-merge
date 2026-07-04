@@ -3816,6 +3816,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin: 1px 0 2px;
 }
 .report-fact > .report-note { margin-left: 1.2em; }
+/* Source citations ("§ title, page") — like notes, but upright data text. */
+.report-source {
+  color: var(--muted);
+  font-size: 0.85em;
+  margin: 1px 0 2px;
+}
+.report-fact > .report-source { margin-left: 1.2em; }
 /* Cross-reference jumps: the "same as no. X" ref and the "Children of no. X"
    group heading scroll to the numbered entry, which flashes on arrival. */
 .report-jump {

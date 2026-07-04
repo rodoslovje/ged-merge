@@ -60,6 +60,8 @@ export interface ChartSettings {
   showEducation: boolean;
   /** Report: show person notes under the name and event notes under the fact. */
   showNotes: boolean;
+  /** Report: show source citations under the person and their fact lines. */
+  showSources: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -79,6 +81,7 @@ const DEFAULTS: ChartSettings = {
   showOccupation: false,
   showEducation: false,
   showNotes: false,
+  showSources: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -141,6 +144,7 @@ function load(): ChartSettings {
       showOccupation: bool(parsed.showOccupation, DEFAULTS.showOccupation),
       showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
+      showSources: bool(parsed.showSources, DEFAULTS.showSources),
     };
   } catch {
     return DEFAULTS;

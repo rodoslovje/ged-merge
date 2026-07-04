@@ -3,7 +3,7 @@
 // kept apart from the builders so both compose the same vocabulary: compact
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
-import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../tree/timeline";
@@ -28,6 +28,8 @@ export interface FactLine {
   spouse?: string;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
+  /** The event's formatted source citations ("§ title, page"), when enabled. */
+  sources?: string[];
 }
 
 /** The optional fact lines a report can add beyond the vitals. */
@@ -37,6 +39,8 @@ export interface ReportFactOptions {
   residence?: boolean;
   /** Person notes under the name, event notes under their fact line. */
   notes?: boolean;
+  /** Person sources under the name, event sources under their fact line. */
+  sources?: boolean;
 }
 
 /** One numbered person in a report. */
@@ -67,6 +71,8 @@ export interface ReportEntry {
   childIndex?: number;
   /** Record-level person notes, shown under the name when notes are enabled. */
   notes?: string[];
+  /** Record-level source citations ("§ title, page"), when enabled. */
+  sources?: string[];
   facts: FactLine[];
 }
 
@@ -136,6 +142,12 @@ export function generationHeading(
   return { title: `${genN} — ${word}`, range, coverage };
 }
 
+/** Attach the record-level notes/sources the options ask for (never on dups). */
+export function personExtras(entry: ReportEntry, indi: Individual, opts: ReportFactOptions): void {
+  if (opts.notes && indi.notes?.length) entry.notes = indi.notes;
+  if (opts.sources && indi.sources?.length) entry.sources = indi.sources.map(citationText);
+}
+
 export function makeEntry(
   indi: Individual,
   num: number,
@@ -202,7 +214,13 @@ export function marriageFact(fam: Family, spouse: string | undefined, opts: Repo
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
   if (opts.notes && e.note) fact.note = e.note;
+  if (opts.sources && e.sources?.length) fact.sources = e.sources.map(citationText);
   return fact;
+}
+
+/** A citation as one compact "§ title, page" line. */
+export function citationText(s: SourceCitation): string {
+  return `§ ${[s.title || s.sourceId, s.page].filter(Boolean).join(", ")}`;
 }
 
 /** A fact's display location. Unlike the Timeline's compact one-word labels,

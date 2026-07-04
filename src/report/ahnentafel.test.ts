@@ -203,6 +203,21 @@ describe("buildAhnentafel", () => {
     expect(text).toContain("1. Solo One (1900–1980)\n   Emigrated twice.\n   * 1900\n     Born at home.");
   });
 
+  it("carries person and event source citations when the sources option is on", () => {
+    const sourced = wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 SOUR @S1@\n" +
+        "1 BIRT\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE fol. 12\n" +
+        "0 @S1@ SOUR\n1 TITL Krstna knjiga Kranj\n",
+    );
+    const ds2 = dataset(sourced);
+    const off = buildAhnentafel(ds2, "@I1@", nameOf, NOW)!.generations[0].entries[0];
+    expect(off.sources).toBeUndefined();
+    expect(off.facts[0].sources).toBeUndefined();
+    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { sources: true })!.generations[0].entries[0];
+    expect(on.sources).toEqual(["§ Krstna knjiga Kranj"]);
+    expect(on.facts[0].sources).toEqual(["§ Krstna knjiga Kranj, fol. 12"]);
+  });
+
   it("composes generation band headings with the entries' number range", () => {
     // A translator that shows its interpolation values, so ranges are visible.
     const tri = (key: string, opts?: Record<string, unknown>) =>

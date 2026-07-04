@@ -10,6 +10,7 @@ import {
   factFor,
   makeEntry,
   marriageFact,
+  personExtras,
   type FactLine,
   type NameOf,
   type ReportData,
@@ -46,7 +47,7 @@ export function buildAhnentafel(
     for (const { num, indi, marriage } of queue) {
       const dupOf = firstNum.get(indi.id);
       const entry = makeEntry(indi, num, nameOf, vitals(indi, marriage, opts), nowYear, dupOf);
-      if (dupOf === undefined && opts.notes && indi.notes?.length) entry.notes = indi.notes;
+      if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
       total++;
       if (dupOf !== undefined) continue; // the line already continues there

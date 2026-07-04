@@ -193,6 +193,13 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
                 >
                   {t("tree.settings.report.notes")}
                 </button>
+                <button
+                  className={settings.showSources ? "active" : ""}
+                  aria-pressed={settings.showSources}
+                  onClick={() => set({ showSources: !settings.showSources })}
+                >
+                  {t("tree.settings.report.sources")}
+                </button>
               </div>
             </div>
           )}

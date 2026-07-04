@@ -61,11 +61,13 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   if (redacted) return [head];
   const indent = " ".repeat(num.length + 1);
   const lines = [head];
-  // Person notes under the name, event notes indented under their fact line.
+  // Person notes and sources under the name, event ones under their fact line.
   for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
+  for (const src of entry.sources ?? []) lines.push(indent + src);
   for (const f of entry.facts) {
     lines.push(indent + factText(f));
     if (f.note) lines.push(...noteLines(f.note, indent + "  "));
+    for (const src of f.sources ?? []) lines.push(indent + "  " + src);
   }
   return lines;
 }
