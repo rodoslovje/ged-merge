@@ -772,6 +772,7 @@ export const sl = {
   "edit.charts.button": "Diagrami",
   "edit.charts.tooltip": "Diagrami za trenutno osebo — drevo, pahljača, sorodstvo … (V)",
   "charts.header.tooltip": "Diagrami — rodoslovno drevo, pahljača in sorodstvo",
+  "header.filePill.hint": "prikaži podatke o datoteki",
   "edit.tree.title": "Drevo",
   "edit.tree.back": "Nazaj na urejanje",
   "edit.tree.unmodified": "Nespremenjeno",
