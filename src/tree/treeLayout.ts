@@ -482,3 +482,20 @@ export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
+/** Average glyph width of the 12px/600 node-name font, for overflow detection. */
+const NAME_CHAR_W = 7;
+
+/** SVG `<text>` props that squeeze an overflowing person name into the box's
+ *  text area (glyphs compress horizontally); a name that fits renders
+ *  naturally. Names are never ellipsized — the chart, and its SVG/PDF exports,
+ *  always carry the full name. */
+export function nameFit(
+  name: string,
+  textX: number,
+): { textLength?: number; lengthAdjust?: "spacingAndGlyphs" } {
+  const available = NODE_W - textX - 12;
+  return name.length * NAME_CHAR_W > available
+    ? { textLength: available, lengthAdjust: "spacingAndGlyphs" }
+    : {};
+}
+

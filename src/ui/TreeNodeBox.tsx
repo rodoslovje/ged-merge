@@ -9,6 +9,7 @@ import {
   PHOTO_X,
   TEXT_X_PHOTO,
   TEXT_X_PLAIN,
+  nameFit,
   truncate,
 } from "../tree/treeLayout";
 import { ALL_DISPLAY, nodeDisplay, type NodeDisplayOptions } from "../tree/nodeDisplay";
@@ -98,8 +99,8 @@ export function TreeNodeBox({
         stroke={color}
         strokeWidth={strokeWidth}
       />
-      <text className="tree-node-name" x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }}>
-        {truncate(disp.name, 24)}
+      <text className="tree-node-name" x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }} {...nameFit(disp.name, textX)}>
+        {disp.name}
       </text>
       {rows.map((r, i) => (
         <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>

@@ -33,6 +33,7 @@ import {
   layout,
   layoutGrid,
   minimapDefaultOpen,
+  nameFit,
   nodeHeight,
   truncate,
   type Flat,
@@ -698,8 +699,9 @@ function TreeSvg({
                 x={textX}
                 y={23}
                 style={{ fill: sexColorVar(n.sex) ?? "#fff" }}
+                {...nameFit(disp.name, textX)}
               >
-                {truncate(disp.name, 24)}
+                {disp.name}
               </text>
               {rows.map((r, i) => (
                 <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
