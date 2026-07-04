@@ -275,7 +275,7 @@ describe("living people, addresses and repeated residences", () => {
 // Sourced and noted events: a person source, a paged birth citation with a
 // short note, a baptism with an AGNC, and a death with CAUS + a long note.
 const SOURCED = wrap(
-  "0 @I1@ INDI\n1 NAME Franc /Novak/\n1 SEX M\n1 SOUR @S1@\n" +
+  "0 @I1@ INDI\n1 NAME Franc /Novak/\n1 SEX M\n1 SOUR @S1@\n1 NOTE Rodbina iz Poljanske doline.\n" +
     "1 BIRT\n2 DATE 5 MAY 1848\n2 SOUR @S1@\n3 PAGE 23\n2 NOTE Born at home.\n" +
     "1 BAPM\n2 DATE 7 MAY 1848\n2 AGNC Župnija Stražišče\n" +
     "1 DEAT\n2 DATE 1912\n2 CAUS pljučnica\n2 SOUR @S2@\n3 PAGE 114\n2 NOTE Selil se je večkrat.\n3 CONT Podrobnosti v arhivu.\n" +
@@ -337,6 +337,9 @@ describe("reportToText narrative style", () => {
       narrativeOf: (e) => narrativeEntry(tEn, lang, e, planEntry(e, groups.get(e.num))),
     });
     expect(text).toContain("Franc Novak was born on 5 May 1848");
+    // Person-level notes and sources: the note as its own block under the
+    // paragraph, the source as footnote ¹ on the opening sentence.
+    expect(text).toContain("Rodbina iz Poljanske doline.");
     expect(text).toContain("¹ § Krstna knjiga");
     expect(text).toContain("² § Krstna knjiga, page 23");
     expect(text).toContain("⁴ Selil se je večkrat.");
