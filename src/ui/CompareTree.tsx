@@ -47,7 +47,7 @@ import type { PhotoRefContext } from "./PhotoViewer";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { DownloadIcon } from "./icons/DownloadIcon";
+import { ExportMenu } from "./ExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type ChartType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -410,22 +410,23 @@ export function CompareTree({
           )}
         </h2>
         <ChartSettings />
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle)}
+        <ExportMenu
           disabled={!activeLaid}
-          title={t("tree.export.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.export")}
-        </button>
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle)}
-          disabled={!activeLaid}
-          title={t("tree.exportPdf.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.exportPdf")}
-        </button>
+          items={[
+            {
+              key: "svg",
+              label: t("export.svg"),
+              title: t("tree.export.tooltip"),
+              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle),
+            },
+            {
+              key: "pdf",
+              label: t("export.pdf"),
+              title: t("tree.exportPdf.tooltip"),
+              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(rootName, t(`tree.${mode}`)), compareTreeTitle),
+            },
+          ]}
+        />
       </div>
 
       <div className="tree-controls">

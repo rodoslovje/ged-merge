@@ -18,7 +18,7 @@ import { TreeMinimap } from "./TreeMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
-import { DownloadIcon } from "./icons/DownloadIcon";
+import { ExportMenu } from "./ExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 
@@ -178,30 +178,23 @@ export function RelationshipChart({ masterDs, startId, targetId, onBack, onNavig
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </h2>
         <ChartSettings lockedType="tree" />
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasSvg(
-            canvasRef.current,
-            diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")),
-            relchartTitle,
-          )}
+        <ExportMenu
           disabled={!chart}
-          title={t("tree.export.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.export")}
-        </button>
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasPdf(
-            canvasRef.current,
-            diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")),
-            relchartTitle,
-          )}
-          disabled={!chart}
-          title={t("tree.exportPdf.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.exportPdf")}
-        </button>
+          items={[
+            {
+              key: "svg",
+              label: t("export.svg"),
+              title: t("tree.export.tooltip"),
+              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
+            },
+            {
+              key: "pdf",
+              label: t("export.pdf"),
+              title: t("tree.exportPdf.tooltip"),
+              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle")), relchartTitle),
+            },
+          ]}
+        />
       </div>
 
       {kindSwitcher && (

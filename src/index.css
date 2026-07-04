@@ -3140,13 +3140,46 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
 .tree-open-btn:focus-visible { border-color: var(--accent); }
 .tree-open-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
-/* Export buttons pair a download glyph with a short SVG / PDF label. */
+/* The Export button pairs a download glyph with the label + caret. */
 .tree-export-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
 .tree-export-btn svg { flex: 0 0 auto; }
+.tree-export-btn.open { border-color: var(--accent); }
+/* Export dropdown: one menu for every download format (mirrors the
+   chart-settings popover placement). */
+.export-menu { position: relative; }
+.export-menu-caret { font-size: 0.7em; }
+.export-menu-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 5px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
+.export-menu-item {
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.export-menu-item:hover { background: var(--panel-2); color: var(--accent); }
 
 .tree-page {
   display: flex;

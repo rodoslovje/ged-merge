@@ -27,8 +27,8 @@ import { sexClass } from "./sex";
 import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { MapIcon } from "./icons/MapIcon";
-import { DownloadIcon } from "./icons/DownloadIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { ExportMenu } from "./ExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
@@ -285,30 +285,23 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           )}
         </h2>
         <ChartSettings />
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasSvg(
-            canvasRef.current,
-            diagramSlug(tree?.name, t(`tree.${mode}`)),
-            editTreeTitle,
-          )}
+        <ExportMenu
           disabled={!activeLaid}
-          title={t("tree.export.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.export")}
-        </button>
-        <button
-          className="tree-open-btn tree-export-btn"
-          onClick={() => exportCanvasPdf(
-            canvasRef.current,
-            diagramSlug(tree?.name, t(`tree.${mode}`)),
-            editTreeTitle,
-          )}
-          disabled={!activeLaid}
-          title={t("tree.exportPdf.tooltip")}
-        >
-          <DownloadIcon /> {t("tree.exportPdf")}
-        </button>
+          items={[
+            {
+              key: "svg",
+              label: t("export.svg"),
+              title: t("tree.export.tooltip"),
+              onSelect: () => exportCanvasSvg(canvasRef.current, diagramSlug(tree?.name, t(`tree.${mode}`)), editTreeTitle),
+            },
+            {
+              key: "pdf",
+              label: t("export.pdf"),
+              title: t("tree.exportPdf.tooltip"),
+              onSelect: () => exportCanvasPdf(canvasRef.current, diagramSlug(tree?.name, t(`tree.${mode}`)), editTreeTitle),
+            },
+          ]}
+        />
       </div>
 
       {/* Kind switcher + mode toggle (left), legend (right) — same layout as the
