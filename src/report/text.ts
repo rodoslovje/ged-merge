@@ -7,16 +7,23 @@ import type { Translate } from "../locales/i18n";
 import {
   generationHeading,
   romanIndex,
+  sourceLabel,
   type FactLine,
   type PersonRef,
   type ReportData,
   type ReportEntry,
   type SourceLine,
 } from "./model";
+import { citationMark, type NarrativeEntryText } from "./narrativeText";
 
 export interface ReportTextOptions {
   /** Redact presumed-living people: keep their number + name, drop the rest. */
   privacyLiving?: boolean;
+  /** Narrative style: render this prose (paragraph with citation markers,
+   *  overflow notes, numbered citations) instead of the glyph fact lines.
+   *  Injected by the view, which owns the planner + language pack — keeps
+   *  this module free of narrative grammar. */
+  narrativeOf?: (entry: ReportEntry) => NarrativeEntryText;
 }
 
 export function reportToText(
@@ -78,13 +85,31 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   if (redacted) return [head];
   const indent = " ".repeat(num.length + 1);
   const lines = [head];
+  if (opts.narrativeOf) {
+    // Narrative style: the prose paragraph (footnote markers included), then
+    // the person's own notes and the numbered footnotes (source citations and
+    // the event notes too long to weave in).
+    const nt = opts.narrativeOf(entry);
+    if (nt.paragraph) lines.push(indent + nt.paragraph);
+    for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
+    nt.footnotes.forEach((fn, i) => {
+      const mark = citationMark(i + 1);
+      if (fn.note !== undefined) {
+        const [first, ...rest] = fn.note.split("\n");
+        lines.push(`${indent}${mark} ${first}`, ...rest.map((l) => `${indent}  ${l}`));
+      } else {
+        lines.push(`${indent}${mark} ${sourceText(t, fn.source)}`);
+      }
+    });
+    return lines;
+  }
   // Person notes and sources under the name, event ones under their fact line.
   for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
-  for (const src of entry.sources ?? []) lines.push(indent + sourceText(src));
+  for (const src of entry.sources ?? []) lines.push(indent + sourceText(t, src));
   for (const f of entry.facts) {
-    lines.push(indent + factText(f));
+    lines.push(indent + factText(t, f));
     if (f.note) lines.push(...noteLines(f.note, indent + "  "));
-    for (const src of f.sources ?? []) lines.push(indent + "  " + sourceText(src));
+    for (const src of f.sources ?? []) lines.push(indent + "  " + sourceText(t, src));
   }
   return lines;
 }
@@ -94,14 +119,17 @@ function noteLines(note: string, indent: string): string[] {
   return note.split("\n").map((l) => indent + l);
 }
 
-/** A source line with its link appended: `§ title, page — https://…`. */
-function sourceText(src: SourceLine): string {
-  return src.url ? `${src.text} — ${src.url}` : src.text;
+/** A source line with its page label and link: `§ title, page 23 — https://…`. */
+function sourceText(t: Translate, src: SourceLine): string {
+  const label = sourceLabel(t, src);
+  return src.url ? `${label} — ${src.url}` : label;
 }
 
 /** One fact line, date always first: `⚭ 4 FEB 1866, Škofja Loka — Marija
- *  Oblak`, `⚒ 1958, orodjar`. */
-export function factText(f: FactLine): string {
-  const when = [f.date, f.value, f.place].filter(Boolean).join(", ");
-  return `${f.glyph} ${when}${f.spouse ? ` — ${f.spouse}` : ""}`;
+ *  Oblak`, `⚒ 1958, orodjar`. The AGNC joins the comma run like the place;
+ *  the CAUS gets its localized frame: `† 1912, Ljubljana (vzrok: pljučnica)`. */
+export function factText(t: Translate, f: FactLine): string {
+  const when = [f.date, f.value, f.place, f.agency].filter(Boolean).join(", ");
+  const cause = f.cause ? ` ${t("narrative.cause", { cause: f.cause })}` : "";
+  return `${f.glyph} ${when}${cause}${f.spouse ? ` — ${f.spouse}` : ""}`;
 }

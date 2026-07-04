@@ -7,12 +7,15 @@ import { buildDescendants } from "../report/descendants";
 import {
   generationHeading,
   romanIndex,
+  sourceLabel,
   type PersonRef,
   type ReportData,
   type ReportEntry,
   type SourceLine,
 } from "../report/model";
 import { childrenOfLabel, factText, reportToText } from "../report/text";
+import { childGroups, planEntry } from "../report/narrative";
+import { citationMark, narrativeEntry, narrativeLangFor, type NarrativeEntryText } from "../report/narrativeText";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
@@ -45,6 +48,11 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 const COLOR_PERSON = "var(--accent)";
 const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
 
+// Reports never append the married surname ("Silvija Sekušak (Renko)") — the
+// entries' ⚭ lines / narrative marriage sentences already state the union.
+// Module-level constant so the nameOf identity stays stable across renders.
+const REPORT_NAME_DISPLAY = { marriedSurname: false } as const;
+
 interface Props {
   masterDs: Dataset;
   rootId: string;
@@ -69,10 +77,10 @@ interface Props {
 }
 
 export function ReportView({ masterDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
-  const { t } = useTranslation();
-  const nameOf = useNameOf();
+  const { t, i18n } = useTranslation();
+  const nameOf = useNameOf(REPORT_NAME_DISPLAY);
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
-  const { settings } = useChartSettings();
+  const { settings, set } = useChartSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const changeRoot = useCallback((id: string) => {
@@ -107,6 +115,16 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
   // family structure), drop the dates, places and fact lines.
   const privacy = settings.privacyLiving;
   const redacted = useCallback((e: ReportEntry) => privacy && e.living, [privacy]);
+
+  // Narrative style: each entry's facts phrased as prose in the UI language
+  // (with citation markers, woven-in notes and the numbered citation list).
+  // Shared by the page, the text download and the print sheet.
+  const narrativeOf = useMemo(() => {
+    if (!settings.reportNarrative || !data) return undefined;
+    const lang = narrativeLangFor(i18n.language);
+    const groups = childGroups(data);
+    return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num)));
+  }, [settings.reportNarrative, data, t, i18n.language]);
 
   // Esc / Backspace leave, A/D switch direction; kind digits are the hub's.
   useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
@@ -208,7 +226,7 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.txt`,
-                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy }),
+                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf }),
                   ),
               },
               {
@@ -217,7 +235,8 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
                 label: t("export.pdf"),
                 title: t("tree.exportPdf.tooltip"),
                 onSelect: () =>
-                  data && printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy)),
+                  data &&
+                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy, narrativeOf)),
               },
             ]}
           />
@@ -234,6 +253,22 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
             <button className={mode === "descendants" ? "active" : ""} onClick={() => onModeChange("descendants")}>
               {t("tree.descendants")}
               {descendants && <span className="tree-mode-count">{descendants.total}</span>}
+            </button>
+          </div>
+          <div className="tree-mode">
+            <button
+              className={!settings.reportNarrative ? "active" : ""}
+              title={t("report.style.list.tooltip")}
+              onClick={() => set({ reportNarrative: false })}
+            >
+              {t("report.style.list")}
+            </button>
+            <button
+              className={settings.reportNarrative ? "active" : ""}
+              title={t("report.style.narrative.tooltip")}
+              onClick={() => set({ reportNarrative: true })}
+            >
+              {t("report.style.narrative")}
             </button>
           </div>
         </>
@@ -315,18 +350,50 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
                             )}
                           </div>
                           {!redacted(e) &&
+                            !narrativeOf &&
                             (e.notes ?? []).map((note, j) => (
                               <div key={`n${j}`} className="report-note">
                                 {note}
                               </div>
                             ))}
-                          {!redacted(e) && (e.sources ?? []).map((src, j) => sourceNode(src, `s${j}`))}
                           {!redacted(e) &&
+                            !narrativeOf &&
+                            (e.sources ?? []).map((src, j) => sourceNode(src, sourceLabel(t, src), `s${j}`))}
+                          {/* Narrative style: the prose paragraph (footnote
+                              markers included), the person's own notes, then
+                              the numbered footnotes — source citations and
+                              the event notes too long to weave in. */}
+                          {!redacted(e) &&
+                            narrativeOf &&
+                            (() => {
+                              const nt = narrativeOf(e);
+                              return (
+                                <>
+                                  {nt.paragraph && <div className="report-para">{nt.paragraph}</div>}
+                                  {(e.notes ?? []).map((note, j) => (
+                                    <div key={`n${j}`} className="report-note">
+                                      {note}
+                                    </div>
+                                  ))}
+                                  {nt.footnotes.map((fn, j) =>
+                                    fn.note !== undefined ? (
+                                      <div key={`fn${j}`} className="report-note">
+                                        {`${citationMark(j + 1)} ${fn.note}`}
+                                      </div>
+                                    ) : (
+                                      sourceNode(fn.source, `${citationMark(j + 1)} ${sourceLabel(t, fn.source)}`, `fn${j}`)
+                                    ),
+                                  )}
+                                </>
+                              );
+                            })()}
+                          {!redacted(e) &&
+                            !narrativeOf &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
-                                {factText(f)}
+                                {factText(t, f)}
                                 {f.note && <div className="report-note">{f.note}</div>}
-                                {(f.sources ?? []).map((src, k) => sourceNode(src, k))}
+                                {(f.sources ?? []).map((src, k) => sourceNode(src, sourceLabel(t, src), k))}
                               </div>
                             ))}
                         </div>
@@ -367,8 +434,9 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
 }
 
 /** A source citation line — a link to the resolved page/image when there is
- *  one (click must not select the entry), plain text otherwise. */
-function sourceNode(src: SourceLine, key: React.Key) {
+ *  one (click must not select the entry), plain text otherwise. The label is
+ *  pre-composed by the caller (localized page, optional citation marker). */
+function sourceNode(src: SourceLine, label: string, key: React.Key) {
   return src.url ? (
     <a
       key={key}
@@ -378,11 +446,11 @@ function sourceNode(src: SourceLine, key: React.Key) {
       rel="noreferrer"
       onClick={(ev) => ev.stopPropagation()}
     >
-      {src.text} ↗
+      {label} ↗
     </a>
   ) : (
     <div key={key} className="report-source gm-data">
-      {src.text}
+      {label}
     </div>
   );
 }
@@ -396,6 +464,7 @@ function printDoc(
   title: string,
   fileName: string,
   privacy: boolean,
+  narrativeOf?: (entry: ReportEntry) => NarrativeEntryText,
 ): string {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
   for (const g of data.generations) {
@@ -416,26 +485,36 @@ function printDoc(
         `${numCell} <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
-      const sourceDiv = (s: SourceLine) =>
-        `<div class="source">${
-          s.url ? `<a href="${escapeHtml(s.url)}">${escapeHtml(s.text)}</a>` : escapeHtml(s.text)
-        }</div>`;
-      const notes = hidden
-        ? []
-        : [
-            ...(e.notes ?? []).map((n) => `<div class="note">${escapeHtml(n)}</div>`),
-            ...(e.sources ?? []).map(sourceDiv),
-          ];
-      const facts = hidden
-        ? []
-        : e.facts.map(
+      const sourceDiv = (s: SourceLine, mark?: string) => {
+        const label = escapeHtml(`${mark ? `${mark} ` : ""}${sourceLabel(t, s)}`);
+        return `<div class="source">${s.url ? `<a href="${escapeHtml(s.url)}">${label}</a>` : label}</div>`;
+      };
+      const noteDiv = (n: string) => `<div class="note">${escapeHtml(n)}</div>`;
+      const body: string[] = [];
+      if (!hidden && narrativeOf) {
+        // Narrative style: paragraph (footnote markers included), person
+        // notes, then the numbered footnotes (citations + long event notes).
+        const nt = narrativeOf(e);
+        if (nt.paragraph) body.push(`<div class="para">${escapeHtml(nt.paragraph)}</div>`);
+        body.push(...(e.notes ?? []).map(noteDiv));
+        body.push(
+          ...nt.footnotes.map((fn, i) =>
+            fn.note !== undefined ? noteDiv(`${citationMark(i + 1)} ${fn.note}`) : sourceDiv(fn.source, citationMark(i + 1)),
+          ),
+        );
+      } else if (!hidden) {
+        body.push(...(e.notes ?? []).map(noteDiv), ...(e.sources ?? []).map((s) => sourceDiv(s)));
+        body.push(
+          ...e.facts.map(
             (f) =>
-              `<div class="fact">${escapeHtml(factText(f))}` +
-              (f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : "") +
-              (f.sources ?? []).map(sourceDiv).join("") +
+              `<div class="fact">${escapeHtml(factText(t, f))}` +
+              (f.note ? noteDiv(f.note) : "") +
+              (f.sources ?? []).map((s) => sourceDiv(s)).join("") +
               `</div>`,
-          );
-      parts.push(`<div class="entry">${head}${notes.join("")}${facts.join("")}</div>`);
+          ),
+        );
+      }
+      parts.push(`<div class="entry">${head}${body.join("")}</div>`);
     }
   }
   // Browsers seed the "Save as PDF" filename from the document <title>.
@@ -452,6 +531,7 @@ function printDoc(
   .rom { display: inline-block; min-width: 2.2em; text-align: right; margin-left: 0.3em; }
   .years, .dup { color: #444; }
   .fact { margin-left: 2.6em; color: #222; }
+  .para { margin-left: 2.6em; color: #222; }
   .note { font-style: italic; color: #444; white-space: pre-wrap; }
   .source { color: #555; font-size: 10pt; }
   .source a { color: #1a4b7a; text-decoration: none; }

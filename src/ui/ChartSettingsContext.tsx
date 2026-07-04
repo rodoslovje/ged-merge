@@ -65,6 +65,8 @@ export interface ChartSettings {
   showNotes: boolean;
   /** Report: show source citations under the person and their fact lines. */
   showSources: boolean;
+  /** Report: prose narrative style instead of the glyph fact-line list. */
+  reportNarrative: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -86,6 +88,7 @@ const DEFAULTS: ChartSettings = {
   showEducation: false,
   showNotes: false,
   showSources: false,
+  reportNarrative: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -150,6 +153,7 @@ function load(): ChartSettings {
       showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
+      reportNarrative: bool(parsed.reportNarrative, DEFAULTS.reportNarrative),
     };
   } catch {
     return DEFAULTS;

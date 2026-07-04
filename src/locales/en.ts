@@ -572,6 +572,52 @@ export const en = {
   "register.gen.3": "Great-grandchildren",
   "register.childrenOf": "Children of {{name}}:",
   "register.childrenOfBoth": "Children of {{name}} and {{spouse}}:",
+  "report.style.list": "List",
+  "report.style.list.tooltip": "Compact numbered fact lines",
+  "report.style.narrative": "Narrative",
+  "report.style.narrative.tooltip": "Prose sentences, book style",
+  // Narrative sentence templates. {{subject}} is the name or pronoun (may be
+  // empty), {{tail}}/{{tail2}} the pre-phrased date + place ("on 5 May 1848 in
+  // Kranj"). English needs no _M/_F context variants — one template serves
+  // every gender; the renderer tidies the spacing empty slots leave behind.
+  "narrative.born": "{{subject}} was born {{tail}}.",
+  "narrative.bornBaptized": "{{subject}} was born {{tail}} and baptized {{tail2}}.",
+  "narrative.baptized": "{{subject}} was baptized {{tail}}.",
+  "narrative.married": "{{subject}} married {{spouse}} {{tail}}.",
+  "narrative.marriedAgain": "{{subject}} then married {{spouse}} {{tail}}.",
+  // The *Living variants keep the present tense for presumed-living people —
+  // English marriage sentences don't change, but Slovenian's predicative
+  // wife/husband clause does, so the keys exist in both languages.
+  "narrative.marriedLiving": "{{subject}} married {{spouse}} {{tail}}.",
+  "narrative.marriedAgainLiving": "{{subject}} then married {{spouse}} {{tail}}.",
+  "narrative.marriedNoSpouse": "{{subject}} married {{tail}}.",
+  "narrative.marriedAgainNoSpouse": "{{subject}} married again {{tail}}.",
+  "narrative.childrenCouple": "They had {{children}}: {{names}}.",
+  "narrative.childrenCoupleLiving": "They have {{children}}: {{names}}.",
+  "narrative.childrenSolo": "{{subject}} had {{children}}: {{names}}.",
+  "narrative.childrenSoloLiving": "{{subject}} has {{children}}: {{names}}.",
+  "narrative.occupation": "{{subject}} worked as {{value}} {{tail}}.",
+  "narrative.occupationThen": "{{subject}} later worked as {{value}} {{tail}}.",
+  "narrative.occupationNoValue": "{{subject}} worked {{tail}}.",
+  "narrative.education": "{{subject}} was educated ({{value}}) {{tail}}.",
+  "narrative.educationNoValue": "{{subject}} was educated {{tail}}.",
+  // Repeated residences climb a variation ladder: plain, "later"/"then"
+  // alternating through the middle, "last" closing a run of three or more.
+  "narrative.residence": "{{subject}} lived {{tail}}.",
+  "narrative.residenceThen": "{{subject}} later lived {{tail}}.",
+  "narrative.residenceNext": "{{subject}} then lived {{tail}}.",
+  "narrative.residenceFinally": "{{subject}} last lived {{tail}}.",
+  "narrative.died": "{{subject}} died {{tail}}.",
+  "narrative.diedBuried": "{{subject}} died {{tail}} and was buried {{tail2}}.",
+  "narrative.diedCremated": "{{subject}} died {{tail}} and was cremated {{tail2}}.",
+  "narrative.buried": "{{subject}} was buried {{tail}}.",
+  "narrative.cremated": "{{subject}} was cremated {{tail}}.",
+  // Appended to a sentence's tail: the event's AGNC (parish, school, office)
+  // and CAUS (cause of death) in nominative-safe frames.
+  "narrative.agency": "at {{agency}}",
+  "narrative.cause": "(cause: {{cause}})",
+  // The cited page in a source line: "§ Krstna knjiga, page 23".
+  "report.source.page": "page {{page}}",
   "tree.node.living": "Living",
   "tree.openInMatches": "Open this match in the Matches list",
   "tree.master": "Master",

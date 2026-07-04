@@ -3,7 +3,7 @@
 // kept apart from the builders so both compose the same vocabulary: compact
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
-import type { Dataset, Family, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../chart/timeline";
@@ -17,26 +17,55 @@ import type { NameOf } from "../chart/timeline";
 export interface FactLine {
   /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, OCCU, …). */
   tag: string;
-  /** Classic genealogy symbol (* ~ ⚭ † ▭ ⚒ ⌂ — see {@link EVENT_GLYPHS}). */
+  /** Classic genealogy symbol (* ~ ⚭ † ▭ ⚒ ✎ ⌂ — see {@link EVENT_GLYPHS}). */
   glyph: string;
   /** The event's own value, leading the line ("Farmer" on an occupation). */
   value?: string;
   /** Original date text, exactly as recorded. */
   date?: string;
+  /** The structured date, for renderers that re-phrase it (narrative prose). */
+  parsed?: GedDate;
   place?: string;
+  /** The recorded street address alone (ADDR), for renderers that phrase it
+   *  differently from the place ("at Dunajska 5" vs "in Kranj"). */
+  addr?: string;
+  /** The event's AGNC — the parish, school or office behind the event; the
+   *  narrative appends it to the sentence ("at Župnija Stražišče"). */
+  agency?: string;
+  /** The event's CAUS (practically: cause of death), appended by the
+   *  narrative as a nominative-safe aside ("(vzrok: pljučnica)"). */
+  cause?: string;
+  /** The place hierarchy parts (most specific first), so the narrative can
+   *  drop duplicated jurisdictions and re-space the commas. */
+  placeParts?: string[];
   /** Marriage lines carry the partner's display name. */
   spouse?: string;
+  /** Whether the named partner is presumed living — the narrative needs the
+   *  tense ("njegova žena je" vs "je bila"). Undefined when unknown. */
+  spouseLiving?: boolean;
+  /** Marriage lines carry the union's family xref, so the narrative can pair
+   *  each marriage sentence with that union's children. */
+  fam?: string;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
   /** The event's formatted source citations, when enabled. */
   sources?: SourceLine[];
 }
 
-/** One rendered citation: the "§ title, page" text plus the best link the
- *  citation resolver found (exact cited page, source image, or repository). */
+/** One rendered citation: the "§ title" text, the cited page kept separate
+ *  (so renderers can label it in the report language — "stran 23"), plus the
+ *  best link the citation resolver found (exact cited page, source image, or
+ *  repository). Compose the display text with {@link sourceLabel}. */
 export interface SourceLine {
   text: string;
+  page?: string;
   url?: string;
+}
+
+/** A citation's display text with the localized page label:
+ *  "§ Krstna knjiga, page 23" / "…, stran 23". */
+export function sourceLabel(t: Translate, src: SourceLine): string {
+  return src.page ? `${src.text}, ${t("report.source.page", { page: src.page })}` : src.text;
 }
 
 /** The optional fact lines a report can add beyond the vitals. */
@@ -197,26 +226,26 @@ export function makeEntry(
 }
 
 /** The optional mid-life fact lines: every ⚒ occupation, ✎ education and
- *  ⌂ residence, in record order per kind. No conventional genealogy symbol
- *  exists for the first two; ⚒ and ✎ are the closest widely-understood glyphs. */
+ *  ⌂ residence, in record order per kind — glyphs from the shared
+ *  {@link EVENT_GLYPHS}, so the Timeline draws the same marks. */
 export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[] {
   const out: FactLine[] = [];
   if (opts.occupation) {
     for (const e of indi.events) {
       if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
-      out.push(withNote({ tag: "OCCU", glyph: "⚒", value: e.value, date: e.date?.raw, place: factPlace(e) }, e, opts));
+      out.push(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
     }
   }
   if (opts.education) {
     for (const e of indi.events) {
       if (e.tag !== "EDUC" || (!e.value && !dated(e))) continue;
-      out.push(withNote({ tag: "EDUC", glyph: "✎", value: e.value, date: e.date?.raw, place: factPlace(e) }, e, opts));
+      out.push(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
     }
   }
   if (opts.residence) {
     for (const e of indi.events) {
       if (e.tag !== "RESI" || !dated(e)) continue;
-      out.push(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, place: factPlace(e) }, e, opts));
+      out.push(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
     }
   }
   return out;
@@ -227,17 +256,36 @@ export function factFor(indi: Individual, tags: string[], opts: ReportFactOption
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      return withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) }, e, opts);
+      return withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
     }
   }
   return undefined;
 }
 
 /** The union's ⚭ line, when its MARR event carries a date or a place. */
-export function marriageFact(fam: Family, spouse: string | undefined, opts: ReportFactOptions = {}): FactLine | undefined {
+export function marriageFact(
+  fam: Family,
+  spouse: string | undefined,
+  opts: ReportFactOptions = {},
+  spouseLiving?: boolean,
+): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr || !dated(marr)) return undefined;
-  return withNote({ tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse }, marr, opts);
+  return withNote(
+    {
+      tag: "MARR",
+      glyph: MARRIAGE_SYMBOL,
+      date: marr.date?.raw,
+      parsed: marr.date,
+      place: factPlace(marr),
+      ...factWhere(marr),
+      spouse,
+      spouseLiving,
+      fam: fam.id,
+    },
+    marr,
+    opts,
+  );
 }
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
@@ -246,9 +294,9 @@ function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLin
   return fact;
 }
 
-/** A citation as one compact "§ title, page" line plus its resolved link. */
+/** A citation as one compact "§ title" line, its cited page and resolved link. */
 export function sourceLine(s: SourceCitation): SourceLine {
-  return { text: `§ ${[s.title || s.sourceId, s.page].filter(Boolean).join(", ")}`, url: s.url };
+  return { text: `§ ${s.title || s.sourceId}`, page: s.page, url: s.url };
 }
 
 /** A fact's display location. Unlike the Timeline's compact one-word labels,
@@ -262,6 +310,19 @@ export function factPlace(e: GedEvent): string | undefined {
   return parts.filter(Boolean).join(", ") || undefined;
 }
 
+/** The location split for the narrative renderer: the address on its own
+ *  (unless it merely repeats the place) plus the place hierarchy parts. The
+ *  list renderer keeps using the verbatim `place` string. */
+function factWhere(e: GedEvent): Pick<FactLine, "addr" | "placeParts" | "agency" | "cause"> {
+  const addr = e.address?.raw;
+  return {
+    addr: addr && addr !== e.place?.raw ? addr : undefined,
+    placeParts: e.place?.parts,
+    agency: e.agency,
+    cause: e.cause,
+  };
+}
+
 export function dated(e: GedEvent): boolean {
   return !!e.date?.raw || !!factPlace(e);
 }
@@ -269,4 +330,24 @@ export function dated(e: GedEvent): boolean {
 /** Resolve family ids to their records, keeping order, dropping dangling refs. */
 export function familiesOf(ds: Dataset, ids: string[]): Family[] {
   return ids.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
+}
+
+/** Every union's ⚭ line for a person, in record order — partner named and
+ *  their living status attached (the narrative's tense needs it). Used by the
+ *  register for all entries and by the Ahnentafel for the root, whose spouse
+ *  isn't an ancestor and would otherwise go unmentioned. */
+export function marriageFacts(
+  ds: Dataset,
+  indi: Individual,
+  nameOf: NameOf,
+  opts: ReportFactOptions,
+  nowYear: number,
+): FactLine[] {
+  return familiesOf(ds, indi.spouseOf)
+    .map((fam) => {
+      const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
+      const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
+      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, nowYear));
+    })
+    .filter((f): f is FactLine => f !== undefined);
 }

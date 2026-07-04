@@ -104,19 +104,23 @@ export function useSettings() {
  * name), so the existing `displayName(primaryName(indi))` call sites become
  * `nameOf(indi)`.
  */
-export function useNameOf() {
+export function useNameOf(overrides?: Partial<NameDisplayOptions>) {
   const { settings } = useSettings();
   return useCallback(
     (subject: Individual | PersonName | undefined): string => {
+      // Callers may pin individual display options (e.g. the reports drop the
+      // married-surname parenthetical); pass a module-level constant so the
+      // returned formatter keeps a stable identity.
+      const opts = overrides ? { ...settings, ...overrides } : settings;
       // For an Individual, resolve the married surname from the whole record
       // (inline `_MARNM` *or* a separate `TYPE married` NAME) so both styles work.
       if (subject && "names" in subject) {
         const primary = primaryName(subject);
         const married = marriedSurnameOf(subject);
-        return formatPersonName(primary ? { ...primary, married } : undefined, settings);
+        return formatPersonName(primary ? { ...primary, married } : undefined, opts);
       }
-      return formatPersonName(subject, settings);
+      return formatPersonName(subject, opts);
     },
-    [settings],
+    [settings, overrides],
   );
 }

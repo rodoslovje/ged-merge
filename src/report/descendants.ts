@@ -12,7 +12,7 @@ import {
   factFor,
   familiesOf,
   makeEntry,
-  marriageFact,
+  marriageFacts,
   personExtras,
   personRef,
   type FactLine,
@@ -62,7 +62,7 @@ export function buildDescendants(
       const dupOf = firstNum.get(indi.id);
       // A repeat appearance keeps the person's original register number.
       const num = dupOf ?? ++counter;
-      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts), nowYear, dupOf);
+      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts, nowYear), nowYear, dupOf);
       Object.assign(entry, family);
       if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
@@ -101,18 +101,11 @@ export function buildDescendants(
 }
 
 /** Facts in report order: * ~, every union's ⚭, the optional ⚒/⌂ lines, † ▭. */
-function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions): FactLine[] {
-  const marriages = familiesOf(ds, indi.spouseOf)
-    .map((fam) => {
-      const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
-      const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner), opts);
-    })
-    .filter((f): f is FactLine => f !== undefined);
+function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions, nowYear: number): FactLine[] {
   return [
     factFor(indi, ["BIRT"], opts),
     factFor(indi, ["BAPM", "CHR"], opts),
-    ...marriages,
+    ...marriageFacts(ds, indi, nameOf, opts, nowYear),
     ...extraFacts(indi, opts),
     factFor(indi, ["DEAT"], opts),
     factFor(indi, ["BURI", "CREM"], opts),

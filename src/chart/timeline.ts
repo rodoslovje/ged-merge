@@ -50,7 +50,11 @@ export interface TimelineMark {
 
 /** Classic genealogy symbols for the common event types — language-neutral, so
  *  they need no translation: * born, ~ baptized, † died, ▭ buried, ⌂ residence,
- *  →/← emigrated/immigrated. Unmapped events keep the generic dot. */
+ *  →/← emigrated/immigrated. No conventional symbol exists for occupation or
+ *  education; ⚒ and ✎ are the closest widely-understood monochrome marks
+ *  (Unicode's 🎓 only renders as colour emoji, 🕮 lacks font support). The one map is
+ *  shared by the Timeline and the reports, so every surface draws an event
+ *  type the same way. Unmapped events keep the generic dot. */
 export const EVENT_GLYPHS: Record<string, string> = {
   BIRT: "*",
   BAPM: "~",
@@ -59,6 +63,8 @@ export const EVENT_GLYPHS: Record<string, string> = {
   BURI: "▭",
   CREM: "▭",
   RESI: "⌂",
+  OCCU: "⚒",
+  EDUC: "✎",
   EMIG: "→",
   IMMI: "←",
 };

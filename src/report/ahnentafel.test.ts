@@ -79,10 +79,12 @@ describe("buildAhnentafel", () => {
   it("builds the root's vitals as glyph fact lines", () => {
     const root = entry(all, 1);
     expect(root.years).toBe("1900–1970");
-    expect(root.facts).toEqual([
+    expect(root.facts).toMatchObject([
       { tag: "BIRT", glyph: "*", date: "1900", place: "Kranj" },
       { tag: "DEAT", glyph: "†", date: "1970", place: undefined },
     ]);
+    // The structured date rides along for the narrative renderer.
+    expect(root.facts[0].parsed).toMatchObject({ year: 1900, qualifier: "exact" });
   });
 
   it("adds baptism and burial as their own lines when recorded", () => {
@@ -94,8 +96,8 @@ describe("buildAhnentafel", () => {
 
   it("puts the union's ⚭ on the father's entry, naming the mother", () => {
     const anton = entry(all, 2);
-    expect(anton.facts.find((f) => f.tag === "MARR")).toEqual({
-      tag: "MARR", glyph: "⚭", date: "1895", place: undefined, spouse: "Marija Oblak",
+    expect(anton.facts.find((f) => f.tag === "MARR")).toMatchObject({
+      tag: "MARR", glyph: "⚭", date: "1895", place: undefined, spouse: "Marija Oblak", fam: "@F1@",
     });
     // The mother herself carries no ⚭ line — it lives on entry 2.
     expect(entry(all, 3).facts.some((f) => f.tag === "MARR")).toBe(false);
@@ -150,7 +152,7 @@ describe("buildAhnentafel", () => {
         "1 DEAT\n2 DATE 1970\n2 ADDR Glavni trg 1\n",
     );
     const entries = flat(addressed, "@I1@");
-    expect(entry(entries, 1).facts).toEqual([
+    expect(entry(entries, 1).facts).toMatchObject([
       { tag: "BIRT", glyph: "*", date: "1900", place: "Dunajska 5, Kranj, Slovenija" },
       { tag: "DEAT", glyph: "†", date: "1970", place: "Glavni trg 1" },
     ]);
@@ -171,7 +173,7 @@ describe("buildAhnentafel", () => {
         .generations[0].entries[0].facts.map((f) => f.tag),
     ).toEqual(["BIRT", "EDUC", "DEAT"]);
     const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { occupation: true, education: true, residence: true })!;
-    expect(on.generations[0].entries[0].facts).toEqual([
+    expect(on.generations[0].entries[0].facts).toMatchObject([
       { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
@@ -214,14 +216,14 @@ describe("buildAhnentafel", () => {
     expect(off.sources).toBeUndefined();
     expect(off.facts[0].sources).toBeUndefined();
     const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { sources: true })!.generations[0].entries[0];
-    expect(on.sources).toEqual([{ text: "§ Krstna knjiga Kranj", url: undefined }]);
-    expect(on.facts[0].sources).toEqual([{ text: "§ Krstna knjiga Kranj, fol. 12", url: undefined }]);
+    expect(on.sources).toEqual([{ text: "§ Krstna knjiga Kranj", page: undefined, url: undefined }]);
+    expect(on.facts[0].sources).toEqual([{ text: "§ Krstna knjiga Kranj", page: "fol. 12", url: undefined }]);
   });
 
-  it("formats a resolved citation link into the source line", () => {
+  it("formats a resolved citation link into the source line, page kept apart", () => {
     expect(
       sourceLine({ sourceId: "@S1@", title: "Krstna knjiga", page: "fol. 12", url: "https://x.si/p/12", exact: true }),
-    ).toEqual({ text: "§ Krstna knjiga, fol. 12", url: "https://x.si/p/12" });
+    ).toEqual({ text: "§ Krstna knjiga", page: "fol. 12", url: "https://x.si/p/12" });
   });
 
   it("composes generation band headings with the entries' number range", () => {

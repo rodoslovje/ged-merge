@@ -135,11 +135,11 @@ describe("buildTimeline", () => {
     expect(shorts).toEqual(["Kranj 1900", "Farmer 1930", "event.DEAT 1970"]);
   });
 
-  it("assigns genealogy glyphs to typed events, none to the rest", () => {
+  it("assigns genealogy glyphs to typed events", () => {
     const root = row(data.rows, "@I1@");
     const glyphs = root.marks.filter((m) => m.kind === "event").map((m) => m.glyph);
-    // Birth *, occupation has no conventional symbol (generic dot), death †.
-    expect(glyphs).toEqual(["*", undefined, "†"]);
+    // Birth *, occupation ⚒ (shared with the reports), death †.
+    expect(glyphs).toEqual(["*", "⚒", "†"]);
   });
 
   it("returns undefined for an unknown root", () => {
