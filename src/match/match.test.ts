@@ -331,6 +331,59 @@ describe("birth date plausibility from marriage date", () => {
   });
 });
 
+describe("given-name conflict penalty", () => {
+  const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+  const master =
+    "0 @M@ INDI\n1 NAME Marta /Weiss/\n1 SEX F\n1 BIRT\n2 DATE 1867\n2 PLAC Metlika\n";
+  const compareWith = (given: string) =>
+    `0 @C@ INDI\n1 NAME ${given} /Weiss/\n1 SEX F\n1 BIRT\n2 DATE 1868\n2 PLAC Metlika\n`;
+  const scoreWith = (given: string) =>
+    matchDatasets(doc(master), doc(compareWith(given))).individuals[0];
+
+  it("demotes a same-surname pair whose given names are distinct people's names", () => {
+    // Marta ~ Uršula ≈ 0.58: below the nickname band. Surname, year and place
+    // all agree — the classic dense-cluster false positive that used to
+    // average out at 80+.
+    const conflict = scoreWith("Uršula");
+    expect(conflict).toBeDefined();
+    expect(conflict.category).not.toBe("strong");
+    expect(conflict.score).toBeLessThan(70);
+  });
+
+  it("leaves nickname-band given variants (~0.7+) unpenalized", () => {
+    // William ~ Bill ≈ 0.73: above the conflict threshold, so only the small
+    // component difference applies — the score stays far above what the
+    // 0.8 multiplier would allow (≈71).
+    const m = "0 @M@ INDI\n1 NAME William /Weiss/\n1 SEX M\n1 BIRT\n2 DATE 1867\n2 PLAC Metlika\n";
+    const c = "0 @C@ INDI\n1 NAME Bill /Weiss/\n1 SEX M\n1 BIRT\n2 DATE 1868\n2 PLAC Metlika\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals[0];
+    expect(r).toBeDefined();
+    expect(r.score).toBeGreaterThan(85);
+  });
+
+  it("restores a demoted cross-language variant through matched-relative corroboration", () => {
+    // Jera ~ Gertrud ≈ 0.60 (the same name in Slovene vs German records) is
+    // penalized on names alone, but the shared matched husband and children
+    // floor the pair back into the 90s.
+    const m = `0 @M@ INDI\n1 NAME Jera /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1850\n1 FAMS @MF@
+0 @MH@ INDI\n1 NAME Anton /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1845\n1 FAMS @MF@
+0 @MC1@ INDI\n1 NAME Franc /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1875\n1 FAMC @MF@
+0 @MC2@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1877\n1 FAMC @MF@
+0 @MF@ FAM\n1 HUSB @MH@\n1 WIFE @M@\n1 CHIL @MC1@\n1 CHIL @MC2@
+`;
+    const c = `0 @C@ INDI\n1 NAME Gertrud /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1850\n1 FAMS @CF@
+0 @CH@ INDI\n1 NAME Anton /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1845\n1 FAMS @CF@
+0 @CC1@ INDI\n1 NAME Franc /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1875\n1 FAMC @CF@
+0 @CC2@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1877\n1 FAMC @CF@
+0 @CF@ FAM\n1 HUSB @CH@\n1 WIFE @C@\n1 CHIL @CC1@\n1 CHIL @CC2@
+`;
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    const mother = r.find((x) => x.masterId === "@M@");
+    expect(mother?.compareId).toBe("@C@");
+    expect(mother!.score).toBeGreaterThanOrEqual(91);
+  });
+});
+
 describe("parent-match bonus", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   // Same child in master and compare with an imperfect key (birth years one

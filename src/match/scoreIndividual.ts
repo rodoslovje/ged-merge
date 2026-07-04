@@ -96,6 +96,20 @@ export function scoreIndividualPair(
 
   let score01 = combineComponents(components);
 
+  // A clear given-name disagreement is stronger negative evidence than the
+  // weighted average can express: surname, dates, places and even parents all
+  // agreeing still describes two *different* people of the same family (the
+  // dense-name-cluster false positive — Marta vs Uršula Božič, Johann vs Franc
+  // Weiss all score ~0.58 on given yet averaged out at 80+). Demote
+  // multiplicatively rather than gate: the pair stays in the results for
+  // review, ranked as the long shot it is, and a genuine name-divergent match
+  // (maiden name, cross-language variant like Janez/Ivan) is restored by the
+  // relationship passes — linkByRelationships and boostByMatchedRelatives are
+  // driven by matched relatives, not by name agreement.
+  if (givenSim !== undefined && givenSim < GIVEN_CONFLICT_SIM) {
+    score01 *= GIVEN_CONFLICT_PENALTY;
+  }
+
   // The identity key — surname, given name and birth date — is conclusive: when
   // all three are present and an exact match the pair is the same person and
   // scores a flat 100. Conversely 100 is reserved for that case, so secondary
@@ -137,6 +151,27 @@ export function scoreIndividualPair(
 
 /** The identity key: a perfect match on all three earns a 100 score. */
 const KEY_FIELDS = ["surname", "given", "birthDate"] as const;
+
+/**
+ * Given-name similarity below which two records are more likely two different
+ * people than one. Sits just under the nickname/cross-language band (~0.7:
+ * William/Bill 0.73, Valentin/Vaclav 0.70) and above the distinct-name band
+ * (Marta/Uršula and Johann/Franc 0.58, Anton/Alojz 0.64) — measured with
+ * `givenSimilarity` over real parish-record pairs. Genuine variants that fall
+ * below it (Janez/Ivan 0.63, Jera/Gertrud 0.60) are knowingly demoted here and
+ * recovered by relationship corroboration instead, which junk same-surname
+ * pairs don't have.
+ */
+const GIVEN_CONFLICT_SIM = 0.7;
+
+/**
+ * Multiplier applied to the combined score on a given-name conflict. Chosen so
+ * the dense-cluster false positives observed at 75–85 land in the low-60s/
+ * high-50s (visible, but clearly flagged as long shots) and marginal weak
+ * candidates fall below `minScore` entirely, while a demoted genuine pair
+ * still scores high enough to be relationship-boosted back into the 90s.
+ */
+const GIVEN_CONFLICT_PENALTY = 0.8;
 
 /** Best marriage date/place similarity over the cross-product of both people's
  *  marriages (handles re-marriages; undefined when a side lacks the data). */
