@@ -1,0 +1,125 @@
+// Shared shapes and fact-line helpers for the report builders (the Ahnentafel
+// ancestor list and the descendant register). Pure dataset → entries logic,
+// kept apart from the builders so both compose the same vocabulary: compact
+// glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
+
+import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
+import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { localityParts } from "../gedcom/place";
+import type { Translate } from "../locales/i18n";
+import { EVENT_GLYPHS } from "../tree/timeline";
+import { MARRIAGE_SYMBOL } from "../tree/nodeDisplay";
+
+/** Name formatter injected by the UI (honours the Name-display settings). */
+export type { NameOf } from "../tree/timeline";
+import type { NameOf } from "../tree/timeline";
+
+/** One fact line under an entry: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`. */
+export interface FactLine {
+  /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, BURI, …). */
+  tag: string;
+  /** Classic genealogy symbol (* ~ ⚭ † ▭ — see {@link EVENT_GLYPHS}). */
+  glyph: string;
+  /** Original date text, exactly as recorded. */
+  date?: string;
+  place?: string;
+  /** Marriage lines carry the partner's display name. */
+  spouse?: string;
+}
+
+/** One numbered person in a report. */
+export interface ReportEntry {
+  num: number;
+  id: string;
+  sex: Sex;
+  name: string;
+  /** Lifespan label ("1817–1921", "1817–", …) — may be "". */
+  years: string;
+  living: boolean;
+  /** The person already appeared under this number (pedigree collapse /
+   *  descendant intermarriage) and their line continues there — this entry
+   *  carries no facts of its own. */
+  dupOf?: number;
+  /** Register report: the parent entry this person is grouped under. */
+  parentNum?: number;
+  /** Register report: the parent's display name, for the group heading. */
+  parentName?: string;
+  facts: FactLine[];
+}
+
+export interface ReportGeneration {
+  /** 0 = the root person, then one step per generation away from them. */
+  gen: number;
+  entries: ReportEntry[];
+}
+
+export interface ReportData {
+  generations: ReportGeneration[];
+  /** Total entries across all generations (duplicates included). */
+  total: number;
+}
+
+/** The localized heading for a generation, per report direction. */
+export function generationLabel(t: Translate, gen: number, direction: "ancestors" | "descendants"): string {
+  if (gen === 0) return t("report.gen.root");
+  if (gen <= 3) return t(`${direction === "ancestors" ? "ahnentafel" : "register"}.gen.${gen}`);
+  return t("report.gen.n", { n: gen });
+}
+
+export function makeEntry(
+  indi: Individual,
+  num: number,
+  nameOf: NameOf,
+  facts: FactLine[],
+  nowYear: number,
+  dupOf: number | undefined,
+): ReportEntry {
+  return {
+    num,
+    id: indi.id,
+    sex: indi.sex,
+    name: nameOf(indi),
+    years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
+    living: isPresumedLiving(indi, nowYear),
+    dupOf,
+    facts: dupOf === undefined ? facts : [],
+  };
+}
+
+/** A fact line for the first of the given events that has a date or a place. */
+export function factFor(indi: Individual, tags: string[]): FactLine | undefined {
+  for (const tag of tags) {
+    const e = indi.events.find((ev) => ev.tag === tag);
+    if (e && dated(e)) {
+      return { tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) };
+    }
+  }
+  return undefined;
+}
+
+/** The union's ⚭ line, when its MARR event carries a date or a place. */
+export function marriageFact(fam: Family, spouse: string | undefined): FactLine | undefined {
+  const marr = fam.events.find((e) => e.tag === "MARR");
+  if (!marr || !dated(marr)) return undefined;
+  return { tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse };
+}
+
+/** A fact's display location. Unlike the Timeline's compact one-word labels,
+ *  the report has room for both: the street address (house number kept) and
+ *  the place's most-specific locality — "Dunajska 5, Kranj" when both are
+ *  recorded, either one alone otherwise. */
+export function factPlace(e: GedEvent): string | undefined {
+  const addr = e.address?.parts[0];
+  const loc = e.place ? localityParts(e.place)[0] : undefined;
+  const parts = addr === loc ? [addr] : [addr, loc];
+  return parts.filter(Boolean).join(", ") || undefined;
+}
+
+export function dated(e: GedEvent): boolean {
+  return !!e.date?.raw || !!factPlace(e);
+}
+
+/** Resolve family ids to their records, keeping order, dropping dangling refs. */
+export function familiesOf(ds: Dataset, ids: string[]): Family[] {
+  return ids.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
+}

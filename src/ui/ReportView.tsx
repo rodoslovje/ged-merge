@@ -1,8 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildAhnentafel, generationLabel, type AhnEntry, type AhnentafelData } from "../report/ahnentafel";
-import { ahnentafelToText, factText } from "../report/text";
+import type { TreeMode } from "../tree/compareTree";
+import { buildAhnentafel } from "../report/ahnentafel";
+import { buildDescendants } from "../report/descendants";
+import { generationLabel, type ReportData, type ReportEntry } from "../report/model";
+import { factText, reportToText } from "../report/text";
 import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
@@ -18,16 +21,19 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
-// Full-page Ahnentafel report: the root person's ancestors as the classic
-// numbered list (root = 1, father = 2n, mother = 2n + 1) grouped by
-// generation — the Charts hub's first text report. Entries are compact glyph
-// fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried), the same
-// vocabulary the Timeline draws; clicking an entry opens the shared detail
-// panel, from which the report can be re-rooted. Exports: plain text download
-// and the print dialog (Save as PDF).
+// Full-page text report — the Charts hub's "Report" kind, with the shared
+// Ancestors/Descendants toggle choosing between:
+//  - the Ahnentafel: ancestors in classic numbering (root = 1, father = 2n,
+//    mother = 2n + 1), grouped by generation;
+//  - the descendant register: sequential (NGSQ-style) numbers in order of
+//    appearance, each generation's children grouped under "Children of no. X".
+// Entries are compact glyph fact lines (* born, ~ baptized, ⚭ married,
+// † died, ▭ buried), the same vocabulary the Timeline draws; clicking an
+// entry opens the shared detail panel, from which the report can be
+// re-rooted. Exports: plain text download and the print dialog (Save as PDF).
 
 // Same swatch convention as the Timeline: the root keeps the full-strength
-// accent, ancestors fade toward the panel.
+// accent, everyone else fades toward the panel.
 const COLOR_PERSON = "var(--accent)";
 const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
 
@@ -44,9 +50,13 @@ interface Props {
   /** Reports re-roots up to the Charts hub, so switching kinds stays on the
    *  person the user is looking at. */
   onRootChange?: (id: string) => void;
+  /** The hub-owned ancestors/descendants choice, shared with the pedigree
+   *  charts so the direction survives kind switches. */
+  mode: TreeMode;
+  onModeChange: (mode: TreeMode) => void;
 }
 
-export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const { settings } = useChartSettings();
@@ -58,21 +68,28 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
     onRootChange?.(id);
   }, [onRootChange]);
 
-  const data = useMemo(
+  // Both directions build (they also feed the toggle's count badges); the
+  // toggle picks which one the page shows.
+  const ancestors = useMemo(
     () => buildAhnentafel(masterDs, currentRootId, nameOf),
     [masterDs, currentRootId, nameOf],
   );
+  const descendants = useMemo(
+    () => buildDescendants(masterDs, currentRootId, nameOf),
+    [masterDs, currentRootId, nameOf],
+  );
+  const data = mode === "descendants" ? descendants : ancestors;
 
   // Redact people inferred to be living: keep their number and name (the
-  // pedigree structure), drop the dates, places and fact lines.
+  // family structure), drop the dates, places and fact lines.
   const privacy = settings.privacyLiving;
-  const redacted = useCallback((e: AhnEntry) => privacy && e.living, [privacy]);
+  const redacted = useCallback((e: ReportEntry) => privacy && e.living, [privacy]);
 
-  // Esc / Backspace leave; the kind digits are registered by the Charts hub.
-  useChartShortcuts({ onLeave: onBack });
+  // Esc / Backspace leave, A/D switch direction; kind digits are the hub's.
+  useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
 
   const rootEntry = data?.generations[0]?.entries[0];
-  const pageKind = t("ahnentafel.pageTitle");
+  const pageKind = t(mode === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle");
   const exportTitle = [rootEntry?.name, rootEntry && !redacted(rootEntry) ? rootEntry.years : undefined, "—", pageKind]
     .filter(Boolean)
     .join(" ");
@@ -118,12 +135,12 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
               key: "txt",
               icon: <FileTextIcon />,
               label: t("export.txt"),
-              title: t("ahnentafel.exportTxt.tooltip"),
+              title: t("report.exportTxt.tooltip"),
               onSelect: () =>
                 data &&
                 downloadText(
                   `${diagramSlug(rootEntry?.name, pageKind)}.txt`,
-                  ahnentafelToText(t, data, exportTitle, { privacyLiving: privacy }),
+                  reportToText(t, data, mode, exportTitle, { privacyLiving: privacy }),
                 ),
             },
             {
@@ -131,14 +148,27 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
               icon: <FileTextIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
-              onSelect: () => data && printDocument(printDoc(t, data, exportTitle, diagramSlug(rootEntry?.name, pageKind), privacy)),
+              onSelect: () =>
+                data && printDocument(printDoc(t, data, mode, exportTitle, diagramSlug(rootEntry?.name, pageKind), privacy)),
             },
           ]}
         />
       </div>
 
       <div className="tree-controls">
-        <div className="tree-controls-left">{kindSwitcher}</div>
+        <div className="tree-controls-left">
+          {kindSwitcher}
+          <div className="tree-mode">
+            <button className={mode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
+              {t("tree.ancestors")}
+              {ancestors && <span className="tree-mode-count">{ancestors.total}</span>}
+            </button>
+            <button className={mode === "descendants" ? "active" : ""} onClick={() => onModeChange("descendants")}>
+              {t("tree.descendants")}
+              {descendants && <span className="tree-mode-count">{descendants.total}</span>}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="tree-canvas-wrap">
@@ -147,29 +177,36 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
             <div className="report-page">
               {data.generations.map((g) => (
                 <section key={g.gen}>
-                  <h3 className="report-gen-head">{generationLabel(t, g.gen)}</h3>
-                  {g.entries.map((e) => (
-                    <div
-                      key={e.num}
-                      className={`report-entry${e.id === selectedId ? " selected" : ""}`}
-                      onClick={() => setSelectedId(e.id)}
-                      title={t("tree.node.clickHint")}
-                    >
-                      <span className="report-num gm-data">{e.num}.</span>
-                      <div className="report-entry-body">
-                        <div>
-                          <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
-                          {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
-                          {e.dupOf !== undefined && (
-                            <span className="report-dup">→ {t("ahnentafel.dup", { n: e.dupOf })}</span>
-                          )}
+                  <h3 className="report-gen-head">{generationLabel(t, g.gen, mode)}</h3>
+                  {g.entries.map((e, i) => (
+                    <div key={`${e.num}-${i}`}>
+                      {/* Register generations group children under their parent. */}
+                      {e.parentNum !== undefined && e.parentNum !== g.entries[i - 1]?.parentNum && (
+                        <h4 className="report-family-head">
+                          {t("register.childrenOf", { n: e.parentNum, name: e.parentName })}
+                        </h4>
+                      )}
+                      <div
+                        className={`report-entry${e.id === selectedId ? " selected" : ""}`}
+                        onClick={() => setSelectedId(e.id)}
+                        title={t("tree.node.clickHint")}
+                      >
+                        <span className="report-num gm-data">{e.num}.</span>
+                        <div className="report-entry-body">
+                          <div>
+                            <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
+                            {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
+                            {e.dupOf !== undefined && (
+                              <span className="report-dup">→ {t("ahnentafel.dup", { n: e.dupOf })}</span>
+                            )}
+                          </div>
+                          {!redacted(e) &&
+                            e.facts.map((f, j) => (
+                              <div key={j} className="report-fact gm-data">
+                                {factText(f)}
+                              </div>
+                            ))}
                         </div>
-                        {!redacted(e) &&
-                          e.facts.map((f, i) => (
-                            <div key={i} className="report-fact gm-data">
-                              {factText(f)}
-                            </div>
-                          ))}
                       </div>
                     </div>
                   ))}
@@ -207,11 +244,23 @@ export function AhnentafelReport({ masterDs, rootId, backLabel, onBack, onNaviga
 
 /** The standalone print document ("Save as PDF"): the same content as the
  *  page, in a self-contained light-palette sheet (no app CSS to resolve). */
-function printDoc(t: Translate, data: AhnentafelData, title: string, fileName: string, privacy: boolean): string {
+function printDoc(
+  t: Translate,
+  data: ReportData,
+  direction: TreeMode,
+  title: string,
+  fileName: string,
+  privacy: boolean,
+): string {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
   for (const g of data.generations) {
-    parts.push(`<h2>${escapeHtml(generationLabel(t, g.gen))}</h2>`);
+    parts.push(`<h2>${escapeHtml(generationLabel(t, g.gen, direction))}</h2>`);
+    let lastParent: number | undefined;
     for (const e of g.entries) {
+      if (e.parentNum !== undefined && e.parentNum !== lastParent) {
+        parts.push(`<h3>${escapeHtml(t("register.childrenOf", { n: e.parentNum, name: e.parentName }))}</h3>`);
+        lastParent = e.parentNum;
+      }
       const hidden = privacy && e.living;
       const head =
         `<span class="num">${e.num}.</span> <strong>${escapeHtml(e.name)}</strong>` +
@@ -228,6 +277,7 @@ function printDoc(t: Translate, data: AhnentafelData, title: string, fileName: s
   body { font: 11pt/1.45 Georgia, "Times New Roman", serif; color: #000; margin: 0; }
   h1 { font-size: 15pt; margin: 0 0 12pt; }
   h2 { font-size: 12pt; margin: 14pt 0 6pt; border-bottom: 1pt solid #999; padding-bottom: 2pt; }
+  h3 { font-size: 11pt; margin: 10pt 0 4pt; font-style: italic; font-weight: 500; }
   .entry { margin: 0 0 7pt; page-break-inside: avoid; }
   .num { display: inline-block; min-width: 2.2em; }
   .years, .dup { color: #444; }

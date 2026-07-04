@@ -1,25 +1,34 @@
-// Plain-text rendering of the Ahnentafel report, for the Export ▾ → Text
-// download. Same content the page shows: generation headings, numbered
+// Plain-text rendering of the reports (Ahnentafel / descendant register), for
+// the Export ▾ → Text download. Same content the page shows: generation
+// headings, "Children of no. X" group headings (register only), numbered
 // entries, indented glyph fact lines — kept pure so it's unit-testable.
 
 import type { Translate } from "../locales/i18n";
-import { generationLabel, type AhnentafelData, type AhnEntry, type FactLine } from "./ahnentafel";
+import { generationLabel, type FactLine, type ReportData, type ReportEntry } from "./model";
 
-export interface AhnentafelTextOptions {
+export interface ReportTextOptions {
   /** Redact presumed-living people: keep their number + name, drop the rest. */
   privacyLiving?: boolean;
 }
 
-export function ahnentafelToText(
+export function reportToText(
   t: Translate,
-  data: AhnentafelData,
+  data: ReportData,
+  direction: "ancestors" | "descendants",
   title: string,
-  opts: AhnentafelTextOptions = {},
+  opts: ReportTextOptions = {},
 ): string {
   const lines: string[] = [title, "=".repeat(title.length), ""];
   for (const g of data.generations) {
-    lines.push(generationLabel(t, g.gen), "");
+    lines.push(generationLabel(t, g.gen, direction), "");
+    let lastParent: number | undefined;
     for (const entry of g.entries) {
+      // Register generations group children under their parent's entry.
+      if (entry.parentNum !== undefined && entry.parentNum !== lastParent) {
+        if (lastParent !== undefined) lines.push("");
+        lines.push(t("register.childrenOf", { n: entry.parentNum, name: entry.parentName }));
+        lastParent = entry.parentNum;
+      }
       lines.push(...entryLines(t, entry, opts));
     }
     lines.push("");
@@ -27,7 +36,7 @@ export function ahnentafelToText(
   return lines.join("\n").replace(/\n+$/, "\n");
 }
 
-function entryLines(t: Translate, entry: AhnEntry, opts: AhnentafelTextOptions): string[] {
+function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): string[] {
   const redacted = !!opts.privacyLiving && entry.living;
   const head = `${entry.num}. ${entry.name}${!redacted && entry.years ? ` (${entry.years})` : ""}`;
   if (entry.dupOf !== undefined) {

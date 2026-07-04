@@ -1,61 +1,20 @@
-// Data model for the Ahnentafel report: the root person's ancestors as the
-// classic numbered list (root = 1, a person's father = 2n, mother = 2n + 1),
-// grouped by generation. Pure dataset → entries logic, so it's unit-testable;
-// the component (ui/AhnentafelReport.tsx) and the text serializer
-// (report/text.ts) only render what's built here.
+// The Ahnentafel report: the root person's ancestors as the classic numbered
+// list (root = 1, a person's father = 2n, mother = 2n + 1), grouped by
+// generation. Pure dataset → entries logic (shapes and fact helpers in
+// report/model.ts), so it's unit-testable; the component (ui/ReportView.tsx)
+// and the text serializer (report/text.ts) only render what's built here.
 
-import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, Individual } from "../gedcom/types";
 import {
-  birthYear,
-  deathYear,
-  formatLifespan,
-  isDeceased,
-  isPresumedLiving,
-} from "../gedcom/lifespan";
-import { localityParts } from "../gedcom/place";
-import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS, type NameOf } from "../tree/timeline";
-import { MARRIAGE_SYMBOL } from "../tree/nodeDisplay";
-
-/** One fact line under an entry: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`. */
-export interface FactLine {
-  /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, BURI, …). */
-  tag: string;
-  /** Classic genealogy symbol (* ~ ⚭ † ▭ — see {@link EVENT_GLYPHS}). */
-  glyph: string;
-  /** Original date text, exactly as recorded. */
-  date?: string;
-  place?: string;
-  /** Marriage lines carry the other parent's display name. */
-  spouse?: string;
-}
-
-/** One numbered ancestor. */
-export interface AhnEntry {
-  num: number;
-  id: string;
-  sex: Sex;
-  name: string;
-  /** Lifespan label ("1817–1921", "1817–", …) — may be "". */
-  years: string;
-  living: boolean;
-  /** Pedigree collapse: this ancestor already appeared under this number, and
-   *  their line continues there — this entry carries no facts of its own. */
-  dupOf?: number;
-  facts: FactLine[];
-}
-
-export interface AhnGeneration {
-  /** 0 = the root person, 1 = parents, 2 = grandparents, … */
-  gen: number;
-  entries: AhnEntry[];
-}
-
-export interface AhnentafelData {
-  generations: AhnGeneration[];
-  /** Total entries across all generations (duplicates included). */
-  total: number;
-}
+  factFor,
+  makeEntry,
+  marriageFact,
+  type FactLine,
+  type NameOf,
+  type ReportData,
+  type ReportEntry,
+  type ReportGeneration,
+} from "./model";
 
 /**
  * Build the numbered ancestor list for a root person. Missing parents simply
@@ -68,22 +27,22 @@ export function buildAhnentafel(
   rootId: string,
   nameOf: NameOf,
   nowYear: number = new Date().getFullYear(),
-): AhnentafelData | undefined {
+): ReportData | undefined {
   const root = ds.individuals.get(rootId);
   if (!root) return undefined;
 
   const firstNum = new Map<string, number>();
-  const generations: AhnGeneration[] = [];
+  const generations: ReportGeneration[] = [];
   let total = 0;
   let queue: { num: number; indi: Individual; marriage?: FactLine }[] = [{ num: 1, indi: root }];
 
   for (let gen = 0; queue.length > 0; gen++) {
-    const entries: AhnEntry[] = [];
+    const entries: ReportEntry[] = [];
     const next: typeof queue = [];
 
     for (const { num, indi, marriage } of queue) {
       const dupOf = firstNum.get(indi.id);
-      entries.push(makeEntry(indi, num, nameOf, marriage, nowYear, dupOf));
+      entries.push(makeEntry(indi, num, nameOf, vitals(indi, marriage), nowYear, dupOf));
       total++;
       if (dupOf !== undefined) continue; // the line already continues there
       firstNum.set(indi.id, num);
@@ -121,71 +80,13 @@ export function buildAhnentafel(
   return { generations, total };
 }
 
-/** The localized heading for a generation (shared by the page and the .txt). */
-export function generationLabel(t: Translate, gen: number): string {
-  if (gen <= 3) return t(`ahnentafel.gen.${gen}`);
-  return t("ahnentafel.gen.n", { n: gen });
-}
-
-function makeEntry(
-  indi: Individual,
-  num: number,
-  nameOf: NameOf,
-  marriage: FactLine | undefined,
-  nowYear: number,
-  dupOf: number | undefined,
-): AhnEntry {
-  const facts: FactLine[] =
-    dupOf === undefined
-      ? [
-          factFor(indi, ["BIRT"]),
-          factFor(indi, ["BAPM", "CHR"]),
-          marriage,
-          factFor(indi, ["DEAT"]),
-          factFor(indi, ["BURI", "CREM"]),
-        ].filter((f): f is FactLine => f !== undefined)
-      : [];
-  return {
-    num,
-    id: indi.id,
-    sex: indi.sex,
-    name: nameOf(indi),
-    years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
-    living: isPresumedLiving(indi, nowYear),
-    dupOf,
-    facts,
-  };
-}
-
-/** A fact line for the first of the given events that has a date or a place. */
-function factFor(indi: Individual, tags: string[]): FactLine | undefined {
-  for (const tag of tags) {
-    const e = indi.events.find((ev) => ev.tag === tag);
-    if (e && dated(e)) {
-      return { tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) };
-    }
-  }
-  return undefined;
-}
-
-/** The union's ⚭ line, when its MARR event carries a date or a place. */
-function marriageFact(fam: Family, spouse: string | undefined): FactLine | undefined {
-  const marr = fam.events.find((e) => e.tag === "MARR");
-  if (!marr || !dated(marr)) return undefined;
-  return { tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse };
-}
-
-/** A fact's display location. Unlike the Timeline's compact one-word labels,
- *  the report has room for both: the street address (house number kept) and
- *  the place's most-specific locality — "Dunajska 5, Kranj" when both are
- *  recorded, either one alone otherwise. */
-function factPlace(e: GedEvent): string | undefined {
-  const addr = e.address?.parts[0];
-  const loc = e.place ? localityParts(e.place)[0] : undefined;
-  const parts = addr === loc ? [addr] : [addr, loc];
-  return parts.filter(Boolean).join(", ") || undefined;
-}
-
-function dated(e: GedEvent): boolean {
-  return !!e.date?.raw || !!factPlace(e);
+/** Vitals in report order: * ~ ⚭ † ▭. */
+function vitals(indi: Individual, marriage: FactLine | undefined): FactLine[] {
+  return [
+    factFor(indi, ["BIRT"]),
+    factFor(indi, ["BAPM", "CHR"]),
+    marriage,
+    factFor(indi, ["DEAT"]),
+    factFor(indi, ["BURI", "CREM"]),
+  ].filter((f): f is FactLine => f !== undefined);
 }

@@ -10,7 +10,7 @@ import { BackButton } from "./BackButton";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
-import { AhnentafelReport } from "./AhnentafelReport";
+import { ReportView } from "./ReportView";
 import { StartPersonSelector } from "./StartPersonSelector";
 
 // The full-page "Charts" hub for a person in the master file: one overlay that
@@ -53,7 +53,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   // remounts the pedigree chart.
   const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
-  // Digits 1–6 switch the kind (the chart-level keys — zoom, A/D, Esc — are
+  // Digits 1–7 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
   // on the start-person prompt page, where no chart is mounted to own it.
   const showingPrompt = settings.kind === "relationship" && !startId;
@@ -69,7 +69,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
 
   if (settings.kind === "report") {
     return (
-      <AhnentafelReport
+      <ReportView
         masterDs={masterDs}
         rootId={rootId}
         backLabel={backLabel}
@@ -77,6 +77,8 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
         onNavigate={onNavigate}
         onRootChange={setRootId}
         kindSwitcher={kindSwitcher}
+        mode={treeMode}
+        onModeChange={setTreeMode}
       />
     );
   }

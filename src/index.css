@@ -3755,6 +3755,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding-bottom: 4px;
 }
 .report-page section:first-child .report-gen-head { margin-top: 0; }
+/* Register: the "Children of no. X" group heading inside a generation. */
+.report-family-head {
+  margin: 12px 0 2px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--muted);
+}
 .report-entry {
   display: flex;
   gap: 8px;

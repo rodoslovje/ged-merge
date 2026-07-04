@@ -3,8 +3,9 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
-import { buildAhnentafel, type AhnEntry } from "./ahnentafel";
-import { ahnentafelToText } from "./text";
+import { buildAhnentafel } from "./ahnentafel";
+import type { ReportEntry } from "./model";
+import { reportToText } from "./text";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -39,13 +40,13 @@ const ANCESTORS = wrap(
 // A fixed "today" so the living window is reproducible.
 const NOW = 2000;
 
-function entry(entries: AhnEntry[], num: number): AhnEntry {
+function entry(entries: ReportEntry[], num: number): ReportEntry {
   const e = entries.find((x) => x.num === num);
   expect(e, `entry ${num}`).toBeDefined();
   return e!;
 }
 
-function flat(dsText: string, rootId: string): AhnEntry[] {
+function flat(dsText: string, rootId: string): ReportEntry[] {
   const data = buildAhnentafel(dataset(dsText), rootId, nameOf, NOW);
   expect(data).toBeDefined();
   return data!.generations.flatMap((g) => g.entries);
@@ -167,14 +168,14 @@ describe("buildAhnentafel", () => {
   });
 });
 
-describe("ahnentafelToText", () => {
+describe("reportToText (ancestors)", () => {
   const ds = dataset(ANCESTORS);
   const data = buildAhnentafel(ds, "@I1@", nameOf, NOW)!;
 
   it("renders the title, generation headings and indented fact lines", () => {
-    const text = ahnentafelToText(tr, data, "Janez Novak — Ahnentafel");
+    const text = reportToText(tr, data, "ancestors", "Janez Novak — Ahnentafel");
     expect(text).toContain("Janez Novak — Ahnentafel\n========================");
-    expect(text).toContain("ahnentafel.gen.0\n\n1. Janez Novak (1900–1970)\n   * 1900, Kranj\n   † 1970");
+    expect(text).toContain("report.gen.root\n\n1. Janez Novak (1900–1970)\n   * 1900, Kranj\n   † 1970");
     expect(text).toContain("2. Anton Novak (1870–1940)");
     expect(text).toContain("   ⚭ 1895 — Marija Oblak");
     expect(text).toContain("ahnentafel.gen.3"); // Franc's generation heading
@@ -185,7 +186,7 @@ describe("ahnentafelToText", () => {
       "0 @I1@ INDI\n1 NAME Young /X/\n1 BIRT\n2 DATE 1950\n2 PLAC Kranj\n",
     ));
     const d = buildAhnentafel(recent, "@I1@", nameOf, NOW)!;
-    const text = ahnentafelToText(tr, d, "T", { privacyLiving: true });
+    const text = reportToText(tr, d, "ancestors", "T", { privacyLiving: true });
     expect(text).toContain("1. Young X");
     expect(text).not.toContain("1950");
     expect(text).not.toContain("Kranj");
