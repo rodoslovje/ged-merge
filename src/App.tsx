@@ -1000,10 +1000,15 @@ function AppContent() {
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
   const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools });
   modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools };
+  // True while a full-page chart overlay covers the mode views — mode switching
+  // (and the hidden views' own bare-key handlers, via their `active` props)
+  // must not act on the app underneath. Assigned below, once the overlay state
+  // it derives from has been declared.
+  const overlayOpenRef = useRef(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return;
+      if (isEditableTarget(e.target) || isModalOpen() || overlayOpenRef.current) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
       const { mode: cur, switchToEdit: se, switchToMerge: sme, switchToTools: st } = modeSwitchRef.current;
@@ -1102,6 +1107,8 @@ function AppContent() {
   // Charts hub: the full-page per-person diagram overlay (pedigree charts +
   // relationship). Which diagram it shows is the persisted chart "kind".
   const [chartsRootId, setChartsRootId] = useState<string | null>(null);
+  overlayOpenRef.current = !!(treeView || chartsRootId);
+  const overlayOpen = overlayOpenRef.current;
 
   /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
   function openCharts(id: string, kind?: ChartKind) {
@@ -1745,11 +1752,13 @@ function AppContent() {
                 {lastMasterFile && (
                   <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={`${t("tree.master")}: ${lastMasterFile.fileName} — ${t("header.filePill.hint")}`}>
                     {lastMasterFile.fileName}
+                    <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
                   </button>
                 )}
                 {compare.status === "loaded" && (
                   <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
                     {compare.file.fileName}
+                    <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
                   </button>
                 )}
               </div>
@@ -1948,7 +1957,7 @@ function AppContent() {
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}
-              active={mode === "merge"}
+              active={mode === "merge" && !overlayOpen}
             />
           </div>
           <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
@@ -1973,7 +1982,7 @@ function AppContent() {
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
-              active={mode === "edit"}
+              active={mode === "edit" && !overlayOpen}
             />
           </div>
           <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>

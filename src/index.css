@@ -104,16 +104,16 @@ button:focus-visible {
   flex: none;
 }
 .header-file-btn:hover { border-color: var(--accent); background: var(--panel-2); }
-/* Main-header pills open the file-info panel — a small chevron makes them read
-   as clickable. The tree-shell header's pills just navigate back, so no chevron. */
-.app-head-top .header-file-btn::after {
-  content: "▾";
-  font-size: 0.6rem;
+/* Main-header pills open the file-info panel — a chevron (▾/▴ with the panel
+   state, like the section headers) makes them read as clickable. The
+   tree-shell header's pills just navigate back, so they render no chevron. */
+.header-file-caret {
+  font-size: 0.85rem;
+  line-height: 1;
   color: var(--muted);
   flex: none;
 }
-.tree-shell-head .header-file-btn::after { content: none; }
-.header-file-btn:hover::after { color: inherit; }
+.header-file-btn:hover .header-file-caret { color: inherit; }
 
 /* Second header row: start selector (grows) + save/undo/redo (right) */
 .app-head-controls {
