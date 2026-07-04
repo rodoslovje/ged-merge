@@ -566,7 +566,7 @@ export const sl = {
   "ahnentafel.gen.2": "Stari starši",
   "ahnentafel.gen.3": "Prastarši",
   "ahnentafel.dup": "ista oseba kot št. {{n}}",
-  "register.pageTitle": "Seznam potomcev",
+  "register.pageTitle": "Seznam potomcev (NGSQ)",
   "register.gen.1": "Otroci",
   "register.gen.2": "Vnuki",
   "register.gen.3": "Pravnuki",

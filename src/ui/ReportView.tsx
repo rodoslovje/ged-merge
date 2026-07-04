@@ -4,7 +4,14 @@ import type { Dataset } from "../gedcom/types";
 import type { TreeMode } from "../tree/compareTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
-import { generationHeading, romanIndex, type PersonRef, type ReportData, type ReportEntry } from "../report/model";
+import {
+  generationHeading,
+  romanIndex,
+  type PersonRef,
+  type ReportData,
+  type ReportEntry,
+  type SourceLine,
+} from "../report/model";
 import { childrenOfLabel, factText, reportToText } from "../report/text";
 import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
@@ -277,22 +284,13 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                                 {note}
                               </div>
                             ))}
-                          {!redacted(e) &&
-                            (e.sources ?? []).map((src, j) => (
-                              <div key={`s${j}`} className="report-source gm-data">
-                                {src}
-                              </div>
-                            ))}
+                          {!redacted(e) && (e.sources ?? []).map((src, j) => sourceNode(src, `s${j}`))}
                           {!redacted(e) &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
                                 {factText(f)}
                                 {f.note && <div className="report-note">{f.note}</div>}
-                                {(f.sources ?? []).map((src, k) => (
-                                  <div key={k} className="report-source">
-                                    {src}
-                                  </div>
-                                ))}
+                                {(f.sources ?? []).map((src, k) => sourceNode(src, k))}
                               </div>
                             ))}
                         </div>
@@ -332,6 +330,27 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
   );
 }
 
+/** A source citation line — a link to the resolved page/image when there is
+ *  one (click must not select the entry), plain text otherwise. */
+function sourceNode(src: SourceLine, key: React.Key) {
+  return src.url ? (
+    <a
+      key={key}
+      className="report-source gm-data"
+      href={src.url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(ev) => ev.stopPropagation()}
+    >
+      {src.text} ↗
+    </a>
+  ) : (
+    <div key={key} className="report-source gm-data">
+      {src.text}
+    </div>
+  );
+}
+
 /** The standalone print document ("Save as PDF"): the same content as the
  *  page, in a self-contained light-palette sheet (no app CSS to resolve). */
 function printDoc(
@@ -361,11 +380,15 @@ function printDoc(
         `${numCell} <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
+      const sourceDiv = (s: SourceLine) =>
+        `<div class="source">${
+          s.url ? `<a href="${escapeHtml(s.url)}">${escapeHtml(s.text)}</a>` : escapeHtml(s.text)
+        }</div>`;
       const notes = hidden
         ? []
         : [
             ...(e.notes ?? []).map((n) => `<div class="note">${escapeHtml(n)}</div>`),
-            ...(e.sources ?? []).map((s) => `<div class="source">${escapeHtml(s)}</div>`),
+            ...(e.sources ?? []).map(sourceDiv),
           ];
       const facts = hidden
         ? []
@@ -373,7 +396,7 @@ function printDoc(
             (f) =>
               `<div class="fact">${escapeHtml(factText(f))}` +
               (f.note ? `<div class="note">${escapeHtml(f.note)}</div>` : "") +
-              (f.sources ?? []).map((s) => `<div class="source">${escapeHtml(s)}</div>`).join("") +
+              (f.sources ?? []).map(sourceDiv).join("") +
               `</div>`,
           );
       parts.push(`<div class="entry">${head}${notes.join("")}${facts.join("")}</div>`);
@@ -395,6 +418,7 @@ function printDoc(
   .fact { margin-left: 2.6em; color: #222; }
   .note { font-style: italic; color: #444; white-space: pre-wrap; }
   .source { color: #555; font-size: 10pt; }
+  .source a { color: #1a4b7a; text-decoration: none; }
   .entry > .note, .entry > .source { margin-left: 2.6em; }
   .fact > .note, .fact > .source { margin-left: 1.2em; }
 </style></head><body>${parts.join("")}</body></html>`;

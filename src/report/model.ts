@@ -28,8 +28,15 @@ export interface FactLine {
   spouse?: string;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
-  /** The event's formatted source citations ("§ title, page"), when enabled. */
-  sources?: string[];
+  /** The event's formatted source citations, when enabled. */
+  sources?: SourceLine[];
+}
+
+/** One rendered citation: the "§ title, page" text plus the best link the
+ *  citation resolver found (exact cited page, source image, or repository). */
+export interface SourceLine {
+  text: string;
+  url?: string;
 }
 
 /** The optional fact lines a report can add beyond the vitals. */
@@ -72,8 +79,8 @@ export interface ReportEntry {
   childIndex?: number;
   /** Record-level person notes, shown under the name when notes are enabled. */
   notes?: string[];
-  /** Record-level source citations ("§ title, page"), when enabled. */
-  sources?: string[];
+  /** Record-level source citations, when enabled. */
+  sources?: SourceLine[];
   facts: FactLine[];
 }
 
@@ -166,7 +173,7 @@ export function generationHeading(
 /** Attach the record-level notes/sources the options ask for (never on dups). */
 export function personExtras(entry: ReportEntry, indi: Individual, opts: ReportFactOptions): void {
   if (opts.notes && indi.notes?.length) entry.notes = indi.notes;
-  if (opts.sources && indi.sources?.length) entry.sources = indi.sources.map(citationText);
+  if (opts.sources && indi.sources?.length) entry.sources = indi.sources.map(sourceLine);
 }
 
 export function makeEntry(
@@ -235,13 +242,13 @@ export function marriageFact(fam: Family, spouse: string | undefined, opts: Repo
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
   if (opts.notes && e.note) fact.note = e.note;
-  if (opts.sources && e.sources?.length) fact.sources = e.sources.map(citationText);
+  if (opts.sources && e.sources?.length) fact.sources = e.sources.map(sourceLine);
   return fact;
 }
 
-/** A citation as one compact "§ title, page" line. */
-export function citationText(s: SourceCitation): string {
-  return `§ ${[s.title || s.sourceId, s.page].filter(Boolean).join(", ")}`;
+/** A citation as one compact "§ title, page" line plus its resolved link. */
+export function sourceLine(s: SourceCitation): SourceLine {
+  return { text: `§ ${[s.title || s.sourceId, s.page].filter(Boolean).join(", ")}`, url: s.url };
 }
 
 /** A fact's display location. Unlike the Timeline's compact one-word labels,

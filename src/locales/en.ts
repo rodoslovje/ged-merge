@@ -562,7 +562,7 @@ export const en = {
   "ahnentafel.gen.2": "Grandparents",
   "ahnentafel.gen.3": "Great-grandparents",
   "ahnentafel.dup": "same as no. {{n}}",
-  "register.pageTitle": "Descendant Register",
+  "register.pageTitle": "Descendant Register (NGSQ)",
   "register.gen.1": "Children",
   "register.gen.2": "Grandchildren",
   "register.gen.3": "Great-grandchildren",

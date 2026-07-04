@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
 import { buildAhnentafel } from "./ahnentafel";
-import { generationHeading, type ReportEntry } from "./model";
+import { generationHeading, sourceLine, type ReportEntry } from "./model";
 import { reportToText } from "./text";
 
 function dataset(text: string) {
@@ -214,8 +214,14 @@ describe("buildAhnentafel", () => {
     expect(off.sources).toBeUndefined();
     expect(off.facts[0].sources).toBeUndefined();
     const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { sources: true })!.generations[0].entries[0];
-    expect(on.sources).toEqual(["§ Krstna knjiga Kranj"]);
-    expect(on.facts[0].sources).toEqual(["§ Krstna knjiga Kranj, fol. 12"]);
+    expect(on.sources).toEqual([{ text: "§ Krstna knjiga Kranj", url: undefined }]);
+    expect(on.facts[0].sources).toEqual([{ text: "§ Krstna knjiga Kranj, fol. 12", url: undefined }]);
+  });
+
+  it("formats a resolved citation link into the source line", () => {
+    expect(
+      sourceLine({ sourceId: "@S1@", title: "Krstna knjiga", page: "fol. 12", url: "https://x.si/p/12", exact: true }),
+    ).toEqual({ text: "§ Krstna knjiga, fol. 12", url: "https://x.si/p/12" });
   });
 
   it("composes generation band headings with the entries' number range", () => {

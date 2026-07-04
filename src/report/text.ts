@@ -11,6 +11,7 @@ import {
   type PersonRef,
   type ReportData,
   type ReportEntry,
+  type SourceLine,
 } from "./model";
 
 export interface ReportTextOptions {
@@ -79,11 +80,11 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   const lines = [head];
   // Person notes and sources under the name, event ones under their fact line.
   for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
-  for (const src of entry.sources ?? []) lines.push(indent + src);
+  for (const src of entry.sources ?? []) lines.push(indent + sourceText(src));
   for (const f of entry.facts) {
     lines.push(indent + factText(f));
     if (f.note) lines.push(...noteLines(f.note, indent + "  "));
-    for (const src of f.sources ?? []) lines.push(indent + "  " + src);
+    for (const src of f.sources ?? []) lines.push(indent + "  " + sourceText(src));
   }
   return lines;
 }
@@ -91,6 +92,11 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
 /** A note's text as indented lines (notes may span several lines). */
 function noteLines(note: string, indent: string): string[] {
   return note.split("\n").map((l) => indent + l);
+}
+
+/** A source line with its link appended: `§ title, page — https://…`. */
+function sourceText(src: SourceLine): string {
+  return src.url ? `${src.text} — ${src.url}` : src.text;
 }
 
 /** One fact line, date always first: `⚭ 4 FEB 1866, Škofja Loka — Marija
