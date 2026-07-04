@@ -42,7 +42,7 @@ When the compare file loads, `src/normalize/` reshapes it to match the master's 
 
 ### Matching
 
-`src/match/engine.ts` scores each master/compare individual pair 0–100 over weighted field components (surname, given name, birth date/place, parents, partners, children, marriage). Hard gates on surname/given/year-gap prune implausible pairs before scoring. `src/match/distance.ts` re-ranks results by kinship hops from the home person.
+`src/match/engine.ts` scores each master/compare individual pair 0–100 over weighted field components (surname, given name, birth date/place, parents, partners, children, marriage). Hard gates on surname/given/year-gap prune implausible pairs before scoring. `src/match/distance.ts` re-ranks results by kinship hops from the home person. The full algorithm — pipeline stages, penalties, calibrated thresholds, and how to verify changes — is documented in [MATCHING.md](MATCHING.md).
 
 ### App state (App.tsx)
 
