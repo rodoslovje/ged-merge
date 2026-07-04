@@ -3509,11 +3509,19 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-canvas.panning * {
   cursor: grabbing !important;
 }
+/* Translucent at rest so the chart stays readable underneath; solid while the
+   pointer is over it (including viewport drags, which keep pointer capture). */
 .tree-minimap-box {
   position: absolute;
   top: 10px;
   left: 10px;
   line-height: 0;
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+.tree-minimap-box:hover,
+.tree-minimap-box:focus-within {
+  opacity: 1;
 }
 .tree-minimap {
   display: block;

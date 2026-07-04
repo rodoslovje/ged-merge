@@ -1,13 +1,13 @@
 import { useRef } from "react";
 import { NODE_H, NODE_W, PAD, type Placed, type Viewport } from "../tree/treeLayout";
 
-/** Fraction of the visible canvas the minimap box may occupy on each axis. Width
-   may run nearly edge-to-edge so an extreme, very wide tree gets a usefully large
-   overview, while height stays short. The tree is scaled uniformly to fit inside
-   this box, so the constraining axis hits its cap and the other takes only what it
-   needs — keeping the overview proportional instead of stretched. */
-const MINIMAP_MAX_W_FRACTION = 0.94;
-const MINIMAP_MAX_H_FRACTION = 0.3;
+/** Fraction of the visible canvas the minimap box may occupy on each axis —
+   kept small so the overview stays a corner aid rather than covering the chart
+   (it is also translucent at rest; see .tree-minimap-box). The tree is scaled
+   uniformly to fit inside this box, so the constraining axis hits its cap and
+   the other takes only what it needs — proportional, never stretched. */
+const MINIMAP_MAX_W_FRACTION = 0.32;
+const MINIMAP_MAX_H_FRACTION = 0.24;
 /** Hard pixel floor so a tiny tree still renders a usable, clickable map. */
 const MINIMAP_MIN = 120;
 
