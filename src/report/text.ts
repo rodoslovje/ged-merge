@@ -48,9 +48,9 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   return [head, ...entry.facts.map((f) => indent + factText(f))];
 }
 
-/** One fact line: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`; an event's own
- *  value leads (`⚒ Farmer, 1930`). */
+/** One fact line, date always first: `⚭ 4 FEB 1866, Škofja Loka — Marija
+ *  Oblak`, `⚒ 1958, orodjar`. */
 export function factText(f: FactLine): string {
-  const when = [f.value, f.date, f.place].filter(Boolean).join(", ");
+  const when = [f.date, f.value, f.place].filter(Boolean).join(", ");
   return `${f.glyph} ${when}${f.spouse ? ` — ${f.spouse}` : ""}`;
 }

@@ -551,7 +551,7 @@ export const en = {
   "report.gen.nos": "nos. {{from}}–{{to}}",
   "report.gen.known": "{{known}} of {{of}} known",
   "tree.settings.report.facts": "Facts",
-  "tree.settings.report.occupation": "Occupation",
+  "tree.settings.report.occupation": "Occupation & education",
   "tree.settings.report.residence": "Residence",
   "ahnentafel.pageTitle": "Ahnentafel Report",
   "ahnentafel.empty": "No person to report on.",

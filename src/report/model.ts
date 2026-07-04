@@ -124,15 +124,15 @@ export function makeEntry(
   };
 }
 
-/** The optional mid-life fact lines: every ⚒ occupation (its value leads the
- *  line), then every ⌂ residence, in record order. No conventional symbol
- *  exists for occupation; ⚒ is the closest widely-understood glyph. */
+/** The optional mid-life fact lines: every ⚒ occupation and ✎ education,
+ *  then every ⌂ residence, in record order. No conventional genealogy symbol
+ *  exists for these; ⚒ and ✎ are the closest widely-understood glyphs. */
 export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[] {
   const out: FactLine[] = [];
   if (opts.occupation) {
     for (const e of indi.events) {
-      if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
-      out.push({ tag: "OCCU", glyph: "⚒", value: e.value, date: e.date?.raw, place: factPlace(e) });
+      if ((e.tag !== "OCCU" && e.tag !== "EDUC") || (!e.value && !dated(e))) continue;
+      out.push({ tag: e.tag, glyph: e.tag === "OCCU" ? "⚒" : "✎", value: e.value, date: e.date?.raw, place: factPlace(e) });
     }
   }
   if (opts.residence) {

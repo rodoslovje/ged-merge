@@ -156,10 +156,10 @@ describe("buildAhnentafel", () => {
     ]);
   });
 
-  it("adds optional ⚒ occupation and ⌂ residence lines between ⚭ and †", () => {
+  it("adds optional ⚒/✎/⌂ occupation, education and residence lines between ⚭ and †", () => {
     const busy = wrap(
       "0 @I1@ INDI\n1 NAME Solo /One/\n1 BIRT\n2 DATE 1900\n1 DEAT\n2 DATE 1980\n" +
-        "1 OCCU Farmer\n2 DATE 1930\n1 OCCU Miller\n" +
+        "1 OCCU Farmer\n2 DATE 1930\n1 EDUC Gimnazija\n2 DATE 1918\n1 OCCU Miller\n" +
         "1 RESI\n2 DATE 1950\n2 PLAC Kranj\n2 ADDR Dunajska 5\n1 RESI\n", // the undated, placeless RESI is dropped
     );
     const ds2 = dataset(busy);
@@ -170,10 +170,15 @@ describe("buildAhnentafel", () => {
     expect(on.generations[0].entries[0].facts).toEqual([
       { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
+      { tag: "EDUC", glyph: "✎", value: "Gimnazija", date: "1918", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
       { tag: "RESI", glyph: "⌂", date: "1950", place: "Dunajska 5, Kranj" },
       { tag: "DEAT", glyph: "†", date: "1980", place: undefined },
     ]);
+    // The rendered line leads with the date, the value follows.
+    const text = reportToText(tr, on, "ancestors", "T");
+    expect(text).toContain("⚒ 1930, Farmer");
+    expect(text).toContain("✎ 1918, Gimnazija");
   });
 
   it("composes generation band headings with the entries' number range", () => {

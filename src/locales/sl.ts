@@ -555,7 +555,7 @@ export const sl = {
   "report.gen.nos": "št. {{from}}–{{to}}",
   "report.gen.known": "znanih {{known}} od {{of}}",
   "tree.settings.report.facts": "Dejstva",
-  "tree.settings.report.occupation": "Poklic",
+  "tree.settings.report.occupation": "Poklic in izobrazba",
   "tree.settings.report.residence": "Prebivališče",
   "ahnentafel.pageTitle": "Seznam prednikov (Ahnentafel)",
   "ahnentafel.empty": "Ni osebe za poročilo.",
