@@ -58,11 +58,34 @@ export interface ReportData {
   total: number;
 }
 
-/** The localized heading for a generation, per report direction. */
-export function generationLabel(t: Translate, gen: number, direction: "ancestors" | "descendants"): string {
-  if (gen === 0) return t("report.gen.root");
-  if (gen <= 3) return t(`${direction === "ancestors" ? "ahnentafel" : "register"}.gen.${gen}`);
-  return t("report.gen.n", { n: gen });
+/** A generation's band heading: "Generation 2 — Grandparents" plus the
+ *  number range its entries span ("nos. 4–7"). */
+export interface GenerationHeading {
+  title: string;
+  range?: string;
+}
+
+/** The localized band heading for a generation, per report direction. */
+export function generationHeading(
+  t: Translate,
+  g: ReportGeneration,
+  direction: "ancestors" | "descendants",
+): GenerationHeading {
+  // The root band needs no "no. 1" — it always holds exactly the root.
+  if (g.gen === 0) return { title: t("report.gen.root") };
+  const nums = g.entries.map((e) => e.num);
+  const range =
+    nums.length === 0
+      ? undefined
+      : nums.length === 1
+        ? t("report.gen.no", { n: nums[0] })
+        : t("report.gen.nos", { from: Math.min(...nums), to: Math.max(...nums) });
+  const genN = t("report.gen.n", { n: g.gen });
+  // Beyond great-grandparents/-children there's no everyday word — the
+  // numbered title stands alone.
+  if (g.gen > 3) return { title: genN, range };
+  const word = t(`${direction === "ancestors" ? "ahnentafel" : "register"}.gen.${g.gen}`);
+  return { title: `${genN} — ${word}`, range };
 }
 
 export function makeEntry(

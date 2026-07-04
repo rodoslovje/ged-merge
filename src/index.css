@@ -3747,12 +3747,27 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   max-width: 720px;
   padding: 20px 28px 40px;
 }
+/* Generation bands: a strong uppercase heading with the entry-number range,
+   so the generations structure the page at a glance. */
 .report-gen-head {
-  margin: 22px 0 8px;
-  font-size: 0.95rem;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 28px 0 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 6px;
+}
+.report-gen-range {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 4px;
 }
 .report-page section:first-child .report-gen-head { margin-top: 0; }
 /* Register: the "Children of no. X" group heading inside a generation. */

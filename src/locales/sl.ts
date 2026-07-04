@@ -551,6 +551,8 @@ export const sl = {
   "report.exportTxt.tooltip": "Prenesi to poročilo kot besedilno datoteko",
   "report.gen.root": "Izhodiščna oseba",
   "report.gen.n": "{{n}}. generacija",
+  "report.gen.no": "št. {{n}}",
+  "report.gen.nos": "št. {{from}}–{{to}}",
   "ahnentafel.pageTitle": "Seznam prednikov (Ahnentafel)",
   "ahnentafel.empty": "Ni osebe za poročilo.",
   "ahnentafel.gen.1": "Starši",

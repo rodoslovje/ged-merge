@@ -4,7 +4,7 @@
 // entries, indented glyph fact lines — kept pure so it's unit-testable.
 
 import type { Translate } from "../locales/i18n";
-import { generationLabel, type FactLine, type ReportData, type ReportEntry } from "./model";
+import { generationHeading, type FactLine, type ReportData, type ReportEntry } from "./model";
 
 export interface ReportTextOptions {
   /** Redact presumed-living people: keep their number + name, drop the rest. */
@@ -20,7 +20,8 @@ export function reportToText(
 ): string {
   const lines: string[] = [title, "=".repeat(title.length), ""];
   for (const g of data.generations) {
-    lines.push(generationLabel(t, g.gen, direction), "");
+    const h = generationHeading(t, g, direction);
+    lines.push([h.title, h.range].filter(Boolean).join(" · "), "");
     let lastParent: number | undefined;
     for (const entry of g.entries) {
       // Register generations group children under their parent's entry.

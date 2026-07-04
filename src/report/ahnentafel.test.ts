@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
 import { buildAhnentafel } from "./ahnentafel";
-import type { ReportEntry } from "./model";
+import { generationHeading, type ReportEntry } from "./model";
 import { reportToText } from "./text";
 
 function dataset(text: string) {
@@ -154,6 +154,23 @@ describe("buildAhnentafel", () => {
       { tag: "BIRT", glyph: "*", date: "1900", place: "Dunajska 5, Kranj, Slovenija" },
       { tag: "DEAT", glyph: "†", date: "1970", place: "Glavni trg 1" },
     ]);
+  });
+
+  it("composes generation band headings with the entries' number range", () => {
+    // A translator that shows its interpolation values, so ranges are visible.
+    const tri = (key: string, opts?: Record<string, unknown>) =>
+      opts ? `${key}(${Object.entries(opts).map(([k, v]) => `${k}=${v}`).join(",")})` : key;
+    expect(generationHeading(tri, data.generations[0], "ancestors")).toEqual({
+      title: "report.gen.root",
+    });
+    expect(generationHeading(tri, data.generations[2], "ancestors")).toEqual({
+      title: "report.gen.n(n=2) — ahnentafel.gen.2",
+      range: "report.gen.nos(from=4,to=7)",
+    });
+    expect(generationHeading(tri, data.generations[3], "ancestors")).toEqual({
+      title: "report.gen.n(n=3) — ahnentafel.gen.3",
+      range: "report.gen.no(n=8)", // a single-entry generation
+    });
   });
 
   it("returns undefined for an unknown root", () => {

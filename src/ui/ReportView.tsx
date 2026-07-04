@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import type { TreeMode } from "../tree/compareTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
-import { generationLabel, type ReportData, type ReportEntry } from "../report/model";
+import { generationHeading, type ReportData, type ReportEntry } from "../report/model";
 import { factText, reportToText } from "../report/text";
 import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
@@ -175,9 +175,14 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
         <div className="report-scroll">
           {data ? (
             <div className="report-page">
-              {data.generations.map((g) => (
+              {data.generations.map((g) => {
+                const heading = generationHeading(t, g, mode);
+                return (
                 <section key={g.gen}>
-                  <h3 className="report-gen-head">{generationLabel(t, g.gen, mode)}</h3>
+                  <h3 className="report-gen-head">
+                    <span>{heading.title}</span>
+                    {heading.range && <span className="report-gen-range gm-data">{heading.range}</span>}
+                  </h3>
                   {g.entries.map((e, i) => (
                     <div key={`${e.num}-${i}`}>
                       {/* Register generations group children under their parent. */}
@@ -211,7 +216,8 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                     </div>
                   ))}
                 </section>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="muted">{t("ahnentafel.empty")}</p>
@@ -254,7 +260,8 @@ function printDoc(
 ): string {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
   for (const g of data.generations) {
-    parts.push(`<h2>${escapeHtml(generationLabel(t, g.gen, direction))}</h2>`);
+    const h = generationHeading(t, g, direction);
+    parts.push(`<h2>${escapeHtml(h.title)}${h.range ? ` <span class="range">· ${escapeHtml(h.range)}</span>` : ""}</h2>`);
     let lastParent: number | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentNum !== lastParent) {
@@ -276,7 +283,8 @@ function printDoc(
   @page { margin: 18mm; }
   body { font: 11pt/1.45 Georgia, "Times New Roman", serif; color: #000; margin: 0; }
   h1 { font-size: 15pt; margin: 0 0 12pt; }
-  h2 { font-size: 12pt; margin: 14pt 0 6pt; border-bottom: 1pt solid #999; padding-bottom: 2pt; }
+  h2 { font-size: 12pt; margin: 14pt 0 6pt; border-bottom: 1.5pt solid #666; padding-bottom: 2pt; text-transform: uppercase; letter-spacing: 0.04em; }
+  h2 .range { font-weight: 400; text-transform: none; letter-spacing: 0; color: #444; font-size: 10pt; }
   h3 { font-size: 11pt; margin: 10pt 0 4pt; font-style: italic; font-weight: 500; }
   .entry { margin: 0 0 7pt; page-break-inside: avoid; }
   .num { display: inline-block; min-width: 2.2em; }

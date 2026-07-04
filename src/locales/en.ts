@@ -547,6 +547,8 @@ export const en = {
   "report.exportTxt.tooltip": "Download this report as a plain-text file",
   "report.gen.root": "Root person",
   "report.gen.n": "Generation {{n}}",
+  "report.gen.no": "no. {{n}}",
+  "report.gen.nos": "nos. {{from}}–{{to}}",
   "ahnentafel.pageTitle": "Ahnentafel Report",
   "ahnentafel.empty": "No person to report on.",
   "ahnentafel.gen.1": "Parents",
