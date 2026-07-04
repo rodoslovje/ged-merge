@@ -28,9 +28,10 @@ import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { MapIcon } from "./icons/MapIcon";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu } from "./ExportMenu";
 import { BackButton } from "./BackButton";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { FileTextIcon, GedIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
@@ -273,6 +274,11 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const chartKind = `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
   // Shared title for the SVG / PDF export header.
   const editTreeTitle = [tree?.name, tree?.years, "—", chartKind].filter(Boolean).join(" ");
+  // Everyone drawn on the current chart (incl. spouses in descendant mode) —
+  // the person set the GEDCOM export cuts out of the master file.
+  const chartPersonIds = (radial ? (fan?.segments ?? []).map((s) => s.node) : (flat?.nodes ?? []))
+    .map((n) => n.master?.id)
+    .filter((id): id is string => id !== undefined);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -299,6 +305,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
         <ExportMenu
           disabled={!activeLaid}
           items={[
+            {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: chartPersonIds.length }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () => exportChartGedcom(masterDs, chartPersonIds, diagramSlug(tree?.name, t(`tree.${effectiveMode}`))),
+            },
             {
               key: "svg",
               icon: <ImageIcon />,

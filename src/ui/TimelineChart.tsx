@@ -15,8 +15,9 @@ import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ZoomControls } from "./ZoomControls";
 import { diagramSlug, exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu } from "./ExportMenu";
-import { FileTextIcon, ImageIcon } from "./icons/FormatIcons";
+import { FileTextIcon, GedIcon, ImageIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -273,6 +274,13 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
         <ExportMenu
           disabled={!laid}
           items={[
+            {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: rows.length }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () => exportChartGedcom(masterDs, rows.map((r) => r.id), diagramSlug(rootRow?.name, pageKind)),
+            },
             {
               key: "svg",
               icon: <ImageIcon />,
