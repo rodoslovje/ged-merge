@@ -384,7 +384,7 @@ export const sl = {
   "globalSearch.count_two": "{{count}} osebi",
   "globalSearch.count_few": "{{count}} osebe",
   "globalSearch.count_other": "{{count}} oseb",
-  "globalSearch.hints": "↵ odpri · ⇧↵ drevo",
+  "globalSearch.hints": "↵ odpri · ⇧↵ diagrami",
   "globalSearch.needStart": "Za prikaz sorodstva nastavite izhodiščno osebo",
   "globalSearch.filters": "Filtri",
   "globalSearch.facet.sex": "Spol",

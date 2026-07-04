@@ -382,7 +382,7 @@ export const en = {
   "globalSearch.empty": "No people found",
   "globalSearch.count_one": "{{count}} person",
   "globalSearch.count_other": "{{count}} people",
-  "globalSearch.hints": "↵ open · ⇧↵ tree",
+  "globalSearch.hints": "↵ open · ⇧↵ charts",
   "globalSearch.needStart": "Set a start person to show relationships",
   "globalSearch.filters": "Filters",
   "globalSearch.facet.sex": "Sex",

@@ -285,10 +285,10 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
                   <button
                     type="button"
                     className="global-search-action"
-                    title={t("edit.tree.tooltip")}
+                    title={t("edit.charts.tooltip")}
                     onClick={() => choose(row, "tree")}
                   >
-                    {t("edit.tree.button")}
+                    {t("edit.charts.button")}
                   </button>
                   <button
                     type="button"
