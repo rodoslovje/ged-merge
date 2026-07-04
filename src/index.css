@@ -103,7 +103,17 @@ button:focus-visible {
   background: currentColor;
   flex: none;
 }
-.header-file-btn:hover { border-color: var(--border-2); background: var(--panel-2); }
+.header-file-btn:hover { border-color: var(--accent); background: var(--panel-2); }
+/* Main-header pills open the file-info panel — a small chevron makes them read
+   as clickable. The tree-shell header's pills just navigate back, so no chevron. */
+.app-head-top .header-file-btn::after {
+  content: "▾";
+  font-size: 0.6rem;
+  color: var(--muted);
+  flex: none;
+}
+.tree-shell-head .header-file-btn::after { content: none; }
+.header-file-btn:hover::after { color: inherit; }
 
 /* Second header row: start selector (grows) + save/undo/redo (right) */
 .app-head-controls {
@@ -3177,6 +3187,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   z-index: 10;
 }
 .export-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
@@ -3187,6 +3200,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 7px 10px;
   cursor: pointer;
 }
+.export-menu-item svg { flex: 0 0 auto; color: var(--muted); }
+.export-menu-item:hover svg { color: inherit; }
 .export-menu-item:hover { background: var(--panel-2); color: var(--accent); }
 
 .tree-page {

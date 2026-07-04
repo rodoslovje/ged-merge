@@ -10,6 +10,8 @@ import { DownloadIcon } from "./icons/DownloadIcon";
 export interface ExportItem {
   key: string;
   label: string;
+  /** Small format glyph rendered before the label. */
+  icon?: React.ReactNode;
   /** Tooltip explaining the format (e.g. the PDF item routes via the print dialog). */
   title?: string;
   onSelect: () => void;
@@ -55,6 +57,7 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
                 item.onSelect();
               }}
             >
+              {item.icon}
               {item.label}
             </button>
           ))}
