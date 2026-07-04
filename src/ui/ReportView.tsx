@@ -20,9 +20,10 @@ import { BackButton } from "./BackButton";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { diagramSlug, escapeHtml, printDocument } from "./exportSvg";
+import { exportChartGedcom } from "./exportGedcom";
 import { downloadText } from "./download";
 import { ExportMenu } from "./ExportMenu";
-import { FileTextIcon } from "./icons/FormatIcons";
+import { FileTextIcon, GedIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf } from "./SettingsContext";
@@ -106,6 +107,11 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
   useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
 
   const rootEntry = data?.generations[0]?.entries[0];
+  // The report's people, for the branch-GEDCOM export (dups appear once).
+  const reportIds = useMemo(
+    () => [...new Set((data?.generations ?? []).flatMap((g) => g.entries.map((e) => e.id)))],
+    [data],
+  );
   const pageKind = t(mode === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle");
   const exportTitle = [rootEntry?.name, rootEntry && !redacted(rootEntry) ? rootEntry.years : undefined, "—", pageKind]
     .filter(Boolean)
@@ -185,6 +191,13 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
           disabled={!data}
           items={[
             {
+              key: "ged",
+              icon: <GedIcon />,
+              label: t("export.gedcom", { count: reportIds.length }),
+              title: t("tree.exportGedcom.tooltip"),
+              onSelect: () => exportChartGedcom(masterDs, reportIds, diagramSlug(rootEntry?.name, pageKind)),
+            },
+            {
               key: "txt",
               icon: <FileTextIcon />,
               label: t("export.txt"),
@@ -198,7 +211,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
             },
             {
               key: "pdf",
-              icon: <FileTextIcon />,
+              icon: <PrinterIcon />,
               label: t("export.pdf"),
               title: t("tree.exportPdf.tooltip"),
               onSelect: () =>
