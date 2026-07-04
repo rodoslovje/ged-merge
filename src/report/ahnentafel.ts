@@ -12,8 +12,9 @@ import {
   isDeceased,
   isPresumedLiving,
 } from "../gedcom/lifespan";
+import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS, eventPlace, type NameOf } from "../tree/timeline";
+import { EVENT_GLYPHS, type NameOf } from "../tree/timeline";
 import { MARRIAGE_SYMBOL } from "../tree/nodeDisplay";
 
 /** One fact line under an entry: `⚭ 4 FEB 1866, Škofja Loka — Marija Oblak`. */
@@ -161,7 +162,7 @@ function factFor(indi: Individual, tags: string[]): FactLine | undefined {
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      return { tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: eventPlace(e) };
+      return { tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, place: factPlace(e) };
     }
   }
   return undefined;
@@ -171,9 +172,20 @@ function factFor(indi: Individual, tags: string[]): FactLine | undefined {
 function marriageFact(fam: Family, spouse: string | undefined): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr || !dated(marr)) return undefined;
-  return { tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: eventPlace(marr), spouse };
+  return { tag: "MARR", glyph: MARRIAGE_SYMBOL, date: marr.date?.raw, place: factPlace(marr), spouse };
+}
+
+/** A fact's display location. Unlike the Timeline's compact one-word labels,
+ *  the report has room for both: the street address (house number kept) and
+ *  the place's most-specific locality — "Dunajska 5, Kranj" when both are
+ *  recorded, either one alone otherwise. */
+function factPlace(e: GedEvent): string | undefined {
+  const addr = e.address?.parts[0];
+  const loc = e.place ? localityParts(e.place)[0] : undefined;
+  const parts = addr === loc ? [addr] : [addr, loc];
+  return parts.filter(Boolean).join(", ") || undefined;
 }
 
 function dated(e: GedEvent): boolean {
-  return !!e.date?.raw || !!eventPlace(e);
+  return !!e.date?.raw || !!factPlace(e);
 }
