@@ -4,7 +4,14 @@
 // entries, indented glyph fact lines — kept pure so it's unit-testable.
 
 import type { Translate } from "../locales/i18n";
-import { generationHeading, romanIndex, type FactLine, type ReportData, type ReportEntry } from "./model";
+import {
+  generationHeading,
+  romanIndex,
+  type FactLine,
+  type PersonRef,
+  type ReportData,
+  type ReportEntry,
+} from "./model";
 
 export interface ReportTextOptions {
   /** Redact presumed-living people: keep their number + name, drop the rest. */
@@ -27,7 +34,7 @@ export function reportToText(
       // Register generations group children per union, both parents named.
       if (entry.parentNum !== undefined && entry.parentFam !== lastFam) {
         if (lastFam !== undefined) lines.push("");
-        lines.push(childrenOfLabel(t, entry));
+        lines.push(childrenOfLabel(t, entry, opts.privacyLiving));
         lastFam = entry.parentFam;
       }
       lines.push(...entryLines(t, entry, opts));
@@ -38,11 +45,20 @@ export function reportToText(
 }
 
 /** The per-union group heading, naming both parents when the spouse is known
- *  (the parent's register number is redundant next to their name). */
-export function childrenOfLabel(t: Translate, entry: ReportEntry): string {
-  return entry.parentSpouse
-    ? t("register.childrenOfBoth", { name: entry.parentName, spouse: entry.parentSpouse })
-    : t("register.childrenOf", { name: entry.parentName });
+ *  (the parent's register number is redundant next to their name). Names carry
+ *  the lifespan like any entry — dropped for the living under privacy. */
+export function childrenOfLabel(t: Translate, entry: ReportEntry, privacy = false): string {
+  const name = entry.parent && refText(entry.parent, privacy);
+  const spouse = entry.parentSpouse && refText(entry.parentSpouse, privacy);
+  return spouse
+    ? t("register.childrenOfBoth", { name, spouse })
+    : t("register.childrenOf", { name });
+}
+
+/** A heading person as text: "Luka Renko (1974)". */
+function refText(ref: PersonRef, privacy: boolean): string {
+  const years = !(privacy && ref.living) && ref.years;
+  return years ? `${ref.name} (${years})` : ref.name;
 }
 
 /** The entry's leading number: "5." for ancestors and the root, the NGSQ

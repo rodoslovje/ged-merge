@@ -4,8 +4,8 @@ import type { Dataset } from "../gedcom/types";
 import type { TreeMode } from "../tree/compareTree";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
-import { generationHeading, type ReportData, type ReportEntry } from "../report/model";
-import { childrenOfLabel, entryNum, factText, reportToText } from "../report/text";
+import { generationHeading, romanIndex, type PersonRef, type ReportData, type ReportEntry } from "../report/model";
+import { childrenOfLabel, factText, reportToText } from "../report/text";
 import type { Placed } from "../tree/treeLayout";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
@@ -121,6 +121,31 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
     [masterDs, changeRoot],
   );
 
+  // The "Children of …" heading with the parents rendered like any other
+  // name: sex-coloured, lifespan after, privacy-redacted years. The localized
+  // template is split around its placeholders so the words stay translated.
+  const familyHeading = useCallback(
+    (e: ReportEntry) => {
+      const template = t(e.parentSpouse ? "register.childrenOfBoth" : "register.childrenOf", {
+        name: "\u0001",
+        spouse: "\u0002",
+        interpolation: { escapeValue: false },
+      });
+      const ref = (r: PersonRef, k: number) => (
+        <span key={k}>
+          <span className={`report-name ${sexClass(r.sex)}`}>{r.name}</span>
+          {!(privacy && r.living) && r.years && <span className="report-years gm-data">{r.years}</span>}
+        </span>
+      );
+      return template
+        .split(/([\u0001\u0002])/)
+        .map((part, k) =>
+          part === "\u0001" && e.parent ? ref(e.parent, k) : part === "\u0002" && e.parentSpouse ? ref(e.parentSpouse, k) : part,
+        );
+    },
+    [t, privacy],
+  );
+
   // Cross-reference jump: scroll a numbered entry into view and flash it.
   const jumpTo = useCallback((num: number) => {
     const el = document.getElementById(`report-entry-${num}`);
@@ -213,7 +238,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                       {e.parentNum !== undefined && e.parentFam !== g.entries[i - 1]?.parentFam && (
                         <h4 className="report-family-head">
                           <button className="report-jump" onClick={() => jumpTo(e.parentNum!)}>
-                            {childrenOfLabel(t, e)}
+                            {familyHeading(e)}
                           </button>
                         </h4>
                       )}
@@ -223,9 +248,13 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                         onClick={() => setSelectedId(e.id)}
                         title={t("tree.node.clickHint")}
                       >
-                        <span className={`report-num gm-data${e.childIndex !== undefined ? " with-roman" : ""}`}>
-                          {entryNum(e)}
+                        <span className="report-num gm-data">
+                          {e.num}
+                          {e.childIndex === undefined && "."}
                         </span>
+                        {e.childIndex !== undefined && (
+                          <span className="report-roman gm-data">{romanIndex(e.childIndex)}.</span>
+                        )}
                         <div className="report-entry-body">
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
@@ -321,12 +350,15 @@ function printDoc(
     let lastFam: string | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentFam !== lastFam) {
-        parts.push(`<h3>${escapeHtml(childrenOfLabel(t, e))}</h3>`);
+        parts.push(`<h3>${escapeHtml(childrenOfLabel(t, e, privacy))}</h3>`);
         lastFam = e.parentFam;
       }
       const hidden = privacy && e.living;
+      const numCell =
+        `<span class="num">${e.num}${e.childIndex === undefined ? "." : ""}</span>` +
+        (e.childIndex !== undefined ? `<span class="rom">${romanIndex(e.childIndex)}.</span>` : "");
       const head =
-        `<span class="num">${escapeHtml(entryNum(e))}</span> <strong>${escapeHtml(e.name)}</strong>` +
+        `${numCell} <strong>${escapeHtml(e.name)}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
       const notes = hidden
@@ -357,7 +389,8 @@ function printDoc(
   h2 .range { font-weight: 400; text-transform: none; letter-spacing: 0; color: #444; font-size: 10pt; }
   h3 { font-size: 11pt; margin: 10pt 0 4pt; font-style: italic; font-weight: 500; }
   .entry { margin: 0 0 7pt; page-break-inside: avoid; }
-  .num { display: inline-block; min-width: 3em; text-align: right; }
+  .num { display: inline-block; min-width: 2.2em; text-align: right; }
+  .rom { display: inline-block; min-width: 2.2em; text-align: right; margin-left: 0.3em; }
   .years, .dup { color: #444; }
   .fact { margin-left: 2.6em; color: #222; }
   .note { font-style: italic; color: #444; white-space: pre-wrap; }

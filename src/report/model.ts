@@ -58,11 +58,12 @@ export interface ReportEntry {
   dupOf?: number;
   /** Register report: the parent entry this person is grouped under. */
   parentNum?: number;
-  /** Register report: the parent's display name, for the group heading. */
-  parentName?: string;
-  /** Register report: the other parent's display name — children are grouped
-   *  per union, and the heading names both parents. */
-  parentSpouse?: string;
+  /** Register report: the descendant parent, for the group heading (children
+   *  are grouped per union, and the heading names both parents like any
+   *  other name — sex-coloured, with the lifespan). */
+  parent?: PersonRef;
+  /** Register report: the other parent. */
+  parentSpouse?: PersonRef;
   /** Register report: the union's family xref (the grouping boundary — a
    *  parent's remarriage starts a new children list). */
   parentFam?: string;
@@ -74,6 +75,26 @@ export interface ReportEntry {
   /** Record-level source citations ("§ title, page"), when enabled. */
   sources?: string[];
   facts: FactLine[];
+}
+
+/** A person referenced by a heading: enough to render the name like an
+ *  entry's (sex colour, lifespan, privacy redaction). */
+export interface PersonRef {
+  id: string;
+  name: string;
+  sex: Sex;
+  years: string;
+  living: boolean;
+}
+
+export function personRef(indi: Individual, nameOf: NameOf, nowYear: number): PersonRef {
+  return {
+    id: indi.id,
+    name: nameOf(indi),
+    sex: indi.sex,
+    years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
+    living: isPresumedLiving(indi, nowYear),
+  };
 }
 
 /** Lowercase roman numeral for an NGSQ child index (1 → i, 4 → iv …). */

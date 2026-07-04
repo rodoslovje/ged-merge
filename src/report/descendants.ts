@@ -14,8 +14,10 @@ import {
   makeEntry,
   marriageFact,
   personExtras,
+  personRef,
   type FactLine,
   type NameOf,
+  type PersonRef,
   type ReportData,
   type ReportEntry,
   type ReportFactOptions,
@@ -45,8 +47,8 @@ export function buildDescendants(
   interface QueueItem {
     indi: Individual;
     parentNum?: number;
-    parentName?: string;
-    parentSpouse?: string;
+    parent?: PersonRef;
+    parentSpouse?: PersonRef;
     parentFam?: string;
     childIndex?: number;
   }
@@ -82,8 +84,8 @@ export function buildDescendants(
           next.push({
             indi: kid,
             parentNum: num,
-            parentName: entry.name,
-            parentSpouse: partner && nameOf(partner),
+            parent: personRef(indi, nameOf, nowYear),
+            parentSpouse: partner && personRef(partner, nameOf, nowYear),
             parentFam: fam.id,
             childIndex: i + 1,
           });

@@ -58,11 +58,16 @@ describe("buildDescendants", () => {
   it("groups each generation's children per union, naming both parents", () => {
     const gen2 = data.generations[2].entries;
     expect(gen2.map((e) => `${e.num}<${e.parentNum}`)).toEqual(["5<2", "6<2", "7<3"]);
-    expect(gen2[0]).toMatchObject({ parentName: "Peter Novak", parentSpouse: "Eva Zajc", parentFam: "@F3@" });
-    expect(gen2[2]).toMatchObject({ parentName: "Ana Novak", parentSpouse: "Franc Kos", parentFam: "@F4@" });
+    // Parents carry name, sex and lifespan so the heading renders them like
+    // any other name.
+    expect(gen2[0].parent).toMatchObject({ name: "Peter Novak", sex: "M", years: "1896–1960" });
+    expect(gen2[0].parentSpouse).toMatchObject({ name: "Eva Zajc", sex: "F", years: "1900–1970" });
+    expect(gen2[0].parentFam).toBe("@F3@");
+    expect(gen2[2].parent).toMatchObject({ name: "Ana Novak" });
+    expect(gen2[2].parentSpouse).toMatchObject({ name: "Franc Kos" });
     // The root's two unions are two separate groups in generation 1.
     const gen1 = data.generations[1].entries;
-    expect(gen1.map((e) => `${e.parentFam}:${e.parentSpouse}`)).toEqual([
+    expect(gen1.map((e) => `${e.parentFam}:${e.parentSpouse?.name}`)).toEqual([
       "@F1@:Marija Oblak", "@F1@:Marija Oblak", "@F2@:Neza Kovac",
     ]);
   });

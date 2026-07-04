@@ -3794,7 +3794,19 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   text-align: right;
   color: var(--muted);
 }
-.report-num.with-roman { min-width: 4em; }
+/* The roman child index is its own right-aligned column, so the arabic
+   numbers line up among themselves and the romans among themselves. */
+.report-roman {
+  flex: 0 0 auto;
+  min-width: 2.9em;
+  text-align: right;
+  color: var(--muted);
+}
+/* Parent names in the family heading read like entry names (not italic). */
+.report-family-head .report-name,
+.report-family-head .report-years {
+  font-style: normal;
+}
 .report-name { font-weight: 600; }
 .report-years,
 .report-dup {
