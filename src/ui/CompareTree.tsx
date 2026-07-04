@@ -9,7 +9,7 @@ import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
 import { sexClass } from "./sex";
 import {
-  buildCompareTree,
+  buildPersonTree,
   buildMatchMaps,
   countImportable,
   countTreePeople,
@@ -35,11 +35,11 @@ import { ZoomControls } from "./ZoomControls";
 import { collectFirstFilePath } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartIcon } from "./icons/ChartIcon";
-import { diagramSlug } from "./exportSvg";
+import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings, type ChartType } from "./ChartSettingsContext";
+import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
 import { useSettings } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -198,7 +198,7 @@ export function CompareTree({
   const maps = useMemo(() => buildMatchMaps(matches), [matches]);
 
   // A rejected pairing prunes the incoming side from the tree (see
-  // buildCompareTree): the two records are declared different people.
+  // buildPersonTree): the two records are declared different people.
   const isRejected = useCallback(
     (masterId: string, compareId: string) =>
       decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected",
@@ -219,8 +219,8 @@ export function CompareTree({
   // the radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected),
-      descendants: buildCompareTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected),
+      ancestors: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected),
+      descendants: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected),
     }),
     [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected],
   );
@@ -369,7 +369,7 @@ export function CompareTree({
     onMode: onModeChange,
     allowDescendants: !radial,
     kinds: PEDIGREE_KINDS,
-    onKind: (k) => setType(k as ChartType),
+    onKind: (k) => setType(k as PedigreeType),
     onLeave: onBack,
   });
 
@@ -408,7 +408,7 @@ export function CompareTree({
           <ChartSettings />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={diagramSlug(rootName, t(`tree.${effectiveMode}`))}
+            slug={chartSlug(rootName, t(`tree.${effectiveMode}`))}
             title={compareTreeTitle}
             canvasRef={canvasRef}
           />
@@ -419,7 +419,7 @@ export function CompareTree({
           <ChartKindTabs
             kinds={PEDIGREE_KINDS}
             value={settings.type}
-            onChange={(k) => setType(k as ChartType)}
+            onChange={(k) => setType(k as PedigreeType)}
           />
           <div className="tree-mode">
             <button

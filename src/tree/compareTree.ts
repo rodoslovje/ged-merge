@@ -85,7 +85,7 @@ export function buildMatchMaps(matches: MatchResult): MatchMaps {
  * becomes master-only and only the master lineage continues — the incoming person
  * and every incoming-only relative above/below them disappear from the tree.
  */
-export function buildCompareTree(
+export function buildPersonTree(
   t: Translate,
   rootMaster: Individual | undefined,
   rootIncoming: Individual | undefined,

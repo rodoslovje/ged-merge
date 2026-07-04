@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
-import { buildCompareTree, buildMatchMaps, countImportable } from "../tree/compareTree";
+import { buildPersonTree, buildMatchMaps, countImportable } from "../tree/compareTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -112,8 +112,8 @@ export function MergeView({
     const rootIncoming = compareDataset.individuals.get(current.compareId);
     const isRejected = (masterId: string, compareId: string) =>
       decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected";
-    const ancestors = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors", isRejected);
-    const descendants = buildCompareTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants", isRejected);
+    const ancestors = buildPersonTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors", isRejected);
+    const descendants = buildPersonTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants", isRejected);
     return {
       ancestors: ancestors ? countImportable(ancestors) : 0,
       descendants: descendants ? countImportable(descendants) : 0,

@@ -15,7 +15,7 @@ import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 interface Props {
   /** Disable the whole menu while the chart hasn't been built yet. */
   disabled?: boolean;
-  /** Download base name (diagramSlug of the root/kind). */
+  /** Download base name (chartSlug of the root/kind). */
   slug: string;
   /** Header title baked into the SVG / print-PDF export. */
   title?: string;

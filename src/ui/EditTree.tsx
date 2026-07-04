@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
-import { buildCompareTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
+import { buildPersonTree, countTreePeople, type TreeMode, type TreeNode } from "../tree/compareTree";
 import {
   flatten,
   layout,
@@ -24,7 +24,7 @@ import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionSta
 import { sexClass } from "./sex";
 import { TreeSvg } from "./TreeSvg";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { diagramSlug } from "./exportSvg";
+import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
@@ -115,8 +115,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
-      descendants: rootPerson ? buildCompareTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
+      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
+      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
     }),
     [t, rootPerson, masterDs],
   );
@@ -298,7 +298,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           <ChartSettings />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={diagramSlug(tree?.name, t(`tree.${effectiveMode}`))}
+            slug={chartSlug(tree?.name, t(`tree.${effectiveMode}`))}
             title={editTreeTitle}
             gedcom={{ ds: masterDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}

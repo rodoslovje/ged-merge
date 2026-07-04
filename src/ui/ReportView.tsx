@@ -18,7 +18,7 @@ import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { diagramSlug, escapeHtml, printDocument } from "./exportSvg";
+import { chartSlug, escapeHtml, printDocument } from "./exportSvg";
 import { downloadText } from "./download";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
@@ -189,7 +189,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
           <ChartSettings lockedType="report" />
           <ChartExportMenu
             disabled={!data}
-            slug={diagramSlug(rootEntry?.name, pageKind)}
+            slug={chartSlug(rootEntry?.name, pageKind)}
             gedcom={{ ds: masterDs, personIds: reportIds }}
             extraItems={[
               {
@@ -200,7 +200,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                 onSelect: () =>
                   data &&
                   downloadText(
-                    `${diagramSlug(rootEntry?.name, pageKind)}.txt`,
+                    `${chartSlug(rootEntry?.name, pageKind)}.txt`,
                     reportToText(t, data, mode, exportTitle, { privacyLiving: privacy }),
                   ),
               },
@@ -210,7 +210,7 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                 label: t("export.pdf"),
                 title: t("tree.exportPdf.tooltip"),
                 onSelect: () =>
-                  data && printDocument(printDoc(t, data, mode, exportTitle, diagramSlug(rootEntry?.name, pageKind), privacy)),
+                  data && printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy)),
               },
             ]}
           />

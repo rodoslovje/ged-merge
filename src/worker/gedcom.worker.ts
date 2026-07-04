@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
 import type { Dataset, Individual } from "../gedcom/types";
-import { buildCompareTree, buildMatchMaps, countImportable, type TreeMode } from "../tree/compareTree";
+import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../tree/compareTree";
 import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMasterProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MasterProfile } from "../normalize/types";
@@ -199,7 +199,7 @@ function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset):
   const placeFmt = inferPlaceExportFormat(master);
   const maps = buildMatchMaps(result);
   const importable = (masterInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
-    const tree = buildCompareTree(rawLabel, masterInd, compareInd, master, compare, maps, mode);
+    const tree = buildPersonTree(rawLabel, masterInd, compareInd, master, compare, maps, mode);
     return tree ? countImportable(tree) : 0;
   };
   return {

@@ -13,7 +13,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ZoomControls } from "./ZoomControls";
-import { diagramSlug } from "./exportSvg";
+import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -278,7 +278,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
           <ChartSettings lockedType="timeline" />
           <ChartExportMenu
             disabled={!laid}
-            slug={diagramSlug(rootRow?.name, pageKind)}
+            slug={chartSlug(rootRow?.name, pageKind)}
             title={exportTitle}
             gedcom={{ ds: masterDs, personIds: rows.map((r) => r.id) }}
             canvasRef={canvasRef}

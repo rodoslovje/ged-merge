@@ -16,7 +16,7 @@ import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { diagramSlug } from "./exportSvg";
+import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
@@ -150,7 +150,7 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
   const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
-  const relchartSlug = diagramSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"));
+  const relchartSlug = chartSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "../match/engine";
-import { buildCompareTree, buildMatchMaps, countTreePeople, type TreeNode } from "./compareTree";
+import { buildPersonTree, buildMatchMaps, countTreePeople, type TreeNode } from "./compareTree";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -43,11 +43,11 @@ function find(node: TreeNode, name: string): TreeNode | undefined {
   return undefined;
 }
 
-describe("buildCompareTree (ancestors)", () => {
+describe("buildPersonTree (ancestors)", () => {
   const masterDs = dataset(MASTER);
   const compareDs = dataset(COMPARE);
   const matches = matchDatasets(masterDs, compareDs);
-  const root = buildCompareTree(
+  const root = buildPersonTree(
     tr,
     masterDs.individuals.get("@I1@"),
     compareDs.individuals.get("@P1@"),
@@ -83,7 +83,7 @@ describe("buildCompareTree (ancestors)", () => {
   });
 
   it("drops the incoming side when a pairing is rejected", () => {
-    const rejected = buildCompareTree(
+    const rejected = buildPersonTree(
       tr,
       masterDs.individuals.get("@I1@"),
       compareDs.individuals.get("@P1@"),
@@ -105,13 +105,13 @@ describe("buildCompareTree (ancestors)", () => {
   });
 });
 
-describe("buildCompareTree (descendants)", () => {
+describe("buildPersonTree (descendants)", () => {
   const masterDs = dataset(MASTER);
   const compareDs = dataset(COMPARE);
   const matches = matchDatasets(masterDs, compareDs);
 
   it("walks children downward from a parent", () => {
-    const root = buildCompareTree(
+    const root = buildPersonTree(
       tr,
       masterDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
@@ -126,7 +126,7 @@ describe("buildCompareTree (descendants)", () => {
   });
 
   it("shows the spouse as a partner node beside the person", () => {
-    const root = buildCompareTree(
+    const root = buildPersonTree(
       tr,
       masterDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
@@ -139,7 +139,7 @@ describe("buildCompareTree (descendants)", () => {
   });
 
   it("hangs the union's children off the partner, not the main person", () => {
-    const root = buildCompareTree(
+    const root = buildPersonTree(
       tr,
       masterDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
@@ -155,7 +155,7 @@ describe("buildCompareTree (descendants)", () => {
   });
 
   it("omits partners in ancestor mode", () => {
-    const root = buildCompareTree(
+    const root = buildPersonTree(
       tr,
       masterDs.individuals.get("@I1@"),
       compareDs.individuals.get("@P1@"),
@@ -168,7 +168,7 @@ describe("buildCompareTree (descendants)", () => {
   });
 });
 
-describe("buildCompareTree (pedigree collapse)", () => {
+describe("buildPersonTree (pedigree collapse)", () => {
   // The root's father and mother are siblings (children of the same couple), so
   // the grandparents appear twice in the ancestor tree — once above each parent.
   const COLLAPSE = wrap(
@@ -196,7 +196,7 @@ describe("buildCompareTree (pedigree collapse)", () => {
   }
 
   it("gives every occurrence of a repeated ancestor its own key", () => {
-    const root = buildCompareTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
+    const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
     const nodes = allNodes(root);
     const keys = nodes.map((n) => n.key);
     expect(new Set(keys).size).toBe(keys.length);
@@ -207,7 +207,7 @@ describe("buildCompareTree (pedigree collapse)", () => {
   });
 
   it("counts a repeated ancestor once", () => {
-    const root = buildCompareTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
+    const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
     // Father, mother, and the shared grandparents: 4 people, not 6 positions.
     expect(countTreePeople(root)).toBe(4);
   });
@@ -216,7 +216,7 @@ describe("buildCompareTree (pedigree collapse)", () => {
     // From the grandparents' view, Ana appears as a child of @F2@ and as
     // Anton's partner; the partner occurrence must not block the child's
     // expansion, and both occurrences need distinct keys.
-    const root = buildCompareTree(tr, ds.individuals.get("@I4@"), undefined, ds, ds, emptyMaps, "descendants")!;
+    const root = buildPersonTree(tr, ds.individuals.get("@I4@"), undefined, ds, ds, emptyMaps, "descendants")!;
     const nodes = allNodes(root);
     const keys = nodes.map((n) => n.key);
     expect(new Set(keys).size).toBe(keys.length);
@@ -227,7 +227,7 @@ describe("buildCompareTree (pedigree collapse)", () => {
   });
 });
 
-describe("buildCompareTree (marriage)", () => {
+describe("buildPersonTree (marriage)", () => {
   // A child and its two married parents (family records a MARR date + place).
   const MARR = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
@@ -239,12 +239,12 @@ describe("buildCompareTree (marriage)", () => {
   const emptyMaps = { masterToCompare: new Map(), compareToMaster: new Map() };
 
   it("attaches the parents' marriage to the child node (ancestor mode)", () => {
-    const root = buildCompareTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
+    const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
     expect(root.marriage).toEqual({ year: "1900", place: "Kranj" });
   });
 
   it("attaches the union's marriage to the partner node (descendant mode)", () => {
-    const root = buildCompareTree(tr, ds.individuals.get("@I2@"), undefined, ds, ds, emptyMaps, "descendants")!;
+    const root = buildPersonTree(tr, ds.individuals.get("@I2@"), undefined, ds, ds, emptyMaps, "descendants")!;
     const spouse = root.partners.find((p) => p.name === "Marija Novak")!;
     expect(spouse.marriage).toEqual({ year: "1900", place: "Kranj" });
   });
@@ -257,7 +257,7 @@ describe("buildCompareTree (marriage)", () => {
           "0 @F1@ FAM\n1 HUSB @I2@\n1 CHIL @I1@\n",
       ),
     );
-    const root = buildCompareTree(tr, noMarr.individuals.get("@I1@"), undefined, noMarr, noMarr, emptyMaps, "ancestors")!;
+    const root = buildPersonTree(tr, noMarr.individuals.get("@I1@"), undefined, noMarr, noMarr, emptyMaps, "ancestors")!;
     expect(root.marriage).toBeUndefined();
   });
 });

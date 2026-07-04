@@ -13,7 +13,7 @@
 // about the vertical, so every label on a side reads the same way. The font
 // shrinks by generation so names are never truncated, and inner rings can carry a
 // small photo rotated to the ring, sitting before the name. Input is the ancestor
-// `TreeNode` from `buildCompareTree(..., "ancestors")`.
+// `TreeNode` from `buildPersonTree(..., "ancestors")`.
 
 import { PAD } from "./treeLayout";
 import type { TreeNode } from "./compareTree";
