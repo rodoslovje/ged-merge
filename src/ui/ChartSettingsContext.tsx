@@ -20,6 +20,9 @@ export type ChartKind = ChartType | "relationship" | "timeline";
 
 export type { ChartAlignment };
 
+/** Whose lifespan bars carry event dots on the Timeline. */
+export type TimelineEventScope = "person" | "all" | "off";
+
 export interface ChartSettings {
   type: ChartType;
   /** Last-used hub view; also decides what the Edit "Charts" button reopens. */
@@ -39,6 +42,12 @@ export interface ChartSettings {
   showMarriagePlace: boolean;
   /** Redact people inferred to be living: show only their relationship / "Living". */
   privacyLiving: boolean;
+  /** Timeline: whose bars carry event dots (root only / everyone / none). */
+  timelineEvents: TimelineEventScope;
+  /** Timeline: label the event dots with small text under the bar. */
+  timelineEventLabels: boolean;
+  /** Timeline: draw the residence periods as a thin strip under the bar. */
+  timelineResidence: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -52,6 +61,9 @@ const DEFAULTS: ChartSettings = {
   showMarriageDate: false,
   showMarriagePlace: false,
   privacyLiving: false,
+  timelineEvents: "person",
+  timelineEventLabels: false,
+  timelineResidence: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -100,6 +112,12 @@ function load(): ChartSettings {
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       privacyLiving: bool(parsed.privacyLiving, DEFAULTS.privacyLiving),
+      timelineEvents:
+        parsed.timelineEvents === "all" || parsed.timelineEvents === "off"
+          ? parsed.timelineEvents
+          : DEFAULTS.timelineEvents,
+      timelineEventLabels: bool(parsed.timelineEventLabels, DEFAULTS.timelineEventLabels),
+      timelineResidence: bool(parsed.timelineResidence, DEFAULTS.timelineResidence),
     };
   } catch {
     return DEFAULTS;

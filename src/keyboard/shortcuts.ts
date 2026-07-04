@@ -87,6 +87,8 @@ export interface ShortcutItem {
 export interface ShortcutGroup {
   titleKey: string;
   category: ShortcutCategory;
+  /** Which column of the cheat-sheet grid the group renders in. */
+  column: "left" | "right";
   items: ShortcutItem[];
 }
 
@@ -94,6 +96,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.general",
     category: "standard",
+    column: "left",
     items: [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
@@ -106,6 +109,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.modes",
     category: "app",
+    column: "right",
     items: [
       { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit" },
       { keys: [[KEY.modeMerge.toUpperCase()]], descKey: "shortcuts.item.modeMerge" },
@@ -115,6 +119,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.navigation",
     category: "app",
+    column: "left",
     items: [
       { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
@@ -127,23 +132,25 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    titleKey: "shortcuts.group.decisions",
+    category: "app",
+    column: "right",
+    items: [
+      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
+      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
+      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
+    ],
+  },
+  {
     titleKey: "shortcuts.group.charts",
     category: "app",
+    column: "right",
     items: [
       { keys: [["1"], ["6"]], descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
       { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
-    ],
-  },
-  {
-    titleKey: "shortcuts.group.decisions",
-    category: "app",
-    items: [
-      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
-      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
-      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
     ],
   },
 ];

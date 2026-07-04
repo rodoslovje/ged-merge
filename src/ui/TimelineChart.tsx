@@ -5,7 +5,8 @@ import { buildTimeline, type TimelineRow } from "../tree/timeline";
 import { formatMarriage } from "../tree/nodeDisplay";
 import { PAD, type Placed } from "../tree/treeLayout";
 import { useTreeCanvas } from "../tree/useTreeCanvas";
-import { kinshipLabel } from "../match/kinship";
+import { kinshipLabel, lineageClass } from "../match/kinship";
+import { bloodLineage } from "../match/relationshipPath";
 import { individualFieldRows } from "../review/fields";
 import { BackButton } from "./BackButton";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
@@ -41,10 +42,27 @@ const AXIS_H = 26;
 const ROW_H = 46;
 /** Bar band inside a row: the name line sits above it. */
 const BAR_Y = 24;
-/** Photo thumbnail, drawn as an avatar over the start of the bar (vertically
- *  centred in the row) so photos don't cost any extra row height. */
+/** Photo thumbnail, drawn above the bar with its left edge on the birth year.
+ *  While photos show, rows grow by {@link PHOTO_SHIFT} and the bar band moves
+ *  down the same amount, so the thumbnail never covers the bar. */
 const PHOTO_SIZE = 34;
+const PHOTO_Y = 4;
+const PHOTO_SHIFT = 18;
 const BAR_H = 12;
+/** Residence strip: a thin band just under the bar; rows grow by its height
+ *  (plus a gap) when it's on, pushing the under-bar label lane down. */
+const STRIP_H = 4;
+const STRIP_GAP = 2;
+/** Estimated half-width per character of a 10.5px lane label, for greedy
+ *  collision-skipping (labels that would overlap are dropped; tooltips remain). */
+const LANE_CHAR_HW = 2.75;
+/** Minimum spacing between on-bar event marks; closer ones merge into one
+ *  mark with a combined tooltip (a glyph half over a dot reads as clutter). */
+const MARK_MIN_GAP = 10;
+/** Per-glyph vertical nudge: `central` centres the em box, but the ink of
+ *  * and ~ sits high in it (cap-height marks), so they need pushing down to
+ *  sit visually on the bar's centreline. */
+const GLYPH_DY: Record<string, number> = { "*": 3, "~": 2, "⌂": 1 };
 /** Length of the open-end taper (unknown death / still living). */
 const TAPER_W = 12;
 
@@ -93,6 +111,15 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   const { folderName } = useMediaFolder();
   const photosOn = settings.showPhoto && !!folderName;
 
+  // Timeline-only options: whose bars carry event dots, the under-bar event
+  // labels, and the residence strip (which shifts the label lane down).
+  const eventsScope = settings.timelineEvents;
+  const labelsOn = settings.timelineEventLabels;
+  const stripOn = settings.timelineResidence;
+  const barY = BAR_Y + (photosOn ? PHOTO_SHIFT : 0);
+  const rowH = ROW_H + (photosOn ? PHOTO_SHIFT : 0) + (stripOn ? STRIP_H + STRIP_GAP : 0);
+  const laneY = barY + BAR_H + 10 + (stripOn ? STRIP_H + STRIP_GAP : 0);
+
   // Axis domain: the data range rounded outward to whole decades, so the chart
   // always opens and closes on a labelled gridline (e.g. 1930 … 2030).
   const geom = useMemo(() => {
@@ -100,12 +127,12 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
     const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
     const contentW = (x1 - x0) * PX_PER_YEAR;
-    const contentH = AXIS_H + data.rows.length * ROW_H;
+    const contentH = AXIS_H + data.rows.length * rowH;
     const xOf = (year: number) => (year - x0) * PX_PER_YEAR;
     const ticks: number[] = [];
     for (let y = x0; y <= x1; y += TICK_STEP) ticks.push(y);
     return { x0, x1, contentW, contentH, xOf, ticks };
-  }, [data]);
+  }, [data, rowH]);
 
   // Redact people inferred to be living: label only (a bar would betray the
   // dates), name replaced by their kinship to the start person or "Living".
@@ -128,10 +155,10 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
     const m = new Map<string, Placed>();
     rows.forEach((r, i) => {
       const x = geom && r.from !== undefined ? geom.xOf(r.from) : 0;
-      m.set(r.key, { ...r, x, y: AXIS_H + i * ROW_H } as unknown as Placed);
+      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH } as unknown as Placed);
     });
     return m;
-  }, [rows, geom]);
+  }, [rows, geom, rowH]);
   const laid = useMemo(() => {
     if (!geom) return undefined;
     const rootRow = rows.find((r) => r.role === "person");
@@ -144,7 +171,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
   }, [geom, rows, nodesByKey]);
 
   const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(laid, nodesByKey, "lr", false, ROW_H);
+    useTreeCanvas(laid, nodesByKey, "lr", false, rowH);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
@@ -179,8 +206,9 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
       ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
       : undefined;
 
-  /** One row's second (muted) label line: lifespan · place · role · kinship.
-   *  The root person carries no role chip — the highlight already marks them. */
+  /** One row's second (muted) label line: lifespan · place · role. The root
+   *  person carries no role chip — the highlight already marks them. The
+   *  kinship-to-start renders as its own lineage-coloured tspan after this. */
   const rowMeta = (row: TimelineRow): string => {
     const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
     if (redacted(row)) return role ?? "";
@@ -188,7 +216,6 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
       settings.showLifespan ? row.years : undefined,
       settings.showPlace ? row.place : undefined,
       role,
-      showKinship ? kinshipLabel(masterDs, startId!, row.id, t) : undefined,
     ].filter(Boolean);
     return parts.join(" · ");
   };
@@ -255,7 +282,7 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                 )}
 
                 {rows.map((row, i) => {
-                  const y = AXIS_H + i * ROW_H;
+                  const y = AXIS_H + i * rowH;
                   const hidden = redacted(row);
                   const color = row.role === "person" ? COLOR_PERSON : COLOR_FAMILY;
                   const barX = row.from !== undefined ? geom.xOf(row.from) : 0;
@@ -269,6 +296,55 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                   // The avatar's left edge sits on the birth year; text clears its right edge.
                   const photoX = row.from !== undefined ? barX : labelX;
                   const nameX = photoPath ? photoX + PHOTO_SIZE + 8 : labelX;
+                  const showEvents = !hidden && (eventsScope === "all" || (eventsScope === "person" && row.role === "person"));
+                  // The under-bar text lane: marriage labels plus (when enabled)
+                  // the events' compact labels, greedily skipping any label that
+                  // would overlap its left neighbour — the dots and tooltips
+                  // still carry everything a skipped label would have said.
+                  const lane: { x: number; text: string; title: string; marriage: boolean }[] = [];
+                  if (!hidden) {
+                    for (const m of row.marks) {
+                      if (m.kind === "marriage") {
+                        lane.push({
+                          x: geom.xOf(m.year),
+                          text: (marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭",
+                          title: m.label,
+                          marriage: true,
+                        });
+                      } else if (labelsOn && showEvents && m.short) {
+                        lane.push({ x: geom.xOf(m.year), text: m.short, title: m.label, marriage: false });
+                      }
+                    }
+                    lane.sort((a, b) => a.x - b.x);
+                    let lastEnd = -Infinity;
+                    for (let k = 0; k < lane.length; ) {
+                      const hw = lane[k].text.length * LANE_CHAR_HW;
+                      if (lane[k].x - hw < lastEnd + 6) {
+                        lane.splice(k, 1);
+                      } else {
+                        lastEnd = lane[k].x + hw;
+                        k++;
+                      }
+                    }
+                  }
+                  // On-bar event marks, clustered: same-year (or near-same-year)
+                  // events would draw a glyph half over a dot, so marks within a
+                  // glyph's width collapse into one mark whose tooltip lists all
+                  // of them (first recorded glyph wins over the generic dot).
+                  const dots: { x: number; glyph?: string; labels: string[] }[] = [];
+                  if (showEvents) {
+                    for (const m of row.marks) {
+                      if (m.kind !== "event") continue;
+                      const x = geom.xOf(m.year);
+                      const last = dots[dots.length - 1];
+                      if (last && x - last.x < MARK_MIN_GAP) {
+                        last.labels.push(m.label);
+                        last.glyph ??= m.glyph;
+                      } else {
+                        dots.push({ x, glyph: m.glyph, labels: [m.label] });
+                      }
+                    }
+                  }
                   return (
                     <g
                       key={row.key}
@@ -278,13 +354,13 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                     >
                       <title>{t("tree.node.clickHint")}</title>
                       {/* Full-width hit/selection strip. */}
-                      <rect className="timeline-row-bg" x={0} y={0} width={geom.contentW} height={ROW_H} />
+                      <rect className="timeline-row-bg" x={0} y={0} width={geom.contentW} height={rowH} />
                       {!hidden && row.from !== undefined && row.to !== undefined && (
                         <>
                           <rect
                             className="timeline-bar"
                             x={barX}
-                            y={BAR_Y}
+                            y={barY}
                             width={barW}
                             height={BAR_H}
                             rx={3}
@@ -293,39 +369,87 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                           {/* Open ends taper off: unknown birth fades in, an
                               unrecorded death / living person fades out. */}
                           {row.openStart && (
-                            <path className="timeline-bar-open" d={`M ${barX} ${BAR_Y} L ${barX - TAPER_W} ${BAR_Y + BAR_H / 2} L ${barX} ${BAR_Y + BAR_H} Z`} fill={color} />
+                            <path className="timeline-bar-open" d={`M ${barX} ${barY} L ${barX - TAPER_W} ${barY + BAR_H / 2} L ${barX} ${barY + BAR_H} Z`} fill={color} />
                           )}
                           {row.openEnd && (
-                            <path className="timeline-bar-open" d={`M ${barX + barW} ${BAR_Y} L ${barX + barW + TAPER_W} ${BAR_Y + BAR_H / 2} L ${barX + barW} ${BAR_Y + BAR_H} Z`} fill={color} />
+                            <path className="timeline-bar-open" d={`M ${barX + barW} ${barY} L ${barX + barW + TAPER_W} ${barY + BAR_H / 2} L ${barX + barW} ${barY + BAR_H} Z`} fill={color} />
                           )}
                         </>
                       )}
-                      {!hidden &&
-                        row.marks.map((m, j) =>
-                          m.kind === "marriage" ? (
-                            <text key={j} className="timeline-mark-marriage" x={geom.xOf(m.year)} y={BAR_Y + BAR_H + 10} textAnchor="middle">
-                              {(marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭"}
-                              <title>{m.label}</title>
-                            </text>
-                          ) : (
-                            <circle key={j} className="timeline-mark" cx={geom.xOf(m.year)} cy={BAR_Y + BAR_H / 2} r={3.5}>
-                              <title>{m.label}</title>
-                            </circle>
-                          ),
-                        )}
+                      {/* Residence periods: a thin strip just under the bar;
+                          adjacent segments alternate opacity to show breaks. */}
+                      {stripOn && !hidden &&
+                        row.residences.map((p, j) => (
+                          <rect
+                            key={`r${j}`}
+                            className={`timeline-residence${j % 2 ? " alt" : ""}`}
+                            x={geom.xOf(p.from)}
+                            y={barY + BAR_H + STRIP_GAP}
+                            width={Math.max(2, (p.to - p.from) * PX_PER_YEAR)}
+                            height={STRIP_H}
+                          >
+                            <title>{p.label}</title>
+                          </rect>
+                        ))}
+                      {dots.map((d, j) =>
+                        // Known event types draw their genealogy glyph
+                        // (* ~ † ▭ ⌂ …); the rest keep the generic dot.
+                        d.glyph ? (
+                          <text
+                            key={j}
+                            className="timeline-mark-glyph"
+                            x={d.x}
+                            y={barY + BAR_H / 2 + (GLYPH_DY[d.glyph] ?? 0)}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                          >
+                            {d.glyph}
+                            <title>{d.labels.join("\n")}</title>
+                          </text>
+                        ) : (
+                          <circle key={j} className="timeline-mark" cx={d.x} cy={barY + BAR_H / 2} r={3.5}>
+                            <title>{d.labels.join("\n")}</title>
+                          </circle>
+                        ),
+                      )}
+                      {lane.map((l, j) => (
+                        <text
+                          key={`l${j}`}
+                          className={l.marriage ? "timeline-mark-marriage" : "timeline-mark-label"}
+                          x={l.x}
+                          y={laneY}
+                          textAnchor="middle"
+                        >
+                          {l.text}
+                          <title>{l.title}</title>
+                        </text>
+                      ))}
                       {photoPath && indi && (
                         <TreeNodePhoto
                           node={{ master: { raw: indi.raw } }}
                           masterRecords={masterDs.records}
                           masterRefCtx={{ dataset: masterDs, onNavigate: changeRoot }}
                           x={photoX}
-                          y={(ROW_H - PHOTO_SIZE) / 2}
+                          y={PHOTO_Y}
                           size={PHOTO_SIZE}
                         />
                       )}
-                      <text className="timeline-row-name" x={nameX} y={16} style={{ fill: sexColorVar(row.sex) }}>
+                      {/* With photos on, the name drops to the photo's bottom
+                          edge — just above the bar — so both read as one block. */}
+                      <text className="timeline-row-name" x={nameX} y={photosOn ? PHOTO_Y + PHOTO_SIZE : 16} style={{ fill: sexColorVar(row.sex) }}>
                         {rowName(row)}
                         <tspan className="timeline-row-meta" dx={8}>{rowMeta(row)}</tspan>
+                        {/* Kinship-to-start in its own tspan, coloured by blood
+                            lineage (paternal blue / maternal purple) like the
+                            tree charts, so it reads apart from the role chip. */}
+                        {showKinship && !hidden && (
+                          <tspan
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(bloodLineage(masterDs, startId!, row.id))}`}
+                            dx={8}
+                          >
+                            {kinshipLabel(masterDs, startId!, row.id, t)}
+                          </tspan>
+                        )}
                         {!hidden && row.from === undefined && (
                           <tspan className="timeline-row-meta" dx={8}>{t("timeline.undated")}</tspan>
                         )}
@@ -372,10 +496,14 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
 }
 
 /** The i18n suffix for a row's relation-to-root label — sex-exact where the
- *  sex is recorded (Brother/Sister, Son/Daughter), the neutral word otherwise. */
+ *  sex is recorded (Brother/Sister, Son/Daughter, Stepmother, Half-brother…),
+ *  the neutral word otherwise. */
 function roleKey(row: TimelineRow): string {
   if (row.role === "parent") return row.sex === "F" ? "mother" : "father";
+  if (row.role === "stepparent" && row.sex !== "U") return row.sex === "F" ? "stepmother" : "stepfather";
   if (row.role === "sibling" && row.sex !== "U") return row.sex === "F" ? "sister" : "brother";
+  if (row.role === "halfsibling" && row.sex !== "U") return row.sex === "F" ? "halfsister" : "halfbrother";
   if (row.role === "child" && row.sex !== "U") return row.sex === "F" ? "daughter" : "son";
+  if (row.role === "stepchild" && row.sex !== "U") return row.sex === "F" ? "stepdaughter" : "stepson";
   return row.role;
 }

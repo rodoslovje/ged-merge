@@ -1605,13 +1605,18 @@ button:focus-visible {
 }
 .candidate-kinship.lineage-paternal { color: var(--lineage-paternal); }
 .candidate-kinship.lineage-maternal { color: var(--lineage-maternal); }
-/* Kinship colour-coding by blood lineage; "both"/unknown keep the accent above. */
+/* Kinship colour-coding by blood lineage: paternal blue, maternal purple,
+   both-lines accent green; only non-blood labels keep the default colour. */
+.candidate-kinship.lineage-both { color: var(--accent); }
 .person-kinship.lineage-paternal,
 .tree-title-kinship.lineage-paternal { color: var(--lineage-paternal); }
 .person-kinship.lineage-maternal,
 .tree-title-kinship.lineage-maternal { color: var(--lineage-maternal); }
+.person-kinship.lineage-both,
+.tree-title-kinship.lineage-both { color: var(--accent); }
 .tree-node-kinship.lineage-paternal { fill: var(--lineage-paternal); }
 .tree-node-kinship.lineage-maternal { fill: var(--lineage-maternal); }
+.tree-node-kinship.lineage-both { fill: var(--accent); }
 .person-xref {
   color: var(--muted);
   font-size: 0.78em;
@@ -3688,22 +3693,44 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 10.5px;
   font-weight: 400;
 }
+/* Kinship-to-start coloured by blood lineage, like the tree node boxes. */
+.timeline-row-kinship.lineage-paternal { fill: var(--lineage-paternal); }
+.timeline-row-kinship.lineage-maternal { fill: var(--lineage-maternal); }
+.timeline-row-kinship.lineage-both { fill: var(--accent); }
 /* Dated life events: a small dot riding the lifespan bar. */
 .timeline-mark {
   fill: var(--panel);
   stroke: var(--text);
   stroke-width: 1;
 }
-/* Marriages: the ⚭ glyph (plus the optional date/place label) just under the
-   bar, meta-sized, with a panel halo (paint-order stroke) so it stays readable
-   where it crosses a gridline or another bar. */
-.timeline-mark-marriage {
+/* Typed events draw their genealogy glyph (* ~ † ▭ ⌂ …) on the bar instead;
+   the panel halo keeps it readable on the dark root and pale family bars. */
+.timeline-mark-glyph {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  stroke: var(--panel);
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+/* The under-bar text lane: marriage ⚭ glyphs/labels and (when enabled) the
+   compact event labels — meta-sized, with a panel halo (paint-order stroke) so
+   they stay readable where they cross a gridline or another bar. */
+.timeline-mark-marriage,
+.timeline-mark-label {
   fill: var(--muted);
   font-size: 10.5px;
   stroke: var(--panel);
   stroke-width: 3;
   paint-order: stroke;
 }
+/* Residence periods: a thin strip under the bar; adjacent segments alternate
+   opacity so back-to-back periods stay distinguishable. */
+.timeline-residence {
+  fill: var(--faint);
+  opacity: 0.9;
+}
+.timeline-residence.alt { opacity: 0.55; }
 /* Relationship chart: orthogonal connectors (top-down pedigree). */
 .relchart-edge {
   fill: none;
@@ -3925,6 +3952,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tree-compare-kinship.lineage-paternal { color: var(--lineage-paternal); }
 .tree-compare-kinship.lineage-maternal { color: var(--lineage-maternal); }
+.tree-compare-kinship.lineage-both { color: var(--accent); }
 .tree-compare-close {
   margin-left: auto;
   background: none;
@@ -4462,24 +4490,24 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 
 .shortcuts-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 32px; margin-top: 16px;
+  align-items: start; gap: 8px 32px; margin-top: 16px;
 }
+.shortcuts-col { min-width: 0; }
 .shortcuts-group { break-inside: avoid; }
 .shortcuts-group h3 {
   font-size: 1.05rem; margin: 12px 0 8px; padding-bottom: 6px;
   color: var(--accent); border-bottom: 1px solid var(--border);
 }
-/* Tint app-specific groups so the single-key bindings read distinctly from the
-   modifier-chord standard ones. */
-.shortcuts-group.app h3 { color: var(--text); }
-
-.shortcuts-group dl { margin: 0; }
-.shortcuts-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; padding: 5px 0;
+/* Each group is a two-column grid: a shared key column (sized by the widest
+   combo in the group) and left-aligned descriptions, so rows line up instead
+   of rag-wrapping against the right edge. */
+.shortcuts-group dl {
+  display: grid; grid-template-columns: minmax(88px, max-content) 1fr;
+  align-items: center; margin: 0;
 }
-.shortcuts-row dt { margin: 0; flex: 0 0 auto; }
-.shortcuts-row dd { margin: 0; color: var(--muted); font-size: 0.98rem; text-align: right; }
+.shortcuts-row { display: contents; }
+.shortcuts-row dt { margin: 0; padding: 5px 16px 5px 0; }
+.shortcuts-row dd { margin: 0; padding: 5px 0; color: var(--muted); font-size: 0.98rem; }
 
 .kbd-combo { display: inline-flex; align-items: center; gap: 6px; }
 .kbd-chord { display: inline-flex; align-items: center; gap: 4px; }

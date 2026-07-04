@@ -100,3 +100,104 @@ describe("kinshipLabel great-uncle / grand-nephew degrees", () => {
     expect(kinshipLabel(ds, "@I6@", "@I1@", t)).toBe("Grand-nephew ×2");
   });
 });
+
+// Ego I1 (child of father I2 + mother I3, full brother I10, wife I6).
+// The father remarried I4 (step-mother): their son I5 is a half-brother.
+// The step-mother's daughter I7 from her earlier union is a step-sister.
+// The wife's son I8 from her earlier union is a step-son.
+const STEP_TREE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ego /Test/
+1 SEX M
+1 FAMC @F1@
+1 FAMS @F5@
+0 @I2@ INDI
+1 NAME Father /Test/
+1 SEX M
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Mother /Test/
+1 SEX F
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Stepmother /Test/
+1 SEX F
+1 FAMS @F2@
+1 FAMS @F3@
+0 @I5@ INDI
+1 NAME HalfBrother /Test/
+1 SEX M
+1 FAMC @F2@
+0 @I7@ INDI
+1 NAME StepSister /Test/
+1 SEX F
+1 FAMC @F3@
+0 @I6@ INDI
+1 NAME Wife /Test/
+1 SEX F
+1 FAMS @F5@
+1 FAMS @F4@
+0 @I8@ INDI
+1 NAME StepSon /Test/
+1 SEX M
+1 FAMC @F4@
+0 @I10@ INDI
+1 NAME Brother /Test/
+1 SEX M
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+1 CHIL @I10@
+0 @F2@ FAM
+1 HUSB @I2@
+1 WIFE @I4@
+1 CHIL @I5@
+0 @F3@ FAM
+1 WIFE @I4@
+1 CHIL @I7@
+0 @F4@ FAM
+1 WIFE @I6@
+1 CHIL @I8@
+0 @F5@ FAM
+1 HUSB @I1@
+1 WIFE @I6@
+0 TRLR
+`;
+
+describe("kinshipLabel half and step relations", () => {
+  const ds = dataset(STEP_TREE);
+
+  it("keeps a both-parents sibling a plain sibling", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I10@", t)).toBe("kinship.brother");
+  });
+
+  it("labels a one-shared-parent sibling as half-brother (both directions)", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I5@", t)).toBe("kinship.halfBrother");
+    expect(kinshipLabel(ds, "@I5@", "@I1@", t)).toBe("kinship.halfBrother");
+  });
+
+  it("labels a parent's other spouse as step-mother, and inversely step-son", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I4@", t)).toBe("kinship.stepMother");
+    expect(kinshipLabel(ds, "@I4@", "@I1@", t)).toBe("kinship.stepSon");
+  });
+
+  it("labels a spouse's child from another union as step-son", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I8@", t)).toBe("kinship.stepSon");
+  });
+
+  it("labels a step-parent's child from another union as step-sister", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I7@", t)).toBe("kinship.stepSister");
+  });
+
+  it("still finds nothing for genuinely unrelated people", () => {
+    // The wife's earlier child vs the step-mother's earlier child: no blood,
+    // no marriage connecting their parents.
+    expect(kinshipLabel(ds, "@I8@", "@I7@", t)).toBeUndefined();
+  });
+});

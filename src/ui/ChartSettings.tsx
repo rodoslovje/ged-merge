@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type ChartType } from "./ChartSettingsContext";
+import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type ChartType, type TimelineEventScope } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the Tree alignment (left→right / top→bottom)
@@ -25,6 +25,9 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
   { key: "showMarriageDate", label: "date" },
   { key: "showMarriagePlace", label: "place" },
 ];
+
+/** Whose bars carry event dots on the Timeline (the timeline-only group). */
+const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 
 /** `lockedType` pins the effective diagram type (used by the Relationship
  *  chart, which always lays out as a tree, and by the Timeline) so the right
@@ -118,6 +121,40 @@ export function ChartSettings({ lockedType }: { lockedType?: ChartType | "timeli
               ))}
             </div>
           </div>
+          {/* Timeline-only: whose bars carry event dots, the under-bar event
+              labels, and the residence strip. */}
+          {effectiveType === "timeline" && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("tree.settings.timeline.events")}</span>
+              <div className="chart-settings-segmented">
+                {EVENT_SCOPES.map((scope) => (
+                  <button
+                    key={scope}
+                    className={settings.timelineEvents === scope ? "active" : ""}
+                    onClick={() => set({ timelineEvents: scope })}
+                  >
+                    {t(`tree.settings.timeline.events.${scope}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="chart-settings-segmented chart-settings-toggles">
+                <button
+                  className={settings.timelineEventLabels ? "active" : ""}
+                  aria-pressed={settings.timelineEventLabels}
+                  onClick={() => set({ timelineEventLabels: !settings.timelineEventLabels })}
+                >
+                  {t("tree.settings.timeline.labels")}
+                </button>
+                <button
+                  className={settings.timelineResidence ? "active" : ""}
+                  aria-pressed={settings.timelineResidence}
+                  onClick={() => set({ timelineResidence: !settings.timelineResidence })}
+                >
+                  {t("tree.settings.timeline.residence")}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Privacy: redact people inferred to be living. */}
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.privacy")}</span>

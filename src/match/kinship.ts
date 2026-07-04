@@ -43,8 +43,75 @@ export function kinshipLabel(
     }
   }
 
-  if (bestHG === Infinity) return undefined;
+  // No blood line at all — the relationship may still be a step one (a parent's
+  // spouse, a spouse's child, or a step-parent's child from another union).
+  if (bestHG === Infinity) return stepLabel(ds, startId, targetId, targetIndi.sex ?? "U", t);
+
+  // Siblings sharing exactly one parent are half-siblings.
+  if (bestHG === 1 && bestTG === 1 && sharedParentCount(ds, startId, targetId) === 1) {
+    return targetIndi.sex === "F" ? t("kinship.halfSister") : t("kinship.halfBrother");
+  }
+
   return relLabel(bestHG, bestTG, targetIndi.sex ?? "U", t);
+}
+
+/** The person's parent ids, across every family they are a child of. */
+function parentIds(ds: Dataset, id: string): string[] {
+  const out: string[] = [];
+  const indi = ds.individuals.get(id);
+  for (const famId of indi?.childOf ?? []) {
+    const fam = ds.families.get(famId);
+    for (const p of [fam?.husband, fam?.wife]) if (p) out.push(p);
+  }
+  return out;
+}
+
+/** The person's spouse/partner ids, across every family they are a spouse in. */
+function spouseIds(ds: Dataset, id: string): string[] {
+  const out: string[] = [];
+  const indi = ds.individuals.get(id);
+  for (const famId of indi?.spouseOf ?? []) {
+    const fam = ds.families.get(famId);
+    const s = fam?.husband === id ? fam?.wife : fam?.husband;
+    if (s) out.push(s);
+  }
+  return out;
+}
+
+/** How many parents the two share (1 = half-siblings, 2 = full). */
+function sharedParentCount(ds: Dataset, aId: string, bId: string): number {
+  const a = new Set(parentIds(ds, aId));
+  return new Set(parentIds(ds, bId).filter((p) => a.has(p))).size;
+}
+
+/**
+ * Step relations, tried only when no common ancestor connects the two:
+ * a parent's spouse (step-parent), a spouse's child (step-child), or a
+ * step-parent's child from another union (step-sibling).
+ */
+function stepLabel(
+  ds: Dataset,
+  startId: string,
+  targetId: string,
+  sex: string,
+  t: Translate,
+): string | undefined {
+  const f = sex === "F";
+  const startParents = parentIds(ds, startId);
+  const targetParents = parentIds(ds, targetId);
+
+  if (spouseIds(ds, targetId).some((id) => startParents.includes(id))) {
+    return f ? t("kinship.stepMother") : t("kinship.stepFather");
+  }
+  if (spouseIds(ds, startId).some((id) => targetParents.includes(id))) {
+    return f ? t("kinship.stepDaughter") : t("kinship.stepSon");
+  }
+  for (const p of startParents) {
+    if (spouseIds(ds, p).some((id) => targetParents.includes(id))) {
+      return f ? t("kinship.stepSister") : t("kinship.stepBrother");
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -74,9 +141,10 @@ export function kinshipInfo(
   return undefined;
 }
 
-/** CSS modifier class colouring a kinship label by lineage (none for "both"/unknown). */
+/** CSS modifier class colouring a kinship label by lineage: paternal blue,
+ *  maternal purple, both-lines green (none when unrelated by blood). */
 export function lineageClass(lineage?: Lineage): string {
-  return lineage === "paternal" || lineage === "maternal" ? `lineage-${lineage}` : "";
+  return lineage ? `lineage-${lineage}` : "";
 }
 
 /** Full kinship tooltip: the base "<rel> of <start>" plus a lineage line when known. */

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { SHORTCUT_GROUPS, renderKeyToken, type ShortcutItem } from "../keyboard/shortcuts";
+import { SHORTCUT_GROUPS, renderKeyToken, type ShortcutGroup, type ShortcutItem } from "../keyboard/shortcuts";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 
 interface Props {
@@ -19,6 +19,25 @@ function Combo({ item }: { item: ShortcutItem }) {
         </span>
       ))}
     </span>
+  );
+}
+
+function ShortcutsGroup({ group }: { group: ShortcutGroup }) {
+  const { t } = useTranslation();
+  return (
+    <section className="shortcuts-group">
+      <h3>{t(group.titleKey)}</h3>
+      <dl>
+        {group.items.map((item) => (
+          <div className="shortcuts-row" key={item.descKey}>
+            <dt>
+              <Combo item={item} />
+            </dt>
+            <dd>{t(item.descKey)}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -63,20 +82,12 @@ export function ShortcutsModal({ isOpen, onClose }: Props) {
             </span>
           </p>
           <div className="shortcuts-grid">
-            {SHORTCUT_GROUPS.map((group) => (
-              <section key={group.titleKey} className={`shortcuts-group ${group.category}`}>
-                <h3>{t(group.titleKey)}</h3>
-                <dl>
-                  {group.items.map((item) => (
-                    <div className="shortcuts-row" key={item.descKey}>
-                      <dt>
-                        <Combo item={item} />
-                      </dt>
-                      <dd>{t(item.descKey)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
+            {(["left", "right"] as const).map((column) => (
+              <div key={column} className="shortcuts-col">
+                {SHORTCUT_GROUPS.filter((group) => group.column === column).map((group) => (
+                  <ShortcutsGroup key={group.titleKey} group={group} />
+                ))}
+              </div>
             ))}
           </div>
         </div>
