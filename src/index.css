@@ -3802,11 +3802,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   text-align: right;
   color: var(--muted);
 }
-/* Parent names in the family heading read like entry names (not italic). */
-.report-family-head .report-name,
-.report-family-head .report-years {
-  font-style: normal;
-}
 .report-name { font-weight: 600; }
 .report-years,
 .report-dup {
