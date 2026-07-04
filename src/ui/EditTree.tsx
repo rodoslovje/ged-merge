@@ -88,7 +88,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // screen); true/false once the user has toggled it by hand.
   const [mapOpen, setMapOpen] = useState<boolean | null>(null);
 
-  const { settings, setType } = useChartSettings();
+  const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
@@ -316,19 +316,17 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               {t("tree.ancestors")}
               <span className="tree-mode-count">{peopleCounts.ancestors}</span>
             </button>
-            <button
-              className={effectiveMode === "descendants" ? "active" : ""}
-              title={radial ? t("tree.mode.backToTree") : undefined}
-              onClick={() => {
-                // Radial charts are ancestor-only; switching to descendants reverts
-                // to the layered tree.
-                if (radial) setType("tree");
-                onModeChange("descendants");
-              }}
-            >
-              {t("tree.descendants")}
-              <span className="tree-mode-count">{peopleCounts.descendants}</span>
-            </button>
+            {/* Radial charts are ancestor-only, so Descendants isn't offered
+                there — the preserved choice reappears on the layered charts. */}
+            {!radial && (
+              <button
+                className={effectiveMode === "descendants" ? "active" : ""}
+                onClick={() => onModeChange("descendants")}
+              >
+                {t("tree.descendants")}
+                <span className="tree-mode-count">{peopleCounts.descendants}</span>
+              </button>
+            )}
           </div>
         </div>
         {/* Legend: confirmed-merge badge + modified / unmodified swatches.

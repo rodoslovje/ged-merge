@@ -514,7 +514,6 @@ export const en = {
   "tree.settings.notForRadial": "Not available on fan / circle charts",
   "charts.kind.label": "Chart kind",
   "charts.kind.ancestorsOnly": "Shows ancestors only",
-  "tree.mode.backToTree": "Fan and circle charts show ancestors only — this switches back to the Tree chart",
   "tree.node.living": "Living",
   "tree.openInMatches": "Open this match in the Matches list",
   "tree.master": "Master",
