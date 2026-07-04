@@ -59,10 +59,43 @@ const LANE_CHAR_HW = 2.75;
 /** Minimum spacing between on-bar event marks; closer ones merge into one
  *  mark with a combined tooltip (a glyph half over a dot reads as clutter). */
 const MARK_MIN_GAP = 10;
-/** Per-glyph vertical nudge: `central` centres the em box, but the ink of
- *  * and ~ sits high in it (cap-height marks), so they need pushing down to
- *  sit visually on the bar's centreline. */
-const GLYPH_DY: Record<string, number> = { "*": 3, "~": 2, "⌂": 1 };
+/** Baseline shift that puts a glyph's *ink* centre on a target line, measured
+ *  once per glyph by drawing it on a canvas and scanning the painted rows.
+ *  Font-metric guessing (dominant-baseline) can't do this: the ink of * and ~
+ *  sits high in the em box, and ⌂ often comes from a fallback font whose
+ *  metrics differ from the app face entirely. */
+const glyphShiftCache = new Map<string, number>();
+function glyphDy(glyph: string): number {
+  let v = glyphShiftCache.get(glyph);
+  if (v === undefined) {
+    v = 4; // fallback ≈ half a cap height, if canvas is unavailable
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (ctx) {
+      const baseline = 24;
+      ctx.font = `600 11px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = "center";
+      ctx.fillText(glyph, 16, baseline);
+      const data = ctx.getImageData(0, 0, 32, 32).data;
+      let minY = -1;
+      let maxY = -1;
+      for (let yy = 0; yy < 32; yy++) {
+        for (let xx = 0; xx < 32; xx++) {
+          if (data[(yy * 32 + xx) * 4 + 3] > 0) {
+            if (minY < 0) minY = yy;
+            maxY = yy;
+            break;
+          }
+        }
+      }
+      if (maxY >= 0) v = baseline - (minY + maxY) / 2;
+    }
+    glyphShiftCache.set(glyph, v);
+  }
+  return v;
+}
 /** Length of the open-end taper (unknown death / still living). */
 const TAPER_W = 12;
 
@@ -399,9 +432,8 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                             key={j}
                             className="timeline-mark-glyph"
                             x={d.x}
-                            y={barY + BAR_H / 2 + (GLYPH_DY[d.glyph] ?? 0)}
+                            y={barY + BAR_H / 2 + glyphDy(d.glyph)}
                             textAnchor="middle"
-                            dominantBaseline="central"
                           >
                             {d.glyph}
                             <title>{d.labels.join("\n")}</title>

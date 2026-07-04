@@ -32,6 +32,9 @@ const STYLE_PROPS = [
   "text-anchor",
   "dominant-baseline",
   "letter-spacing",
+  // Halo'd labels (timeline marks, tree edge labels) paint their stroke *under*
+  // the fill; without this the exported halo covers the glyph ink entirely.
+  "paint-order",
   "filter",
 ] as const;
 
