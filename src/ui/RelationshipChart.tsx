@@ -12,8 +12,10 @@ import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { StartPersonSelector } from "./StartPersonSelector";
-import { TreeNodeBox } from "./TreeNodeBox";
+import { nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { chartSlug } from "./exportSvg";
@@ -30,6 +32,10 @@ interface Props {
   masterDs: Dataset;
   startId: string;
   targetId: string;
+  /** Master ids with unsaved edits — those boxes show the "M" badge. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D badge here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (from the hub / App). */
   backLabel: string;
   onBack: () => void;
@@ -54,9 +60,10 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ masterDs, startId, targetId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -285,6 +292,11 @@ export function RelationshipChart({ masterDs, startId, targetId, backLabel, onBa
                         living={isPresumedLiving(indi)}
                         livingLabel={livingLabel}
                         nodeH={nodeH}
+                        badges={
+                          settings.showBadges
+                            ? nodeStatusBadges(nodeStatus.decisionOf(b.id), nodeStatus.modifiedOf(b.id), nodeStatus.modifiedLetter)
+                            : undefined
+                        }
                       />
                     </g>
                   );

@@ -469,7 +469,7 @@ export function CompareTree({
                 compareRecords={compareDs.records}
                 masterRefCtx={masterRefCtx}
                 compareRefCtx={compareRefCtx}
-                badgeOf={fanBadgeOf}
+                badgeOf={display.showBadges ? fanBadgeOf : undefined}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
@@ -483,8 +483,8 @@ export function CompareTree({
               selectedKey={selectedKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={badgeOf}
-              modifiedOf={isModified}
+              badgeOf={display.showBadges ? badgeOf : undefined}
+              modifiedOf={display.showBadges ? isModified : undefined}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
               masterRecords={masterDs.records}

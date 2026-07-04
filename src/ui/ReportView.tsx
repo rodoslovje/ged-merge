@@ -24,6 +24,8 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
@@ -46,6 +48,10 @@ const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
 interface Props {
   masterDs: Dataset;
   rootId: string;
+  /** Master ids with unsaved edits — those entries show the "M" chip. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D chip here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -62,9 +68,10 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ masterDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -274,6 +281,27 @@ export function ReportView({ masterDs, rootId, backLabel, onBack, onNavigate, ki
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
+                            {/* Working-state chips (decision C/R/D + unsaved-edit M) —
+                                same letters and tokens as the tree charts' badges.
+                                Page only; the txt/PDF exports carry data, not state. */}
+                            {settings.showBadges && (() => {
+                              const dec = nodeStatus.decisionOf(e.id);
+                              const mod = nodeStatus.modifiedOf(e.id);
+                              return (
+                                <>
+                                  {dec && (
+                                    <span className={`status-chip ${dec.status}`} title={t(`status.${dec.status}`)}>
+                                      {dec.letter}
+                                    </span>
+                                  )}
+                                  {mod && (
+                                    <span className="status-chip modified" title={t("edit.tree.modified")}>
+                                      {nodeStatus.modifiedLetter}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                             {e.dupOf !== undefined && (
                               <button
                                 className="report-dup report-jump"

@@ -4,7 +4,7 @@ import { PAD, type Flat, type Placed } from "../chart/treeLayout";
 import type { NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 import type { PhotoRefContext } from "./PhotoViewer";
-import { NodeBadge, TreeNodeBox } from "./TreeNodeBox";
+import { nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
 
 // The layered (tidy-tree / grid) diagram body shared by the Edit Tree and the
 // Compare Tree: the connector paths and marriage labels from `flatten`, then
@@ -86,8 +86,7 @@ export function TreeSvg({
             ),
         )}
         {flat.nodes.map((n) => {
-          const badge = badgeOf?.(n);
-          const modified = modifiedOf?.(n) ?? false;
+          const badges = nodeStatusBadges(badgeOf?.(n), modifiedOf?.(n) ?? false, modifiedLetter);
           return (
             <g
               key={n.key}
@@ -109,27 +108,7 @@ export function TreeSvg({
                 living={n.living}
                 livingLabel={livingLabel}
                 nodeH={nodeH}
-                badges={
-                  badge || modified
-                    ? ({ yearsY, textX, years }) => {
-                        // Estimate the displayed years label width (~6.5px/char) so
-                        // badges sit just past it; the decision badge comes first and
-                        // the modified badge steps right when both show.
-                        const badgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
-                        const modX = badge ? badgeX + 18 : badgeX;
-                        return (
-                          <>
-                            {badge && (
-                              <NodeBadge x={badgeX} y={yearsY - 4} cls={`tree-node-decision ${badge.status}`} letter={badge.letter} />
-                            )}
-                            {modified && (
-                              <NodeBadge x={modX} y={yearsY - 4} fill="var(--node-minor)" textFill="var(--bg)" letter={modifiedLetter} />
-                            )}
-                          </>
-                        );
-                      }
-                    : undefined
-                }
+                badges={badges}
               />
             </g>
           );

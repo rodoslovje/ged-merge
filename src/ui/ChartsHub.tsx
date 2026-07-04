@@ -72,6 +72,8 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
       <ReportView
         masterDs={masterDs}
         rootId={rootId}
+        changedPersonIds={changedPersonIds}
+        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
@@ -89,6 +91,8 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
         masterDs={masterDs}
         rootId={rootId}
         startId={startId}
+        changedPersonIds={changedPersonIds}
+        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
@@ -132,6 +136,8 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
         masterDs={masterDs}
         startId={startId}
         targetId={rootId}
+        changedPersonIds={changedPersonIds}
+        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}

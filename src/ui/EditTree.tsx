@@ -240,19 +240,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   const selectedDecision = selected ? decisionOf(selected) : undefined;
   const selectedModified = selected ? isModified(selected) : false;
 
-  // ── Derived counts for legend ─────────────────────────────────────────────
-
-  // "Modified" and "Merged" are independent, overlapping dimensions — a node can
-  // carry both an edit and a confirmed merge — so the counts mirror the badges
-  // rather than partitioning the total. "Unmodified" is the clean complement:
-  // people the save leaves untouched (no edit, no confirmed merge).
-  const allNodes = flat?.nodes ?? [];
-  const modifiedCount = allNodes.filter((n) => isModified(n)).length;
-  const mergedCount = allNodes.filter((n) => decisionOf(n)?.status === "confirmed").length;
-  const unmodifiedCount = allNodes.filter(
-    (n) => !isModified(n) && decisionOf(n)?.status !== "confirmed",
-  ).length;
-
   // Root person's kinship to the start person, shown in the title.
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
@@ -327,37 +314,6 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           </div>
         </>
       }
-      controlsRight={
-        /* Legend: confirmed-merge badge + modified / unmodified swatches.
-           Merged and Modified overlap, so they don't sum to the total.
-           Empty groups are hidden. */
-        <div className="tree-legend">
-          {mergedCount > 0 && (
-            <div className="tree-legend-item">
-              <span className="tree-legend-btn">
-                <span className="tree-swatch confirmed" />
-                {t("edit.tree.merged")} ({mergedCount})
-              </span>
-            </div>
-          )}
-          {modifiedCount > 0 && (
-            <div className="tree-legend-item">
-              <span className="tree-legend-btn">
-                <span className="tree-swatch" style={{ background: COLOR_MODIFIED }} />
-                {t("edit.tree.modified")} ({modifiedCount})
-              </span>
-            </div>
-          )}
-          {unmodifiedCount > 0 && (
-            <div className="tree-legend-item">
-              <span className="tree-legend-btn">
-                <span className="tree-swatch" style={{ background: COLOR_NORMAL }} />
-                {t("edit.tree.unmodified")} ({unmodifiedCount})
-              </span>
-            </div>
-          )}
-        </div>
-      }
     >
       <div className="tree-canvas-wrap">
         <div
@@ -375,7 +331,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                 onSelect={selectNode}
                 masterRecords={masterDs.records}
                 masterRefCtx={masterRefCtx}
-                badgeOf={fanBadgeOf}
+                badgeOf={display.showBadges ? fanBadgeOf : undefined}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
@@ -389,8 +345,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               selectedKey={selectedKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={decisionOf}
-              modifiedOf={isModified}
+              badgeOf={display.showBadges ? decisionOf : undefined}
+              modifiedOf={display.showBadges ? isModified : undefined}
               kinshipOf={(n) => (n.master ? kinship?.label(n.master.id) : undefined)}
               lineageOf={(n) => (n.master ? kinship?.lineage(n.master.id) : undefined)}
               masterRecords={masterDs.records}

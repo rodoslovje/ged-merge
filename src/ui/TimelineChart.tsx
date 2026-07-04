@@ -6,6 +6,8 @@ import { formatMarriage } from "../chart/nodeDisplay";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { useNodeStatus } from "./useNodeStatus";
+import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
@@ -105,6 +107,10 @@ interface Props {
   masterDs: Dataset;
   rootId: string;
   startId?: string;
+  /** Master ids with unsaved edits — those rows show the "M" chip. */
+  changedPersonIds?: Set<string>;
+  /** Merge decisions, so decided matches show their C/R/D chip here too. */
+  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -117,9 +123,10 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -477,6 +484,28 @@ export function TimelineChart({ masterDs, rootId, startId, backLabel, onBack, on
                         {!hidden && row.from === undefined && (
                           <tspan className="timeline-row-meta" dx={8}>{t("timeline.undated")}</tspan>
                         )}
+                        {/* Working-state chips (decision C/R/D + unsaved-edit M) —
+                            text tspans here, matching the tree charts' badges. */}
+                        {settings.showBadges && !hidden && (() => {
+                          const dec = nodeStatus.decisionOf(row.id);
+                          const mod = nodeStatus.modifiedOf(row.id);
+                          return (
+                            <>
+                              {dec && (
+                                <tspan className={`timeline-row-badge ${dec.status}`} dx={8}>
+                                  {dec.letter}
+                                  <title>{t(`status.${dec.status}`)}</title>
+                                </tspan>
+                              )}
+                              {mod && (
+                                <tspan className="timeline-row-badge modified" dx={8}>
+                                  {nodeStatus.modifiedLetter}
+                                  <title>{t("edit.tree.modified")}</title>
+                                </tspan>
+                              )}
+                            </>
+                          );
+                        })()}
                       </text>
                     </g>
                   );
