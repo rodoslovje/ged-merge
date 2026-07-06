@@ -62,6 +62,7 @@ import { AddPhotoDialog } from "./AddPhotoDialog";
 import { nodeId } from "./edit/nodeId";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./edit/editConstants";
+import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
 import { RelativePickerCard } from "./edit/RelativePickerCard";
@@ -1408,6 +1409,29 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                     refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
+                {(() => {
+                  // Read-only glimpse of the parents' couple events (marriage,
+                  // divorce, …) — editable on either parent's own page.
+                  const couple = fam?.events.filter(
+                    (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
+                  ) ?? [];
+                  if (!couple.length) return null;
+                  return (
+                    <div className="edit-parent-fam-events">
+                      {couple.map((ev, j) => (
+                        <span
+                          key={`${ev.tag}-${j}`}
+                          title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
+                        >
+                          {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}{" "}
+                          <span className="gm-data">
+                            {[ev.date?.raw, ev.place ? ev.place.parts[0] || ev.place.raw : undefined].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

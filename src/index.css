@@ -1701,6 +1701,17 @@ button:focus-visible {
   gap: 12px;
 }
 
+/* Read-only couple events (marriage, divorce, …) of a parent family, shown
+   under the two parent cards; full flex basis wraps it onto its own row. */
+.edit-parent-fam-events {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .edit-family {
   display: flex;
   flex-direction: column;
