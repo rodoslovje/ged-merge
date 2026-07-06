@@ -2387,9 +2387,12 @@ button:focus-visible {
   gap: 6px;
 }
 .edit-event-date-cell > .clearable-wrap { flex: 1; min-width: 0; }
-/* Age badge after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28". */
+/* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
+ * one inner span per person, each with its own tooltip. */
 .edit-event-age {
   flex: none;
+  display: inline-flex;
+  gap: 0.4em;
   color: var(--muted);
   font-size: 0.9em;
   white-space: nowrap;

@@ -51,7 +51,7 @@ export function FamilyEventRow({
           fam.husband ? individuals.get(fam.husband) : undefined,
           fam.wife ? individuals.get(fam.wife) : undefined,
           ev.date,
-          t("event.age.couple"),
+          { husband: t("event.age.husband"), wife: t("event.age.wife") },
           t,
         )
       : undefined;

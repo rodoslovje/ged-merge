@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ageBetween,
   agePartsBetween,
-  formatCoupleAges,
+  coupleAgesDisplay,
   fullAgeBetween,
   lifespanAge,
   lifespanTooltipOf,
@@ -11,8 +11,9 @@ import {
 import type { GedDate, Individual } from "./types";
 import type { Translate } from "../locales/i18n";
 
-/** Minimal translator for the unit-letter keys used by the formatters. */
-const t: Translate = (key) => ({ "age.y": "y", "age.m": "m", "age.d": "d" })[key] ?? key;
+/** Minimal translator for the unit-letter/label keys used by the formatters. */
+const t: Translate = (key) =>
+  ({ "age.y": "y", "age.m": "m", "age.d": "d", "age.label": "age" })[key] ?? key;
 
 const d = (year?: number, month?: number, day?: number): GedDate => ({
   raw: "",
@@ -142,21 +143,32 @@ describe("lifespanAge / lifespanWithAge", () => {
 });
 
 describe("lifespanTooltipOf", () => {
-  it("appends the full-precision age to the dates tooltip", () => {
+  it("appends the labelled full-precision age to the dates tooltip", () => {
     const p = indi([
       { tag: "BIRT", date: { ...d(1908, 1, 26), raw: "26 JAN 1908" } },
       { tag: "DEAT", date: { ...d(1970, 3, 3), raw: "3 MAR 1970" } },
     ]);
-    expect(lifespanTooltipOf(p, true, t)).toBe("26 JAN 1908 – 3 MAR 1970 (62y 1m 5d)");
+    expect(lifespanTooltipOf(p, true, t)).toBe("26 JAN 1908 – 3 MAR 1970 (age 62y 1m 5d)");
     expect(lifespanTooltipOf(p, false, t)).toBe("26 JAN 1908 – 3 MAR 1970");
   });
 });
 
-describe("formatCoupleAges", () => {
-  it("tags each known age with the sex glyph", () => {
-    expect(formatCoupleAges(32, 28)).toBe("♂32 ♀28");
-    expect(formatCoupleAges(32, undefined)).toBe("♂32");
-    expect(formatCoupleAges(undefined, 28)).toBe("♀28");
-    expect(formatCoupleAges(undefined, undefined)).toBe("");
+describe("coupleAgesDisplay", () => {
+  const labels = { husband: "H", wife: "W" };
+  const husband = indi([{ tag: "BIRT", date: d(1850, 1, 10) }]);
+  const wife = indi([{ tag: "BIRT", date: d(1855, 6, 1) }]);
+
+  it("returns one glyph-tagged badge per known age, each with its own tooltip", () => {
+    expect(coupleAgesDisplay(husband, wife, d(1885, 5, 20), labels, t)).toEqual([
+      { text: "♂35", title: "H: 35y 4m 10d" },
+      { text: "♀29", title: "W: 29y 11m 19d" },
+    ]);
+  });
+
+  it("skips the side with no computable age", () => {
+    expect(coupleAgesDisplay(husband, undefined, d(1885, 5, 20), labels, t)).toEqual([
+      { text: "♂35", title: "H: 35y 4m 10d" },
+    ]);
+    expect(coupleAgesDisplay(undefined, undefined, d(1885, 5, 20), labels, t)).toBeUndefined();
   });
 });

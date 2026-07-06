@@ -83,9 +83,10 @@ export function EventFieldsRow({
    * every field of such an event renders bold (it's all new vs the saved
    * main), independently of `resolvedSessionFields`. */
   materializedEventIds?: Set<number>;
-  /** Age badge shown after the date ("Show ages" setting) — the person's age
-   * at this event, or glyph-tagged couple ages (e.g. "♂32 ♀28"). */
-  age?: { text: string; title: string };
+  /** Age badges shown after the date ("Show ages" setting) — the person's age
+   * at this event, or one glyph-tagged badge per spouse/parent (e.g. "♂32"
+   * "♀28"), each with its own tooltip. */
+  age?: { text: string; title: string }[];
 }) {
   // A generic `EVEN` is labelled "Event"; its descriptive `TYPE` is edited in
   // the "Title" slot and its own line value (`1 EVEN <v>`) in the "Agency" slot
@@ -343,8 +344,10 @@ export function EventFieldsRow({
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
         {age && (
-          <span className="edit-event-age gm-data" title={age.title}>
-            {age.text}
+          <span className="edit-event-age gm-data">
+            {age.map((a, i) => (
+              <span key={i} title={a.title}>{a.text}</span>
+            ))}
           </span>
         )}
       </div>

@@ -1389,7 +1389,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       fatherId ? dataset.individuals.get(fatherId) : undefined,
       motherId ? dataset.individuals.get(motherId) : undefined,
       birthDate,
-      t("event.age.birthParents"),
+      { husband: t("event.age.father"), wife: t("event.age.mother") },
       t,
     );
   })();
@@ -1478,7 +1478,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                               fam.husband ? dataset.individuals.get(fam.husband) : undefined,
                               fam.wife ? dataset.individuals.get(fam.wife) : undefined,
                               ev.date,
-                              t("event.age.couple"),
+                              { husband: t("event.age.husband"), wife: t("event.age.wife") },
                               t,
                             )
                           : undefined;
@@ -1491,7 +1491,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                             <span>
                               {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
                               {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
-                              {coupleAges && <> <span className="gm-data edit-event-age" title={coupleAges.title}>{coupleAges.text}</span></>}
+                              {coupleAges && (
+                                <> <span className="gm-data edit-event-age">
+                                  {coupleAges.map((a, j2) => (
+                                    <span key={j2} title={a.title}>{a.text}</span>
+                                  ))}
+                                </span></>
+                              )}
                             </span>
                             {place && <span className="gm-data">{place}</span>}
                           </span>

@@ -115,8 +115,8 @@ export function lifespanAge(indi: Individual | undefined, now: Date = new Date()
 }
 
 /**
- * Full-date tooltip for a person, with the full-precision age appended when
- * `showAge`, e.g. "26 Jan 1908 – 3 Mar 1970 (62y 1m 5d)".
+ * Full-date tooltip for a person, with the labelled full-precision age
+ * appended when `showAge`, e.g. "26 Jan 1908 – 3 Mar 1970 (age 62y 1m 5d)".
  */
 export function lifespanTooltipOf(
   indi: Individual | undefined,
@@ -128,7 +128,9 @@ export function lifespanTooltipOf(
   if (!showAge) return base;
   const ends = lifespanAgeEndpoints(indi, now);
   const detail = ends && fullAgeBetween(ends[0], ends[1], t);
-  return detail ? (base ? `${base} (${detail})` : detail) : base;
+  if (!detail) return base;
+  const labelled = `${t("age.label")} ${detail}`;
+  return base ? `${base} (${labelled})` : labelled;
 }
 
 /** Lifespan label with the {@link lifespanAge} appended, e.g. "1850–1920 (70)". */
@@ -139,32 +141,33 @@ export function lifespanWithAge(indi: Individual | undefined, showAge: boolean):
   return age === undefined ? span : `${span} (${age})`;
 }
 
-/** "♂32 ♀28" — whichever of a couple's ages are known, glyph-tagged; "" when neither. */
-export function formatCoupleAges(husband: number | undefined, wife: number | undefined): string {
-  const parts: string[] = [];
-  if (husband !== undefined) parts.push(`♂${husband}`);
-  if (wife !== undefined) parts.push(`♀${wife}`);
-  return parts.join(" ");
+/** One age badge: glyph-tagged whole years to display, tooltip with the full breakdown. */
+export interface AgeBadge {
+  text: string;
+  title: string;
 }
 
 /**
- * Badge + tooltip for a couple's ages at `at`: glyph-tagged whole years as the
- * text, `label` plus the glyph-tagged full-precision breakdown as the title
- * (e.g. "♂32y 4m 2d ♀28y 11m"). Undefined when neither age is known.
+ * A couple's ages at `at` as one glyph-tagged badge per known age ("♂32",
+ * "♀28"), each carrying its own label + full-precision breakdown as the
+ * tooltip. Undefined when neither age is known.
  */
 export function coupleAgesDisplay(
   husband: Individual | undefined,
   wife: Individual | undefined,
   at: GedDate | undefined,
-  label: string,
+  labels: { husband: string; wife: string },
   t: Translate,
-): { text: string; title: string } | undefined {
-  const text = formatCoupleAges(ageAtDate(husband, at), ageAtDate(wife, at));
-  if (!text) return undefined;
-  const details: string[] = [];
-  const h = fullAgeBetween(birthDateOf(husband), at, t);
-  const w = fullAgeBetween(birthDateOf(wife), at, t);
-  if (h) details.push(`♂${h}`);
-  if (w) details.push(`♀${w}`);
-  return { text, title: details.length ? `${label}: ${details.join(" ")}` : label };
+): AgeBadge[] | undefined {
+  const badges: AgeBadge[] = [];
+  for (const [indi, glyph, label] of [
+    [husband, "♂", labels.husband],
+    [wife, "♀", labels.wife],
+  ] as const) {
+    const age = ageAtDate(indi, at);
+    if (age === undefined) continue;
+    const detail = fullAgeBetween(birthDateOf(indi), at, t);
+    badges.push({ text: `${glyph}${age}`, title: detail ? `${label}: ${detail}` : label });
+  }
+  return badges.length ? badges : undefined;
 }

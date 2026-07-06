@@ -98,9 +98,9 @@ export function EventList({
    * row keys so a row already mounted before a match was confirmed remounts
    * and picks up the now-available incoming values (see `mergeGenRef`). */
   mergeGen?: number;
-  /** Parents' ages at this person's birth (badge text e.g. "♂32 ♀28" plus
+  /** Parents' ages at this person's birth ("♂32" "♀28" badges, each with a
    * full-precision tooltip), shown on the BIRT row when "Show ages" is on. */
-  birthParentAges?: { text: string; title: string };
+  birthParentAges?: { text: string; title: string }[];
 }) {
   const { settings } = useSettings();
   const birtEv = person.events.find((e) => e.tag === "BIRT");
@@ -108,12 +108,12 @@ export function EventList({
   // The person's age at an event, shown after its date ("Show ages" setting);
   // the tooltip carries the full-precision Y/M/D breakdown.
   const birthDate = settings.showAge ? birthDateOf(person) : undefined;
-  function eventAge(ev: GedEvent): { text: string; title: string } | undefined {
+  function eventAge(ev: GedEvent): { text: string; title: string }[] | undefined {
     if (!settings.showAge || ev.tag === "BIRT") return undefined;
     const age = ageBetween(birthDate, ev.date);
     if (age === undefined) return undefined;
     const detail = fullAgeBetween(birthDate, ev.date, t);
-    return { text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") };
+    return [{ text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") }];
   }
 
   /** Merge sub-field keys (e.g. "date", "addr") touched by `update`, for `onResolveMergeField`. */
