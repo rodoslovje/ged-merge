@@ -21,7 +21,7 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
 
   // 1. BOM sniffing.
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return utf8Result(bytes.subarray(3), warnings);
+    return decodeAsUtf8(bytes.subarray(3), warnings, false);
   }
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
     return { text: decodeUtf16(bytes.subarray(2), true), charset: "UNICODE", warnings };
@@ -35,10 +35,7 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
 
   switch (declared) {
     case "UTF-8":
-      if (isValidUtf8(bytes)) return utf8Result(bytes, warnings);
-      // Declared UTF-8 but not valid: either a real 8-bit file mislabelled, or
-      // UTF-8 with a few corrupt bytes. Decide by how many bytes fail to decode.
-      return recoverInvalidUtf8(bytes, warnings);
+      return decodeAsUtf8(bytes, warnings, true);
     case "UNICODE":
       // No BOM but declared UNICODE: assume little-endian, the common case.
       warnings.push({
@@ -90,6 +87,110 @@ function mislabelledUtf8(
     message: `CHAR ${declared} but the bytes are valid UTF-8; decoding as UTF-8.`,
   });
   return utf8Result(bytes, warnings);
+}
+
+/**
+ * Decode bytes known (BOM) or declared (CHAR UTF-8) to be UTF-8, healing a
+ * MyHeritage-style split multi-byte character across a CONC/CONT line wrap
+ * first if the buffer isn't already valid. When `allowCodepageFallback` is
+ * true and healing doesn't fully fix it, falls through to the existing
+ * mislabelled-8-bit heuristic; a BOM is an unambiguous UTF-8 signal, so that
+ * guesswork doesn't apply there.
+ */
+function decodeAsUtf8(
+  bytes: Uint8Array,
+  warnings: ParseWarning[],
+  allowCodepageFallback: boolean,
+): DecodeResult {
+  if (isValidUtf8(bytes)) return utf8Result(bytes, warnings);
+  const { bytes: healed, count } = healSplitUtf8AcrossConc(bytes);
+  if (count > 0 && isValidUtf8(healed)) {
+    warnings.push({
+      kind: "encoding",
+      message: `Repaired ${count} multi-byte character(s) split across a line-wrap boundary.`,
+    });
+    return utf8Result(healed, warnings);
+  }
+  if (allowCodepageFallback) return recoverInvalidUtf8(healed, warnings);
+  return utf8Result(healed, warnings);
+}
+
+/**
+ * Reassemble multi-byte UTF-8 characters split by a GEDCOM line-wrap: the
+ * lead byte(s) end one physical line, and the exporter starts a fresh
+ * `<level> CONC `/`<level> CONT ` line right in the middle of the character,
+ * so the remaining continuation byte(s) begin the next line's content. Moves
+ * the completing byte(s) back before the line-break marker, closing the gap,
+ * so the character decodes correctly and the CONC/CONT line structure is
+ * otherwise untouched (its own remaining content still follows the marker).
+ */
+function healSplitUtf8AcrossConc(bytes: Uint8Array): { bytes: Uint8Array; count: number } {
+  const out: number[] = [];
+  let count = 0;
+  let i = 0;
+  const n = bytes.length;
+  while (i < n) {
+    const b = bytes[i];
+    const seqLen = utf8LeadLen(b);
+    if (seqLen > 1) {
+      let have = 0;
+      while (have < seqLen - 1 && (bytes[i + 1 + have] & 0xc0) === 0x80) have++;
+      if (have < seqLen - 1) {
+        const breakStart = i + 1 + have;
+        const markerLen = matchConcOrContBreak(bytes, breakStart);
+        if (markerLen !== undefined) {
+          const need = seqLen - 1 - have;
+          const contStart = breakStart + markerLen;
+          let complete = true;
+          for (let k = 0; k < need; k++) {
+            if ((bytes[contStart + k] & 0xc0) !== 0x80) {
+              complete = false;
+              break;
+            }
+          }
+          if (complete) {
+            out.push(b);
+            for (let k = 0; k < have; k++) out.push(bytes[i + 1 + k]);
+            for (let k = 0; k < need; k++) out.push(bytes[contStart + k]);
+            for (let k = 0; k < markerLen; k++) out.push(bytes[breakStart + k]);
+            count++;
+            i = contStart + need;
+            continue;
+          }
+        }
+      }
+    }
+    out.push(b);
+    i++;
+  }
+  return count > 0 ? { bytes: Uint8Array.from(out), count } : { bytes, count: 0 };
+}
+
+/** UTF-8 sequence length for a lead byte (1 for ASCII/continuation/invalid). */
+function utf8LeadLen(b: number): number {
+  if (b < 0x80) return 1;
+  if ((b & 0xe0) === 0xc0) return 2;
+  if ((b & 0xf0) === 0xe0) return 3;
+  if ((b & 0xf8) === 0xf0) return 4;
+  return 1;
+}
+
+/** Matches `(\r\n|\n)<digits> (CONC|CONT) ` at `pos`; returns its byte length, or undefined. */
+function matchConcOrContBreak(bytes: Uint8Array, pos: number): number | undefined {
+  let i = pos;
+  const n = bytes.length;
+  if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) i += 2;
+  else if (bytes[i] === 0x0a) i += 1;
+  else return undefined;
+  const digitsStart = i;
+  while (i < n && bytes[i] >= 0x30 && bytes[i] <= 0x39) i++;
+  if (i === digitsStart || bytes[i] !== 0x20) return undefined;
+  i += 1;
+  const tag = String.fromCharCode(bytes[i] ?? 0, bytes[i + 1] ?? 0, bytes[i + 2] ?? 0, bytes[i + 3] ?? 0);
+  if (tag !== "CONC" && tag !== "CONT") return undefined;
+  i += 4;
+  if (bytes[i] !== 0x20) return undefined;
+  return i + 1 - pos;
 }
 
 /**
@@ -256,7 +357,7 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   const head = bytes.subarray(0, Math.min(bytes.length, 2048));
   let ascii = "";
   for (const b of head) ascii += String.fromCharCode(b);
-  const m = ascii.match(/\n\s*1\s+CHAR\s+(\w+)/i);
+  const m = ascii.match(/\n\s*1\s+CHAR\s+([\w-]+)/i);
   if (!m) return undefined;
   const v = m[1].toUpperCase();
   if (v === "UTF-8" || v === "UTF8") return "UTF-8";

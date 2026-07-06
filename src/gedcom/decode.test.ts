@@ -13,6 +13,11 @@ function ged(charLabel: string, nameBytes: number[]): ArrayBuffer {
   return new Uint8Array([...head, ...nameBytes, 0x0a]).buffer;
 }
 
+/** ASCII string to byte values. */
+function ascii(s: string): number[] {
+  return [...s].map((c) => c.charCodeAt(0));
+}
+
 describe("decodeGedcom charset detection", () => {
   it("decodes ANSI Slovenian text as Windows-1250", () => {
     // 0xE8=č, 0x9A=š, 0x9E=ž in CP1250 (would be è/š/ž in CP1252).
@@ -87,5 +92,40 @@ describe("decodeGedcom charset detection", () => {
     expect(charset).toBe("UTF-8");
     expect(text).toContain("�K�nig");
     expect(warnings.some((w) => /valid UTF-8/.test(w.message))).toBe(true);
+  });
+
+  it("heals a UTF-8 character split across a CONC line-wrap boundary (MyHeritage)", () => {
+    // MyHeritage wraps long CONT/CONC values at a fixed byte width without
+    // checking UTF-8 boundaries: here the lead byte of "ć" (C4 87) ends the
+    // NAME line, and the continuation byte begins the next CONC line.
+    const bytes = new Uint8Array([
+      ...ascii("0 HEAD\n1 CHAR UTF-8\n1 NAME Kra"),
+      0xc4,
+      ...ascii("\r\n2 CONC "),
+      0x87,
+      ...ascii("an\n"),
+    ]);
+    const { text, charset, warnings } = decodeGedcom(bytes.buffer);
+    expect(charset).toBe("UTF-8");
+    expect(text).toContain("Krać");
+    expect(text).not.toContain("�");
+    expect(warnings.some((w) => /split across a line-wrap/.test(w.message))).toBe(true);
+  });
+
+  it("heals a split character in a UTF-8 file with a BOM", () => {
+    const bytes = new Uint8Array([
+      0xef,
+      0xbb,
+      0xbf,
+      ...ascii("0 HEAD\n1 NAME Kra"),
+      0xc4,
+      ...ascii("\r\n2 CONC "),
+      0x87,
+      ...ascii("an\n"),
+    ]);
+    const { text, charset } = decodeGedcom(bytes.buffer);
+    expect(charset).toBe("UTF-8");
+    expect(text).toContain("Krać");
+    expect(text).not.toContain("�");
   });
 });
