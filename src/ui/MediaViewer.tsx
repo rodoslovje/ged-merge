@@ -15,7 +15,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
-import { mediaUsedBy, type PersonRef } from "../tools/sources";
+import { familySpouses, mediaUsedBy, type PersonRef } from "../tools/sources";
 import { lifespanLabel } from "../match/relatives";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -77,15 +77,20 @@ export interface MediaItem {
   /** Key/value rows under the caption. */
   meta?: MediaMetaRow[];
   /** Extra info block (e.g. a "referenced by" list). Receives a `close`
-   *  callback so navigation links can dismiss the viewer first, and an
-   *  `onHoverCrop` setter so a hovered entry can show that person's crop box. */
-  details?: (close: () => void, onHoverCrop?: (mark: CropMark | null) => void) => ReactNode;
+   *  callback so navigation links can dismiss the viewer first, an
+   *  `onHoverCrop` setter so a hovered entry can show that person's crop box,
+   *  and a `refreshKey` that bumps when a crop was just edited (so a memoized
+   *  block can re-read the live records). */
+  details?: (close: () => void, onHoverCrop?: (mark: CropMark | null) => void, refreshKey?: number) => ReactNode;
   /** When set, the info panel shows editable inputs instead of static rows. */
   edit?: MediaEdit;
   /** Every tagged person's GEDCOM 7 crop region on this (group) photo, each with
    *  a name label. Nothing is drawn by default; hovering/touching the image
    *  reveals all of these boxes with their names. */
   allCrops?: CropMark[];
+  /** Live variant of {@link allCrops}: re-reads the records so a region saved
+   *  while the viewer is open shows up immediately. Takes precedence. */
+  getAllCrops?: () => CropMark[];
 }
 
 /**
@@ -165,6 +170,15 @@ function personsLabel(dataset: Dataset, persons: PersonRef[]): string {
     .join(" & ");
 }
 
+/** Crop-box label for an *inline* media link's owning record — the person's
+ *  name, or the spouses' names for a family. */
+function recordCropLabel(dataset: Dataset, raw: GedNode): string {
+  if (!raw.xref) return "";
+  const persons: PersonRef[] =
+    raw.tag === "FAM" ? familySpouses(dataset, raw.xref) : [{ id: raw.xref, label: raw.xref }];
+  return personsLabel(dataset, persons);
+}
+
 /** The "referenced by N records" block shown in the info panel for a shared
  *  media object — the `INDI`/`FAM` records that cite it, each a link into Edit.
  *  Mirrors the Tools › Sources panel so a photo's usage is visible there too. */
@@ -173,6 +187,7 @@ export function MediaReferencedBy({
   mediaXref,
   onNavigate,
   onHoverCrop,
+  refreshKey = 0,
 }: {
   dataset: Dataset;
   mediaXref: string;
@@ -180,9 +195,14 @@ export function MediaReferencedBy({
   /** When given, hovering a usage row that carries a crop region reports it (with
    *  the person's name) so the image shows that one person's box; leaving reports null. */
   onHoverCrop?: (mark: CropMark | null) => void;
+  /** Bumped when a crop was edited while the viewer is open — `dataset` is
+   *  mutated in place (stable reference), so the memo needs another trigger
+   *  to re-read the live records. */
+  refreshKey?: number;
 }) {
   const { t } = useTranslation();
-  const uses = useMemo(() => mediaUsedBy(dataset, mediaXref), [dataset, mediaXref]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey is the in-place-mutation trigger
+  const uses = useMemo(() => mediaUsedBy(dataset, mediaXref), [dataset, mediaXref, refreshKey]);
   if (uses.length === 0) return null;
   return (
     <>
@@ -254,7 +274,22 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
         items.push({
           url,
           kind: mediaKindOf(ref.file) === "pdf" ? "pdf" : "image",
-          allCrops: refCtx && xref ? mediaCropMarks(refCtx.dataset, xref) : undefined,
+          // Live so a region saved while the viewer is open shows immediately.
+          // Shared media: every referencing record's crop. Inline media: only
+          // this record's own link can crop it — re-read it by address.
+          getAllCrops: refCtx
+            ? xref
+              ? () => mediaCropMarks(refCtx.dataset, xref)
+              : () => {
+                  const fresh = collectMediaRefs(raw, records).find(
+                    (r) =>
+                      r.eventTag === ref.eventTag &&
+                      (r.eventIndex ?? 0) === (ref.eventIndex ?? 0) &&
+                      r.objeIndex === ref.objeIndex,
+                  );
+                  return fresh?.crop ? [{ crop: fresh.crop, label: recordCropLabel(refCtx.dataset, raw) }] : [];
+                }
+            : undefined,
           title: ref.title || basename(ref.file),
           // When editable, the form replaces the static rows; otherwise show them.
           meta: onEditMedia ? undefined : metaRows,
@@ -278,12 +313,13 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
             : undefined,
           details:
             refCtx && xref
-              ? (close, onHoverCrop) => (
+              ? (close, onHoverCrop, refreshKey) => (
                   <MediaReferencedBy
                     dataset={refCtx.dataset}
                     mediaXref={xref}
                     onNavigate={(id) => { close(); refCtx.onNavigate(id); }}
                     onHoverCrop={onHoverCrop}
+                    refreshKey={refreshKey}
                   />
                 )
               : undefined,
@@ -497,8 +533,18 @@ function MediaViewerOverlay({
   const [cropEditing, setCropEditing] = useState(false);
   const [cropDraft, setCropDraft] = useState<CropRegion | null>(null);
   const [cropSaved, setCropSaved] = useState<Record<number, CropRegion | null>>({});
+  // Bumped on every crop save/remove: re-runs the live `getAllCrops` read and
+  // MediaReferencedBy's memo, so the new box shows without reopening the viewer.
+  const [cropRefresh, setCropRefresh] = useState(0);
   useEffect(() => { setHoverMark(null); setCropEditing(false); setCropDraft(null); }, [index]);
   const effectiveCrop = current.edit ? (index in cropSaved ? cropSaved[index] : current.edit.crop) : undefined;
+  // Memoized so hover-driven re-renders don't rescan the records; the deps are
+  // the photo itself and the crop-edit counter.
+  const allCrops = useMemo(
+    () => (current.getAllCrops ? current.getAllCrops() : current.allCrops ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cropRefresh is the in-place-mutation trigger
+    [current, cropRefresh],
+  );
   // Autofocus the edit form's first field only on the add-flow open — never on
   // tray navigation or plain "expand from Edit". Consumed after the first render
   // so even returning to the start photo won't refocus.
@@ -549,7 +595,7 @@ function MediaViewerOverlay({
             kind={current.kind}
             title={current.title}
             hoverMark={hoverMark}
-            allCrops={current.allCrops ?? []}
+            allCrops={allCrops}
             cropEdit={cropEditing ? { draft: cropDraft, onDraft: setCropDraft } : undefined}
           />
         </div>
@@ -586,6 +632,7 @@ function MediaViewerOverlay({
                             onClick={() => {
                               current.edit!.onSaveCrop!(cropDraft);
                               setCropSaved((p) => ({ ...p, [index]: cropDraft }));
+                              setCropRefresh((v) => v + 1);
                               setCropEditing(false);
                             }}
                           >
@@ -599,6 +646,7 @@ function MediaViewerOverlay({
                                 current.edit!.onSaveCrop!(null);
                                 setCropSaved((p) => ({ ...p, [index]: null }));
                                 setCropDraft(null);
+                                setCropRefresh((v) => v + 1);
                                 setCropEditing(false);
                               }}
                             >
@@ -633,7 +681,7 @@ function MediaViewerOverlay({
                 )}
               </>
             )}
-            {current.details?.(onClose, setHoverMark)}
+            {current.details?.(onClose, setHoverMark, cropRefresh)}
           </div>
         )}
       </div>
