@@ -67,6 +67,9 @@ export interface ChartSettings {
   showSources: boolean;
   /** Report: prose narrative style instead of the glyph fact-line list. */
   reportNarrative: boolean;
+  /** Report: a table of contents up top — one line per generation with its
+   *  entry-number range, linked to the section in every rendering. */
+  reportToc: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -89,6 +92,7 @@ const DEFAULTS: ChartSettings = {
   showNotes: false,
   showSources: false,
   reportNarrative: false,
+  reportToc: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -154,6 +158,7 @@ function load(): ChartSettings {
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
       reportNarrative: bool(parsed.reportNarrative, DEFAULTS.reportNarrative),
+      reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),
     };
   } catch {
     return DEFAULTS;

@@ -293,4 +293,13 @@ describe("reportToText (ancestors)", () => {
     expect(text).not.toContain("1950");
     expect(text).not.toContain("Kranj");
   });
+
+  it("leads with the table of contents when asked, one row per generation", () => {
+    const text = reportToText(tr, data, "ancestors", "T", { toc: true });
+    expect(text).toContain(
+      "report.toc\n  report.gen.root\n  report.gen.n — ahnentafel.gen.1 · report.gen.nos",
+    );
+    // Off by default.
+    expect(reportToText(tr, data, "ancestors", "T")).not.toContain("report.toc");
+  });
 });

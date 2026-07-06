@@ -8,6 +8,7 @@ import {
   generationHeading,
   romanIndex,
   sourceLabel,
+  tocRows,
   type FactLine,
   type PersonRef,
   type ReportData,
@@ -24,6 +25,9 @@ export interface ReportTextOptions {
    *  Injected by the view, which owns the planner + language pack — keeps
    *  this module free of narrative grammar. */
   narrativeOf?: (entry: ReportEntry) => NarrativeEntryText;
+  /** Lead with a table of contents: one line per generation, the entry-number
+   *  range as the reference (linked to the section where the format can). */
+  toc?: boolean;
 }
 
 export function reportToText(
@@ -34,6 +38,11 @@ export function reportToText(
   opts: ReportTextOptions = {},
 ): string {
   const lines: string[] = [title, "=".repeat(title.length), ""];
+  if (opts.toc) {
+    lines.push(t("report.toc"));
+    for (const row of tocRows(t, data, direction)) lines.push(`  ${row.label}`);
+    lines.push("");
+  }
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
     lines.push([h.title, h.range, h.coverage].filter(Boolean).join(" · "), "");

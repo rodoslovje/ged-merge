@@ -205,6 +205,22 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
               </div>
             </div>
           )}
+          {/* Report-only: the table of contents up top (one linked line per
+              generation), on the page and in every export. */}
+          {effectiveType === "report" && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("tree.settings.report.structure")}</span>
+              <div className="chart-settings-segmented chart-settings-toggles">
+                <button
+                  className={settings.reportToc ? "active" : ""}
+                  aria-pressed={settings.reportToc}
+                  onClick={() => set({ reportToc: !settings.reportToc })}
+                >
+                  {t("tree.settings.report.toc")}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Privacy: redact people inferred to be living. */}
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.privacy")}</span>
