@@ -3853,6 +3853,23 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   cursor: pointer;
 }
 .report-jump:hover { color: var(--accent); text-decoration: underline; }
+/* Optional table of contents above the first generation band: one row per
+   generation, each a .report-jump that scrolls to its section. */
+.report-toc { margin-bottom: 24px; }
+.report-toc-head {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+.report-toc-row {
+  display: block;
+  padding: 2px 0;
+  margin-left: 12px;
+  color: var(--muted);
+}
 .report-flash { animation: report-flash 1.4s ease-out; }
 @keyframes report-flash {
   0%, 30% { background: var(--accent-soft); }

@@ -199,6 +199,21 @@ export function generationHeading(
   return { title: `${genN} — ${word}`, range, coverage };
 }
 
+/** The optional table of contents: one row per generation — the heading title
+ *  with the entry-number range as the reference (the reports have no page
+ *  numbers) — paired with its gen number so renderers can link the row to
+ *  the section (page scroll, print anchor, RTF bookmark). */
+export function tocRows(
+  t: Translate,
+  data: ReportData,
+  direction: "ancestors" | "descendants",
+): { gen: number; label: string }[] {
+  return data.generations.map((g) => {
+    const h = generationHeading(t, g, direction);
+    return { gen: g.gen, label: [h.title, h.range].filter(Boolean).join(" · ") };
+  });
+}
+
 /** Attach the record-level notes/sources the options ask for (never on dups).
  *  Notes keep their URLs — the report shows them verbatim. */
 export function personExtras(entry: ReportEntry, indi: Individual, opts: ReportFactOptions): void {

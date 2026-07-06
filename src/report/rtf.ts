@@ -7,7 +7,7 @@
 // visual reference for sizes and colours.
 
 import type { Translate } from "../locales/i18n";
-import { generationHeading, sourceLabel, type ReportData, type ReportEntry, type SourceLine } from "./model";
+import { generationHeading, sourceLabel, tocRows, type ReportData, type ReportEntry, type SourceLine } from "./model";
 import { childrenOfLabel, entryNum, factText, type ReportTextOptions } from "./text";
 import { citationMark } from "./narrativeText";
 
@@ -30,13 +30,26 @@ export function reportToRtf(
   opts: ReportTextOptions = {},
 ): string {
   const parts: string[] = [para("\\sa240\\b\\fs30", esc(title))];
+  if (opts.toc) {
+    // Each row jumps to its generation heading's bookmark (see genBookmark).
+    parts.push(para("\\sa100\\b\\fs24", esc(t("report.toc"))));
+    for (const row of tocRows(t, data, direction)) {
+      parts.push(
+        para(
+          `\\li${INDENT}\\sa20\\cf${CF_FACT}`,
+          `{\\field{\\*\\fldinst{HYPERLINK \\\\l "${genBookmark(row.gen)}"}}{\\fldrslt ${esc(row.label)}}}`,
+        ),
+      );
+    }
+  }
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
     const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${s}`).join(" ");
+    const mark = opts.toc ? `{\\*\\bkmkstart ${genBookmark(g.gen)}}{\\*\\bkmkend ${genBookmark(g.gen)}}` : "";
     parts.push(
       para(
         "\\sb240\\sa100\\brdrb\\brdrs\\brdrw15\\brsp60\\b\\fs24",
-        `{\\caps ${esc(h.title)}}${meta ? ` {\\b0\\fs20\\cf${CF_MUTED} ${esc(meta)}}` : ""}`,
+        `${mark}{\\caps ${esc(h.title)}}${meta ? ` {\\b0\\fs20\\cf${CF_MUTED} ${esc(meta)}}` : ""}`,
       ),
     );
     let lastFam: string | undefined;
@@ -102,6 +115,11 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
 /** One paragraph group: `{\pard<fmt> <text>\par}`. */
 function para(fmt: string, text: string): string {
   return `{\\pard${fmt} ${text}\\par}`;
+}
+
+/** A generation heading's bookmark name — the TOC's HYPERLINK \l target. */
+function genBookmark(gen: number): string {
+  return `gen${gen}`;
 }
 
 /** An italic note paragraph (notes may span several lines → \line breaks). */

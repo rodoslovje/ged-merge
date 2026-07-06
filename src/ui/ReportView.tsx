@@ -8,6 +8,7 @@ import {
   generationHeading,
   romanIndex,
   sourceLabel,
+  tocRows,
   type PersonRef,
   type ReportData,
   type ReportEntry,
@@ -117,6 +118,9 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
   // family structure), drop the dates, places and fact lines.
   const privacy = settings.privacyLiving;
   const redacted = useCallback((e: ReportEntry) => privacy && e.living, [privacy]);
+  // Table of contents up top: one row per generation, linked to its section
+  // in every rendering (page scroll, text lines, RTF bookmarks, print anchors).
+  const toc = settings.reportToc;
 
   // Narrative style: each entry's facts phrased as prose in the UI language
   // (with citation markers, woven-in notes and the numbered citation list).
@@ -228,7 +232,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.txt`,
-                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf }),
+                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf, toc }),
                   ),
               },
               {
@@ -240,7 +244,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.rtf`,
-                    reportToRtf(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf }),
+                    reportToRtf(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf, toc }),
                     "application/rtf",
                   ),
               },
@@ -251,7 +255,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                 title: t("tree.exportPdf.tooltip"),
                 onSelect: () =>
                   data &&
-                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy, narrativeOf)),
+                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy, toc, narrativeOf)),
               },
             ]}
           />
@@ -293,10 +297,28 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
         <div className="report-scroll">
           {data ? (
             <div className="report-page">
+              {toc && (
+                <nav className="report-toc" aria-label={t("report.toc")}>
+                  <h3 className="report-toc-head">{t("report.toc")}</h3>
+                  {tocRows(t, data, mode).map((row) => (
+                    <button
+                      key={row.gen}
+                      className="report-jump report-toc-row"
+                      onClick={() =>
+                        document
+                          .getElementById(`report-gen-${row.gen}`)
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }
+                    >
+                      {row.label}
+                    </button>
+                  ))}
+                </nav>
+              )}
               {data.generations.map((g) => {
                 const heading = generationHeading(t, g, mode);
                 return (
-                <section key={g.gen}>
+                <section key={g.gen} id={`report-gen-${g.gen}`}>
                   <h3 className="report-gen-head">
                     <span>{heading.title}</span>
                     {heading.range && <span className="report-gen-range gm-data">{heading.range}</span>}
@@ -479,13 +501,24 @@ function printDoc(
   title: string,
   fileName: string,
   privacy: boolean,
+  toc: boolean,
   narrativeOf?: (entry: ReportEntry) => NarrativeEntryText,
 ): string {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
+  if (toc) {
+    // Anchor links to the generation headings — clickable in the saved PDF.
+    parts.push(
+      `<nav class="toc"><div class="toc-head">${escapeHtml(t("report.toc"))}</div>` +
+        tocRows(t, data, direction)
+          .map((row) => `<a href="#gen-${row.gen}">${escapeHtml(row.label)}</a>`)
+          .join("") +
+        `</nav>`,
+    );
+  }
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
     const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${escapeHtml(s!)}`).join(" ");
-    parts.push(`<h2>${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
+    parts.push(`<h2 id="gen-${g.gen}">${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
     let lastFam: string | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentFam !== lastFam) {
@@ -541,6 +574,9 @@ function printDoc(
   h2 { font-size: 12pt; margin: 14pt 0 6pt; border-bottom: 1.5pt solid #666; padding-bottom: 2pt; text-transform: uppercase; letter-spacing: 0.04em; }
   h2 .range { font-weight: 400; text-transform: none; letter-spacing: 0; color: #444; font-size: 10pt; }
   h3 { font-size: 11pt; margin: 10pt 0 4pt; font-style: italic; font-weight: 500; }
+  .toc { margin: 0 0 14pt; }
+  .toc-head { font-weight: 700; margin-bottom: 3pt; }
+  .toc a { display: block; color: #000; text-decoration: none; margin-left: 1.2em; }
   .entry { margin: 0 0 7pt; page-break-inside: avoid; }
   .num { display: inline-block; min-width: 2.2em; text-align: right; }
   .rom { display: inline-block; min-width: 2.2em; text-align: right; margin-left: 0.3em; }

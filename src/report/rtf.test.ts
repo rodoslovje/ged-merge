@@ -130,6 +130,19 @@ describe("reportToRtf (register / options)", () => {
     expect(rtf).not.toContain("HYPERLINK");
   });
 
+  it("adds a linked table of contents and heading bookmarks when asked", () => {
+    const data = buildAhnentafel(dataset(FAMILY), "@I1@", nameOf, NOW)!;
+    const rtf = reportToRtf(tr, data, "ancestors", "T", { toc: true });
+    expect(rtf).toContain("\\b\\fs24 report.toc\\par");
+    // Each TOC row is an internal hyperlink to its generation's bookmark.
+    expect(rtf).toContain(
+      '{\\field{\\*\\fldinst{HYPERLINK \\\\l "gen1"}}{\\fldrslt report.gen.n \\u8212? ahnentafel.gen.1 \\u183? report.gen.nos}}',
+    );
+    expect(rtf).toContain("{\\*\\bkmkstart gen1}{\\*\\bkmkend gen1}");
+    // Off by default.
+    expect(reportToRtf(tr, data, "ancestors", "T")).not.toContain("bkmkstart");
+  });
+
   it("renders the narrative paragraph and numbered footnotes when injected", () => {
     const data = buildAhnentafel(dataset(FAMILY), "@I1@", nameOf, NOW)!;
     const rtf = reportToRtf(tr, data, "ancestors", "T", {
