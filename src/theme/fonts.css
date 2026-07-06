@@ -8,6 +8,13 @@
    Self-hosted so the app makes no third-party request and works
    fully offline — Vite fingerprints these and respects base:"./".
    Regenerate from the Google Fonts CSS2 API if weights change.
+   ------------------------------------------------------------
+   *-sup.woff2: superscript digits ⁰⁴-⁹ (U+2070, U+2074-2079) for
+   the report footnote markers — the Google Fonts latin subsets
+   only carry the Latin-1 ¹²³. Subset from the official IBM Plex
+   static TTFs (github.com/IBM/plex releases):
+   pyftsubset <family>-<weight>.ttf --unicodes=U+2070,U+2074-2079
+     --flavor=woff2
    ============================================================ */
 
 @font-face {
@@ -57,6 +64,30 @@
   font-display: swap;
   src: url('./fonts/IBMPlexMono-600-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/IBMPlexMono-400-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/IBMPlexMono-500-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/IBMPlexMono-600-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
 }
 /* IBM Plex Sans ships as a single variable woff2 per subset (wght 100–700);
    the four weight faces below all reference it, the browser picks the weight. */
@@ -124,6 +155,40 @@
   src: url('./fonts/IBMPlexSans-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+/* The Sans superscript add-ons come from the static TTFs (the variable
+   font lacks the glyphs too), so one face per weight. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-400-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-500-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-600-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-700-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
 @font-face {
   font-family: 'IBM Plex Serif';
   font-style: normal;
@@ -171,6 +236,30 @@
   font-display: swap;
   src: url('./fonts/IBMPlexSerif-600-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSerif-400-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Serif';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSerif-500-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
+}
+@font-face {
+  font-family: 'IBM Plex Serif';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSerif-600-sup.woff2') format('woff2');
+  unicode-range: U+2070, U+2074-2079;
 }
 
 :root {
