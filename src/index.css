@@ -1713,6 +1713,12 @@ button:focus-visible {
   text-align: center;
   white-space: nowrap;
 }
+/* Each event: label + date on the first line, place on its own line below. */
+.edit-parent-fam-event {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
 .edit-family {
   display: flex;

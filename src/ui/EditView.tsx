@@ -1392,17 +1392,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 <div className={`edit-connector-h ${coupleEvents.length ? "has-events" : ""}`}>
                   {coupleEvents.length > 0 && (
                     <div className="edit-parent-fam-events">
-                      {coupleEvents.map((ev, j) => (
-                        <span
-                          key={`${ev.tag}-${j}`}
-                          title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
-                        >
-                          {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}{" "}
-                          <span className="gm-data">
-                            {[ev.date?.raw, ev.place ? ev.place.parts[0] || ev.place.raw : undefined].filter(Boolean).join(" · ")}
+                      {coupleEvents.map((ev, j) => {
+                        const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
+                        return (
+                          <span
+                            className="edit-parent-fam-event"
+                            key={`${ev.tag}-${j}`}
+                            title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
+                          >
+                            <span>
+                              {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
+                              {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
+                            </span>
+                            {place && <span className="gm-data">{place}</span>}
                           </span>
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
