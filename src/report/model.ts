@@ -104,7 +104,7 @@ export interface ReportEntry {
    *  parent's remarriage starts a new children list). */
   parentFam?: string;
   /** Register report: position among the union's children in birth order
-   *  (1-based), rendered as the NGSQ small roman numeral (i, ii, iii …). */
+   *  (1-based), rendered as the NGSQ roman numeral (I, II, III …). */
   childIndex?: number;
   /** Record-level person notes, shown under the name when notes are enabled. */
   notes?: string[];
@@ -133,11 +133,11 @@ export function personRef(indi: Individual, nameOf: NameOf, nowYear: number): Pe
   };
 }
 
-/** Lowercase roman numeral for an NGSQ child index (1 → i, 4 → iv …). */
+/** Uppercase roman numeral for an NGSQ child index (1 → I, 4 → IV …). */
 export function romanIndex(n: number): string {
   const steps: [number, string][] = [
-    [1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"],
-    [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"],
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
   ];
   let out = "";
   for (const [value, numeral] of steps) {

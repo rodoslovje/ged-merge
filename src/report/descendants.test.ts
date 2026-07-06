@@ -134,7 +134,7 @@ describe("reportToText (descendants)", () => {
     expect(text).toContain("register.gen.1");
     expect(text).toContain("register.gen.2");
     expect(text).toContain("register.childrenOfBoth"); // both parents known
-    expect(text).toContain("2 i. Peter Novak (1896–1960)"); // register no. + roman child index
+    expect(text).toContain("2 I. Peter Novak (1896–1960)"); // register no. + roman child index
     expect(text).toContain("     ⚭ 1922 — Eva Zajc");
   });
 });
