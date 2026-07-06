@@ -204,6 +204,37 @@ export function clearWorkspace(): Promise<void> {
   }, undefined);
 }
 
+// ── Fresh-start flag ────────────────────────────────────────────────────────
+//
+// The logo click reloads to the landing page instead of restoring the cached
+// workspace. The intent is recorded in localStorage rather than by deleting
+// from IndexedDB before the reload: the write is synchronous, so the reload
+// stays inside the user's click activation (Firefox blocks a programmatic
+// reload fired from an async continuation) and the mark can't be lost to an
+// IndexedDB transaction racing page teardown.
+
+const FRESH_START_KEY = "gedmerge.fresh-start";
+
+/** Mark the next app boot to discard the cached workspace instead of restoring it. */
+export function markFreshStart(): void {
+  try {
+    localStorage.setItem(FRESH_START_KEY, "1");
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Consume the fresh-start mark: true when this boot should skip the restore. */
+export function consumeFreshStart(): boolean {
+  try {
+    if (localStorage.getItem(FRESH_START_KEY) === null) return false;
+    localStorage.removeItem(FRESH_START_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Ask the browser to make storage durable (survive eviction under pressure).
  *  Granted silently or via a one-time prompt depending on engagement; failure
  *  is harmless (storage stays best-effort). Call once after the first save. */

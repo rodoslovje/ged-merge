@@ -204,6 +204,31 @@ test("clearing cached data drops the workspace, so a reload returns to the landi
   await expect(page.locator(".edit-person")).toHaveCount(0);
 });
 
+test("clicking the logo returns to the landing page instead of restoring the cached workspace", async ({ page }) => {
+  await enablePersist(page);
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MAIN);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const given = page.locator(".edit-name-input").first();
+  await given.fill(`${await given.inputValue()} TEST`);
+  await page.locator(".edit-name-input").nth(1).click(); // blur to commit
+  await waitForCache(page, { mainContains: "TEST" }); // the edit is cached
+
+  // Logo click with pending changes → confirm dialog → reload lands on the
+  // landing page (fresh start), not on the restored session.
+  await page.locator("h1.brand-clickable").click();
+  await page.locator(".confirm-dialog-confirm").click();
+  await expect(page.locator(".landing-b")).toBeVisible();
+  await expect(page.locator(".edit-person")).toHaveCount(0);
+
+  // The cached workspace was dropped, so a plain reload stays on the landing page.
+  await page.reload();
+  await expect(page.locator(".landing-b")).toBeVisible();
+  await expect(page.locator(".edit-person")).toHaveCount(0);
+});
+
 test("with caching disabled (default), a reload does not restore the workspace", async ({ page }) => {
   // No enablePersist — default off. Load a file, edit it, reload.
   await page.goto("/");

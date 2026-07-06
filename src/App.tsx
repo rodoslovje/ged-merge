@@ -50,7 +50,7 @@ import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
-import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, type StoredSession, type StoredEditState } from "./persist/idb";
+import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, markFreshStart, consumeFreshStart, type StoredSession, type StoredEditState } from "./persist/idb";
 import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
 import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
@@ -463,6 +463,13 @@ function AppContent() {
   // applied in `applyMatched` once the candidate list exists.
   useEffect(() => {
     let cancelled = false;
+    // Logo-click fresh start: skip the restore and drop the cached workspace so
+    // this (and every later) boot lands on the loader.
+    if (consumeFreshStart()) {
+      void clearWorkspace();
+      hydratedRef.current = true;
+      return;
+    }
     // Only read the cache when the user has opted in; otherwise there is nothing
     // stored and we go straight to the landing page.
     const hydrate: ReturnType<typeof loadWorkspace> = persistEnabledRef.current
@@ -1319,15 +1326,19 @@ function AppContent() {
     };
   }, []);
 
-  /** Drop the unsaved-changes guard and reload. Runs synchronously inside the
-   *  dialog button's click handler so the reload keeps the user's activation —
-   *  Firefox blocks a programmatic reload that fires from an async continuation. */
+  /** Drop the unsaved-changes guard and reload to the landing page. The cached
+   *  workspace is marked for clearing (consumed on the next boot, see
+   *  markFreshStart) so the reload shows the loader instead of restoring the
+   *  session. Runs synchronously inside the dialog button's click handler so
+   *  the reload keeps the user's activation — Firefox blocks a programmatic
+   *  reload that fires from an async continuation. */
   function discardAndReload() {
     skipUnloadWarnRef.current = true;
     if (beforeUnloadRef.current) {
       window.removeEventListener("beforeunload", beforeUnloadRef.current);
       beforeUnloadRef.current = null;
     }
+    markFreshStart();
     window.location.reload();
   }
 
