@@ -11,7 +11,8 @@ Before your **first** file change of the session (not before the first commit �
 1. Check where you are: `git rev-parse --git-dir --git-common-dir`. If the two paths are **equal**, you are in the main checkout and must not edit anything yet.
 2. Create and switch to a session worktree with the **EnterWorktree** tool (preferred), or `git worktree add ../ged-merge-<topic> -b <topic>`.
 3. Do all work and commits on the worktree branch.
-4. Merge to `main` **only after the user explicitly approves**, then run the full regression suite (see below).
+4. **When the feature is implemented** (basic tests green, committed): start the dev server in the worktree (`npm run dev`; run `npm install` first if the worktree has no `node_modules`) and hand the URL to the user for live validation. Leave it running while the user tests.
+5. **When the user confirms the merge**: stop the dev server, merge the branch to `main`, run the full regression suite **on main** (see below), then clean up — `git worktree remove <path>` and `git branch -d <branch>` (or ExitWorktree). Merge to `main` **only after the user explicitly approves** — never on your own.
 
 Enforcement: a PreToolUse hook (`.claude/hooks/require-worktree.sh`, wired in `.claude/settings.json`) **blocks** Edit/Write in the main checkout. If your edit is denied with a "main checkout" message, do not retry or work around it — create a worktree and redo the change there. The only exception is a user-approved direct fix on `main` (e.g. urgent CI repair): ask the user to confirm, `touch .claude/allow-main-edits`, and delete that file when done.
 
@@ -35,7 +36,8 @@ To run a single test file: `npx vitest run src/gedcom/date.test.ts`
 - **Reuse before writing.** When making changes, actively look for opportunities to reuse existing code and deduplicate — prefer extending an existing helper/component over adding a parallel one.
 - **One workspace per chat.** Each chat session works in its own git worktree — see the mandatory first-step section at the top of this file. Never edit in the main checkout.
 - **Test and commit per feature/phase.** Every feature or development phase is run through basic tests (`npm run typecheck`, `npm run lint`, relevant `vitest` files) and committed before moving on.
-- **Merge to main = merge + full regression.** When the user requests a merge to main, perform the merge, then run the complete regression suite (`npm run build`, `npm run lint`, `npm run test`, `npm run test:e2e`).
+- **Dev server for user validation.** After a feature is implemented and committed, start `npm run dev` in the worktree and give the user the URL so they can validate it live before deciding on the merge.
+- **Merge to main = stop server + merge + full regression + cleanup.** When the user confirms the merge: stop the dev server, merge to main, run the complete regression suite on main (`npm run build`, `npm run lint`, `npm run test`, `npm run test:e2e`), then remove the worktree and delete its branch.
 - **Keep CI green after merge.** After merging, the automatic CI test runs must be back in a working state — fix any breakage on main immediately rather than leaving it for later.
 - **Ask when unsure.** If you need help understanding a requirement or existing behavior, ask the user rather than guessing.
 
