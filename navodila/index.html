@@ -731,10 +731,30 @@
               fokusa in se pridruži običajni zgodovini razveljavi/ponovi. Ikona <span class="gm-glyph">×</span> odstrani
               fotografijo z osebe; slikovna datoteka na disku ostane.
             </p>
+            <h3>Podpora brskalnikov</h3>
+            <p>
+              Prikaz, opisovanje in urejanje medijev deluje v vseh sodobnih brskalnikih. Razlike so v tem, kako
+              brskalnik spletni strani dovoli dostop do mape — samo brskalniki na osnovi Chromiuma (Chrome, Edge)
+              podpirajo datotečni API, ki ga GED Merge potrebuje, da si mapo zapomni in vanjo piše:
+            </p>
+            <table class="gm-table">
+              <thead><tr><th>Medijska funkcija</th><th>Chrome / Edge</th><th>Firefox / Safari / Brave</th></tr></thead>
+              <tbody>
+                <tr><td>Prikaz fotografij, pregledovalnik, opisi, brisanje in razvrščanje</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Izbirnik <strong>Dodaj medij</strong> (datoteke, ki so že v mapi)</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Mapa z mediji si zapomni izbiro med sejami</td><td>✓</td><td>— izberi jo ob vsaki seji</td></tr>
+                <tr><td>Povleci in spusti datoteko na osebo</td><td>✓</td><td>—</td></tr>
+                <tr><td><strong>Uvozi z diska…</strong> / kopiranje spuščenih datotek v mapo</td><td>✓</td><td>—</td></tr>
+              </tbody>
+            </table>
             <div class="gm-callout note">
               <span class="gm-callout-label">Opomba</span>
-              <p>Mape s fotografijami zahtevajo sodoben brskalnik (Chrome, Edge ali Firefox). Firefox ob izbiri mape
-              prikaže splošno opozorilo o »nalaganju« — nič se ne naloži; tako brskalnik le zaprosi za dostop do mape.</p>
+              <p>Firefox in Safari namenoma ne podpirata pisalnega datotečnega API-ja, zato GED Merge tam ne more
+              kopirati datotek v mapo — kopirajte jih sami (s katerim koli upraviteljem datotek) in po kliku na Osveži
+              se pokažejo v izbirniku <strong>Dodaj medij</strong>. Firefox in Brave ob izbiri mape prikažeta splošno
+              opozorilo o »nalaganju« — nič se ne naloži; tako brskalnik le zaprosi za dostop do mape. Brave ima
+              datotečni API privzeto izklopljen, zato se vede kot Firefox, razen če ga vklopite v
+              <code>brave://flags</code>.</p>
             </div>
           </section>
 
