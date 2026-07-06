@@ -1093,7 +1093,7 @@ export const sl = {
   "media.field.description": "Opis",
   "addMedia.title": "Dodaj medij",
   "addMedia.loading": "Berem mapo z mediji…",
-  "addMedia.newHint": "Ni novih slik. Kopiraj slikovne datoteke v svojo mapo z mediji »{{folder}}« (ali katero koli podmapo) in prikazale se bodo tukaj.",
+  "addMedia.newHint": "Ni novih datotek. Kopiraj slike ali PDF-je v svojo mapo z mediji »{{folder}}« (ali katero koli podmapo) in prikazale se bodo tukaj.",
   "addMedia.new": "Nove",
   "addMedia.existing": "Že v datoteki",
   "addMedia.search": "Išči medije…",

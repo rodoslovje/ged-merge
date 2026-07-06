@@ -1806,6 +1806,31 @@ button:focus-visible {
   display: block;
   border-radius: 5px;
 }
+/* Non-image media (PDF) placeholder tiles — same box as the <img> each replaces,
+   with a centered document glyph. */
+.person-media-doc,
+.add-media-doc,
+.tools-media-doc,
+.person-media-tray-doc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+}
+.person-media-doc { font-size: 26px; }
+.add-media-doc { font-size: 34px; }
+.tools-media-doc { font-size: 15px; box-sizing: border-box; }
+.person-media-tray-doc { width: 56px; height: 56px; border-radius: 3px; font-size: 24px; }
+/* Embedded PDF page in the lightbox (the browser's built-in viewer). White is
+   the PDF paper color, not a theme surface, so it stays literal. */
+.media-lightbox-doc {
+  width: min(80vw, 900px);
+  height: 85vh;
+  border: 0;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
 /* Editable tray: thumb wrapper hosting the hover delete button. */
 .person-media-item {
   position: relative;

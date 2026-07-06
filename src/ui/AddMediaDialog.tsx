@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { objeInfoOf } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
-import { basename } from "./mediaPath";
+import { basename, MEDIA_ACCEPT, mediaKindOf } from "./mediaPath";
 import type { Translate } from "../locales/i18n";
 
 /** A photo chosen in the picker: its folder-relative path plus, when the file
@@ -78,7 +78,7 @@ function groupBySubfolder(items: FolderImage[]): { folder: string; items: Folder
  *  selected photos to the current person. Works in both handle and filemap
  *  modes — it only references files by relative path, never writes. */
 export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
-  const { folderName, canReferenceFiles, openFolder, listImages, resolveFile, canImportFiles, importFile } = useMediaFolder();
+  const { folderName, canReferenceFiles, openFolder, listMediaFiles, resolveFile, canImportFiles, importFile } = useMediaFolder();
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<FolderImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -102,7 +102,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       // mutated in place (stable reference), so a photo added to another person
       // this session must still re-classify here as "Already in your file".
       const referenced = referencedByBasename(dataset.records);
-      const paths = await listImages();
+      const paths = await listMediaFiles();
       const urls = await Promise.all(paths.map((p) => resolveFile(p)));
       if (cancelled) return;
       const items: FolderImage[] = [];
@@ -119,7 +119,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [isOpen, listImages, resolveFile, dataset.records, reloadKey]);
+  }, [isOpen, listMediaFiles, resolveFile, dataset.records, reloadKey]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -150,7 +150,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   // Handle mode re-walks the folder live; filemap mode (Firefox/Brave) has only
   // a static snapshot, so a real rescan means re-picking the folder — which
-  // rebuilds the file list and re-runs the load effect (listImages changes).
+  // rebuilds the file list and re-runs the load effect (listMediaFiles changes).
   const handleRefresh = () => {
     if (canReferenceFiles) setReloadKey((k) => k + 1);
     else void openFolder();
@@ -187,7 +187,11 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
           title={im.meta ? `${im.path}\n${im.meta}` : im.path}
           onClick={() => toggle(im.path)}
         >
-          <img src={im.url} alt="" className="add-media-thumb" />
+          {mediaKindOf(im.path) === "pdf" ? (
+            <span className="add-media-thumb add-media-doc" aria-hidden="true">📄</span>
+          ) : (
+            <img src={im.url} alt="" className="add-media-thumb" />
+          )}
           <span className="add-media-name">{basename(im.path)}</span>
         </button>
       ))}
@@ -264,7 +268,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
               <input
                 ref={importInputRef}
                 type="file"
-                accept="image/*"
+                accept={MEDIA_ACCEPT}
                 multiple
                 style={{ display: "none" }}
                 onChange={(e) => { void handleImport(e.target.files); e.target.value = ""; }}

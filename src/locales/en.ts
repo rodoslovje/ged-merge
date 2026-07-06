@@ -1000,7 +1000,7 @@ export const en = {
   "media.field.description": "Description",
   "addMedia.title": "Add media",
   "addMedia.loading": "Reading your media folder…",
-  "addMedia.newHint": "No new images. Copy image files into your media folder “{{folder}}” (or any subfolder) and they'll appear here.",
+  "addMedia.newHint": "No new files. Copy images or PDFs into your media folder “{{folder}}” (or any subfolder) and they'll appear here.",
   "addMedia.new": "New",
   "addMedia.existing": "Already in your file",
   "addMedia.search": "Search media…",

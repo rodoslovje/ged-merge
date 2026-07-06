@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { pathSegments } from "./mediaPath";
+import { mediaKindOf, pathSegments } from "./mediaPath";
 
 const DB_NAME = "gedmerge";
 const STORE_NAME = "mediaFolder";
@@ -36,11 +36,11 @@ interface MediaFolderCtx {
   resolveFile(filePath: string): Promise<string | null>;
   /** Whether files outside the chosen folder can be dragged in (handle mode —
    *  Chrome/Edge). False in the Firefox/Safari filemap fallback, which can
-   *  still reference files already inside the folder (see `listImages`). */
+   *  still reference files already inside the folder (see `listMediaFiles`). */
   canReferenceFiles: boolean;
   /** Folder-relative paths of every image file in the chosen folder, for the
    *  Add-media picker. Works in both handle and filemap modes. */
-  listImages(): Promise<string[]>;
+  listMediaFiles(): Promise<string[]>;
   /** Resolve a dragged file-system handle to a folder-relative path, or null
    *  when it isn't a file inside the chosen folder. */
   resolveDroppedHandle(handle: FileSystemHandle): Promise<string | null>;
@@ -60,15 +60,14 @@ export const MediaFolderContext = createContext<MediaFolderCtx>({
   clearFolder: () => {},
   resolveFile: async () => null,
   canReferenceFiles: false,
-  listImages: async () => [],
+  listMediaFiles: async () => [],
   resolveDroppedHandle: async () => null,
   canImportFiles: false,
   importFile: async () => null,
 });
 
-/** Image extensions listed in the picker / accepted on drop. */
-const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff"];
-const isImageFile = (name: string) => IMAGE_EXTS.some((ext) => name.toLowerCase().endsWith(ext));
+/** Whether the picker lists / a drop accepts this file (images + PDFs). */
+const isMediaFile = (name: string) => mediaKindOf(name) !== null;
 
 // `resolve` (relative path of a handle within a directory) is not yet in the
 // DOM lib typings. Narrow cast kept local.
@@ -149,7 +148,7 @@ async function findByBasename(
  *  webkitRelativePath looks like "FolderName/sub/photo.jpg".
  *  We store two keys per file:
  *    1. The path with the leading folder segment stripped ("sub/photo.jpg")
- *    2. The bare basename ("media.jpg")
+ *    2. The bare basename ("photo.jpg")
  *  Both lowercased for case-insensitive matching. */
 function buildFileMap(files: FileList): { map: Map<string, File>; name: string; paths: string[] } {
   const map = new Map<string, File>();
@@ -362,15 +361,15 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     [folder],
   );
 
-  const listImages = useCallback(async (): Promise<string[]> => {
+  const listMediaFiles = useCallback(async (): Promise<string[]> => {
     if (!folder) return [];
-    if (folder.kind === "filemap") return folder.paths.filter(isImageFile);
+    if (folder.kind === "filemap") return folder.paths.filter(isMediaFile);
     const out: string[] = [];
     const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
       for await (const [name, entry] of dir) {
         const path = prefix ? `${prefix}/${name}` : name;
         if (entry.kind === "file") {
-          if (isImageFile(name)) out.push(path);
+          if (isMediaFile(name)) out.push(path);
         } else if (entry.kind === "directory") {
           await walk(entry as FileSystemDirectoryHandle, path);
         }
@@ -440,7 +439,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
         clearFolder,
         resolveFile,
         canReferenceFiles: folder?.kind === "handle",
-        listImages,
+        listMediaFiles,
         resolveDroppedHandle,
         canImportFiles: folder?.kind === "handle",
         importFile,

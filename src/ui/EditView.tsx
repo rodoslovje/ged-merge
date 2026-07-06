@@ -76,10 +76,9 @@ import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
+import { mediaKindOf } from "./mediaPath";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress } from "../gedcom/media";
 
-/** Image filenames the photo drop zone accepts. */
-const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i;
 
 interface Props {
   dataset: Dataset;
@@ -915,7 +914,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     let added = 0;
     for (const promise of handlePromises) {
       const handle = await promise;
-      if (!handle || handle.kind !== "file" || !IMAGE_NAME_RE.test(handle.name)) continue;
+      if (!handle || handle.kind !== "file" || mediaKindOf(handle.name) === null) continue;
       // Inside the folder → reference it; outside → copy it in first (the
       // browser asks once per session to allow writing to the folder).
       let rel = await resolveDroppedHandle(handle);

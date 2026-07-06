@@ -14,3 +14,22 @@ export function basename(filePath: string): string {
   const segments = pathSegments(filePath);
   return segments[segments.length - 1] || filePath;
 }
+
+/** What the app can display from a media folder: images render in `<img>`
+ *  (SVG included), PDFs in the viewer's embedded frame. */
+export type MediaKind = "image" | "pdf";
+
+const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".svg"];
+
+/** Classify a file path/name by extension: a displayable image, a PDF, or
+ *  null for anything the app can't preview (those are still checked by the
+ *  Tools health scan, just not listed/rendered as media). */
+export function mediaKindOf(filePath: string): MediaKind | null {
+  const name = filePath.toLowerCase();
+  if (IMAGE_EXTS.some((ext) => name.endsWith(ext))) return "image";
+  if (name.endsWith(".pdf")) return "pdf";
+  return null;
+}
+
+/** `accept` attribute for file inputs feeding the media folder. */
+export const MEDIA_ACCEPT = "image/*,.svg,.pdf";

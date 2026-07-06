@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
+import { mediaKindOf } from "./mediaPath";
 import { mediaUsedBy, type PersonRef } from "../tools/sources";
 import { lifespanLabel } from "../match/relatives";
 import { PersonLink } from "./PersonLink";
@@ -62,6 +63,8 @@ export interface CropMark {
 /** One photo plus the metadata shown beside it in the info panel. */
 export interface MediaItem {
   url: string;
+  /** How the stage renders it: `<img>` (default) or an embedded PDF frame. */
+  kind?: "image" | "pdf";
   /** Caption headline (title, or a filename fallback). */
   title?: string;
   /** Key/value rows under the caption. */
@@ -240,6 +243,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
         if (eventLabel) metaRows.unshift({ label: t("media.field.event"), value: eventLabel });
         items.push({
           url,
+          kind: mediaKindOf(ref.file) === "pdf" ? "pdf" : "image",
           allCrops: refCtx && xref ? mediaCropMarks(refCtx.dataset, xref) : undefined,
           title: ref.title || basename(ref.file),
           // When editable, the form replaces the static rows; otherwise show them.
@@ -347,11 +351,13 @@ function MediaInfoEditor({
  *  percentages of the natural pixel dimensions. */
 function MediaStage({
   url,
+  kind,
   title,
   hoverMark,
   allCrops,
 }: {
   url: string;
+  kind?: "image" | "pdf";
   title?: string;
   /** A single person's box to show — set while a name in the "referenced by"
    *  list is hovered. Takes precedence over the reveal-all overlay. */
@@ -377,6 +383,11 @@ function MediaStage({
   const canReveal = allCrops.length > 0;
   // A hovered name shows just that person; otherwise an image hover reveals all.
   const marks = hoverMark ? [hoverMark] : revealing ? allCrops : [];
+
+  // A PDF renders in the browser's built-in viewer; crop regions don't apply.
+  if (kind === "pdf") {
+    return <iframe className="media-lightbox-doc" src={url} title={title ?? ""} />;
+  }
 
   return (
     <div
@@ -468,7 +479,7 @@ function MediaViewerOverlay({
       )}
       <div className="media-lightbox" onClick={(e) => e.stopPropagation()}>
         <div className="person-media-stage">
-          <MediaStage url={current.url} title={current.title} hoverMark={hoverMark} allCrops={current.allCrops ?? []} />
+          <MediaStage url={current.url} kind={current.kind} title={current.title} hoverMark={hoverMark} allCrops={current.allCrops ?? []} />
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
@@ -518,7 +529,11 @@ function MediaViewerOverlay({
               onClick={() => setIndex(i)}
               aria-current={i === index}
             >
-              <img src={it.url} alt="" />
+              {it.kind === "pdf" ? (
+                <span className="person-media-tray-doc" aria-hidden="true">📄</span>
+              ) : (
+                <img src={it.url} alt="" />
+              )}
             </button>
           ))}
         </div>

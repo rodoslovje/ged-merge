@@ -5,6 +5,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
 import { collectMediaRefs, type MediaAddress, type MediaRef } from "../gedcom/media";
+import { mediaKindOf } from "./mediaPath";
 
 /** Edit-mode controls for a record's media tray. When supplied, the tray always
  *  renders (even with no photos), each thumb gains a delete affordance and can
@@ -29,7 +30,9 @@ interface Props {
   editable?: MediaEditControls;
 }
 
-/** Returns the first local file path from a person's OBJE links, or null. */
+/** Returns the first local *image* path from a person's OBJE links, or null —
+ *  the profile-photo pick for cards and chart nodes, which render in `<img>`
+ *  (so a PDF, previewable only in the viewer, is skipped here). */
 export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string | null {
   const objeNodes = objeNodesFor(records);
   for (const child of raw.children) {
@@ -37,7 +40,7 @@ export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string |
     const val = child.value?.trim();
     const objeNode = val && isPointer(val) ? objeNodes.get(val) : child;
     const file = objeNode?.children.find((c) => c.tag === "FILE")?.value?.trim();
-    if (file && !looksLikeUrl(file)) return file;
+    if (file && !looksLikeUrl(file) && mediaKindOf(file) === "image") return file;
   }
   return null;
 }
@@ -112,7 +115,11 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
             title={eventLabel ? `${t("media.enlarge")} · ${eventLabel}` : t("media.enlarge")}
             onClick={() => openPerson(raw, records, i, refCtx)}
           >
-            <img src={item.url} className="person-media-thumb" alt="" />
+            {mediaKindOf(ref.file) === "pdf" ? (
+              <span className="person-media-thumb person-media-doc" aria-hidden="true">📄</span>
+            ) : (
+              <img src={item.url} className="person-media-thumb" alt="" />
+            )}
             {ref.crop && (
               <span className="person-media-crop-badge" title={t("media.cropRegion")} aria-hidden="true">
                 ⛶
@@ -308,11 +315,17 @@ export function MediaThumb({
         const u = resolved[i];
         if (!u) continue;
         if (i === index) start = items.length;
-        items.push({ url: u, title: gallery[i].title, meta: gallery[i].meta, details: gallery[i].details });
+        items.push({
+          url: u,
+          kind: mediaKindOf(gallery[i].file) === "pdf" ? "pdf" : "image",
+          title: gallery[i].title,
+          meta: gallery[i].meta,
+          details: gallery[i].details,
+        });
       }
       openItems(items, start);
     } else if (url) {
-      openItems([{ url, title: caption, meta, details }]);
+      openItems([{ url, kind: mediaKindOf(file) === "pdf" ? "pdf" : "image", title: caption, meta, details }]);
     }
   };
 
@@ -324,7 +337,11 @@ export function MediaThumb({
       title={t("media.enlarge")}
       onClick={(e) => { e.stopPropagation(); open(); }}
     >
-      <img src={url} className="tools-media-thumb" alt="" />
+      {mediaKindOf(file) === "pdf" ? (
+        <span className="tools-media-thumb tools-media-doc" aria-hidden="true">📄</span>
+      ) : (
+        <img src={url} className="tools-media-thumb" alt="" />
+      )}
     </button>
   );
 }
