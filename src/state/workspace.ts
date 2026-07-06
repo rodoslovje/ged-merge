@@ -37,11 +37,11 @@ export type SlotState =
   | { status: "error"; fileName: string; message: string };
 
 export interface WorkspaceState {
-  master: SlotState;
+  main: SlotState;
   compare: SlotState;
-  /** The last successfully-loaded master, kept while a reload is in progress so
+  /** The last successfully-loaded main, kept while a reload is in progress so
    *  the views don't flash back to the landing page. */
-  lastMasterFile: LoadedFile | null;
+  lastMainFile: LoadedFile | null;
   matches: MatchResult | null;
   /** True while the worker is (re)computing matches. */
   matching: boolean;
@@ -54,9 +54,9 @@ export interface WorkspaceState {
 }
 
 export const initialWorkspace: WorkspaceState = {
-  master: { status: "empty" },
+  main: { status: "empty" },
   compare: { status: "empty" },
-  lastMasterFile: null,
+  lastMainFile: null,
   matches: null,
   matching: false,
   startId: undefined,
@@ -80,7 +80,7 @@ export type WorkspaceAction =
   | { type: "importBranchesCleared" }
   | { type: "reset" };
 
-function slotKey(role: DatasetRole): "master" | "compare" {
+function slotKey(role: DatasetRole): "main" | "compare" {
   return role;
 }
 
@@ -91,8 +91,8 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "slotLoaded": {
       const next: WorkspaceState = { ...state, [slotKey(action.role)]: { status: "loaded", file: action.file } };
-      // A freshly-loaded master becomes the preserved baseline.
-      if (action.role === "master") next.lastMasterFile = action.file;
+      // A freshly-loaded main becomes the preserved baseline.
+      if (action.role === "main") next.lastMainFile = action.file;
       return next;
     }
 

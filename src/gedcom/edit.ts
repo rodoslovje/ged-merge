@@ -354,7 +354,7 @@ export function setNickname(indi: Individual, nickname: string): void {
 
 /** Set (or clear) the primary `NAME`'s `_MARNM` (married surname) sub-tag — the
  * inline alternative to a separate `TYPE married` NAME record, used when the
- * master file follows the `_MARNM` convention. */
+ * main file follows the `_MARNM` convention. */
 export function setMarriedName(indi: Individual, surname: string): void {
   const node = nameNodes(indi)[0];
   if (!node) return;
@@ -387,7 +387,7 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
 
 /**
  * Fold an additional `1 NAME` record into the primary name's inline `_MARNM`
- * married-surname sub-tag — used when the master follows the `_MARNM` convention
+ * married-surname sub-tag — used when the main follows the `_MARNM` convention
  * and the user marks an added name as "married". The additional record is
  * removed and its surname moved onto `_MARNM`; a name with no surname is just
  * dropped (an empty married name is meaningless). See `setAdditionalName` for
@@ -830,7 +830,7 @@ export function createMediaRecord(records: GedNode[], url: string, title?: strin
 // Edit-mode helpers for attaching/removing/reordering a person's photos. The
 // inline-vs-shared choice (whether to write an inline `1 OBJE`/`2 FILE` block or
 // a `1 OBJE @O@` pointer to a top-level record) is the caller's, driven by the
-// master file's detected `MediaMode`; these helpers just realize whichever the
+// main file's detected `MediaMode`; these helpers just realize whichever the
 // caller picks.
 
 /** Build an `OBJE` node (a `FILE` plus an optional `TITL`) at `level`. */

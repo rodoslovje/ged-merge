@@ -33,7 +33,7 @@ export {
   SUB_TAG,
 } from "./applyFields";
 
-/** One field the merge wrote into a master record. */
+/** One field the merge wrote into a main record. */
 export interface FieldChange {
   recordId: string;
   field: string;
@@ -56,7 +56,7 @@ export interface FieldChange {
    *  actually touched it, instead of treating the whole line as one new value. */
   segments?: { text: string; state: "same" | "changed" | "removed" }[];
   /** True when `to` is a verbatim, un-chosen copy of the incoming file's value (the
-   *  user took "incoming" by default, didn't combine it with master or type it by
+   *  user took "incoming" by default, didn't combine it with main or type it by
    *  hand) — the preview colors these like other incoming-sourced data rather than
    *  as an edit. Only meaningful for merge-produced changes. */
   unedited?: boolean;
@@ -100,7 +100,7 @@ export interface CustomTagNode {
 export interface ChangeReport {
   changes: FieldChange[];
   deferred: DeferredChange[];
-  /** Distinct master records touched. */
+  /** Distinct main records touched. */
   recordsChanged: number;
   /** New individual records added from the incoming file. */
   newPersons: number;
@@ -118,7 +118,7 @@ export interface ChangeReport {
 }
 
 export interface MergeResult {
-  /** A clone of the master record forest with confirmed edits applied. */
+  /** A clone of the main record forest with confirmed edits applied. */
   records: GedNode[];
   report: ChangeReport;
 }
@@ -134,21 +134,21 @@ export const INDI_HANDLED = new Set([
 ]);
 
 /**
- * Apply confirmed match decisions to a clone of the master tree, taking each
+ * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
  * left as identical clones, so serializing the result yields a minimal diff
- * against the original master.
+ * against the original main.
  *
  * Individuals: scalar fields (sex, primary name, event date/place/address).
  * Families: marriage fields plus structural stitching — missing spouses and
- * children from the incoming family are linked to their matched master person
+ * children from the incoming family are linked to their matched main person
  * (via `matches`) or, when genuinely new, added as fresh records with the right
  * FAMC/FAMS/HUSB/WIFE/CHIL pointers.
  *
  * Individual relationship fields and links are still recorded as deferred.
  */
 export function mergeDecisions(
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   decisions: Map<string, CandidateDecision>,
   matches: MatchResult,
@@ -158,7 +158,7 @@ export function mergeDecisions(
    *  anchors (and any families those decisions stitched) exist to graft onto. */
   importBranches: Iterable<ImportBranchRequest> = [],
 ): MergeResult {
-  const records = master.records.map(cloneNode);
+  const records = main.records.map(cloneNode);
   const sourXrefMap = buildSourXrefMap(compare.records, records);
   const indiNodes = new Map<string, GedNode>();
   const famNodes = new Map<string, GedNode>();
@@ -180,49 +180,49 @@ export function mergeDecisions(
     customTags: {},
   };
   const touched = new Set<string>();
-  // How the master writes places, so incoming places can be reshaped to match.
-  const placeFmt = inferPlaceExportFormat(master);
-  // How the master stores record-level links, so newly added links match (e.g.
+  // How the main writes places, so incoming places can be reshaped to match.
+  const placeFmt = inferPlaceExportFormat(main);
+  // How the main stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
-  const linkFormat = detectLinkFormat(master);
+  const linkFormat = detectLinkFormat(main);
   // Matches the user explicitly rejected: dropped from the merge's identity map
   // so a rejected pair is never reused to stitch relationships — the incoming
-  // person is imported as a new record instead of folded into the wrong master.
+  // person is imported as a new record instead of folded into the wrong main.
   const rejectedPairs = new Set<string>();
   for (const [key, decision] of decisions) {
     if (decision.status !== "rejected") continue;
-    const { kind, masterId, compareId } = parseKey(key);
-    if (kind === "individual") rejectedPairs.add(`${masterId}|${compareId}`);
+    const { kind, mainId, compareId } = parseKey(key);
+    if (kind === "individual") rejectedPairs.add(`${mainId}|${compareId}`);
   }
-  const ctx = makeContext(master, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
+  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
-    const { kind, masterId, compareId } = parseKey(key);
+    const { kind, mainId, compareId } = parseKey(key);
     if (kind !== "individual") continue; // families are merged via their spouses
 
-    const target = indiNodes.get(masterId);
-    const masterIndi = master.individuals.get(masterId);
+    const target = indiNodes.get(mainId);
+    const mainIndi = main.individuals.get(mainId);
     const incoming = compare.individuals.get(compareId);
-    if (!target || !masterIndi || !incoming) continue;
-    report.recordLabels[masterId] = displayName(masterIndi.names[0]);
+    if (!target || !mainIndi || !incoming) continue;
+    report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    const rows = individualFieldRows(t, masterIndi, incoming, master, compare, placeFmt, rejectedEvents);
-    applyRows(target, incoming.raw, masterId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap);
-    applyIndividualRelations(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx);
+    const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
+    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap);
+    applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
     const takenChildIds = new Set(decision.takenChildren ?? []);
-    applyIndividualFamilies(masterId, masterIndi, incoming, rows, decision.fields, master, compare, ctx, takenChildIds);
+    applyIndividualFamilies(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx, takenChildIds);
     // Canonical event order, but only when this decision actually wrote
     // something — a confirmed match that took no fields must leave the record
     // byte-identical (the minimal-diff guarantee), not silently reorder it.
-    if (touched.has(masterId)) sortEventsByDate(target);
+    if (touched.has(mainId)) sortEventsByDate(target);
   }
 
   // Graft any whole subtrees the user asked for from the compare tree, now that
   // confirmed matches and their families exist to anchor onto. Records added from
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
-  applyImportBranches(importBranches, master, compare, ctx);
+  applyImportBranches(importBranches, main, compare, ctx);
 
   // Derive record kinds from node maps built during merge.
   for (const c of report.changes) {
@@ -333,9 +333,9 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   return lines.join("\n");
 }
 
-function parseKey(key: string): { kind: string; masterId: string; compareId: string } {
-  const [kind, masterId, compareId] = key.split(":");
-  return { kind, masterId, compareId };
+function parseKey(key: string): { kind: string; mainId: string; compareId: string } {
+  const [kind, mainId, compareId] = key.split(":");
+  return { kind, mainId, compareId };
 }
 
 // Re-export so callers can build the decision key consistently.

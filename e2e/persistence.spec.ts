@@ -12,14 +12,14 @@ import path from "path";
 // sharing fixed temp paths lets one worker's write truncate a file another is
 // reading (a NotReadableError, and flaky loads). pid is unique per worker.
 const uid = `${process.pid}`;
-const MASTER = path.join(os.tmpdir(), `persist-master-${uid}.ged`);
+const MAIN = path.join(os.tmpdir(), `persist-main-${uid}.ged`);
 const COMPARE = path.join(os.tmpdir(), `persist-compare-${uid}.ged`);
-// A small single-person master for the edit/clear tests — a real sample file is
+// A small single-person main for the edit/clear tests — a real sample file is
 // megabytes, and re-serializing it on the persist debounce + re-parsing it on
 // reload makes restore timing-sensitive; a tiny file keeps the tests fast and
-// deterministic. (The merge test uses MASTER/COMPARE above.)
-const EDIT_MASTER = path.join(os.tmpdir(), `persist-edit-master-${uid}.ged`);
-writeFileSync(EDIT_MASTER, [
+// deterministic. (The merge test uses MAIN/COMPARE above.)
+const EDIT_MAIN = path.join(os.tmpdir(), `persist-edit-main-${uid}.ged`);
+writeFileSync(EDIT_MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1 JAN 1900",
   "0 TRLR", "",
@@ -27,7 +27,7 @@ writeFileSync(EDIT_MASTER, [
 
 // One individual that matches across both files, so loading them yields exactly
 // one merge candidate to confirm.
-writeFileSync(MASTER, [
+writeFileSync(MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Ana /Kukic/", "1 SEX F",
   "1 BIRT", "2 DATE 9 AUG 1982", "2 PLAC Kranj",
@@ -46,13 +46,13 @@ const saveBtn = (page: Page) => page.locator(".app-head-actions .export-btn");
 
 // The persistence writer is debounced and its writes span two IndexedDB stores,
 // so a fixed delay is unreliable. Wait for the exact artifacts a reload restore
-// depends on to be durably readable: for edits, the master blob must actually
+// depends on to be durably readable: for edits, the main blob must actually
 // contain the edited text; for merges, the session must hold decisions and the
 // compare file must be cached. Polling those directly avoids the race where the
-// session record appears before the (separately written) master blob is visible.
+// session record appears before the (separately written) main blob is visible.
 async function waitForCache(
   page: Page,
-  opts: { masterContains?: string; decisions?: boolean; compare?: boolean },
+  opts: { mainContains?: string; decisions?: boolean; compare?: boolean },
 ) {
   await page.waitForFunction(
     (opts) =>
@@ -72,14 +72,14 @@ async function waitForCache(
             });
           void (async () => {
             const session = (await get("session", "current")) as { decisions?: unknown[] } | undefined;
-            const master = (await get("files", "master")) as { blob?: Blob } | undefined;
+            const main = (await get("files", "main")) as { blob?: Blob } | undefined;
             const compare = await get("files", "compare");
             if (opts.decisions && !(session && Array.isArray(session.decisions) && session.decisions.length > 0)) return resolve(false);
             if (opts.compare && !compare) return resolve(false);
-            if (opts.masterContains) {
-              if (!master?.blob) return resolve(false);
-              const text = await master.blob.text();
-              if (!text.includes(opts.masterContains)) return resolve(false);
+            if (opts.mainContains) {
+              if (!main?.blob) return resolve(false);
+              const text = await main.blob.text();
+              if (!text.includes(opts.mainContains)) return resolve(false);
             }
             resolve(true);
           })();
@@ -107,7 +107,7 @@ async function enablePersist(page: Page) {
 test("reload restores a confirmed merge decision", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(MASTER);
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Merge", exact: true }).click();
@@ -119,7 +119,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
   await page.locator(".decision-bar button").first().click();
   await expect(saveBtn(page)).toBeVisible();
 
-  await waitForCache(page, { masterContains: "Kukic", decisions: true, compare: true });
+  await waitForCache(page, { mainContains: "Kukic", decisions: true, compare: true });
   await page.reload();
 
   // Merge mode is restored from localStorage; the files + match recompute, and
@@ -135,7 +135,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
 test("reload restores unsaved edits", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MAIN);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -148,7 +148,7 @@ test("reload restores unsaved edits", async ({ page }) => {
   await page.locator(".edit-name-input").nth(1).click(); // blur to commit
   await expect(saveBtn(page)).toBeVisible();
 
-  await waitForCache(page, { masterContains: `${original} TEST` });
+  await waitForCache(page, { mainContains: `${original} TEST` });
   await page.reload();
 
   // Edit mode + the same (start) person are restored, with the edit intact and
@@ -161,7 +161,7 @@ test("reload restores unsaved edits", async ({ page }) => {
 test("reload restores undo history, so an edit can be undone after reloading", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MAIN);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -170,7 +170,7 @@ test("reload restores undo history, so an edit can be undone after reloading", a
   await given.fill(`${original} TEST`);
   await page.locator(".edit-name-input").nth(1).click(); // blur to commit
 
-  await waitForCache(page, { masterContains: `${original} TEST` });
+  await waitForCache(page, { mainContains: `${original} TEST` });
   await page.reload();
 
   await page.locator(".edit-person").waitFor();
@@ -186,10 +186,10 @@ test("reload restores undo history, so an edit can be undone after reloading", a
 test("clearing cached data drops the workspace, so a reload returns to the landing page", async ({ page }) => {
   await enablePersist(page);
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MAIN);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
-  await waitForCache(page, { masterContains: "Janez" }); // ensure the workspace is cached
+  await waitForCache(page, { mainContains: "Janez" }); // ensure the workspace is cached
 
   // Settings → Advanced tab → Clear cached data → confirm.
   await page.getByRole("button", { name: "Settings" }).first().click();
@@ -207,7 +207,7 @@ test("clearing cached data drops the workspace, so a reload returns to the landi
 test("with caching disabled (default), a reload does not restore the workspace", async ({ page }) => {
   // No enablePersist — default off. Load a file, edit it, reload.
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(EDIT_MASTER);
+  await page.locator("input.file-input").first().setInputFiles(EDIT_MAIN);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 

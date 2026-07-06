@@ -126,7 +126,7 @@ export function label(indi: Individual): string {
 const fold = (s: string | undefined): string => (s ?? "").trim().toLowerCase();
 
 /**
- * The compare name parts that differ from the master, for an inline title.
+ * The compare name parts that differ from the main, for an inline title.
  * When both sides carry structured parts we diff given and surname separately;
  * otherwise we fall back to the whole reconstructed name.
  */
@@ -142,17 +142,17 @@ function nameDiff(m: PersonName | undefined, c: PersonName | undefined): string[
 }
 
 /**
- * Master-centric title for a candidate pair: the full master label, plus —
+ * Main-centric title for a candidate pair: the full main label, plus —
  * when the compare record differs — ": " and only the differing parts (given
  * name, surname, birth date) taken from the compare side. A pair that agrees on
- * all three shows the master label alone, never repeating identical data.
+ * all three shows the main label alone, never repeating identical data.
  */
-export function pairTitle(master: Individual, compare: Individual): string {
-  const diff = nameDiff(primaryName(master), primaryName(compare));
-  const mb = birthText(master);
+export function pairTitle(main: Individual, compare: Individual): string {
+  const diff = nameDiff(primaryName(main), primaryName(compare));
+  const mb = birthText(main);
   const cb = birthText(compare);
   if (fold(cb) !== fold(mb)) diff.push(`(b. ${cb ?? "—"})`);
-  const head = label(master);
+  const head = label(main);
   return diff.length ? `${head}: ${diff.join(" ")}` : head;
 }
 

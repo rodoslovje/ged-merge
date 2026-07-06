@@ -50,13 +50,13 @@ describe("self-match recall", () => {
     const r = matchDatasets(d, d);
     // Every matched pair must be a record to *itself* — the engine must never
     // rank a different individual above the identical one.
-    const misassigned = r.individuals.filter((c) => c.masterId !== c.compareId);
+    const misassigned = r.individuals.filter((c) => c.mainId !== c.compareId);
     expect(misassigned).toEqual([]);
 
     const n = d.individuals.size;
-    const anySelf = r.individuals.filter((c) => c.masterId === c.compareId).length;
+    const anySelf = r.individuals.filter((c) => c.mainId === c.compareId).length;
     const strongSelf = r.individuals.filter(
-      (c) => c.masterId === c.compareId && c.category === "strong",
+      (c) => c.mainId === c.compareId && c.category === "strong",
     ).length;
     // Per-file floor: catches gross breakage even on the sparsest fixture
     // (MyHeritage, ~0.60 — many "Private" living records have no name to match).
@@ -91,7 +91,7 @@ describe("cross-family precision", () => {
         strongPairs.push(
           `${a} × ${b}: ` +
             strong
-              .map((c) => `"${da.individuals.get(c.masterId)?.names[0]?.full}"~"${db.individuals.get(c.compareId)?.names[0]?.full}"@${c.score}`)
+              .map((c) => `"${da.individuals.get(c.mainId)?.names[0]?.full}"~"${db.individuals.get(c.compareId)?.names[0]?.full}"@${c.score}`)
               .join(", "),
         );
       }

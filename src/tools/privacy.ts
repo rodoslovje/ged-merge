@@ -7,7 +7,7 @@ import { birthYear, deathYear, isDeceased, lifespanOf } from "../gedcom/lifespan
  *
  * Genealogy files routinely contain detailed data about living relatives that
  * you don't want to publish. This tool flags likely-living individuals and
- * produces a redacted copy of the GEDCOM for sharing — the live master is never
+ * produces a redacted copy of the GEDCOM for sharing — the live main is never
  * touched (same download-only contract as Normalize and the source de-duper).
  *
  * "Living" is inferred, not declared: a person with no death/burial/cremation

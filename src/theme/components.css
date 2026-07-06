@@ -65,9 +65,9 @@
 .f-val:not(.chosen)  { color: var(--muted); }
 
 /* M / I / B choice — keep the existing accent active state; OPTIONALLY colour
-   the active pick by source (add .master / .incoming class ⟶ TSX). */
+   the active pick by source (add .main / .incoming class ⟶ TSX). */
 .choice.active          { border-color: var(--accent); color: var(--text); }
-.choice.active.master   { border-color: var(--state-master);   color: var(--state-master); }
+.choice.active.main   { border-color: var(--state-main);   color: var(--state-main); }
 .choice.active.incoming { border-color: var(--state-incoming); color: var(--state-incoming); }
 
 /* ---------------- Compare Tree (SVG) ---------------- */
@@ -77,7 +77,7 @@
    solid fills). In CompareTree.tsx set the <rect>:
         fill   = var(--panel)
         stroke = the state colour  (--node-match | --node-minor | --node-major
-                                    | --node-master | --node-incoming)
+                                    | --node-main | --node-incoming)
         stroke-width = 2
    Then these rules finish the look: */
 .tree-node-name        { fill: var(--text); font-family: var(--font-serif); font-weight: 500; }
@@ -108,7 +108,7 @@
 .tree-swatch.match    { background: var(--node-match); }
 .tree-swatch.minor    { background: var(--node-minor); }
 .tree-swatch.major    { background: var(--node-major); }
-.tree-swatch.master   { background: var(--node-master); }
+.tree-swatch.main   { background: var(--node-main); }
 .tree-swatch.incoming { background: var(--node-incoming); }
 /* Confirmed-merge legend swatch mirrors the round "C" badge on the node. */
 .tree-swatch.confirmed { border-radius: 50%; background: var(--state-match); }

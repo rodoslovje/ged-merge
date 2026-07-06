@@ -40,7 +40,7 @@ export function OtherNamesEditor({
    * chip belongs in this row (the tray hosts adding once photos exist). */
   showAddPhoto: boolean;
   onAddPhoto: () => void;
-  /** True when the master file records married surnames inline as `_MARNM`, so
+  /** True when the main file records married surnames inline as `_MARNM`, so
    * choosing the "married" type on an added name stores it there instead of as a
    * separate `TYPE married` NAME record. */
   marriedNameTag?: boolean;

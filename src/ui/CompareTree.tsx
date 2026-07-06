@@ -45,34 +45,34 @@ import { useSettings } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   compareDs: Dataset;
   matches: MatchResult;
-  rootMasterId?: string;
+  rootMainId?: string;
   rootCompareId?: string;
   mode: TreeMode;
   onModeChange: (mode: TreeMode) => void;
   /** Re-root the tree on another person (clicked from a node's relative links). */
-  onReroot: (masterId?: string, compareId?: string) => void;
+  onReroot: (mainId?: string, compareId?: string) => void;
   onBack: () => void;
   /** Leave the tree and open this match pair back in the Matches list. */
-  onShowInMatches: (masterId: string, compareId: string) => void;
+  onShowInMatches: (mainId: string, compareId: string) => void;
   /** Decisions by pair key, so matched nodes can show + set their status. */
   decisions: Map<string, CandidateDecision>;
-  /** Master ids with unsaved edits — those nodes show an "M" badge. */
+  /** Main ids with unsaved edits — those nodes show an "M" badge. */
   changedPersonIds: Set<string>;
   /** Toggle a matched node's decision status (confirm / reject / defer). */
-  onDecide: (masterId: string, compareId: string, status: MatchDecisionStatus) => void;
+  onDecide: (mainId: string, compareId: string, status: MatchDecisionStatus) => void;
   /** Keys (`importKey(direction, incomingId)`) of incoming branches marked to graft on save. */
   importBranches: Set<string>;
   /** Toggle "bring in this incoming person's ancestors/descendants on save". */
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
-  /** Start person ID in the master dataset, used to show kinship labels on nodes. */
+  /** Start person ID in the main dataset, used to show kinship labels on nodes. */
   startId?: string;
-  /** Open the Charts hub on a master-side person (from the node panel). */
-  onOpenCharts?: (masterId: string) => void;
-  /** Jump to a master-side person in Edit mode (closes the tree). */
-  onOpenInEdit?: (masterId: string) => void;
+  /** Open the Charts hub on a main-side person (from the node panel). */
+  onOpenCharts?: (mainId: string) => void;
+  /** Jump to a main-side person in Edit mode (closes the tree). */
+  onOpenInEdit?: (mainId: string) => void;
 }
 
 /** The three actionable decisions, in button order. */
@@ -88,7 +88,7 @@ const STATUS_COLOR: Record<NodeStatus, string> = {
   match: "var(--node-match)",
   minor: "var(--node-minor)",
   major: "var(--node-major)",
-  "master-only": "var(--node-master)",
+  "main-only": "var(--node-main)",
   "incoming-only": "var(--node-incoming)",
 };
 
@@ -96,7 +96,7 @@ const LEGEND_ORDER: NodeStatus[] = [
   "match",
   "minor",
   "major",
-  "master-only",
+  "main-only",
   "incoming-only",
 ];
 
@@ -104,16 +104,16 @@ const LEGEND_KEY: Record<NodeStatus, string> = {
   match: "tree.legend.match",
   minor: "tree.legend.minor",
   major: "tree.legend.major",
-  "master-only": "tree.legend.masterOnly",
+  "main-only": "tree.legend.mainOnly",
   "incoming-only": "tree.legend.incomingOnly",
 };
 
 
 export function CompareTree({
-  masterDs,
+  mainDs,
   compareDs,
   matches,
-  rootMasterId,
+  rootMainId,
   rootCompareId,
   mode,
   onModeChange,
@@ -131,10 +131,10 @@ export function CompareTree({
 }: Props) {
   const { t } = useTranslation();
 
-  // A node whose master record has unsaved edits gets an "M" badge, matching the
+  // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
   const isModified = useCallback(
-    (n: TreeNode): boolean => !!n.master && changedPersonIds.has(n.master.id),
+    (n: TreeNode): boolean => !!n.main && changedPersonIds.has(n.main.id),
     [changedPersonIds],
   );
 
@@ -147,52 +147,52 @@ export function CompareTree({
       // A rejected pairing prunes the incoming side from the tree, so the root
       // node would lose its `incoming` — fall back to the root compare id (the
       // pair the tree was opened on) so the decided root still shows its badge.
-      const compareId = n.incoming?.id ?? (n.master?.id === rootMasterId ? rootCompareId : undefined);
-      if (!n.master || !compareId) return undefined;
-      const d = decisions.get(decisionKey("individual", n.master.id, compareId));
+      const compareId = n.incoming?.id ?? (n.main?.id === rootMainId ? rootCompareId : undefined);
+      if (!n.main || !compareId) return undefined;
+      const d = decisions.get(decisionKey("individual", n.main.id, compareId));
       if (!d || d.status === "undecided") return undefined;
       return {
         status: d.status,
         letter: t(`status.${d.status}`).charAt(0).toUpperCase(),
       };
     },
-    [decisions, t, rootMasterId, rootCompareId],
+    [decisions, t, rootMainId, rootCompareId],
   );
 
   // The root pair's decision drives the C/D/R chip in the title — looked up from
   // the props ids directly so it survives the rejection pruning above.
   const rootStatus =
-    rootMasterId && rootCompareId
-      ? decisions.get(decisionKey("individual", rootMasterId, rootCompareId))?.status
+    rootMainId && rootCompareId
+      ? decisions.get(decisionKey("individual", rootMainId, rootCompareId))?.status
       : undefined;
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
   // labelling every node costs each person once, not two walks per node per render.
   const kinship = useMemo(
-    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
-    [startId, masterDs, t],
+    () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
+    [startId, mainDs, t],
   );
   const kinshipOf = useCallback(
-    (n: TreeNode): string | undefined => (n.master ? kinship?.label(n.master.id) : undefined),
+    (n: TreeNode): string | undefined => (n.main ? kinship?.label(n.main.id) : undefined),
     [kinship],
   );
   const lineageOf = useCallback(
-    (n: TreeNode): Lineage | undefined => (n.master ? kinship?.lineage(n.master.id) : undefined),
+    (n: TreeNode): Lineage | undefined => (n.main ? kinship?.lineage(n.main.id) : undefined),
     [kinship],
   );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
-  // side (master/compare) the photo came from.
-  const masterRefCtx = useMemo(
-    () => ({ dataset: masterDs, onNavigate: (id: string) => onReroot(id, undefined) }),
-    [masterDs, onReroot],
+  // side (main/compare) the photo came from.
+  const mainRefCtx = useMemo(
+    () => ({ dataset: mainDs, onNavigate: (id: string) => onReroot(id, undefined) }),
+    [mainDs, onReroot],
   );
   const compareRefCtx = useMemo(
     () => ({ dataset: compareDs, onNavigate: (id: string) => onReroot(undefined, id) }),
     [compareDs, onReroot],
   );
 
-  const rootMaster = rootMasterId ? masterDs.individuals.get(rootMasterId) : undefined;
+  const rootMain = rootMainId ? mainDs.individuals.get(rootMainId) : undefined;
   const rootIncoming = rootCompareId ? compareDs.individuals.get(rootCompareId) : undefined;
 
   const maps = useMemo(() => buildMatchMaps(matches), [matches]);
@@ -200,8 +200,8 @@ export function CompareTree({
   // A rejected pairing prunes the incoming side from the tree (see
   // buildPersonTree): the two records are declared different people.
   const isRejected = useCallback(
-    (masterId: string, compareId: string) =>
-      decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected",
+    (mainId: string, compareId: string) =>
+      decisions.get(decisionKey("individual", mainId, compareId))?.status === "rejected",
     [decisions],
   );
 
@@ -219,10 +219,10 @@ export function CompareTree({
   // the radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "ancestors", isRejected),
-      descendants: buildPersonTree(t, rootMaster, rootIncoming, masterDs, compareDs, maps, "descendants", isRejected),
+      ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected),
+      descendants: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "descendants", isRejected),
     }),
-    [t, rootMaster, rootIncoming, masterDs, compareDs, maps, isRejected],
+    [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected],
   );
   const tree = trees[effectiveMode];
 
@@ -250,7 +250,6 @@ export function CompareTree({
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
-  const livingLabel = t("tree.node.living");
   const laid = useMemo(
     () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
     [tree, alignment, isGrid, nodeH],
@@ -275,19 +274,19 @@ export function CompareTree({
   const hasPhoto = useCallback(
     (n: TreeNode) =>
       !!folderName &&
-      ((!!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records)) ||
+      ((!!n.main && !!collectFirstFilePath(n.main.raw, mainDs.records)) ||
         (!!n.incoming && !!collectFirstFilePath(n.incoming.raw, compareDs.records))),
-    [folderName, masterDs, compareDs],
+    [folderName, mainDs, compareDs],
   );
   // Kinship to the start person, shown in place of a redacted living person's name.
   const fanKinshipOf = useCallback(
-    (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined),
+    (n: TreeNode) => (n.main ? kinship?.label(n.main.id) : undefined),
     [kinship],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? trees.ancestors : undefined,
     settings.type === "circle" ? "circle" : "fan",
-    { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf },
+    { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
@@ -330,13 +329,13 @@ export function CompareTree({
   const rootName = tree?.name ?? "";
   const rootYears = tree?.years ?? "";
   // Root person's kinship to the start person, shown in the title.
-  const rootKinship = rootMasterId ? kinship?.label(rootMasterId) : undefined;
-  const rootLineage = rootMasterId ? kinship?.lineage(rootMasterId) : undefined;
+  const rootKinship = rootMainId ? kinship?.label(rootMainId) : undefined;
+  const rootLineage = rootMainId ? kinship?.lineage(rootMainId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
 
   // Per-segment badge for the radial chart: the decision / import "I" letter, or
-  // an "M" for an edited master — same information as the tree node badges.
+  // an "M" for an edited main — same information as the tree node badges.
   const fanBadgeOf = useCallback(
     (n: TreeNode) => {
       const b = badgeOf(n);
@@ -465,9 +464,9 @@ export function CompareTree({
                 colorOf={colorOf}
                 selectedKey={selectedKey}
                 onSelect={selectNode}
-                masterRecords={masterDs.records}
+                mainRecords={mainDs.records}
                 compareRecords={compareDs.records}
-                masterRefCtx={masterRefCtx}
+                mainRefCtx={mainRefCtx}
                 compareRefCtx={compareRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
               />
@@ -487,13 +486,12 @@ export function CompareTree({
               modifiedOf={display.showBadges ? isModified : undefined}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
-              masterRecords={masterDs.records}
+              mainRecords={mainDs.records}
               compareRecords={compareDs.records}
-              masterRefCtx={masterRefCtx}
+              mainRefCtx={mainRefCtx}
               compareRefCtx={compareRefCtx}
               display={display}
               nodeH={nodeH}
-              livingLabel={livingLabel}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -518,7 +516,7 @@ export function CompareTree({
         {selected && (
           <NodeCompare
             node={selected}
-            masterDs={masterDs}
+            mainDs={mainDs}
             compareDs={compareDs}
             maps={maps}
             mode={effectiveMode}
@@ -530,13 +528,13 @@ export function CompareTree({
             kinship={kinshipOf(selected)}
             kinshipLineage={lineageClass(lineageOf(selected))}
             decision={
-              selected.master && selected.incoming
-                ? decisions.get(decisionKey("individual", selected.master.id, selected.incoming.id))
+              selected.main && selected.incoming
+                ? decisions.get(decisionKey("individual", selected.main.id, selected.incoming.id))
                 : undefined
             }
             onDecide={(status) => {
-              if (selected.master && selected.incoming) {
-                onDecide(selected.master.id, selected.incoming.id, status);
+              if (selected.main && selected.incoming) {
+                onDecide(selected.main.id, selected.incoming.id, status);
               }
             }}
             onOpenCharts={onOpenCharts}
@@ -587,7 +585,7 @@ function TreeLegend({
       match: [],
       minor: [],
       major: [],
-      "master-only": [],
+      "main-only": [],
       "incoming-only": [],
     };
     for (const n of nodes) g[n.status].push(n);
@@ -648,10 +646,10 @@ function TreeLegend({
   );
 }
 
-/** Floating Master↔Incoming field table for the selected person (top-right). */
+/** Floating Main↔Incoming field table for the selected person (top-right). */
 function NodeCompare({
   node,
-  masterDs,
+  mainDs,
   compareDs,
   maps,
   mode,
@@ -669,25 +667,25 @@ function NodeCompare({
 }: {
   /** The selected node — a laid tree node or a fan segment's person node. */
   node: TreeNode;
-  masterDs: Dataset;
+  mainDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;
   mode: TreeMode;
   importActive: boolean;
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
-  onReroot: (masterId?: string, compareId?: string) => void;
+  onReroot: (mainId?: string, compareId?: string) => void;
   onClose: () => void;
-  onShowInMatches: (masterId: string, compareId: string) => void;
+  onShowInMatches: (mainId: string, compareId: string) => void;
   kinship: string | undefined;
   kinshipLineage: string | undefined;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
-  onOpenCharts?: (masterId: string) => void;
-  onOpenInEdit?: (masterId: string) => void;
+  onOpenCharts?: (mainId: string) => void;
+  onOpenInEdit?: (mainId: string) => void;
 }) {
   const { t } = useTranslation();
   // Both sides present → an actionable match the user can confirm/reject/defer.
-  const decidable = !!node.master && !!node.incoming;
+  const decidable = !!node.main && !!node.incoming;
   const status = decision?.status ?? "undecided";
   // Anything with an incoming side has a subtree we can graft in the current
   // tree direction (ancestors or descendants of this person). The subtree shown
@@ -696,25 +694,25 @@ function NodeCompare({
   const importableId = node.incoming?.id;
   const importCount = useMemo(() => countImportable(node), [node]);
   const rows = useMemo(
-    () => individualFieldRows(t, node.master, node.incoming, masterDs, compareDs),
-    [t, node, masterDs, compareDs],
+    () => individualFieldRows(t, node.main, node.incoming, mainDs, compareDs),
+    [t, node, mainDs, compareDs],
   );
 
   // Any displayed relative can be re-rooted on; resolve the matched counterpart
   // so the new tree shows both sides where a match exists.
-  const masterPerson = {
+  const mainPerson = {
     linkable: () => true,
-    onNavigate: (id: string) => onReroot(id, maps.masterToCompare.get(id)),
+    onNavigate: (id: string) => onReroot(id, maps.mainToCompare.get(id)),
   };
   const incomingPerson = {
     linkable: () => true,
-    onNavigate: (id: string) => onReroot(maps.compareToMaster.get(id), id),
+    onNavigate: (id: string) => onReroot(maps.compareToMain.get(id), id),
   };
 
   // When both sides are present the pair is a real candidate in the match list,
   // so the title doubles as a link that opens it back in the Matches view.
-  const matchLink = decidable && node.master && node.incoming
-    ? () => onShowInMatches(node.master!.id, node.incoming!.id)
+  const matchLink = decidable && node.main && node.incoming
+    ? () => onShowInMatches(node.main!.id, node.incoming!.id)
     : undefined;
 
   // The confirm/reject/defer bar sits on the actions row (left), opposite the
@@ -754,31 +752,31 @@ function NodeCompare({
       node={node}
       swatch={STATUS_COLOR[node.status]}
       rows={rows}
-      masterPerson={masterPerson}
+      mainPerson={mainPerson}
       incomingPerson={incomingPerson}
-      masterLabel={t("tree.master")}
+      mainLabel={t("tree.main")}
       incomingLabel={t("tree.incoming")}
       onClose={onClose}
-      onSetRoot={() => onReroot(node.master?.id, node.incoming?.id)}
+      onSetRoot={() => onReroot(node.main?.id, node.incoming?.id)}
       onTitleClick={matchLink}
       titleHint={matchLink ? t("tree.openInMatches") : undefined}
       kinship={kinship}
       kinshipLineage={kinshipLineage}
       badges={decisionBar}
       extraActions={
-        node.master ? (
+        node.main ? (
           <>
             {onOpenCharts && (
               <button
                 className="nav-btn tree-compare-root charts-open-btn"
-                onClick={() => onOpenCharts(node.master!.id)}
+                onClick={() => onOpenCharts(node.main!.id)}
                 title={t("edit.charts.tooltip")}
               >
                 <ChartIcon size={13} /> {t("edit.charts.button")}
               </button>
             )}
             {onOpenInEdit && (
-              <button className="nav-btn tree-compare-root" onClick={() => onOpenInEdit(node.master!.id)}>
+              <button className="nav-btn tree-compare-root" onClick={() => onOpenInEdit(node.main!.id)}>
                 {t("relpath.openInEdit")}
               </button>
             )}

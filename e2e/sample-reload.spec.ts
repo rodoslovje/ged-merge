@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const MASTER_TEXT = [
+const MAIN_TEXT = [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1 JAN 1900",
   "0 @I2@ INDI", "1 NAME Ana /Novak/", "1 SEX F",
@@ -8,8 +8,8 @@ const MASTER_TEXT = [
 ].join("\n");
 
 // Seed a cached workspace whose session.startId points at a person that does
-// NOT exist in the master (e.g. a stale id from a previously-loaded file).
-async function seedBadStart(page: Page, masterText: string, badStartId: string) {
+// NOT exist in the main (e.g. a stale id from a previously-loaded file).
+async function seedBadStart(page: Page, mainText: string, badStartId: string) {
   await page.addInitScript(
     ([text, startId]) => {
       localStorage.setItem("gedmerge.settings", JSON.stringify({ persistWorkspace: true }));
@@ -24,11 +24,11 @@ async function seedBadStart(page: Page, masterText: string, badStartId: string) 
         const tx = db.transaction(["files", "session"], "readwrite");
         tx.objectStore("files").put(
           { fileName: "Seeded.ged", blob: new Blob([text]), savedAt: Date.now() },
-          "master",
+          "main",
         );
         tx.objectStore("session").put(
           {
-            masterFileName: "Seeded.ged",
+            mainFileName: "Seeded.ged",
             decisions: [],
             importBranches: [],
             startId,
@@ -38,12 +38,12 @@ async function seedBadStart(page: Page, masterText: string, badStartId: string) 
         );
       };
     },
-    [masterText, badStartId] as const,
+    [mainText, badStartId] as const,
   );
 }
 
 test("restore with a stale start id still shows the individuals", async ({ page }) => {
-  await seedBadStart(page, MASTER_TEXT, "@I999@");
+  await seedBadStart(page, MAIN_TEXT, "@I999@");
   await page.goto("/");
   await page.waitForTimeout(3000);
   await page.getByRole("button", { name: "Edit", exact: true }).click();

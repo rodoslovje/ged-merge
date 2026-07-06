@@ -34,7 +34,7 @@ const MAX_RESULTS = 50;
 
 /**
  * Optional, filterable picker for an individual. Originally built for setting
- * the master's start person (which makes the matcher compute each match's
+ * the main's start person (which makes the matcher compute each match's
  * relationship distance and sort by it); also reused in Edit mode as a
  * generic "jump to person" picker via the `placeholder`/`tooltip` props.
  */

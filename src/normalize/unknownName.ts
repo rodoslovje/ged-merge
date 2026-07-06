@@ -5,7 +5,7 @@ import type { NormChange, UnknownNameTarget } from "./types";
 
 /** A file's unknown-name convention plus the marker it uses, for the loader. */
 export interface UnknownNameAnalysis {
-  /** The reshape target derived from this file (used as the master's convention). */
+  /** The reshape target derived from this file (used as the main's convention). */
   target: UnknownNameTarget;
   /** The most-used placeholder token in the file, e.g. "NN". Absent when the
    *  file uses none — unknown name parts are simply left blank. */
@@ -51,7 +51,7 @@ export function analyzeUnknownNames(dataset: Dataset): UnknownNameAnalysis {
 
 /**
  * Rewrite unknown-name placeholders on an individual's primary `NAME` into the
- * master's convention — stripping them (`blank`) or unifying them to the master's
+ * main's convention — stripping them (`blank`) or unifying them to the main's
  * marker (`token`). The given and surname are each cleaned in *both* places they
  * can live — the slash-delimited NAME value and the `GIVN`/`SURN` sub-tag — so no
  * placeholder survives, even one shadowed by a real value (the two can drift).

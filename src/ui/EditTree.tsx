@@ -20,7 +20,7 @@ import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
-import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
 import { TreeSvg } from "./TreeSvg";
 import { TreeNodePanel } from "./TreeNodePanel";
@@ -32,8 +32,8 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
-// Color for unmodified nodes (master pine green) and modified (amber/minor).
-const COLOR_NORMAL = "var(--node-master)";
+// Color for unmodified nodes (main pine green) and modified (amber/minor).
+const COLOR_NORMAL = "var(--node-main)";
 const COLOR_MODIFIED = "var(--node-minor)";
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
@@ -42,14 +42,14 @@ const COLOR_MODIFIED = "var(--node-minor)";
 const EMPTY_DS = emptyDataset();
 
 const EMPTY_MAPS = {
-  masterToCompare: new Map<string, string>(),
-  compareToMaster: new Map<string, string>(),
+  mainToCompare: new Map<string, string>(),
+  compareToMain: new Map<string, string>(),
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   rootId: string;
   startId?: string;
   changedPersonIds: Set<string>;
@@ -71,7 +71,7 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function EditTree({ masterDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const [currentRootId, setCurrentRootId] = useState(rootId);
   const changeRoot = useCallback((id: string) => {
@@ -95,19 +95,18 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
-  const livingLabel = t("tree.node.living");
 
   // A radial chart only draws ancestors — an override on top of the user's
   // direction, never a change to it, so leaving Fan/Circle restores the choice.
   const effectiveMode = radial ? "ancestors" : mode;
 
-  const rootPerson = masterDs.individuals.get(currentRootId);
+  const rootPerson = mainDs.individuals.get(currentRootId);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
   // labelling every node costs each person once, not two walks per node per render.
   const kinship = useMemo(
-    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
-    [masterDs, startId, t],
+    () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
+    [mainDs, startId, t],
   );
 
   // Both directions build once per root/dataset: they feed the mode-button
@@ -115,10 +114,10 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
-      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, masterDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
+      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
+      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
     }),
-    [t, rootPerson, masterDs],
+    [t, rootPerson, mainDs],
   );
   const tree = trees[effectiveMode];
 
@@ -154,7 +153,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   }, [flat]);
 
   const isModified = useCallback(
-    (n: TreeNode) => !!n.master && changedPersonIds.has(n.master.id),
+    (n: TreeNode) => !!n.main && changedPersonIds.has(n.main.id),
     [changedPersonIds],
   );
   const colorOf = useCallback(
@@ -162,37 +161,37 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
     [isModified],
   );
 
-  const decisionStatusById = useMemo(() => decisionStatusByMasterId(decisions), [decisions]);
+  const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
   const decisionOf = useCallback(
     (n: TreeNode): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
-      const status = n.master ? decisionStatusById.get(n.master.id) : undefined;
+      const status = n.main ? decisionStatusById.get(n.main.id) : undefined;
       return status ? { status, letter: t(`status.${status}`).charAt(0) } : undefined;
     },
     [decisionStatusById, t],
   );
 
   // A photo's "referenced by" link re-roots the tree on that person.
-  const masterRefCtx = useMemo(
-    () => ({ dataset: masterDs, onNavigate: changeRoot }),
-    [masterDs, changeRoot],
+  const mainRefCtx = useMemo(
+    () => ({ dataset: mainDs, onNavigate: changeRoot }),
+    [mainDs, changeRoot],
   );
 
   // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
   // so it's independent of the (forced-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
   const hasPhoto = useCallback(
-    (n: TreeNode) => !!folderName && !!n.master && !!collectFirstFilePath(n.master.raw, masterDs.records),
-    [folderName, masterDs],
+    (n: TreeNode) => !!folderName && !!n.main && !!collectFirstFilePath(n.main.raw, mainDs.records),
+    [folderName, mainDs],
   );
   // Kinship to the start person, shown in place of a redacted living person's name.
   const fanKinshipOf = useCallback(
-    (n: TreeNode) => (n.master ? kinship?.label(n.master.id) : undefined),
+    (n: TreeNode) => (n.main ? kinship?.label(n.main.id) : undefined),
     [kinship],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? trees.ancestors : undefined,
     settings.type === "circle" ? "circle" : "fan",
-    { hasPhoto, display, livingLabel, kinshipOf: fanKinshipOf },
+    { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   const fanBadgeOf = useCallback(
@@ -224,18 +223,18 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
       ? nodesByKey.get(selectedKey)
       : undefined;
 
-  // Master-only field rows for the selected person's detail panel; clicking a
+  // Main-only field rows for the selected person's detail panel; clicking a
   // relative re-roots the tree on them.
   const selectedRows = useMemo(
-    () => (selected?.master ? individualFieldRows(t, selected.master, undefined, masterDs) : []),
-    [t, selected, masterDs],
+    () => (selected?.main ? individualFieldRows(t, selected.main, undefined, mainDs) : []),
+    [t, selected, mainDs],
   );
-  const masterNav = useMemo(
+  const mainNav = useMemo(
     () => ({
-      linkable: (id: string) => masterDs.individuals.has(id),
+      linkable: (id: string) => mainDs.individuals.has(id),
       onNavigate: (id: string) => { changeRoot(id); setSelectedKey(null); },
     }),
-    [masterDs, setSelectedKey, changeRoot],
+    [mainDs, setSelectedKey, changeRoot],
   );
   const selectedDecision = selected ? decisionOf(selected) : undefined;
   const selectedModified = selected ? isModified(selected) : false;
@@ -249,13 +248,13 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
   // Shared title for the SVG / PDF export header.
   const editTreeTitle = [tree?.name, tree?.years, "—", chartKind].filter(Boolean).join(" ");
   // Everyone drawn on the current chart (incl. spouses in descendant mode) —
-  // the person set the GEDCOM export cuts out of the master file. Deduped:
+  // the person set the GEDCOM export cuts out of the main file. Deduped:
   // pedigree collapse draws a person in several positions but exports them once,
   // so the menu's count matches the file.
   const chartPersonIds = useMemo(() => {
     const ids = new Set<string>();
     const nodes = radial ? (fan?.segments ?? []).map((s) => s.node) : (flat?.nodes ?? []);
-    for (const n of nodes) if (n.master) ids.add(n.master.id);
+    for (const n of nodes) if (n.main) ids.add(n.main.id);
     return [...ids];
   }, [radial, fan, flat]);
 
@@ -287,7 +286,7 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
             disabled={!activeLaid}
             slug={chartSlug(tree?.name, t(`tree.${effectiveMode}`))}
             title={editTreeTitle}
-            gedcom={{ ds: masterDs, personIds: chartPersonIds }}
+            gedcom={{ ds: mainDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}
           />
         </>
@@ -329,8 +328,8 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
                 colorOf={colorOf}
                 selectedKey={selectedKey}
                 onSelect={selectNode}
-                masterRecords={masterDs.records}
-                masterRefCtx={masterRefCtx}
+                mainRecords={mainDs.records}
+                mainRefCtx={mainRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
               />
             ) : (
@@ -347,13 +346,12 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
               colorOf={colorOf}
               badgeOf={display.showBadges ? decisionOf : undefined}
               modifiedOf={display.showBadges ? isModified : undefined}
-              kinshipOf={(n) => (n.master ? kinship?.label(n.master.id) : undefined)}
-              lineageOf={(n) => (n.master ? kinship?.lineage(n.master.id) : undefined)}
-              masterRecords={masterDs.records}
-              masterRefCtx={masterRefCtx}
+              kinshipOf={(n) => (n.main ? kinship?.label(n.main.id) : undefined)}
+              lineageOf={(n) => (n.main ? kinship?.lineage(n.main.id) : undefined)}
+              mainRecords={mainDs.records}
+              mainRefCtx={mainRefCtx}
               display={display}
               nodeH={nodeH}
-              livingLabel={livingLabel}
             />
           ) : (
             <p className="muted">{t("tree.empty")}</p>
@@ -378,22 +376,22 @@ export function EditTree({ masterDs, rootId, startId, changedPersonIds, decision
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
         )}
 
-        {selected && selected.master && (
+        {selected && selected.main && (
           <TreeNodePanel
             node={selected}
             swatch={colorOf(selected)}
             rows={selectedRows}
-            masterPerson={masterNav}
-            masterLabel={t("tree.master")}
+            mainPerson={mainNav}
+            mainLabel={t("tree.main")}
             singleColumn
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => {
-              changeRoot(selected.master!.id);
+              changeRoot(selected.main!.id);
               setSelectedKey(null);
             }}
             extraActions={
               onNavigate ? (
-                <button className="nav-btn tree-compare-root" onClick={() => onNavigate(selected.master!.id)}>
+                <button className="nav-btn tree-compare-root" onClick={() => onNavigate(selected.main!.id)}>
                   {t("relpath.openInEdit")}
                 </button>
               ) : undefined

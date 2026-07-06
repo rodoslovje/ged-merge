@@ -4,7 +4,7 @@ import { COL_STEP, NODE_H, NODE_W, ROW_STEP, flatten, layout, layoutGrid } from 
 
 /** Minimal TreeNode for geometry tests — only the layout-relevant fields matter. */
 function node(key: string, children: TreeNode[] = [], partners: TreeNode[] = []): TreeNode {
-  return { key, status: "master-only", name: key, years: "", living: false, sex: "U", detail: "", children, partners };
+  return { key, status: "main-only", name: key, years: "", living: false, sex: "U", detail: "", children, partners };
 }
 
 describe("layout alignment", () => {

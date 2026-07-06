@@ -16,7 +16,7 @@ export const AGE_LIMITS = {
 } as const;
 
 /**
- * Master-file health check.
+ * Main-file health check.
  *
  * Pure, synchronous validation over the typed domain model — fast enough to run
  * on the main thread for files of a few thousand records (a single pass over

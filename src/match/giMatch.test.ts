@@ -8,7 +8,7 @@ function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 
-const MASTER = `0 HEAD
+const MAIN = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
 1 CHAR UTF-8
@@ -34,8 +34,8 @@ function row(cells: string[]): string {
 }
 
 describe("matchGiPairs", () => {
-  it("resolves a pair whose master key matches and scores it against the compare individual", () => {
-    const masterRow = row([
+  it("resolves a pair whose main key matches and scores it against the compare individual", () => {
+    const mainRow = row([
       "Franc",
       "Vilfan",
       "20 JUL 1877",
@@ -65,20 +65,20 @@ describe("matchGiPairs", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const csv = `${HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const csv = `${HEADER}\n${mainRow}\n${incomingRow}\n`;
 
-    const masterDs = dataset(MASTER);
+    const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(masterDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs);
     expect(result.individuals).toHaveLength(1);
-    expect(result.individuals[0].masterId).toBe("@I1@");
+    expect(result.individuals[0].mainId).toBe("@I1@");
     expect(result.individuals[0].compareId).toBe("@SGI1@");
     expect(result.individuals[0].score).toBeGreaterThan(80);
   });
 
-  it("skips a pair whose master key doesn't match any individual", () => {
-    const masterRow = row([
+  it("skips a pair whose main key doesn't match any individual", () => {
+    const mainRow = row([
       "Unknown",
       "Person",
       "1 JAN 1800",
@@ -108,12 +108,12 @@ describe("matchGiPairs", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const csv = `${HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const csv = `${HEADER}\n${mainRow}\n${incomingRow}\n`;
 
-    const masterDs = dataset(MASTER);
+    const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(masterDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs);
     expect(result.individuals).toHaveLength(0);
   });
 });

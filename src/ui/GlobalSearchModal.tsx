@@ -30,7 +30,7 @@ export interface SearchRowMeta {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  /** Precomputed search index for the whole master (see {@link buildSearchRows}). */
+  /** Precomputed search index for the whole main (see {@link buildSearchRows}). */
   rows: SearchRow[];
   /** Open a chosen person in the requested way (open in Merge/Edit, tree, or relationship). */
   onOpen: (id: string, how: OpenHow) => void;

@@ -2,34 +2,34 @@ import type { DateOrder, DateQualifier } from "../gedcom/types";
 import type { LinkLangs } from "./links";
 
 /**
- * The master GEDCOM's "house style", inferred on load. The compare file is
+ * The main GEDCOM's "house style", inferred on load. The compare file is
  * converted to match this so that downstream matching compares like-for-like
  * and the merged export stays internally consistent.
  */
-export interface MasterProfile {
+export interface MainProfile {
   date: DateFormatProfile;
   place: PlaceFormatProfile;
   linkLangs: LinkLangs;
-  /** How the master writes places, so incoming places can be reshaped to match on load. */
+  /** How the main writes places, so incoming places can be reshaped to match on load. */
   placeFmt: PlaceTargetFormat;
-  /** How the master records each alternate-name variant, so incoming names can be reshaped to match. */
+  /** How the main records each alternate-name variant, so incoming names can be reshaped to match. */
   nameVariants: NameProfile;
-  /** How the master marks an unknown given/surname, so incoming placeholder
+  /** How the main marks an unknown given/surname, so incoming placeholder
    * tokens (`NN`, `____`, `????`) can be reshaped to match. */
   unknownName: UnknownNameTarget;
 }
 
 /**
- * How the master records an *unknown* name part, so incoming placeholder tokens
+ * How the main records an *unknown* name part, so incoming placeholder tokens
  * are reshaped to the same convention:
- *  - `blank` : the master leaves an unknown given/surname empty — strip incoming
+ *  - `blank` : the main leaves an unknown given/surname empty — strip incoming
  *              placeholders (`____` → nothing). This is the default.
- *  - `token` : the master writes a literal marker (kept in {@link token}, e.g.
+ *  - `token` : the main writes a literal marker (kept in {@link token}, e.g.
  *              `NN`) — rewrite incoming placeholders to that marker.
  */
 export interface UnknownNameTarget {
   form: "blank" | "token";
-  /** For `form: "token"`, the master's marker spelling, e.g. "NN" or "N.N.". */
+  /** For `form: "token"`, the main's marker spelling, e.g. "NN" or "N.N.". */
   token?: string;
 }
 
@@ -54,14 +54,14 @@ export type NameLayout = "tags" | "records" | "none";
  */
 export type NameVariantKind = "married" | "birth" | "aka" | "nick";
 
-/** How the master writes one name variant, so incoming names are reshaped to it. */
+/** How the main writes one name variant, so incoming names are reshaped to it. */
 export interface NameVariantTarget {
   /** `record` = a separate `2 TYPE` NAME record; `tag` = an inline sub-tag on the
-   * primary name; `none` = the master doesn't use this variant (leave incoming as-is). */
+   * primary name; `none` = the main doesn't use this variant (leave incoming as-is). */
   form: "record" | "tag" | "none";
   /** For `form: "tag"`, the sub-tag to write (e.g. `_MARNM`, `_BIRN`, `_AKA`, `NICK`). */
   tag?: string;
-  /** For `form: "record"`, the master's preferred `2 TYPE` token, with its own
+  /** For `form: "record"`, the main's preferred `2 TYPE` token, with its own
    * casing/spelling (e.g. `married`, `Birth`, `maiden`) — so incoming records
    * are also recased/unified to it. */
   type?: string;
@@ -71,7 +71,7 @@ export type NameProfile = Record<NameVariantKind, NameVariantTarget>;
 
 export interface DateFormatProfile {
   /**
-   * When set, the master writes dates numerically (e.g. `DD.MM.YYYY`) and we
+   * When set, the main writes dates numerically (e.g. `DD.MM.YYYY`) and we
    * render in this layout instead of using month words. Otherwise dates use the
    * `[DD ]MON YYYY` month-word form described by the fields below.
    */
@@ -94,19 +94,19 @@ export interface NumericDateFormat {
   /** Whether the month is zero-padded ("02" vs "2"). */
   padMonth: boolean;
   /**
-   * Character the master writes for an unknown date component (e.g. "_"), or
+   * Character the main writes for an unknown date component (e.g. "_"), or
    * undefined when it omits unknown parts instead. When set, reshaping fills a
    * missing field with a run of this character padded to the field's width
    * ("__" for day/month, "____" for year) rather than dropping the slot — so an
    * incoming "FEB 1900" becomes "__.02.1900" and ".__.____" becomes
-   * "__.__.____", matching the master's house style.
+   * "__.__.____", matching the main's house style.
    */
   placeholder?: string;
 }
 
 /**
  * The major place-formatting conventions we detect, so the incoming file can be
- * reshaped into the master's during merge:
+ * reshaped into the main's during merge:
  *  - `structured-addr`  : comma jurisdiction in PLAC + house number in a separate
  *                         ADDR (Renko).
  *  - `packed-plac`      : everything packed into PLAC — country in parentheses,
@@ -126,7 +126,7 @@ export type PlaceLayout =
 export interface PlaceFormatProfile {
   /** Detected place-formatting convention. */
   layout: PlaceLayout;
-  /** Most common number of jurisdiction levels seen in the master. */
+  /** Most common number of jurisdiction levels seen in the main. */
   modalDepth: number;
   /** Per-part canonical casing: lowercased part -> canonical form. */
   partCanonical: Map<string, string>;
@@ -134,19 +134,19 @@ export interface PlaceFormatProfile {
   fullCanonical: Map<string, string>;
 }
 
-/** How the master wants places written, so incoming places can match it. */
+/** How the main wants places written, so incoming places can match it. */
 export interface PlaceTargetFormat {
   layout: PlaceLayout;
   /** PLAC jurisdiction-part separator, e.g. "," (Renko) or ", ". */
   separator: string;
   /**
-   * Master's preferred display form for each country, keyed by the canonical
+   * Main's preferred display form for each country, keyed by the canonical
    * country token (e.g. "slovenia" → "Slovenija" or "Slovenia"). When present,
-   * country names in incoming places are rewritten to match the master's spelling.
+   * country names in incoming places are rewritten to match the main's spelling.
    */
   countryPreferred?: Map<string, string>;
   /**
-   * Place associations learned from the master's own attested PLAC/ADDR/AGNC,
+   * Place associations learned from the main's own attested PLAC/ADDR/AGNC,
    * used to recognize a more specific locality than the incoming place names
    * and to fill in jurisdiction levels it omits. See {@link PlaceHierarchy}.
    */
@@ -154,25 +154,25 @@ export interface PlaceTargetFormat {
 }
 
 /**
- * Place associations learned from the master tree's own attested records —
- * not an external gazetteer, just what the master itself already shows. Lets
+ * Place associations learned from the main tree's own attested records —
+ * not an external gazetteer, just what the main itself already shows. Lets
  * reshaping recognize that, say, "župnija Šmartin" or "Hafnarjeva pot" names a
  * more specific locality than a generic "Kranj,Slovenia", and that "Kranj"
  * the locality sits under "Kranj,Slovenia" the wider jurisdiction — purely
- * because the master has other records that already spell it out in full.
+ * because the main has other records that already spell it out in full.
  */
 export interface PlaceHierarchy {
-  /** Locality (lowercased) → the master's most-attested jurisdiction chain above it. */
+  /** Locality (lowercased) → the main's most-attested jurisdiction chain above it. */
   parentOf: Map<string, string[]>;
-  /** Street/address name (lowercased) → the master's most-attested locality. */
+  /** Street/address name (lowercased) → the main's most-attested locality. */
   localityOfStreet: Map<string, string>;
 }
 
-/** A place reshaped into the master's layout: the parts to write back. */
+/** A place reshaped into the main's layout: the parts to write back. */
 export interface ReformattedPlace {
   plac?: string;
   addr?: string;
-  /** Parish that the master layout has no PLAC/ADDR slot for — goes to AGNC. */
+  /** Parish that the main layout has no PLAC/ADDR slot for — goes to AGNC. */
   agency?: string;
 }
 
@@ -217,9 +217,9 @@ export interface NormalizeOptions {
 
 /**
  * Summary of what the load-time normalization pass altered in the compare file:
- * dates converted to the master's style, places reshaped into the master's
- * PLAC/ADDR/NOTE layout (when the master's layout calls for it), and links
- * (Matricula Online, Geneanet cemetery) rewritten to the master's language.
+ * dates converted to the main's style, places reshaped into the main's
+ * PLAC/ADDR/NOTE layout (when the main's layout calls for it), and links
+ * (Matricula Online, Geneanet cemetery) rewritten to the main's language.
  */
 export interface NormalizationReport {
   datesChanged: number;
@@ -231,16 +231,16 @@ export interface NormalizationReport {
   linksConverted: number;
   /** A handful of illustrative link changes for display. */
   linkExamples: NormChange[];
-  /** Alternate names (married/birth/aka/nick) rewritten into the master's convention. */
+  /** Alternate names (married/birth/aka/nick) rewritten into the main's convention. */
   nameVariantsReshaped: number;
   /** A handful of illustrative name-variant changes for display. */
   nameVariantExamples: NormChange[];
-  /** Unknown-name placeholders (`NN`, `____`, `????`) rewritten to the master's convention. */
+  /** Unknown-name placeholders (`NN`, `____`, `????`) rewritten to the main's convention. */
   unknownNamesReshaped: number;
   /** A handful of illustrative unknown-name changes for display. */
   unknownNameExamples: NormChange[];
   /** Incoming records merged away as same-person duplicates (detected because
-   *  they matched the same master). Set by the worker after matching, so it's
+   *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */
   consolidatedDuplicates?: number;
 }

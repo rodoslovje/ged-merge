@@ -1,5 +1,5 @@
 import type { Dataset, Individual } from "../gedcom/types";
-import type { GiMasterKey, GiPair } from "../csv/giMatches";
+import type { GiMainKey, GiPair } from "../csv/giMatches";
 import { birthYear } from "../gedcom/lifespan";
 import { primaryName } from "./relatives";
 import { scoreIndividualPair } from "./scoreIndividual";
@@ -7,42 +7,42 @@ import { foldToken } from "./text";
 import { DEFAULT_CONFIG, type IndividualCandidate, type MatchConfig, type MatchResult } from "./types";
 
 /**
- * Resolve a genealogical index matches CSV against the master dataset: each
- * pair's master key (given + surname + birth year, from the CSV's first row)
- * is matched exactly against a master individual, and the pair's synthetic
+ * Resolve a genealogical index matches CSV against the main dataset: each
+ * pair's main key (given + surname + birth year, from the CSV's first row)
+ * is matched exactly against a main individual, and the pair's synthetic
  * compare individual (second row) is then scored against it as usual. Pairs
- * whose key doesn't resolve to exactly one master individual are skipped.
+ * whose key doesn't resolve to exactly one main individual are skipped.
  */
 export function matchGiPairs(
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   pairs: GiPair[],
   config: MatchConfig = DEFAULT_CONFIG,
 ): MatchResult {
-  const index = buildMasterKeyIndex(masterDs);
+  const index = buildMainKeyIndex(mainDs);
   const individuals: IndividualCandidate[] = [];
   for (const pair of pairs) {
-    const master = index.get(keyStr(pair.masterKey));
-    if (!master) continue;
+    const main = index.get(keyStr(pair.mainKey));
+    if (!main) continue;
     const compare = compareDs.individuals.get(pair.compareId);
     if (!compare) continue;
-    individuals.push(scoreIndividualPair(master, compare, masterDs, compareDs, config));
+    individuals.push(scoreIndividualPair(main, compare, mainDs, compareDs, config));
   }
   return { individuals };
 }
 
 /** Folded "given|surname|birthYear" key, shared by index-building and lookup. */
-function keyStr(key: GiMasterKey): string {
+function keyStr(key: GiMainKey): string {
   return `${foldToken(key.given)}|${foldToken(key.surname)}|${key.birthYear ?? ""}`;
 }
 
-/** Index master individuals by their folded name+birth-year key, built once so
- *  resolving every CSV pair is an O(1) lookup instead of an O(masterSize) scan.
+/** Index main individuals by their folded name+birth-year key, built once so
+ *  resolving every CSV pair is an O(1) lookup instead of an O(mainSize) scan.
  *  Keeps the first individual seen per key (dataset iteration order), matching
  *  the original linear scan's "first match wins" for an ambiguous key. */
-function buildMasterKeyIndex(masterDs: Dataset): Map<string, Individual> {
+function buildMainKeyIndex(mainDs: Dataset): Map<string, Individual> {
   const index = new Map<string, Individual>();
-  for (const indi of masterDs.individuals.values()) {
+  for (const indi of mainDs.individuals.values()) {
     const n = primaryName(indi);
     if (!n?.given || !n?.surname) continue;
     const key = keyStr({ given: n.given, surname: n.surname, birthYear: birthYear(indi) });

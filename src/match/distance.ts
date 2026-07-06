@@ -3,7 +3,7 @@ import type { MatchResult } from "./types";
 
 /**
  * Relationship distance (in graph hops) from the start person to every reachable
- * master individual, via parent/child/spouse edges. Unreachable people are
+ * main individual, via parent/child/spouse edges. Unreachable people are
  * simply absent from the map.
  */
 export function computeDistances(ds: Dataset, startId: string): Map<string, number> {
@@ -46,19 +46,19 @@ function* neighbors(id: string, ds: Dataset): Generator<string> {
 }
 
 /**
- * Annotate candidates with their master-side distance to the start person and
+ * Annotate candidates with their main-side distance to the start person and
  * re-sort by (distance ascending, then score descending), so the matches most
  * relevant to the user surface first.
  */
 export function applyDistanceRanking(
   result: MatchResult,
-  masterDs: Dataset,
+  mainDs: Dataset,
   startId: string,
 ): MatchResult {
-  const distances = computeDistances(masterDs, startId);
+  const distances = computeDistances(mainDs, startId);
 
   const individuals = result.individuals
-    .map((c) => withDistance(c, distances.get(c.masterId)))
+    .map((c) => withDistance(c, distances.get(c.mainId)))
     .sort(byDistanceThenScore);
 
   return { individuals };

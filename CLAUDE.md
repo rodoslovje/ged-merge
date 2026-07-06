@@ -44,29 +44,29 @@ All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The wo
 - `parseCsv` → loads genealogical-index matches CSV (indeks.rodoslovje.si) into the compare slot
 - `setHome` → re-ranks the last match result by kinship distance; emits `matching`/`matched`
 
-The worker keeps its own copies of `masterDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
+The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
 
 ### Normalization
 
-When the compare file loads, `src/normalize/` reshapes it to match the master's "house style" — date format (e.g. `DD.MM.YYYY` vs `JAN 1900`), place layout (`structured-addr` / `packed-plac` / …), and link languages (Matricula, Geneanet). The `NormalizationReport` summarizes what changed. Downstream matching compares like-for-like.
+When the compare file loads, `src/normalize/` reshapes it to match the main file's "house style" — date format (e.g. `DD.MM.YYYY` vs `JAN 1900`), place layout (`structured-addr` / `packed-plac` / …), and link languages (Matricula, Geneanet). The `NormalizationReport` summarizes what changed. Downstream matching compares like-for-like.
 
 ### Matching
 
-`src/match/engine.ts` scores each master/compare individual pair 0–100 over weighted field components (surname, given name, birth date/place, parents, partners, children, marriage). Hard gates on surname/given/year-gap prune implausible pairs before scoring. `src/match/distance.ts` re-ranks results by kinship hops from the home person. The full algorithm — pipeline stages, penalties, calibrated thresholds, and how to verify changes — is documented in [MATCHING.md](MATCHING.md).
+`src/match/engine.ts` scores each main/compare individual pair 0–100 over weighted field components (surname, given name, birth date/place, parents, partners, children, marriage). Hard gates on surname/given/year-gap prune implausible pairs before scoring. `src/match/distance.ts` re-ranks results by kinship hops from the home person. The full algorithm — pipeline stages, penalties, calibrated thresholds, and how to verify changes — is documented in [MATCHING.md](MATCHING.md).
 
 ### App state (App.tsx)
 
 Both **Edit** and **Merge** mode views stay mounted simultaneously and are toggled with CSS `display`, not conditional rendering — avoids remounting large unvirtualized lists on mode switches.
 
 Key state:
-- `master` / `compare` — `SlotState` (empty → loading → loaded | error)
-- `lastMasterFile` — the last successfully loaded master, preserved while a reload is in progress so the views don't flash back to the landing page
-- `decisions` — `Map<string, CandidateDecision>` keyed by `decisionKey("individual", masterId, compareId)`
+- `main` / `compare` — `SlotState` (empty → loading → loaded | error)
+- `lastMainFile` — the last successfully loaded main file, preserved while a reload is in progress so the views don't flash back to the landing page
+- `decisions` — `Map<string, CandidateDecision>` keyed by `decisionKey("individual", mainId, compareId)`
 - **Unified undo/redo** stack covers both edit patches (`RecordPatch[]`) and merge decisions in one history
 
 ### Save flow
 
-`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. After confirming, the live `masterDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
+`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. After confirming, the live `mainDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
 
 ### Styling
 
@@ -88,7 +88,7 @@ Sanity check after CSS edits: every referenced var must resolve to a definition,
 | Path | Responsibility |
 |------|----------------|
 | `src/gedcom/` | Parser, builder, types, serialize, edit (rebuild/remove), date, place, name, citation, lifespan |
-| `src/normalize/` | Reshape compare to master's date/place/link conventions |
+| `src/normalize/` | Reshape compare to main's date/place/link conventions |
 | `src/match/` | Scoring engine, similarity functions, kinship distance ranking |
 | `src/merge/` | Apply decisions → produce merged `GedNode[]` + change report |
 | `src/review/` | Field-comparison rows (`FieldRow`), diff counts for the results table |

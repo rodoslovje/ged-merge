@@ -12,23 +12,23 @@ import type { PlaceTargetFormat } from "../normalize/types";
 /** Which direction the tree fans out from the root person. */
 export type TreeMode = "ancestors" | "descendants";
 
-/** How a person compares between the master and incoming files. */
+/** How a person compares between the main and incoming files. */
 export type NodeStatus =
   | "match" // both sides present and fully agree
   | "minor" // both present, only non-key differences
   | "major" // both present, conflict in name / surname / birth year
-  | "master-only" // present only in the master file
+  | "main-only" // present only in the main file
   | "incoming-only"; // present only in the incoming file
 
 export interface TreeNode {
   /** Render/selection key, unique per tree *position*: pedigree collapse repeats
    *  a person in several places, and each occurrence is its own node (the second
-   *  and later carry a `#n` suffix). Identify the person via master/incoming. */
+   *  and later carry a `#n` suffix). Identify the person via main/incoming. */
   key: string;
-  master?: Individual;
+  main?: Individual;
   incoming?: Individual;
   status: NodeStatus;
-  /** Primary display name (master's, falling back to incoming's). */
+  /** Primary display name (main's, falling back to incoming's). */
   name: string;
   /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
@@ -57,24 +57,24 @@ export interface MarriageInfo {
 }
 
 export interface MatchMaps {
-  masterToCompare: Map<string, string>;
-  compareToMaster: Map<string, string>;
+  mainToCompare: Map<string, string>;
+  compareToMain: Map<string, string>;
 }
 
 
 /** Index the accepted candidate pairs both ways for quick lookup. */
 export function buildMatchMaps(matches: MatchResult): MatchMaps {
-  const masterToCompare = new Map<string, string>();
-  const compareToMaster = new Map<string, string>();
+  const mainToCompare = new Map<string, string>();
+  const compareToMain = new Map<string, string>();
   for (const c of matches.individuals) {
-    masterToCompare.set(c.masterId, c.compareId);
-    compareToMaster.set(c.compareId, c.masterId);
+    mainToCompare.set(c.mainId, c.compareId);
+    compareToMain.set(c.compareId, c.mainId);
   }
-  return { masterToCompare, compareToMaster };
+  return { mainToCompare, compareToMain };
 }
 
 /**
- * Build the merged compare tree rooted at one person (given as its master and/or
+ * Build the merged compare tree rooted at one person (given as its main and/or
  * incoming record). Ancestors are merged by position (each person has one father
  * and one mother); descendants are paired through the match map and any unpaired
  * child on either side becomes a one-sided node. A visited guard stops cycles
@@ -82,18 +82,18 @@ export function buildMatchMaps(matches: MatchResult): MatchMaps {
  *
  * `isRejected` lets a decided "these are not the same person" pruning the tree:
  * when a paired node has been rejected, its incoming side is dropped so the node
- * becomes master-only and only the master lineage continues — the incoming person
+ * becomes main-only and only the main lineage continues — the incoming person
  * and every incoming-only relative above/below them disappear from the tree.
  */
 export function buildPersonTree(
   t: Translate,
-  rootMaster: Individual | undefined,
+  rootMain: Individual | undefined,
   rootIncoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   maps: MatchMaps,
   mode: TreeMode,
-  isRejected?: (masterId: string, compareId: string) => boolean,
+  isRejected?: (mainId: string, compareId: string) => boolean,
 ): TreeNode | undefined {
   // Occurrence count per person: pedigree collapse (and spouses who are also
   // blood relatives) repeat a person in several positions, and every occurrence
@@ -107,50 +107,50 @@ export function buildPersonTree(
     return n === 1 ? baseKey : `${baseKey}#${n}`;
   };
   const expanded = new Set<string>();
-  const placeFmt = inferPlaceExportFormat(masterDs);
+  const placeFmt = inferPlaceExportFormat(mainDs);
 
-  const build = (master?: Individual, incoming?: Individual): TreeNode | undefined => {
-    if (!master && !incoming) return undefined;
+  const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+    if (!main && !incoming) return undefined;
     // A rejected pairing means the two records are different people: keep the
-    // master and drop the incoming side here, so neither it nor its relatives
+    // main and drop the incoming side here, so neither it nor its relatives
     // are walked any further.
-    if (master && incoming && isRejected?.(master.id, incoming.id)) {
+    if (main && incoming && isRejected?.(main.id, incoming.id)) {
       incoming = undefined;
     }
-    const base = nodeKey(master, incoming);
-    const node = makeNode(t, claimKey(base), master, incoming, masterDs, compareDs, placeFmt);
+    const base = nodeKey(main, incoming);
+    const node = makeNode(t, claimKey(base), main, incoming, mainDs, compareDs, placeFmt);
     if (expanded.has(base)) return node; // already expanded elsewhere: stop here
     expanded.add(base);
     if (mode === "ancestors") {
-      node.children = parents(master, incoming, masterDs, compareDs, build);
+      node.children = parents(main, incoming, mainDs, compareDs, build);
       // The marriage of this person's parents — drawn as the fan collar between
-      // their two segments. Prefer the master side, else the incoming side.
+      // their two segments. Prefer the main side, else the incoming side.
       node.marriage =
-        parentsMarriage(master, masterDs) ?? parentsMarriage(incoming, compareDs);
+        parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     } else {
-      const { partners, directChildren } = descend(t, master, incoming, masterDs, compareDs, maps, build, claimKey, placeFmt);
+      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, placeFmt);
       node.partners = partners;
       node.children = directChildren;
     }
     return node;
   };
 
-  return build(rootMaster, rootIncoming);
+  return build(rootMain, rootIncoming);
 }
 
-type Build = (master?: Individual, incoming?: Individual) => TreeNode | undefined;
+type Build = (main?: Individual, incoming?: Individual) => TreeNode | undefined;
 type ClaimKey = (baseKey: string) => string;
 
 function parents(
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   build: Build,
 ): TreeNode[] {
   const out: TreeNode[] = [];
   for (const role of ["husband", "wife"] as const) {
-    const mp = master ? firstParent(master, masterDs, role) : undefined;
+    const mp = main ? firstParent(main, mainDs, role) : undefined;
     const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
     const node = build(mp, ip);
     if (node) out.push(node);
@@ -214,20 +214,20 @@ function parentsMarriage(indi: Individual | undefined, ds: Dataset): MarriageInf
  * Build the descendant generation for a person. Each marriage becomes a partner
  * node carrying *that union's* children, so children connect to the spouse they
  * belong to. Children from a family with no recorded spouse hang off the person
- * directly. Master and incoming families are aligned by their matched partner.
+ * directly. Main and incoming families are aligned by their matched partner.
  */
 function descend(
   t: Translate,
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   maps: MatchMaps,
   build: Build,
   claimKey: ClaimKey,
   placeFmt: PlaceTargetFormat,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
-  const masterUnions = unionsOf(master, masterDs);
+  const mainUnions = unionsOf(main, mainDs);
   const incomingUnions = unionsOf(incoming, compareDs);
   const usedIncoming = new Set<number>();
 
@@ -243,7 +243,7 @@ function descend(
     if (mPartner || iPartner) {
       // Partner nodes claim a key too: a spouse who is also a blood relative
       // (or married twice into the tree) appears in several positions.
-      const node = makeNode(t, claimKey(nodeKey(mPartner, iPartner)), mPartner, iPartner, masterDs, compareDs, placeFmt);
+      const node = makeNode(t, claimKey(nodeKey(mPartner, iPartner)), mPartner, iPartner, mainDs, compareDs, placeFmt);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
       node.marriage = marriageOf(fam);
@@ -253,11 +253,11 @@ function descend(
     }
   };
 
-  for (const mu of masterUnions) {
-    // Align this master family with an incoming one via the matched spouse.
+  for (const mu of mainUnions) {
+    // Align this main family with an incoming one via the matched spouse.
     let iIndex = -1;
     if (mu.partner) {
-      const matchedId = maps.masterToCompare.get(mu.partner.id);
+      const matchedId = maps.mainToCompare.get(mu.partner.id);
       if (matchedId) {
         iIndex = incomingUnions.findIndex(
           (iu, idx) => !usedIncoming.has(idx) && iu.partner?.id === matchedId,
@@ -277,9 +277,9 @@ function descend(
   return { partners, directChildren };
 }
 
-/** Pair a union's master and incoming children through the match map. */
+/** Pair a union's main and incoming children through the match map. */
 function pairChildren(
-  masterKids: Individual[],
+  mainKids: Individual[],
   incomingKids: Individual[],
   maps: MatchMaps,
   build: Build,
@@ -288,8 +288,8 @@ function pairChildren(
   const used = new Set<string>();
   const out: TreeNode[] = [];
 
-  for (const child of masterKids) {
-    const matchedId = maps.masterToCompare.get(child.id);
+  for (const child of mainKids) {
+    const matchedId = maps.mainToCompare.get(child.id);
     const paired = matchedId ? incomingById.get(matchedId) : undefined;
     if (paired) used.add(paired.id);
     const node = build(child, paired);
@@ -303,14 +303,14 @@ function pairChildren(
   return out;
 }
 
-function nodeKey(master: Individual | undefined, incoming: Individual | undefined): string {
-  return `${master?.id ?? ""}|${incoming?.id ?? ""}`;
+function nodeKey(main: Individual | undefined, incoming: Individual | undefined): string {
+  return `${main?.id ?? ""}|${incoming?.id ?? ""}`;
 }
 
 /**
  * Count the incoming-only people in a node's subtree — the ones a "bring
  * ancestors/descendants" import would add as fresh records. Matched nodes are
- * reused as join points and master-only nodes aren't touched, so neither counts.
+ * reused as join points and main-only nodes aren't touched, so neither counts.
  * The node itself is excluded (the import is about its ancestors/descendants).
  */
 /**
@@ -324,7 +324,7 @@ export function countTreePeople(root: TreeNode | undefined): number {
   if (!root) return 0;
   const seen = new Set<string>();
   const visit = (x: TreeNode) => {
-    const person = nodeKey(x.master, x.incoming);
+    const person = nodeKey(x.main, x.incoming);
     if (seen.has(person)) return;
     seen.add(person);
     x.children.forEach(visit);
@@ -363,26 +363,26 @@ function firstParent(
 function makeNode(
   t: Translate,
   key: string,
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   placeFmt: PlaceTargetFormat,
 ): TreeNode {
-  const status = nodeStatus(t, master, incoming, masterDs, compareDs, placeFmt);
-  const primary = master ?? incoming!;
-  const sex = master && master.sex !== "U" ? master.sex : (incoming?.sex ?? "U");
+  const status = nodeStatus(t, main, incoming, mainDs, compareDs, placeFmt);
+  const primary = main ?? incoming!;
+  const sex = main && main.sex !== "U" ? main.sex : (incoming?.sex ?? "U");
   return {
     key,
-    master,
+    main,
     incoming,
     status,
     name: nameOf(primary),
-    years: birthYears(master, incoming),
+    years: birthYears(main, incoming),
     place: placeLabel(primary),
-    living: isPresumedLiving(master) || isPresumedLiving(incoming),
+    living: isPresumedLiving(main) || isPresumedLiving(incoming),
     sex,
-    detail: describe(t, master, incoming, masterDs, compareDs, status, placeFmt),
+    detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt),
     children: [],
     partners: [],
   };
@@ -390,18 +390,18 @@ function makeNode(
 
 function nodeStatus(
   t: Translate,
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   placeFmt: PlaceTargetFormat,
 ): NodeStatus {
-  if (master && !incoming) return "master-only";
-  if (!master && incoming) return "incoming-only";
+  if (main && !incoming) return "main-only";
+  if (!main && incoming) return "incoming-only";
 
-  const rows = individualFieldRows(t, master, incoming, masterDs, compareDs, placeFmt);
+  const rows = individualFieldRows(t, main, incoming, mainDs, compareDs, placeFmt);
   const conflict = (k: string) => rows.find((r) => r.key === k)?.state === "conflict";
-  if (conflict("given") || conflict("surname") || birthYearConflict(master, incoming)) {
+  if (conflict("given") || conflict("surname") || birthYearConflict(main, incoming)) {
     return "major";
   }
   // A row with `relatives` is a list of people, not a scalar field of the
@@ -413,23 +413,23 @@ function nodeStatus(
 
 function describe(
   t: Translate,
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   status: NodeStatus,
   placeFmt: PlaceTargetFormat,
 ): string {
-  if (!master || !incoming) {
-    const who = (master ?? incoming)!;
-    const side = status === "master-only" ? t("tree.legend.masterOnly") : t("tree.legend.incomingOnly");
+  if (!main || !incoming) {
+    const who = (main ?? incoming)!;
+    const side = status === "main-only" ? t("tree.legend.mainOnly") : t("tree.legend.incomingOnly");
     return `${side}: ${nameOf(who)}`;
   }
-  const diffs = individualFieldRows(t, master, incoming, masterDs, compareDs, placeFmt).filter(
+  const diffs = individualFieldRows(t, main, incoming, mainDs, compareDs, placeFmt).filter(
     (r) => r.state !== "agree",
   );
   if (diffs.length === 0) return t("tree.legend.match");
-  return diffs.map((r) => `${r.label}: ${r.master || "—"} / ${r.incoming || "—"}`).join("\n");
+  return diffs.map((r) => `${r.label}: ${r.main || "—"} / ${r.incoming || "—"}`).join("\n");
 }
 
 function nameOf(indi: Individual): string {
@@ -437,25 +437,25 @@ function nameOf(indi: Individual): string {
 }
 
 function birthYearConflict(
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
 ): boolean {
-  const my = birthYear(master);
+  const my = birthYear(main);
   const iy = birthYear(incoming);
   return my !== undefined && iy !== undefined && my !== iy;
 }
 
 /**
- * Master-centric lifespan label for a tree node — see {@link formatLifespan}:
+ * Main-centric lifespan label for a tree node — see {@link formatLifespan}:
  * "1817–1921", "1817–" (dead, death year unknown), "1817" (presumed living), or
- * "". Falls back to the incoming side when the master lacks a year/death event.
+ * "". Falls back to the incoming side when the main lacks a year/death event.
  */
 function birthYears(
-  master: Individual | undefined,
+  main: Individual | undefined,
   incoming: Individual | undefined,
 ): string {
-  const b = birthYear(master) ?? birthYear(incoming);
-  const d = deathYear(master) ?? deathYear(incoming);
-  const dead = isDeceased(master) || isDeceased(incoming);
+  const b = birthYear(main) ?? birthYear(incoming);
+  const d = deathYear(main) ?? deathYear(incoming);
+  const dead = isDeceased(main) || isDeceased(incoming);
   return formatLifespan(b, d, dead);
 }

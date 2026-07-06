@@ -7,7 +7,7 @@ import type { Sex } from "../gedcom/types";
 // Minimal TreeNode factory — the fan layout only reads key/sex/name/years/children.
 let seq = 0;
 function person(sex: Sex, children: TreeNode[] = [], name = `p${seq++}`): TreeNode {
-  return { key: name, status: "master-only", name, years: "", living: false, sex, detail: "", children, partners: [] };
+  return { key: name, status: "main-only", name, years: "", living: false, sex, detail: "", children, partners: [] };
 }
 
 /** A full pedigree `gen` generations deep (every person has a father + mother). */

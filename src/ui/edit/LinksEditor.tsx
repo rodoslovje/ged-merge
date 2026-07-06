@@ -72,7 +72,7 @@ export function LinksEditor({
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>
           {((sources?.length ?? 0) > 0 || (incomingSources?.length ?? 0) > 0) && (
-            <SourceRefs t={t} masterSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
+            <SourceRefs t={t} mainSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
           )}
           <button
             type="button"

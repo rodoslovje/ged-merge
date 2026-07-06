@@ -8,7 +8,7 @@ import type { Commit } from "./types";
 import { fieldWidth } from "./editConstants";
 
 /** Inline-editable married surname carried on the primary name's `_MARNM`
- * sub-tag — shown when the master file follows the `_MARNM` convention. */
+ * sub-tag — shown when the main file follows the `_MARNM` convention. */
 export function MarriedNameEditor({
   person,
   t,

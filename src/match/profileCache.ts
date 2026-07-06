@@ -5,7 +5,7 @@ import { childrenNames, fatherName, findEvent, motherName, parentNames, partnerN
  * Caches for the per-individual lookups scoring needs (relatives, marriage
  * events, birth/death). These don't depend on the *pair* being scored, only
  * on the individual — but in a dense block (a common surname matched against
- * thousands of master records, or vice versa) the same individual is scored
+ * thousands of main records, or vice versa) the same individual is scored
  * against many counterparts, so without caching this work is redone for every
  * pairing. Keyed by object identity: edits always produce a fresh `Individual`
  * (see `rebuildIndividual` in gedcom/edit.ts) rather than mutating in place,

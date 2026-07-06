@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import type { GedNode } from "../gedcom/types";
-import { inferMasterProfile } from "../normalize/profile";
+import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { materializeEventSources, mergeDecisions } from "./merge";
 
@@ -15,8 +15,8 @@ const tr = (key: string) => key;
 const NO_MATCHES = { individuals: [], families: [] };
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
 
-// Master lacks a birth place and has a differing given name from incoming.
-const MASTER = wrap(
+// Main lacks a birth place and has a differing given name from incoming.
+const MAIN = wrap(
   "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
     "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n",
 );
@@ -24,18 +24,18 @@ const COMPARE = wrap(
   "0 @P1@ INDI\n1 NAME Jan;ez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
 );
 
-function confirmed(fields: Record<string, "master" | "incoming" | "both"> = {}): Map<string, CandidateDecision> {
+function confirmed(fields: Record<string, "main" | "incoming" | "both"> = {}): Map<string, CandidateDecision> {
   const m = new Map<string, CandidateDecision>();
   m.set(decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields });
   return m;
 }
 
 describe("mergeDecisions", () => {
-  const master = dataset(MASTER);
+  const main = dataset(MAIN);
   const compare = dataset(COMPARE);
 
-  it("fills in a field the master is missing (default = incoming)", () => {
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+  it("fills in a field the main is missing (default = incoming)", () => {
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 BIRT\n2 DATE 1850\n2 PLAC Kranj");
     const change = report.changes.find((c) => c.to === "Kranj");
@@ -45,22 +45,22 @@ describe("mergeDecisions", () => {
     expect(change!.unedited).toBe(true);
   });
 
-  it("leaves a conflicting field on master unless explicitly chosen", () => {
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+  it("leaves a conflicting field on main unless explicitly chosen", () => {
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
-    expect(out).toContain("1 NAME Janez /Novak/"); // master name kept
+    expect(out).toContain("1 NAME Janez /Novak/"); // main name kept
     expect(out).not.toContain("Jan;ez");
   });
 
   it("takes a conflicting field when the user chose incoming", () => {
-    const { records } = mergeDecisions(master, compare, confirmed({ given: "incoming" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed({ given: "incoming" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 NAME Jan;ez /Novak/");
   });
 
   it("changes only the merged record (minimal diff)", () => {
-    const before = serializeGedcom(master.records);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const before = serializeGedcom(main.records);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const after = serializeGedcom(records);
 
     const diff = lineDiff(before, after);
@@ -73,58 +73,58 @@ describe("mergeDecisions", () => {
   it("ignores non-confirmed decisions", () => {
     const m = new Map<string, CandidateDecision>();
     m.set(decisionKey("individual", "@I1@", "@P1@"), { status: "deferred", fields: {} });
-    const { records, report } = mergeDecisions(master, compare, m, NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, m, NO_MATCHES, tr);
     expect(report.changes).toHaveLength(0);
-    expect(serializeGedcom(records)).toBe(serializeGedcom(master.records));
+    expect(serializeGedcom(records)).toBe(serializeGedcom(main.records));
   });
 });
 
 describe("mergeDecisions — event TYPE and CAUS sub-fields", () => {
-  const master = dataset(wrap(
+  const main = dataset(wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n",
   ));
   const compare = dataset(wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 TYPE natural\n2 DATE 1900\n2 CAUS Pljučnica\n",
   ));
 
-  it("fills in an incoming CAUS and TYPE the master lacks (default = incoming)", () => {
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+  it("fills in an incoming CAUS and TYPE the main lacks (default = incoming)", () => {
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 CAUS Pljučnica");
     expect(out).toContain("2 TYPE natural");
     expect(report.changes.some((c) => c.to.includes("Pljučnica"))).toBe(true);
   });
 
-  it("leaves a conflicting master CAUS unless explicitly chosen", () => {
-    const masterWithCaus = dataset(wrap(
+  it("leaves a conflicting main CAUS unless explicitly chosen", () => {
+    const mainWithCaus = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n2 CAUS Starost\n",
     ));
-    const { records } = mergeDecisions(masterWithCaus, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(mainWithCaus, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 CAUS Starost");
     expect(out).not.toContain("2 CAUS Pljučnica");
   });
 
   it("takes a conflicting CAUS when the user chose incoming", () => {
-    const masterWithCaus = dataset(wrap(
+    const mainWithCaus = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1900\n2 CAUS Starost\n",
     ));
-    const { records } = mergeDecisions(masterWithCaus, compare, confirmed({ "DEAT.cause": "incoming" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(mainWithCaus, compare, confirmed({ "DEAT.cause": "incoming" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 CAUS Pljučnica");
     expect(out).not.toContain("2 CAUS Starost");
   });
 });
 
-describe("mergeDecisions — place reshaping to a structured-addr master", () => {
+describe("mergeDecisions — place reshaping to a structured-addr main", () => {
   // Place reshaping now happens when the incoming file is loaded (normalizeDataset),
   // not inside mergeDecisions — so these tests normalize the compare dataset first,
-  // exactly as the app does after loading master + incoming.
+  // exactly as the app does after loading main + incoming.
   //
-  // Master writes structured PLAC ("A,B,C") + separate ADDR, so its layout is
+  // Main writes structured PLAC ("A,B,C") + separate ADDR, so its layout is
   // detected as structured-addr. @I1@'s birth has no place yet, so the incoming
-  // (packed Brother's Keeper) place fills it — reshaped to the master's layout.
-  const master = dataset(
+  // (packed Brother's Keeper) place fills it — reshaped to the main's layout.
+  const main = dataset(
     wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
         "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
@@ -140,10 +140,10 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
   );
 
   it("splits the packed place into PLAC and ADDR, keeping facility in parens in ADDR", () => {
-    const { dataset: normalizedCompare } = normalizeDataset(compare, inferMasterProfile(master));
-    const { records } = mergeDecisions(master, normalizedCompare, confirmed(), NO_MATCHES, tr);
+    const { dataset: normalizedCompare } = normalizeDataset(compare, inferMainProfile(main));
+    const { records } = mergeDecisions(main, normalizedCompare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
-    // The master's own DEAT for @I2@ attests "Kranj,Gorenjska,Slovenia" — the
+    // The main's own DEAT for @I2@ attests "Kranj,Gorenjska,Slovenia" — the
     // learned place hierarchy fills in that municipality level here too.
     expect(out).toContain(
       "1 BIRT\n2 DATE 1850\n2 PLAC Kranj,Gorenjska,Slovenia\n2 ADDR Kidričeva 38/a (porodnišnica)",
@@ -154,7 +154,7 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
   it("does not rewrite existing PLAC when only ADDR is new (minimal diff)", () => {
     // @I2@ already has a BIRT PLAC that matches the incoming after reshape.
     // Only the new ADDR should be added — the existing PLAC must not change.
-    const masterWithPlac = dataset(
+    const mainWithPlac = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
           "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
@@ -169,14 +169,14 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
           "2 PLAC Kranj (Slovenija), Kidričeva 5\n",
       ),
     );
-    const { dataset: normalizedCompareWithAddr } = normalizeDataset(compareWithAddr, inferMasterProfile(masterWithPlac));
+    const { dataset: normalizedCompareWithAddr } = normalizeDataset(compareWithAddr, inferMainProfile(mainWithPlac));
     const decisions = new Map<string, CandidateDecision>();
     decisions.set(
       decisionKey("individual", "@I2@", "@P2@"),
       { status: "confirmed", fields: {} },
     );
-    const before = serializeGedcom(masterWithPlac.records);
-    const { records } = mergeDecisions(masterWithPlac, normalizedCompareWithAddr, decisions, NO_MATCHES, tr);
+    const before = serializeGedcom(mainWithPlac.records);
+    const { records } = mergeDecisions(mainWithPlac, normalizedCompareWithAddr, decisions, NO_MATCHES, tr);
     const after = serializeGedcom(records);
     const diff = lineDiff(before, after);
     // Only the new ADDR line should be added; the existing PLAC must stay unchanged.
@@ -186,8 +186,8 @@ describe("mergeDecisions — place reshaping to a structured-addr master", () =>
 });
 
 describe("mergeDecisions — family structure (driven by the confirmed spouse)", () => {
-  // Master has the people but the family @F1@ only links the husband.
-  const master = dataset(
+  // Main has the people but the family @F1@ only links the husband.
+  const main = dataset(
     wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
         "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n" +
@@ -207,9 +207,9 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   );
   const matches = {
     individuals: [
-      { masterId: "@I1@", compareId: "@P1@" },
-      { masterId: "@I2@", compareId: "@P2@" },
-      { masterId: "@I3@", compareId: "@P3@" },
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P3@" },
     ],
   } as never;
 
@@ -219,10 +219,10 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
     [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P3@", "@P4@"] }],
   ]);
 
-  const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+  const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
   const out = serializeGedcom(records);
 
-  it("links the missing spouse to the existing master person", () => {
+  it("links the missing spouse to the existing main person", () => {
     expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@");
     expect(out).toContain("0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@");
   });
@@ -249,7 +249,7 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
     const partial = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records: recs } = mergeDecisions(master, compare, partial, matches, tr);
+    const { records: recs } = mergeDecisions(main, compare, partial, matches, tr);
     const text = serializeGedcom(recs);
     expect(text).toContain("1 CHIL @I4@"); // Tone (@P4@) taken
     expect(text).not.toContain("1 CHIL @I3@"); // Ana (@P3@) left out
@@ -259,7 +259,7 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
     const noKids = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
     ]);
-    const { records: recs } = mergeDecisions(master, compare, noKids, matches, tr);
+    const { records: recs } = mergeDecisions(main, compare, noKids, matches, tr);
     const text = serializeGedcom(recs);
     // The spouse is still linked, but neither child is added to the family.
     expect(text).toContain("1 WIFE @I2@");
@@ -268,9 +268,9 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
 });
 
 describe("mergeDecisions — second partner becomes its own family", () => {
-  // Master: Janez (@I1@) is already married to Marija (@I2@) in @F1@. Ana (@I3@)
+  // Main: Janez (@I1@) is already married to Marija (@I2@) in @F1@. Ana (@I3@)
   // exists but is single. The incoming file marries the same Janez to Ana.
-  const master = dataset(
+  const main = dataset(
     wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
         "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
@@ -291,14 +291,14 @@ describe("mergeDecisions — second partner becomes its own family", () => {
     // marriage is a genuine second union for Janez.
     const matches = {
       individuals: [
-        { masterId: "@I1@", compareId: "@P1@" },
-        { masterId: "@I3@", compareId: "@P5@" },
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
       ],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
     ]);
-    const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
 
     // Janez's first marriage is untouched...
@@ -313,11 +313,11 @@ describe("mergeDecisions — second partner becomes its own family", () => {
   it("still defers (no duplicate family) when the second partner is an unmatched person", () => {
     // Ana is NOT matched, so it can't be confirmed as a distinct individual —
     // the conflict is surfaced for the user rather than silently spawning a family.
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
     ]);
-    const { report } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { report } = mergeDecisions(main, compare, decisions, matches, tr);
     expect(report.newFamilies).toBe(0);
     expect(report.deferred.length).toBeGreaterThan(0);
   });
@@ -327,8 +327,8 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
   const NO_DECISIONS = new Map<string, CandidateDecision>();
 
   it("grafts a person's descendants (spouse, child, and the child's own family) recursively", () => {
-    // Master has only the anchor; everything below comes from the incoming file.
-    const master = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    // Main has only the anchor; everything below comes from the incoming file.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
     const compare = dataset(
       wrap(
         "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
@@ -340,9 +340,9 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
           "0 @G2@ FAM\n1 HUSB @P3@\n1 WIFE @P4@\n1 CHIL @P5@\n",
       ),
     );
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
 
-    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, [
+    const { records, report } = mergeDecisions(main, compare, NO_DECISIONS, matches, tr, [
       { incomingId: "@P1@", direction: "descendants" },
     ]);
     const out = serializeGedcom(records);
@@ -359,8 +359,8 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
   });
 
   it("grafts a person's ancestors and reuses a matched ancestor as a join point", () => {
-    // Master already has the anchor and a father that matches an incoming person.
-    const master = dataset(
+    // Main already has the anchor and a father that matches an incoming person.
+    const main = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
           "0 @I2@ INDI\n1 NAME Oce /Novak/\n1 SEX M\n",
@@ -376,15 +376,15 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
           "0 @G2@ FAM\n1 HUSB @P4@\n1 CHIL @P2@\n",
       ),
     );
-    // Both the anchor and the father are matched to existing master people.
+    // Both the anchor and the father are matched to existing main people.
     const matches = {
       individuals: [
-        { masterId: "@I1@", compareId: "@P1@" },
-        { masterId: "@I2@", compareId: "@P2@" },
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P2@" },
       ],
     } as never;
 
-    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, [
+    const { records, report } = mergeDecisions(main, compare, NO_DECISIONS, matches, tr, [
       { incomingId: "@P1@", direction: "ancestors" },
     ]);
     const out = serializeGedcom(records);
@@ -401,20 +401,20 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
   });
 
   it("does nothing when there are no import requests", () => {
-    const master = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
     const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
-    const { records, report } = mergeDecisions(master, compare, NO_DECISIONS, matches, tr, []);
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records, report } = mergeDecisions(main, compare, NO_DECISIONS, matches, tr, []);
     expect(report.newPersons).toBe(0);
-    expect(serializeGedcom(records)).toBe(serializeGedcom(master.records));
+    expect(serializeGedcom(records)).toBe(serializeGedcom(main.records));
   });
 });
 
 describe("mergeDecisions — family touched via both confirmed spouses", () => {
-  // Both spouses already exist in master and are independently confirmed as
+  // Both spouses already exist in main and are independently confirmed as
   // matches to the incoming pair, so the shared family is visited twice (once
   // per spouse) while stitching in their marriage facts.
-  const master = dataset(
+  const main = dataset(
     wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
         "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
@@ -430,8 +430,8 @@ describe("mergeDecisions — family touched via both confirmed spouses", () => {
   );
   const matches = {
     individuals: [
-      { masterId: "@I1@", compareId: "@P1@" },
-      { masterId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
     ],
   } as never;
 
@@ -442,7 +442,7 @@ describe("mergeDecisions — family touched via both confirmed spouses", () => {
     [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: { "fam.@G1@.MARR.note": "both" } }],
   ]);
 
-  const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+  const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
   const out = serializeGedcom(records);
 
   it("applies the append-style marriage note only once, not per spouse", () => {
@@ -459,8 +459,8 @@ describe("mergeDecisions — family touched via both confirmed spouses", () => {
 });
 
 describe("mergeDecisions — individual relations (parents & partners)", () => {
-  // Master has the people but @I1@ has no parents and no spouse linked.
-  const master = dataset(
+  // Main has the people but @I1@ has no parents and no spouse linked.
+  const main = dataset(
     wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
         "0 @I2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n" +
@@ -480,9 +480,9 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
   );
   const matches = {
     individuals: [
-      { masterId: "@I1@", compareId: "@P1@" },
-      { masterId: "@I2@", compareId: "@P2@" },
-      { masterId: "@I3@", compareId: "@P3@" },
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P3@" },
     ],
     families: [],
   } as never;
@@ -491,11 +491,11 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
     [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
   ]);
 
-  const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+  const { records } = mergeDecisions(main, compare, decisions, matches, tr);
   const out = serializeGedcom(records);
 
   it("creates a child-family linking the matched father and mother", () => {
-    // A new FAM with the child and both parents (existing master people).
+    // A new FAM with the child and both parents (existing main people).
     expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@/);
     expect(out).toContain("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @");
     expect(out).toContain("0 @I2@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @");
@@ -507,14 +507,14 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
     expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I4@/);
   });
 
-  it("imports a rejected-match parent as a new record instead of reusing the wrong master person", () => {
+  it("imports a rejected-match parent as a new record instead of reusing the wrong main person", () => {
     // The mother candidate @I3@/@P3@ is a false positive the user rejected; the
     // father @I2@/@P2@ stays a confirmed-as-plausible match.
     const rejectMother = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
       [decisionKey("individual", "@I3@", "@P3@"), { status: "rejected", fields: {} }],
     ]);
-    const { records: recs } = mergeDecisions(master, compare, rejectMother, matches, tr);
+    const { records: recs } = mergeDecisions(main, compare, rejectMother, matches, tr);
     const rejected = serializeGedcom(recs);
     // Father is still the existing @I2@; mother is a freshly added record (@I4@),
     // not the rejected @I3@.
@@ -525,32 +525,32 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
 });
 
 describe("mergeDecisions — links", () => {
-  it("adds a new incoming link the master lacks", () => {
-    const master = dataset(MASTER);
+  it("adds a new incoming link the main lacks", () => {
+    const main = dataset(MAIN);
     const compare = dataset(
       wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 WWW https://example.com/new");
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
-  it("doesn't duplicate a link the master already has (even with a trailing slash)", () => {
-    const master = dataset(
+  it("doesn't duplicate a link the main already has (even with a trailing slash)", () => {
+    const main = dataset(
       wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old/\n"),
     );
     const compare = dataset(
       wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old\n"),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out.match(/WWW/g)).toHaveLength(1);
     expect(report.changes).toHaveLength(0);
   });
 
-  it("adds a new incoming link as a _WEBTAG block when the master uses that format", () => {
-    const master = dataset(
+  it("adds a new incoming link as a _WEBTAG block when the main uses that format", () => {
+    const main = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
           "1 _WEBTAG\n2 NAME rojstvo\n2 URL https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n",
@@ -559,19 +559,19 @@ describe("mergeDecisions — links", () => {
     const compare = dataset(
       wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 _WEBTAG\n2 URL https://example.com/new");
     expect(out).not.toMatch(/^1 WWW/m);
     const change = report.changes.find((c) => c.links?.includes("https://example.com/new"));
     expect(change).toBeDefined();
-    // Explicitly chosen "both" (kept alongside master's link) isn't a plain
+    // Explicitly chosen "both" (kept alongside main's link) isn't a plain
     // incoming copy, so it should keep the normal "added" preview color.
     expect(change!.unedited).toBeFalsy();
   });
 
-  it("adds a new incoming link as an OBJE/FILE record when the master uses that format", () => {
-    const master = dataset(
+  it("adds a new incoming link as an OBJE/FILE record when the main uses that format", () => {
+    const main = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OBJE @O3@\n" +
           "0 @O3@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/\n1 FORM jpeg\n",
@@ -580,7 +580,7 @@ describe("mergeDecisions — links", () => {
     const compare = dataset(
       wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 OBJE @O4@");
     expect(out).toContain("0 @O4@ OBJE\n1 FILE https://example.com/new");
@@ -588,15 +588,15 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
-  it("adds an incoming record-level SOUR citation the master lacks (and imports the source)", () => {
-    const master = dataset(MASTER);
+  it("adds an incoming record-level SOUR citation the main lacks (and imports the source)", () => {
+    const main = dataset(MAIN);
     const compare = dataset(
       wrap(
         "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @CS9@\n2 PAGE 12\n" +
           "0 @CS9@ SOUR\n1 TITL Rodbinska kronika\n",
       ),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 SOUR @CS9@\n2 PAGE 12");
     expect(out).toContain("0 @CS9@ SOUR\n1 TITL Rodbinska kronika");
@@ -604,7 +604,7 @@ describe("mergeDecisions — links", () => {
   });
 
   it("attaches a same-book incoming link as a SOUR citation instead of a plain link", () => {
-    const master = dataset(
+    const main = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
           "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
@@ -617,7 +617,7 @@ describe("mergeDecisions — links", () => {
           "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
       ),
     );
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).not.toMatch(/^1 WWW/m);
     expect(out).toContain("1 SOUR @S1@\n2 PAGE 58");
@@ -638,21 +638,21 @@ describe("mergeDecisions — SOUR/REPO import", () => {
       "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
       "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
   );
-  const masterFamily = wrap(
+  const mainFamily = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
       "0 @F1@ FAM\n1 HUSB @I1@\n",
   );
 
   it("imports the SOUR record when a new child referencing it is added", () => {
-    const master = dataset(masterFamily);
+    const main = dataset(mainFamily);
     const compare = dataset(compareWithSour);
     const matches = {
-      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
     // The new child carries a SOUR citation; the referenced SOUR record must
     // appear in the merged output.
@@ -661,23 +661,23 @@ describe("mergeDecisions — SOUR/REPO import", () => {
   });
 
   it("handles an xref collision: imports the compare SOUR under a fresh xref", () => {
-    // Master already has @CS1@ pointing to a different source.
-    const masterWithClash = wrap(
+    // Main already has @CS1@ pointing to a different source.
+    const mainWithClash = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
         "0 @F1@ FAM\n1 HUSB @I1@\n" +
         "0 @CS1@ SOUR\n1 TITL Župnijska matica — Domžale\n",
     );
-    const master = dataset(masterWithClash);
+    const main = dataset(mainWithClash);
     const compare = dataset(compareWithSour);
     const matches = {
-      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
-    // Master's @CS1@ must be preserved unchanged.
+    // Main's @CS1@ must be preserved unchanged.
     expect(out).toContain("0 @CS1@ SOUR\n1 TITL Župnijska matica — Domžale");
     // Compare's source ("Matična knjiga rojstev Kranj") must also appear, but
     // under a different xref since @CS1@ was already taken.
@@ -694,24 +694,24 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out).toContain(`0 ${sourXref} SOUR\n1 TITL Matična knjiga rojstev Kranj`);
   });
 
-  it("reuses an existing master SOUR for a compare source with the same content under a different xref", () => {
-    // Master already cites this exact register, just under a different xref.
-    const masterWithSameSource = wrap(
+  it("reuses an existing main SOUR for a compare source with the same content under a different xref", () => {
+    // Main already cites this exact register, just under a different xref.
+    const mainWithSameSource = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
         "0 @F1@ FAM\n1 HUSB @I1@\n" +
         "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
     );
-    const master = dataset(masterWithSameSource);
+    const main = dataset(mainWithSameSource);
     const compare = dataset(compareWithSour); // compare's @CS1@ has the same TITL/AUTH
     const matches = {
-      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
-    // No new SOUR record was minted — the import reused master's existing @S9@.
+    // No new SOUR record was minted — the import reused main's existing @S9@.
     expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
     expect(out).toContain("1 SOUR @S9@");
   });
@@ -724,15 +724,15 @@ describe("mergeDecisions — SOUR/REPO import", () => {
         "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@\n" +
         "0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana\n",
     );
-    const master = dataset(masterFamily);
+    const main = dataset(mainFamily);
     const compare = dataset(compareWithRepo);
     const matches = {
-      individuals: [{ masterId: "@I1@", compareId: "@P1@" }],
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
     } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@");
     expect(out).toContain("0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana");
@@ -747,16 +747,16 @@ describe("mergeDecisions — custom tag detection", () => {
         "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
         "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 _ITALIC Y\n",
     );
-    const masterFamily = wrap(
+    const mainFamily = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n0 @F1@ FAM\n1 HUSB @I1@\n",
     );
-    const master = dataset(masterFamily);
+    const main = dataset(mainFamily);
     const compare = dataset(compareWithSour);
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
     ]);
-    const { records, report } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
     expect(Object.keys(report.customTags)).toEqual(["_ITALIC"]);
     expect(report.customTags["_ITALIC"]).toHaveLength(1);
 
@@ -769,73 +769,73 @@ describe("mergeDecisions — custom tag detection", () => {
     expect(out).not.toContain("_ITALIC");
   });
 
-  it("does not flag a custom tag that already existed in the master file", () => {
-    // @CS1@ is already present in master (with _ITALIC); the merge only adds
+  it("does not flag a custom tag that already existed in the main file", () => {
+    // @CS1@ is already present in main (with _ITALIC); the merge only adds
     // a citation pointer to it, so its pre-existing _ITALIC isn't "copied in".
-    const masterWithSour = wrap(
+    const mainWithSour = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 SOUR @CS1@\n" +
         "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 _ITALIC Y\n",
     );
     const compareWithBirt = wrap(
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
     );
-    const master = dataset(masterWithSour);
+    const main = dataset(mainWithSour);
     const compare = dataset(compareWithBirt);
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "BIRT.place": "incoming" } }],
     ]);
-    const { report } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { report } = mergeDecisions(main, compare, decisions, matches, tr);
     expect(report.customTags).toEqual({});
   });
 });
 
 describe("mergeDecisions — event source citations", () => {
-  // Master's BIRT has no citation; incoming's does.
-  const masterNoSour = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
+  // Main's BIRT has no citation; incoming's does.
+  const mainNoSour = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
   const compareWithSour = wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Birth register p.42\n",
   );
 
   it("fills in a missing citation by default", () => {
-    const master = dataset(masterNoSour);
+    const main = dataset(mainNoSour);
     const compare = dataset(compareWithSour);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 BIRT\n2 DATE 1850\n2 SOUR Birth register p.42");
   });
 
-  it("leaves a conflicting citation on master unless explicitly chosen", () => {
-    const masterWithOwnSour = wrap(
+  it("leaves a conflicting citation on main unless explicitly chosen", () => {
+    const mainWithOwnSour = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
     );
-    const master = dataset(masterWithOwnSour);
+    const main = dataset(mainWithOwnSour);
     const compare = dataset(compareWithSour);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 SOUR Krstna knjiga");
     expect(out).not.toContain("Birth register p.42");
   });
 
-  it("replaces master's citation when incoming is chosen", () => {
-    const masterWithOwnSour = wrap(
+  it("replaces main's citation when incoming is chosen", () => {
+    const mainWithOwnSour = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
     );
-    const master = dataset(masterWithOwnSour);
+    const main = dataset(mainWithOwnSour);
     const compare = dataset(compareWithSour);
-    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "incoming" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "incoming" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 SOUR Birth register p.42");
     expect(out).not.toContain("Krstna knjiga");
   });
 
   it("keeps both citations when both is chosen", () => {
-    const masterWithOwnSour = wrap(
+    const mainWithOwnSour = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR Krstna knjiga\n",
     );
-    const master = dataset(masterWithOwnSour);
+    const main = dataset(mainWithOwnSour);
     const compare = dataset(compareWithSour);
-    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 SOUR Krstna knjiga");
     expect(out).toContain("2 SOUR Birth register p.42");
@@ -848,50 +848,50 @@ describe("mergeDecisions — event source citations", () => {
   );
 
   it("adds a missing event link by default", () => {
-    const master = dataset(masterNoSour);
+    const main = dataset(mainNoSour);
     const compare = dataset(compareWithLink);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 BIRT\n2 DATE 1850\n2 WWW https://example.com/birth");
   });
 
-  it("leaves master's own event link alone unless explicitly chosen", () => {
-    const masterWithOwnLink = wrap(
+  it("leaves main's own event link alone unless explicitly chosen", () => {
+    const mainWithOwnLink = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/old\n",
     );
-    const master = dataset(masterWithOwnLink);
+    const main = dataset(mainWithOwnLink);
     const compare = dataset(compareWithLink);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 WWW https://example.com/old");
     expect(out).not.toContain("https://example.com/birth");
   });
 
   it("keeps both event links when both is chosen", () => {
-    const masterWithOwnLink = wrap(
+    const mainWithOwnLink = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/old\n",
     );
-    const master = dataset(masterWithOwnLink);
+    const main = dataset(mainWithOwnLink);
     const compare = dataset(compareWithLink);
-    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 WWW https://example.com/old");
     expect(out).toContain("2 WWW https://example.com/birth");
   });
 
-  it("doesn't duplicate an incoming event link the master already has", () => {
-    const masterWithSameLink = wrap(
+  it("doesn't duplicate an incoming event link the main already has", () => {
+    const mainWithSameLink = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW https://example.com/birth\n",
     );
-    const master = dataset(masterWithSameLink);
+    const main = dataset(mainWithSameLink);
     const compare = dataset(compareWithLink);
-    const { records } = mergeDecisions(master, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out.match(/2 WWW/g)).toHaveLength(1);
   });
 
   it("attaches a same-book event link as a SOUR citation instead of a plain link (e.g. a marriage record's Matricula link)", () => {
-    const master = dataset(
+    const main = dataset(
       wrap(
         "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
           "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE 56\n" +
@@ -906,11 +906,11 @@ describe("mergeDecisions — event source citations", () => {
           "2 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
       ),
     );
-    const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.MARR.sources": "both" } }],
     ]);
-    const { records } = mergeDecisions(master, compare, decisions, matches, tr);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
     const out = serializeGedcom(records);
     expect(out).not.toMatch(/^2 WWW/m);
     expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
@@ -919,14 +919,14 @@ describe("mergeDecisions — event source citations", () => {
   });
 });
 
-describe("mergeDecisions — multi-instance events pair master/incoming by their own array position", () => {
+describe("mergeDecisions — multi-instance events pair main/incoming by their own array position", () => {
   // Two RESI events each side, deliberately listed in reversed chronological
   // order on the incoming side so the best-scoring (date+place) pairing is
-  // {masterIdx:0,compareIdx:1} and {masterIdx:1,compareIdx:0} — i.e. for at
-  // least one pair, masterIdx and compareIdx differ. A row's incoming side
+  // {mainIdx:0,compareIdx:1} and {mainIdx:1,compareIdx:0} — i.e. for at
+  // least one pair, mainIdx and compareIdx differ. A row's incoming side
   // must be read from `compareIdx`, not from whatever sequential "keyIdx"
   // happens to label the row, or it ends up reading the *other* incoming event.
-  const masterTwoResi = wrap(
+  const mainTwoResi = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
       "1 RESI\n2 DATE 1990\n2 PLAC Kranj\n2 AGNC Agency-Kranj\n" +
       "1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana\n",
@@ -938,10 +938,10 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
   );
 
   it("applies each pair's own incoming agency, not a value crossed over from the other pair", () => {
-    const master = dataset(masterTwoResi);
+    const main = dataset(mainTwoResi);
     const compare = dataset(compareTwoResiReversed);
     const { records } = mergeDecisions(
-      master,
+      main,
       compare,
       confirmed({ "RESI.0.agency": "incoming", "RESI.1.agency": "incoming" }),
       NO_MATCHES,
@@ -952,9 +952,9 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
     expect(out).toContain("1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana-incoming");
   });
 
-  // An incoming-only third RESI (no master counterpart at all) must still get
+  // An incoming-only third RESI (no main counterpart at all) must still get
   // every one of its fields combined onto one new node, not scattered across
-  // several — exercising the masterIdx===-1 "create once, reuse" path.
+  // several — exercising the mainIdx===-1 "create once, reuse" path.
   const compareThreeResi = wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
       "1 RESI\n2 DATE 2000\n2 PLAC Ljubljana\n2 AGNC Agency-Ljubljana-incoming\n" +
@@ -963,9 +963,9 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
   );
 
   it("combines a brand-new incoming-only event's fields onto a single node", () => {
-    const master = dataset(masterTwoResi);
+    const main = dataset(mainTwoResi);
     const compare = dataset(compareThreeResi);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 PLAC Maribor");
     expect(out).toContain("2 ADDR Glavni trg 1");
@@ -974,54 +974,54 @@ describe("mergeDecisions — multi-instance events pair master/incoming by their
     const maribor = out.split("1 RESI").find((block) => block.includes("Maribor"))!;
     expect(maribor).toContain("Glavni trg 1");
     expect(maribor).toContain("Agency-Maribor-incoming");
-    expect(out.match(/1 RESI/g)).toHaveLength(3); // 2 master + 1 new, none duplicated
+    expect(out.match(/1 RESI/g)).toHaveLength(3); // 2 main + 1 new, none duplicated
   });
 });
 
 describe("mergeDecisions — preview groups a new event's sub-field changes into one line", () => {
-  // Master has no OCCU at all; incoming adds one with both a value and a date.
+  // Main has no OCCU at all; incoming adds one with both a value and a date.
   // Before the fix, applyRows pushed one FieldChange per sub-field ("Date",
   // "Occupation") under the same group, so the preview showed two lines under
   // one header instead of a single "Occupation: + value · date" line.
-  const masterNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
+  const mainNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
   const compareNewOccu = wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OCCU šivilja v pokoju\n2 DATE 1998\n",
   );
 
   it("combines the new event's date+value into a single FieldChange row", () => {
-    const master = dataset(masterNoOccu);
+    const main = dataset(mainNoOccu);
     const compare = dataset(compareNewOccu);
-    const { report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const occuChanges = report.changes.filter((c) => c.group === "event.OCCU");
     expect(occuChanges).toHaveLength(1);
     expect(occuChanges[0].to).toBe("šivilja v pokoju · 1998");
-    // Default-filled from incoming (master had nothing to begin with), not
+    // Default-filled from incoming (main had nothing to begin with), not
     // something the user typed or combined — preview should color it as such.
     expect(occuChanges[0].unedited).toBe(true);
   });
 });
 
-describe("mergeDecisions — rejectedEvents keeps a deleted master event from being re-added from incoming", () => {
-  // Master and incoming both originally had this OCCU (an "agree" pair, so it
-  // never showed as a merge suggestion) — then the user deleted master's copy.
+describe("mergeDecisions — rejectedEvents keeps a deleted main event from being re-added from incoming", () => {
+  // Main and incoming both originally had this OCCU (an "agree" pair, so it
+  // never showed as a merge suggestion) — then the user deleted main's copy.
   // Without an explicit rejection, the now-unmatched incoming copy looks like
   // ordinary new data and gets filled back in.
-  const masterNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
+  const mainNoOccu = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n");
   const compareWithOccu = wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
       "1 OCCU VP Technology\n2 DATE FROM 2011 TO 2018\n",
   );
 
   it("re-adds the incoming event by default (no rejection recorded)", () => {
-    const master = dataset(masterNoOccu);
+    const main = dataset(mainNoOccu);
     const compare = dataset(compareWithOccu);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 OCCU VP Technology");
   });
 
   it("never re-adds it once the incoming event is recorded as rejected", () => {
-    const master = dataset(masterNoOccu);
+    const main = dataset(mainNoOccu);
     const compare = dataset(compareWithOccu);
     const decisions = confirmed();
     decisions.set(decisionKey("individual", "@I1@", "@P1@"), {
@@ -1029,17 +1029,17 @@ describe("mergeDecisions — rejectedEvents keeps a deleted master event from be
       fields: {},
       rejectedEvents: ["OCCU:0"],
     });
-    const { records } = mergeDecisions(master, compare, decisions, NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).not.toContain("OCCU");
   });
 });
 
 describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () => {
-  // Master's RESI already has its own CHAN/CREA audit timestamps, typical of
+  // Main's RESI already has its own CHAN/CREA audit timestamps, typical of
   // exports from RootsMagic/Family Historian/etc. The incoming side adds an
-  // ADDR that master is missing.
-  const masterWithAudit = wrap(
+  // ADDR that main is missing.
+  const mainWithAudit = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
       "1 RESI\n2 DATE 1900\n2 PLAC Kranj\n2 CHAN\n3 DATE 17 NOV 2025\n2 CREA\n3 DATE 09 JUL 2025\n",
   );
@@ -1048,22 +1048,22 @@ describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () 
   );
 
   it("inserts a new ADDR before CHAN/CREA, not after", () => {
-    const master = dataset(masterWithAudit);
+    const main = dataset(mainWithAudit);
     const compare = dataset(compareWithAddr);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 PLAC Kranj\n2 ADDR Main St.\n2 CHAN");
     expect(out).not.toContain("2 CREA\n3 DATE 09 JUL 2025\n2 ADDR");
   });
 
-  it("inserts a brand-new NOTE before CHAN/CREA on an event the master already has", () => {
-    const master = dataset(masterWithAudit);
+  it("inserts a brand-new NOTE before CHAN/CREA on an event the main already has", () => {
+    const main = dataset(mainWithAudit);
     const compare = dataset(
       wrap(
         "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 DATE 1900\n2 PLAC Kranj\n2 NOTE Family home\n",
       ),
     );
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 NOTE Family home\n2 CHAN");
     expect(out).not.toContain("2 CREA\n3 DATE 09 JUL 2025\n2 NOTE");
@@ -1071,10 +1071,10 @@ describe("mergeDecisions — new sub-fields land before trailing CHAN/CREA", () 
 });
 
 describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
-  // Master has an ASSO (association to another individual) sitting between
+  // Main has an ASSO (association to another individual) sitting between
   // BIRT and DEAT, with its own DATE (a validity period, not an event date)
   // that falls outside the BIRT..DEAT range.
-  const masterWithAsso = wrap(
+  const mainWithAsso = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
       "1 BIRT\n2 DATE 1850\n" +
       "1 ASSO @I2@\n2 ROLE OTHER\n2 DATE 1979\n" +
@@ -1086,10 +1086,10 @@ describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
   );
 
   it("leaves the ASSO node in place when another field on the record changes", () => {
-    const master = dataset(masterWithAsso);
+    const main = dataset(mainWithAsso);
     const compare = dataset(compareFillsBirthPlace);
-    const before = serializeGedcom(master.records);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const before = serializeGedcom(main.records);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const after = serializeGedcom(records);
 
     const diff = lineDiff(before, after);
@@ -1101,12 +1101,12 @@ describe("mergeDecisions — ASSO is not swept into event-date sorting", () => {
 });
 
 describe("mergeDecisions — CHAN/CREA are not swept into event-date sorting", () => {
-  // Master has trailing top-level CHAN/CREA audit timestamps (last-change/
+  // Main has trailing top-level CHAN/CREA audit timestamps (last-change/
   // creation dates, typical of MyHeritage/Gramps exports) with CHAN's date
   // later than CREA's. Their DATE children must not make them look like
   // datable events: that would both reorder CHAN/CREA relative to each other
   // (sorted by date) and risk sandwiching a real new event between them.
-  const masterWithAudit = wrap(
+  const mainWithAudit = wrap(
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
       "1 CHAN\n2 DATE 17 NOV 2025\n1 CREA\n2 DATE 09 JUL 2025\n",
   );
@@ -1116,9 +1116,9 @@ describe("mergeDecisions — CHAN/CREA are not swept into event-date sorting", (
   );
 
   it("keeps CHAN before CREA and lands the new event before both", () => {
-    const master = dataset(masterWithAudit);
+    const main = dataset(mainWithAudit);
     const compare = dataset(compareAddsResi);
-    const { records } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 RESI\n2 DATE 1900\n2 PLAC Kranj\n1 CHAN\n2 DATE 17 NOV 2025\n1 CREA\n2 DATE 09 JUL 2025\n");
   });
@@ -1126,59 +1126,59 @@ describe("mergeDecisions — CHAN/CREA are not swept into event-date sorting", (
 
 describe("materializeEventSources", () => {
   // Mirrors Edit mode: a direct field edit on an "extra" incoming-only BAPM
-  // row materializes a bare master event node (date/place only, no SOUR yet)
+  // row materializes a bare main event node (date/place only, no SOUR yet)
   // — see EditView's `setEventField` call for an "extra" row.
   const compareWithSour = wrap(
     "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
       "1 BAPM\n2 DATE 1850\n2 PLAC Kranj\n2 SOUR @CS1@\n2 PAGE 12\n" +
       "0 @CS1@ SOUR\n1 TITL Matična knjiga krstov Kranj\n",
   );
-  const master = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
+  const main = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
 
-  it("copies the incoming event's SOUR citation onto the new master event and imports the cited SOUR record", () => {
-    const masterDs = dataset(master);
+  it("copies the incoming event's SOUR citation onto the new main event and imports the cited SOUR record", () => {
+    const mainDs = dataset(main);
     const compareDs = dataset(compareWithSour);
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [{ level: 2, tag: "DATE", value: "1850", children: [] }] };
-    // Mirrors `setEventField` inserting the new event into the live master record.
-    masterDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    // Mirrors `setEventField` inserting the new event into the live main record.
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
     const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
 
-    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent);
 
     expect(eventNode.children.some((c) => c.tag === "SOUR" && c.value === "@CS1@")).toBe(true);
-    expect(masterDs.records.some((r) => r.tag === "SOUR" && r.xref === "@CS1@")).toBe(true);
+    expect(mainDs.records.some((r) => r.tag === "SOUR" && r.xref === "@CS1@")).toBe(true);
     expect(imported).toHaveLength(1);
     expect(imported[0].xref).toBe("@CS1@");
   });
 
-  it("remaps the cited SOUR to a fresh xref when it collides with an unrelated master record", () => {
-    const masterWithClash = wrap(
+  it("remaps the cited SOUR to a fresh xref when it collides with an unrelated main record", () => {
+    const mainWithClash = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 @CS1@ SOUR\n1 TITL Unrelated source\n",
     );
-    const masterDs = dataset(masterWithClash);
+    const mainDs = dataset(mainWithClash);
     const compareDs = dataset(compareWithSour);
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
-    masterDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
     const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
 
-    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent);
 
     const citation = eventNode.children.find((c) => c.tag === "SOUR");
     expect(citation?.value).not.toBe("@CS1@");
     expect(imported).toHaveLength(1);
     expect(imported[0].xref).toBe(citation?.value);
     expect(imported[0].children.some((c) => c.tag === "TITL" && c.value === "Matična knjiga krstov Kranj")).toBe(true);
-    // Master's own unrelated @CS1@ stays untouched.
-    expect(masterDs.records.find((r) => r.xref === "@CS1@")?.children[0]?.value).toBe("Unrelated source");
+    // Main's own unrelated @CS1@ stays untouched.
+    expect(mainDs.records.find((r) => r.xref === "@CS1@")?.children[0]?.value).toBe("Unrelated source");
   });
 
   it("returns an empty array and does nothing when the incoming event has no SOUR", () => {
-    const masterDs = dataset(master);
+    const mainDs = dataset(main);
     const compareDs = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BAPM\n2 DATE 1850\n"));
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
     const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
 
-    const imported = materializeEventSources(masterDs, compareDs, eventNode, incomingEvent);
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent);
 
     expect(imported).toEqual([]);
     expect(eventNode.children).toEqual([]);
@@ -1192,21 +1192,21 @@ describe("mergeDecisions — confirm without changes is a no-op", () => {
     const text = wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n1 BIRT\n2 DATE 1850\n",
     );
-    const master = dataset(text);
+    const main = dataset(text);
     const compare = dataset(text.replace(/@I1@/g, "@P1@"));
-    const { records, report } = mergeDecisions(master, compare, confirmed(), NO_MATCHES, tr);
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     expect(report.changes).toHaveLength(0);
     expect(serializeGedcom(records)).toBe(text);
   });
 });
 
 describe("mergeDecisions — pointers on a newly added person", () => {
-  // Master @I1@ matches compare @P1@; taking the partner brings in @P2@, who
+  // Main @I1@ matches compare @P1@; taking the partner brings in @P2@, who
   // carries pointer-valued tags into the compare file's xref namespace.
-  const masterBase =
+  const mainBase =
     "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
     "0 @I9@ INDI\n1 NAME Franc /Zupan/\n1 SEX M\n";
-  const matches = { individuals: [{ masterId: "@I1@", compareId: "@P1@" }] } as never;
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
   const takePartner = () =>
     new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@PF@.partner": "incoming" } }],
@@ -1220,53 +1220,53 @@ describe("mergeDecisions — pointers on a newly added person", () => {
     );
 
   it("remaps a colliding NOTE pointer and imports the compare note record", () => {
-    // Master's @N1@ is an unrelated note; the new person must not point at it.
-    const master = dataset(wrap(masterBase + "0 @N1@ NOTE Master note about someone else\n"));
+    // Main's @N1@ is an unrelated note; the new person must not point at it.
+    const main = dataset(wrap(mainBase + "0 @N1@ NOTE Main note about someone else\n"));
     const compare = dataset(
       compareWith("1 NOTE @N1@\n", "0 @N1@ NOTE Compare note about Marija\n"),
     );
-    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const { records } = mergeDecisions(main, compare, takePartner(), matches, tr);
     const out = serializeGedcom(records);
-    expect(out).toContain("0 @N1@ NOTE Master note about someone else"); // untouched
+    expect(out).toContain("0 @N1@ NOTE Main note about someone else"); // untouched
     const noteXref = out.match(/1 NAME Marija \/Kovač\/[\s\S]*?1 NOTE (@[^@]+@)/)?.[1];
     expect(noteXref).toBeDefined();
     expect(noteXref).not.toBe("@N1@");
     expect(out).toContain(`0 ${noteXref} NOTE Compare note about Marija`);
   });
 
-  it("reuses an existing master NOTE record with identical text", () => {
-    const master = dataset(wrap(masterBase + "0 @N7@ NOTE Shared family chronicle\n"));
+  it("reuses an existing main NOTE record with identical text", () => {
+    const main = dataset(wrap(mainBase + "0 @N7@ NOTE Shared family chronicle\n"));
     const compare = dataset(
       compareWith("1 NOTE @N1@\n", "0 @N1@ NOTE Shared family chronicle\n"),
     );
-    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const { records } = mergeDecisions(main, compare, takePartner(), matches, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 NOTE @N7@");
     expect(out.match(/0 @[^@]+@ NOTE/g)).toHaveLength(1); // no duplicate minted
   });
 
   it("imports the OBJE record a new person's OBJE pointer references", () => {
-    const master = dataset(wrap(masterBase));
+    const main = dataset(wrap(mainBase));
     const compare = dataset(
       compareWith("1 OBJE @O7@\n", "0 @O7@ OBJE\n1 FILE https://example.com/marija.jpg\n"),
     );
-    const { records } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const { records } = mergeDecisions(main, compare, takePartner(), matches, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("1 OBJE @O7@");
     expect(out).toContain("0 @O7@ OBJE\n1 FILE https://example.com/marija.jpg");
   });
 
   it("strips ASSO/ALIA and nested family pointers, reporting associations as deferred", () => {
-    const master = dataset(wrap(masterBase));
+    const main = dataset(wrap(mainBase));
     const compare = dataset(
       compareWith(
         // ASSO @I9@ means the compare's own @I9@ (a different person than the
-        // master's @I9@ Franc Zupan); ADOP carries an event-level FAMC.
+        // main's @I9@ Franc Zupan); ADOP carries an event-level FAMC.
         "1 ASSO @I9@\n2 ROLE GODP\n1 ALIA @P1@\n1 ADOP\n2 FAMC @PF@\n" +
           "0 @I9@ INDI\n1 NAME Peter /Drugi/\n1 SEX M\n",
       ),
     );
-    const { records, report } = mergeDecisions(master, compare, takePartner(), matches, tr);
+    const { records, report } = mergeDecisions(main, compare, takePartner(), matches, tr);
     const out = serializeGedcom(records);
     expect(out).not.toContain("1 ASSO");
     expect(out).not.toContain("1 ALIA");

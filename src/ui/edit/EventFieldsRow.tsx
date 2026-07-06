@@ -80,7 +80,7 @@ export function EventFieldsRow({
   eventNodeId?: number;
   /** `nodeId`s of events materialized this session from a merge suggestion;
    * every field of such an event renders bold (it's all new vs the saved
-   * master), independently of `resolvedSessionFields`. */
+   * main), independently of `resolvedSessionFields`. */
   materializedEventIds?: Set<number>;
 }) {
   // A generic `EVEN` is labelled "Event"; its descriptive `TYPE` is edited in
@@ -102,13 +102,13 @@ export function EventFieldsRow({
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
-  // showing dirty/bold across the row's one-time "extra"→"master" remount.
+  // showing dirty/bold across the row's one-time "extra"→"main" remount.
   // Keyed by the *stable* `forcedKeyBase` (not the volatile `kBase`) so the
   // marker stays attached to the same physical event when same-tag events
   // reshuffle their merge key bases.
   const fBase = forcedKeyBase ?? kBase;
   // A whole event materialized this session from an incoming suggestion is new
-  // vs the saved master, so every field is a change — force them all bold,
+  // vs the saved main, so every field is a change — force them all bold,
   // regardless of per-field merge resolution (which can be cleared/recomputed).
   const eventForced = eventNodeId !== undefined && (materializedEventIds?.has(eventNodeId) ?? false);
   const dateForced = eventForced || (resolvedSessionFields?.has(`${fBase}.date`) ?? false);
@@ -340,7 +340,7 @@ export function EventFieldsRow({
       />
       <div className="edit-event-sources-cell">
         {ev?.sources?.length || sourcesMergeVal?.length ? (
-          <SourceRefs t={t} masterSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
+          <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
         ) : null}
         {links.map((link, i) => (
           <button

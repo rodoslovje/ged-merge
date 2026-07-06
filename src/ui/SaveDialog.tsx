@@ -26,7 +26,7 @@ interface Props {
   files: string[];
   downloadLabel: string;
   /** When present, shows the before/after total record count line (merge mode). */
-  masterRecordCount?: number;
+  mainRecordCount?: number;
   onConfirm: () => void;
   onClose: () => void;
   /** IDs of records that came from edit mode (show navigate/remove buttons). */
@@ -57,7 +57,7 @@ export function SaveDialog({
   title,
   files,
   downloadLabel,
-  masterRecordCount,
+  mainRecordCount,
   onConfirm,
   onClose,
   editRecordIds,
@@ -84,7 +84,7 @@ export function SaveDialog({
     () => report.changes.filter((c) => !c.newRecord && hasContent(c)).length,
     [report.changes],
   );
-  // Fields added where the master had nothing before, as opposed to one
+  // Fields added where the main had nothing before, as opposed to one
   // existing value replacing another.
   const newFields = useMemo(
     () => report.changes.filter((c) => !c.newRecord && !c.from && hasContent(c)).length,
@@ -131,7 +131,7 @@ export function SaveDialog({
             <Stat
               value={report.recordsChanged}
               label={t("preview.stat.records")}
-              delta={masterRecordCount != null ? newRecords : undefined}
+              delta={mainRecordCount != null ? newRecords : undefined}
               deltaTitle={t("preview.stat.newRecords", { count: newRecords })}
             />
             {fieldCount > 0 && (

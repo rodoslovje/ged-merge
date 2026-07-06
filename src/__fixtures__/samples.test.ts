@@ -98,10 +98,10 @@ describe("self-match recall", () => {
     const d = ds(file);
     const r = matchDatasets(d, d);
     // The engine must never rank a different individual above the identical one.
-    const misassigned = r.individuals.filter((c) => c.masterId !== c.compareId);
+    const misassigned = r.individuals.filter((c) => c.mainId !== c.compareId);
     expect(misassigned).toEqual([]);
 
-    const selfHits = r.individuals.filter((c) => c.masterId === c.compareId).length;
+    const selfHits = r.individuals.filter((c) => c.mainId === c.compareId).length;
     // Ancestral trees are dense with duplicate-ish relatives, yet self-match
     // should still recover the vast majority; floor leaves headroom for drift.
     expect(selfHits / d.individuals.size).toBeGreaterThanOrEqual(0.85);

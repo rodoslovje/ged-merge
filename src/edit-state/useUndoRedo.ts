@@ -13,7 +13,7 @@ export type UndoEntry =
       mode: "merge";
       before: Map<string, CandidateDecision>;
       after: Map<string, CandidateDecision>;
-      masterId: string;
+      mainId: string;
       compareId: string;
     }
   | {

@@ -4,7 +4,7 @@
  * The unit tests in `merge/merge.test.ts` exercise the engine on hand-written
  * five-line GEDCOMs; nothing pinned down what a *whole realistic merge*
  * produces end-to-end. This suite runs the exact pipeline the app runs —
- * parse → buildDataset → inferMasterProfile → normalizeDataset →
+ * parse → buildDataset → inferMainProfile → normalizeDataset →
  * matchDatasets → duplicate consolidation → scripted decisions →
  * mergeDecisions → CHAN stamping → download serialization — over the shipped
  * royal-family samples (which genuinely overlap: shared monarchs), and pins:
@@ -14,7 +14,7 @@
  *             change to merge mechanics (field application, stitching,
  *             grafting, xref remapping, event ordering, audit stamping)
  *             shows up as a reviewable snapshot diff instead of surfacing
- *             months later in a user's master file.
+ *             months later in a user's main file.
  *   INVARIANTS — the output parses cleanly, reaches a serialize fixed-point,
  *             introduces no dangling xrefs and no broken family links.
  *   NO-OP   — merging a file into itself with default choices must change
@@ -35,7 +35,7 @@ import { buildDataset } from "../gedcom/builder";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
 import { stampChanCrea } from "../gedcom/chanCrea";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { inferMasterProfile } from "../normalize/profile";
+import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { matchDatasets } from "../match/engine";
 import type { MatchResult } from "../match/types";
@@ -59,18 +59,18 @@ function readBuffer(path: string): ArrayBuffer {
  *  the snapshots locale-independent (mirrors the worker's `rawLabel`). */
 const tr = (key: string) => key;
 
-/** Mirror the worker pipeline: load a master, normalize a compare against its
+/** Mirror the worker pipeline: load a main, normalize a compare against its
  *  profile, match, and consolidate incoming duplicate clusters. */
-function loadPair(masterBuf: ArrayBuffer, compareBuf: ArrayBuffer): {
-  master: Dataset;
+function loadPair(mainBuf: ArrayBuffer, compareBuf: ArrayBuffer): {
+  main: Dataset;
   compare: Dataset;
   result: MatchResult;
 } {
-  const master = buildDataset(parseGedcom(masterBuf));
-  const profile = inferMasterProfile(master);
+  const main = buildDataset(parseGedcom(mainBuf));
+  const profile = inferMainProfile(main);
   const compareRaw = buildDataset(parseGedcom(compareBuf));
   const { dataset: compare } = normalizeDataset(compareRaw, profile);
-  let result = matchDatasets(master, compare);
+  let result = matchDatasets(main, compare);
   if (result.incomingDuplicates?.length) {
     for (const { keepId, mergeIds } of result.incomingDuplicates) {
       for (const id of mergeIds) {
@@ -79,19 +79,19 @@ function loadPair(masterBuf: ArrayBuffer, compareBuf: ArrayBuffer): {
     }
     result = { individuals: result.individuals };
   }
-  return { master, compare, result };
+  return { main, compare, result };
 }
 
-/** Candidates ranked deterministically, deduplicated to unique master/compare pairing. */
+/** Candidates ranked deterministically, deduplicated to unique main/compare pairing. */
 function uniquePairs(result: MatchResult, minScore: number) {
   const ranked = [...result.individuals].sort(
-    (a, b) => b.score - a.score || a.masterId.localeCompare(b.masterId) || a.compareId.localeCompare(b.compareId),
+    (a, b) => b.score - a.score || a.mainId.localeCompare(b.mainId) || a.compareId.localeCompare(b.compareId),
   );
-  const seenMaster = new Set<string>();
+  const seenMain = new Set<string>();
   const seenCompare = new Set<string>();
   return ranked.filter((c) => {
-    if (c.score < minScore || seenMaster.has(c.masterId) || seenCompare.has(c.compareId)) return false;
-    seenMaster.add(c.masterId);
+    if (c.score < minScore || seenMain.has(c.mainId) || seenCompare.has(c.compareId)) return false;
+    seenMain.add(c.mainId);
     seenCompare.add(c.compareId);
     return true;
   });
@@ -99,16 +99,16 @@ function uniquePairs(result: MatchResult, minScore: number) {
 
 /** Serialized blocks of every record the merge touched or created, in output
  *  order — includes imported SOUR/NOTE/OBJE records (absent from the change
- *  report) by also treating any output xref the master didn't have as touched. */
-function touchedBlocks(output: GedNode[], masterRecords: GedNode[], report: ChangeReport): string {
-  const masterXrefs = new Set(masterRecords.filter((r) => r.xref).map((r) => r.xref!));
+ *  report) by also treating any output xref the main didn't have as touched. */
+function touchedBlocks(output: GedNode[], mainRecords: GedNode[], report: ChangeReport): string {
+  const mainXrefs = new Set(mainRecords.filter((r) => r.xref).map((r) => r.xref!));
   const touched = new Set(Object.keys(report.recordKinds));
-  const blocks = output.filter((r) => r.xref && (touched.has(r.xref) || !masterXrefs.has(r.xref)));
+  const blocks = output.filter((r) => r.xref && (touched.has(r.xref) || !mainXrefs.has(r.xref)));
   return serializeGedcom(blocks);
 }
 
 describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
-  const { master, compare, result } = loadPair(
+  const { main, compare, result } = loadPair(
     readBuffer(resolve(SAMPLES, "EnglishTudorRoyalFamily.ged")),
     readBuffer(resolve(SAMPLES, "EuropeRoyalFamilies.ged")),
   );
@@ -132,7 +132,7 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   // thousands of golden lines of churn with no mechanics change. Id order
   // keeps the goldens pinned to the same two branches.
   const anchors = [...picked]
-    .sort((a, b) => a.masterId.localeCompare(b.masterId) || a.compareId.localeCompare(b.compareId))
+    .sort((a, b) => a.mainId.localeCompare(b.mainId) || a.compareId.localeCompare(b.compareId))
     .slice(0, 2);
   const anchorIds = new Set(anchors.map((c) => c.compareId));
   const decisions = new Map<string, CandidateDecision>();
@@ -142,14 +142,14 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
           (fid) => compare.families.get(fid)?.children ?? [],
         )
       : undefined;
-    decisions.set(decisionKey("individual", c.masterId, c.compareId), {
+    decisions.set(decisionKey("individual", c.mainId, c.compareId), {
       status: "confirmed",
       fields: {},
       ...(takenChildren?.length ? { takenChildren } : {}),
     });
   }
   if (rejected) {
-    decisions.set(decisionKey("individual", rejected.masterId, rejected.compareId), {
+    decisions.set(decisionKey("individual", rejected.mainId, rejected.compareId), {
       status: "rejected",
       fields: {},
     });
@@ -159,14 +159,14 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
     { incomingId: anchors[1].compareId, direction: "descendants" },
   ];
 
-  const { records, report } = mergeDecisions(master, compare, decisions, result, tr, branches);
+  const { records, report } = mergeDecisions(main, compare, decisions, result, tr, branches);
 
   // Mirror handleConfirmSave with a pinned clock so snapshots are stable.
   const changedIds = new Set(Object.keys(report.recordKinds));
   const newIds = new Set(report.changes.filter((c) => c.newRecord).map((c) => c.recordId));
-  stampChanCrea(records, changedIds, newIds, master.chanCreaUsage, "15 JAN 2026", "12:00:00");
-  ensureUtf8Charset(records, master);
-  const output = serializeGedcom(records, downloadOptions(master));
+  stampChanCrea(records, changedIds, newIds, main.chanCreaUsage, "15 JAN 2026", "12:00:00");
+  ensureUtf8Charset(records, main);
+  const output = serializeGedcom(records, downloadOptions(main));
 
   it("exercises the mechanics it claims to (guard against a silent no-op)", () => {
     expect(picked.length).toBeGreaterThanOrEqual(20);
@@ -176,7 +176,7 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   });
 
   it("matches the golden touched-records snapshot", async () => {
-    await expect(touchedBlocks(records, master.records, report)).toMatchFileSnapshot(
+    await expect(touchedBlocks(records, main.records, report)).toMatchFileSnapshot(
       "./golden/europe-into-tudor.touched.ged",
     );
   });
@@ -188,17 +188,17 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   it("produces output that parses cleanly and reaches a serialize fixed-point", () => {
     const reparsed = parseGedcom(new TextEncoder().encode(output).buffer as ArrayBuffer);
     expect(reparsed.warnings.filter((w) => w.kind === "syntax")).toEqual([]);
-    expect(serializeGedcom(reparsed.records, downloadOptions(master))).toBe(output);
+    expect(serializeGedcom(reparsed.records, downloadOptions(main))).toBe(output);
   });
 
-  it("introduces no dangling xrefs beyond the master's own baseline", () => {
-    const baseline = new Set(findDanglingXrefs(master.records).map((d) => d.xref));
+  it("introduces no dangling xrefs beyond the main's own baseline", () => {
+    const baseline = new Set(findDanglingXrefs(main.records).map((d) => d.xref));
     const fresh = findDanglingXrefs(records).filter((d) => !baseline.has(d.xref));
     expect(fresh).toEqual([]);
   });
 
   it("introduces no broken or duplicated family links", () => {
-    const baseline = validateDataset(master, 2026).counts;
+    const baseline = validateDataset(main, 2026).counts;
     const merged = buildDataset(parseGedcom(new TextEncoder().encode(output).buffer as ArrayBuffer));
     const counts = validateDataset(merged, 2026).counts;
     expect(counts.brokenLink).toBe(baseline.brokenLink);
@@ -225,9 +225,9 @@ describe("self-merge is a byte-for-byte no-op (whole corpus)", () => {
     // own profile, which then shows up as genuine field differences. The
     // property pinned here is that the *merge engine* is a no-op on identical
     // input — normalization has its own suites.
-    const master = buildDataset(parseGedcom(slice()));
+    const main = buildDataset(parseGedcom(slice()));
     const compare = buildDataset(parseGedcom(slice()));
-    let result = matchDatasets(master, compare);
+    let result = matchDatasets(main, compare);
     if (result.incomingDuplicates?.length) {
       for (const { keepId, mergeIds } of result.incomingDuplicates) {
         for (const id of mergeIds) {
@@ -238,22 +238,22 @@ describe("self-merge is a byte-for-byte no-op (whole corpus)", () => {
     }
 
     // Confirm every identity pair (same xref on both sides — it's the same
-    // file) with default choices; defaults keep the master on conflicts and
+    // file) with default choices; defaults keep the main on conflicts and
     // identical sides produce no missing fields, so nothing may change.
     const decisions = new Map<string, CandidateDecision>();
     for (const c of result.individuals) {
-      if (c.masterId === c.compareId) {
-        decisions.set(decisionKey("individual", c.masterId, c.compareId), { status: "confirmed", fields: {} });
+      if (c.mainId === c.compareId) {
+        decisions.set(decisionKey("individual", c.mainId, c.compareId), { status: "confirmed", fields: {} });
       }
     }
     expect(decisions.size).toBeGreaterThan(0);
 
-    const { records, report } = mergeDecisions(master, compare, decisions, result, tr);
+    const { records, report } = mergeDecisions(main, compare, decisions, result, tr);
     expect(report.changes.filter((c) => c.field)).toEqual([]);
     expect(report.newPersons).toBe(0);
     expect(report.newFamilies).toBe(0);
-    expect(serializeGedcom(records, { eol: master.eol, finalNewline: master.finalNewline })).toBe(
-      serializeGedcom(master.records, { eol: master.eol, finalNewline: master.finalNewline }),
+    expect(serializeGedcom(records, { eol: main.eol, finalNewline: main.finalNewline })).toBe(
+      serializeGedcom(main.records, { eol: main.eol, finalNewline: main.finalNewline }),
     );
   });
 });

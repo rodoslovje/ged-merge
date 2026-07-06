@@ -274,7 +274,7 @@ describe("setEventField", () => {
 describe("addEventField", () => {
   it("creates its own node rather than reusing one just created for another pending row of the same tag", () => {
     // Mirrors two unresolved incoming-only RESI rows in Edit mode: committing
-    // a field on the first materializes a master node; committing a field on
+    // a field on the first materializes a main node; committing a field on
     // the second must not overwrite that node (see EditView's extra-row
     // commitField, which used to call setEventField — tag-only lookup — and
     // silently clobbered the first row's just-created event).

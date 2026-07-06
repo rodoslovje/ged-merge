@@ -48,7 +48,7 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // Same swatch convention as the Timeline: the root keeps the full-strength
 // accent, everyone else fades toward the panel.
 const COLOR_PERSON = "var(--accent)";
-const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
+const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
 // Reports never append the married surname ("Silvija Sekušak (Renko)") — the
 // entries' ⚭ lines / narrative marriage sentences already state the union.
@@ -56,9 +56,9 @@ const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
 const REPORT_NAME_DISPLAY = { marriedSurname: false } as const;
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   rootId: string;
-  /** Master ids with unsaved edits — those entries show the "M" chip. */
+  /** Main ids with unsaved edits — those entries show the "M" chip. */
   changedPersonIds?: Set<string>;
   /** Merge decisions, so decided matches show their C/R/D chip here too. */
   decisions?: Map<string, CandidateDecision>;
@@ -78,7 +78,7 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ masterDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
@@ -104,12 +104,12 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
     [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes, settings.showSources],
   );
   const ancestors = useMemo(
-    () => buildAhnentafel(masterDs, currentRootId, nameOf, undefined, factOpts),
-    [masterDs, currentRootId, nameOf, factOpts],
+    () => buildAhnentafel(mainDs, currentRootId, nameOf, undefined, factOpts),
+    [mainDs, currentRootId, nameOf, factOpts],
   );
   const descendants = useMemo(
-    () => buildDescendants(masterDs, currentRootId, nameOf, undefined, factOpts),
-    [masterDs, currentRootId, nameOf, factOpts],
+    () => buildDescendants(mainDs, currentRootId, nameOf, undefined, factOpts),
+    [mainDs, currentRootId, nameOf, factOpts],
   );
   const data = mode === "descendants" ? descendants : ancestors;
 
@@ -146,17 +146,17 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
     () => data?.generations.flatMap((g) => g.entries).find((e) => e.id === selectedId),
     [data, selectedId],
   );
-  const selectedIndi = selectedEntry ? masterDs.individuals.get(selectedEntry.id) : undefined;
+  const selectedIndi = selectedEntry ? mainDs.individuals.get(selectedEntry.id) : undefined;
   const selectedRows = useMemo(
-    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, masterDs) : []),
-    [t, selectedIndi, masterDs],
+    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, mainDs) : []),
+    [t, selectedIndi, mainDs],
   );
-  const masterNav = useMemo(
+  const mainNav = useMemo(
     () => ({
-      linkable: (id: string) => masterDs.individuals.has(id),
+      linkable: (id: string) => mainDs.individuals.has(id),
       onNavigate: changeRoot,
     }),
-    [masterDs, changeRoot],
+    [mainDs, changeRoot],
   );
 
   // The "Children of …" heading with the parents rendered like any other
@@ -217,7 +217,7 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
           <ChartExportMenu
             disabled={!data}
             slug={chartSlug(rootEntry?.name, pageKind)}
-            gedcom={{ ds: masterDs, personIds: reportIds }}
+            gedcom={{ ds: mainDs, personIds: reportIds }}
             extraItems={[
               {
                 key: "txt",
@@ -429,8 +429,8 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
             node={selectedEntry}
             swatch={selectedEntry.num === 1 ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
-            masterPerson={masterNav}
-            masterLabel={t("tree.master")}
+            mainPerson={mainNav}
+            mainLabel={t("tree.main")}
             singleColumn
             onClose={() => setSelectedId(null)}
             onSetRoot={() => changeRoot(selectedEntry.id)}

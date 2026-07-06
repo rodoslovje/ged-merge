@@ -32,7 +32,7 @@
   --state-match:    #5ed99e;  /* records agree            */
   --state-minor:    #eccb61;  /* small differences        */
   --state-major:    #f66d67;  /* substantive conflicts    */
-  --state-master:   #60c09e;  /* MASTER = the pine accent  */
+  --state-main:   #60c09e;  /* MAIN = the pine accent  */
   --state-incoming: #bb8aef;  /* incoming                 */
 
   /* ---- sex axis (separate from status; never share a surface) ---- */
@@ -57,7 +57,7 @@
   --node-match:    #067d4d;
   --node-minor:    #a2702b;
   --node-major:    #b63b39;
-  --node-master:   #286853;
+  --node-main:   #286853;
   --node-incoming: #7846a9;
 
   /* ---- shape ---- */
@@ -84,7 +84,7 @@
   --state-match:    #158353;
   --state-minor:    #aa7323;
   --state-major:    #c53637;
-  --state-master:   #2e6e58;
+  --state-main:   #2e6e58;
   --state-incoming: #7945ab;
 
   --sex-male:   #166daf;

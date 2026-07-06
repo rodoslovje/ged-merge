@@ -10,7 +10,7 @@ There are three entry points, all built from the same primitives:
 
 | Entry point | Purpose |
 |---|---|
-| `matchDatasets` (`src/match/engine.ts`) | Compare an incoming file against the master; produce a one-to-one candidate list for the merge review. |
+| `matchDatasets` (`src/match/engine.ts`) | Compare an incoming file against the main file; produce a one-to-one candidate list for the merge review. |
 | `findDuplicates` (`src/tools/duplicates.ts`) | Find duplicate records *within* one file (Tools tab). |
 | `matchGiPairs` (`src/match/giMatch.ts`) | Resolve a genealogical-index matches CSV: rows arrive pre-paired by an exact name+birth-year key, so only the scoring stage runs. |
 
@@ -36,7 +36,7 @@ There are three entry points, all built from the same primitives:
 ## Pipeline (cross-file `matchDatasets`)
 
 ```
-parse → normalize (compare reshaped to master's conventions, see src/normalize/)
+parse → normalize (compare reshaped to main's conventions, see src/normalize/)
   → 1 blocking          only plausible pairs are ever scored
   → 2 hard gates        sex / name / era vetoes
   → 3 scoring           weighted components + penalties + ceiling
@@ -160,13 +160,13 @@ Finally:
 
 ### 4. One-to-one assignment
 
-Greedy by descending score: a master and a compare record each appear in at
+Greedy by descending score: a main record and a compare record each appear in at
 most one match. Right model for a merge; kills many-to-one noise between
 similarly-named people.
 
 ### 5. Relationship linking (`linkByRelationships`, `src/match/engine.ts`)
 
-Bootstraps from the assignment: if a master person and a compare person are
+Bootstraps from the assignment: if a main person and a compare person are
 same-role parents of the same *confidently matched* children (each relative's
 own match ≥ 85), they are linked as the same person — overriding whatever
 weaker name/date match either had. Evidence bar: 2+ shared matched children,
@@ -194,7 +194,7 @@ config but is currently unused — assignment is 1:1 anyway.)
 ### 8. Incoming-duplicate consolidation (`findIncomingDuplicateClusters`)
 
 Index exports often contain the same person several times. The reliable
-signal is several incoming records all matching the *same* master person: the
+signal is several incoming records all matching the *same* main person: the
 runner-ups that lost the 1:1 assignment are candidate duplicates of the
 winner. Before consolidating (the worker merges them into the kept record),
 each runner-up must survive hard vetoes — given similarity ≥ 0.85, birth

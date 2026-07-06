@@ -49,7 +49,7 @@ export interface GedNode {
    * or merge adds it ("new") or modifies it ("changed"), so save-time audit
    * stamping (`stampChanCrea`) writes CHAN/CREA onto exactly the events that
    * changed rather than guessing. Preserved by `cloneNode` — the merge stamps
-   * a clone of the edit-marked master, and undo/redo snapshots restore the
+   * a clone of the edit-marked main, and undo/redo snapshots restore the
    * marker state of their side. Consumed (and cleared) during stamping.
    */
   auditStamp?: "new" | "changed";
@@ -133,7 +133,7 @@ export type DateQualifier =
 
 /**
  * A semantically-parsed date, kept alongside its original text so it can be
- * rendered back in the master's observed format.
+ * rendered back in the main's observed format.
  */
 export interface GedDate {
   /** Original date string exactly as it appeared in the file. */
@@ -151,7 +151,7 @@ export interface GedDate {
    * The raw value was a deliberate all-unknown placeholder date (e.g.
    * ".__.____" / "__.__.____"): no component is known, but it is an intentional
    * "date unknown" marker, not uninterpretable text. Lets reshaping re-render it
-   * in the master's placeholder layout instead of preserving a foreign marker
+   * in the main's placeholder layout instead of preserving a foreign marker
    * verbatim. (Partial placeholder dates that keep a real year/month are parsed
    * into those components and don't need this flag.)
    */
@@ -268,7 +268,7 @@ export interface Family {
 }
 
 /**
- * Whether the master GEDCOM file uses CHAN/CREA audit timestamps, detected on
+ * Whether the main GEDCOM file uses CHAN/CREA audit timestamps, detected on
  * load. Drives whether `stampChanCrea` writes them into the saved output.
  */
 export interface ChanCreaUsage {

@@ -121,7 +121,7 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
 
   // A structured but entirely-unknown numeric date (".__.____", "__.__.____"):
   // no usable component, yet a deliberate placeholder, not garbage. Flag it so
-  // reshaping can re-render it in the master's placeholder layout.
+  // reshaping can re-render it in the main's placeholder layout.
   if (isAllPlaceholderDate(upper)) return { raw, qualifier: "unknown", placeholder: true };
 
   return { raw, qualifier: "unknown" };
@@ -141,14 +141,14 @@ function datePrecision(d: GedDate): number {
 }
 
 /**
- * True when `incoming` is a strictly more precise version of `master` that
- * doesn't contradict it — e.g. master "1949" refined by incoming "12 MAR 1949".
+ * True when `incoming` is a strictly more precise version of `main` that
+ * doesn't contradict it — e.g. main "1949" refined by incoming "12 MAR 1949".
  * Both must be single (non-range) dates sharing the same year, and every
- * component the master already pins (month, day) must agree. Used so a merge
+ * component the main already pins (month, day) must agree. Used so a merge
  * defaults to the incoming side when it carries the more exact date.
  */
-export function dateRefines(masterRaw: string, incomingRaw: string, order?: DateOrder): boolean {
-  const m = parseDate(masterRaw, order);
+export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOrder): boolean {
+  const m = parseDate(mainRaw, order);
   const i = parseDate(incomingRaw, order);
   if (m.year == null || i.year == null) return false;
   if (m.year !== i.year) return false;

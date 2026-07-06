@@ -26,9 +26,9 @@ export function EventList({
   addrCanonical,
   mergeHighlight,
   mergeIncomingSources,
-  masterMergeKeyBases,
-  masterMergeCompareKeys,
-  masterMergeSortKeys,
+  mainMergeKeyBases,
+  mainMergeCompareKeys,
+  mainMergeSortKeys,
   extraMergeEvents,
   onRejectIncomingEvent,
   onMaterializeIncomingSources,
@@ -52,39 +52,39 @@ export function EventList({
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
-  /** master person.events[i] → field key base aligned with orderedEventTags. */
-  masterMergeKeyBases?: Map<number, string>;
-  /** master person.events[i] → the incoming event it's paired with, as `${tag}:${compareIdx}`. */
-  masterMergeCompareKeys?: Map<number, string>;
-  /** master person.events[i] → sort key from incoming date, when master has no date. */
-  masterMergeSortKeys?: Map<number, number>;
+  /** main person.events[i] → field key base aligned with orderedEventTags. */
+  mainMergeKeyBases?: Map<number, string>;
+  /** main person.events[i] → the incoming event it's paired with, as `${tag}:${compareIdx}`. */
+  mainMergeCompareKeys?: Map<number, string>;
+  /** main person.events[i] → sort key from incoming date, when main has no date. */
+  mainMergeSortKeys?: Map<number, number>;
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[];
   /** Called to permanently reject an incoming event — dismissing/deleting an
-   * "extra" suggestion row, deleting a master row paired with one, or editing
-   * an extra row's field (materializing a new master event from it) — so it's
+   * "extra" suggestion row, deleting a main row paired with one, or editing
+   * an extra row's field (materializing a new main event from it) — so it's
    * treated as absent for the rest of the session, on Save too (see
    * `rejectIncomingEvent`). */
   onRejectIncomingEvent?: (tag: string, compareIdx: number) => void;
   /** Called when an "extra" row's direct field edit is about to materialize a
-   * new master event, to copy that incoming event's `SOUR` citations onto the
+   * new main event, to copy that incoming event's `SOUR` citations onto the
    * just-created node before it's rejected (see `onRejectIncomingEvent`) and
    * its sources become unreachable. Returns undo patches for any imported
    * top-level `SOUR`/`REPO` records. */
   onMaterializeIncomingSources?: (eventNode: GedNode, tag: string, compareIdx: number) => RecordPatch[];
   /** Called after a direct field edit, to resolve the touched merge sub-fields
-   * (e.g. "date", "value") to "master" so they stop being treated as pending
+   * (e.g. "date", "value") to "main" so they stop being treated as pending
    * incoming suggestions. `forcedId` is the row's stable per-event identity
    * (used to persist the dirty/bold marker), distinct from the volatile
    * `keyBase` (used for the incoming-value lookup / decision choice). */
   onResolveMergeField?: (keyBase: string, forcedId: string, subs: string[]) => void;
   /** Sub-field keys (e.g. "OCCU.value") resolved from a merge suggestion via a
    * direct edit earlier this session — kept dirty/bold despite the row's
-   * one-time remount from "extra" to "master" kind. */
+   * one-time remount from "extra" to "main" kind. */
   resolvedSessionFields?: Set<string>;
   /** Stable `nodeId`s of events materialized this session from an incoming-only
    * suggestion — every field of such an event renders bold (it's all new vs the
-   * saved master). Survives merge-state recomputes, unlike `resolvedSessionFields`. */
+   * saved main). Survives merge-state recomputes, unlike `resolvedSessionFields`. */
   materializedEventIds?: Set<number>;
   /** Record an event node (by `nodeId`) as freshly materialized from a merge suggestion. */
   onMaterializeEventNode?: (id: number) => void;
@@ -109,7 +109,7 @@ export function EventList({
     return subs;
   }
 
-  // Fallback key bases when no merge is active (master-only count-based naming).
+  // Fallback key bases when no merge is active (main-only count-based naming).
   const tagCount = new Map<string, number>();
   person.events.forEach((ev) => tagCount.set(ev.tag, (tagCount.get(ev.tag) ?? 0) + 1));
   const tagIdx = new Map<string, number>();
@@ -120,20 +120,20 @@ export function EventList({
   });
   const birtOriginalIdx = person.events.findIndex((e) => e.tag === "BIRT");
   const birtMergeKeyBase = birtOriginalIdx >= 0
-    ? (masterMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
+    ? (mainMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
     : "BIRT";
 
-  // Unified sorted list: master non-BIRT events interleaved with incoming-only extra events.
-  type MasterRow  = { kind: "master"; ev: GedEvent; i: number; mergeKeyBase: string; compareKey?: string; stableKey: number };
+  // Unified sorted list: main non-BIRT events interleaved with incoming-only extra events.
+  type MainRow  = { kind: "main"; ev: GedEvent; i: number; mergeKeyBase: string; compareKey?: string; stableKey: number };
   type ExtraRow   = { kind: "extra";  tag: string; keyBase: string; compareIdx: number };
-  type AnyRow     = (MasterRow | ExtraRow) & { sortKey: number; tagPos: number };
+  type AnyRow     = (MainRow | ExtraRow) & { sortKey: number; tagPos: number };
 
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
   const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
 
   // Zone-aware anchors so undated life-zone events (RESI, OCCU, …) sort between
   // birth and death rather than before all dated events — used only as a
-  // fallback when no merge supplies an authoritative sort key (`masterMergeSortKeys`).
+  // fallback when no merge supplies an authoritative sort key (`mainMergeSortKeys`).
   const anchors = lifespanAnchors(person.events);
 
   const allRows: AnyRow[] = [
@@ -141,12 +141,12 @@ export function EventList({
       .map((ev, i) => ({ ev, i }))
       .filter(({ ev }) => ev.tag !== "BIRT")
       .map(({ ev, i }): AnyRow => ({
-        kind: "master",
+        kind: "main",
         ev, i,
-        mergeKeyBase: masterMergeKeyBases?.get(i) ?? eventKeyBases[i],
-        compareKey: masterMergeCompareKeys?.get(i),
+        mergeKeyBase: mainMergeKeyBases?.get(i) ?? eventKeyBases[i],
+        compareKey: mainMergeCompareKeys?.get(i),
         stableKey: nodeId(rawEventNodes[i] ?? ev),
-        sortKey: masterMergeSortKeys?.get(i) ?? zoneSortKey(ev.date, ev.tag, anchors),
+        sortKey: mainMergeSortKeys?.get(i) ?? zoneSortKey(ev.date, ev.tag, anchors),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])
@@ -193,7 +193,7 @@ export function EventList({
         materializedEventIds={materializedEventIds}
       />
       {allRows.map((row) =>
-        row.kind === "master" ? (
+        row.kind === "main" ? (
           <EventFieldsRow
             key={`ev-${row.stableKey}-${mergeGen ?? 0}`}
             ev={row.ev}
@@ -239,9 +239,9 @@ export function EventList({
             commitField={(update, extraPatches) => {
               const patches = [...(extraPatches ?? [])];
               // The edit materializes this incoming-only suggestion into a real
-              // master event node; capture its stable id so the dirty/bold
+              // main event node; capture its stable id so the dirty/bold
               // marker attaches to that exact node, surviving the row's
-              // "extra"→"master" remount even as merge key bases reshuffle.
+              // "extra"→"main" remount even as merge key bases reshuffle.
               let materializedId: number | undefined;
               commit((indi) => {
                 const eventNode = addEventField(indi, row.tag, update);

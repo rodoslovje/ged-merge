@@ -48,9 +48,9 @@ type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "p
 const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places"];
 
 interface Props {
-  /** The live master dataset — every tool operates on the whole file. */
+  /** The live main dataset — every tool operates on the whole file. */
   dataset: Dataset;
-  /** Master file name, used to name the normalized download. */
+  /** Main file name, used to name the normalized download. */
   fileName: string;
   /** Jump to a person/family record in Edit mode. */
   onNavigate: (id: string) => void;
@@ -730,12 +730,12 @@ function DuplicatesPanel({
   );
 }
 
-const CHOICES: FieldChoice[] = ["master", "incoming", "both"];
+const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 
 /**
  * Editable side-by-side comparison of one duplicate pair. Both records live in
- * the same master dataset, so each column navigates into Edit mode. The left
- * (master) record is the survivor; per-field M/I/B controls choose what it keeps
+ * the same main dataset, so each column navigates into Edit mode. The left
+ * (main) record is the survivor; per-field M/I/B controls choose what it keeps
  * — seeded by `duplicateDefaults` (more precise dates win, one-sided fields are
  * combined). The Merge button (behind a confirmation) folds the right record
  * into the left and deletes it.
@@ -788,7 +788,7 @@ function DuplicateCompare({
       ));
     }
     if (row.state === "agree") return <span className="muted">=</span>;
-    return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+    return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
   }
 
   return (
@@ -797,7 +797,7 @@ function DuplicateCompare({
         <thead>
           <tr className="compare-head">
             <th />
-            <th className="compare-col compare-col-master">{t("tools.duplicates.surviving")}</th>
+            <th className="compare-col compare-col-main">{t("tools.duplicates.surviving")}</th>
             <th className="compare-col compare-col-incoming">{t("tools.duplicates.candidate")}</th>
             <th />
           </tr>
@@ -815,7 +815,7 @@ function DuplicateCompare({
               );
             }
             const choice = fields[row.key] ?? defaultChoice(row);
-            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
+            const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
                 <td className="f-label">{row.displayLabel ?? row.label}</td>
@@ -823,9 +823,9 @@ function DuplicateCompare({
                   <td className="f-rel" colSpan={3}>
                     <RelativeGrid
                       pairs={row.relatives}
-                      masterChosen={choice !== "incoming"}
-                      incomingChosen={choice !== "master"}
-                      masterPerson={nav}
+                      mainChosen={choice !== "incoming"}
+                      incomingChosen={choice !== "main"}
+                      mainPerson={nav}
                       incomingPerson={nav}
                       renderChoice={() => renderChoiceCell(row, choice)}
                     />
@@ -833,32 +833,32 @@ function DuplicateCompare({
                 ) : hasSources ? (
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.masterSources} />
-                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
+                      <SourceRefs t={t} mainSources={row.mainSources} />
+                      {row.mainLinkIcons?.length ? <LinkIcons urls={row.mainLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                     </td>
-                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
-                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
+                    <td className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} mainSources={row.incomingSources} compareAgainst={row.mainSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.mainLinkIcons} /> : null}
                     </td>
                   </>
                 ) : (
                   <>
-                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.masterTitle}>
+                    <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.mainTitle}>
                       <FieldValue
-                        text={row.master}
-                        links={row.masterLinks}
-                        linkIcons={row.masterLinkIcons}
+                        text={row.main}
+                        links={row.mainLinks}
+                        linkIcons={row.mainLinkIcons}
                         otherLinkIcons={row.incomingLinkIcons}
-                        person={row.masterRefs ? { refs: row.masterRefs, ...nav } : undefined}
+                        person={row.mainRefs ? { refs: row.mainRefs, ...nav } : undefined}
                       />
                     </td>
-                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.incomingTitle}>
+                    <td className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"} title={row.incomingTitle}>
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
-                        otherLinks={row.masterLinks}
+                        otherLinks={row.mainLinks}
                         linkIcons={row.incomingLinkIcons}
-                        otherLinkIcons={row.masterLinkIcons}
+                        otherLinkIcons={row.mainLinkIcons}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...nav } : undefined}
                       />
                     </td>

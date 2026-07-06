@@ -2,13 +2,13 @@ import { addressStreetName, decomposePlace, stripHouseNumber } from "../gedcom/p
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
-/** Whether a master layout triggers reshaping (others are copied verbatim). */
+/** Whether a main layout triggers reshaping (others are copied verbatim). */
 export function reshapesLayout(layout: PlaceTargetFormat["layout"]): boolean {
   return layout === "structured-addr" || layout === "packed-plac";
 }
 
 /**
- * Reshape an incoming event's place into the master's layout, consuming both the
+ * Reshape an incoming event's place into the main's layout, consuming both the
  * incoming PLAC and ADDR.
  *
  *  - `structured-addr`: jurisdiction → comma-separated PLAC, house number/street
@@ -45,11 +45,11 @@ export function reformatPlace(
   const parish = p?.parish ?? a?.parish;
   const facility = p?.facility ?? a?.facility;
 
-  // Use the master's own attested PLAC/ADDR pairings (see PlaceHierarchy) to
+  // Use the main's own attested PLAC/ADDR pairings (see PlaceHierarchy) to
   // recognize a more specific locality than the incoming jurisdiction names —
-  // e.g. a street the master tree already ties to a particular hamlet — and to
+  // e.g. a street the main tree already ties to a particular hamlet — and to
   // fill in jurisdiction levels the incoming place omits (e.g. a municipality),
-  // the way the master itself writes that locality. A parish is deliberately
+  // the way the main itself writes that locality. A parish is deliberately
   // *not* used as a hint: one parish commonly spans many villages, so the
   // most-common locality for it is an unreliable plurality, not a real clue.
   if (fmt.hierarchy) {
@@ -62,7 +62,7 @@ export function reformatPlace(
     // ("Zgornje Bitnje 165") is not a disambiguating street — the locality is
     // already as specific as it gets. Using it as a hint would relocate the
     // record to wherever that same name happens to appear as a street under a
-    // *different* locality in the master, overriding an already-correct place.
+    // *different* locality in the main, overriding an already-correct place.
     const { localityOfStreet } = fmt.hierarchy;
     const streetLocality = (s: string | undefined): string | undefined =>
       s && s.toLowerCase() !== locality?.toLowerCase()
@@ -126,7 +126,7 @@ const clean = (s: string | undefined): string | undefined => {
   return t ? t : undefined;
 };
 
-/** Return the master's preferred display form for this country token, or the original. */
+/** Return the main's preferred display form for this country token, or the original. */
 function normalizeCountry(raw: string | undefined, fmt: PlaceTargetFormat): string | undefined {
   if (!raw || !fmt.countryPreferred) return raw;
   const canonical = canonicalPlaceToken(raw);

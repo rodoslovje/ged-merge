@@ -31,7 +31,7 @@ interface Props {
   decisionLetter?: string;
   /** Tooltip for the status chip, e.g. "Confirmed". */
   decisionTooltip?: string;
-  /** True when this relative's master record has unsaved edits — shows a "modified" chip. */
+  /** True when this relative's main record has unsaved edits — shows a "modified" chip. */
   modified?: boolean;
   /** Single letter shown in the modified chip, e.g. "M" / "S" (already localized). */
   modifiedLetter?: string;

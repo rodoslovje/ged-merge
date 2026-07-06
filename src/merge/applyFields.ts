@@ -54,7 +54,7 @@ export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note",
  * separate "Date:"/"Occupation:" line each, matching the single-line look already
  * used when a whole event is added or removed as a unit. Falls back to one row per
  * sub-field when they don't share the same action (the user picked "incoming" for
- * one and "both"/"master" for another), since a single from/to pair can't represent that.
+ * one and "both"/"main" for another), since a single from/to pair can't represent that.
  */
 export function combineEventEdits(recordId: string, group: string, entries: EventSubEdit[]): FieldChange[] {
   if (entries.length === 0) return [];
@@ -97,7 +97,7 @@ export function applyRows(
   // name, so date/place/note/source changes can be grouped under one header
   // in the save preview instead of repeating the event name on every line.
   const eventGroups = new Map<string, string>();
-  // New master events created for an incoming-only event (eventMasterIdx -1),
+  // New main events created for an incoming-only event (eventMainIdx -1),
   // keyed by `${tag}:${eventCompareIdx}` — that pair uniquely identifies the
   // incoming event across this record's rows. Without this cache, each of a
   // new event's sub-fields (date/place/value/…) would create its own separate
@@ -112,20 +112,20 @@ export function applyRows(
   const eventEdits = new Map<string, EventSubEdit[]>();
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
-    if (row.state === "agree" || row.state === "master-only") continue;
+    if (row.state === "agree" || row.state === "main-only") continue;
     // Handled elsewhere (family spouses/children go through applyFamilyStructure).
     if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
     const choice = fields[row.key] ?? defaultChoice(row as never);
-    if (choice === "master") continue;
+    if (choice === "main") continue;
 
     if (row.key === "links") {
       // The record-level "Sources" row carries both SOUR citations and plain
       // link icons (same shape as an event's sources row), so apply each.
       if (applyRecordSources(target, incomingRecord, choice, INDI_CHILD_ORDER, sourMap, report.customTags)) {
-        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.masterSources, row.incomingSources) });
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
         touched.add(recordId);
       }
-      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.masterLinkIcons ?? [], linkFormat, records);
+      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.mainLinkIcons ?? [], linkFormat, records);
       if (added.length) {
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", links: added });
         touched.add(recordId);
@@ -158,19 +158,19 @@ export function applyRows(
       // The row's own true per-side array positions, not a position parsed
       // back out of `key` — that numeric suffix is an output-order index from
       // date/place pairing, not necessarily either side's real array index
-      // once a tag has more than one instance (see `FieldRow.eventMasterIdx`).
-      const masterIdx = row.eventMasterIdx ?? 0;
+      // once a tag has more than one instance (see `FieldRow.eventMainIdx`).
+      const mainIdx = row.eventMainIdx ?? 0;
       const compareIdx = row.eventCompareIdx ?? 0;
       if (sub === "value") {
-        applied = applyEventValue(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
+        applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
+        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
       } else {
         const subTag = SUB_TAG[sub];
-        // Places are already reshaped into the master's layout when the
+        // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
         // directly like any other field.
-        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, masterIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
+        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
       }
     }
 
@@ -182,13 +182,13 @@ export function applyRows(
       if (eventKey && group && sub && sub !== "sources") {
         let entries = eventEdits.get(eventKey);
         if (!entries) { entries = []; eventEdits.set(eventKey, entries); }
-        entries.push({ sub, field: row.label, from: row.master, to: row.incoming, action: choice });
+        entries.push({ sub, field: row.label, from: row.main, to: row.incoming, action: choice });
       } else if (sub === "sources") {
         // Render added citations as the same 📖/🔗 icons the main UI uses,
         // inline on the event's line — not as a separate "Source: …" text row.
-        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.masterSources, row.incomingSources) });
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
       } else {
-        report.changes.push({ recordId, field: row.label, from: row.master, to: row.incoming, action: choice, group, unedited: choice === "incoming" });
+        report.changes.push({ recordId, field: row.label, from: row.main, to: row.incoming, action: choice, group, unedited: choice === "incoming" });
       }
       touched.add(recordId);
     }
@@ -199,7 +199,7 @@ export function applyRows(
 }
 
 /**
- * How the master file stores a record-level link.
+ * How the main file stores a record-level link.
  *  - "WWW": a plain `WWW <url>` line (RootsMagic, Ancestry, Synium, …).
  *  - "WEBTAG": Family Historian's `_WEBTAG` block, with the URL on a `URL`
  *    sub-line (`1 _WEBTAG` / `2 URL <url>`).
@@ -209,12 +209,12 @@ export function applyRows(
 export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
 
 /**
- * Append a link node for each incoming link the master doesn't already have
- * (by `linkKey`), shaped to match the master's own link format. Returns the
+ * Append a link node for each incoming link the main doesn't already have
+ * (by `linkKey`), shaped to match the main's own link format. Returns the
  * URLs actually added.
  *
  * Before minting a plain link, checks whether the URL belongs to a paginated
- * archive book (Matricula, parish registers, …) the master already cites as
+ * archive book (Matricula, parish registers, …) the main already cites as
  * a `SOUR` — same matching `findExistingSource` does for the manual "Add
  * Source" dialog. If so, the incoming link is attached as a `SOUR` citation
  * to that book (reusing its existing `OBJE` page, or adding a new one) so it
@@ -224,11 +224,11 @@ export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
 export function applyLinks(
   target: GedNode,
   incomingLinks: string[],
-  masterLinks: string[],
+  mainLinks: string[],
   linkFormat: LinkFormat,
   records: GedNode[],
 ): string[] {
-  const existing = new Set(masterLinks.map(linkKey));
+  const existing = new Set(mainLinks.map(linkKey));
   const added: string[] = [];
   for (const url of incomingLinks) {
     const key = linkKey(url);
@@ -271,16 +271,16 @@ function buildLinkNode(format: LinkFormat, url: string, records: GedNode[]): Ged
 }
 
 /**
- * Which `LinkFormat` the master file uses for its own record-level links, so
+ * Which `LinkFormat` the main file uses for its own record-level links, so
  * newly added links are written the same way. Counts `WWW` lines, `_WEBTAG`
  * blocks, and `OBJE` pointers to a media record whose `FILE` is a URL, across
  * all individuals and families (including their events), and picks whichever
- * the master already uses most; defaults to plain `WWW` lines when the master
+ * the main already uses most; defaults to plain `WWW` lines when the main
  * has none of these (or is ambiguous).
  */
-export function detectLinkFormat(master: Dataset): LinkFormat {
+export function detectLinkFormat(main: Dataset): LinkFormat {
   const objeFiles = new Map<string, string>();
-  for (const rec of master.records) {
+  for (const rec of main.records) {
     if (rec.tag !== "OBJE" || !rec.xref) continue;
     const file = firstChild(rec, "FILE")?.value?.trim();
     if (file) objeFiles.set(rec.xref, file);
@@ -298,8 +298,8 @@ export function detectLinkFormat(master: Dataset): LinkFormat {
     }
     for (const child of node.children) visit(child);
   };
-  for (const indi of master.individuals.values()) visit(indi.raw);
-  for (const fam of master.families.values()) visit(fam.raw);
+  for (const indi of main.individuals.values()) visit(indi.raw);
+  for (const fam of main.families.values()) visit(fam.raw);
 
   const max = Math.max(www, webtag, obje);
   if (max === 0) return "WWW";
@@ -409,8 +409,8 @@ export function applyAdditionalNames(
 }
 
 /**
- * Find the master event a row should write to: `masterEvents[masterIdx]`
- * when the row has a real master-side event, otherwise the new node created
+ * Find the main event a row should write to: `mainEvents[mainIdx]`
+ * when the row has a real main-side event, otherwise the new node created
  * for this incoming-only event's `(tag, compareIdx)` — reusing it across that
  * one event's sub-fields via `newEventNodes` instead of minting a separate
  * node per field.
@@ -418,13 +418,13 @@ export function applyAdditionalNames(
 function resolveEventNode(
   target: GedNode,
   tag: string,
-  masterIdx: number,
+  mainIdx: number,
   compareIdx: number,
   order: string[],
   newEventNodes?: Map<string, GedNode>,
 ): GedNode {
-  if (masterIdx >= 0) {
-    const existing = childrenByTag(target, tag)[masterIdx];
+  if (mainIdx >= 0) {
+    const existing = childrenByTag(target, tag)[mainIdx];
     if (existing) {
       markEventTouched(existing, "changed");
       return existing;
@@ -440,13 +440,13 @@ function resolveEventNode(
   return created;
 }
 
-/** Copy the direct value on an event line (e.g. occupation text) from incoming to master. */
+/** Copy the direct value on an event line (e.g. occupation text) from incoming to main. */
 export function applyEventValue(
   target: GedNode,
   incomingRecord: GedNode,
   tag: string,
   choice: FieldChoice,
-  masterIdx: number,
+  mainIdx: number,
   compareIdx: number,
   order: string[] = [],
   newEventNodes?: Map<string, GedNode>,
@@ -454,7 +454,7 @@ export function applyEventValue(
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   if (!incEvent?.value) return false;
   if (choice === "incoming" || choice === "both") {
-    const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
+    const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
     event.value = incEvent.value;
     return true;
   }
@@ -468,7 +468,7 @@ export function applyEventSub(
   tag: string,
   subTag: string,
   choice: FieldChoice,
-  masterIdx: number,
+  mainIdx: number,
   compareIdx: number,
   order: string[],
   sourMap: SourXrefMap,
@@ -478,14 +478,14 @@ export function applyEventSub(
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
-  const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
+  const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
 }
 
 /**
  * Apply an INDI/FAM record's own (record-level) `SOUR` citations from the
  * incoming record — its direct `SOUR` children, not those nested under an
- * event. "incoming" replaces the master's record-level citations; "both"
+ * event. "incoming" replaces the main's record-level citations; "both"
  * appends them. Mirrors `applyEventSources` but for the record node itself.
  * Plain record-level links are handled separately by `applyLinks`.
  */
@@ -519,8 +519,8 @@ function eventLinkUrls(event: GedNode | undefined): string[] {
 
 /**
  * Copy an event's `SOUR` citations and plain attached links (`WWW`/`_LINK`/…,
- * shown alongside the citations in review) from incoming to master: "incoming"
- * replaces the master's, "both" appends the incoming ones alongside them.
+ * shown alongside the citations in review) from incoming to main: "incoming"
+ * replaces the main's, "both" appends the incoming ones alongside them.
  * Citation values that point at a compare-file `SOUR`/`REPO` record are
  * remapped to that record's id in the merged output.
  */
@@ -529,7 +529,7 @@ export function applyEventSources(
   incomingRecord: GedNode,
   tag: string,
   choice: FieldChoice,
-  masterIdx: number,
+  mainIdx: number,
   compareIdx: number,
   order: string[],
   sourMap: SourXrefMap,
@@ -541,7 +541,7 @@ export function applyEventSources(
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
   const incLinks = eventLinkUrls(incEvent);
   if (incSours.length === 0 && incLinks.length === 0) return false;
-  const event = resolveEventNode(target, tag, masterIdx, compareIdx, order, newEventNodes);
+  const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
     if (choice !== "both") removeChildren(event, "SOUR");
     for (const s of incSours) {
@@ -560,7 +560,7 @@ export function applyEventSources(
       const key = linkKey(url);
       if (existing.has(key)) continue;
       existing.add(key);
-      // A link into a paginated archive book the master already cites as a
+      // A link into a paginated archive book the main already cites as a
       // SOUR is attached as a citation instead of becoming a disconnected link.
       const sourceMatch = findExistingSource(records, url);
       if (sourceMatch) {
@@ -703,7 +703,7 @@ const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE:
 
 /**
  * A content-identity key for a shared record, so a compare record describing
- * the same thing as an existing master one maps to the master's xref instead
+ * the same thing as an existing main one maps to the main's xref instead
  * of minting a duplicate. SOUR/REPO key on their descriptive fields
  * (`sourceContentKey`), a NOTE on its full text, an OBJE on the file/URL it
  * wraps. Undefined means "no identity-bearing content" — never match on it.
@@ -717,7 +717,7 @@ function sharedContentKey(rec: GedNode): string | undefined {
 /**
  * Map from a compare file's shared-record (SOUR/REPO/NOTE/OBJE) xref to the
  * xref it will carry in the merged output. Usually the same; only differs when
- * the compare xref collides with a master xref that points to a different
+ * the compare xref collides with a main xref that points to a different
  * record.
  */
 export type SourXrefMap = ReadonlyMap<string, string>;
@@ -725,30 +725,30 @@ export type SourXrefMap = ReadonlyMap<string, string>;
 /**
  * Pre-compute the xref translation table for all compare shared records
  * (SOUR/REPO/NOTE/OBJE). A compare record describing the same content as an
- * existing master one (per `sharedContentKey`, regardless of xref) maps
- * straight to that master xref, so merging never mints a duplicate record for
- * content the master already has. Otherwise: records whose xref does not
- * exist in the master are mapped to themselves; xref collisions (with an
+ * existing main one (per `sharedContentKey`, regardless of xref) maps
+ * straight to that main xref, so merging never mints a duplicate record for
+ * content the main already has. Otherwise: records whose xref does not
+ * exist in the main are mapped to themselves; xref collisions (with an
  * unrelated record) get a fresh xref of the same type (S…/R…/N…/O…) that
- * avoids all existing master xrefs. Without this, a pointer cloned from the
- * compare file could silently resolve to an unrelated master record that
+ * avoids all existing main xrefs. Without this, a pointer cloned from the
+ * compare file could silently resolve to an unrelated main record that
  * happens to share the xref.
  */
-export function buildSourXrefMap(compareRecords: GedNode[], masterRecords: GedNode[]): Map<string, string> {
+export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode[]): Map<string, string> {
   const map = new Map<string, string>();
-  const used = new Set(masterRecords.filter((r) => r.xref).map((r) => r.xref as string));
+  const used = new Set(mainRecords.filter((r) => r.xref).map((r) => r.xref as string));
 
-  const masterByContent = new Map<string, string>();
-  for (const rec of masterRecords) {
+  const mainByContent = new Map<string, string>();
+  for (const rec of mainRecords) {
     if (!SHARED_RECORD_TAGS.has(rec.tag) || !rec.xref) continue;
     const key = sharedContentKey(rec);
-    if (key && !masterByContent.has(`${rec.tag}:${key}`)) masterByContent.set(`${rec.tag}:${key}`, rec.xref);
+    if (key && !mainByContent.has(`${rec.tag}:${key}`)) mainByContent.set(`${rec.tag}:${key}`, rec.xref);
   }
 
   for (const rec of compareRecords) {
     if (!SHARED_RECORD_TAGS.has(rec.tag) || !rec.xref) continue;
     const key = sharedContentKey(rec);
-    const existing = key ? masterByContent.get(`${rec.tag}:${key}`) : undefined;
+    const existing = key ? mainByContent.get(`${rec.tag}:${key}`) : undefined;
     if (existing) {
       map.set(rec.xref, existing);
       continue;
@@ -783,7 +783,7 @@ export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
 /**
  * Pointer-valued tags that must not travel with a node cloned wholesale from
  * the compare file: they reference individuals, families, or submitters in the
- * *compare* file's xref namespace, so in the master they would either dangle
+ * *compare* file's xref namespace, so in the main they would either dangle
  * or — worse — silently resolve to an unrelated record that happens to share
  * the xref. Family links (FAMC/FAMS, incl. the event-level FAMC under
  * ADOP/BIRT) are re-stitched structurally by the merge itself; associations
@@ -794,7 +794,7 @@ const FOREIGN_POINTER_TAGS = new Set(["FAMC", "FAMS", "ASSO", "ALIA", "SUBM", "A
 
 /**
  * Remove every foreign-pointer node (see `FOREIGN_POINTER_TAGS`) from a
- * subtree about to be inserted into the master. Returns the tags removed, so
+ * subtree about to be inserted into the main. Returns the tags removed, so
  * the caller can report dropped associations.
  */
 export function stripForeignPointers(node: GedNode): string[] {
@@ -877,7 +877,7 @@ export function importSourRecords(
  * for the caller to build undo patches from.
  *
  * Used by Edit mode when a direct field edit (e.g. correcting a place)
- * materializes a master event from an incoming-only suggestion: once that
+ * materializes a main event from an incoming-only suggestion: once that
  * happens the event is excluded from all further merge-engine consideration
  * (see EditView's `rejectIncomingEvent`), so its sources must be brought
  * across right now via the same xref-import logic `mergeDecisions` uses, or

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../chart/timeline";
-import { formatMarriage } from "../chart/nodeDisplay";
+import { formatMarriage, livingLabelFor } from "../chart/nodeDisplay";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -30,10 +30,10 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // The root person's bar keeps the full-strength accent; family bars are the
 // same pine faded toward the panel, so the root stands out by intensity in
-// both themes (in light mode --accent and --node-master are nearly the same
+// both themes (in light mode --accent and --node-main are nearly the same
 // green, so a hue difference alone wouldn't read).
 const COLOR_PERSON = "var(--accent)";
-const COLOR_FAMILY = "color-mix(in srgb, var(--node-master) 45%, var(--panel))";
+const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
 // ── Geometry (native, pre-zoom pixels) ───────────────────────────────────────
 const PX_PER_YEAR = 14;
@@ -104,10 +104,10 @@ const TAPER_W = 12;
 const TICK_STEP = 10;
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   rootId: string;
   startId?: string;
-  /** Master ids with unsaved edits — those rows show the "M" chip. */
+  /** Main ids with unsaved edits — those rows show the "M" chip. */
   changedPersonIds?: Set<string>;
   /** Merge decisions, so decided matches show their C/R/D chip here too. */
   decisions?: Map<string, CandidateDecision>;
@@ -123,7 +123,7 @@ interface Props {
   onRootChange?: (id: string) => void;
 }
 
-export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
@@ -138,11 +138,10 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
   // Kinship-to-start adds nothing while the timeline is rooted on the start
   // person themselves — every row's role already says the same thing.
   const showKinship = settings.showKinship && appSettings.showKinship && !!startId && startId !== currentRootId;
-  const livingLabel = t("tree.node.living");
 
   const data = useMemo(
-    () => buildTimeline(t, masterDs, currentRootId, nameOf),
-    [t, masterDs, currentRootId, nameOf],
+    () => buildTimeline(t, mainDs, currentRootId, nameOf),
+    [t, mainDs, currentRootId, nameOf],
   );
 
   // Photos need a loaded media folder.
@@ -174,8 +173,8 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
   const kinship = useMemo(
-    () => (startId ? createKinshipResolver(masterDs, startId, t) : undefined),
-    [masterDs, startId, t],
+    () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
+    [mainDs, startId, t],
   );
 
   // Redact people inferred to be living: label only (a bar would betray the
@@ -187,9 +186,9 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
   const rowName = useCallback(
     (row: TimelineRow) => {
       if (!redacted(row)) return row.name;
-      return kinship?.label(row.id) || livingLabel;
+      return kinship?.label(row.id) || livingLabelFor(t, row.sex);
     },
-    [redacted, kinship, livingLabel],
+    [redacted, kinship, t],
   );
 
   // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
@@ -221,17 +220,17 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
 
   const selectedRow = rows.find((r) => r.key === selectedKey);
-  const selectedIndi = selectedRow ? masterDs.individuals.get(selectedRow.id) : undefined;
+  const selectedIndi = selectedRow ? mainDs.individuals.get(selectedRow.id) : undefined;
   const selectedRows = useMemo(
-    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, masterDs) : []),
-    [t, selectedIndi, masterDs],
+    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, mainDs) : []),
+    [t, selectedIndi, mainDs],
   );
-  const masterNav = useMemo(
+  const mainNav = useMemo(
     () => ({
-      linkable: (id: string) => masterDs.individuals.has(id),
+      linkable: (id: string) => mainDs.individuals.has(id),
       onNavigate: (id: string) => { changeRoot(id); setSelectedKey(null); },
     }),
-    [masterDs, setSelectedKey, changeRoot],
+    [mainDs, setSelectedKey, changeRoot],
   );
 
   const rootRow = rows.find((r) => r.role === "person");
@@ -287,7 +286,7 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}
             title={exportTitle}
-            gedcom={{ ds: masterDs, personIds: rows.map((r) => r.id) }}
+            gedcom={{ ds: mainDs, personIds: rows.map((r) => r.id) }}
             canvasRef={canvasRef}
           />
         </>
@@ -323,8 +322,8 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
                     : 0;
                   // Keep the label on-canvas even when the bar starts far right.
                   const labelX = Math.max(4, Math.min(barX, geom.contentW - 220));
-                  const indi = masterDs.individuals.get(row.id);
-                  const photoPath = photosOn && !hidden && indi ? collectFirstFilePath(indi.raw, masterDs.records) : null;
+                  const indi = mainDs.individuals.get(row.id);
+                  const photoPath = photosOn && !hidden && indi ? collectFirstFilePath(indi.raw, mainDs.records) : null;
                   // The avatar's left edge sits on the birth year; text clears its right edge.
                   const photoX = row.from !== undefined ? barX : labelX;
                   const nameX = photoPath ? photoX + PHOTO_SIZE + 8 : labelX;
@@ -457,9 +456,9 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
                       ))}
                       {photoPath && indi && (
                         <TreeNodePhoto
-                          node={{ master: { raw: indi.raw } }}
-                          masterRecords={masterDs.records}
-                          masterRefCtx={{ dataset: masterDs, onNavigate: changeRoot }}
+                          node={{ main: { raw: indi.raw } }}
+                          mainRecords={mainDs.records}
+                          mainRefCtx={{ dataset: mainDs, onNavigate: changeRoot }}
                           x={photoX}
                           y={PHOTO_Y}
                           size={PHOTO_SIZE}
@@ -526,8 +525,8 @@ export function TimelineChart({ masterDs, rootId, startId, changedPersonIds, dec
             node={selectedRow}
             swatch={selectedRow.role === "person" ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
-            masterPerson={masterNav}
-            masterLabel={t("tree.master")}
+            mainPerson={mainNav}
+            mainLabel={t("tree.main")}
             singleColumn
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => {

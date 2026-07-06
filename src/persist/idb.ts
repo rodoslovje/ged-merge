@@ -1,6 +1,6 @@
 // IndexedDB-backed workspace persistence.
 //
-// Caches the loaded master/compare GEDCOM files and the pending *merge* session
+// Caches the loaded main/compare GEDCOM files and the pending *merge* session
 // (decisions, import-branch selections, home person) so a reload restores the
 // workspace instead of dropping back to the landing page. Mirrors the
 // handle-persistence pattern in MediaFolderContext: its own DB, best-effort,
@@ -23,7 +23,7 @@ import type { UndoEntry } from "../edit-state/useUndoRedo";
 
 const DB_NAME = "gedmerge-session";
 const DB_VERSION = 1;
-const FILES_STORE = "files"; // keyed "master" | "compare"
+const FILES_STORE = "files"; // keyed "main" | "compare"
 const SESSION_STORE = "session"; // keyed "current"
 
 /**
@@ -35,10 +35,17 @@ const SESSION_STORE = "session"; // keyed "current"
  * session is then discarded on load instead of hydrated (the cached files
  * themselves are plain blobs and always survive). Sessions written before
  * this field existed carry the version-1 shapes, so absence reads as 1.
+ *
+ * Schema 2: the "master" vocabulary became "main" — the files-store key and
+ * the persisted `mainFileName` / field-choice values all renamed.
  */
-const SESSION_SCHEMA = 1;
+const SESSION_SCHEMA = 2;
 
-type FileRole = "master" | "compare";
+/** Files-store key used before the master→main rename; read as a fallback so
+ *  cached files written by older app versions still restore. */
+const LEGACY_MAIN_KEY = "master";
+
+type FileRole = "main" | "compare";
 const SESSION_KEY = "current";
 
 /** A cached loaded file, kept as a Blob so the exact bytes (and charset) round-trip. */
@@ -51,7 +58,7 @@ export interface StoredFile {
 }
 
 /** Unsaved Edit-mode state, present only once the dataset has actually been
- *  edited. The cached master file then holds the *edited* serialization, so the
+ *  edited. The cached main file then holds the *edited* serialization, so the
  *  re-parsed dataset is post-edit; diffing it against these pre-edit snapshots
  *  reproduces the change report and pending counts. `GedNode`/`UndoEntry` trees
  *  are structured-cloneable, so they round-trip through IndexedDB as-is. */
@@ -68,11 +75,11 @@ export interface StoredEditState {
   redo: UndoEntry[];
 }
 
-/** The pending merge session, co-persisted with the master it belongs to. */
+/** The pending merge session, co-persisted with the main it belongs to. */
 export interface StoredSession {
   /** {@link SESSION_SCHEMA} at write time; stamped by `saveSession`. */
   schema?: number;
-  masterFileName: string;
+  mainFileName: string;
   compareFileName?: string;
   /** `Array.from(decisions)` — Maps don't survive JSON but the entry array does. */
   decisions: [string, CandidateDecision][];
@@ -148,20 +155,22 @@ function idbDelete(db: IDBDatabase, store: string, key: string): Promise<void> {
 
 /** Read the whole cached workspace in one shot for startup hydration. */
 export function loadWorkspace(): Promise<{
-  master?: StoredFile;
+  main?: StoredFile;
   compare?: StoredFile;
   session?: StoredSession;
 }> {
-  return withDb<{ master?: StoredFile; compare?: StoredFile; session?: StoredSession }>(async (db) => {
-    const [master, compare, session] = await Promise.all([
-      idbGet<StoredFile>(db, FILES_STORE, "master"),
+  return withDb<{ main?: StoredFile; compare?: StoredFile; session?: StoredSession }>(async (db) => {
+    const [mainNew, mainLegacy, compare, session] = await Promise.all([
+      idbGet<StoredFile>(db, FILES_STORE, "main"),
+      idbGet<StoredFile>(db, FILES_STORE, LEGACY_MAIN_KEY),
       idbGet<StoredFile>(db, FILES_STORE, "compare"),
       idbGet<StoredSession>(db, SESSION_STORE, SESSION_KEY),
     ]);
+    const main = mainNew ?? mainLegacy;
     // A session written by an incompatible app version is discarded rather
     // than hydrated into the wrong shapes; the cached files still restore.
     const compatible = session && (session.schema ?? 1) === SESSION_SCHEMA ? session : undefined;
-    return { master, compare, session: compatible };
+    return { main, compare, session: compatible };
   }, {});
 }
 
@@ -170,7 +179,10 @@ export function saveFile(role: FileRole, file: StoredFile): Promise<void> {
 }
 
 export function deleteFile(role: FileRole): Promise<void> {
-  return withDb((db) => idbDelete(db, FILES_STORE, role), undefined);
+  return withDb(async (db) => {
+    await idbDelete(db, FILES_STORE, role);
+    if (role === "main") await idbDelete(db, FILES_STORE, LEGACY_MAIN_KEY);
+  }, undefined);
 }
 
 export function saveSession(session: StoredSession): Promise<void> {
@@ -184,7 +196,8 @@ export function saveSession(session: StoredSession): Promise<void> {
 export function clearWorkspace(): Promise<void> {
   return withDb(async (db) => {
     await Promise.all([
-      idbDelete(db, FILES_STORE, "master"),
+      idbDelete(db, FILES_STORE, "main"),
+      idbDelete(db, FILES_STORE, LEGACY_MAIN_KEY),
       idbDelete(db, FILES_STORE, "compare"),
       idbDelete(db, SESSION_STORE, SESSION_KEY),
     ]);

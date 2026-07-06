@@ -101,25 +101,25 @@ export const EVENT_ORDER = [
  */
 export function individualFieldRows(
   t: Translate,
-  master: Individual | undefined,
+  main: Individual | undefined,
   compare: Individual | undefined,
-  masterDs?: Dataset,
+  mainDs?: Dataset,
   compareDs?: Dataset,
   placeFmt?: PlaceTargetFormat,
   /** Incoming events to treat as absent — see `CandidateDecision.rejectedEvents`. */
   rejectedEvents?: Set<string>,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
-  const mn = master?.names[0];
+  const mn = main?.names[0];
   const cn = compare?.names[0];
-  const resolvedPlaceFmt = placeFmt ?? (masterDs ? inferPlaceExportFormat(masterDs) : undefined);
+  const resolvedPlaceFmt = placeFmt ?? (mainDs ? inferPlaceExportFormat(mainDs) : undefined);
   const shouldReshape = !!(resolvedPlaceFmt && reshapesLayout(resolvedPlaceFmt.layout));
 
   pushRow(rows, "given", formatFieldLabel(t, "given"), mn?.given, cn?.given);
   pushRow(rows, "surname", formatFieldLabel(t, "surname"), mn?.surname, cn?.surname);
-  pushRow(rows, "sex", formatFieldLabel(t, "sex"), sexText(t, master?.sex), sexText(t, compare?.sex));
+  pushRow(rows, "sex", formatFieldLabel(t, "sex"), sexText(t, main?.sex), sexText(t, compare?.sex));
   pushRow(rows, "nickname", formatFieldLabel(t, "nickname"), mn?.nickname, cn?.nickname);
-  const mExtraNames = master?.names.slice(1) ?? [];
+  const mExtraNames = main?.names.slice(1) ?? [];
   const cExtraNames = compare?.names.slice(1) ?? [];
   if (mExtraNames.length || cExtraNames.length) {
     const mText = mExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
@@ -130,14 +130,14 @@ export function individualFieldRows(
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then
   // notes, all before the events.
-  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), master?.sources, compare?.sources, gatherLinks(master), gatherLinks(compare));
-  pushRow(rows, "notes", formatFieldLabel(t, "notes"), master?.notes?.join("\n"), compare?.notes?.join("\n"));
+  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare));
+  pushRow(rows, "notes", formatFieldLabel(t, "notes"), main?.notes?.join("\n"), compare?.notes?.join("\n"));
 
-  for (const { tag, masterIdx, compareIdx, keyIdx, multi } of orderedEventTags(master, compare)) {
-    const masterEvents = master?.events.filter((e) => e.tag === tag) ?? [];
+  for (const { tag, mainIdx, compareIdx, keyIdx, multi } of orderedEventTags(main, compare)) {
+    const mainEvents = main?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
     const rejected = compareIdx >= 0 && (rejectedEvents?.has(`${tag}:${compareIdx}`) ?? false);
-    const me = masterIdx >= 0 ? masterEvents[masterIdx] : undefined;
+    const me = mainIdx >= 0 ? mainEvents[mainIdx] : undefined;
     const ce = !rejected && compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
     const effectiveCompareIdx = rejected ? -1 : compareIdx;
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
@@ -150,9 +150,9 @@ export function individualFieldRows(
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
     pushRow(subRows, `${keyBase}.value`, isEven ? t("event.colAgency") : formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
-    // Places are already reshaped into the master's layout when the incoming
+    // Places are already reshaped into the main's layout when the incoming
     // file was loaded (see normalize/normalize.ts), so the raw values can be
-    // shown directly. When the master doesn't enforce a particular layout,
+    // shown directly. When the main doesn't enforce a particular layout,
     // fall back to heuristically extracting a comparable address for display.
     const effectiveIncomingAddr = shouldReshape
       ? ce?.address?.raw
@@ -168,10 +168,10 @@ export function individualFieldRows(
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
-    for (const r of subRows) { r.eventMasterIdx = masterIdx; r.eventCompareIdx = effectiveCompareIdx; }
+    for (const r of subRows) { r.eventMainIdx = mainIdx; r.eventCompareIdx = effectiveCompareIdx; }
     if (subRows.length > 0) {
       rows.push({
-        key: `${keyBase}.header`, label: eventLabel, master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+        key: `${keyBase}.header`, label: eventLabel, main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
       });
       rows.push(...subRows);
     }
@@ -180,24 +180,24 @@ export function individualFieldRows(
   // Relatives last: parents, partner(s), the marriage facts, then children.
   // Marriage and children live on the FAM record but are reconciled here on the
   // spouse so every decision about a person is made in one place.
-  if (masterDs && compareDs) {
+  if (mainDs && compareDs) {
     const parentRows: FieldRow[] = [];
-    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(master, masterDs, "husband"), parentRelative(compare, compareDs, "husband"));
-    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(master, masterDs, "wife"), parentRelative(compare, compareDs, "wife"));
+    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband"), parentRelative(compare, compareDs, "husband"));
+    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife"), parentRelative(compare, compareDs, "wife"));
     if (parentRows.length > 0) {
-      rows.push({ key: "parents.header", label: t("field.parents"), master: "", incoming: "", state: "agree", isGroupHeader: true });
+      rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
       rows.push(...parentRows);
     }
 
-    const famPairs = pairFamilies(master, compare, masterDs, compareDs);
+    const famPairs = pairFamilies(main, compare, mainDs, compareDs);
     famPairs.forEach((pair) => {
-      const mFam = pair.masterFam;
+      const mFam = pair.mainFam;
       const cFam = pair.compareFam;
       const famKey = cFam ? `fam.${cFam.id}` : `fam.${mFam!.id}`;
 
-      const mSpouseId = mFam ? (mFam.husband === master?.id ? mFam.wife : mFam.husband) : undefined;
+      const mSpouseId = mFam ? (mFam.husband === main?.id ? mFam.wife : mFam.husband) : undefined;
       const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
-      const mSpouse = mSpouseId ? masterDs.individuals.get(mSpouseId) : undefined;
+      const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
       const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
       const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse)] : [];
       const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse)] : [];
@@ -207,7 +207,7 @@ export function individualFieldRows(
       rows.push({
         key: `${famKey}.header`,
         label: t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` }),
-        master: "",
+        main: "",
         incoming: "",
         state: "agree",
         isGroupHeader: true,
@@ -230,7 +230,7 @@ export function individualFieldRows(
       pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
       if (marriageRows.length > 0) {
         rows.push({
-          key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+          key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
         });
         rows.push(...marriageRows);
       }
@@ -250,7 +250,7 @@ export function individualFieldRows(
         pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
         if (etagRows.length > 0) {
           rows.push({
-            key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+            key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
           });
           rows.push(...etagRows);
         }
@@ -260,13 +260,13 @@ export function individualFieldRows(
       const cFamNotes = cFam?.notes?.join("\n");
       pushRow(rows, `${famKey}.notes`, formatFieldLabel(t, `${famKey}.notes`), mFamNotes, cFamNotes);
 
-      const mChildren = mFam ? mFam.children.map(id => masterDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
+      const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
       const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
       const mChildRels = individualsToRelatives(mChildren);
       const cChildRels = individualsToRelatives(cChildren);
 
       if (mChildRels.length > 0 || cChildRels.length > 0) {
-        rows.push({ key: `${famKey}.children.header`, label: t("field.children"), master: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+        rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
         pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
       }
     });
@@ -296,26 +296,26 @@ function individualsToRelatives(indis: Individual[]): Relative[] {
 }
 
 interface FamPair {
-  masterFam?: Family;
+  mainFam?: Family;
   compareFam?: Family;
 }
 
 function pairFamilies(
-  master: Individual | undefined,
+  main: Individual | undefined,
   compare: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset
 ): FamPair[] {
-  const mFams = master ? master.spouseOf.map(id => masterDs.families.get(id)).filter((f): f is Family => !!f) : [];
+  const mFams = main ? main.spouseOf.map(id => mainDs.families.get(id)).filter((f): f is Family => !!f) : [];
   const cFams = compare ? compare.spouseOf.map(id => compareDs.families.get(id)).filter((f): f is Family => !!f) : [];
 
   const cand: { mi: number; ii: number; sim: number }[] = [];
 
   mFams.forEach((mf, mi) => {
     cFams.forEach((cf, ii) => {
-      const mSpouseId = mf.husband === master?.id ? mf.wife : mf.husband;
+      const mSpouseId = mf.husband === main?.id ? mf.wife : mf.husband;
       const cSpouseId = cf.husband === compare?.id ? cf.wife : cf.husband;
-      const mSpouse = mSpouseId ? masterDs.individuals.get(mSpouseId) : undefined;
+      const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
       const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
 
       let sim = 0;
@@ -327,7 +327,7 @@ function pairFamilies(
          if (mFams.length === 1 && cFams.length === 1) {
            sim = 1;
          } else {
-           const mKids = mf.children.map(id => masterDs.individuals.get(id)).filter(Boolean) as Individual[];
+           const mKids = mf.children.map(id => mainDs.individuals.get(id)).filter(Boolean) as Individual[];
            const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
            let matches = 0;
            mKids.forEach(mk => {
@@ -361,7 +361,7 @@ function pairFamilies(
   const pairs: FamPair[] = [];
   mFams.forEach((mf, mi) => {
     const ii = matchOf.get(mi);
-    pairs.push({ masterFam: mf, compareFam: ii !== undefined ? cFams[ii] : undefined });
+    pairs.push({ mainFam: mf, compareFam: ii !== undefined ? cFams[ii] : undefined });
   });
   cFams.forEach((cf, ii) => {
     if (!usedC.has(ii)) pairs.push({ compareFam: cf });
@@ -370,24 +370,24 @@ function pairFamilies(
 }
 
 /**
- * Master family id → the `fam.<id>` key base used for that family's rows in
+ * Main family id → the `fam.<id>` key base used for that family's rows in
  * `individualFieldRows` (see the `famKey` derivation above: a paired family
- * is keyed by the *compare* side's id, not the master's). Callers that walk
- * the master's own family records — e.g. the edit view rendering a confirmed
+ * is keyed by the *compare* side's id, not the main's). Callers that walk
+ * the main's own family records — e.g. the edit view rendering a confirmed
  * merge's preview — need this to look up highlight/incoming data by the
- * master family id they have on hand.
+ * main family id they have on hand.
  */
 export function familyMergeKeyBases(
-  master: Individual | undefined,
+  main: Individual | undefined,
   compare: Individual | undefined,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
 ): Map<string, string> {
   const map = new Map<string, string>();
-  for (const pair of pairFamilies(master, compare, masterDs, compareDs)) {
-    if (!pair.masterFam) continue;
-    const key = pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.${pair.masterFam.id}`;
-    map.set(pair.masterFam.id, key);
+  for (const pair of pairFamilies(main, compare, mainDs, compareDs)) {
+    if (!pair.mainFam) continue;
+    const key = pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.${pair.mainFam.id}`;
+    map.set(pair.mainFam.id, key);
   }
   return map;
 }
@@ -446,9 +446,9 @@ interface Relative {
 
 /**
  * Summary counts over a set of field rows:
- *  - `newCount`  = fields the compare record has but the master lacks (to add)
+ *  - `newCount`  = fields the compare record has but the main lacks (to add)
  *  - `diffCount` = fields both have but that differ (to reconcile)
- *  - `linkCount` = attached links the compare has that the master lacks
+ *  - `linkCount` = attached links the compare has that the main lacks
  *
  * Links are tallied separately (not folded into new/diff) so the matches list
  * can surface and filter on them as their own dimension.
@@ -460,25 +460,25 @@ export function fieldDiffCounts(
   let diffCount = 0;
   let linkCount = 0;
   for (const row of rows) {
-    const isLink = row.masterLinks !== undefined || row.incomingLinks !== undefined;
-    const isSources = row.masterSources !== undefined || row.incomingSources !== undefined
-      || row.masterLinkIcons !== undefined || row.incomingLinkIcons !== undefined;
+    const isLink = row.mainLinks !== undefined || row.incomingLinks !== undefined;
+    const isSources = row.mainSources !== undefined || row.incomingSources !== undefined
+      || row.mainLinkIcons !== undefined || row.incomingLinkIcons !== undefined;
     if (isLink) {
-      const masterKeys = new Set((row.masterLinks ?? []).map(linkKey));
-      if ((row.incomingLinks ?? []).some((url) => !masterKeys.has(linkKey(url)))) linkCount++;
+      const mainKeys = new Set((row.mainLinks ?? []).map(linkKey));
+      if ((row.incomingLinks ?? []).some((url) => !mainKeys.has(linkKey(url)))) linkCount++;
     } else if (isSources) {
       // row.state also folds in icon-only links (for default-choice purposes),
       // so re-derive the citation-only comparison here to keep those tallied
       // exclusively via linkCount below, not double-counted into new/diff.
-      const mKeys = new Set((row.masterSources ?? []).map(sourceCitationKey));
+      const mKeys = new Set((row.mainSources ?? []).map(sourceCitationKey));
       const iKeys = new Set((row.incomingSources ?? []).map(sourceCitationKey));
       if (!mKeys.size && iKeys.size) newCount++;
       else if (mKeys.size && iKeys.size && !(mKeys.size === iKeys.size && [...mKeys].every((k) => iKeys.has(k)))) diffCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
-    if (row.masterLinkIcons || row.incomingLinkIcons) {
-      const masterIconKeys = new Set((row.masterLinkIcons ?? []).map(linkKey));
-      if ((row.incomingLinkIcons ?? []).some((url) => !masterIconKeys.has(linkKey(url)))) linkCount++;
+    if (row.mainLinkIcons || row.incomingLinkIcons) {
+      const mainIconKeys = new Set((row.mainLinkIcons ?? []).map(linkKey));
+      if ((row.incomingLinkIcons ?? []).some((url) => !mainIconKeys.has(linkKey(url)))) linkCount++;
     }
   }
   return { newCount, diffCount, linkCount };
@@ -490,53 +490,53 @@ function pushRow(
   rows: FieldRow[],
   key: string,
   label: string,
-  master: string | undefined,
+  main: string | undefined,
   incoming: string | undefined,
   displayLabel?: string,
-  masterTitle?: string,
+  mainTitle?: string,
   incomingTitle?: string,
 ): void {
-  const m = (master ?? "").trim();
+  const m = (main ?? "").trim();
   const i = (incoming ?? "").trim();
   if (!m && !i) return; // nothing to show
-  rows.push({ key, label, master: m, incoming: i, state: stateOf(key, m, i), displayLabel, masterTitle, incomingTitle });
+  rows.push({ key, label, main: m, incoming: i, state: stateOf(key, m, i), displayLabel, mainTitle, incomingTitle });
 }
 
 /**
  * Push a list-of-relatives row (partners, children) whose two sides are *aligned*
- * by name: a master relative and its closest incoming counterpart share a line,
+ * by name: a main relative and its closest incoming counterpart share a line,
  * while relatives with no match on the other side get a line of their own (the
  * opposite cell left blank). This lines matching people up so differences and
  * additions are easy to spot. Blank-padding is kept out of the emptiness/state
- * test so a one-sided list still reads as master-/incoming-only.
+ * test so a one-sided list still reads as main-/incoming-only.
  */
 function pushRelativesRow(
   rows: FieldRow[],
   key: string,
   label: string,
-  master: Relative[],
+  main: Relative[],
   incoming: Relative[],
   displayLabel?: string,
   perChildChoice?: boolean,
 ): void {
-  if (master.length === 0 && incoming.length === 0) return;
-  const pairs = alignRelatives(master, incoming);
+  if (main.length === 0 && incoming.length === 0) return;
+  const pairs = alignRelatives(main, incoming);
   // Joined text is still kept so comparison/state and the merge's default choice
-  // (master-if-present) work; rendering uses the structured `relatives` pairs.
-  const m = master.length ? pairs.map((p) => p.master?.text ?? "").join("\n") : "";
+  // (main-if-present) work; rendering uses the structured `relatives` pairs.
+  const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
   const i = incoming.length ? pairs.map((p) => p.incoming?.text ?? "").join("\n") : "";
   const state: FieldState =
-    m && !i ? "master-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
+    m && !i ? "main-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
   rows.push({
     key,
     label,
     ...(displayLabel !== undefined ? { displayLabel } : {}),
     ...(perChildChoice ? { perChildChoice: true } : {}),
-    master: m,
+    main: m,
     incoming: i,
     state,
     relatives: pairs,
-    masterRefs: pairs.map((p) => p.master?.id),
+    mainRefs: pairs.map((p) => p.main?.id),
     incomingRefs: pairs.map((p) => p.incoming?.id),
   });
 }
@@ -564,14 +564,14 @@ function relativeCell(r: Relative): RelativeCell {
 const RELATIVE_PAIR_THRESHOLD = 0.85;
 
 /**
- * Greedily pair master and incoming relatives by name similarity (best pairs
- * first), then emit aligned pairs: matched relatives share a pair in master
- * order, master-only relatives get a pair with no incoming side, and any
- * unmatched incoming relatives are appended with no master side.
+ * Greedily pair main and incoming relatives by name similarity (best pairs
+ * first), then emit aligned pairs: matched relatives share a pair in main
+ * order, main-only relatives get a pair with no incoming side, and any
+ * unmatched incoming relatives are appended with no main side.
  */
-function alignRelatives(master: Relative[], incoming: Relative[]): RelativePair[] {
+function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
-  master.forEach((m, mi) =>
+  main.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
       const sim = relativeSimilarity(m, c);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ mi, ii, sim });
@@ -579,21 +579,21 @@ function alignRelatives(master: Relative[], incoming: Relative[]): RelativePair[
   );
   cand.sort((a, b) => b.sim - a.sim);
 
-  const matchOf = new Map<number, number>(); // master index -> incoming index
+  const matchOf = new Map<number, number>(); // main index -> incoming index
   const usedIncoming = new Set<number>();
-  const usedMaster = new Set<number>();
+  const usedMain = new Set<number>();
   for (const p of cand) {
-    if (usedMaster.has(p.mi) || usedIncoming.has(p.ii)) continue;
-    usedMaster.add(p.mi);
+    if (usedMain.has(p.mi) || usedIncoming.has(p.ii)) continue;
+    usedMain.add(p.mi);
     usedIncoming.add(p.ii);
     matchOf.set(p.mi, p.ii);
   }
 
   const pairs: RelativePair[] = [];
-  master.forEach((m, mi) => {
+  main.forEach((m, mi) => {
     const ii = matchOf.get(mi);
     pairs.push({
-      master: relativeCell(m),
+      main: relativeCell(m),
       incoming: ii !== undefined ? relativeCell(incoming[ii]) : undefined,
     });
   });
@@ -656,19 +656,19 @@ function pushSourcesRow(
   rows: FieldRow[],
   key: string,
   label: string,
-  master: SourceCitation[] | undefined,
+  main: SourceCitation[] | undefined,
   incoming: SourceCitation[] | undefined,
-  masterLinks?: string[],
+  mainLinks?: string[],
   incomingLinks?: string[],
 ): void {
-  const mBase = master ?? [];
+  const mBase = main ?? [];
   const iBase = incoming ?? [];
   // A plain link that resolves to the exact same archival page as a citation
   // already on the other side is the same record, just not yet itself a
   // citation on this side — show it as that citation (with the other side's
   // title/page) instead of a disconnected new link, so an identical source
   // doesn't read as a conflict needing a merge decision.
-  const { sources: m, remainingLinks: mRemainingLinks } = reconcileLinksAsCitations(masterLinks, mBase, iBase);
+  const { sources: m, remainingLinks: mRemainingLinks } = reconcileLinksAsCitations(mainLinks, mBase, iBase);
   const { sources: i, remainingLinks: iRemainingLinks } = reconcileLinksAsCitations(incomingLinks, iBase, mBase);
   const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
   const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
@@ -677,14 +677,14 @@ function pushSourcesRow(
     key,
     label,
     // Keep a text form — including the icon-only links — so the default merge
-    // choice (master-if-present) and the row's agree/conflict state see them
+    // choice (main-if-present) and the row's agree/conflict state see them
     // too, not just the citations.
-    master: [...m.map((c) => c.title ?? c.sourceId), ...mIcons].join("\n"),
+    main: [...m.map((c) => c.title ?? c.sourceId), ...mIcons].join("\n"),
     incoming: [...i.map((c) => c.title ?? c.sourceId), ...iIcons].join("\n"),
     state: sourcesState(m, i, mIcons, iIcons),
-    masterSources: m.length ? m : undefined,
+    mainSources: m.length ? m : undefined,
     incomingSources: i.length ? i : undefined,
-    masterLinkIcons: mIcons.length ? mIcons : undefined,
+    mainLinkIcons: mIcons.length ? mIcons : undefined,
     incomingLinkIcons: iIcons.length ? iIcons : undefined,
   });
 }
@@ -725,19 +725,19 @@ function reconcileLinksAsCitations(
  * field if either is non-empty, so a links-only difference isn't masked as
  * "agree" just because the citations happen to match (or both be empty). */
 function sourcesState(
-  master: SourceCitation[],
+  main: SourceCitation[],
   incoming: SourceCitation[],
-  masterIcons: string[] = [],
+  mainIcons: string[] = [],
   incomingIcons: string[] = [],
 ): FieldState {
-  const m = new Set(master.map(sourceCitationKey));
+  const m = new Set(main.map(sourceCitationKey));
   const i = new Set(incoming.map(sourceCitationKey));
-  const mi = new Set(masterIcons.map(linkKey));
+  const mi = new Set(mainIcons.map(linkKey));
   const ii = new Set(incomingIcons.map(linkKey));
-  const masterHas = m.size > 0 || mi.size > 0;
+  const mainHas = m.size > 0 || mi.size > 0;
   const incomingHas = i.size > 0 || ii.size > 0;
-  if (masterHas && !incomingHas) return "master-only";
-  if (!masterHas && incomingHas) return "incoming-only";
+  if (mainHas && !incomingHas) return "main-only";
+  if (!mainHas && incomingHas) return "incoming-only";
   const sameCitations = m.size === i.size && [...m].every((x) => i.has(x));
   const sameIcons = mi.size === ii.size && [...mi].every((x) => ii.has(x));
   return sameCitations && sameIcons ? "agree" : "conflict";
@@ -748,15 +748,15 @@ function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): s
   return n.type ? `${name} (${nameTypeLabel(n.type, t)})` : name;
 }
 
-function stateOf(key: string, master: string, incoming: string): FieldState {
-  if (master && !incoming) return "master-only";
-  if (!master && incoming) return "incoming-only";
+function stateOf(key: string, main: string, incoming: string): FieldState {
+  if (main && !incoming) return "main-only";
+  if (!main && incoming) return "incoming-only";
   const keyFn = key.endsWith(".place")
     ? placeCompareKey
     : key.endsWith(".date")
       ? dateCompareKey
       : compareKey;
-  return keyFn(master) === keyFn(incoming) ? "agree" : "conflict";
+  return keyFn(main) === keyFn(incoming) ? "agree" : "conflict";
 }
 
 
@@ -764,10 +764,10 @@ function stateOf(key: string, master: string, incoming: string): FieldState {
 const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 
 export function orderedEventTags(
-  master?: Individual,
+  main?: Individual,
   compare?: Individual,
-): Array<{ tag: string; masterIdx: number; compareIdx: number; keyIdx: number; multi: boolean }> {
-  const mEvents = master?.events ?? [];
+): Array<{ tag: string; mainIdx: number; compareIdx: number; keyIdx: number; multi: boolean }> {
+  const mEvents = main?.events ?? [];
   const cEvents = compare?.events ?? [];
 
   const mByTag = new Map<string, GedEvent[]>();
@@ -776,7 +776,7 @@ export function orderedEventTags(
   for (const e of cEvents) { const a = cByTag.get(e.tag) ?? []; a.push(e); cByTag.set(e.tag, a); }
 
   const allTags = new Set([...mByTag.keys(), ...cByTag.keys()]);
-  type Instance = { tag: string; masterIdx: number; compareIdx: number; keyIdx: number; multi: boolean };
+  type Instance = { tag: string; mainIdx: number; compareIdx: number; keyIdx: number; multi: boolean };
   const instances: Instance[] = [];
 
   for (const tag of allTags) {
@@ -790,16 +790,16 @@ export function orderedEventTags(
       // When at least one side has a dated event and the pair scores too low, show them separately.
       // Birth/death/burial happen at most once per person, so they're always the same
       // event regardless of score — no splitting for those tags.
-      // Only require one side to have a date so that a dated master event paired with a
+      // Only require one side to have a date so that a dated main event paired with a
       // clearly different-place compare event (no date) is still split correctly.
       if (mIdx >= 0 && cIdx >= 0
           && !SINGLE_EVENT_TAGS.has(tag)
           && (mTagEvs[0].date?.year != null || cTagEvs[0].date?.year != null)
           && eventPairScore(mTagEvs[0], cTagEvs[0]) < MIN_EVENT_PAIR_SCORE) {
-        instances.push({ tag, masterIdx: 0, compareIdx: -1, keyIdx: 0, multi: true });
-        instances.push({ tag, masterIdx: -1, compareIdx: 0, keyIdx: 1, multi: true });
+        instances.push({ tag, mainIdx: 0, compareIdx: -1, keyIdx: 0, multi: true });
+        instances.push({ tag, mainIdx: -1, compareIdx: 0, keyIdx: 1, multi: true });
       } else {
-        instances.push({ tag, masterIdx: mIdx, compareIdx: cIdx, keyIdx: 0, multi: false });
+        instances.push({ tag, mainIdx: mIdx, compareIdx: cIdx, keyIdx: 0, multi: false });
       }
     } else {
       // Pair events by date+place similarity instead of positional index.
@@ -807,9 +807,9 @@ export function orderedEventTags(
       const usedM = new Set(pairs.map(p => p.mi));
       const usedC = new Set(pairs.map(p => p.ci));
       let keyIdx = 0;
-      for (const { mi, ci } of pairs) instances.push({ tag, masterIdx: mi, compareIdx: ci, keyIdx: keyIdx++, multi: true });
-      for (let mi = 0; mi < mTagEvs.length; mi++) if (!usedM.has(mi)) instances.push({ tag, masterIdx: mi, compareIdx: -1, keyIdx: keyIdx++, multi: true });
-      for (let ci = 0; ci < cTagEvs.length; ci++) if (!usedC.has(ci)) instances.push({ tag, masterIdx: -1, compareIdx: ci, keyIdx: keyIdx++, multi: true });
+      for (const { mi, ci } of pairs) instances.push({ tag, mainIdx: mi, compareIdx: ci, keyIdx: keyIdx++, multi: true });
+      for (let mi = 0; mi < mTagEvs.length; mi++) if (!usedM.has(mi)) instances.push({ tag, mainIdx: mi, compareIdx: -1, keyIdx: keyIdx++, multi: true });
+      for (let ci = 0; ci < cTagEvs.length; ci++) if (!usedC.has(ci)) instances.push({ tag, mainIdx: -1, compareIdx: ci, keyIdx: keyIdx++, multi: true });
     }
   }
 
@@ -818,9 +818,9 @@ export function orderedEventTags(
   const anchors = lifespanAnchors([...mEvents, ...cEvents]);
 
   instances.sort((a, b) => {
-    const me = a.masterIdx >= 0 ? (mByTag.get(a.tag) ?? [])[a.masterIdx] : undefined;
+    const me = a.mainIdx >= 0 ? (mByTag.get(a.tag) ?? [])[a.mainIdx] : undefined;
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
-    const me2 = b.masterIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.masterIdx] : undefined;
+    const me2 = b.mainIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.mainIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
     const dateA = zoneSortKey(me?.date ?? ce?.date, a.tag, anchors);
     const dateB = zoneSortKey(me2?.date ?? ce2?.date, b.tag, anchors);
@@ -871,7 +871,7 @@ export function clampBeforeDeathZone(tag: string, key: number, minDeathKey: numb
  * can only occur at/after birth, so it must never sort before a known birth
  * date — even when its own date is genuinely earlier. This happens when the
  * date being sorted comes from the *other* side of a comparison (e.g. a compare
- * record's precise 1859 christening ranked against a master's fuzzy `ABT 1862`
+ * record's precise 1859 christening ranked against a main's fuzzy `ABT 1862`
  * birth) or when a precise christening outranks a year-only birth in the same
  * record (a year-only date sorts to the end of its year; see `dateToSortKey`).
  * Clamps to just after the birth key, keeping birth-zone tags in `EVENT_ORDER`.
@@ -939,8 +939,8 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
   if (d?.year != null) {
     const key = clampBeforeDeathZone(tag, dateToSortKey(d), a.minDeathKey);
     // The BIRT row anchors at the earliest birth evidence across the compared
-    // pair: when the two records disagree (e.g. master `ABT 1820` vs compare
-    // `1 NOV 1818`), the comparator picks the master date for the row, which can
+    // pair: when the two records disagree (e.g. main `ABT 1820` vs compare
+    // `1 NOV 1818`), the comparator picks the main date for the row, which can
     // let a contemporaneous life-zone event from the other side (a `1818`
     // residence) sort ahead of the birth. Clamping down to `minBirthKey` keeps
     // the birth row first while still letting a genuinely pre-birth event lead.
@@ -987,13 +987,13 @@ const MIN_EVENT_PAIR_SCORE = 0.6;
 
 /** Greedy bipartite matching of events by date+place similarity. */
 function pairEventsByDatePlace(
-  masterEvents: GedEvent[],
+  mainEvents: GedEvent[],
   compareEvents: GedEvent[],
 ): { mi: number; ci: number }[] {
   const cands: { mi: number; ci: number; score: number }[] = [];
-  for (let mi = 0; mi < masterEvents.length; mi++) {
+  for (let mi = 0; mi < mainEvents.length; mi++) {
     for (let ci = 0; ci < compareEvents.length; ci++) {
-      const score = eventPairScore(masterEvents[mi], compareEvents[ci]);
+      const score = eventPairScore(mainEvents[mi], compareEvents[ci]);
       if (score >= MIN_EVENT_PAIR_SCORE) cands.push({ mi, ci, score });
     }
   }

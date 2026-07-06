@@ -69,7 +69,7 @@ export interface FanSegment {
   /** Unique by *position* (`gen:slot`) — pedigree collapse repeats a person in
    *  two slots, and each occurrence is its own segment. */
   key: string;
-  /** The ancestor at this slot — name/years/sex/status/master/incoming. */
+  /** The ancestor at this slot — name/years/sex/status/main/incoming. */
   node: TreeNode;
   gen: number;
   slot: number;
@@ -160,8 +160,9 @@ export function buildFanChart(
     hasPhoto?: (node: TreeNode) => boolean;
     /** Which fields to show (and whether to redact living people). */
     display?: NodeDisplayOptions;
-    /** Localized "Living" placeholder for redacted living people. */
-    livingLabel?: string;
+    /** Localized "Living" placeholder for a redacted living person, resolved
+     *  per node so it can follow the person's sex. */
+    livingLabelOf?: (node: TreeNode) => string;
     /** Relationship of a node to the chart root ("Father", "Grandmother", …),
      *  shown in place of a redacted living person's name. */
     kinshipOf?: (node: TreeNode) => string | undefined;
@@ -170,12 +171,12 @@ export function buildFanChart(
   const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
   const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
   const display = opts.display ?? ALL_DISPLAY;
-  const livingLabel = opts.livingLabel ?? "Living";
+  const livingLabelOf = opts.livingLabelOf ?? (() => "Living");
   // Only reserve photo space for people who actually have one — and only when the
   // photo field is shown (privacy hides it). Otherwise the text uses the full ring.
   const hasPhoto = (node: TreeNode) =>
     (opts.hasPhoto?.(node) ?? false) &&
-    nodeDisplay(display, { name: node.name, living: node.living, livingLabel }).showPhoto;
+    nodeDisplay(display, { name: node.name, living: node.living, livingLabel: livingLabelOf(node) }).showPhoto;
   /** The fields a node actually shows under the current settings. A redacted living
    *  person shows their relationship to the root (the only time kinship is needed,
    *  so it's resolved lazily). */
@@ -189,7 +190,7 @@ export function buildFanChart(
       place: node.place,
       kinship,
       living: node.living,
-      livingLabel,
+      livingLabel: livingLabelOf(node),
     });
   };
 

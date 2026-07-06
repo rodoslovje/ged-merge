@@ -55,7 +55,7 @@ A browser-only React app. All data stays local.
   (`Individual`, `Family`, `Dataset`) projected on top for matching and the UI.
 - **Web Worker** (`src/worker/`) — owns the parse → normalize → match pipeline off the main
   thread, communicating via typed messages.
-- **Normalize** (`src/normalize/`) — reshapes an incoming file to the master's date/place/link
+- **Normalize** (`src/normalize/`) — reshapes an incoming file to the main file's date/place/link
   "house style" before comparison.
 - **Match** (`src/match/`) — scores candidate pairs 0–100 over weighted fields, and ranks them by
   kinship distance from a chosen home person.

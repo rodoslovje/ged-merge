@@ -71,14 +71,14 @@ describe("computeDistances", () => {
 describe("applyDistanceRanking", () => {
   it("sorts by distance ascending, then score descending", () => {
     const ds = dataset(TREE);
-    const cand = (masterId: string, score: number): IndividualCandidate => ({
-      masterId,
-      compareId: `c-${masterId}`,
+    const cand = (mainId: string, score: number): IndividualCandidate => ({
+      mainId,
+      compareId: `c-${mainId}`,
       score,
       category: "probable",
       components: [],
-      title: masterId,
-      name: masterId,
+      title: mainId,
+      name: mainId,
       deceased: false,
       sex: "U",
     });
@@ -88,7 +88,7 @@ describe("applyDistanceRanking", () => {
     };
 
     const ranked = applyDistanceRanking(result, ds, "@I1@");
-    expect(ranked.individuals.map((c) => c.masterId)).toEqual([
+    expect(ranked.individuals.map((c) => c.mainId)).toEqual([
       "@I1@", // dist 0
       "@I2@", // dist 1, score 90
       "@I3@", // dist 1, score 50

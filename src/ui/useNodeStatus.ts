@@ -1,15 +1,15 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { decisionStatusByMasterId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 
-// Per-person working-state resolvers for chart badges, keyed by master id: the
+// Per-person working-state resolvers for chart badges, keyed by main id: the
 // merge decision (C/R/D letter) and the unsaved-edit "M". Shared by every chart
 // page that marks people — the tree charts draw them as circle badges, the
 // timeline and report as text chips.
 
 export interface NodeStatus {
-  decisionOf: (masterId: string) => { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined;
-  modifiedOf: (masterId: string) => boolean;
+  decisionOf: (mainId: string) => { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined;
+  modifiedOf: (mainId: string) => boolean;
   /** Localized first letter of "Modified", for the M badge. */
   modifiedLetter: string;
 }
@@ -20,13 +20,13 @@ export function useNodeStatus(
 ): NodeStatus {
   const { t } = useTranslation();
   return useMemo(() => {
-    const byId = decisionStatusByMasterId(decisions);
+    const byId = decisionStatusByMainId(decisions);
     return {
-      decisionOf: (masterId: string) => {
-        const status = byId.get(masterId);
+      decisionOf: (mainId: string) => {
+        const status = byId.get(mainId);
         return status ? { status, letter: t(`status.${status}`).charAt(0) } : undefined;
       },
-      modifiedOf: (masterId: string) => !!changedPersonIds?.has(masterId),
+      modifiedOf: (mainId: string) => !!changedPersonIds?.has(mainId),
       modifiedLetter: t("edit.tree.modified").charAt(0),
     };
   }, [changedPersonIds, decisions, t]);

@@ -221,9 +221,9 @@ export function buildSourceContext(records: GedNode[]): SourceContext {
 }
 
 /**
- * Identity for de-duplicating/comparing citations across master and incoming.
+ * Identity for de-duplicating/comparing citations across main and incoming.
  * Keyed by title+page rather than `sourceId`: a SOUR record's xref is a
- * GEDCOM pointer local to its own file (e.g. "@S5@"), so master and incoming
+ * GEDCOM pointer local to its own file (e.g. "@S5@"), so main and incoming
  * citations describing the exact same archival source never share one even
  * when every visible detail matches. The resolved title (which mirrors the
  * citation's own text for inline, pointer-less citations) is comparable
@@ -236,12 +236,12 @@ export function sourceCitationKey(c: SourceCitation): string {
   return title ? `${title}#${page}` : `id:${c.sourceId.toLowerCase()}#${page}`;
 }
 
-/** Incoming citations the master side lacks — the ones a merge would actually add. */
+/** Incoming citations the main side lacks — the ones a merge would actually add. */
 export function newSourceCitations(
-  masterSources: SourceCitation[] | undefined,
+  mainSources: SourceCitation[] | undefined,
   incomingSources: SourceCitation[] | undefined,
 ): SourceCitation[] {
-  const have = new Set((masterSources ?? []).map(sourceCitationKey));
+  const have = new Set((mainSources ?? []).map(sourceCitationKey));
   return (incomingSources ?? []).filter((c) => !have.has(sourceCitationKey(c)));
 }
 

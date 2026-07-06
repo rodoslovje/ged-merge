@@ -98,7 +98,7 @@ describe("mergeDuplicate", () => {
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
   });
 
-  it("keeps the survivor's parents when the parent row is set to master", () => {
+  it("keeps the survivor's parents when the parent row is set to main", () => {
     const ds = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
       "0 @I2@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
@@ -107,7 +107,7 @@ describe("mergeDuplicate", () => {
       "0 @F1@ FAM\n1 HUSB @I3@\n1 CHIL @I1@\n" +
       "0 @F2@ FAM\n1 HUSB @I4@\n1 CHIL @I2@\n",
     ));
-    mergeDuplicate(ds, "@I1@", "@I2@", decide({ father: "master" }), tr);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ father: "main" }), tr);
 
     const survivor = ds.individuals.get("@I1@")!;
     // Survivor keeps only its own parent family @F1@; @I4@ was not brought in.

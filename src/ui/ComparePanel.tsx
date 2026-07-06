@@ -18,11 +18,11 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { collectPhotoRefs } from "./PhotoViewer";
 
 /** Which dataset a relative id belongs to. */
-export type RelativeSide = "master" | "incoming";
+export type RelativeSide = "main" | "incoming";
 
 interface Props {
   candidate: IndividualCandidate;
-  masterDs: Dataset;
+  mainDs: Dataset;
   compareDs: Dataset;
   decision: CandidateDecision | undefined;
   onChange: (next: CandidateDecision) => void;
@@ -32,11 +32,11 @@ interface Props {
   onNavigate: (side: RelativeSide, id: string) => void;
 }
 
-const CHOICES: FieldChoice[] = ["master", "incoming", "both"];
+const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 
 export function ComparePanel({
   candidate,
-  masterDs,
+  mainDs,
   compareDs,
   decision,
   onChange,
@@ -44,19 +44,19 @@ export function ComparePanel({
   onNavigate,
 }: Props) {
   const { t } = useTranslation();
-  const masterPerson = {
-    linkable: (id: string) => canNavigate("master", id),
-    onNavigate: (id: string) => onNavigate("master", id),
+  const mainPerson = {
+    linkable: (id: string) => canNavigate("main", id),
+    onNavigate: (id: string) => onNavigate("main", id),
   };
   const incomingPerson = {
     linkable: (id: string) => canNavigate("incoming", id),
     onNavigate: (id: string) => onNavigate("incoming", id),
   };
-  // Edits rebuild the master Individual in place (new object stored back into
-  // `masterDs.individuals`) without changing `masterDs`'s own identity, so the
-  // memo must key off the looked-up records themselves — keying off `masterDs`
+  // Edits rebuild the main Individual in place (new object stored back into
+  // `mainDs.individuals`) without changing `mainDs`'s own identity, so the
+  // memo must key off the looked-up records themselves — keying off `mainDs`
   // would miss edits made while this panel stays mounted in the background.
-  const masterIndi = masterDs.individuals.get(candidate.masterId);
+  const mainIndi = mainDs.individuals.get(candidate.mainId);
   const compareIndi = compareDs.individuals.get(candidate.compareId);
   // Only show the photos tray (and its divider line) when a media folder is
   // loaded and at least one side actually references a photo — otherwise the
@@ -64,23 +64,23 @@ export function ComparePanel({
   const { folderName } = useMediaFolder();
   const hasPhotos = useMemo(() => {
     if (!folderName) return false;
-    const m = masterIndi ? collectPhotoRefs(masterIndi.raw, masterDs.records).length : 0;
+    const m = mainIndi ? collectPhotoRefs(mainIndi.raw, mainDs.records).length : 0;
     const c = compareIndi ? collectPhotoRefs(compareIndi.raw, compareDs.records).length : 0;
     return m + c > 0;
-  }, [folderName, masterIndi, compareIndi, masterDs.records, compareDs.records]);
+  }, [folderName, mainIndi, compareIndi, mainDs.records, compareDs.records]);
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    return individualFieldRows(t, masterIndi, compareIndi, masterDs, compareDs, undefined, rejectedEvents);
-  }, [masterIndi, compareIndi, masterDs, compareDs, t, decision]);
+    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, undefined, rejectedEvents);
+  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
   const takenChildren = useMemo(() => new Set(decision?.takenChildren ?? []), [decision]);
   // A rejected/deferred match never applies any incoming data on save (see
   // `mergeDecisions`, which skips non-"confirmed" decisions outright) — so the
-  // preview shows every field as kept from master, regardless of any per-field
+  // preview shows every field as kept from main, regardless of any per-field
   // choice recorded earlier while the match was still confirmed.
-  const forceMaster = status === "rejected" || status === "deferred";
+  const forceMain = status === "rejected" || status === "deferred";
 
   // Emit a full decision, carrying over the parts of it this panel doesn't touch
   // (event rejections, per-child picks) so a field edit never wipes them.
@@ -106,28 +106,28 @@ export function ComparePanel({
   }
 
   /**
-   * Per-pair emphasis and control for the children row. A child the master
-   * family already lists agrees (kept, "="); a master-only child is kept; an
+   * Per-pair emphasis and control for the children row. A child the main
+   * family already lists agrees (kept, "="); a main-only child is kept; an
    * incoming-only child is opt-in — its own take/skip toggle drives whether it's
    * stitched in (recorded in `decision.takenChildren`).
    */
   function renderChildPair(pair: RelativePair) {
-    const hasMaster = !!pair.master?.text;
+    const hasMain = !!pair.main?.text;
     const hasIncoming = !!pair.incoming?.text;
     const incId = pair.incoming?.id;
-    if (hasMaster) {
+    if (hasMain) {
       const choiceNode = hasIncoming
         ? <span className="muted">=</span>
-        : <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
-      return { masterChosen: true, incomingChosen: false, choice: choiceNode };
+        : <span className="gm-main-tag">{t("compare.keepMain")}</span>;
+      return { mainChosen: true, incomingChosen: false, choice: choiceNode };
     }
     // Incoming-only child.
-    const taken = !forceMaster && !!incId && takenChildren.has(incId);
-    if (forceMaster || !incId) {
-      return { masterChosen: false, incomingChosen: false, choice: <span className="gm-master-tag">{t("compare.keepMaster")}</span> };
+    const taken = !forceMain && !!incId && takenChildren.has(incId);
+    if (forceMain || !incId) {
+      return { mainChosen: false, incomingChosen: false, choice: <span className="gm-main-tag">{t("compare.keepMain")}</span> };
     }
     return {
-      masterChosen: false,
+      mainChosen: false,
       incomingChosen: taken,
       choice: (
         <button
@@ -142,7 +142,7 @@ export function ComparePanel({
   }
 
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
-    if (forceMaster) return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+    if (forceMain) return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
     if (row.state === "conflict" || row.state === "incoming-only") {
       return CHOICES.map((c) => (
         <button
@@ -156,7 +156,7 @@ export function ComparePanel({
       ));
     }
     if (row.state === "agree") return <span className="muted">=</span>;
-    return <span className="gm-master-tag">{t("compare.keepMaster")}</span>;
+    return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
   }
 
   return (
@@ -164,11 +164,11 @@ export function ComparePanel({
       {hasPhotos && (
         <div className="compare-photos">
           <div className="compare-photos-col">
-            {masterIndi && (
+            {mainIndi && (
               <PersonPhotos
-                raw={masterIndi.raw}
-                records={masterDs.records}
-                refCtx={{ dataset: masterDs, onNavigate: masterPerson.onNavigate }}
+                raw={mainIndi.raw}
+                records={mainDs.records}
+                refCtx={{ dataset: mainDs, onNavigate: mainPerson.onNavigate }}
               />
             )}
           </div>
@@ -187,7 +187,7 @@ export function ComparePanel({
         <thead>
           <tr className="compare-head">
             <th />
-            <th className="compare-col compare-col-master">{t("tree.master")}</th>
+            <th className="compare-col compare-col-main">{t("tree.main")}</th>
             <th className="compare-col compare-col-incoming">{t("tree.incoming")}</th>
             <th />
           </tr>
@@ -205,11 +205,11 @@ export function ComparePanel({
               );
             }
 
-            const choice = forceMaster ? "master" : fields[row.key] ?? defaultChoice(row);
+            const choice = forceMain ? "main" : fields[row.key] ?? defaultChoice(row);
             // A sources row can be link-icons-only (no actual SOUR citation on
             // either side yet) — still route it through the icon rendering below
             // rather than the plain-text branch, which would print the bare URL.
-            const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
+            const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
             // Partners share one choice for the whole list, repeated on every
             // line inside the grid so a name beneath the first reads as covered.
             // Children instead get a per-child take/skip toggle (`renderPair`).
@@ -220,9 +220,9 @@ export function ComparePanel({
                   <td className="f-rel" colSpan={3}>
                     <RelativeGrid
                       pairs={row.relatives}
-                      masterChosen={choice !== "incoming"}
-                      incomingChosen={choice !== "master"}
-                      masterPerson={masterPerson}
+                      mainChosen={choice !== "incoming"}
+                      incomingChosen={choice !== "main"}
+                      mainPerson={mainPerson}
                       incomingPerson={incomingPerson}
                       {...(row.perChildChoice
                         ? { renderPair: renderChildPair }
@@ -232,38 +232,38 @@ export function ComparePanel({
                 ) : hasSources ? (
                   <>
                     <td className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.masterSources} />
-                      {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
+                      <SourceRefs t={t} mainSources={row.mainSources} />
+                      {row.mainLinkIcons?.length ? <LinkIcons urls={row.mainLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                     </td>
-                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
-                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
+                    <td className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} mainSources={row.incomingSources} compareAgainst={row.mainSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.mainLinkIcons} /> : null}
                     </td>
                   </>
                 ) : (
                   <>
                     <td
                       className={choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
-                      title={row.masterTitle}
+                      title={row.mainTitle}
                     >
                       <FieldValue
-                        text={row.master}
-                        links={row.masterLinks}
-                        linkIcons={row.masterLinkIcons}
+                        text={row.main}
+                        links={row.mainLinks}
+                        linkIcons={row.mainLinkIcons}
                         otherLinkIcons={row.incomingLinkIcons}
-                        person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                        person={row.mainRefs ? { refs: row.mainRefs, ...mainPerson } : undefined}
                       />
                     </td>
                     <td
-                      className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                      className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}
                       title={row.incomingTitle}
                     >
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
-                        otherLinks={row.masterLinks}
+                        otherLinks={row.mainLinks}
                         linkIcons={row.incomingLinkIcons}
-                        otherLinkIcons={row.masterLinkIcons}
+                        otherLinkIcons={row.mainLinkIcons}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
                     </td>

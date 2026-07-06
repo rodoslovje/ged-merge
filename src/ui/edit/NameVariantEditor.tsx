@@ -22,7 +22,7 @@ export function NameVariantEditor({
   t: Translate;
   commit: Commit;
   /** When set, choosing the "married" type stores the surname inline as the
-   * primary name's `_MARNM` (the master's convention) rather than keeping a
+   * primary name's `_MARNM` (the main's convention) rather than keeping a
    * separate `TYPE married` record. */
   marriedNameTag?: boolean;
   onDone: () => void;
@@ -70,7 +70,7 @@ export function NameVariantEditor({
         title={t("field.nameType")}
         onChange={(e) => {
           const next = e.target.value;
-          // Master stores married surnames inline as `_MARNM`: fold this record
+          // Main stores married surnames inline as `_MARNM`: fold this record
           // into it instead of keeping a separate `TYPE married` NAME record.
           if (next === "married" && marriedNameTag) {
             commit((indi) => foldAdditionalNameToMarnm(indi, index));

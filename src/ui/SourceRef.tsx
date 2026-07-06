@@ -4,37 +4,37 @@ import type { Translate } from "../locales/i18n";
 import { linkHref } from "./FieldValue";
 
 /**
- * Source citation references. When only `masterSources` is given, renders that
+ * Source citation references. When only `mainSources` is given, renders that
  * side's citations plainly (used for a single column or a read-only list).
- * When `incomingSources` is also given, any incoming citation the master
+ * When `incomingSources` is also given, any incoming citation the main
  * lacks is highlighted as new — so an event both sides agree on shows one
  * compact reference per source rather than duplicating it for each side.
  *
  * `compareAgainst` is for the opposite case: rendering one side's own list
  * (not unioned with the other side's) while still flagging which of its
  * citations the other side lacks — used to mark a side-by-side incoming
- * column's citations as new without pulling in the master's own citations.
+ * column's citations as new without pulling in the main's own citations.
  */
 export function SourceRefs({
   t,
-  masterSources,
+  mainSources,
   incomingSources,
   compareAgainst,
   onEdit,
 }: {
   t: Translate;
-  masterSources?: SourceCitation[];
+  mainSources?: SourceCitation[];
   incomingSources?: SourceCitation[];
   compareAgainst?: SourceCitation[];
   /** When given (Edit mode, no `incomingSources`), clicking an icon opens an
-   * edit dialog for it, keyed by its position in `masterSources`, instead of
+   * edit dialog for it, keyed by its position in `mainSources`, instead of
    * opening the link directly. */
   onEdit?: (index: number) => void;
 }) {
-  const ms = masterSources ?? [];
+  const ms = mainSources ?? [];
   const cs = incomingSources ?? [];
-  const masterKeys = new Set(ms.map(sourceCitationKey));
-  const newOnes = cs.filter((c) => !masterKeys.has(sourceCitationKey(c)));
+  const mainKeys = new Set(ms.map(sourceCitationKey));
+  const newOnes = cs.filter((c) => !mainKeys.has(sourceCitationKey(c)));
   const all = compareAgainst
     ? (() => {
         const otherKeys = new Set(compareAgainst.map(sourceCitationKey));

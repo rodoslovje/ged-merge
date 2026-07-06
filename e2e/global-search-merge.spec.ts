@@ -3,10 +3,10 @@ import { writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 
-const MASTER = path.join(os.tmpdir(), "gs-master.ged");
+const MAIN = path.join(os.tmpdir(), "gs-main.ged");
 const COMPARE = path.join(os.tmpdir(), "gs-compare.ged");
 
-writeFileSync(MASTER, [
+writeFileSync(MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Ana /Kukic/", "1 SEX F",
   "1 BIRT", "2 DATE 9 AUG 1982", "2 PLAC Kranj",
@@ -21,10 +21,10 @@ writeFileSync(COMPARE, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
-/** Load master + compare and wait for the match candidate list to appear. */
+/** Load main + compare and wait for the match candidate list to appear. */
 async function loadWithMatches(page: import("@playwright/test").Page) {
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(MASTER);
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
   await page.getByRole("button", { name: "Merge", exact: true }).click();
   await page.locator("input.file-input").last().setInputFiles(COMPARE);

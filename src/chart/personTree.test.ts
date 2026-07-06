@@ -15,8 +15,8 @@ const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${bo
 
 // A child with two parents on each side. The father's birth year differs (a
 // major, key conflict), the mother only gains a birth place (a minor diff), and
-// the master has an extra grandfather the incoming file lacks.
-const MASTER = wrap(
+// the main has an extra grandfather the incoming file lacks.
+const MAIN = wrap(
   "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1900\n1 FAMC @F1@\n" +
     "0 @I2@ INDI\n1 NAME Anton /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 FAMS @F1@\n1 FAMC @F2@\n" +
     "0 @I3@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1872\n1 FAMS @F1@\n" +
@@ -44,14 +44,14 @@ function find(node: TreeNode, name: string): TreeNode | undefined {
 }
 
 describe("buildPersonTree (ancestors)", () => {
-  const masterDs = dataset(MASTER);
+  const mainDs = dataset(MAIN);
   const compareDs = dataset(COMPARE);
-  const matches = matchDatasets(masterDs, compareDs);
+  const matches = matchDatasets(mainDs, compareDs);
   const root = buildPersonTree(
     tr,
-    masterDs.individuals.get("@I1@"),
+    mainDs.individuals.get("@I1@"),
     compareDs.individuals.get("@P1@"),
-    masterDs,
+    mainDs,
     compareDs,
     buildMatchMaps(matches),
     "ancestors",
@@ -77,45 +77,45 @@ describe("buildPersonTree (ancestors)", () => {
     expect(mother.years).toBe("1872");
   });
 
-  it("marks an ancestor present only in the master file", () => {
+  it("marks an ancestor present only in the main file", () => {
     const grandfather = find(root, "Jakob Novak")!;
-    expect(grandfather.status).toBe("master-only");
+    expect(grandfather.status).toBe("main-only");
   });
 
   it("drops the incoming side when a pairing is rejected", () => {
     const rejected = buildPersonTree(
       tr,
-      masterDs.individuals.get("@I1@"),
+      mainDs.individuals.get("@I1@"),
       compareDs.individuals.get("@P1@"),
-      masterDs,
+      mainDs,
       compareDs,
       buildMatchMaps(matches),
       "ancestors",
-      (masterId, compareId) => masterId === "@I2@" && compareId === "@P2@",
+      (mainId, compareId) => mainId === "@I2@" && compareId === "@P2@",
     )!;
     const father = rejected.children.find((c) => c.sex === "M")!;
-    // The rejected father keeps his master record and loses the incoming one,
-    // turning the conflicted node into a clean master-only node.
+    // The rejected father keeps his main record and loses the incoming one,
+    // turning the conflicted node into a clean main-only node.
     expect(father.name).toBe("Anton Novak");
-    expect(father.status).toBe("master-only");
-    expect(father.master?.id).toBe("@I2@");
+    expect(father.status).toBe("main-only");
+    expect(father.main?.id).toBe("@I2@");
     expect(father.incoming).toBeUndefined();
-    // The master lineage above him still continues.
-    expect(find(rejected, "Jakob Novak")?.status).toBe("master-only");
+    // The main lineage above him still continues.
+    expect(find(rejected, "Jakob Novak")?.status).toBe("main-only");
   });
 });
 
 describe("buildPersonTree (descendants)", () => {
-  const masterDs = dataset(MASTER);
+  const mainDs = dataset(MAIN);
   const compareDs = dataset(COMPARE);
-  const matches = matchDatasets(masterDs, compareDs);
+  const matches = matchDatasets(mainDs, compareDs);
 
   it("walks children downward from a parent", () => {
     const root = buildPersonTree(
       tr,
-      masterDs.individuals.get("@I2@"),
+      mainDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
-      masterDs,
+      mainDs,
       compareDs,
       buildMatchMaps(matches),
       "descendants",
@@ -128,9 +128,9 @@ describe("buildPersonTree (descendants)", () => {
   it("shows the spouse as a partner node beside the person", () => {
     const root = buildPersonTree(
       tr,
-      masterDs.individuals.get("@I2@"),
+      mainDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
-      masterDs,
+      mainDs,
       compareDs,
       buildMatchMaps(matches),
       "descendants",
@@ -141,9 +141,9 @@ describe("buildPersonTree (descendants)", () => {
   it("hangs the union's children off the partner, not the main person", () => {
     const root = buildPersonTree(
       tr,
-      masterDs.individuals.get("@I2@"),
+      mainDs.individuals.get("@I2@"),
       compareDs.individuals.get("@P2@"),
-      masterDs,
+      mainDs,
       compareDs,
       buildMatchMaps(matches),
       "descendants",
@@ -157,9 +157,9 @@ describe("buildPersonTree (descendants)", () => {
   it("omits partners in ancestor mode", () => {
     const root = buildPersonTree(
       tr,
-      masterDs.individuals.get("@I1@"),
+      mainDs.individuals.get("@I1@"),
       compareDs.individuals.get("@P1@"),
-      masterDs,
+      mainDs,
       compareDs,
       buildMatchMaps(matches),
       "ancestors",
@@ -181,7 +181,7 @@ describe("buildPersonTree (pedigree collapse)", () => {
       "0 @F2@ FAM\n1 HUSB @I4@\n1 WIFE @I5@\n1 CHIL @I2@\n1 CHIL @I3@\n",
   );
   const ds = dataset(COLLAPSE);
-  const emptyMaps = { masterToCompare: new Map<string, string>(), compareToMaster: new Map<string, string>() };
+  const emptyMaps = { mainToCompare: new Map<string, string>(), compareToMain: new Map<string, string>() };
 
   /** Every node in the tree, partners included, in walk order. */
   function allNodes(root: TreeNode): TreeNode[] {
@@ -201,7 +201,7 @@ describe("buildPersonTree (pedigree collapse)", () => {
     const keys = nodes.map((n) => n.key);
     expect(new Set(keys).size).toBe(keys.length);
     // The grandparents really do occur twice — as two nodes for the same person.
-    const jakob = nodes.filter((n) => n.master?.id === "@I4@");
+    const jakob = nodes.filter((n) => n.main?.id === "@I4@");
     expect(jakob).toHaveLength(2);
     expect(jakob[0].key).not.toBe(jakob[1].key);
   });
@@ -220,10 +220,10 @@ describe("buildPersonTree (pedigree collapse)", () => {
     const nodes = allNodes(root);
     const keys = nodes.map((n) => n.key);
     expect(new Set(keys).size).toBe(keys.length);
-    const ana = nodes.filter((n) => n.master?.id === "@I3@");
+    const ana = nodes.filter((n) => n.main?.id === "@I3@");
     expect(ana.length).toBeGreaterThanOrEqual(2);
     // The grandson is still reachable (Ana's child occurrence expanded).
-    expect(nodes.some((n) => n.master?.id === "@I1@")).toBe(true);
+    expect(nodes.some((n) => n.main?.id === "@I1@")).toBe(true);
   });
 });
 
@@ -236,7 +236,7 @@ describe("buildPersonTree (marriage)", () => {
       "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@\n1 MARR\n2 DATE 12 JAN 1900\n2 PLAC Kranj, Slovenija\n",
   );
   const ds = dataset(MARR);
-  const emptyMaps = { masterToCompare: new Map(), compareToMaster: new Map() };
+  const emptyMaps = { mainToCompare: new Map(), compareToMain: new Map() };
 
   it("attaches the parents' marriage to the child node (ancestor mode)", () => {
     const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;

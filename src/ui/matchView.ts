@@ -159,7 +159,7 @@ function compareBy(
       return importTotal(a) - importTotal(b);
     case "label":
       // Sort by the displayed person name (what the row shows), not the
-      // master-centric diff title.
+      // main-centric diff title.
       return a.name.localeCompare(b.name);
     case "status":
       // Groups rows by decision; undecided rows sort together via rank 0.

@@ -3,7 +3,8 @@
 // here keeps all four in sync as the Chart-settings toggles change which fields a
 // node shows, and how living people are redacted for privacy.
 
-import type { Individual } from "../gedcom/types";
+import type { Individual, Sex } from "../gedcom/types";
+import type { Translate } from "../locales/i18n";
 import type { Lineage } from "../match/kinship";
 import { findEvent } from "../match/relatives";
 import { localityParts } from "../gedcom/place";
@@ -55,6 +56,16 @@ export function formatMarriage(
   const parts = [fields.date ? marriage.year : undefined, fields.place ? marriage.place : undefined].filter(Boolean);
   if (!parts.length) return undefined;
   return `${MARRIAGE_SYMBOL} ${parts.join(" ")}`;
+}
+
+/**
+ * The localized "Living" placeholder for a redacted person, gendered when the
+ * sex is known (sl "Živ"/"Živa" via the `_M`/`_F` context keys). Unknown sex —
+ * and English, which defines only the base key — fall back to the neutral form,
+ * the same context convention as the narrative.* templates.
+ */
+export function livingLabelFor(t: Translate, sex?: Sex | string): string {
+  return t("tree.node.living", { context: sex === "M" || sex === "F" ? sex : undefined });
 }
 
 /** Place events tried in order — show the first one that records a place. */

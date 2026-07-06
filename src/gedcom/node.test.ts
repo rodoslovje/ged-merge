@@ -122,7 +122,7 @@ describe("cloneNode", () => {
   });
 
   it("preserves the auditStamp marker and verbatim lines", () => {
-    // The merge stamps CHAN/CREA on a *clone* of the edit-marked master, so a
+    // The merge stamps CHAN/CREA on a *clone* of the edit-marked main, so a
     // clone that dropped the marker would lose event-level audit stamps in a
     // combined edit+merge save.
     const i = indi();

@@ -34,7 +34,7 @@ import type { Translate } from "../locales/i18n";
  *    sources) are applied onto the survivor via the shared `applyRows` engine,
  *    honoring the per-field M/I/B choices in `decision.fields`.
  *  - Relationships (parents, partners, children) are re-pointed from the removed
- *    record onto the survivor unless that relationship row is set to "master".
+ *    record onto the survivor unless that relationship row is set to "main".
  *    Family records the survivor then belongs to twice (the same couple modelled
  *    as two records — common for true duplicates) are collapsed into one.
  *  - `removeIndividual` drops the removed record from any families left pointing
@@ -90,7 +90,7 @@ export function mergeDuplicate(
   rebuildIndividual(dataset, survivor);
 
   // 2. Relationships: re-point the removed record's family memberships onto the
-  //    survivor (unless the row is set to "master"). Parents move as a family
+  //    survivor (unless the row is set to "main"). Parents move as a family
   //    unit, brought across when the removed parent family contributes a parent
   //    the user kept (father or mother).
   for (const rFamId of [...removed.childOf]) {
@@ -119,9 +119,9 @@ export function mergeDuplicate(
 }
 
 /** A relationship row is taken (re-pointed onto the survivor) unless the user
- *  explicitly chose "master" for it. Default is union ("both"). */
+ *  explicitly chose "main" for it. Default is union ("both"). */
 function wantsRelative(fields: Record<string, FieldChoice>, key: string): boolean {
-  return (fields[key] ?? "both") !== "master";
+  return (fields[key] ?? "both") !== "main";
 }
 
 /** A relative that aligns across the two duplicate records but is itself two
@@ -146,7 +146,7 @@ export interface RelatedSeparateRecord {
  * them too, completing the collapse.
  *
  * Derived from the already-computed comparison rows so it matches exactly what
- * the panel aligns side-by-side (a pair with both an `id` on the master side and
+ * the panel aligns side-by-side (a pair with both an `id` on the main side and
  * a *different* `id` on the incoming side is one such relative).
  */
 export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[] {
@@ -160,13 +160,13 @@ export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[
       : undefined;
     if (!relation || !row.relatives) continue;
     for (const p of row.relatives) {
-      const aId = p.master?.id;
+      const aId = p.main?.id;
       const bId = p.incoming?.id;
       if (!aId || !bId || aId === bId) continue;
       const key = aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ aId, bId, label: p.master?.name || p.master?.text || p.incoming?.name || "?", relation });
+      out.push({ aId, bId, label: p.main?.name || p.main?.text || p.incoming?.name || "?", relation });
     }
   }
   return out;
@@ -187,15 +187,15 @@ function isRelationship(key: string): boolean {
 export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice> {
   const fields: Record<string, FieldChoice> = {};
   for (const row of rows) {
-    if (row.isGroupHeader || row.state === "agree" || row.state === "master-only") continue;
+    if (row.isGroupHeader || row.state === "agree" || row.state === "main-only") continue;
     if (isRelationship(row.key)) {
       fields[row.key] = "both";
     } else if (row.state === "incoming-only") {
       fields[row.key] = "incoming";
     } else if (row.key.endsWith(".date")) {
-      fields[row.key] = datePrecision(row.incoming) > datePrecision(row.master) ? "incoming" : "master";
+      fields[row.key] = datePrecision(row.incoming) > datePrecision(row.main) ? "incoming" : "main";
     } else {
-      fields[row.key] = "master";
+      fields[row.key] = "main";
     }
   }
   return fields;

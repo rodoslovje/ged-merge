@@ -32,8 +32,8 @@ interface Props {
   /** Show the relationship-distance column (only meaningful with a start person). */
   showRelation: boolean;
   showFilters: boolean;
-  /** Per-master kinship to the start person, shown under each name. */
-  kinshipByMaster?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
+  /** Per-main kinship to the start person, shown under each name. */
+  kinshipByMain?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
 }
 
 /** Shared attributes for the small, language-neutral column-header icons. */
@@ -62,7 +62,7 @@ export function MatchResults({
   decisions,
   showRelation,
   showFilters,
-  kinshipByMaster,
+  kinshipByMain,
 }: Props) {
   const { t } = useTranslation();
   const total = result.individuals.length;
@@ -281,13 +281,13 @@ export function MatchResults({
             <CandidateRow
               // Stable per candidate pair (no index): lets React reuse rows
               // across filter/sort changes instead of remounting the whole list.
-              key={`${c.masterId}-${c.compareId}`}
+              key={`${c.mainId}-${c.compareId}`}
               candidate={c}
               index={i}
               selected={i === selectedIndex}
-              status={decisions.get(decisionKey("individual", c.masterId, c.compareId))?.status}
+              status={decisions.get(decisionKey("individual", c.mainId, c.compareId))?.status}
               showRelation={showRelation}
-              kinship={kinshipByMaster?.get(c.masterId)}
+              kinship={kinshipByMain?.get(c.mainId)}
               onSelect={onSelect}
             />
           ))}

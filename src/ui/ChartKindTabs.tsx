@@ -6,7 +6,7 @@ import type { ChartKind } from "./ChartSettingsContext";
 // every visualization is one click away instead of hiding inside the
 // Chart-settings popover. The Charts hub shows all kinds; the Compare Tree
 // passes only the pedigree kinds (a relationship diagram has no meaning for a
-// master/incoming pair). Future kinds (map, reports) become new entries here.
+// main/incoming pair). Future kinds (map, reports) become new entries here.
 
 /** Pedigree chart kinds, in display order. */
 export const PEDIGREE_KINDS: ChartKind[] = ["tree", "grid", "fan", "circle"];

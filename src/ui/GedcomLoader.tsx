@@ -28,24 +28,24 @@ let offeredFor: string | null = null;
 // auto-offering the photo folder entirely (they can still open it manually).
 const NEVER_OFFER_KEY = "mediaFolderNeverOffer";
 
-/** Always-mounted companion to GedcomLoader: detects local media in the master file
+/** Always-mounted companion to GedcomLoader: detects local media in the main file
  *  and offers the photo-folder picker as soon as the file loads, regardless of
  *  whether the info panel (which contains GedcomLoader) is currently visible. */
-export function AutoMediaOffer({ master }: { master: SlotState }) {
+export function AutoMediaOffer({ main }: { main: SlotState }) {
   const { t } = useTranslation();
   const { folderName, openFolder } = useMediaFolder();
   const [offerCount, setOfferCount] = useState<number | null>(null);
   const [neverAsk, setNeverAsk] = useState(false);
 
   useEffect(() => {
-    if (master.status !== "loaded" || folderName) return;
+    if (main.status !== "loaded" || folderName) return;
     if (localStorage.getItem(NEVER_OFFER_KEY) === "true") return;
-    const { fileName, dataset } = master.file;
+    const { fileName, dataset } = main.file;
     if (offeredFor === fileName) return;
     offeredFor = fileName;
     const n = countLocalMedia(dataset.records);
     if (n > 0) setOfferCount(n);
-  }, [master, folderName]);
+  }, [main, folderName]);
 
   function dismiss() {
     if (neverAsk) localStorage.setItem(NEVER_OFFER_KEY, "true");
@@ -74,7 +74,7 @@ interface Props {
   /** When set on a loaded slot, offers an "unload" button that removes the file. */
   onUnload?: () => void;
   /** Role colour applied to the loaded filename. */
-  accent: "master" | "incoming";
+  accent: "main" | "incoming";
   highlight?: boolean;
   tooltip?: string;
   /** Short description shown below the title before any file is loaded. */
@@ -109,7 +109,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
   }
 
   const loaded = state.status === "loaded";
-  const showFolderButton = accent === "master" && loaded;
+  const showFolderButton = accent === "main" && loaded;
 
   const folderUi = showFolderButton ? (
     folderName ? (
@@ -202,7 +202,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
                 <line x1="12" y1="18" x2="12" y2="12" />
                 <polyline points="9 15 12 12 15 15" />
               </svg>
-              <span className="dropzone-title">{t(accent === "master" ? "loader.dropMaster" : "loader.dropIncoming")}</span>
+              <span className="dropzone-title">{t(accent === "main" ? "loader.dropMain" : "loader.dropIncoming")}</span>
               <span className="dropzone-hint">{t("loader.dropBrowse")}</span>
             </>
           )}
@@ -214,7 +214,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
 
 function renderSummary(
   state: Extract<SlotState, { status: "loaded" | "error" }>,
-  accent: "master" | "incoming",
+  accent: "main" | "incoming",
   t: Translate,
   folderUi: React.ReactNode,
   onUnload?: () => void,
@@ -286,7 +286,7 @@ function renderSummary(
   return (
     <>
       <div className="loader-filename-row">
-        <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "master" ? "tree.master" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
+        <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "main" ? "tree.main" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
         {onUnload && (
           <button className="loader-unload-btn" onClick={onUnload} title={t("loader.unload.tooltip")}>
             {t("loader.unload")}

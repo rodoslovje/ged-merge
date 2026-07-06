@@ -30,13 +30,13 @@ import {
 } from "./types";
 
 /**
- * Score a master/compare individual pair. Components that can't be compared
+ * Score a main/compare individual pair. Components that can't be compared
  * (data missing on either side) are omitted so they neither help nor hurt.
  */
 export function scoreIndividualPair(
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
 ): IndividualCandidate {
@@ -45,7 +45,7 @@ export function scoreIndividualPair(
   // Placeholder name parts ("Living", "NN", "?Ime?") are treated as missing —
   // see comparableName — so they earn the missing-key penalty instead of a
   // perfect placeholder-to-placeholder match.
-  const mn = comparableName(primaryName(master));
+  const mn = comparableName(primaryName(main));
   const cn = comparableName(primaryName(compare));
 
   // Surname, given name and birth year form the identity key: each is always
@@ -60,7 +60,7 @@ export function scoreIndividualPair(
   const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
   addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`);
 
-  const mb = cachedFindEvent(master, "BIRT");
+  const mb = cachedFindEvent(main, "BIRT");
   const cb = cachedFindEvent(compare, "BIRT");
   const birthSim = dateSimilarity(mb?.date, cb?.date);
   // Some import formats (the genealogical-index "family matches" CSV) don't
@@ -71,7 +71,7 @@ export function scoreIndividualPair(
   // range of the other side's marriage date, that's meaningful corroboration.
   // Strictly scoped to sparse-birth sources (see `birthScoreFromMarriage`).
   const birthMissingScore = birthSim === undefined
-    ? birthScoreFromMarriage(mb?.date?.year, cb?.date?.year, master, compare, masterDs, compareDs)
+    ? birthScoreFromMarriage(mb?.date?.year, cb?.date?.year, main, compare, mainDs, compareDs)
       ?? config.missingKeyScore
     : config.missingKeyScore;
   addKey(components, "birthDate", w.birthDate, birthSim, birthMissingScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
@@ -80,14 +80,14 @@ export function scoreIndividualPair(
 
   // Death date/place: corroborating evidence, not part of the identity key —
   // absence (e.g. living people) is skipped rather than penalized.
-  const md = cachedFindEvent(master, "DEAT");
+  const md = cachedFindEvent(main, "DEAT");
   const cd = cachedFindEvent(compare, "DEAT");
   const deathSim = dateSimilarity(md?.date, cd?.date);
   add(components, "deathDate", w.deathDate, deathSim, `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
 
-  if (master.sex !== "U" && compare.sex !== "U") {
-    add(components, "sex", w.sex, master.sex === compare.sex ? 1 : 0, `${master.sex} ~ ${compare.sex}`);
+  if (main.sex !== "U" && compare.sex !== "U") {
+    add(components, "sex", w.sex, main.sex === compare.sex ? 1 : 0, `${main.sex} ~ ${compare.sex}`);
   }
 
   // Parents are compared role-wise (father↔father, mother↔mother) with the
@@ -97,13 +97,13 @@ export function scoreIndividualPair(
   // Children likewise share the person's surname, so they compare by given
   // names only. Partners keep the full-name comparison: a spouse's family
   // name genuinely discriminates.
-  add(components, "parents", w.parents, parentSimilarity(master, compare, masterDs, compareDs), "parents");
-  add(components, "partners", w.partners, nameSetSimilarity(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs)), "partners");
-  add(components, "children", w.children, givenNameSetSimilarity(cachedChildrenNames(master, masterDs), cachedChildrenNames(compare, compareDs)), "children");
+  add(components, "parents", w.parents, parentSimilarity(main, compare, mainDs, compareDs), "parents");
+  add(components, "partners", w.partners, nameSetSimilarity(cachedPartnerNames(main, mainDs), cachedPartnerNames(compare, compareDs)), "partners");
+  add(components, "children", w.children, givenNameSetSimilarity(cachedChildrenNames(main, mainDs), cachedChildrenNames(compare, compareDs)), "children");
 
   // Marriage corroboration, folded in from the person's spouse family: a matching
   // marriage date/place is strong evidence (and disambiguates same-named people).
-  const mar = bestMarriageSimilarity(master, compare, masterDs, compareDs);
+  const mar = bestMarriageSimilarity(main, compare, mainDs, compareDs);
   add(components, "marriageDate", w.marriageDate, mar.date, "marriage date");
   add(components, "marriagePlace", w.marriagePlace, mar.place, "marriage place");
 
@@ -132,7 +132,7 @@ export function scoreIndividualPair(
   // under a cross-language variant (Jurij/Georg 0.47) is routine in bilingual
   // parish records, and mothers agreeing on a ubiquitous given name (Marija)
   // are too weak a confirmation to matter either way.
-  if (bothParentsConflict(master, compare, masterDs, compareDs)) {
+  if (bothParentsConflict(main, compare, mainDs, compareDs)) {
     score01 *= PARENT_CONFLICT_PENALTY;
   }
 
@@ -168,24 +168,24 @@ export function scoreIndividualPair(
   // capped just below 100 so it never reaches a perfect score on its own — 100
   // stays reserved for a perfect identity key.
   if (!keyPerfect) {
-    const bonus = relativeMatchBonus(master, compare, masterDs, compareDs, config);
+    const bonus = relativeMatchBonus(main, compare, mainDs, compareDs, config);
     if (bonus > 0) score = Math.min(99.9, Math.round((score + bonus) * 10) / 10);
   }
 
   return {
-    masterId: master.id,
+    mainId: main.id,
     compareId: compare.id,
     score,
     category: categorize(score01, config),
     components,
-    title: pairTitle(master, compare),
-    name: displayName(primaryName(master)),
-    birthYear: birthYear(master),
-    deathYear: deathYear(master),
-    birthDate: birthDateText(master),
-    deathDate: deathDateText(master),
-    deceased: isDeceased(master),
-    sex: master.sex !== "U" ? master.sex : compare.sex,
+    title: pairTitle(main, compare),
+    name: displayName(primaryName(main)),
+    birthYear: birthYear(main),
+    deathYear: deathYear(main),
+    birthDate: birthDateText(main),
+    deathDate: deathDateText(main),
+    deceased: isDeceased(main),
+    sex: main.sex !== "U" ? main.sex : compare.sex,
   };
 }
 
@@ -255,14 +255,14 @@ function anchoringDate(
  *  sides) and *each* role's given names are too dissimilar to be the same
  *  person — different-family evidence strong enough for a score penalty. */
 function bothParentsConflict(
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
 ): boolean {
-  const fm = comparableName(cachedFatherName(master, masterDs))?.given;
+  const fm = comparableName(cachedFatherName(main, mainDs))?.given;
   const fc = comparableName(cachedFatherName(compare, compareDs))?.given;
-  const mm = comparableName(cachedMotherName(master, masterDs))?.given;
+  const mm = comparableName(cachedMotherName(main, mainDs))?.given;
   const mc = comparableName(cachedMotherName(compare, compareDs))?.given;
   if (!fm || !fc || !mm || !mc) return false;
   // Both roles must sit in the shared conflict band (see parentGivenVerdict) —
@@ -282,14 +282,14 @@ function bothParentsConflict(
  * role can be compared.
  */
 function parentSimilarity(
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
 ): number | undefined {
-  const fm = comparableName(cachedFatherName(master, masterDs));
+  const fm = comparableName(cachedFatherName(main, mainDs));
   const fc = comparableName(cachedFatherName(compare, compareDs));
-  const mm = comparableName(cachedMotherName(master, masterDs));
+  const mm = comparableName(cachedMotherName(main, mainDs));
   const mc = comparableName(cachedMotherName(compare, compareDs));
   const parts: number[] = [];
   if (fm?.given && fc?.given) parts.push(givenSimilarity(fm.given, fc.given));
@@ -304,12 +304,12 @@ function parentSimilarity(
 /** Best marriage date/place similarity over the cross-product of both people's
  *  marriages (handles re-marriages; undefined when a side lacks the data). */
 function bestMarriageSimilarity(
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
 ): { date: number | undefined; place: number | undefined } {
-  const me = cachedMarriageEvents(master, masterDs);
+  const me = cachedMarriageEvents(main, mainDs);
   const ce = cachedMarriageEvents(compare, compareDs);
   let date: number | undefined;
   let place: number | undefined;
@@ -351,18 +351,18 @@ const PLAUSIBLE_BIRTH_FROM_MARRIAGE_SCORE = 0.85;
  * undefined (the caller's flat penalty applies) otherwise.
  */
 function birthScoreFromMarriage(
-  masterYear: number | undefined,
+  mainYear: number | undefined,
   compareYear: number | undefined,
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
 ): number | undefined {
-  if (masterYear !== undefined && compareYear === undefined && compareDs.sparseBirthDates) {
-    return plausibleAgeAtMarriage(masterYear, compare, compareDs);
+  if (mainYear !== undefined && compareYear === undefined && compareDs.sparseBirthDates) {
+    return plausibleAgeAtMarriage(mainYear, compare, compareDs);
   }
-  if (compareYear !== undefined && masterYear === undefined && masterDs.sparseBirthDates) {
-    return plausibleAgeAtMarriage(compareYear, master, masterDs);
+  if (compareYear !== undefined && mainYear === undefined && mainDs.sparseBirthDates) {
+    return plausibleAgeAtMarriage(compareYear, main, mainDs);
   }
   return undefined;
 }
@@ -388,20 +388,20 @@ function plausibleAgeAtMarriage(
  * is a confident full name match.
  */
 function relativeMatchBonus(
-  master: Individual,
+  main: Individual,
   compare: Individual,
-  masterDs: Dataset,
+  mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
 ): number {
   let bonus = 0;
-  if (fullNameMatch(comparableName(cachedFatherName(master, masterDs)), comparableName(cachedFatherName(compare, compareDs)))) {
+  if (fullNameMatch(comparableName(cachedFatherName(main, mainDs)), comparableName(cachedFatherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
-  if (fullNameMatch(comparableName(cachedMotherName(master, masterDs)), comparableName(cachedMotherName(compare, compareDs)))) {
+  if (fullNameMatch(comparableName(cachedMotherName(main, mainDs)), comparableName(cachedMotherName(compare, compareDs)))) {
     bonus += config.parentMatchBonus;
   }
-  if (anyFullNameMatch(cachedPartnerNames(master, masterDs), cachedPartnerNames(compare, compareDs))) {
+  if (anyFullNameMatch(cachedPartnerNames(main, mainDs), cachedPartnerNames(compare, compareDs))) {
     bonus += config.partnerMatchBonus;
   }
   return bonus;

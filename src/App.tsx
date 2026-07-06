@@ -73,14 +73,14 @@ import {
 
 /** Which candidate pair the full-page compare tree is showing, and how. */
 interface TreeView {
-  masterId: string;
+  mainId: string;
   compareId: string;
   mode: TreeMode;
 }
 
 /** A compare selection remembered in browser history (for the Back button). */
 interface SelRef {
-  masterId: string;
+  mainId: string;
   compareId: string;
 }
 
@@ -125,7 +125,7 @@ function AppContent() {
   persistEnabledRef.current = persistEnabled;
 
   // Whether we've already attempted the one-time default start person for the
-  // currently loaded master, so a user who clears it isn't re-defaulted.
+  // currently loaded main, so a user who clears it isn't re-defaulted.
   const autoStartRef = useRef(false);
   // Timestamp the "matching" spinner started, and the pending timer delaying
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
@@ -133,14 +133,14 @@ function AppContent() {
   const matchedTimerRef = useRef<number | null>(null);
   // The shared workspace store (reducer). Migrating in slices — the file slots
   // live here now; matches/decisions/etc. are still separate useState below and
-  // move over in later steps. `lastMasterFile` is the most recently *successfully*
-  // loaded master, kept while a reload is in progress so the Merge/Edit views
+  // move over in later steps. `lastMainFile` is the most recently *successfully*
+  // loaded main, kept while a reload is in progress so the Merge/Edit views
   // stay mounted (showing the previous data) instead of flashing the landing
-  // page while `master` is transiently "loading" or "error".
+  // page while `main` is transiently "loading" or "error".
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { master, compare, lastMasterFile, matches, matching, decisions, importBranches, startId } = workspace;
+  const { main, compare, lastMainFile, matches, matching, decisions, importBranches, startId } = workspace;
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
@@ -171,21 +171,21 @@ function AppContent() {
   // cached session with the empty state that exists mid-restore.
   const hydratedRef = useRef(false);
   // Whether the startup restore is still waiting on a compare file to match —
-  // decides whether persistence is enabled after the master parses or only once
+  // decides whether persistence is enabled after the main parses or only once
   // matching completes.
   const expectCompareRef = useRef(false);
   // Edit-state cached from a previous session, applied (instead of resetOnLoad)
-  // once the edited master re-parses. Null when there is nothing to restore.
+  // once the edited main re-parses. Null when there is nothing to restore.
   const pendingEditStateRef = useRef<StoredEditState | null>(null);
   // The raw compare Blob (File on load, cached Blob on hydrate) — kept so that
   // enabling persistence mid-session can cache the compare exactly, including a
   // CSV that can't be re-serialized from its dataset.
   const compareBlobRef = useRef<Blob | null>(null);
-  // Whether the master blob has been cached this session. The debounced effect
-  // is the *sole* writer of the master key (serializing the live dataset), so a
+  // Whether the main blob has been cached this session. The debounced effect
+  // is the *sole* writer of the main key (serializing the live dataset), so a
   // fire-and-forget original write from loadFile can't race and clobber a later
-  // edited write. False after a fresh master load → the next debounce caches it.
-  const masterCachedRef = useRef(false);
+  // edited write. False after a fresh main load → the next debounce caches it.
+  const mainCachedRef = useRef(false);
   // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
@@ -209,7 +209,7 @@ function AppContent() {
   // Matches list view state.
   const [sort, setSort] = useState<SortState[]>(DEFAULT_SORT);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [selectedId, setSelectedId] = useState<{ masterId: string; compareId: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<{ mainId: string; compareId: string } | null>(null);
   const [showFilters, setShowFilters] = useState(true);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -221,7 +221,7 @@ function AppContent() {
     files: string[];
     downloadLabel: string;
     /** For the merge "total records" line. */
-    masterRecordCount?: number;
+    mainRecordCount?: number;
     base: string;
     /** Record IDs from edit mode — show navigate/remove buttons for these. */
     editRecordIds: Set<string>;
@@ -310,8 +310,8 @@ function AppContent() {
       if (st.gedNavigateTo) setNavigateToId(st.gedNavigateTo);
       // Restore a remembered compare selection (set when a person link pushed it).
       if (st.gedSel) {
-        const { masterId, compareId } = st.gedSel;
-        setSelectedId({ masterId, compareId });
+        const { mainId, compareId } = st.gedSel;
+        setSelectedId({ mainId, compareId });
       }
     }
     window.addEventListener("popstate", onPop);
@@ -322,7 +322,7 @@ function AppContent() {
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
 
-  /** Settings → wipe the cached workspace (master/compare files + merge session)
+  /** Settings → wipe the cached workspace (main/compare files + merge session)
    *  from IndexedDB. Doesn't touch the live, in-memory session — the current
    *  work stays loaded; only the persisted copy used to restore on reload goes. */
   async function handleClearCache() {
@@ -334,30 +334,30 @@ function AppContent() {
   /** Record the current compare selection in the current history entry so the
    *  browser Back button returns here after a person-link or tree push. */
   function rememberSelection() {
-    if (current) window.history.replaceState({ gedSel: { masterId: current.masterId, compareId: current.compareId } }, "");
+    if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
   }
 
-  function openTree(masterId: string, compareId: string) {
+  function openTree(mainId: string, compareId: string) {
     rememberSelection();
-    const view: TreeView = { masterId, compareId, mode: "ancestors" };
+    const view: TreeView = { mainId, compareId, mode: "ancestors" };
     window.history.pushState({ gedTree: view }, "");
     setTreeView(view);
     setChartsRootId(null); // overlays are exclusive (see openCharts)
   }
   /** Re-root the open tree on another person, as a new history entry. */
-  function rerootTree(masterId?: string, compareId?: string) {
-    if (!masterId && !compareId) return;
+  function rerootTree(mainId?: string, compareId?: string) {
+    if (!mainId && !compareId) return;
     setTreeView((cur) => {
-      const view: TreeView = { masterId: masterId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
+      const view: TreeView = { mainId: mainId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
       window.history.pushState({ gedTree: view }, "");
       return view;
     });
   }
   /** Leave the open tree and select this pair back in the Matches list. Pushes a
    *  fresh matches entry so the browser Back button returns to the tree. */
-  function showInMatches(masterId: string, compareId: string) {
-    window.history.pushState({ gedSel: { masterId, compareId } }, "");
-    setSelectedId({ masterId, compareId });
+  function showInMatches(mainId: string, compareId: string) {
+    window.history.pushState({ gedSel: { mainId, compareId } }, "");
+    setSelectedId({ mainId, compareId });
     setTreeView(null);
   }
   function changeTreeMode(mode: TreeMode) {
@@ -402,7 +402,7 @@ function AppContent() {
           hydratedRef.current = true; // restore settled — persistence may resume
         };
         // matchDatasets can finish in under a millisecond once the engine is
-        // JIT-warm (e.g. re-matching on a master reload), too fast for React to
+        // JIT-warm (e.g. re-matching on a main reload), too fast for React to
         // ever paint the "matching" state. Hold the spinner up for a minimum
         // stretch so background recomputation stays visible to the user.
         const elapsed = matchingStartRef.current != null ? performance.now() - matchingStartRef.current : MIN_MATCHING_DISPLAY_MS;
@@ -424,13 +424,13 @@ function AppContent() {
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
-        // slotLoaded also records lastMasterFile when role is "master".
+        // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
-        if (msg.role === "master") {
-          // Restore the cached start person as soon as the master is parsed —
+        if (msg.role === "main") {
+          // Restore the cached start person as soon as the main is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
-          // loaded, so a master-only workspace would otherwise never restore it.
-          // Only restore a start person that still exists in this master — a
+          // loaded, so a main-only workspace would otherwise never restore it.
+          // Only restore a start person that still exists in this main — a
           // stale id (e.g. cached against a different file) would leave the
           // views pointing at a person that isn't there ("no individuals").
           const restoredStart = pendingSessionRef.current?.startId;
@@ -441,7 +441,7 @@ function AppContent() {
             // suppressed it in anticipation of a restore that isn't coming).
             autoStartRef.current = false;
           }
-          // Master-only restore (no compare to match): nothing more to wait for.
+          // Main-only restore (no compare to match): nothing more to wait for.
           if (!expectCompareRef.current) hydratedRef.current = true;
         }
       } else {
@@ -449,7 +449,7 @@ function AppContent() {
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
         void deleteFile(msg.role);
-        // A failed restore won't reach `matched`/the master branch — unblock
+        // A failed restore won't reach `matched`/the main branch — unblock
         // persistence so later user-loaded files still get cached.
         hydratedRef.current = true;
       }
@@ -470,19 +470,19 @@ function AppContent() {
       : Promise.resolve({});
     void hydrate.then((ws) => {
       if (cancelled) return;
-      if (!ws.master) {
+      if (!ws.main) {
         hydratedRef.current = true; // nothing cached — persist freely from here
         return;
       }
       pendingSessionRef.current = ws.session ?? null;
       pendingEditStateRef.current = ws.session?.editState ?? null;
       expectCompareRef.current = !!ws.compare;
-      masterCachedRef.current = true; // restored master is already in the cache
+      mainCachedRef.current = true; // restored main is already in the cache
       if (ws.compare) compareBlobRef.current = ws.compare.blob;
       // A cached start person will be restored explicitly; suppress the one-time
       // auto-default so it doesn't fight the restore.
       if (ws.session?.startId) autoStartRef.current = true;
-      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.master>) => {
+      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
         dispatch({ type: "slotLoading", role, fileName: sf.fileName });
         void sf.blob.arrayBuffer().then((buffer) => {
           if (cancelled) return;
@@ -494,7 +494,7 @@ function AppContent() {
           );
         });
       };
-      feed("master", ws.master); // master first so its profile is set before compare normalizes
+      feed("main", ws.main); // main first so its profile is set before compare normalizes
       if (ws.compare) feed("compare", ws.compare);
     });
     return () => { cancelled = true; };
@@ -519,8 +519,8 @@ function AppContent() {
     expectCompareRef.current = false;
     pendingSessionRef.current = null;
     pendingEditStateRef.current = null;
-    if (role === "master" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
-      if (!(await confirmDialog(t("load.masterReplaceConfirm"), t("confirm.continue")))) return;
+    if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
+      if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
     }
     if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
@@ -533,15 +533,15 @@ function AppContent() {
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     dispatch({ type: "slotLoading", role, fileName });
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
-    // The master is NOT written here — the debounced effect owns the master key
+    // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
-    // write can't land after and clobber an edit. A fresh master resets the flag
+    // write can't land after and clobber an edit. A fresh main resets the flag
     // so the next debounce re-caches it.
     if (role === "compare") {
       compareBlobRef.current = file;
       if (persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now() });
     } else {
-      masterCachedRef.current = false;
+      mainCachedRef.current = false;
     }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
@@ -551,7 +551,7 @@ function AppContent() {
     setPendingEditApply(null);
     setPreview(null);
     setOpenMatches(false);
-    if (role === "master") {
+    if (role === "main") {
       undoRedo.clearAll();
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
@@ -561,7 +561,7 @@ function AppContent() {
       setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
     } else {
-      // Incoming reload: edit entries remain valid (they only touch master data).
+      // Incoming reload: edit entries remain valid (they only touch main data).
       // Drop merge entries whose field comparisons reference the old incoming file.
       undoRedo.dropMergeEntries();
     }
@@ -576,26 +576,26 @@ function AppContent() {
     // and stand up a fresh one, re-feeding the kept slot so the pipeline restarts
     // cleanly on the new file. When nothing is matching there is nothing to abort,
     // so we keep the existing worker (and its cached datasets) and just re-parse.
-    const otherLoaded = role === "master" ? compare.status === "loaded" : master.status === "loaded";
-    const keptMaster = lastMasterFile;
+    const otherLoaded = role === "main" ? compare.status === "loaded" : main.status === "loaded";
+    const keptMain = lastMainFile;
     if (matching && otherLoaded) {
       resetWorker();
-      // Always feed master before compare so the compare normalizes against the
-      // master's profile.
-      if (role === "master") {
-        post(newMsg, [buffer]); // new master first
+      // Always feed main before compare so the compare normalizes against the
+      // main's profile.
+      if (role === "main") {
+        post(newMsg, [buffer]); // new main first
         await refeedCompare(); // kept compare second (re-parsed from its raw bytes)
-      } else if (keptMaster) {
-        // Silent re-feed rebuilds the worker's master without touching the main
-        // thread's (possibly edited) master file or the edit tracking bound to it.
-        const text = serializeGedcom(keptMaster.dataset.records, {
-          eol: keptMaster.dataset.eol,
-          finalNewline: keptMaster.dataset.finalNewline,
+      } else if (keptMain) {
+        // Silent re-feed rebuilds the worker's main without touching the main
+        // thread's (possibly edited) main file or the edit tracking bound to it.
+        const text = serializeGedcom(keptMain.dataset.records, {
+          eol: keptMain.dataset.eol,
+          finalNewline: keptMain.dataset.finalNewline,
         });
-        const masterBuf = await new Blob([text]).arrayBuffer();
+        const mainBuf = await new Blob([text]).arrayBuffer();
         post(
-          { type: "parse", role: "master", fileName: keptMaster.fileName, buffer: masterBuf, silent: true },
-          [masterBuf],
+          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true },
+          [mainBuf],
         );
         if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
         post(newMsg, [buffer]); // new compare last
@@ -619,9 +619,9 @@ function AppContent() {
     );
   }
 
-  /** Remove the incoming file and go back to working on the master alone. Drops
-   *  the match result and any merge decisions/import branches (edits to the master
-   *  are untouched), and forgets the cached compare so a reload stays master-only. */
+  /** Remove the incoming file and go back to working on the main alone. Drops
+   *  the match result and any merge decisions/import branches (edits to the main
+   *  are untouched), and forgets the cached compare so a reload stays main-only. */
   async function unloadCompare() {
     if (compare.status !== "loaded") return;
     if (confirmedCount > 0 || importCount > 0) {
@@ -653,8 +653,8 @@ function AppContent() {
   // Capture the set of IDs that exist at load time so we can later distinguish
   // "modified existing" from "newly added" when reverting via Remove from save.
   useEffect(() => {
-    if (master.status !== "loaded") return;
-    // Startup restore of an edited workspace: the re-parsed master is the edited
+    if (main.status !== "loaded") return;
+    // Startup restore of an edited workspace: the re-parsed main is the edited
     // serialization, so adopt the cached pre-edit tracking and undo history
     // instead of treating the current (edited) records as the clean baseline.
     const es = pendingEditStateRef.current;
@@ -663,7 +663,7 @@ function AppContent() {
       pendingEditStateRef.current = null;
       // Defense in depth on top of the SESSION_SCHEMA gate in persist/idb.ts:
       // a cached edit-state whose shape no longer matches the app must never
-      // brick startup — fall back to a clean baseline (the cached master text
+      // brick startup — fall back to a clean baseline (the cached main text
       // already contains the edits; only their change-tracking is lost).
       try {
         dirty.hydrate(es);
@@ -677,35 +677,35 @@ function AppContent() {
       }
     }
     if (!hydrated) {
-      dirty.resetOnLoad(master.file.dataset);
+      dirty.resetOnLoad(main.file.dataset);
       sortEligiblePersonIdsRef.current = new Set();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [master.status]);
+  }, [main.status]);
 
-  // When the master finishes loading, default the start person to its root
+  // When the main finishes loading, default the start person to its root
   // individual if present. Attempted once per file (autoStartRef), so a user
   // who later clears the start person isn't overridden.
   useEffect(() => {
-    if (master.status !== "loaded" || autoStartRef.current) return;
+    if (main.status !== "loaded" || autoStartRef.current) return;
     autoStartRef.current = true;
     if (startId) return;
-    const start = defaultStartId(master.file.dataset);
+    const start = defaultStartId(main.file.dataset);
     if (start) {
       changeStart(start);
     } else {
       setFocusStart(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [master.status]);
+  }, [main.status]);
 
   // In merge mode, also attempt once when first match results arrive (covers
-  // the case where master loaded before the worker finished computing matches).
+  // the case where main loaded before the worker finished computing matches).
   useEffect(() => {
     if (!matches || autoStartRef.current) return;
     autoStartRef.current = true;
     if (startId) return;
-    const ds = master.status === "loaded" ? master.file.dataset : undefined;
+    const ds = main.status === "loaded" ? main.file.dataset : undefined;
     const start = ds ? defaultStartId(ds) : undefined;
     if (start) {
       changeStart(start);
@@ -717,35 +717,35 @@ function AppContent() {
 
   // Persist the workspace so a reload restores it: the pending merge session
   // (decisions, import branches, start person) plus, once the dataset has been
-  // edited, the edited master text and the edit-state (dirty tracking + undo
+  // edited, the edited main text and the edit-state (dirty tracking + undo
   // history). Debounced because these change rapidly while working; keyed to the
-  // loaded master/compare so a stale restore can be skipped.
+  // loaded main/compare so a stale restore can be skipped.
   useEffect(() => {
     if (!persistEnabled) return; // caching is opt-in
-    const masterFileName = lastMasterFile?.fileName;
-    if (!masterFileName) return; // nothing loaded yet → nothing to cache
+    const mainFileName = lastMainFile?.fileName;
+    if (!mainFileName) return; // nothing loaded yet → nothing to cache
     if (!hydratedRef.current) return; // a startup restore is still settling
     const handle = window.setTimeout(async () => {
       const edited = editVersion > 0; // dataset differs from the cached original
       const editState: StoredEditState | undefined = edited
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
         : undefined;
-      // Cache the master's *current* serialization (edited or original) — this
-      // effect is the sole master writer. Re-serialize when the dataset has been
+      // Cache the main's *current* serialization (edited or original) — this
+      // effect is the sole main writer. Re-serialize when the dataset has been
       // edited, or once when it hasn't been cached yet this session (a pure-merge
       // session then serializes only that first time, not on every decision). It
       // is written before the session below, so a session record always points
-      // at an already-committed master.
-      if (masterDataset && (edited || !masterCachedRef.current)) {
-        await saveFile("master", {
-          fileName: masterFileName,
-          blob: new Blob([serializeGedcom(masterDataset.records, { eol: masterDataset.eol, finalNewline: masterDataset.finalNewline })]),
+      // at an already-committed main.
+      if (mainDataset && (edited || !mainCachedRef.current)) {
+        await saveFile("main", {
+          fileName: mainFileName,
+          blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
           savedAt: Date.now(),
         });
-        masterCachedRef.current = true;
+        mainCachedRef.current = true;
       }
       await saveSession({
-        masterFileName,
+        mainFileName,
         compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
         decisions: Array.from(decisions),
         importBranches: Array.from(importBranches),
@@ -756,7 +756,7 @@ function AppContent() {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, startId, compare, lastMasterFile, editVersion, changedPersonIds, changedFamilyIds]);
+  }, [persistEnabled, decisions, importBranches, startId, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on
@@ -770,10 +770,10 @@ function AppContent() {
       return;
     }
     void requestPersistentStorage();
-    const ds = lastMasterFile?.dataset;
-    if (ds && lastMasterFile) {
-      void saveFile("master", {
-        fileName: lastMasterFile.fileName,
+    const ds = lastMainFile?.dataset;
+    if (ds && lastMainFile) {
+      void saveFile("main", {
+        fileName: lastMainFile.fileName,
         blob: new Blob([serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })]),
         savedAt: Date.now(),
       });
@@ -796,7 +796,7 @@ function AppContent() {
   // The merge "match list" view-model (ranked/filtered lists, selection, index
   // maps) — pure derivation, extracted to a hook. The stateful setters
   // (sort/filters) and navigation callbacks stay here.
-  const { allSorted, visible, visibleMasterOrder, current, visibleIndex, allSortedIndex, indexByMaster, indexByCompare } =
+  const { allSorted, visible, visibleMainOrder, current, visibleIndex, allSortedIndex, indexByMain, indexByCompare } =
     useMatchList({ matches, sort, filters, decisions, selectedId });
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
@@ -807,9 +807,9 @@ function AppContent() {
   visibleIndexRef.current = visibleIndex;
 
   const canNavigatePerson = useCallback(
-    (side: "master" | "incoming", id: string) =>
-      (side === "master" ? indexByMaster : indexByCompare).has(id),
-    [indexByMaster, indexByCompare],
+    (side: "main" | "incoming", id: string) =>
+      (side === "main" ? indexByMain : indexByCompare).has(id),
+    [indexByMain, indexByCompare],
   );
 
 
@@ -818,7 +818,7 @@ function AppContent() {
   const select = useCallback((visIdx: number) => {
     const c = visibleRef.current[visIdx];
     if (!c) return;
-    setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+    setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     if (window.innerWidth <= 880) {
       setTimeout(() => {
         compareRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -830,13 +830,13 @@ function AppContent() {
   const onSelectPrev = useCallback(() => {
     const idx = Math.max(0, visibleIndexRef.current - 1);
     const c = visibleRef.current[idx];
-    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+    if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
   }, []);
 
   const onSelectNext = useCallback(() => {
     const idx = Math.min(visibleRef.current.length - 1, visibleIndexRef.current + 1);
     const c = visibleRef.current[idx];
-    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+    if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
   }, []);
 
   // When filters change: keep current person if they survive the new filter;
@@ -844,10 +844,10 @@ function AppContent() {
   function handleFilters(f: Filters) {
     const newVisible = applyFilters(allSorted, f);
     const currentStillVisible = current
-      ? newVisible.some(c => c.masterId === current.masterId && c.compareId === current.compareId)
+      ? newVisible.some(c => c.mainId === current.mainId && c.compareId === current.compareId)
       : false;
     if (!currentStillVisible && newVisible.length > 0) {
-      setSelectedId({ masterId: newVisible[0].masterId, compareId: newVisible[0].compareId });
+      setSelectedId({ mainId: newVisible[0].mainId, compareId: newVisible[0].compareId });
     }
     setFilters(f);
   }
@@ -855,18 +855,18 @@ function AppContent() {
   // Jump the compare view to a relative's own match row, pushing a history entry
   // so the browser Back button returns to where we were.
   const navigatePerson = useCallback(
-    (side: "master" | "incoming", id: string) => {
-      const target = (side === "master" ? indexByMaster : indexByCompare).get(id);
+    (side: "main" | "incoming", id: string) => {
+      const target = (side === "main" ? indexByMain : indexByCompare).get(id);
       if (!target) return;
-      if (target.masterId === current?.masterId && target.compareId === current?.compareId) return;
-      if (current) window.history.replaceState({ gedSel: { masterId: current.masterId, compareId: current.compareId } }, "");
-      window.history.pushState({ gedSel: { masterId: target.masterId, compareId: target.compareId } }, "");
-      setSelectedId({ masterId: target.masterId, compareId: target.compareId });
+      if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
+      if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
+      window.history.pushState({ gedSel: { mainId: target.mainId, compareId: target.compareId } }, "");
+      setSelectedId({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {
         setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
       }
     },
-    [indexByMaster, indexByCompare, current],
+    [indexByMain, indexByCompare, current],
   );
 
   function handleUndo() {
@@ -879,7 +879,7 @@ function AppContent() {
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.before });
     } else {
-      setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
+      setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.before });
@@ -898,7 +898,7 @@ function AppContent() {
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.after });
     } else {
-      setSelectedId({ masterId: entry.masterId, compareId: entry.compareId });
+      setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.after });
@@ -973,7 +973,7 @@ function AppContent() {
   // selected (so the person carries over instead of Edit staying on whoever
   // it last showed).
   function switchToEdit() {
-    if (current) setNavigateToId(current.masterId);
+    if (current) setNavigateToId(current.mainId);
     setMode("edit");
   }
 
@@ -989,12 +989,12 @@ function AppContent() {
   // falls back to leaving Merge's selection untouched when that person isn't
   // itself a match candidate.
   function switchToMerge() {
-    const c = editPersonId ? allSorted.find((c) => c.masterId === editPersonId) : undefined;
-    if (c) setSelectedId({ masterId: c.masterId, compareId: c.compareId });
+    const c = editPersonId ? allSorted.find((c) => c.mainId === editPersonId) : undefined;
+    if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     setMode("merge");
   }
 
-  // Switch to the maintenance Tools tab, which operates on the whole master file.
+  // Switch to the maintenance Tools tab, which operates on the whole main file.
   function switchToTools() {
     setMode("tools");
   }
@@ -1034,16 +1034,16 @@ function AppContent() {
   useEffect(() => {
     if (!matches) return;
     const first = allSorted[0];
-    if (first) setNavigateToId(first.masterId);
+    if (first) setNavigateToId(first.mainId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
-    const key = decisionKey("individual", current.masterId, current.compareId);
+    const key = decisionKey("individual", current.mainId, current.compareId);
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
-    undoRedo.push({ mode: "merge", before, after, masterId: current.masterId, compareId: current.compareId });
+    undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
     dispatch({ type: "decisionsSet", decisions: after });
   }
 
@@ -1051,13 +1051,13 @@ function AppContent() {
   // isn't necessarily Merge's currently selected candidate (`current`) — e.g.
   // after confirming two matches and navigating from one to the other within
   // Edit. EditView already knows which decision it means (it found `key` by
-  // matching the decision's own master id against the person on screen), so
+  // matching the decision's own main id against the person on screen), so
   // it passes that key explicitly instead of relying on `current`.
   function updateDecisionForKey(key: string, next: CandidateDecision) {
-    const [, masterId, compareId] = key.split(":");
+    const [, mainId, compareId] = key.split(":");
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
-    undoRedo.push({ mode: "merge", before, after, masterId, compareId });
+    undoRedo.push({ mode: "merge", before, after, mainId, compareId });
     dispatch({ type: "decisionsSet", decisions: after });
   }
 
@@ -1065,13 +1065,13 @@ function AppContent() {
   // status again clears it back to undecided. Used by the compare tree, where a
   // node may be a person that never appeared in the candidate list.
   const setPairStatus = useCallback(
-    (masterId: string, compareId: string, status: MatchDecisionStatus) => {
-      const key = decisionKey("individual", masterId, compareId);
+    (mainId: string, compareId: string, status: MatchDecisionStatus) => {
+      const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
       const cur = before.get(key);
       const nextStatus = cur?.status === status ? "undecided" : status;
       const after = new Map(before).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
-      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, masterId, compareId });
+      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
       dispatch({ type: "decisionsSet", decisions: after });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1105,7 +1105,7 @@ function AppContent() {
     [],
   );
 
-  const masterDataset = lastMasterFile?.dataset;
+  const mainDataset = lastMainFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
   // Charts hub: the full-page per-person diagram overlay (pedigree charts +
@@ -1141,11 +1141,11 @@ function AppContent() {
    *  the start person, or the file's default — so charts are reachable from
    *  every mode without first switching to Edit. */
   function openChartsFromHeader() {
-    if (!masterDataset) return;
+    if (!mainDataset) return;
     const id =
-      (mode === "edit" ? editPersonId : mode === "merge" ? selectedId?.masterId : undefined) ??
+      (mode === "edit" ? editPersonId : mode === "merge" ? selectedId?.mainId : undefined) ??
       startId ??
-      defaultStartId(masterDataset);
+      defaultStartId(mainDataset);
     if (id) openCharts(id);
   }
 
@@ -1153,19 +1153,19 @@ function AppContent() {
   // dataset is (re)loaded, edited (editVersion), or the name-display settings
   // change — the same triggers that alter a person's displayed name.
   const searchRows = useMemo(
-    () => (masterDataset ? buildSearchRows(masterDataset.individuals, nameOf) : []),
+    () => (mainDataset ? buildSearchRows(mainDataset.individuals, nameOf) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [masterDataset, nameOf, editVersion],
+    [mainDataset, nameOf, editVersion],
   );
 
-  // Master id → its merge decision (confirmed/deferred/rejected), for the global
+  // Main id → its merge decision (confirmed/deferred/rejected), for the global
   // search "decision" facet. Undecided candidates carry no entry.
-  const decisionByMaster = useMemo(() => {
+  const decisionByMain = useMemo(() => {
     const m = new Map<string, MatchDecisionStatus>();
     for (const [key, d] of decisions) {
       if (d.status === "undecided") continue;
-      const masterId = key.split(":")[1];
-      if (!m.has(masterId)) m.set(masterId, d.status);
+      const mainId = key.split(":")[1];
+      if (!m.has(mainId)) m.set(mainId, d.status);
     }
     return m;
   }, [decisions]);
@@ -1174,9 +1174,9 @@ function AppContent() {
   // the kinship facet. One BFS, recomputed only when the start person or the
   // dataset (via edits) changes. Empty when no start person is set.
   const kinshipDistances = useMemo(
-    () => (startId && masterDataset ? computeDistances(masterDataset, startId) : new Map<string, number>()),
+    () => (startId && mainDataset ? computeDistances(mainDataset, startId) : new Map<string, number>()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [startId, masterDataset, editVersion],
+    [startId, mainDataset, editVersion],
   );
 
   // Cross-cutting lookups the search facets need but that aren't baked into the
@@ -1184,10 +1184,10 @@ function AppContent() {
   const searchFilterContext = useMemo<FilterContext>(
     () => ({
       isEdited: (id) => changedPersonIds.has(id),
-      decisionOf: (id) => decisionByMaster.get(id),
+      decisionOf: (id) => decisionByMain.get(id),
       kinshipHops: (id) => kinshipDistances.get(id),
     }),
-    [changedPersonIds, decisionByMaster, kinshipDistances],
+    [changedPersonIds, decisionByMain, kinshipDistances],
   );
 
   // Per-row record-id / kinship extras for the search results, honouring the
@@ -1198,15 +1198,15 @@ function AppContent() {
   const kinshipCacheRef = useRef(new Map<string, { label: string; lineageClass: string } | null>());
   useEffect(() => {
     kinshipCacheRef.current = new Map();
-  }, [startId, masterDataset, settings.showKinship, editVersion]);
+  }, [startId, mainDataset, settings.showKinship, editVersion]);
   const searchMetaOf = useCallback(
     (id: string): SearchRowMeta => {
       const meta: SearchRowMeta = {};
       if (settings.showXref) meta.xref = xrefLabel(id);
-      if (settings.showKinship && startId && masterDataset && startId !== id) {
+      if (settings.showKinship && startId && mainDataset && startId !== id) {
         let cached = kinshipCacheRef.current.get(id);
         if (cached === undefined) {
-          const info = kinshipInfo(masterDataset, startId, id, t);
+          const info = kinshipInfo(mainDataset, startId, id, t);
           cached = info ? { label: info.label, lineageClass: lineageClass(info.lineage) } : null;
           kinshipCacheRef.current.set(id, cached);
         }
@@ -1217,7 +1217,7 @@ function AppContent() {
       }
       return meta;
     },
-    [settings.showXref, settings.showKinship, startId, masterDataset, t],
+    [settings.showXref, settings.showKinship, startId, mainDataset, t],
   );
 
   // Open a person chosen in global search. Routes by context: a match candidate
@@ -1248,9 +1248,9 @@ function AppContent() {
     // active mode and the person is a match candidate — then land on their pair.
     // From Edit (or Tools, or for a non-candidate), open the person in Edit so
     // an edit-mode search never yanks the user into Merge.
-    const candidate = mode === "merge" ? indexByMaster.get(id) : undefined;
+    const candidate = mode === "merge" ? indexByMain.get(id) : undefined;
     if (candidate) {
-      setSelectedId({ masterId: candidate.masterId, compareId: candidate.compareId });
+      setSelectedId({ mainId: candidate.mainId, compareId: candidate.compareId });
       setMode("merge");
     } else {
       setNavigateToId(id);
@@ -1264,12 +1264,12 @@ function AppContent() {
   // Delegates to useDirtyTracking which handles all the case logic as pure ops.
   const handlePatchApplied = useCallback(
     (patches: RecordPatch[], direction: "undo" | "redo") => {
-      if (!masterDataset) return;
-      dirty.onPatchApplied(patches, direction, masterDataset);
+      if (!mainDataset) return;
+      dirty.onPatchApplied(patches, direction, mainDataset);
       bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [masterDataset],
+    [mainDataset],
   );
 
   const confirmedCount = useMemo(() => {
@@ -1278,7 +1278,7 @@ function AppContent() {
     return n;
   }, [decisions]);
 
-  const confirmedMasterIds = useMemo(() => {
+  const confirmedMainIds = useMemo(() => {
     const ids = new Set<string>();
     for (const [key, d] of decisions) {
       if (d.status === "confirmed") ids.add(key.split(":")[1]);
@@ -1343,31 +1343,31 @@ function AppContent() {
   }
 
   function handleSave() {
-    if (!masterDataset || master.status !== "loaded") return;
-    const base = master.file.fileName.replace(/\.ged$/i, "");
+    if (!mainDataset || main.status !== "loaded") return;
+    const base = main.file.fileName.replace(/\.ged$/i, "");
     const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
     const isMerge = confirmedCount > 0 || importCount > 0;
 
     const editReport = changedCount > 0
       ? enrichEditReport(
-          buildEditReport(changedPersonIds, changedFamilyIds, masterDataset, dirty.loadedPersonIds.current, dirty.loadedFamilyIds.current, dirty.personSnapshots.current, dirty.familySnapshots.current),
-          masterDataset, dirty.personSnapshots.current, dirty.familySnapshots.current, t,
+          buildEditReport(changedPersonIds, changedFamilyIds, mainDataset, dirty.loadedPersonIds.current, dirty.loadedFamilyIds.current, dirty.personSnapshots.current, dirty.familySnapshots.current),
+          mainDataset, dirty.personSnapshots.current, dirty.familySnapshots.current, t,
         )
       : null;
 
     let records: GedNode[];
     let report: ChangeReport;
-    let masterRecordCount: number | undefined;
+    let mainRecordCount: number | undefined;
     if (isMerge) {
       const compareDs = compareDataset!;
       const { records: mergedRecords, report: mergeReport } = mergeDecisions(
-        masterDataset, compareDs, decisions, matches ?? { individuals: [] }, t, importRequests,
+        mainDataset, compareDs, decisions, matches ?? { individuals: [] }, t, importRequests,
       );
       records = mergedRecords;
       report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
-      masterRecordCount = masterDataset.individuals.size + masterDataset.families.size;
+      mainRecordCount = mainDataset.individuals.size + mainDataset.families.size;
     } else {
-      records = masterDataset.records;
+      records = mainDataset.records;
       report = editReport!;
     }
 
@@ -1397,7 +1397,7 @@ function AppContent() {
       title: t("save.preview.title"),
       files: [`${base}.gedmerge.ged`, `${base}.gedmerge.report.txt`],
       downloadLabel: t("save.preview.download"),
-      masterRecordCount,
+      mainRecordCount,
       base,
       editRecordIds,
       isMerge,
@@ -1407,18 +1407,18 @@ function AppContent() {
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
   globalShortcutRef.current.save = handleSave;
-  globalShortcutRef.current.canSave = !!lastMasterFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
 
   function handleEditDirty(type: "individual" | "family", id: string) {
-    if (!masterDataset) return;
-    dirty.markDirty(type, id, masterDataset);
+    if (!mainDataset) return;
+    dirty.markDirty(type, id, mainDataset);
     if (type === "individual") sortEligiblePersonIdsRef.current.add(id);
   }
 
   function handleConfirmSave() {
-    if (!preview || !masterDataset) return;
+    if (!preview || !mainDataset) return;
 
-    const usage = masterDataset.chanCreaUsage;
+    const usage = mainDataset.chanCreaUsage;
     if (usage.recordChan || usage.recordCrea || usage.eventChan || usage.eventCrea) {
       const changedIds = new Set([
         ...preview.editRecordIds,
@@ -1440,39 +1440,39 @@ function AppContent() {
 
     // The download is always UTF-8 bytes; a header still declaring the source
     // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
-    ensureUtf8Charset(preview.records, masterDataset);
+    ensureUtf8Charset(preview.records, mainDataset);
 
-    const text = serializeGedcom(preview.records, downloadOptions(masterDataset));
+    const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
     downloadText(`${preview.base}.gedmerge.ged`, text);
     downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
 
-    // The saved file is the new master baseline — refresh the cache so a reload
+    // The saved file is the new main baseline — refresh the cache so a reload
     // restores the saved state (the confirmed decisions are now baked in and
     // cleared below, so the persisted session debounce will write them away).
     if (persistEnabled) {
-      void saveFile("master", {
-        fileName: lastMasterFile?.fileName ?? `${preview.base}.ged`,
+      void saveFile("main", {
+        fileName: lastMainFile?.fileName ?? `${preview.base}.ged`,
         blob: new Blob([text]),
         savedAt: Date.now(),
       });
     }
 
-    // The downloaded file is the new master baseline — rebuild the live dataset
+    // The downloaded file is the new main baseline — rebuild the live dataset
     // from the same records so the app reflects exactly what was saved, instead
     // of leaving merged-in fields stuck on stale pre-merge data (mergeDecisions
     // only ever wrote them into a clone for serialization).
     const rebuilt = buildDataset({
-      version: masterDataset.version,
+      version: mainDataset.version,
       // The saved text declares (and is) UTF-8 — see ensureUtf8Charset above —
       // so the new baseline's charset must agree with it.
       charset: "UTF-8",
       records: preview.records,
-      warnings: masterDataset.warnings,
-      eol: masterDataset.eol,
-      finalNewline: masterDataset.finalNewline,
+      warnings: mainDataset.warnings,
+      eol: mainDataset.eol,
+      finalNewline: mainDataset.finalNewline,
     });
-    Object.assign(masterDataset, rebuilt);
-    dirty.resetOnSave(masterDataset);
+    Object.assign(mainDataset, rebuilt);
+    dirty.resetOnSave(mainDataset);
     sortEligiblePersonIdsRef.current = new Set();
 
     // These confirmed decisions are now baked into the live dataset — clear them
@@ -1488,26 +1488,26 @@ function AppContent() {
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
     undoRedo.clearAll();
-    // The cached master text (written just above) now equals the live dataset,
-    // so drop the "dataset is edited" flag and mark the master cached — the
-    // debounce (sole master writer) then leaves it alone until the next edit.
+    // The cached main text (written just above) now equals the live dataset,
+    // so drop the "dataset is edited" flag and mark the main cached — the
+    // debounce (sole main writer) then leaves it alone until the next edit.
     setEditVersion(0);
-    masterCachedRef.current = true;
+    mainCachedRef.current = true;
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
-    if (!masterDataset || !preview) return;
+    if (!mainDataset || !preview) return;
     const patches: RecordPatch[] = [];
 
     if (kind === "individual") {
       const snapshot = dirty.personSnapshots.current.get(id);
-      const indi = masterDataset.individuals.get(id);
+      const indi = mainDataset.individuals.get(id);
       if (indi) {
         const beforeIndi = cloneRaw(indi.raw);
         if (dirty.loadedPersonIds.current.has(id) && snapshot) {
           indi.raw.value = snapshot.value;
           indi.raw.children = snapshot.children.map(cloneNode);
-          rebuildIndividual(masterDataset, indi);
+          rebuildIndividual(mainDataset, indi);
           patches.push({ type: "individual", id, before: beforeIndi, after: cloneRaw(indi.raw) });
         } else {
           // Snapshot the person's families and all their members: pruning a
@@ -1515,38 +1515,38 @@ function AppContent() {
           const affectedFamilyIds = [...indi.spouseOf, ...indi.childOf];
           const memberIds = new Set<string>();
           for (const famId of affectedFamilyIds) {
-            const fam = masterDataset.families.get(famId);
+            const fam = mainDataset.families.get(famId);
             if (fam) for (const m of [fam.husband, fam.wife, ...fam.children]) if (m && m !== id) memberIds.add(m);
           }
-          const before = snapshotRecords(masterDataset, memberIds, affectedFamilyIds);
-          removeIndividual(masterDataset, indi);
+          const before = snapshotRecords(mainDataset, memberIds, affectedFamilyIds);
+          removeIndividual(mainDataset, indi);
           patches.push({ type: "individual", id, before: beforeIndi, after: null });
-          patches.push(...patchesFromSnapshots(masterDataset, before));
+          patches.push(...patchesFromSnapshots(mainDataset, before));
         }
       }
       // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
       dirty.removeDirty("individual", id);
     } else {
       const snapshot = dirty.familySnapshots.current.get(id);
-      const fam = masterDataset.families.get(id);
+      const fam = mainDataset.families.get(id);
       if (fam) {
         const beforeFam = cloneRaw(fam.raw);
         if (dirty.loadedFamilyIds.current.has(id) && snapshot) {
           fam.raw.value = snapshot.value;
           fam.raw.children = snapshot.children.map(cloneNode);
-          rebuildFamily(masterDataset, fam);
+          rebuildFamily(mainDataset, fam);
           patches.push({ type: "family", id, before: beforeFam, after: cloneRaw(fam.raw) });
         } else {
           const memberIds = [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
           const memberBefores = new Map<string, GedNode>();
           for (const indiId of memberIds) {
-            const indi = masterDataset.individuals.get(indiId);
+            const indi = mainDataset.individuals.get(indiId);
             if (indi) memberBefores.set(indiId, cloneRaw(indi.raw));
           }
-          removeFamily(masterDataset, fam);
+          removeFamily(mainDataset, fam);
           patches.push({ type: "family", id, before: beforeFam, after: null });
           for (const [indiId, before] of memberBefores) {
-            const indi = masterDataset.individuals.get(indiId);
+            const indi = mainDataset.individuals.get(indiId);
             patches.push({ type: "individual", id: indiId, before, after: indi ? cloneRaw(indi.raw) : null });
           }
         }
@@ -1646,11 +1646,11 @@ function AppContent() {
             <h1 onClick={handleTitleClick} className="brand-clickable">
               <Wordmark />
             </h1>
-            {(lastMasterFile || compare.status === "loaded") && (
+            {(lastMainFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
-                {lastMasterFile && (
-                  <button className="header-file-btn gm-file master" onClick={() => window.history.back()} title={`${t("tree.master")}: ${lastMasterFile.fileName}`}>
-                    {lastMasterFile.fileName}
+                {lastMainFile && (
+                  <button className="header-file-btn gm-file main" onClick={() => window.history.back()} title={`${t("tree.main")}: ${lastMainFile.fileName}`}>
+                    {lastMainFile.fileName}
                   </button>
                 )}
                 {compare.status === "loaded" && (
@@ -1692,13 +1692,13 @@ function AppContent() {
   // it. Keeping Edit/Merge mounted preserves their scroll position when the user
   // returns — important on mobile, where the page is a single tall scroll.
   let treeOverlay: React.ReactNode = null;
-  if (treeView && masterDataset && compareDataset && matches) {
+  if (treeView && mainDataset && compareDataset && matches) {
     treeOverlay = wrapTree(
       <CompareTree
-        masterDs={masterDataset}
+        mainDs={mainDataset}
         compareDs={compareDataset}
         matches={matches}
-        rootMasterId={treeView.masterId}
+        rootMainId={treeView.mainId}
         rootCompareId={treeView.compareId}
         mode={treeView.mode}
         onModeChange={changeTreeMode}
@@ -1719,13 +1719,13 @@ function AppContent() {
         }}
       />
     );
-  } else if (chartsRootId && masterDataset) {
+  } else if (chartsRootId && mainDataset) {
     treeOverlay = wrapTree(
       <ChartsHub
         // Remount when opened on a different person, so the hub's internal
         // root follows a fresh open instead of a stale earlier visit.
         key={chartsRootId}
-        masterDs={masterDataset}
+        mainDs={mainDataset}
         initialRootId={chartsRootId}
         startId={startId}
         changedPersonIds={changedPersonIds}
@@ -1757,7 +1757,7 @@ function AppContent() {
     <>
     <PwaReloadPrompt />
     {treeOverlay}
-    <AutoMediaOffer master={master} />
+    <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
       {showMobileWarning && (
         <div className="mobile-warning">
@@ -1771,11 +1771,11 @@ function AppContent() {
             <h1 onClick={handleTitleClick} className="brand-clickable">
               <Wordmark />
             </h1>
-            {(lastMasterFile || compare.status === "loaded") && (
+            {(lastMainFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
-                {lastMasterFile && (
-                  <button className="header-file-btn gm-file master" onClick={toggleInfoPanel} title={`${t("tree.master")}: ${lastMasterFile.fileName} — ${t("header.filePill.hint")}`}>
-                    {lastMasterFile.fileName}
+                {lastMainFile && (
+                  <button className="header-file-btn gm-file main" onClick={toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
+                    {lastMainFile.fileName}
                     <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
                   </button>
                 )}
@@ -1789,7 +1789,7 @@ function AppContent() {
             )}
           </div>
           <div className="lang-switcher">
-            {masterDataset && (
+            {mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={openChartsFromHeader}
@@ -1799,7 +1799,7 @@ function AppContent() {
                 <ChartIcon size={18} />
               </button>
             )}
-            {masterDataset && (
+            {mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => setShowGlobalSearch(true)}
@@ -1819,10 +1819,10 @@ function AppContent() {
             </button>
           </div>
         </div>
-        {masterDataset && (
+        {mainDataset && (
           <div className="app-head-controls">
             <StartPersonSelector
-              individuals={masterDataset.individuals}
+              individuals={mainDataset.individuals}
               startId={startId}
               onChange={changeStart}
               onClear={() => changeStart(undefined)}
@@ -1831,7 +1831,7 @@ function AppContent() {
               onAutoFocused={() => setFocusStart(false)}
             />
             <div className="app-head-actions">
-              {lastMasterFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0) && (
+              {lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0) && (
                 <button
                   className="export-btn"
                   onClick={handleSave}
@@ -1839,10 +1839,10 @@ function AppContent() {
                 >
                   <span className="export-btn-label-full">{t("save.gedcom")}</span>
                   <span className="export-btn-label-short">{t("save")}</span>
-                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMasterIds]).size + importCount})
+                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMainIds]).size + importCount})
                 </button>
               )}
-              {lastMasterFile && (canUndo || canRedo) && (
+              {lastMainFile && (canUndo || canRedo) && (
                 <>
                   <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
                     ↩ {t("undo")}
@@ -1881,7 +1881,7 @@ function AppContent() {
       </header>
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
-      {infoPanelOpen && lastMasterFile && (
+      {infoPanelOpen && lastMainFile && (
         <div className="info-panel">
           {canClosePanel && (
             <button
@@ -1894,10 +1894,10 @@ function AppContent() {
           )}
           <div className={showCompareInPanel ? "info-panel-cols" : "info-panel-single"}>
             <GedcomLoader
-              title={t("load.master")}
-              state={master}
-              onLoad={(f) => loadFile("master", f)}
-              accent="master"
+              title={t("load.main")}
+              state={main}
+              onLoad={(f) => loadFile("main", f)}
+              accent="main"
             />
             {showCompareInPanel && (
               <div className="loader-with-samples">
@@ -1933,25 +1933,25 @@ function AppContent() {
         </div>
       )}
 
-      {/* Master landing — shown before any master file has ever loaded; once one
+      {/* Main landing — shown before any main file has ever loaded; once one
           has, reloads/errors stay on this page (in the info panel above) instead
           of bouncing back here. */}
-      {!lastMasterFile && (
+      {!lastMainFile && (
         <Landing
-          masterState={master}
-          onLoadFile={(f) => loadFile("master", f)}
-          onLoadSample={(fileName) => loadSample("master", fileName)}
+          mainState={main}
+          onLoadFile={(f) => loadFile("main", f)}
+          onLoadSample={(fileName) => loadSample("main", fileName)}
         />
       )}
 
-      {/* Both modes stay mounted once the master is loaded — toggling visibility
+      {/* Both modes stay mounted once the main is loaded — toggling visibility
           instead of conditionally rendering avoids re-mounting the (unvirtualized)
           match list from scratch on every Edit<->Merge switch, which was very
           noticeable with thousands of matches. The wrapper must reproduce the
           flex sizing `.edit-view`/`.main-split` expect from their parent (a
           `flex: 1 1 0; min-height: 0` column child of `.app`) — a plain
           `hidden` div would collapse to auto height and break the layout. */}
-      {lastMasterFile && masterDataset && (
+      {lastMainFile && mainDataset && (
         <>
           <div style={mode === "merge" ? modeLayerStyle : modeLayerHiddenStyle}>
             <MergeView
@@ -1971,7 +1971,7 @@ function AppContent() {
               showFilters={showFilters}
               setShowFilters={setShowFilters}
               startId={startId}
-              masterDataset={masterDataset}
+              mainDataset={mainDataset}
               openMatches={openMatches}
               setOpenMatches={setOpenMatches}
               current={current}
@@ -1986,18 +1986,18 @@ function AppContent() {
           </div>
           <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
             <EditView
-              dataset={masterDataset}
-              fileName={lastMasterFile.fileName}
+              dataset={mainDataset}
+              fileName={lastMainFile.fileName}
               startId={startId}
               changeStart={changeStart}
               onDirty={handleEditDirty}
               onShowCharts={openCharts}
-              marriedNameTag={lastMasterFile.marriedNameTag}
+              marriedNameTag={lastMainFile.marriedNameTag}
               navigateToId={navigateToId}
               onNavigated={() => setNavigateToId(undefined)}
               onPersonChange={setEditPersonId}
-              matchCompareIdFor={matches ? (id) => indexByMaster.get(id)?.compareId : undefined}
-              matchOrder={matches ? visibleMasterOrder : undefined}
+              matchCompareIdFor={matches ? (id) => indexByMain.get(id)?.compareId : undefined}
+              matchOrder={matches ? visibleMainOrder : undefined}
               decisions={decisions}
               changedPersonIds={changedPersonIds}
               compareDataset={compareDataset}
@@ -2011,8 +2011,8 @@ function AppContent() {
           </div>
           <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>
             <ToolsView
-              dataset={masterDataset}
-              fileName={lastMasterFile.fileName}
+              dataset={mainDataset}
+              fileName={lastMainFile.fileName}
               onNavigate={(id) => {
                 // Tag the current entry as Tools and push an Edit entry, so the
                 // browser Back button returns to the Tools tab we came from.
@@ -2023,66 +2023,66 @@ function AppContent() {
               }}
               active={mode === "tools"}
               onApplyPlaceRename={(from, to, scope) => {
-                if (!masterDataset) return;
-                const patches = applyPlaceRename(masterDataset, from, to, scope);
+                if (!mainDataset) return;
+                const patches = applyPlaceRename(mainDataset, from, to, scope);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                   }
                 }
               }}
               onFixBrokenLinks={() => {
-                if (!masterDataset) return 0;
-                const patches = fixBrokenLinks(masterDataset);
+                if (!mainDataset) return 0;
+                const patches = fixBrokenLinks(mainDataset);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                   }
                 }
                 return patches.length;
               }}
               onFixSexFromRole={() => {
-                if (!masterDataset) return 0;
-                const patches = fixSexFromRole(masterDataset);
+                if (!mainDataset) return 0;
+                const patches = fixSexFromRole(mainDataset);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                   }
                 }
                 return patches.length;
               }}
               onFixDates={() => {
-                if (!masterDataset) return 0;
-                const patches = fixDates(masterDataset);
+                if (!mainDataset) return 0;
+                const patches = fixDates(mainDataset);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                   }
                 }
                 return patches.length;
               }}
               onFixDuplicatePointers={() => {
-                if (!masterDataset) return 0;
-                const patches = fixDuplicatePointers(masterDataset);
+                if (!mainDataset) return 0;
+                const patches = fixDuplicatePointers(mainDataset);
                 if (patches.length > 0) {
                   handlePushEdit(patches);
                   for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                   }
                 }
                 return patches.length;
               }}
               onMergeDuplicate={(survivorId, removedId, decision) => {
-                if (!masterDataset) return false;
-                const patches = mergeDuplicate(masterDataset, survivorId, removedId, decision, t);
+                if (!mainDataset) return false;
+                const patches = mergeDuplicate(mainDataset, survivorId, removedId, decision, t);
                 if (patches.length === 0) return false;
                 handlePushEdit(patches);
                 for (const p of patches) {
-                  if (p.type !== "record") dirty.markDirty(p.type, p.id, masterDataset);
+                  if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                 }
                 return true;
               }}
@@ -2096,10 +2096,10 @@ function AppContent() {
           title={preview.title}
           files={preview.files}
           downloadLabel={preview.downloadLabel}
-          masterRecordCount={preview.masterRecordCount}
+          mainRecordCount={preview.mainRecordCount}
           editRecordIds={preview.editRecordIds}
           integrityWarnings={preview.integrityWarnings}
-          dataset={masterDataset}
+          dataset={mainDataset}
           onConfirm={handleConfirmSave}
           onClose={() => setPreview(null)}
           onNavigate={(id) => { setPreview(null); setNavigateToId(id); }}

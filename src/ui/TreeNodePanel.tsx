@@ -19,12 +19,12 @@ interface Props {
   /** Swatch colour beside the name (status colour, or modified/normal colour). */
   swatch: string;
   rows: FieldRow[];
-  masterPerson: PersonNav;
+  mainPerson: PersonNav;
   /** Incoming-side navigation; omitted in single-column (Edit Tree) mode. */
   incomingPerson?: PersonNav;
-  masterLabel: string;
+  mainLabel: string;
   incomingLabel?: string;
-  /** Show only labels + master column (no incoming side). */
+  /** Show only labels + main column (no incoming side). */
   singleColumn?: boolean;
   onClose: () => void;
   /** Re-root the tree on this person ("Set as root"). */
@@ -50,16 +50,16 @@ interface Props {
 /**
  * Floating detail panel for a selected tree node, shared by the Edit Tree and
  * Compare Tree. Renders the person header, a "Set as root" action, any
- * view-specific controls, and the read-only field table — as a Master↔Incoming
- * comparison (Compare Tree) or a single master column (Edit Tree).
+ * view-specific controls, and the read-only field table — as a Main↔Incoming
+ * comparison (Compare Tree) or a single main column (Edit Tree).
  */
 export function TreeNodePanel({
   node,
   swatch,
   rows,
-  masterPerson,
+  mainPerson,
   incomingPerson,
-  masterLabel,
+  mainLabel,
   incomingLabel,
   singleColumn,
   onClose,
@@ -109,9 +109,9 @@ export function TreeNodePanel({
       <div className="tree-compare-body">
         <ReadOnlyCompare
           rows={rows}
-          masterPerson={masterPerson}
-          incomingPerson={incomingPerson ?? masterPerson}
-          masterLabel={masterLabel}
+          mainPerson={mainPerson}
+          incomingPerson={incomingPerson ?? mainPerson}
+          mainLabel={mainLabel}
           incomingLabel={incomingLabel ?? ""}
           singleColumn={singleColumn}
         />

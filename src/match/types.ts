@@ -21,31 +21,31 @@ export interface ScoreComponent {
 export type MatchCategory = "strong" | "probable" | "weak";
 
 export interface IndividualCandidate {
-  masterId: string;
+  mainId: string;
   compareId: string;
   /** 0..100, weighted over the components that were comparable. */
   score: number;
   category: MatchCategory;
   components: ScoreComponent[];
-  /** Combined master-centric title: master label plus only the differing compare fields. */
+  /** Combined main-centric title: main label plus only the differing compare fields. */
   title: string;
-  /** Master display name on its own (no birth date), for the redesigned UI. */
+  /** Main display name on its own (no birth date), for the redesigned UI. */
   name: string;
-  /** Master birth year, when known — rendered in mono beside the name. */
+  /** Main birth year, when known — rendered in mono beside the name. */
   birthYear?: number;
-  /** Master death year, when known — completes the "1817–1921" lifespan range. */
+  /** Main death year, when known — completes the "1817–1921" lifespan range. */
   deathYear?: number;
   /** Original birth/death date text, for the full-date hover tooltip. */
   birthDate?: string;
   deathDate?: string;
-  /** True when the master has a death/burial event (even undated) — drives the
+  /** True when the main has a death/burial event (even undated) — drives the
    *  "1817–" vs living "1817" distinction in the lifespan label. */
   deceased: boolean;
   /** Sex of the matched person, used to colour the name label. */
   sex: Sex;
-  /** Hops from the start person to the master individual (set during ranking). */
+  /** Hops from the start person to the main individual (set during ranking). */
   distance?: number;
-  /** Fields the compare record has that the master lacks (data to add). */
+  /** Fields the compare record has that the main lacks (data to add). */
   newCount?: number;
   /** Fields both records have but that differ (to reconcile). */
   diffCount?: number;
@@ -66,9 +66,9 @@ export interface IndividualCandidate {
 
 /**
  * A set of incoming (compare) records that are the same person split across
- * duplicates — detected because they all match the *same* master person. The
+ * duplicates — detected because they all match the *same* main person. The
  * worker consolidates each cluster (merging the extras into `keepId`) before the
- * compare dataset is used for the tree/merge, so the master matches one clean
+ * compare dataset is used for the tree/merge, so the main matches one clean
  * record carrying all the data instead of stranding the other copies.
  */
 export interface IncomingDuplicateCluster {

@@ -8,7 +8,7 @@ import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 // The chart pages' Export menu with the standard items built in: the branch
 // GEDCOM (first — the shareable format), then the canvas SVG and print-PDF.
 // A page passes only what it supports — no `gedcom` on the Compare Tree
-// (incoming-only people aren't in the master file), no `canvasRef` on the text
+// (incoming-only people aren't in the main file), no `canvasRef` on the text
 // report — plus any page-specific items (the report's TXT and print doc)
 // appended after the standard ones.
 
@@ -19,7 +19,7 @@ interface Props {
   slug: string;
   /** Header title baked into the SVG / print-PDF export. */
   title?: string;
-  /** Branch-GEDCOM export: the master dataset + the chart's people. */
+  /** Branch-GEDCOM export: the main dataset + the chart's people. */
   gedcom?: { ds: Dataset; personIds: string[] };
   /** The `.tree-canvas` element hosting the diagram SVG, for SVG/PDF export. */
   canvasRef?: React.RefObject<HTMLDivElement | null>;

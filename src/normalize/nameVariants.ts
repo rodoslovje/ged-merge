@@ -34,7 +34,7 @@ const KINDS = Object.keys(VARIANTS) as NameVariantKind[];
 const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "_MARNM", "_BIRN", "_AKA", "_AKAN", "NSFX", "TYPE", "NOTE", "SOUR"];
 
 /**
- * Detect, per variant, how the master writes it — a separate `TYPE` record or an
+ * Detect, per variant, how the main writes it — a separate `TYPE` record or an
  * inline tag — by tallying both across the file. The dominant form wins; for the
  * record form the most-used `TYPE` spelling is kept (so incoming records are
  * recased to it), and for the tag form the most-used tag.
@@ -85,7 +85,7 @@ export function inferNameLayout(dataset: Dataset): NameLayout {
 }
 
 /**
- * Reshape one individual's alternate names into the master's convention, in
+ * Reshape one individual's alternate names into the main's convention, in
  * place. Returns a before/after change per item rewritten (for the load report).
  */
 export function reshapeNameVariants(indi: GedNode, profile: NameProfile): NormChange[] {
@@ -101,7 +101,7 @@ export function reshapeNameVariants(indi: GedNode, profile: NameProfile): NormCh
   return changes;
 }
 
-/** Master uses `TYPE` records: fold inline tags into records and recase existing records. */
+/** Main uses `TYPE` records: fold inline tags into records and recase existing records. */
 function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, target: NameVariantTarget, changes: NormChange[]): void {
   const typeValue = target.type!;
   // Inline tags on the primary name → separate records.
@@ -112,7 +112,7 @@ function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, target: Na
     addRecord(indi, spec.slot, text, typeValue);
     changes.push({ before: `${tagChild.tag} ${tagChild.value!.trim()}`, after: `${recordValue(spec.slot, text)} (${typeValue})` });
   }
-  // Existing records of this kind → recase/unify the TYPE token to the master's.
+  // Existing records of this kind → recase/unify the TYPE token to the main's.
   for (const rec of indi.children) {
     if (rec === primary || rec.tag !== "NAME") continue;
     const typeNode = firstChild(rec, "TYPE");
@@ -123,7 +123,7 @@ function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, target: Na
   }
 }
 
-/** Master uses an inline tag: fold records into the tag (when lossless) and rename sibling tags. */
+/** Main uses an inline tag: fold records into the tag (when lossless) and rename sibling tags. */
 function toTag(indi: GedNode, primary: GedNode, spec: VariantSpec, target: NameVariantTarget, changes: NormChange[]): void {
   const tag = target.tag!;
   for (const rec of indi.children.filter((c) => c !== primary && c.tag === "NAME" && hasType(c, spec))) {
@@ -139,7 +139,7 @@ function toTag(indi: GedNode, primary: GedNode, spec: VariantSpec, target: NameV
     addTag(primary, tag, text);
     changes.push({ before: `${displayName(rec)} (${typeOf(rec)})`, after: `${tag} ${text}` });
   }
-  // A sibling tag for the same kind (e.g. `_AKAN` when the master uses `_AKA`) → canonical tag.
+  // A sibling tag for the same kind (e.g. `_AKAN` when the main uses `_AKA`) → canonical tag.
   for (const child of primary.children) {
     if (child.tag !== tag && spec.tags.includes(child.tag) && child.value?.trim()) {
       changes.push({ before: child.tag, after: tag });

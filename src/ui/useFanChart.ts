@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../chart/fanLayout";
 import type { TreeNode } from "../chart/personTree";
-import type { NodeDisplayOptions } from "../chart/nodeDisplay";
+import { livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
 // Compare trees: build the FanChart from the (prebuilt) ancestors tree and
@@ -25,15 +26,16 @@ export function useFanChart(
     /** Whether a node has a photo file (reserves the inner-ring photo slot). */
     hasPhoto: (n: TreeNode) => boolean;
     display: NodeDisplayOptions;
-    livingLabel: string;
     /** Kinship label shown in place of a redacted living person's name. */
     kinshipOf?: (n: TreeNode) => string | undefined;
   },
 ): FanChartState {
-  const { hasPhoto, display, livingLabel, kinshipOf } = opts;
+  const { hasPhoto, display, kinshipOf } = opts;
+  const { t } = useTranslation();
+  const livingLabelOf = useCallback((n: TreeNode) => livingLabelFor(t, n.sex), [t]);
   const fan = useMemo(
-    () => (tree ? buildFanChart(tree, shape, { hasPhoto, display, livingLabel, kinshipOf }) : undefined),
-    [tree, shape, hasPhoto, display, livingLabel, kinshipOf],
+    () => (tree ? buildFanChart(tree, shape, { hasPhoto, display, livingLabelOf, kinshipOf }) : undefined),
+    [tree, shape, hasPhoto, display, livingLabelOf, kinshipOf],
   );
   const nodes = useMemo(() => {
     const m = new Map<string, FanSegment>();

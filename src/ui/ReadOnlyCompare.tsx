@@ -13,10 +13,10 @@ export interface PersonNav {
 
 interface Props {
   rows: FieldRow[];
-  masterPerson: PersonNav;
+  mainPerson: PersonNav;
   incomingPerson: PersonNav;
-  /** Column header for the left (master) side. */
-  masterLabel: string;
+  /** Column header for the left (main) side. */
+  mainLabel: string;
   /** Column header for the right (incoming) side. */
   incomingLabel: string;
   /** Table class — defaults to the compare-tree styling. */
@@ -24,7 +24,7 @@ interface Props {
   /** Omit the header row entirely — useful when the column identities are already
    *  shown just above the table (e.g. the duplicate finder's pair row). */
   hideHeader?: boolean;
-  /** Master-only: show just labels + the master column (no incoming side). Used
+  /** Main-only: show just labels + the main column (no incoming side). Used
    *  by the Edit Tree's person panel, where there is no incoming dataset. */
   singleColumn?: boolean;
 }
@@ -32,15 +32,15 @@ interface Props {
 /**
  * Read-only two-column field comparison shared by the compare tree's detail
  * panel and the Tools duplicate finder. Renders `individualFieldRows` output
- * without any per-field choice controls; the value that would be kept (master,
+ * without any per-field choice controls; the value that would be kept (main,
  * else incoming) is shown in bold via the same `chosen` emphasis as the
  * editable Compare panel.
  */
 export function ReadOnlyCompare({
   rows,
-  masterPerson,
+  mainPerson,
   incomingPerson,
-  masterLabel,
+  mainLabel,
   incomingLabel,
   className = "tree-compare-table",
   hideHeader = false,
@@ -54,7 +54,7 @@ export function ReadOnlyCompare({
         <thead>
           <tr>
             <th />
-            <th className="compare-col compare-col-master">{masterLabel}</th>
+            <th className="compare-col compare-col-main">{mainLabel}</th>
             {!singleColumn && <th className="compare-col compare-col-incoming">{incomingLabel}</th>}
           </tr>
         </thead>
@@ -72,13 +72,13 @@ export function ReadOnlyCompare({
             );
           }
 
-          // Read-only: mark the value that would be kept (master, else incoming)
+          // Read-only: mark the value that would be kept (main, else incoming)
           // in bold — the same emphasis as the main compare screen.
           const choice = defaultChoice(row);
           // A sources row can be link-icons-only (no actual SOUR citation on
           // either side yet) — still route it through the icon rendering below
           // rather than the plain-text branch, which would print the bare URL.
-          const hasSources = !!(row.masterSources || row.incomingSources || row.masterLinkIcons || row.incomingLinkIcons);
+          const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
           return (
             <tr key={row.key} className={`field ${row.state}`}>
               <td className="f-label">{row.displayLabel ?? row.label}</td>
@@ -88,9 +88,9 @@ export function ReadOnlyCompare({
                     pairs={row.relatives}
                     // Children are opt-in, so in this read-only preview none
                     // read as taken; partners follow the row's default choice.
-                    masterChosen={row.perChildChoice ? true : choice !== "incoming"}
-                    incomingChosen={row.perChildChoice ? false : choice !== "master"}
-                    masterPerson={masterPerson}
+                    mainChosen={row.perChildChoice ? true : choice !== "incoming"}
+                    incomingChosen={row.perChildChoice ? false : choice !== "main"}
+                    mainPerson={mainPerson}
                     incomingPerson={incomingPerson}
                     singleColumn={singleColumn}
                   />
@@ -98,13 +98,13 @@ export function ReadOnlyCompare({
               ) : hasSources ? (
                 <>
                   <td className={!singleColumn && choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                    <SourceRefs t={t} masterSources={row.masterSources} />
-                    {row.masterLinkIcons?.length ? <LinkIcons urls={row.masterLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
+                    <SourceRefs t={t} mainSources={row.mainSources} />
+                    {row.mainLinkIcons?.length ? <LinkIcons urls={row.mainLinkIcons} otherUrls={row.incomingLinkIcons} /> : null}
                   </td>
                   {!singleColumn && (
-                    <td className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}>
-                      <SourceRefs t={t} masterSources={row.incomingSources} compareAgainst={row.masterSources} />
-                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.masterLinkIcons} /> : null}
+                    <td className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}>
+                      <SourceRefs t={t} mainSources={row.incomingSources} compareAgainst={row.mainSources} />
+                      {row.incomingLinkIcons?.length ? <LinkIcons urls={row.incomingLinkIcons} otherUrls={row.mainLinkIcons} /> : null}
                     </td>
                   )}
                 </>
@@ -112,23 +112,23 @@ export function ReadOnlyCompare({
                 <>
                   <td
                     className={!singleColumn && choice !== "incoming" ? "f-val gm-data chosen" : "f-val gm-data"}
-                    title={row.masterTitle}
+                    title={row.mainTitle}
                   >
                     <FieldValue
-                      text={row.master}
-                      links={row.masterLinks}
-                      person={row.masterRefs ? { refs: row.masterRefs, ...masterPerson } : undefined}
+                      text={row.main}
+                      links={row.mainLinks}
+                      person={row.mainRefs ? { refs: row.mainRefs, ...mainPerson } : undefined}
                     />
                   </td>
                   {!singleColumn && (
                     <td
-                      className={choice !== "master" ? "f-val gm-data chosen" : "f-val gm-data"}
+                      className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}
                       title={row.incomingTitle}
                     >
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
-                        otherLinks={row.masterLinks}
+                        otherLinks={row.mainLinks}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
                     </td>

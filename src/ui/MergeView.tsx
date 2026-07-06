@@ -40,7 +40,7 @@ interface Props {
   showFilters: boolean;
   setShowFilters: Dispatch<SetStateAction<boolean>>;
   startId: string | undefined;
-  masterDataset: Dataset | undefined;
+  mainDataset: Dataset | undefined;
   openMatches: boolean;
   setOpenMatches: Dispatch<SetStateAction<boolean>>;
 
@@ -48,9 +48,9 @@ interface Props {
   current: Candidate | undefined;
   compareDataset: Dataset | undefined;
   onUpdateDecision: (next: CandidateDecision) => void;
-  onOpenTree: (masterId: string, compareId: string) => void;
-  canNavigatePerson: (side: "master" | "incoming", id: string) => boolean;
-  onNavigatePerson: (side: "master" | "incoming", id: string) => void;
+  onOpenTree: (mainId: string, compareId: string) => void;
+  canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
+  onNavigatePerson: (side: "main" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
   /** False when Merge is mounted but hidden behind Edit mode — kept mounted
    * across mode switches so toggling modes with a large match list doesn't
@@ -61,7 +61,7 @@ interface Props {
 
 /** The merge workflow: incoming loader, matches list, compare panel, and the
  * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
- * — the Master GEDCOM is loaded by the shared shell. */
+ * — the Main GEDCOM is loaded by the shared shell. */
 export function MergeView({
   matches,
   sort,
@@ -79,7 +79,7 @@ export function MergeView({
   showFilters,
   setShowFilters,
   startId,
-  masterDataset,
+  mainDataset,
   openMatches,
   setOpenMatches,
   current,
@@ -106,19 +106,19 @@ export function MergeView({
   // The same subtree the tree page would draw is built here and its incoming-only
   // nodes counted, in each direction. Memoized so it only runs on (re)selection.
   const importCounts = useMemo(() => {
-    if (!current || !masterDataset || !compareDataset || !matches) return undefined;
+    if (!current || !mainDataset || !compareDataset || !matches) return undefined;
     const maps = buildMatchMaps(matches);
-    const rootMaster = masterDataset.individuals.get(current.masterId);
+    const rootMain = mainDataset.individuals.get(current.mainId);
     const rootIncoming = compareDataset.individuals.get(current.compareId);
-    const isRejected = (masterId: string, compareId: string) =>
-      decisions.get(decisionKey("individual", masterId, compareId))?.status === "rejected";
-    const ancestors = buildPersonTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "ancestors", isRejected);
-    const descendants = buildPersonTree(t, rootMaster, rootIncoming, masterDataset, compareDataset, maps, "descendants", isRejected);
+    const isRejected = (mainId: string, compareId: string) =>
+      decisions.get(decisionKey("individual", mainId, compareId))?.status === "rejected";
+    const ancestors = buildPersonTree(t, rootMain, rootIncoming, mainDataset, compareDataset, maps, "ancestors", isRejected);
+    const descendants = buildPersonTree(t, rootMain, rootIncoming, mainDataset, compareDataset, maps, "descendants", isRejected);
     return {
       ancestors: ancestors ? countImportable(ancestors) : 0,
       descendants: descendants ? countImportable(descendants) : 0,
     };
-  }, [current, masterDataset, compareDataset, matches, t, decisions]);
+  }, [current, mainDataset, compareDataset, matches, t, decisions]);
 
   const matchesSubtitle = matches ? (
     <div className="matches-actions" onClick={(e) => e.stopPropagation()}>
@@ -135,11 +135,11 @@ export function MergeView({
     </div>
   ) : undefined;
 
-  const startInfo = showKinship && current && startId && masterDataset
-    ? kinshipInfo(masterDataset, startId, current.masterId, t)
+  const startInfo = showKinship && current && startId && mainDataset
+    ? kinshipInfo(mainDataset, startId, current.mainId, t)
     : undefined;
-  const startPersonName = startId && masterDataset
-    ? formatName(masterDataset.individuals.get(startId)!)
+  const startPersonName = startId && mainDataset
+    ? formatName(mainDataset.individuals.get(startId)!)
     : undefined;
   const kinship = startInfo?.label;
   const kinshipLineage = lineageClass(startInfo?.lineage);
@@ -147,18 +147,18 @@ export function MergeView({
     ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
 
-  // Kinship of each match (master side) to the start person, shown under the
-  // name in the list to make relatives easy to spot. Keyed by masterId so a
-  // master that matches several compare records is computed once; memoized on
+  // Kinship of each match (main side) to the start person, shown under the
+  // name in the list to make relatives easy to spot. Keyed by mainId so a
+  // main that matches several compare records is computed once; memoized on
   // the result set so filtering/sorting/selection don't rebuild it.
-  const kinshipByMaster = useMemo(() => {
-    if (!showKinship || !startId || !masterDataset || !matches) return undefined;
+  const kinshipByMain = useMemo(() => {
+    if (!showKinship || !startId || !mainDataset || !matches) return undefined;
     const map = new Map<string, { label: string; lineageClass: string; tooltip?: string }>();
     for (const c of matches.individuals) {
-      if (map.has(c.masterId)) continue;
-      const info = kinshipInfo(masterDataset, startId, c.masterId, t);
+      if (map.has(c.mainId)) continue;
+      const info = kinshipInfo(mainDataset, startId, c.mainId, t);
       if (info) {
-        map.set(c.masterId, {
+        map.set(c.mainId, {
           label: info.label,
           lineageClass: lineageClass(info.lineage),
           tooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
@@ -166,11 +166,11 @@ export function MergeView({
       }
     }
     return map;
-  }, [showKinship, matches, masterDataset, startId, startPersonName, t]);
+  }, [showKinship, matches, mainDataset, startId, startPersonName, t]);
 
   const STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
   const currentDecision = current
-    ? decisions.get(decisionKey("individual", current.masterId, current.compareId))
+    ? decisions.get(decisionKey("individual", current.mainId, current.compareId))
     : undefined;
   const status = currentDecision?.status ?? "undecided";
   const fields = currentDecision?.fields ?? {};
@@ -199,7 +199,7 @@ export function MergeView({
         return;
       }
       const key = e.key.toLowerCase();
-      if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.masterId, current!.compareId); return; }
+      if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
       // `f` reveals and focuses the match-list name filter (the whole-file
       // global search lives on `/`, handled by the app shell).
       if (key === KEY.filter) {
@@ -277,7 +277,7 @@ export function MergeView({
           ))}
         </div>
         <div className="compare-nav-actions">
-          <button className="tree-open-btn" onClick={() => onOpenTree(current.masterId, current.compareId)} title={t("tree.tooltip")}>
+          <button className="tree-open-btn" onClick={() => onOpenTree(current.mainId, current.compareId)} title={t("tree.tooltip")}>
             {t("tree.button")}
             {importCounts && (importCounts.ancestors > 0 || importCounts.descendants > 0) && (
               <span
@@ -323,7 +323,7 @@ export function MergeView({
                   decisions={decisions}
                   showFilters={showFilters}
                   showRelation={!!startId}
-                  kinshipByMaster={kinshipByMaster}
+                  kinshipByMain={kinshipByMain}
                 />
               </Section>
             </div>
@@ -332,12 +332,12 @@ export function MergeView({
               <div className="section open">
                 {compareHeader && <div className="section-head compare-head">{compareHeader}</div>}
                 <div className="section-body" ref={compareBodyRef}>
-                  {current && masterDataset && compareDataset ? (
+                  {current && mainDataset && compareDataset ? (
                     <ComparePanel
                       candidate={current}
-                      masterDs={masterDataset}
+                      mainDs={mainDataset}
                       compareDs={compareDataset}
-                      decision={decisions.get(decisionKey("individual", current.masterId, current.compareId))}
+                      decision={decisions.get(decisionKey("individual", current.mainId, current.compareId))}
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}

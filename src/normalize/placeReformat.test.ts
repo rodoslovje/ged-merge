@@ -44,7 +44,7 @@ describe("reformatPlace → structured-addr", () => {
     expect(r.agency).toBe("župnija Kranj");
   });
 
-  it("honours the master's ', ' separator", () => {
+  it("honours the main's ', ' separator", () => {
     const r = reformatPlace("Jesenice (Slovenija)", undefined, {
       layout: "structured-addr",
       separator: ", ",
@@ -99,7 +99,7 @@ describe("reformatPlace → country name normalization", () => {
   const KOVACIC_SL: PlaceTargetFormat = { layout: "packed-plac", separator: ",", countryPreferred };
   const RENKO_SL: PlaceTargetFormat = { layout: "structured-addr", separator: ",", countryPreferred };
 
-  it("rewrites English country to master's Slovenian form in packed-plac output", () => {
+  it("rewrites English country to main's Slovenian form in packed-plac output", () => {
     const r = reformatPlace("Kranj (Slovenia), Kidričeva 38/a", undefined, KOVACIC_SL);
     expect(r.plac).toContain("(Slovenija)");
     expect(r.plac).not.toContain("(Slovenia)");
@@ -110,7 +110,7 @@ describe("reformatPlace → country name normalization", () => {
     expect(r.plac).toBe("Kranj,Slovenija");
   });
 
-  it("is a no-op when incoming country already matches master form", () => {
+  it("is a no-op when incoming country already matches main form", () => {
     const r = reformatPlace("Kranj (Slovenija)", undefined, KOVACIC_SL);
     expect(r.plac).toContain("(Slovenija)");
   });
@@ -121,7 +121,7 @@ describe("reformatPlace → country name normalization", () => {
   });
 });
 
-describe("reformatPlace → master-learned hierarchy fills in missing detail", () => {
+describe("reformatPlace → main-learned hierarchy fills in missing detail", () => {
   const hierarchy: PlaceHierarchy = {
     parentOf: new Map([
       ["kranj", ["Kranj", "Slovenia"]],
@@ -131,7 +131,7 @@ describe("reformatPlace → master-learned hierarchy fills in missing detail", (
   };
   const RENKO_H: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy };
 
-  it("inserts a missing municipality level the master always writes for this locality", () => {
+  it("inserts a missing municipality level the main always writes for this locality", () => {
     const r = reformatPlace("Kranj,Slovenia", undefined, RENKO_H);
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
@@ -166,7 +166,7 @@ describe("reformatPlace → master-learned hierarchy fills in missing detail", (
 });
 
 describe("reformatPlace → other layouts pass through", () => {
-  it("does not reshape when the master layout is plain-structured", () => {
+  it("does not reshape when the main layout is plain-structured", () => {
     const r = reformatPlace("Kranj (Slovenija), Kidričeva 38/a", undefined, {
       layout: "plain-structured",
       separator: ",",

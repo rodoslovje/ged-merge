@@ -4,9 +4,9 @@ import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
 import type { Dataset, Individual } from "../gedcom/types";
 import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
-import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMasterProfile, inferNameLayout } from "../normalize/profile";
+import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import type { MasterProfile } from "../normalize/types";
+import type { MainProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
@@ -20,15 +20,15 @@ import type { WorkerRequest, WorkerResponse } from "./messages";
 /**
  * Off-main-thread GEDCOM parsing, normalization, and matching.
  *
- * The worker keeps state so the compare file normalizes to the master and the
+ * The worker keeps state so the compare file normalizes to the main and the
  * results re-rank against the start person, regardless of action order:
- *  - load master  -> infer profile + suggest a start person; re-normalize any
+ *  - load main  -> infer profile + suggest a start person; re-normalize any
  *    compare already loaded.
- *  - load compare -> normalize against the profile if the master is loaded.
+ *  - load compare -> normalize against the profile if the main is loaded.
  *  - setStart       -> re-rank the last match result by distance to that person.
  */
-let profile: MasterProfile | undefined;
-let masterDataset: Dataset | undefined;
+let profile: MainProfile | undefined;
+let mainDataset: Dataset | undefined;
 let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
 /** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
@@ -46,17 +46,17 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
   if (req.type === "setStart") {
     startId = req.id || undefined; // empty id clears the start person
-    if (lastResult && masterDataset) {
+    if (lastResult && mainDataset) {
       post({ type: "matching" });
       lastResult = startId
-        ? applyDistanceRanking(lastResult, masterDataset, startId)
+        ? applyDistanceRanking(lastResult, mainDataset, startId)
         : clearDistanceRanking(lastResult);
       post({ type: "matched", result: lastResult });
     }
     return;
   }
   if (req.type === "clearCompare") {
-    // Forget the incoming file so a later master reload/re-match doesn't resurrect
+    // Forget the incoming file so a later main reload/re-match doesn't resurrect
     // it. The start person stays set for a subsequent compare.
     compareRaw = undefined;
     compareNormalized = undefined;
@@ -88,15 +88,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   try {
     const dataset = buildDataset(parseGedcom(req.buffer));
 
-    if (req.role === "master") {
-      masterDataset = dataset;
-      profile = inferMasterProfile(dataset);
+    if (req.role === "main") {
+      mainDataset = dataset;
+      profile = inferMainProfile(dataset);
       // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
-      // the main thread keeps its existing master file + edit tracking.
+      // the main thread keeps its existing main file + edit tracking.
       if (!req.silent) {
         post({
           type: "parsed",
-          role: "master",
+          role: "main",
           fileName: req.fileName,
           dataset,
           placeLayout: profile.place.layout,
@@ -108,10 +108,10 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           marriedNameTag: profile.nameVariants.married.form === "tag",
         });
       }
-      // A compare loaded earlier can now be normalized against this master.
+      // A compare loaded earlier can now be normalized against this main.
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
-      // Keep the raw parse so we can re-normalize if the master changes later.
+      // Keep the raw parse so we can re-normalize if the main changes later.
       compareRaw = { fileName: req.fileName, dataset };
       compareCsvPairs = undefined;
       emitCompare(req.fileName, dataset);
@@ -134,7 +134,7 @@ function decodeCsv(buffer: ArrayBuffer): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-/** Emit the compare slot, normalized to the master profile when available. */
+/** Emit the compare slot, normalized to the main profile when available. */
 function emitCompare(fileName: string, rawDataset: Dataset): void {
   // One walk collects DATE and PLAC/ADDR values together, shared below by the
   // place/date layout reports and (when normalizing) the source date order —
@@ -142,13 +142,13 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   const { dateValues, placeValues, addrCount } = collectLayoutValues(rawDataset);
   const placeLayout = detectPlaceLayout(placeValues, addrCount);
   // Report the format we detected in the incoming file itself (before it is
-  // normalized to the master's conventions).
+  // normalized to the main's conventions).
   const dateFormat = dateLayoutFromValues(dateValues);
   const datePlaceholder = detectDatePlaceholder(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
   const nameLayout = inferNameLayout(rawDataset);
   // Detected on the raw file, so the summary reports the placeholder the incoming
-  // file actually used (before it's reshaped to the master's convention).
+  // file actually used (before it's reshaped to the main's convention).
   const unknownNameStyle = detectUnknownNameToken(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
@@ -164,13 +164,13 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
 
 /** Run matching once both sides are available, ranked if a start person is set. */
 function maybeMatch(): void {
-  if (!masterDataset || !compareNormalized) return;
+  if (!mainDataset || !compareNormalized) return;
   post({ type: "matching" });
   let result = compareCsvPairs
-    ? matchGiPairs(masterDataset, compareNormalized, compareCsvPairs)
-    : matchDatasets(masterDataset, compareNormalized);
+    ? matchGiPairs(mainDataset, compareNormalized, compareCsvPairs)
+    : matchDatasets(mainDataset, compareNormalized);
   // Consolidate incoming records that are the same person split across duplicates
-  // (detected by matching the same master) into one, then re-emit the cleaned
+  // (detected by matching the same main) into one, then re-emit the cleaned
   // compare so the merge and tree see a single record carrying all the data.
   if (result.incomingDuplicates?.length) {
     for (const { keepId, mergeIds } of result.incomingDuplicates) {
@@ -183,8 +183,8 @@ function maybeMatch(): void {
     if (lastCompareMeta?.report) lastCompareMeta.report.consolidatedDuplicates = consolidated;
     if (lastCompareMeta) post({ type: "parsed", role: "compare", dataset: compareNormalized, ...lastCompareMeta });
   }
-  result = annotateCounts(result, masterDataset, compareNormalized);
-  if (startId) result = applyDistanceRanking(result, masterDataset, startId);
+  result = annotateCounts(result, mainDataset, compareNormalized);
+  if (startId) result = applyDistanceRanking(result, mainDataset, startId);
   lastResult = result;
   post({ type: "matched", result });
 }
@@ -195,24 +195,24 @@ const rawLabel = (key: string) => key;
 
 /** Attach per-candidate "new" and "differing" field counts plus the importable
  *  ancestor/descendant counts for the results table. */
-function annotateCounts(result: MatchResult, master: Dataset, compare: Dataset): MatchResult {
-  const placeFmt = inferPlaceExportFormat(master);
+function annotateCounts(result: MatchResult, main: Dataset, compare: Dataset): MatchResult {
+  const placeFmt = inferPlaceExportFormat(main);
   const maps = buildMatchMaps(result);
-  const importable = (masterInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
-    const tree = buildPersonTree(rawLabel, masterInd, compareInd, master, compare, maps, mode);
+  const importable = (mainInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
+    const tree = buildPersonTree(rawLabel, mainInd, compareInd, main, compare, maps, mode);
     return tree ? countImportable(tree) : 0;
   };
   return {
     individuals: result.individuals.map((c) => {
-      const masterInd = master.individuals.get(c.masterId);
+      const mainInd = main.individuals.get(c.mainId);
       const compareInd = compare.individuals.get(c.compareId);
       return {
         ...c,
         ...fieldDiffCounts(
-          individualFieldRows(rawLabel, masterInd, compareInd, master, compare, placeFmt),
+          individualFieldRows(rawLabel, mainInd, compareInd, main, compare, placeFmt),
         ),
-        ancestorCount: importable(masterInd, compareInd, "ancestors"),
-        descendantCount: importable(masterInd, compareInd, "descendants"),
+        ancestorCount: importable(mainInd, compareInd, "ancestors"),
+        descendantCount: importable(mainInd, compareInd, "descendants"),
       };
     }),
   };

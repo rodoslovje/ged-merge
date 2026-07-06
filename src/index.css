@@ -341,7 +341,7 @@ button:focus-visible {
   overflow: hidden;
 }
 /* Compare: the whole panel scrolls. Trim the side padding so the
-   master/incoming data columns get more width. */
+   main/incoming data columns get more width. */
 .split-compare > .section > .section-body {
   overflow: auto;
   padding-left: 12px;
@@ -854,7 +854,7 @@ button:focus-visible {
   line-height: 1;
 }
 
-/* Two-column layout: Master on the left, Incoming on the right */
+/* Two-column layout: Main on the left, Incoming on the right */
 .info-panel-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -881,7 +881,7 @@ button:focus-visible {
 .info-panel-cols .dropzone.compact { margin-top: auto; }
 .info-panel-cols .dropzone:not(.compact) { flex: 1 1 auto; justify-content: center; }
 
-/* Single-column layout (Edit mode — master only) */
+/* Single-column layout (Edit mode — main only) */
 .info-panel-single {
   max-width: 480px;
 }
@@ -2910,7 +2910,7 @@ button:focus-visible {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
-  /* Fixed layout + equal-width outer columns => the Master/Incoming value
+  /* Fixed layout + equal-width outer columns => the Main/Incoming value
      columns each take exactly half, splitting the panel down the middle. */
   table-layout: fixed;
 }
@@ -2921,10 +2921,10 @@ button:focus-visible {
 /* With `table-layout: fixed` the column widths are taken from the FIRST row
    only — the header. Pin the narrow label/choice columns here (the body
    `.f-label`/`.f-choice` widths would otherwise be ignored), leaving the two
-   unwidthed master/incoming headers to split the rest. */
+   unwidthed main/incoming headers to split the rest. */
 .compare-head th:first-child { width: 110px; }
 .compare-head th:last-child { width: 110px; }
-/* Master | Incoming column headers: small uppercase mono, source-coloured. */
+/* Main | Incoming column headers: small uppercase mono, source-coloured. */
 .compare-col {
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -2935,16 +2935,16 @@ button:focus-visible {
   padding: 2px 6px 8px;
   color: var(--muted);
 }
-.compare-col-master { color: var(--state-master); }
+.compare-col-main { color: var(--state-main); }
 .compare-col-incoming { color: var(--state-incoming); }
-/* The "keep master" fallback tag in the choice column reads as pine, not muted. */
-.gm-master-tag {
+/* The "keep main" fallback tag in the choice column reads as pine, not muted. */
+.gm-main-tag {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  color: var(--state-master);
+  color: var(--state-main);
 }
 /* GEDCOM filenames in the Load header, coloured by their role. */
-.gm-file.master { color: var(--state-master); }
+.gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }
 .compare td:nth-child(2) {
   border-right: 1px solid var(--border);
@@ -2960,7 +2960,7 @@ button:focus-visible {
    column can stay narrow without wrapping them. */
 .compare td.f-choice { padding-left: 2px; padding-right: 2px; }
 
-/* Aligned relatives (children, partners): a two-column grid spanning the Master
+/* Aligned relatives (children, partners): a two-column grid spanning the Main
    and Incoming columns. Each pair is one grid row, so the same person lines up
    on both sides even when a name wraps. The wrapping cell grows the whole row.
    The cell holds no padding of its own (it would double the td's); the grid
@@ -2976,7 +2976,7 @@ button:focus-visible {
 .rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
 .rel-grid.single-col { grid-template-columns: minmax(0, 1fr); }
 /* Inside the main Compare table the choice column is a fixed 110px (see the
-   `.compare-head` widths), and the relatives grid spans master+incoming+choice.
+   `.compare-head` widths), and the relatives grid spans main+incoming+choice.
    Mirror that split here — two equal halves plus a 110px choice — so the relatives
    rows line up with the scalar rows above (divider and G/V/O column both align). */
 .compare .rel-grid.with-choice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px; }
@@ -2987,7 +2987,7 @@ button:focus-visible {
 .rel-grid.with-choice .rel-cell:nth-child(3) { padding-top: 6px; }
 .rel-grid.with-choice .rel-cell:nth-last-child(3) { padding-bottom: 6px; }
 .rel-cell.rel-choice { white-space: nowrap; }
-/* Divider between the two halves, matching the table's master/incoming border. */
+/* Divider between the two halves, matching the table's main/incoming border. */
 .compare td.f-rel { border-right: none; }
 .compare .rel-cell.rel-incoming { border-left: 1px solid var(--border); }
 .tree-compare-table .rel-cell { padding: 2px 10px; }
@@ -3007,7 +3007,7 @@ button:focus-visible {
 /* Edit mode: the icon is a <button> (opens the Edit Source dialog) rather
    than an <a> — reset button chrome so it still looks like a plain icon. */
 button.link-icon { border: none; font: inherit; }
-/* Marks an incoming link that the master doesn't have yet (will be added). */
+/* Marks an incoming link that the main doesn't have yet (will be added). */
 .link-icon.link-new {
   background: color-mix(in srgb, var(--status-link) 25%, transparent);
   opacity: 1;
@@ -3036,7 +3036,7 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 .source-ref.source-ref--nolink { cursor: default; }
 /* A fallback link (repository/source page) rather than the exact cited page. */
 a.source-ref.source-ref--fallback { opacity: 0.6; }
-/* An incoming citation the master doesn't have yet. */
+/* An incoming citation the main doesn't have yet. */
 .source-ref.source-ref--new { background: color-mix(in oklch, var(--state-match) 25%, transparent); opacity: 1; }
 /* Edit mode: a legacy link row collapsed to its icon (click to edit). */
 .edit-link-icon { cursor: pointer; }
@@ -3656,7 +3656,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   paint-order: stroke;
 }
 /* Timeline chart: lifespan bars on a year axis. Bar fills come inline from the
-   component (accent for the root person, master green for family); everything
+   component (accent for the root person, main green for family); everything
    else is themed here. */
 .timeline-axis {
   fill: var(--muted);
@@ -4127,7 +4127,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 /* Group headers paint on the cell too (same reason as the field highlights). */
 .tree-compare-table .group-header-cell { background: var(--panel-2); }
 .tree-compare-table .event-header-cell { background: transparent; }
-/* Master | Incoming headers: source-coloured uppercase mono, like the compare
+/* Main | Incoming headers: source-coloured uppercase mono, like the compare
    panel. Scoped to beat the muted `.tree-compare-table th` base colour. */
 .tree-compare-table th.compare-col {
   font-family: var(--font-mono);
@@ -4136,7 +4136,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.tree-compare-table th.compare-col-master { color: var(--state-master); }
+.tree-compare-table th.compare-col-main { color: var(--state-main); }
 .tree-compare-table th.compare-col-incoming { color: var(--state-incoming); }
 /* Quick confirm / reject / defer for the selected node, above its field table. */
 /* Actions row under the head: optional badges (left) + Set-as-root (right). */
@@ -5191,7 +5191,7 @@ kbd {
     max-height: none;
   }
 
-  /* Info panel: stack master and incoming loaders vertically */
+  /* Info panel: stack main and incoming loaders vertically */
   .info-panel-cols {
     grid-template-columns: 1fr;
   }

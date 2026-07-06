@@ -24,18 +24,17 @@ interface Props {
   colorOf: (n: Placed) => string;
   /** Letter badge in themed status colours (decision / import), when any. */
   badgeOf?: (n: Placed) => { status: string; letter: string } | undefined;
-  /** "Modified" badge for a master record with unsaved edits. */
+  /** "Modified" badge for a main record with unsaved edits. */
   modifiedOf?: (n: Placed) => boolean;
   kinshipOf?: (n: Placed) => string | undefined;
   lineageOf?: (n: Placed) => Lineage | undefined;
   /** Photo sources; the compare side is optional (single-file views). */
-  masterRecords: GedNode[];
+  mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  masterRefCtx?: PhotoRefContext;
+  mainRefCtx?: PhotoRefContext;
   compareRefCtx?: PhotoRefContext;
   display: NodeDisplayOptions;
   nodeH: number;
-  livingLabel: string;
 }
 
 export function TreeSvg({
@@ -50,13 +49,12 @@ export function TreeSvg({
   modifiedOf,
   kinshipOf,
   lineageOf,
-  masterRecords,
+  mainRecords,
   compareRecords,
-  masterRefCtx,
+  mainRefCtx,
   compareRefCtx,
   display,
   nodeH,
-  livingLabel,
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
@@ -103,10 +101,9 @@ export function TreeSvg({
                 color={colorOf(n)}
                 kinship={kinshipOf?.(n)}
                 kinshipLineage={lineageOf?.(n)}
-                photo={{ node: n, masterRecords, compareRecords, masterRefCtx, compareRefCtx }}
+                photo={{ node: n, mainRecords, compareRecords, mainRefCtx, compareRefCtx }}
                 display={display}
                 living={n.living}
-                livingLabel={livingLabel}
                 nodeH={nodeH}
                 badges={badges}
               />

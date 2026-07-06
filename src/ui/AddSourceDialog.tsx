@@ -3,7 +3,7 @@ import type { Dataset } from "../gedcom/types";
 import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
-import { inferMasterProfile } from "../normalize/profile";
+import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageTitle } from "../normalize/urlMetadata";
 import { useSettings } from "./SettingsContext";
@@ -61,11 +61,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [fetching, setFetching] = useState(false);
   const { settings } = useSettings();
 
-  const masterLinkLangs = useMemo(() => inferMasterProfile(dataset).linkLangs, [dataset]);
+  const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
-    () => (parsed.url ? rewriteLinkLang(parsed.url, masterLinkLangs) : undefined),
-    [parsed.url, masterLinkLangs],
+    () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
+    [parsed.url, mainLinkLangs],
   );
   const match = useMemo(
     () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),

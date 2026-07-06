@@ -2,7 +2,7 @@
  * Recognize and rewrite genealogy-site links whose URL encodes a UI language
  * that varies by file (Matricula Online's `/sl/`-style path segment, Geneanet
  * cemetery's per-language section word) so the same record's link compares
- * equal across files and can be converted to the master's own language on
+ * equal across files and can be converted to the main's own language on
  * load.
  */
 
@@ -100,13 +100,13 @@ export function withGeneanetLang(url: string, lang: string): string {
   return `https://${target.host}/${target.word}${found.tail}`;
 }
 
-/** The language code the master file's own links use, by site — Matricula Online and Geneanet cemetery. */
+/** The language code the main file's own links use, by site — Matricula Online and Geneanet cemetery. */
 export interface LinkLangs {
   matricula: string | undefined;
   geneanet: string | undefined;
 }
 
-/** Rewrite a Matricula Online or Geneanet cemetery URL to the master's known language, if applicable. */
+/** Rewrite a Matricula Online or Geneanet cemetery URL to the main's known language, if applicable. */
 export function rewriteLinkLang(url: string, linkLangs: LinkLangs): string {
   if (linkLangs.matricula && matriculaLangCode(url)) return withMatriculaLang(url, linkLangs.matricula);
   if (linkLangs.geneanet && geneanetLangCode(url)) return withGeneanetLang(url, linkLangs.geneanet);
@@ -114,7 +114,7 @@ export function rewriteLinkLang(url: string, linkLangs: LinkLangs): string {
 }
 
 /**
- * The language code the master file's existing links for a given site (e.g.
+ * The language code the main file's existing links for a given site (e.g.
  * Matricula Online, Geneanet cemetery) use most often, so an incoming file's
  * links can be converted to match on load.
  */
@@ -135,7 +135,7 @@ function detectLinkLang(links: string[], langCode: (url: string) => string | und
   return best;
 }
 
-/** The `LinkLangs` the master file's own links use most often, given every link found on it. */
+/** The `LinkLangs` the main file's own links use most often, given every link found on it. */
 export function detectLinkLangs(links: string[]): LinkLangs {
   return {
     matricula: detectLinkLang(links, matriculaLangCode),

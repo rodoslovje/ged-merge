@@ -6,7 +6,7 @@ import type { DateFormatProfile } from "./types";
 const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
 
 /**
- * Render a structured date back into a GEDCOM date string using the master's
+ * Render a structured date back into a GEDCOM date string using the main's
  * format. Falls back to the original raw text whenever we cannot faithfully
  * reconstruct the value (so normalization never loses information).
  */
@@ -36,15 +36,15 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
       return date.raw;
     case "unknown":
       // A flagged all-unknown placeholder date (".__.____") is re-rendered in the
-      // master's placeholder layout when it has one; otherwise kept verbatim.
+      // main's placeholder layout when it has one; otherwise kept verbatim.
       return formatAllUnknown(date.placeholder === true, profile) ?? date.raw;
   }
 }
 
 /**
- * Render a fully-unknown placeholder date ("__.__.____") in the master's numeric
+ * Render a fully-unknown placeholder date ("__.__.____") in the main's numeric
  * layout. Returns undefined when the value isn't a flagged placeholder or the
- * master has no placeholder convention — the caller then keeps the raw text.
+ * main has no placeholder convention — the caller then keeps the raw text.
  */
 function formatAllUnknown(isPlaceholder: boolean, profile: DateFormatProfile): string | undefined {
   const fmt = profile.numeric;
@@ -57,11 +57,11 @@ function formatAllUnknown(isPlaceholder: boolean, profile: DateFormatProfile): s
  * Strip all-placeholder `DATE` nodes (".__.____", "__.__.____") from a record
  * tree, returning each removed raw value (for the report). Such a date carries
  * no information — a deliberate "date unknown" marker, not a real value — so
- * when the master has no placeholder-date convention of its own we drop it
+ * when the main has no placeholder-date convention of its own we drop it
  * entirely rather than carry a foreign "__.__.____" into the compare/merge
  * views and the merged file. This is the date analog of how
- * {@link reshapeUnknownNames} blanks placeholder names under the master's blank
- * convention; callers gate it on the master having no placeholder layout (when
+ * {@link reshapeUnknownNames} blanks placeholder names under the main's blank
+ * convention; callers gate it on the main having no placeholder layout (when
  * it *does*, {@link formatGedDate} reshapes these to that layout and keeps them).
  */
 export function dropPlaceholderDates(node: GedNode): string[] {
@@ -80,7 +80,7 @@ export function dropPlaceholderDates(node: GedNode): string[] {
 }
 
 /**
- * Re-render a raw DATE string into master format; raw is returned unchanged
+ * Re-render a raw DATE string into main format; raw is returned unchanged
  * when nothing about it differs. `sourceOrder` disambiguates numeric dates in
  * the source file (e.g. whether `05/06/1989` is D/M or M/D).
  */
@@ -130,7 +130,7 @@ function formatNumeric(
   if (y === undefined) return "";
 
   if (day === undefined) {
-    // Unknown day: fill it with a placeholder if the master uses one, otherwise
+    // Unknown day: fill it with a placeholder if the main uses one, otherwise
     // drop the slot ("MM.YYYY" / "YYYY.MM").
     if (!ph) return fmt.order === "YMD" ? `${y}${sep}${mm}` : `${mm}${sep}${y}`;
     return joinNumeric(ph.repeat(2), mm, y, fmt);

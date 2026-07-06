@@ -180,19 +180,19 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
  *  viewer with that record's full photo set. */
 export function TreeNodePhoto({
   node,
-  masterRecords,
+  mainRecords,
   compareRecords,
-  masterRefCtx,
+  mainRefCtx,
   compareRefCtx,
   x,
   y,
   size,
 }: {
-  node: { master?: { raw: GedNode }; incoming?: { raw: GedNode } };
-  masterRecords: GedNode[];
+  node: { main?: { raw: GedNode }; incoming?: { raw: GedNode } };
+  mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  /** Referenced-by/navigation context for a master-side photo (see {@link PhotoRefContext}). */
-  masterRefCtx?: PhotoRefContext;
+  /** Referenced-by/navigation context for a main-side photo (see {@link PhotoRefContext}). */
+  mainRefCtx?: PhotoRefContext;
   /** Referenced-by/navigation context for a compare-side photo. */
   compareRefCtx?: PhotoRefContext;
   x: number;
@@ -204,16 +204,16 @@ export function TreeNodePhoto({
   const [url, setUrl] = useState<string | null>(null);
 
   const source = useMemo(() => {
-    if (node.master?.raw) {
-      const p = collectFirstFilePath(node.master.raw, masterRecords);
-      if (p) return { path: p, raw: node.master.raw, records: masterRecords, refCtx: masterRefCtx };
+    if (node.main?.raw) {
+      const p = collectFirstFilePath(node.main.raw, mainRecords);
+      if (p) return { path: p, raw: node.main.raw, records: mainRecords, refCtx: mainRefCtx };
     }
     if (node.incoming?.raw && compareRecords) {
       const p = collectFirstFilePath(node.incoming.raw, compareRecords);
       if (p) return { path: p, raw: node.incoming.raw, records: compareRecords, refCtx: compareRefCtx };
     }
     return null;
-  }, [node, masterRecords, compareRecords, masterRefCtx, compareRefCtx]);
+  }, [node, mainRecords, compareRecords, mainRefCtx, compareRefCtx]);
 
   useEffect(() => {
     if (!folderName || !source) { setUrl(null); return; }

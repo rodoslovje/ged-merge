@@ -1988,7 +1988,7 @@ Not applied (needs relationship/link merge)
 -------------------------------------------
 John Beaufort + Margaret de Holland,  @F176@
 --------------------------------------------
-  merge.field.husband: merge.reason.masterHasSpouse
+  merge.field.husband: merge.reason.mainHasSpouse
 
 @F187@
 ------
@@ -2007,4 +2007,4 @@ John Beaufort + Margaret de Holland,  @F176@
 
 Edmund Howard + Joyce Culpeper  @F74@
 -------------------------------------
-  merge.field.wife: merge.reason.masterHasSpouse
+  merge.field.wife: merge.reason.mainHasSpouse

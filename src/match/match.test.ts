@@ -26,9 +26,9 @@ describe("text primitives", () => {
   });
 });
 
-// Master and compare describe the same nuclear family with small variations:
+// Main and compare describe the same nuclear family with small variations:
 // surname spelling (Müller/Mueller), an approximate birth year, and a typo.
-const MASTER = `0 HEAD
+const MAIN = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
 1 CHAR UTF-8
@@ -91,12 +91,12 @@ const COMPARE = `0 HEAD
 `;
 
 describe("matchDatasets", () => {
-  const result = matchDatasets(dataset(MASTER), dataset(COMPARE));
+  const result = matchDatasets(dataset(MAIN), dataset(COMPARE));
 
   it("matches the husband across spelling/qualifier variation", () => {
     const johann = result.individuals.find((c) => c.compareId === "@P1@");
     expect(johann).toBeDefined();
-    expect(johann!.masterId).toBe("@I1@");
+    expect(johann!.mainId).toBe("@I1@");
     expect(johann!.score).toBeGreaterThan(70);
   });
 
@@ -107,19 +107,19 @@ describe("matchDatasets", () => {
   });
 
   it("never matches individuals of different recorded sex", () => {
-    // Master has a male and a female with the same name + birth year; the
+    // Main has a male and a female with the same name + birth year; the
     // compare file has a female. Only the female may match.
-    const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+    const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @M1@ INDI\n1 NAME Pavle /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1900
 0 @M2@ INDI\n1 NAME Pavla /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1900
 0 TRLR\n`;
     const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @C1@ INDI\n1 NAME Pavla /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1900
 0 TRLR\n`;
-    const r = matchDatasets(dataset(master), dataset(compare));
+    const r = matchDatasets(dataset(main), dataset(compare));
     const forC1 = r.individuals.filter((c) => c.compareId === "@C1@");
-    expect(forC1.every((c) => c.masterId !== "@M1@")).toBe(true); // never the male
-    expect(forC1.some((c) => c.masterId === "@M2@")).toBe(true); // the female matches
+    expect(forC1.every((c) => c.mainId !== "@M1@")).toBe(true); // never the male
+    expect(forC1.some((c) => c.mainId === "@M2@")).toBe(true); // the female matches
   });
 
   it("sorts individuals by score descending", () => {
@@ -129,33 +129,33 @@ describe("matchDatasets", () => {
   });
 });
 
-describe("self-match (same file as master and compare)", () => {
-  const ds = dataset(MASTER);
+describe("self-match (same file as main and compare)", () => {
+  const ds = dataset(MAIN);
   const r = matchDatasets(ds, ds);
 
   it("yields only identical pairs at or just under a perfect score", () => {
     expect(r.individuals.length).toBe(ds.individuals.size);
     for (const c of r.individuals) {
-      expect(c.masterId).toBe(c.compareId);
+      expect(c.mainId).toBe(c.compareId);
       // Year-only records cap just below 100 even against themselves — a bare
       // year is not a conclusive identity key (see dateSimilarity), and the
       // matcher cannot know the two sides are literally the same record.
       expect(c.score).toBeGreaterThanOrEqual(95);
     }
     // The record with a full day-precision birth date still self-matches at 100.
-    expect(r.individuals.find((c) => c.masterId === "@I1@")?.score).toBe(100);
+    expect(r.individuals.find((c) => c.mainId === "@I1@")?.score).toBe(100);
   });
 
   it("produces no cross matches between different people", () => {
-    const cross = r.individuals.filter((c) => c.masterId !== c.compareId);
+    const cross = r.individuals.filter((c) => c.mainId !== c.compareId);
     expect(cross).toHaveLength(0);
   });
 });
 
 describe("plausibility gates", () => {
-  const pair = (masterIndi: string, compareIndi: string) =>
+  const pair = (mainIndi: string, compareIndi: string) =>
     matchDatasets(
-      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${masterIndi}\n0 TRLR\n`),
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${mainIndi}\n0 TRLR\n`),
       dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${compareIndi}\n0 TRLR\n`),
     ).individuals;
 
@@ -205,9 +205,9 @@ describe("plausibility gates", () => {
 });
 
 describe("key-field penalty (name, surname, birth year)", () => {
-  const pair = (masterIndi: string, compareIndi: string) =>
+  const pair = (mainIndi: string, compareIndi: string) =>
     matchDatasets(
-      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${masterIndi}\n0 TRLR\n`),
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${mainIndi}\n0 TRLR\n`),
       dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${compareIndi}\n0 TRLR\n`),
     ).individuals;
 
@@ -273,7 +273,7 @@ describe("key-field penalty (name, surname, birth year)", () => {
 
 describe("birth date plausibility from marriage date", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
-  const masterWithMarriage = (marriageDate: string) =>
+  const mainWithMarriage = (marriageDate: string) =>
     "0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @MF@\n" +
     `0 @MF@ FAM\n1 HUSB @M@\n1 MARR\n2 DATE ${marriageDate}\n`;
   // No recorded birth date at all — like a "family matches" CSV import that
@@ -289,11 +289,11 @@ describe("birth date plausibility from marriage date", () => {
     return ds;
   };
 
-  it("scores the birth-date key well (not the flat missing penalty) when the master's birth year is a plausible age at the matched marriage", () => {
+  it("scores the birth-date key well (not the flat missing penalty) when the main's birth year is a plausible age at the matched marriage", () => {
     // 1850 birth, 1880 marriage: 30 years old — squarely plausible.
-    const master = doc(masterWithMarriage("1880"));
+    const main = doc(mainWithMarriage("1880"));
     const compare = csvLike(compareNoBirth("1880"));
-    const r = matchDatasets(master, compare).individuals;
+    const r = matchDatasets(main, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");
     expect(birth?.missing).toBe(true);
@@ -308,9 +308,9 @@ describe("birth date plausibility from marriage date", () => {
 
   it("falls back to the flat missing-key penalty when the implied age is implausible", () => {
     // 1850 birth, 1860 marriage: 10 years old — outside the plausible range.
-    const master = doc(masterWithMarriage("1860"));
+    const main = doc(mainWithMarriage("1860"));
     const compare = csvLike(compareNoBirth("1860"));
-    const r = matchDatasets(master, compare).individuals;
+    const r = matchDatasets(main, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");
     expect(birth?.missing).toBe(true);
@@ -321,9 +321,9 @@ describe("birth date plausibility from marriage date", () => {
     // Identical data to the plausible case above — only the flag differs. A
     // regular GEDCOM record without a birth date is a data gap, not a format
     // limitation, so the fallback must not fire.
-    const master = doc(masterWithMarriage("1880"));
+    const main = doc(mainWithMarriage("1880"));
     const compare = doc(compareNoBirth("1880"));
-    const r = matchDatasets(master, compare).individuals;
+    const r = matchDatasets(main, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");
     expect(birth?.missing).toBe(true);
@@ -332,10 +332,10 @@ describe("birth date plausibility from marriage date", () => {
 
   it("ignores the known-birth side's own marriage date (evidence must be cross-side)", () => {
     // The compare record is flagged sparse-birth but has no dated marriage of
-    // its own; the master's own marriage says nothing about the compare.
-    const master = doc(masterWithMarriage("1880"));
+    // its own; the main's own marriage says nothing about the compare.
+    const main = doc(mainWithMarriage("1880"));
     const compare = csvLike("0 @C@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n");
-    const r = matchDatasets(master, compare).individuals;
+    const r = matchDatasets(main, compare).individuals;
     expect(r).toHaveLength(1);
     const birth = r[0].components.find((c) => c.key === "birthDate");
     expect(birth?.missing).toBe(true);
@@ -427,12 +427,12 @@ describe("no-hard-evidence ceiling", () => {
 
 describe("given-name conflict penalty", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
-  const master =
+  const main =
     "0 @M@ INDI\n1 NAME Marta /Weiss/\n1 SEX F\n1 BIRT\n2 DATE 1867\n2 PLAC Metlika\n";
   const compareWith = (given: string) =>
     `0 @C@ INDI\n1 NAME ${given} /Weiss/\n1 SEX F\n1 BIRT\n2 DATE 1868\n2 PLAC Metlika\n`;
   const scoreWith = (given: string) =>
-    matchDatasets(doc(master), doc(compareWith(given))).individuals[0];
+    matchDatasets(doc(main), doc(compareWith(given))).individuals[0];
 
   it("demotes a same-surname pair whose given names are distinct people's names", () => {
     // Marta ~ Uršula ≈ 0.58: below the nickname band. Surname, year and place
@@ -472,7 +472,7 @@ describe("given-name conflict penalty", () => {
 0 @CF@ FAM\n1 HUSB @CH@\n1 WIFE @C@\n1 CHIL @CC1@\n1 CHIL @CC2@
 `;
     const r = matchDatasets(doc(m), doc(c)).individuals;
-    const mother = r.find((x) => x.masterId === "@M@");
+    const mother = r.find((x) => x.mainId === "@M@");
     expect(mother?.compareId).toBe("@C@");
     expect(mother!.score).toBeGreaterThanOrEqual(91);
   });
@@ -487,11 +487,11 @@ describe("parent-conflict penalty and role-wise parent comparison", () => {
     `0 @${p}D@ INDI\n1 NAME ${dadName} /Bajuk/\n1 SEX M\n` +
     `0 @${p}W@ INDI\n1 NAME ${momName} /Kovač/\n1 SEX F\n` +
     `0 @${p}F@ FAM\n1 HUSB @${p}D@\n1 WIFE @${p}W@\n1 CHIL @${p}@\n`;
-  const master = doc(side("M", 1850, "Miko", "Neža"));
+  const main = doc(side("M", 1850, "Miko", "Neža"));
   const scoreAgainst = (dadName: string, momName: string) => {
     const compare = doc(side("C", 1851, dadName, momName));
-    return matchDatasets(master, compare).individuals.find(
-      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    return matchDatasets(main, compare).individuals.find(
+      (c) => c.mainId === "@M@" && c.compareId === "@C@",
     )!;
   };
 
@@ -524,9 +524,9 @@ describe("parent-conflict penalty and role-wise parent comparison", () => {
 
 describe("parent-match bonus", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
-  // Same child in master and compare with an imperfect key (birth years one
+  // Same child in main and compare with an imperfect key (birth years one
   // apart so the score isn't pinned at 100), each with a father whose NAME varies.
-  const master = (fatherName: string) =>
+  const main = (fatherName: string) =>
     "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850\n1 FAMC @MF@\n" +
     "0 @MF@ FAM\n1 HUSB @MH@\n1 CHIL @M@\n" +
     `0 @MH@ INDI\n1 NAME ${fatherName}\n`;
@@ -536,8 +536,8 @@ describe("parent-match bonus", () => {
     `0 @CH@ INDI\n1 NAME ${fatherName}\n`;
 
   const scoreOf = (fatherName: string) =>
-    matchDatasets(doc(master(fatherName)), doc(compare(fatherName))).individuals.find(
-      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    matchDatasets(doc(main(fatherName)), doc(compare(fatherName))).individuals.find(
+      (c) => c.mainId === "@M@" && c.compareId === "@C@",
     )!.score;
 
   it("raises the score a little for a full parent match, but not to 100", () => {
@@ -552,9 +552,9 @@ describe("parent-match bonus", () => {
 
 describe("partner-match bonus", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
-  // Same person in master and compare (imperfect key: birth years one apart),
+  // Same person in main and compare (imperfect key: birth years one apart),
   // married into a family whose spouse NAME we vary.
-  const master = (spouseName: string) =>
+  const main = (spouseName: string) =>
     "0 @M@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @MF@\n" +
     "0 @MF@ FAM\n1 HUSB @M@\n1 WIFE @MW@\n" +
     `0 @MW@ INDI\n1 NAME ${spouseName}\n1 SEX F\n`;
@@ -564,8 +564,8 @@ describe("partner-match bonus", () => {
     `0 @CW@ INDI\n1 NAME ${spouseName}\n1 SEX F\n`;
 
   const scoreOf = (spouseName: string) =>
-    matchDatasets(doc(master(spouseName)), doc(compare(spouseName))).individuals.find(
-      (c) => c.masterId === "@M@" && c.compareId === "@C@",
+    matchDatasets(doc(main(spouseName)), doc(compare(spouseName))).individuals.find(
+      (c) => c.mainId === "@M@" && c.compareId === "@C@",
     )!.score;
 
   it("raises the score a little for a full partner match, but not to 100", () => {
@@ -579,18 +579,18 @@ describe("partner-match bonus", () => {
 });
 
 describe("one-to-one assignment", () => {
-  it("does not reuse a master record for two compare records", () => {
-    // Two compare people with the same name/birth; only one master twin.
-    const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1
+  it("does not reuse a main record for two compare records", () => {
+    // Two compare people with the same name/birth; only one main twin.
+    const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1
 0 @M1@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
 0 TRLR\n`;
     const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1
 0 @C1@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
 0 @C2@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1900
 0 TRLR\n`;
-    const r = matchDatasets(dataset(master), dataset(compare));
+    const r = matchDatasets(dataset(main), dataset(compare));
     expect(r.individuals).toHaveLength(1); // @M1@ used once
-    expect(r.individuals[0].masterId).toBe("@M1@");
+    expect(r.individuals[0].mainId).toBe("@M1@");
   });
 });
 
@@ -598,16 +598,16 @@ describe("marriage corroboration (folded into individual scoring)", () => {
   // Two same-named men; only the marriage (date + spouse) tells them apart.
   // Approximate birth so the identity key isn't a perfect 100 — leaving room for
   // the marriage components to move the score.
-  const master = (marr: string) =>
+  const main = (marr: string) =>
     `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n` +
     `0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE ABT 1850\n1 FAMS @F@\n` +
     `0 @W@ INDI\n1 NAME Marija /Kovač/\n1 SEX F\n1 FAMS @F@\n` +
     `0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n1 MARR\n2 DATE ${marr}\n0 TRLR\n`;
 
   it("scores a same-marriage pair higher than a differing-marriage pair", () => {
-    const same = matchDatasets(dataset(master("1875")), dataset(master("1875")))
+    const same = matchDatasets(dataset(main("1875")), dataset(main("1875")))
       .individuals.find((c) => c.compareId === "@H@");
-    const diff = matchDatasets(dataset(master("1875")), dataset(master("1899")))
+    const diff = matchDatasets(dataset(main("1875")), dataset(main("1899")))
       .individuals.find((c) => c.compareId === "@H@");
     expect(same).toBeDefined();
     expect(diff).toBeDefined();
@@ -617,12 +617,12 @@ describe("marriage corroboration (folded into individual scoring)", () => {
 });
 
 describe("relationship pass: links co-parents of shared matched children, overriding name/date", () => {
-  // Master mother "Ana Nuša Cegnar" (1939) with two children. The incoming file
+  // Main mother "Ana Nuša Cegnar" (1939) with two children. The incoming file
   // holds the same woman as "Anica Cegnar" (1935) — a different given name and
   // birth year, but the SAME two children — plus a decoy "Ana Nuša Cegnar"
   // (1939) with no children whose identical name+date scores a perfect 100 and
   // would steal the mother in the primary pass.
-  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @AM@ INDI\n1 NAME Ana Nuša /Cegnar/\n1 SEX F\n1 BIRT\n2 DATE 1939\n1 FAMS @MF@
 0 @MC1@ INDI\n1 NAME Zoran /Jekovec/\n1 SEX M\n1 BIRT\n2 DATE 1962\n1 FAMC @MF@
 0 @MC2@ INDI\n1 NAME Dunja /Jekovec/\n1 SEX F\n1 BIRT\n2 DATE 1964\n1 FAMC @MF@
@@ -635,10 +635,10 @@ describe("relationship pass: links co-parents of shared matched children, overri
 0 @IF@ FAM\n1 WIFE @AC@\n1 CHIL @IC1@\n1 CHIL @IC2@
 0 @DUP@ INDI\n1 NAME Ana Nuša /Cegnar/\n1 SEX F\n1 BIRT\n2 DATE 1939
 0 TRLR\n`;
-  const r = matchDatasets(dataset(master), dataset(compare));
+  const r = matchDatasets(dataset(main), dataset(compare));
 
   it("links the mother to her child-sharing counterpart, not the identical-name decoy", () => {
-    const am = r.individuals.find((c) => c.masterId === "@AM@");
+    const am = r.individuals.find((c) => c.mainId === "@AM@");
     expect(am).toBeDefined();
     expect(am!.compareId).toBe("@AC@");
     expect(am!.relationshipLinked).toBe(true);
@@ -649,18 +649,18 @@ describe("relationship pass: links co-parents of shared matched children, overri
   });
 
   it("keeps the children matched", () => {
-    expect(r.individuals.find((c) => c.masterId === "@MC1@")?.compareId).toBe("@IC1@");
-    expect(r.individuals.find((c) => c.masterId === "@MC2@")?.compareId).toBe("@IC2@");
+    expect(r.individuals.find((c) => c.mainId === "@MC1@")?.compareId).toBe("@IC1@");
+    expect(r.individuals.find((c) => c.mainId === "@MC2@")?.compareId).toBe("@IC2@");
   });
 });
 
 describe("relationship pass: completes a couple from one shared child + a matched spouse", () => {
-  // The mother is recorded under wildly different names — master "Slavka" (a
+  // The mother is recorded under wildly different names — main "Slavka" (a
   // nickname, no surname) vs incoming "Stanislava Marija Ribič" — so she never
   // blocks or scores. But her husband Rudolf Volčič and their son Boris Volčič
   // both match across the files, so the couple can be completed: a child of a
   // known couple has exactly one mother.
-  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @RU@ INDI\n1 NAME Rudolf /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1934\n1 FAMS @MF@
 0 @SL@ INDI\n1 NAME Slavka\n1 SEX F\n1 BIRT\n2 DATE 1934\n1 FAMS @MF@
 0 @BO@ INDI\n1 NAME Boris /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1957\n1 FAMC @MF@
@@ -672,10 +672,10 @@ describe("relationship pass: completes a couple from one shared child + a matche
 0 @BO2@ INDI\n1 NAME Boris /Volčič/\n1 SEX M\n1 BIRT\n2 DATE 1957\n1 FAMC @IF@
 0 @IF@ FAM\n1 HUSB @RU2@\n1 WIFE @ST@\n1 CHIL @BO2@
 0 TRLR\n`;
-  const r = matchDatasets(dataset(master), dataset(compare));
+  const r = matchDatasets(dataset(main), dataset(compare));
 
   it("links the two mothers despite no name or score overlap", () => {
-    const sl = r.individuals.find((c) => c.masterId === "@SL@");
+    const sl = r.individuals.find((c) => c.mainId === "@SL@");
     expect(sl).toBeDefined();
     expect(sl!.compareId).toBe("@ST@");
     expect(sl!.relationshipLinked).toBe(true);
@@ -685,19 +685,19 @@ describe("relationship pass: completes a couple from one shared child + a matche
   it("does not link on the shared child alone when the spouse isn't matched", () => {
     // Same as above but the husbands differ (no matched spouse) and there's only
     // one shared child — below the bar, so the mothers stay unlinked.
-    const m2 = master.replace("Rudolf /Volčič/", "Anton /Kovač/");
+    const m2 = main.replace("Rudolf /Volčič/", "Anton /Kovač/");
     const r2 = matchDatasets(dataset(m2), dataset(compare));
-    expect(r2.individuals.some((c) => c.masterId === "@SL@" && c.compareId === "@ST@")).toBe(false);
+    expect(r2.individuals.some((c) => c.mainId === "@SL@" && c.compareId === "@ST@")).toBe(false);
   });
 });
 
 describe("relationship pass: does not steal a parent-corroborated match for a spouse/child duplicate", () => {
-  // Master Irena is the child of Jožef + Jožefa and the wife of Miran (mother of
+  // Main Irena is the child of Jožef + Jožefa and the wife of Miran (mother of
   // Ana). The incoming file has TWO Irenas: the real one (@REAL@, same parents,
   // b1958) which the primary pass matches at 100, and a stray duplicate (@DUP@,
   // no parents, b1956) that shares only the spouse + child. The relationship
   // pass must NOT override the parent-corroborated match with the duplicate.
-  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @IRENA@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @MFC@\n1 FAMS @MFS@
 0 @JOZEF@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @MFC@
 0 @JOZEFA@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @MFC@
@@ -716,25 +716,25 @@ describe("relationship pass: does not steal a parent-corroborated match for a sp
 0 @DUP@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1956\n1 FAMS @IFS@
 0 @IFS@ FAM\n1 HUSB @MIRAN2@\n1 WIFE @DUP@\n1 CHIL @ANA2@
 0 TRLR\n`;
-  const r = matchDatasets(dataset(master), dataset(compare));
+  const r = matchDatasets(dataset(main), dataset(compare));
 
   it("keeps the parents-matched record, ignoring the spouse/child duplicate", () => {
-    const irena = r.individuals.find((c) => c.masterId === "@IRENA@");
+    const irena = r.individuals.find((c) => c.mainId === "@IRENA@");
     expect(irena).toBeDefined();
     expect(irena!.compareId).toBe("@REAL@");
   });
 
-  it("leaves the duplicate unmatched to the master Irena", () => {
-    expect(r.individuals.some((c) => c.masterId === "@IRENA@" && c.compareId === "@DUP@")).toBe(false);
+  it("leaves the duplicate unmatched to the main Irena", () => {
+    expect(r.individuals.some((c) => c.mainId === "@IRENA@" && c.compareId === "@DUP@")).toBe(false);
   });
 });
 
 describe("incoming duplicate consolidation: detects same person split across incoming records", () => {
-  // Master Irena. The incoming file holds her twice: @REAL@ (her parents, b1958)
+  // Main Irena. The incoming file holds her twice: @REAL@ (her parents, b1958)
   // which the primary pass matches, and @DUP@ (her spouse + child, b1956). It
   // also has a same-named NAMESAKE born 27 years later (a distinct person) and a
   // sibling MARIJA — neither should be folded in.
-  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @IRENA@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958\n1 FAMC @MFC@\n1 FAMS @MFS@
 0 @JOZEF@ INDI\n1 NAME Jožef /Pezdirc/\n1 SEX M\n1 BIRT\n2 DATE 1932\n1 FAMS @MFC@
 0 @JOZEFA@ INDI\n1 NAME Jožefa /Renko/\n1 SEX F\n1 BIRT\n2 DATE 1936\n1 FAMS @MFC@
@@ -755,7 +755,7 @@ describe("incoming duplicate consolidation: detects same person split across inc
 0 @NAMESAKE@ INDI\n1 NAME Irena /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1985
 0 @SIB@ INDI\n1 NAME Marija /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1958
 0 TRLR\n`;
-  const r = matchDatasets(dataset(master), dataset(compare));
+  const r = matchDatasets(dataset(main), dataset(compare));
 
   it("clusters the matched copy with its spouse/child duplicate", () => {
     const cl = r.incomingDuplicates?.find((c) => c.keepId === "@REAL@");
@@ -771,11 +771,11 @@ describe("incoming duplicate consolidation: detects same person split across inc
 });
 
 describe("relationship pass: ignores weak relative matches (no false link from cross-family noise)", () => {
-  // Karolina (master) and Antonija (incoming) are different people with totally
+  // Karolina (main) and Antonija (incoming) are different people with totally
   // different names. The greedy pass cross-matches their similar-surnamed but
   // distinct relatives (Jakofčič ↔ Jakopič) at a low score. Those weak matches
   // must NOT compound into a confident parent link between Karolina and Antonija.
-  const master = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
 0 @KAR@ INDI\n1 NAME Karolina /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1899\n1 FAMS @MF@
 0 @ANTON@ INDI\n1 NAME Anton /Jakofčič/\n1 SEX M\n1 BIRT\n2 DATE 1897\n1 FAMS @MF@
 0 @MARIJA@ INDI\n1 NAME Marija /Jakofčič/\n1 SEX F\n1 BIRT\n2 DATE 1925\n1 FAMC @MF@
@@ -787,15 +787,15 @@ describe("relationship pass: ignores weak relative matches (no false link from c
 0 @EVALDA@ INDI\n1 NAME Evalda /Jakopič/\n1 SEX F\n1 BIRT\n2 DATE 1928\n1 FAMC @IF@
 0 @IF@ FAM\n1 HUSB @ANDREJ@\n1 WIFE @ANT@\n1 CHIL @EVALDA@
 0 TRLR\n`;
-  const r = matchDatasets(dataset(master), dataset(compare));
+  const r = matchDatasets(dataset(main), dataset(compare));
 
   it("does not link the two unrelated parents", () => {
-    expect(r.individuals.some((c) => c.masterId === "@KAR@" && c.compareId === "@ANT@")).toBe(false);
+    expect(r.individuals.some((c) => c.mainId === "@KAR@" && c.compareId === "@ANT@")).toBe(false);
   });
 
   it("(the weak relative matches that would have driven it score below the confidence bar)", () => {
     // Confirms the path is exercised: the relatives DO get cross-matched, just weakly.
-    const marija = r.individuals.find((c) => c.masterId === "@MARIJA@");
+    const marija = r.individuals.find((c) => c.mainId === "@MARIJA@");
     if (marija) expect(marija.score).toBeLessThan(85);
   });
 });

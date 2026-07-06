@@ -40,7 +40,7 @@ export interface PhotoEditFields {
   description: string;
 }
 
-/** Makes a photo's info panel editable (Edit/master context only): the current
+/** Makes a photo's info panel editable (Edit/main context only): the current
  *  field values to seed the inputs, the file path shown read-only, and a commit
  *  callback that writes them back through the edit/undo flow. */
 export interface PhotoEdit {
@@ -82,7 +82,7 @@ export interface PhotoItem {
 export interface PhotoRefContext {
   dataset: Dataset;
   onNavigate: (id: string) => void;
-  /** When provided (Edit/master context), the info panel becomes editable; the
+  /** When provided (Edit/main context), the info panel becomes editable; the
    *  callback writes a photo's fields back by its `OBJE` child index. */
   onEditMedia?: (objeIndex: number, fields: PhotoEditFields) => void;
 }

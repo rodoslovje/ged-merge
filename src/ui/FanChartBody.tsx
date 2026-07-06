@@ -28,9 +28,9 @@ interface Props {
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Photo sources, shared with the tree views' `TreeNodePhoto`. */
-  masterRecords: GedNode[];
+  mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  masterRefCtx?: PhotoRefContext;
+  mainRefCtx?: PhotoRefContext;
   compareRefCtx?: PhotoRefContext;
   /** Optional badge dot per node. */
   badgeOf?: (node: TreeNode) => FanBadge | undefined;
@@ -52,9 +52,9 @@ export function FanChartBody({
   colorOf,
   selectedKey,
   onSelect,
-  masterRecords,
+  mainRecords,
   compareRecords,
-  masterRefCtx,
+  mainRefCtx,
   compareRefCtx,
   badgeOf,
 }: Props) {
@@ -83,9 +83,9 @@ export function FanChartBody({
             selected={seg.key === selectedKey}
             onSelect={onSelect}
             clickHint={t("tree.node.clickHint")}
-            masterRecords={masterRecords}
+            mainRecords={mainRecords}
             compareRecords={compareRecords}
-            masterRefCtx={masterRefCtx}
+            mainRefCtx={mainRefCtx}
             compareRefCtx={compareRefCtx}
             badge={badgeOf?.(seg.node)}
           />
@@ -120,9 +120,9 @@ function Segment({
   selected,
   onSelect,
   clickHint,
-  masterRecords,
+  mainRecords,
   compareRecords,
-  masterRefCtx,
+  mainRefCtx,
   compareRefCtx,
   badge,
 }: {
@@ -131,9 +131,9 @@ function Segment({
   selected: boolean;
   onSelect: (key: string) => void;
   clickHint: string;
-  masterRecords: GedNode[];
+  mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  masterRefCtx?: PhotoRefContext;
+  mainRefCtx?: PhotoRefContext;
   compareRefCtx?: PhotoRefContext;
   badge?: FanBadge;
 }) {
@@ -161,9 +161,9 @@ function Segment({
         <g transform={`translate(${seg.photo.cx},${seg.photo.cy}) rotate(${seg.photo.rot})`}>
           <TreeNodePhoto
             node={node}
-            masterRecords={masterRecords}
+            mainRecords={mainRecords}
             compareRecords={compareRecords}
-            masterRefCtx={masterRefCtx}
+            mainRefCtx={mainRefCtx}
             compareRefCtx={compareRefCtx}
             x={-seg.photo.size / 2}
             y={-seg.photo.size / 2}

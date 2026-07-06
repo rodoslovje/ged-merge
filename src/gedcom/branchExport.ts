@@ -2,10 +2,10 @@ import { cloneNode } from "./node";
 import type { Dataset, GedNode } from "./types";
 
 /**
- * Branch export: cut a shareable GEDCOM out of the master file containing
+ * Branch export: cut a shareable GEDCOM out of the main file containing
  * exactly the people shown in a chart (plus whatever is needed to keep the
  * file valid and self-contained). The recipient loads it in GED Merge as a
- * compare file and merges it into their own master.
+ * compare file and merges it into their own main.
  *
  * What goes in, given a set of individual ids:
  * - the INDI records for those ids, in original file order;
@@ -15,7 +15,7 @@ import type { Dataset, GedNode } from "./types";
  *   than exported as a husk;
  * - supporting records the kept records point to, transitively: sources with
  *   their repositories, shared notes, media records, the header's submitter;
- * - a clone of the master's HEAD (so version/charset conventions carry over)
+ * - a clone of the main's HEAD (so version/charset conventions carry over)
  *   and the TRLR.
  *
  * Every remaining pointer whose target did not make it into the output is

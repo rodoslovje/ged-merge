@@ -6,9 +6,9 @@ import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
  * Import for the "matches" CSV exported by a genealogical index site such as
  * indeks.rodoslovje.si (the Slovenian Genealogical Index): a list of person
  * pairs, two rows per match — the first row is the person as recorded by the
- * master tree's own contributor, the second is the corresponding record from
+ * main tree's own contributor, the second is the corresponding record from
  * another source (e.g. a cemetery index). We resolve the first row against
- * the master dataset by exact name + birth year, and present the second row
+ * the main dataset by exact name + birth year, and present the second row
  * as a synthetic "incoming" individual for review/merge.
  *
  * The site's column headers are translated per UI language; `COLUMN_SETS`
@@ -140,16 +140,16 @@ const MOTHER_COLUMN = "Mother";
 /** Prefix for the synthetic individual IDs produced from this import. */
 const ID_PREFIX = "SGI";
 
-/** The master-side identity used to find the corresponding individual. */
-export interface GiMasterKey {
+/** The main-side identity used to find the corresponding individual. */
+export interface GiMainKey {
   given: string;
   surname: string;
   birthYear?: number;
 }
 
-/** One CSV match pair: the master-side key plus the synthetic compare individual it produced. */
+/** One CSV match pair: the main-side key plus the synthetic compare individual it produced. */
 export interface GiPair {
-  masterKey: GiMasterKey;
+  mainKey: GiMainKey;
   compareId: string;
 }
 
@@ -215,7 +215,7 @@ function isAnnotation(value: string): boolean {
  * archival spelling variant (e.g. the German transliteration "Jakopič
  * (Jakopetsch)" in old church-register extracts) or a maiden/married-name
  * cross-reference (e.g. "Cegnar (Briško)") — so it doesn't pollute the
- * literal surname used both to look up the master individual and to score
+ * literal surname used both to look up the main individual and to score
  * how well the two records match. Returns the value unchanged when there's
  * no trailing parenthetical.
  */
@@ -409,7 +409,7 @@ function detectFamilyColumns(header: string[]): Record<FamilyField, number> | un
 
 /**
  * Parse a genealogical index matches CSV into a synthetic compare `Dataset`
- * plus the master-side keys needed to resolve each pair to a master
+ * plus the main-side keys needed to resolve each pair to a main
  * individual. Two CSV shapes are recognised: per-person matches (one
  * individual per pair) and per-family matches (one couple per pair, yielding
  * up to two pairs — husband and wife).
@@ -460,20 +460,20 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
   const pairs: GiPair[] = [];
   let n = 0;
   for (let i = 0; i + 1 < dataRows.length; i += 2) {
-    const masterRow = dataRows[i];
+    const mainRow = dataRows[i];
     const incomingRow = dataRows[i + 1];
 
-    const masterKey: GiMasterKey = {
-      given: col(masterRow, "given"),
-      surname: stripSurnameAnnotation(col(masterRow, "surname")),
-      birthYear: parseDate(col(masterRow, "birthDate")).year,
+    const mainKey: GiMainKey = {
+      given: col(mainRow, "given"),
+      surname: stripSurnameAnnotation(col(mainRow, "surname")),
+      birthYear: parseDate(col(mainRow, "birthDate")).year,
     };
-    if (!masterKey.given || !masterKey.surname) continue;
+    if (!mainKey.given || !mainKey.surname) continue;
 
     n++;
     const compareId = `@${ID_PREFIX}${n}@`;
     records.push(...buildPairRecords(n, incomingRow, col, colAt, layout));
-    pairs.push({ masterKey, compareId });
+    pairs.push({ mainKey, compareId });
   }
 
   return finish(records, pairs);
@@ -667,7 +667,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const col = (row: string[], field: FamilyField): string => (row[index[field]] ?? "").trim();
 
   /** Normalised dedup key: used to recognise the same person across rows. */
-  function keyStr(key: GiMasterKey): string {
+  function keyStr(key: GiMainKey): string {
     return `${key.given.toLowerCase()}|${key.surname.toLowerCase()}|${key.birthYear ?? ""}`;
   }
 
@@ -675,42 +675,42 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   interface FamilyEntry {
     famIdx: number;
     incomingRow: string[];
-    husbandKey: GiMasterKey;
-    wifeKey: GiMasterKey;
+    husbandKey: GiMainKey;
+    wifeKey: GiMainKey;
   }
   const entries: FamilyEntry[] = [];
   let famCounter = 0;
 
   for (let i = 0; i + 1 < dataRows.length; i += 2) {
-    const masterRow = dataRows[i];
+    const mainRow = dataRows[i];
     const incomingRow = dataRows[i + 1];
-    const husbandKey: GiMasterKey = {
-      given: col(masterRow, "husbandName"),
-      surname: stripSurnameAnnotation(col(masterRow, "husbandSurname")),
-      birthYear: parseDate(col(masterRow, "husbandBirth")).year,
+    const husbandKey: GiMainKey = {
+      given: col(mainRow, "husbandName"),
+      surname: stripSurnameAnnotation(col(mainRow, "husbandSurname")),
+      birthYear: parseDate(col(mainRow, "husbandBirth")).year,
     };
-    const wifeKey: GiMasterKey = {
-      given: col(masterRow, "wifeName"),
-      surname: stripSurnameAnnotation(col(masterRow, "wifeSurname")),
-      birthYear: parseDate(col(masterRow, "wifeBirth")).year,
+    const wifeKey: GiMainKey = {
+      given: col(mainRow, "wifeName"),
+      surname: stripSurnameAnnotation(col(mainRow, "wifeSurname")),
+      birthYear: parseDate(col(mainRow, "wifeBirth")).year,
     };
     if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
     famCounter++;
     entries.push({ famIdx: famCounter, incomingRow, husbandKey, wifeKey });
   }
 
-  // ── Pass 2: assign one stable compare ID per unique master-side person ──
+  // ── Pass 2: assign one stable compare ID per unique main-side person ──
   let personCounter = 0;
   const personIdByKey = new Map<string, string>();
-  const personMasterKeyByKey = new Map<string, GiMasterKey>();
+  const personMainKeyByKey = new Map<string, GiMainKey>();
 
-  function getPersonId(key: GiMasterKey): string | undefined {
+  function getPersonId(key: GiMainKey): string | undefined {
     if (!key.given && !key.surname) return undefined;
     const k = keyStr(key);
     if (!personIdByKey.has(k)) {
       personCounter++;
       personIdByKey.set(k, `@${ID_PREFIX}${personCounter}@`);
-      personMasterKeyByKey.set(k, key);
+      personMainKeyByKey.set(k, key);
     }
     return personIdByKey.get(k)!;
   }
@@ -724,7 +724,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   // ── Pass 3: accumulate per-person data across all rows ──────────────────
   interface PersonAcc {
     compareId: string;
-    masterKey: GiMasterKey;
+    mainKey: GiMainKey;
     given: string;
     surname: string;
     birth: string;
@@ -735,7 +735,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const personAccs = new Map<string, PersonAcc>(); // compareId → acc
 
   function getAcc(
-    key: GiMasterKey,
+    key: GiMainKey,
     given: string,
     surname: string,
     birth: string,
@@ -745,7 +745,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     if (!personAccs.has(compareId)) {
       personAccs.set(compareId, {
         compareId,
-        masterKey: personMasterKeyByKey.get(keyStr(key))!,
+        mainKey: personMainKeyByKey.get(keyStr(key))!,
         given: given || key.given,
         surname: surname || key.surname,
         birth,
@@ -802,7 +802,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const pairs: GiPair[] = [];
 
   for (const acc of personAccs.values()) {
-    const { compareId, masterKey, given, surname, birth, famsIds, father, mother } = acc;
+    const { compareId, mainKey, given, surname, birth, famsIds, father, mother } = acc;
 
     const indiChildren: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
     if (birth && !isAnnotation(birth)) {
@@ -817,7 +817,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     if (par.famc) indiChildren.push(par.famc);
 
     records.push({ level: 0, xref: compareId, tag: "INDI", children: indiChildren });
-    pairs.push({ masterKey, compareId });
+    pairs.push({ mainKey, compareId });
   }
 
   return finish(records, pairs);

@@ -6,8 +6,8 @@
  *  - **shared** — a top-level `0 @O@ OBJE` record referenced by a `1 OBJE @O@`
  *    pointer, so the same photo can be cited by several people.
  *
- * When the editor adds a photo it follows whichever style the master file
- * already uses (mirroring how normalization respects the master's date/place
+ * When the editor adds a photo it follows whichever style the main file
+ * already uses (mirroring how normalization respects the main's date/place
  * conventions), so the saved file stays internally consistent.
  */
 
@@ -18,7 +18,7 @@ import type { GedNode } from "./types";
 export type MediaMode = "inline" | "shared";
 
 /**
- * Detect whether the master attaches photos inline or via shared top-level
+ * Detect whether the main attaches photos inline or via shared top-level
  * `OBJE` records, by counting how each `OBJE` on an `INDI`/`FAM` record is
  * expressed. Ties — and a file with no photos at all — fall back to "shared",
  * since shared records allow one photo to be referenced by several people.

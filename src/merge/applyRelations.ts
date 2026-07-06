@@ -30,18 +30,18 @@ import {
 type Row = FieldRow;
 
 export interface MergeContext {
-  /** incoming individual id → its matched master individual id (if any). */
-  incToMaster: Map<string, string>;
-  /** Look up a (cloned) master individual record node by xref. */
+  /** incoming individual id → its matched main individual id (if any). */
+  incToMain: Map<string, string>;
+  /** Look up a (cloned) main individual record node by xref. */
   indiNode: (id: string) => GedNode | undefined;
-  /** Look up a (cloned) master family record node by xref. */
+  /** Look up a (cloned) main family record node by xref. */
   famNode: (id: string) => GedNode | undefined;
   /** Create a fresh empty FAM record (inserted before TRLR, indexed). */
   createFamily: () => { id: string; node: GedNode };
-  /** Resolve an incoming individual to a master id, adding it as a new record
+  /** Resolve an incoming individual to a main id, adding it as a new record
    *  when it has no match. Returns undefined if it can't be resolved. */
   resolve: (incomingId: string) => string | undefined;
-  /** Display label for a master id, for the change report. */
+  /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   report: ChangeReport;
   touched: Set<string>;
@@ -61,7 +61,7 @@ export interface MergeContext {
 }
 
 export function makeContext(
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   matches: MatchResult,
   records: GedNode[],
@@ -71,15 +71,15 @@ export function makeContext(
   touched: Set<string>,
   t: Translate,
   sourXrefMap: SourXrefMap,
-  /** `${masterId}|${compareId}` pairs the user rejected — never reused as a join
+  /** `${mainId}|${compareId}` pairs the user rejected — never reused as a join
    *  point, so the incoming record is imported as a new person instead of being
-   *  silently merged into the (wrongly) matched master record. */
+   *  silently merged into the (wrongly) matched main record. */
   rejectedPairs: Set<string> = new Set(),
 ): MergeContext {
-  const incToMaster = new Map<string, string>();
+  const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
-    if (rejectedPairs.has(`${c.masterId}|${c.compareId}`)) continue;
-    incToMaster.set(c.compareId, c.masterId);
+    if (rejectedPairs.has(`${c.mainId}|${c.compareId}`)) continue;
+    incToMain.set(c.compareId, c.mainId);
   }
 
   const used = new Set<string>();
@@ -113,7 +113,7 @@ export function makeContext(
   let graftPhase = false;
 
   const addedLabels = new Map<string, string>();
-  const addedFromIncoming = new Map<string, string>(); // incomingId → new master id
+  const addedFromIncoming = new Map<string, string>(); // incomingId → new main id
 
   const addNewIndividual = (incomingId: string): string | undefined => {
     const cached = addedFromIncoming.get(incomingId);
@@ -126,7 +126,7 @@ export function makeContext(
     node.xref = newId;
     // Drop pointers into the compare file's namespace: family links (re-linked
     // only into the family being merged) plus associations/submitter links,
-    // which have no import path and would dangle — or hit an unrelated master
+    // which have no import path and would dangle — or hit an unrelated main
     // record — if kept. Dropped associations are surfaced as deferred.
     const dropped = stripForeignPointers(node);
     if (dropped.some((tag) => tag === "ASSO" || tag === "ALIA")) {
@@ -149,13 +149,13 @@ export function makeContext(
   };
 
   return {
-    incToMaster,
+    incToMain,
     indiNode: (id) => indiNodes.get(id),
     famNode: (id) => famNodes.get(id),
     createFamily,
-    resolve: (incomingId) => incToMaster.get(incomingId) ?? addNewIndividual(incomingId),
+    resolve: (incomingId) => incToMain.get(incomingId) ?? addNewIndividual(incomingId),
     label: (id) =>
-      addedLabels.get(id) ?? displayName(master.individuals.get(id)?.names[0]),
+      addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     beginGraftPhase: () => {
       graftPhase = true;
     },
@@ -169,10 +169,10 @@ export function makeContext(
 }
 
 /**
- * Stitch an incoming family's spouses and/or children into a master family node.
+ * Stitch an incoming family's spouses and/or children into a main family node.
  * Spouse slots are read from the (possibly already-edited) node so it works on
  * both existing and freshly-created families. Each missing spouse/child is
- * resolved to a master record (matched or newly added) and wired up.
+ * resolved to a main record (matched or newly added) and wired up.
  */
 export function applyFamilyStructure(
   famNode: GedNode,
@@ -193,13 +193,13 @@ export function applyFamilyStructure(
       if (!incSlot) continue;
       const targetId = ctx.resolve(incSlot);
       if (!targetId) continue;
-      const masterSlot = slotValue(role);
-      if (masterSlot) {
-        if (masterSlot !== targetId) {
+      const mainSlot = slotValue(role);
+      if (mainSlot) {
+        if (mainSlot !== targetId) {
           ctx.report.deferred.push({
             recordId: famId,
             field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
-            reason: ctx.t("merge.reason.masterHasSpouse"),
+            reason: ctx.t("merge.reason.mainHasSpouse"),
           });
         }
         continue;
@@ -226,7 +226,7 @@ export function applyFamilyStructure(
     for (const incChild of incFam.children) {
       // Children are opt-in: only stitch in the ones the user explicitly took.
       if (!opts.takenChildren.has(incChild)) continue;
-      const known = ctx.incToMaster.get(incChild);
+      const known = ctx.incToMain.get(incChild);
       if (known && existing.has(known)) continue;
       const targetId = ctx.resolve(incChild);
       if (!targetId || existing.has(targetId)) continue;
@@ -250,22 +250,22 @@ export function applyFamilyStructure(
 /** True when the user's choice for a row means "take from incoming". */
 function wantsIncoming(rows: Row[], fields: Record<string, FieldChoice>, key: string): boolean {
   const row = rows.find((r) => r.key === key);
-  if (!row || row.state === "agree" || row.state === "master-only") return false;
-  return (fields[key] ?? defaultChoice(row as never)) !== "master";
+  if (!row || row.state === "agree" || row.state === "main-only") return false;
+  return (fields[key] ?? defaultChoice(row as never)) !== "main";
 }
 
 /**
  * Stitch a confirmed individual's parents taken from the incoming side into the
  * person's child-family (created if absent). The parent is linked to the matched
- * master person when known, else added as a new record.
+ * main person when known, else added as a new record.
  */
 export function applyIndividualRelations(
-  masterId: string,
-  _masterIndi: import("../gedcom/types").Individual,
+  mainId: string,
+  _mainIndi: import("../gedcom/types").Individual,
   incomingIndi: import("../gedcom/types").Individual,
   rows: Row[],
   fields: Record<string, FieldChoice>,
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   ctx: MergeContext,
 ): void {
@@ -280,7 +280,7 @@ export function applyIndividualRelations(
     if (!incParentId) continue;
     const targetId = ctx.resolve(incParentId);
     if (!targetId) continue;
-    childFam ??= ensureChildFamily(masterId, master, ctx);
+    childFam ??= ensureChildFamily(mainId, main, ctx);
     setSpouseSlot(childFam.node, role, targetId, ctx.t(labelKey), ctx);
   }
 }
@@ -288,17 +288,17 @@ export function applyIndividualRelations(
 /**
  * Stitch a confirmed individual's marriages: spouse, marriage facts, and
  * children. Each incoming family the person belongs to is paired with the
- * master family for the same couple (created if absent), then its spouse
+ * main family for the same couple (created if absent), then its spouse
  * (if "partners" taken), marriage date/place/addr (per the MARR choices) and
  * children (if "children" taken) are merged in.
  */
 export function applyIndividualFamilies(
-  masterId: string,
-  masterIndi: import("../gedcom/types").Individual,
+  mainId: string,
+  mainIndi: import("../gedcom/types").Individual,
   incomingIndi: import("../gedcom/types").Individual,
   rows: Row[],
   fields: Record<string, FieldChoice>,
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   ctx: MergeContext,
   /** Incoming child ids the user opted to stitch in (see `CandidateDecision.takenChildren`). */
@@ -326,10 +326,10 @@ export function applyIndividualFamilies(
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
-    const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
+    const otherMainId = otherIncId ? ctx.incToMain.get(otherIncId) : undefined;
 
-    let famNode = findMasterSpouseFamily(masterIndi, master, masterId, otherMasterId, ctx);
-    if (!famNode) famNode = createPersonFamily(masterId, masterIndi.sex, ctx);
+    let famNode = findMainSpouseFamily(mainIndi, main, mainId, otherMainId, ctx);
+    if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx);
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren });
 
@@ -352,7 +352,7 @@ export function applyIndividualFamilies(
     const marrSourcesChoice = marriageChoice("sources");
     if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
       const marrRow = rows.find((r) => r.key === `${famKey}.MARR.sources`);
-      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: newSourceCitations(marrRow?.masterSources, marrRow?.incomingSources) });
+      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: newSourceCitations(marrRow?.mainSources, marrRow?.incomingSources) });
       ctx.touched.add(famNode.xref!);
     }
 
@@ -379,7 +379,7 @@ export function applyIndividualFamilies(
         const choice = fields[evSourcesKey] ?? "incoming";
         if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
           const evRow = rows.find((r) => r.key === evSourcesKey);
-          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: newSourceCitations(evRow?.masterSources, evRow?.incomingSources) });
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: newSourceCitations(evRow?.mainSources, evRow?.incomingSources) });
           ctx.touched.add(famNode.xref!);
         }
       }
@@ -404,19 +404,19 @@ export function applyIndividualFamilies(
   }
 }
 
-/** Find the master family pairing this person with the given (matched) spouse. */
-function findMasterSpouseFamily(
-  masterIndi: import("../gedcom/types").Individual,
-  master: Dataset,
-  masterId: string,
-  otherMasterId: string | undefined,
+/** Find the main family pairing this person with the given (matched) spouse. */
+function findMainSpouseFamily(
+  mainIndi: import("../gedcom/types").Individual,
+  main: Dataset,
+  mainId: string,
+  otherMainId: string | undefined,
   ctx: MergeContext,
 ): GedNode | undefined {
-  for (const famId of masterIndi.spouseOf) {
-    const fam = master.families.get(famId);
+  for (const famId of mainIndi.spouseOf) {
+    const fam = main.families.get(famId);
     if (!fam) continue;
-    const other = fam.husband === masterId ? fam.wife : fam.husband;
-    if (otherMasterId ? other === otherMasterId : !other) return ctx.famNode(famId);
+    const other = fam.husband === mainId ? fam.wife : fam.husband;
+    if (otherMainId ? other === otherMainId : !other) return ctx.famNode(famId);
   }
   // Single marriage on each side: pair the lone families even without a match id
   // — but not when the incoming partner is a *different* confirmed individual
@@ -424,49 +424,49 @@ function findMasterSpouseFamily(
   // it gets its own new family instead of colliding with this one. (An unmatched
   // partner keeps collapsing here, so a missed match still surfaces as a
   // "different spouse" conflict rather than silently spawning a duplicate.)
-  if (masterIndi.spouseOf.length === 1) {
-    const fam = master.families.get(masterIndi.spouseOf[0]);
-    const other = fam && (fam.husband === masterId ? fam.wife : fam.husband);
-    if (!(otherMasterId && other && other !== otherMasterId)) {
-      return ctx.famNode(masterIndi.spouseOf[0]);
+  if (mainIndi.spouseOf.length === 1) {
+    const fam = main.families.get(mainIndi.spouseOf[0]);
+    const other = fam && (fam.husband === mainId ? fam.wife : fam.husband);
+    if (!(otherMainId && other && other !== otherMainId)) {
+      return ctx.famNode(mainIndi.spouseOf[0]);
     }
   }
   return undefined;
 }
 
-/** Create a new family with the master person placed in their sex's slot. */
+/** Create a new family with the main person placed in their sex's slot. */
 function createPersonFamily(
-  masterId: string,
+  mainId: string,
   sex: import("../gedcom/types").Sex,
   ctx: MergeContext,
 ): GedNode {
   const fam = ctx.createFamily();
   const role = sex === "F" ? "WIFE" : "HUSB";
-  addPointer(fam.node, role, masterId, FAM_CHILD_ORDER);
-  linkBack(ctx, masterId, "FAMS", fam.id);
+  addPointer(fam.node, role, mainId, FAM_CHILD_ORDER);
+  linkBack(ctx, mainId, "FAMS", fam.id);
   return fam.node;
 }
 
-/** The family node where the master person is a child, creating one if absent. */
+/** The family node where the main person is a child, creating one if absent. */
 function ensureChildFamily(
-  masterId: string,
-  master: Dataset,
+  mainId: string,
+  main: Dataset,
   ctx: MergeContext,
 ): { id: string; node: GedNode } {
   // Prefer the live merged tree's FAMC over the original dataset's: a child
   // family created earlier in this merge (e.g. by the confirmed-match parent
-  // stitch) is wired onto the cloned indi node but absent from `master`, so
-  // reading `master` here would miss it and create a duplicate family.
+  // stitch) is wired onto the cloned indi node but absent from `main`, so
+  // reading `main` here would miss it and create a duplicate family.
   const existing =
-    ctx.indiNode(masterId)?.children.find((c) => c.tag === "FAMC")?.value ??
-    master.individuals.get(masterId)?.childOf[0];
+    ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ??
+    main.individuals.get(mainId)?.childOf[0];
   if (existing) {
     const node = ctx.famNode(existing);
     if (node) return { id: existing, node };
   }
   const fam = ctx.createFamily();
-  addPointer(fam.node, "CHIL", masterId, FAM_CHILD_ORDER);
-  const indi = ctx.indiNode(masterId);
+  addPointer(fam.node, "CHIL", mainId, FAM_CHILD_ORDER);
+  const indi = ctx.indiNode(mainId);
   if (indi) addPointer(indi, "FAMC", fam.id, INDI_CHILD_ORDER);
   return fam;
 }
@@ -525,17 +525,17 @@ function addPointer(parent: GedNode, tag: string, id: string, order: string[]): 
 
 /** One "bring in this person's whole branch" request from the compare tree. */
 export interface ImportBranchRequest {
-  /** The incoming individual whose subtree should be grafted into the master. */
+  /** The incoming individual whose subtree should be grafted into the main. */
   incomingId: string;
   direction: ImportDirection;
 }
 
 /**
- * Graft entire incoming subtrees onto the master, beyond the single-person and
+ * Graft entire incoming subtrees onto the main, beyond the single-person and
  * immediate-relative stitching the confirmed-match flow does. Each request walks
  * the incoming tree in one direction (ancestors or descendants) from its anchor
  * person, importing every person and family along the way. Persons that match a
- * master record (via `ctx.incToMaster`) are reused as join points rather than
+ * main record (via `ctx.incToMain`) are reused as join points rather than
  * duplicated; genuinely new persons are added as fresh records. A visited guard
  * (keyed by direction + incoming id) stops cycles and pedigree collapse from
  * expanding forever.
@@ -545,21 +545,21 @@ export interface ImportBranchRequest {
  */
 export function applyImportBranches(
   requests: Iterable<ImportBranchRequest>,
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   ctx: MergeContext,
 ): void {
   const visited = new Set<string>();
   for (const req of requests) {
-    if (req.direction === "ancestors") importAncestors(req.incomingId, master, compare, ctx, visited);
-    else importDescendants(req.incomingId, master, compare, ctx, visited);
+    if (req.direction === "ancestors") importAncestors(req.incomingId, main, compare, ctx, visited);
+    else importDescendants(req.incomingId, main, compare, ctx, visited);
   }
 }
 
 /** Recursively import an incoming person's father/mother (and their ancestors). */
 function importAncestors(
   incId: string,
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   ctx: MergeContext,
   visited: Set<string>,
@@ -570,8 +570,8 @@ function importAncestors(
 
   const incIndi = compare.individuals.get(incId);
   if (!incIndi) return;
-  const masterId = ctx.resolve(incId);
-  if (!masterId) return;
+  const mainId = ctx.resolve(incId);
+  if (!mainId) return;
   const childFamId = incIndi.childOf[0];
   const incFam = childFamId ? compare.families.get(childFamId) : undefined;
   if (!incFam) return;
@@ -583,18 +583,18 @@ function importAncestors(
   ];
   for (const [role, incParentId, labelKey] of parents) {
     if (!incParentId) continue;
-    const parentMasterId = ctx.resolve(incParentId);
-    if (!parentMasterId) continue;
-    childFam ??= ensureChildFamily(masterId, master, ctx);
-    setSpouseSlot(childFam.node, role, parentMasterId, ctx.t(labelKey), ctx);
-    importAncestors(incParentId, master, compare, ctx, visited);
+    const parentMainId = ctx.resolve(incParentId);
+    if (!parentMainId) continue;
+    childFam ??= ensureChildFamily(mainId, main, ctx);
+    setSpouseSlot(childFam.node, role, parentMainId, ctx.t(labelKey), ctx);
+    importAncestors(incParentId, main, compare, ctx, visited);
   }
 }
 
 /** Recursively import an incoming person's spouses, children, and their descendants. */
 function importDescendants(
   incId: string,
-  master: Dataset,
+  main: Dataset,
   compare: Dataset,
   ctx: MergeContext,
   visited: Set<string>,
@@ -605,23 +605,23 @@ function importDescendants(
 
   const incIndi = compare.individuals.get(incId);
   if (!incIndi) return;
-  const masterId = ctx.resolve(incId);
-  if (!masterId) return;
-  // The anchor may be an existing master person or one just added by `resolve`;
-  // the latter has no master `Individual`, so fall back to the incoming sex.
-  const masterIndi = master.individuals.get(masterId);
-  const sex = masterIndi?.sex ?? incIndi.sex;
+  const mainId = ctx.resolve(incId);
+  if (!mainId) return;
+  // The anchor may be an existing main person or one just added by `resolve`;
+  // the latter has no main `Individual`, so fall back to the incoming sex.
+  const mainIndi = main.individuals.get(mainId);
+  const sex = mainIndi?.sex ?? incIndi.sex;
 
   for (const incFamId of incIndi.spouseOf) {
     const incFam = compare.families.get(incFamId);
     if (!incFam) continue;
     const otherIncId = incFam.husband === incId ? incFam.wife : incFam.husband;
-    const otherMasterId = otherIncId ? ctx.incToMaster.get(otherIncId) : undefined;
+    const otherMainId = otherIncId ? ctx.incToMain.get(otherIncId) : undefined;
 
-    let famNode = masterIndi
-      ? findMasterSpouseFamily(masterIndi, master, masterId, otherMasterId, ctx)
+    let famNode = mainIndi
+      ? findMainSpouseFamily(mainIndi, main, mainId, otherMainId, ctx)
       : undefined;
-    if (!famNode) famNode = createPersonFamily(masterId, sex, ctx);
+    if (!famNode) famNode = createPersonFamily(mainId, sex, ctx);
 
     // Bring the spouse and every child of this union; `applyFamilyStructure`
     // skips slots/children already present, so re-running on a family a confirmed
@@ -631,7 +631,7 @@ function importDescendants(
       takenChildren: new Set(incFam.children),
     });
     for (const childId of incFam.children) {
-      importDescendants(childId, master, compare, ctx, visited);
+      importDescendants(childId, main, compare, ctx, visited);
     }
   }
 }

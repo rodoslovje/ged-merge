@@ -8,17 +8,17 @@ import path from "path";
 // day-exact genuine match must, and the Tools duplicate finder must veto
 // same-named cousins while still flagging a true duplicate.
 
-const MASTER = path.join(os.tmpdir(), "match-master.ged");
+const MAIN = path.join(os.tmpdir(), "match-main.ged");
 const COMPARE = path.join(os.tmpdir(), "match-compare.ged");
 const COUSINS = path.join(os.tmpdir(), "match-cousins.ged");
 const TRUEDUP = path.join(os.tmpdir(), "match-truedup.ged");
 
 const HEAD = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
 
-// Master and compare each hold one real person (day-exact birth agreement →
+// Main and compare each hold one real person (day-exact birth agreement →
 // a perfect identity key) and one privacy-scrubbed "Living" record. Only the
 // real pair may match: "Living" ~ "Living" is a placeholder, not a name.
-writeFileSync(MASTER, [
+writeFileSync(MAIN, [
   ...HEAD,
   "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M",
   "1 BIRT", "2 DATE 12 JAN 1900", "2 PLAC Kranj",
@@ -69,7 +69,7 @@ writeFileSync(TRUEDUP, [
 
 test("merge candidates: day-exact pair matches, Living placeholders do not", async ({ page }) => {
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(MASTER);
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Merge", exact: true }).click();

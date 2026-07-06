@@ -25,14 +25,14 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
-const COLOR_SPINE = "var(--node-master)";
+const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   startId: string;
   targetId: string;
-  /** Master ids with unsaved edits — those boxes show the "M" badge. */
+  /** Main ids with unsaved edits — those boxes show the "M" badge. */
   changedPersonIds?: Set<string>;
   /** Merge decisions, so decided matches show their C/R/D badge here too. */
   decisions?: Map<string, CandidateDecision>;
@@ -60,7 +60,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ masterDs, startId, targetId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
@@ -82,30 +82,30 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
 
   const nameOf = useCallback(
     (id: string) => {
-      const indi = masterDs.individuals.get(id);
+      const indi = mainDs.individuals.get(id);
       return indi ? formatName(indi) : id;
     },
-    [masterDs, formatName],
+    [mainDs, formatName],
   );
   const yearsOf = (id: string) => {
-    const indi = masterDs.individuals.get(id);
+    const indi = mainDs.individuals.get(id);
     return (indi && lifespanOf(indi)) || undefined;
   };
 
   // Shortest path + every distinct bloodline, deduped (a shortest path that is
   // already a pure bloodline isn't listed twice).
   const options = useMemo<PathOption[]>(() => {
-    const blood = bloodPaths(masterDs, startSel, targetSel);
+    const blood = bloodPaths(mainDs, startSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
       path,
       label: t("relpath.optBlood", { name: nameOf(path.steps[path.lcaIndex!].id), count: path.hops }),
     }));
-    const shortest = shortestPath(masterDs, startSel, targetSel);
+    const shortest = shortestPath(mainDs, startSel, targetSel);
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
       opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
-  }, [masterDs, startSel, targetSel, t, nameOf]);
+  }, [mainDs, startSel, targetSel, t, nameOf]);
 
   const settings = useChartSettings().settings;
   const { alignment } = settings;
@@ -115,11 +115,10 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
     settings.showMarriageDate || settings.showMarriagePlace
       ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
       : undefined;
-  const livingLabel = t("tree.node.living");
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
-    () => (current ? buildRelationshipChart(masterDs, current, alignment, nodeH) : undefined),
-    [masterDs, current, alignment, nodeH],
+    () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH) : undefined),
+    [mainDs, current, alignment, nodeH],
   );
 
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
@@ -144,15 +143,15 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
-  const selectedIndi = selectedBox ? masterDs.individuals.get(selectedBox.id) : undefined;
+  const selectedIndi = selectedBox ? mainDs.individuals.get(selectedBox.id) : undefined;
   const selectedRows = useMemo(
-    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, masterDs) : []),
-    [t, selectedIndi, masterDs],
+    () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, mainDs) : []),
+    [t, selectedIndi, mainDs],
   );
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
   // (every box on the chart carries a kinship label).
-  const kinshipOf = useMemo(() => createKinshipResolver(masterDs, startSel, t), [masterDs, startSel, t]);
+  const kinshipOf = useMemo(() => createKinshipResolver(mainDs, startSel, t), [mainDs, startSel, t]);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
@@ -161,7 +160,7 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {
-    const indi = masterDs.individuals.get(id);
+    const indi = mainDs.individuals.get(id);
     return (
       <button
         type="button"
@@ -196,7 +195,7 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
             disabled={!chart}
             slug={relchartSlug}
             title={relchartTitle}
-            gedcom={{ ds: masterDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
+            gedcom={{ ds: mainDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
             canvasRef={canvasRef}
           />
         </>
@@ -210,7 +209,7 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
           </span>
           <StartPersonSelector
             key={picking}
-            individuals={masterDs.individuals}
+            individuals={mainDs.individuals}
             startId={picking === "start" ? startSel : targetSel}
             onChange={(newId) => replace(picking, newId)}
             icon="search"
@@ -269,7 +268,7 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
                   })}
                 {chart.boxes.map((b) => {
                   const color = b.onSpine ? COLOR_SPINE : COLOR_CONTEXT;
-                  const indi = masterDs.individuals.get(b.id);
+                  const indi = mainDs.individuals.get(b.id);
                   return (
                     <g
                       key={b.key}
@@ -287,10 +286,9 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
                         kinship={kinshipOf.label(b.id)}
                         kinshipLineage={kinshipOf.lineage(b.id)}
-                        photo={indi ? { node: { master: { raw: indi.raw } }, masterRecords: masterDs.records, masterRefCtx: { dataset: masterDs, onNavigate } } : undefined}
+                        photo={indi ? { node: { main: { raw: indi.raw } }, mainRecords: mainDs.records, mainRefCtx: { dataset: mainDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi)}
-                        livingLabel={livingLabel}
                         nodeH={nodeH}
                         badges={
                           settings.showBadges
@@ -330,8 +328,8 @@ export function RelationshipChart({ masterDs, startId, targetId, changedPersonId
             node={selectedBox}
             swatch={selectedBox.onSpine ? COLOR_SPINE : COLOR_CONTEXT}
             rows={selectedRows}
-            masterPerson={{ linkable: (id) => masterDs.individuals.has(id), onNavigate }}
-            masterLabel={t("tree.master")}
+            mainPerson={{ linkable: (id) => mainDs.individuals.has(id), onNavigate }}
+            mainLabel={t("tree.main")}
             singleColumn
             kinship={kinshipOf.label(selectedBox.id)}
             kinshipLineage={lineageClass(kinshipOf.lineage(selectedBox.id))}

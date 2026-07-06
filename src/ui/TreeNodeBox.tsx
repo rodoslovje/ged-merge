@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { GedNode, Sex } from "../gedcom/types";
 import {
   DETAIL_ROW_H,
@@ -12,20 +13,20 @@ import {
   nameFit,
   truncate,
 } from "../chart/treeLayout";
-import { ALL_DISPLAY, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ALL_DISPLAY, livingLabelFor, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
 import { useMediaFolder } from "./MediaFolderContext";
 import type { PhotoRefContext } from "./PhotoViewer";
 import { sexColorVar } from "./sex";
 
-/** Photo source for a node box — either side of a compare pair (master first).
- *  Mirrors {@link TreeNodePhoto}'s props; single-file views pass master only. */
+/** Photo source for a node box — either side of a compare pair (main first).
+ *  Mirrors {@link TreeNodePhoto}'s props; single-file views pass main only. */
 export interface NodePhotoSource {
-  node: { master?: { raw: GedNode }; incoming?: { raw: GedNode } };
-  masterRecords: GedNode[];
+  node: { main?: { raw: GedNode }; incoming?: { raw: GedNode } };
+  mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  masterRefCtx?: PhotoRefContext;
+  mainRefCtx?: PhotoRefContext;
   compareRefCtx?: PhotoRefContext;
 }
 
@@ -105,8 +106,6 @@ interface Props {
   display?: NodeDisplayOptions;
   /** Presumed living — redacted under the privacy toggle. */
   living?: boolean;
-  /** Localized "Living" placeholder for a redacted living person without a kinship. */
-  livingLabel?: string;
   /** Box height for the current display settings (grows per enabled detail row). */
   nodeH?: number;
 }
@@ -134,15 +133,15 @@ export function TreeNodeBox({
   badges,
   display = ALL_DISPLAY,
   living = false,
-  livingLabel = "Living",
   nodeH = NODE_H,
 }: Props) {
+  const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, place, kinship, kinshipLineage, living, livingLabel });
-  // Master side first, then incoming — the same order TreeNodePhoto resolves.
+  const disp = nodeDisplay(display, { name, years, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
+  // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName
-      ? (photo.node.master && collectFirstFilePath(photo.node.master.raw, photo.masterRecords)) ||
+      ? (photo.node.main && collectFirstFilePath(photo.node.main.raw, photo.mainRecords)) ||
         (photo.node.incoming && photo.compareRecords
           ? collectFirstFilePath(photo.node.incoming.raw, photo.compareRecords)
           : null)
@@ -176,9 +175,9 @@ export function TreeNodeBox({
       {photoPath && photo && (
         <TreeNodePhoto
           node={photo.node}
-          masterRecords={photo.masterRecords}
+          mainRecords={photo.mainRecords}
           compareRecords={photo.compareRecords}
-          masterRefCtx={photo.masterRefCtx}
+          mainRefCtx={photo.mainRefCtx}
           compareRefCtx={photo.compareRefCtx}
           x={PHOTO_X}
           y={photoY}

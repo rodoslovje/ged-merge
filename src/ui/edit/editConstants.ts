@@ -15,7 +15,7 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.death",     tags: ["DEAT", "BURI", "CREM"] },
 ] as const;
 
-/** Tags a master individual event's type can be changed to/from (matches
+/** Tags a main individual event's type can be changed to/from (matches
  * `INDIVIDUAL_EVENT_GROUPS`) — BIRT is excluded (always shown separately). */
 export const ASSIGNABLE_EVENT_TAGS: Set<string> = new Set(INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags));
 
@@ -57,7 +57,7 @@ export function fieldWidth(value: string, placeholder: string, minLen = 3): stri
   return `${Math.max(len, minLen) + 3}ch`;
 }
 
-/** Display order for extra merge events (tags not yet in master) and secondary event sort key. */
+/** Display order for extra merge events (tags not yet in main) and secondary event sort key. */
 export const EXTRA_EVENT_ORDER = [
   "BAPM", "CHR", "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "RETI",

@@ -5,7 +5,7 @@ import { downloadText } from "./download";
 
 /**
  * The Export-menu "GEDCOM" action shared by every chart: cut the chart's
- * people out of the master file as a standalone, valid GEDCOM (see
+ * people out of the main file as a standalone, valid GEDCOM (see
  * {@link extractBranch}) and download it as `{slug}.ged`. The recipient loads
  * it in GED Merge as a compare file and merges it into their own tree.
  */

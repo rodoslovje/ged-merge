@@ -38,8 +38,8 @@ describe("parseGiMatchesCsv", () => {
     expect(() => parseGiMatchesCsv('"foo","bar"\n')).toThrow(/Unrecognized/);
   });
 
-  it("pairs rows, resolves the master key, and builds a synthetic compare individual (Slovenian header)", () => {
-    const masterRow = row([
+  it("pairs rows, resolves the main key, and builds a synthetic compare individual (Slovenian header)", () => {
+    const mainRow = row([
       "Franc",
       "Vilfan",
       "20 JUL 1877",
@@ -69,11 +69,11 @@ describe("parseGiMatchesCsv", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const text = `${SL_HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${SL_HEADER}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toHaveLength(1);
-    expect(pairs[0].masterKey).toEqual({ given: "Franc", surname: "Vilfan", birthYear: 1877 });
+    expect(pairs[0].mainKey).toEqual({ given: "Franc", surname: "Vilfan", birthYear: 1877 });
     expect(pairs[0].compareId).toBe("@SGI1@");
 
     const indi = dataset.individuals.get("@SGI1@");
@@ -102,7 +102,7 @@ describe("parseGiMatchesCsv", () => {
   });
 
   it("handles the English header with separate Father/Mother columns", () => {
-    const masterRow = row([
+    const mainRow = row([
       "Stane",
       "Tepina",
       "27 OCT 1939",
@@ -134,18 +134,18 @@ describe("parseGiMatchesCsv", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const text = `${EN_HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${EN_HEADER}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toHaveLength(1);
-    expect(pairs[0].masterKey).toEqual({ given: "Stane", surname: "Tepina", birthYear: 1939 });
+    expect(pairs[0].mainKey).toEqual({ given: "Stane", surname: "Tepina", birthYear: 1939 });
 
     const indi = dataset.individuals.get("@SGI1@");
     expect(indi?.notes).toBeUndefined();
   });
 
   it("builds father/mother and partner families from the second row's Father/Mother/Partners fields", () => {
-    const masterRow = row([
+    const mainRow = row([
       "A",
       "B",
       "1 JAN 1900",
@@ -177,7 +177,7 @@ describe("parseGiMatchesCsv", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const text = `${EN_HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${EN_HEADER}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset } = parseGiMatchesCsv(text);
     const indi = dataset.individuals.get("@SGI1@")!;
@@ -200,7 +200,7 @@ describe("parseGiMatchesCsv", () => {
   });
 
   it("skips footer rows with a different column count", () => {
-    const masterRow = row(["Ana", "Novak", "1 JAN 1900", "", "", "", "", "", "", "", "", "Renko", "99"]);
+    const mainRow = row(["Ana", "Novak", "1 JAN 1900", "", "", "", "", "", "", "", "", "Renko", "99"]);
     const incomingRow = row([
       "Ana",
       "Novak",
@@ -216,14 +216,14 @@ describe("parseGiMatchesCsv", () => {
       "Pokopališča-geneanet",
       "99",
     ]);
-    const text = `${SL_HEADER}\n${masterRow}\n${incomingRow}\n"footer","with","fewer","columns"\n`;
+    const text = `${SL_HEADER}\n${mainRow}\n${incomingRow}\n"footer","with","fewer","columns"\n`;
 
     const { pairs } = parseGiMatchesCsv(text);
     expect(pairs).toHaveLength(1);
   });
 
   it("resolves a family match (Slovenian header) into husband and wife pairs", () => {
-    const masterRow = row([
+    const mainRow = row([
       "Anton", "Tabar", "7 JUN 1904",
       "Frančiška", "Bernard (Tabar)", "6 MAR 1904",
       "1 FEB 1931", "",
@@ -239,12 +239,12 @@ describe("parseGiMatchesCsv", () => {
       "", "", "Jakob Bernard | 12 JUL 1879", "Frančiška Berčič | 29 JAN 1881",
       "Kovačič", "97",
     ]);
-    const text = `${FAMILY_HEADER_SL}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${FAMILY_HEADER_SL}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
-      { masterKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1@" },
-      { masterKey: { given: "Frančiška", surname: "Bernard", birthYear: 1904 }, compareId: "@SGI2@" },
+      { mainKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1@" },
+      { mainKey: { given: "Frančiška", surname: "Bernard", birthYear: 1904 }, compareId: "@SGI2@" },
     ]);
 
     const husband = dataset.individuals.get("@SGI1@")!;
@@ -258,10 +258,10 @@ describe("parseGiMatchesCsv", () => {
 
   it("strips a parenthetical alternate-spelling/maiden-name annotation from surnames on both rows", () => {
     // The Matricula-extraction ("Modrijan-matricula") row annotates the
-    // archive's own (German-transliterated) spelling in parens; the master
+    // archive's own (German-transliterated) spelling in parens; the main
     // row can likewise carry a maiden/married-name cross-reference. Neither
     // should pollute the literal surname used for matching or scoring.
-    const masterRow = row([
+    const mainRow = row([
       "Jurij", "Jakopič", "ABT 1795",
       "Marija", "Babič (Jakopič)", "8 AUG 1794",
       "BEF 1822", "",
@@ -277,12 +277,12 @@ describe("parseGiMatchesCsv", () => {
       "", "", "", "",
       "Modrijan-matricula", "87",
     ]);
-    const text = `${FAMILY_HEADER_SL}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${FAMILY_HEADER_SL}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
-      { masterKey: { given: "Jurij", surname: "Jakopič", birthYear: 1795 }, compareId: "@SGI1@" },
-      { masterKey: { given: "Marija", surname: "Babič", birthYear: 1794 }, compareId: "@SGI2@" },
+      { mainKey: { given: "Jurij", surname: "Jakopič", birthYear: 1795 }, compareId: "@SGI1@" },
+      { mainKey: { given: "Marija", surname: "Babič", birthYear: 1794 }, compareId: "@SGI2@" },
     ]);
 
     const husband = dataset.individuals.get("@SGI1@")!;
@@ -292,7 +292,7 @@ describe("parseGiMatchesCsv", () => {
   });
 
   it("resolves a family match (Husband/Wife header) into husband and wife pairs", () => {
-    const masterRow = row([
+    const mainRow = row([
       "Franc",
       "Benedik",
       "1 SEP 1875",
@@ -328,12 +328,12 @@ describe("parseGiMatchesCsv", () => {
       "Pokopališča-geneanet",
       "85",
     ]);
-    const text = `${FAMILY_HEADER}\n${masterRow}\n${incomingRow}\n`;
+    const text = `${FAMILY_HEADER}\n${mainRow}\n${incomingRow}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
     expect(pairs).toEqual([
-      { masterKey: { given: "Franc", surname: "Benedik", birthYear: 1875 }, compareId: "@SGI1@" },
-      { masterKey: { given: "Frančiška", surname: "Volčič", birthYear: 1878 }, compareId: "@SGI2@" },
+      { mainKey: { given: "Franc", surname: "Benedik", birthYear: 1875 }, compareId: "@SGI1@" },
+      { mainKey: { given: "Frančiška", surname: "Volčič", birthYear: 1878 }, compareId: "@SGI2@" },
     ]);
 
     const husband = dataset.individuals.get("@SGI1@")!;
@@ -365,19 +365,19 @@ describe("parseGiMatchesCsv", () => {
 
   it("merges multiple family rows for the same husband into one match entry with multiple FAMS", () => {
     // Anton Tabar married twice: first to Frančiška, then to Ana.
-    const masterRow1 = row(["Anton", "Tabar", "7 JUN 1904", "Frančiška", "Bernard", "6 MAR 1904", "1 FEB 1931", "", "", "", "", "", "", "", "Renko", "97"]);
+    const mainRow1 = row(["Anton", "Tabar", "7 JUN 1904", "Frančiška", "Bernard", "6 MAR 1904", "1 FEB 1931", "", "", "", "", "", "", "", "Renko", "97"]);
     const incomingRow1 = row(["Anton", "Tabar", "7 JUN 1904", "Frančiška", "Bernard", "6 MAR 1904", "1 FEB 1931", "Kranj", "", "Justina Tabar | 1932", "Franc Tabar | 1870", "Marija Krt | 1875", "", "", "Kovačič", "97"]);
-    const masterRow2 = row(["Anton", "Tabar", "7 JUN 1904", "Ana", "Novak", "12 APR 1910", "5 MAR 1936", "", "", "", "", "", "", "", "Renko", "90"]);
+    const mainRow2 = row(["Anton", "Tabar", "7 JUN 1904", "Ana", "Novak", "12 APR 1910", "5 MAR 1936", "", "", "", "", "", "", "", "Renko", "90"]);
     const incomingRow2 = row(["Anton", "Tabar", "7 JUN 1904", "Ana", "Novak", "12 APR 1910", "5 MAR 1936", "Ljubljana", "", "", "", "", "", "", "Kovačič", "90"]);
-    const text = `${FAMILY_HEADER}\n${masterRow1}\n${incomingRow1}\n${masterRow2}\n${incomingRow2}\n`;
+    const text = `${FAMILY_HEADER}\n${mainRow1}\n${incomingRow1}\n${mainRow2}\n${incomingRow2}\n`;
 
     const { dataset, pairs } = parseGiMatchesCsv(text);
 
     // Anton appears in two rows but produces only ONE match entry.
     expect(pairs).toHaveLength(3);
-    const antonPair = pairs.find((p) => p.masterKey.given === "Anton");
-    const franciskaPair = pairs.find((p) => p.masterKey.given === "Frančiška");
-    const anaPair = pairs.find((p) => p.masterKey.given === "Ana");
+    const antonPair = pairs.find((p) => p.mainKey.given === "Anton");
+    const franciskaPair = pairs.find((p) => p.mainKey.given === "Frančiška");
+    const anaPair = pairs.find((p) => p.mainKey.given === "Ana");
     expect(antonPair).toBeDefined();
     expect(franciskaPair).toBeDefined();
     expect(anaPair).toBeDefined();

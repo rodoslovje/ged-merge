@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { inferMasterProfile } from "../normalize/profile";
+import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows } from "./fields";
 import type { FieldRow } from "./types";
@@ -17,7 +17,7 @@ function byKey(rows: FieldRow[], key: string): FieldRow | undefined {
 /** Identity translator: tests assert on keys/states, not localized labels. */
 const tr = (key: string) => key;
 
-const MASTER = `0 HEAD
+const MAIN = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -53,7 +53,7 @@ const COMPARE = `0 HEAD
 `;
 
 describe("individualFieldRows", () => {
-  const m = dataset(MASTER);
+  const m = dataset(MAIN);
   const c = dataset(COMPARE);
   const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
 
@@ -70,8 +70,8 @@ describe("individualFieldRows", () => {
     expect(byKey(rows, "BIRT.place")?.state).toBe("conflict");
   });
 
-  it("marks master-only fields and omits empties", () => {
-    expect(byKey(rows, "DEAT.date")?.state).toBe("master-only");
+  it("marks main-only fields and omits empties", () => {
+    expect(byKey(rows, "DEAT.date")?.state).toBe("main-only");
     expect(byKey(rows, "DEAT.place")).toBeUndefined(); // neither has it
   });
 
@@ -145,10 +145,10 @@ describe("generic EVEN with a TYPE", () => {
     // TYPE → "Title", line value → "Agency".
     const title = byKey(rows, "EVEN.type");
     expect(title?.label).toBe("event.colTitle");
-    expect(title?.master).toBe("FamilySearch ID");
+    expect(title?.main).toBe("FamilySearch ID");
     const agency = byKey(rows, "EVEN.value");
     expect(agency?.label).toBe("event.colAgency");
-    expect(agency?.master).toBe("LDHD-PNT");
+    expect(agency?.main).toBe("LDHD-PNT");
   });
 
   it("does not surface a real AGNC as a second Agency row", () => {
@@ -163,7 +163,7 @@ describe("generic EVEN with a TYPE", () => {
 });
 
 describe("individual parents and partners rows", () => {
-  const masterGed = `0 HEAD
+  const mainGed = `0 HEAD
 0 @C@ INDI
 1 NAME Ana /Novak/
 1 SEX F
@@ -210,7 +210,7 @@ describe("individual parents and partners rows", () => {
 `;
 
   it("shows father/mother/partner rows resolved through the family graph", () => {
-    const m = dataset(masterGed);
+    const m = dataset(mainGed);
     const c = dataset(compareGed);
     const rows = individualFieldRows(tr,
       m.individuals.get("@C@"),
@@ -218,13 +218,13 @@ describe("individual parents and partners rows", () => {
       m,
       c,
     );
-    expect(byKey(rows, "father")).toMatchObject({ master: "Janez Novak", state: "agree" });
-    expect(byKey(rows, "mother")).toMatchObject({ master: "Marija Kos", state: "master-only" });
-    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ master: "Tone Horvat", state: "agree" });
+    expect(byKey(rows, "father")).toMatchObject({ main: "Janez Novak", state: "agree" });
+    expect(byKey(rows, "mother")).toMatchObject({ main: "Marija Kos", state: "main-only" });
+    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ main: "Tone Horvat", state: "agree" });
   });
 
   it("omits relative rows when datasets are not supplied", () => {
-    const m = dataset(masterGed);
+    const m = dataset(mainGed);
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), m.individuals.get("@C@"));
     expect(byKey(rows, "father")).toBeUndefined();
     expect(byKey(rows, "fam.@F2@.partner")).toBeUndefined();
@@ -232,11 +232,11 @@ describe("individual parents and partners rows", () => {
 });
 
 describe("familyMergeKeyBases", () => {
-  // Master and compare each assign their own ids to the same real-world family
+  // Main and compare each assign their own ids to the same real-world family
   // (@F9@ vs @F2@), as happens when merging two independently-numbered GEDCOM
   // files — the row keys must key off the compare side's id so the edit view
-  // can resolve the same merge highlight against its own (master-numbered) family.
-  const masterGed = `0 HEAD
+  // can resolve the same merge highlight against its own (main-numbered) family.
+  const mainGed = `0 HEAD
 0 @C@ INDI
 1 NAME Ana /Novak/
 1 SEX F
@@ -268,11 +268,11 @@ describe("familyMergeKeyBases", () => {
 0 TRLR
 `;
 
-  it("maps the master family id to the fam.<id> key base used by its paired compare family", () => {
-    const m = dataset(masterGed);
+  it("maps the main family id to the fam.<id> key base used by its paired compare family", () => {
+    const m = dataset(mainGed);
     const c = dataset(compareGed);
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
-    // Rows are keyed by the compare (incoming) family id, not the master's.
+    // Rows are keyed by the compare (incoming) family id, not the main's.
     expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Ljubljana", state: "incoming-only" });
     expect(byKey(rows, "fam.@F9@.MARR.place")).toBeUndefined();
 
@@ -366,7 +366,7 @@ describe("event sort key — precision and qualifier", () => {
 
 describe("event ordering", () => {
   it("sorts events chronologically across types", () => {
-    // Master has RESI before BIRT in the file; sorted output must put BIRT first.
+    // Main has RESI before BIRT in the file; sorted output must put BIRT first.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
       `1 RESI\n2 DATE 1 JAN 1974\n` +
@@ -381,8 +381,8 @@ describe("event ordering", () => {
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.0.header"));
   });
 
-  it("uses compare date when master event has no date", () => {
-    // Master has an undated RESI; compare's 1974 date should be used for sort order.
+  it("uses compare date when main event has no date", () => {
+    // Main has an undated RESI; compare's 1974 date should be used for sort order.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 RESI\n1 BIRT\n2 DATE 1 JAN 1974\n0 TRLR\n`,
     );
@@ -396,10 +396,10 @@ describe("event ordering", () => {
   });
 
   it("keeps BIRT before a compare-side RESI dated after the earliest birth", () => {
-    // Master birth `ABT 1820` (year-only → sorts to end of year); compare birth
+    // Main birth `ABT 1820` (year-only → sorts to end of year); compare birth
     // `1 NOV 1818` plus a `1818` residence. The residence is after the compare's
     // own birth, so the birth row must stay first — it should anchor at the
-    // earliest birth (1818), not the master's later `ABT 1820`.
+    // earliest birth (1818), not the main's later `ABT 1820`.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME Janez /Stariha/\n1 BIRT\n2 DATE ABT 1820\n0 TRLR\n`,
     );
@@ -464,10 +464,10 @@ describe("event ordering", () => {
     expect(keys.indexOf("CHR.header")).toBeLessThan(keys.indexOf("DEAT.header"));
   });
 
-  it("sorts undated BAPM after BIRT even when master/compare birth dates differ", () => {
-    // Master BIRT is 29 Jul 1939, compare BIRT is 20 Jul 1939 (earlier). The BAPM
+  it("sorts undated BAPM after BIRT even when main/compare birth dates differ", () => {
+    // Main BIRT is 29 Jul 1939, compare BIRT is 20 Jul 1939 (earlier). The BAPM
     // row only exists on the compare side and is undated. It must still sort
-    // after BIRT, since BIRT's own row uses master's (later) date.
+    // after BIRT, since BIRT's own row uses main's (later) date.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 29 JUL 1939\n0 TRLR\n`,
     );
@@ -480,9 +480,9 @@ describe("event ordering", () => {
   });
 
   it("sorts a dated CHR after BIRT even when the christening date predates the birth", () => {
-    // Reported case: master birth is ABT 1862, compare has a precise christening
+    // Reported case: main birth is ABT 1862, compare has a precise christening
     // 25 Aug 1859 and birth 25 Aug 1859. The CHR row uses the compare's 1859 date
-    // while the BIRT row uses master's (later) 1862 date, so a naive date sort
+    // while the BIRT row uses main's (later) 1862 date, so a naive date sort
     // ranks christening before birth. Birth-zone clamping must keep BIRT first.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME Marija /Fijaski/\n1 BIRT\n2 DATE ABT 1862\n2 PLAC Ravna Gora\n0 TRLR\n`,
@@ -529,10 +529,10 @@ describe("event ordering", () => {
 
 describe("multi-RESI pairing by date", () => {
   it("pairs residences by date proximity rather than positional index", () => {
-    // Master: RESI 1997 (addr: Cesta 50), RESI 2004
+    // Main: RESI 1997 (addr: Cesta 50), RESI 2004
     // Compare: RESI 1974, RESI 1998 (place includes Cesta 50)
-    // By index: master[0] ↔ compare[0] (1997↔1974), master[1] ↔ compare[1] (2004↔1998)
-    // By date: master[0] ↔ compare[1] (1997↔1998), master[1] has no close compare match
+    // By index: main[0] ↔ compare[0] (1997↔1974), main[1] ↔ compare[1] (2004↔1998)
+    // By date: main[0] ↔ compare[1] (1997↔1998), main[1] has no close compare match
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
       `1 RESI\n2 DATE 1997\n2 PLAC Ljubljana\n2 ADDR Cesta 50\n` +
@@ -546,14 +546,14 @@ describe("multi-RESI pairing by date", () => {
       `0 TRLR\n`,
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    // Find the RESI that has master date 1997 — it should be paired with compare date 1998, not 1974.
+    // Find the RESI that has main date 1997 — it should be paired with compare date 1998, not 1974.
     const resiDateRows = rows.filter(r => r.key.match(/^RESI\.\d+\.date$/));
-    const paired1997 = resiDateRows.find(r => r.master === "1997");
+    const paired1997 = resiDateRows.find(r => r.main === "1997");
     expect(paired1997?.incoming).toBe("1998"); // paired by date proximity, not position
   });
 
   it("does not pair residences that are too far apart in date and place", () => {
-    // Master: Jun 2004, Ljubljana; Incoming: BEF 1998, Kranj — should stay unpaired.
+    // Main: Jun 2004, Ljubljana; Incoming: BEF 1998, Kranj — should stay unpaired.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
       `1 RESI\n2 DATE JUN 2004\n2 PLAC Ljubljana\n2 ADDR Ulica talcev 7\n` +
@@ -568,9 +568,9 @@ describe("multi-RESI pairing by date", () => {
     const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
     // Must appear as two separate rows, not one paired row.
     expect(dateRows.length).toBe(2);
-    const masterDate = dateRows.find(r => r.master && !r.incoming);
-    const compareDate = dateRows.find(r => !r.master && r.incoming);
-    expect(masterDate?.state).toBe("master-only");
+    const mainDate = dateRows.find(r => r.main && !r.incoming);
+    const compareDate = dateRows.find(r => !r.main && r.incoming);
+    expect(mainDate?.state).toBe("main-only");
     expect(compareDate?.state).toBe("incoming-only");
   });
 
@@ -586,7 +586,7 @@ describe("multi-RESI pairing by date", () => {
     const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n${body}0 TRLR\n`);
     const c = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n${body}0 TRLR\n`);
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    // Every row pairs and agrees; nothing is master-only or incoming-only.
+    // Every row pairs and agrees; nothing is main-only or incoming-only.
     expect(rows.filter((r) => r.state !== "agree")).toEqual([]);
     // The two Departures stay distinct paired instances (not collapsed).
     expect(rows.filter((r) => /^EVEN(\.\d+)?\.type$/.test(r.key))).toHaveLength(2);
@@ -629,8 +629,8 @@ describe("multi-RESI pairing by date", () => {
     expect(dateRows.length).toBe(2); // shown as separate events, not paired
   });
 
-  it("splits a dated master RESI from a no-date compare RESI in a different place", () => {
-    // Reproduces a real case: master has date+place, compare has only a different place (no date).
+  it("splits a dated main RESI from a no-date compare RESI in a different place", () => {
+    // Reproduces a real case: main has date+place, compare has only a different place (no date).
     // Without the fix the date requirement prevented the score check, so they were merged.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
@@ -647,7 +647,7 @@ describe("multi-RESI pairing by date", () => {
     // (The compare event has no date, so there is only one date row total.)
     const placeRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.place$/));
     expect(placeRows.length).toBe(2); // shown as separate events, not paired
-    expect(placeRows.find(r => r.master?.includes("Metlika"))?.state).toBe("master-only");
+    expect(placeRows.find(r => r.main?.includes("Metlika"))?.state).toBe("main-only");
     expect(placeRows.find(r => r.incoming?.includes("Radovljica"))?.state).toBe("incoming-only");
   });
 
@@ -671,7 +671,7 @@ describe("multi-RESI pairing by date", () => {
   });
 
   it("pairs an exact-year event with a FROM..TO range that contains it", () => {
-    // Master has "1958", compare has "FROM 1958 TO 1982" — the exact year falls
+    // Main has "1958", compare has "FROM 1958 TO 1982" — the exact year falls
     // inside the range so they should be paired as the same event, not split.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
@@ -686,7 +686,7 @@ describe("multi-RESI pairing by date", () => {
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     const dateRows = rows.filter(r => r.key.match(/^RESI(\.\d+)?\.date$/));
     expect(dateRows.length).toBe(1); // paired as one event
-    expect(dateRows[0].master).toBe("1958");
+    expect(dateRows[0].main).toBe("1958");
     expect(dateRows[0].incoming).toBe("FROM 1958 TO 1982");
     expect(dateRows[0].state).toBe("conflict"); // different assertions, but same event
   });
@@ -720,14 +720,14 @@ describe("multi-RESI pairing by date", () => {
       `0 TRLR\n`,
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
-    // Master has addr, incoming has none but embeds it in place — should agree.
+    // Main has addr, incoming has none but embeds it in place — should agree.
     expect(byKey(rows, "RESI.addr")?.state).toBe("agree");
   });
 
-  it("extracts addr from packed PLAC even when it does not exactly match master ADDR", () => {
-    // Master addr: "Hafnarjeva pot 21a / 53" — incoming packed PLAC: "Hafnarjeva pot 21/a"
+  it("extracts addr from packed PLAC even when it does not exactly match main ADDR", () => {
+    // Main addr: "Hafnarjeva pot 21a / 53" — incoming packed PLAC: "Hafnarjeva pot 21/a"
     // The strings differ so placeContainsAddr fails; structural extraction should still
-    // surface the incoming address so the row shows "conflict" rather than "master-only".
+    // surface the incoming address so the row shows "conflict" rather than "main-only".
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
       `1 RESI\n2 DATE 1974\n2 PLAC Strazisce,Kranj,Slovenia\n2 ADDR Hafnarjeva pot 21a / 53\n` +
@@ -740,7 +740,7 @@ describe("multi-RESI pairing by date", () => {
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     const addrRow = byKey(rows, "RESI.addr");
-    // The incoming addr should be extracted and shown (conflict), not blank (master-only).
+    // The incoming addr should be extracted and shown (conflict), not blank (main-only).
     expect(addrRow?.state).toBe("conflict");
     expect(addrRow?.incoming).toBe("Hafnarjeva pot 21/a");
   });
@@ -763,8 +763,8 @@ describe("multi-RESI pairing by date", () => {
     expect(addrRow?.incoming).toBe("Kidričeva 38/a (porodnišnica)");
   });
 
-  it("extracts addr from packed PLAC even when master has no ADDR field", () => {
-    // Birth: master has only PLAC, no ADDR. Incoming has packed PLAC with embedded address.
+  it("extracts addr from packed PLAC even when main has no ADDR field", () => {
+    // Birth: main has only PLAC, no ADDR. Incoming has packed PLAC with embedded address.
     // An incoming-only ADDR row should appear showing the extracted address.
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n` +
@@ -784,11 +784,11 @@ describe("multi-RESI pairing by date", () => {
 });
 
 describe("place reshaping to packed-plac hides addr row", () => {
-  // Master has packed-plac layout (parenthetical country in PLAC, no ADDR).
+  // Main has packed-plac layout (parenthetical country in PLAC, no ADDR).
   // Incoming has structured-addr (comma PLAC + separate ADDR).
   // After reshaping to packed-plac, the incoming addr folds into PLAC and the
   // addr row must not appear in the compare dialog.
-  const masterGed = `0 HEAD
+  const mainGed = `0 HEAD
 0 @I1@ INDI
 1 NAME Anton /Kovač/
 1 BIRT
@@ -805,10 +805,10 @@ describe("place reshaping to packed-plac hides addr row", () => {
 2 ADDR Kranj 15
 0 TRLR`;
 
-  it("hides addr row when reshaping structured-addr incoming into packed-plac master", () => {
-    const m = dataset(masterGed);
+  it("hides addr row when reshaping structured-addr incoming into packed-plac main", () => {
+    const m = dataset(mainGed);
     // Reshaping now happens on load, not in individualFieldRows itself.
-    const { dataset: c } = normalizeDataset(dataset(compareGed), inferMasterProfile(m));
+    const { dataset: c } = normalizeDataset(dataset(compareGed), inferMainProfile(m));
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
     // Incoming ADDR ("Kranj 15") folds into packed PLAC; neither side has a
     // standalone addr value, so the addr row must be absent.
@@ -867,7 +867,7 @@ describe("attached links", () => {
     expect(byKey(rows, "BIRT.links")).toBeUndefined(); // no separate links data row
     const birtSources = byKey(rows, "BIRT.sources");
     expect(birtSources?.incomingLinkIcons).toEqual(["https://example.com/birth"]);
-    expect(birtSources?.masterLinkIcons).toBeUndefined();
+    expect(birtSources?.mainLinkIcons).toBeUndefined();
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
   });
 
@@ -879,8 +879,8 @@ describe("attached links", () => {
     const indi = ds.individuals.get("@I1@")!;
     const rows = individualFieldRows(tr, indi, undefined);
     const birtSources = byKey(rows, "BIRT.sources");
-    expect(birtSources?.masterSources).toHaveLength(1);
-    expect(birtSources?.masterLinkIcons).toBeUndefined();
+    expect(birtSources?.mainSources).toHaveLength(1);
+    expect(birtSources?.mainLinkIcons).toBeUndefined();
   });
 
   it("keeps the link icon when it points elsewhere than the citation", () => {
@@ -891,11 +891,11 @@ describe("attached links", () => {
     const indi = ds.individuals.get("@I1@")!;
     const rows = individualFieldRows(tr, indi, undefined);
     const birtSources = byKey(rows, "BIRT.sources");
-    expect(birtSources?.masterSources).toHaveLength(1);
-    expect(birtSources?.masterLinkIcons).toEqual(["https://example.com/elsewhere"]);
+    expect(birtSources?.mainSources).toHaveLength(1);
+    expect(birtSources?.mainLinkIcons).toEqual(["https://example.com/elsewhere"]);
   });
 
-  it("shows an incoming plain link as the master's own citation when it's the exact same archival page", () => {
+  it("shows an incoming plain link as the main's own citation when it's the exact same archival page", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE 56\n` +
         `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/?pg=56\n0 TRLR\n`,
@@ -907,7 +907,7 @@ describe("attached links", () => {
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     const birtSources = byKey(rows, "BIRT.sources");
     expect(birtSources?.incomingLinkIcons).toBeUndefined();
-    expect(birtSources?.incomingSources).toEqual(birtSources?.masterSources);
+    expect(birtSources?.incomingSources).toEqual(birtSources?.mainSources);
     expect(birtSources?.state).toBe("agree");
   });
 
@@ -1006,7 +1006,7 @@ describe("attached links", () => {
     const empty = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
     const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), empty.individuals.get("@P1@"));
     // Record-level links render as icons on the combined "Sources" row.
-    expect(byKey(rows, "links")?.masterLinkIcons).toEqual(["https://example.com/x"]);
+    expect(byKey(rows, "links")?.mainLinkIcons).toEqual(["https://example.com/x"]);
   });
 
   it("surfaces a record-level SOUR citation on the combined Sources row", () => {
@@ -1017,9 +1017,9 @@ describe("attached links", () => {
     const c = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n0 TRLR\n`);
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     const sources = byKey(rows, "links");
-    expect(sources?.masterSources).toHaveLength(1);
-    expect(sources?.masterSources?.[0].title).toBe("Družinski arhiv");
-    expect(sources?.state).toBe("master-only");
+    expect(sources?.mainSources).toHaveLength(1);
+    expect(sources?.mainSources?.[0].title).toBe("Družinski arhiv");
+    expect(sources?.state).toBe("main-only");
   });
 
   it("flags an incoming-only record-level citation as new", () => {
@@ -1051,8 +1051,8 @@ describe("marriage rows on the spouse", () => {
 });
 
 describe("aligned relative lists (children/partners)", () => {
-  // Master children: Anna, Berta. Incoming: Anna (match), Doris (new). Berta has
-  // no incoming counterpart, Doris no master counterpart. Children surface on the
+  // Main children: Anna, Berta. Incoming: Anna (match), Doris (new). Berta has
+  // no incoming counterpart, Doris no main counterpart. Children surface on the
   // parent's individual row.
   const fam = (kids: string[]) =>
     `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
@@ -1067,7 +1067,7 @@ describe("aligned relative lists (children/partners)", () => {
   const children = byKey(rows, "fam.@F@.children")!;
 
   it("aligns a matched child on the same line in both columns", () => {
-    const m = children.master.split("\n");
+    const m = children.main.split("\n");
     const i = children.incoming.split("\n");
     expect(m.length).toBe(i.length); // both columns have the same number of lines
     expect(m[0]).toContain("Anna");
@@ -1075,9 +1075,9 @@ describe("aligned relative lists (children/partners)", () => {
   });
 
   it("gives an unmatched child its own line with the other column blank", () => {
-    const m = children.master.split("\n");
+    const m = children.main.split("\n");
     const i = children.incoming.split("\n");
-    // Berta is master-only; Doris is incoming-only — each on a line by itself.
+    // Berta is main-only; Doris is incoming-only — each on a line by itself.
     const bertaLine = m.findIndex((l) => l.includes("Berta"));
     const dorisLine = i.findIndex((l) => l.includes("Doris"));
     expect(i[bertaLine]).toBe(""); // nothing aligned opposite Berta
@@ -1086,7 +1086,7 @@ describe("aligned relative lists (children/partners)", () => {
   });
 
   // Same-named siblings distinguished only by birth year: the incoming child
-  // must align with the master sibling born the same year, not the first match.
+  // must align with the main sibling born the same year, not the first match.
   it("aligns same-named children by birth year", () => {
     const famB = (kids: { name: string; year: string }[]) =>
       `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
@@ -1103,7 +1103,7 @@ describe("aligned relative lists (children/partners)", () => {
       individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
       "fam.@F@.children",
     )!;
-    const m = children.master.split("\n");
+    const m = children.main.split("\n");
     const i = children.incoming.split("\n");
     const line1855 = m.findIndex((l) => l.includes("1855"));
     const line1850 = m.findIndex((l) => l.includes("1850"));
@@ -1121,7 +1121,7 @@ describe("aligned relative lists (children/partners)", () => {
       `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n1 CHIL @K1@\n1 CHIL @K2@\n0 TRLR\n`;
     const ds = dataset(text);
     const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.@F@.children")!;
-    const lines = children.master.split("\n");
+    const lines = children.main.split("\n");
     expect(lines.map((l) => l.match(/Ana|Berta|Cilka/)?.[0])).toEqual(["Ana", "Berta", "Cilka"]);
   });
 });

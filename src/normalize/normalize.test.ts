@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { detectPlaceLayout, inferDateProfile, inferMasterProfile, inferNameLayout } from "./profile";
+import { detectPlaceLayout, inferDateProfile, inferMainProfile, inferNameLayout } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
@@ -10,11 +10,11 @@ function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 
-// Master uses lowercase full month names, zero-padded days, and the spelling
+// Main uses lowercase full month names, zero-padded days, and the spelling
 // "Wien" / "Österreich". Compare uses standard uppercase abbreviations and
 // lowercase place names. (Cross-language month translation is out of scope:
 // detection covers month case, abbreviated-vs-full, and day padding.)
-const MASTER = `0 HEAD
+const MAIN = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
 1 CHAR UTF-8
@@ -41,16 +41,16 @@ const COMPARE = `0 HEAD
 0 TRLR
 `;
 
-describe("inferMasterProfile", () => {
+describe("inferMainProfile", () => {
   it("detects lowercase full-month style and day padding", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+    const profile = inferMainProfile(dataset(MAIN));
     expect(profile.date.monthTokens[1]).toBe("january");
     expect(profile.date.monthTokens[3]).toBe("march");
     expect(profile.date.padDay).toBe(true);
   });
 
   it("captures canonical place casing/spelling", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+    const profile = inferMainProfile(dataset(MAIN));
     expect(profile.place.partCanonical.get("wien")).toBe("Wien");
     expect(profile.place.partCanonical.get("österreich")).toBe("Österreich");
     expect(profile.place.modalDepth).toBe(2);
@@ -58,8 +58,8 @@ describe("inferMasterProfile", () => {
 });
 
 describe("formatGedDate", () => {
-  it("renders qualifiers and ranges in master style", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+  it("renders qualifiers and ranges in main style", () => {
+    const profile = inferMainProfile(dataset(MAIN));
     expect(formatGedDate(parseDate("12 FEB 1900"), profile.date)).toBe("12 february 1900");
     expect(formatGedDate(parseDate("ABT 1900"), profile.date)).toBe("ABT 1900");
     expect(formatGedDate(parseDate("BET 1900 AND 1905"), profile.date)).toBe(
@@ -72,14 +72,14 @@ describe("formatGedDate", () => {
 });
 
 describe("normalizeDataset", () => {
-  it("converts compare dates to master conventions but leaves place text as-is", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+  it("converts compare dates to main conventions but leaves place text as-is", () => {
+    const profile = inferMainProfile(dataset(MAIN));
     const { dataset: out, report } = normalizeDataset(dataset(COMPARE), profile);
 
     const anna = out.individuals.get("@I1@")!;
     const birth = anna.events.find((e) => e.tag === "BIRT")!;
     expect(birth.date?.raw).toBe("05 january 1885");
-    // Place names keep their original casing/spelling — not recased to master.
+    // Place names keep their original casing/spelling — not recased to main.
     expect(birth.place?.raw).toBe("wien, österreich");
 
     expect(report.datesChanged).toBe(1);
@@ -87,7 +87,7 @@ describe("normalizeDataset", () => {
   });
 
   it("compacts place whitespace silently (not counted or listed)", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+    const profile = inferMainProfile(dataset(MAIN));
     const messy = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -101,15 +101,15 @@ describe("normalizeDataset", () => {
   });
 
   it("does not mutate the input dataset", () => {
-    const profile = inferMasterProfile(dataset(MASTER));
+    const profile = inferMainProfile(dataset(MAIN));
     const input = dataset(COMPARE);
     normalizeDataset(input, profile);
     const anna = input.individuals.get("@I1@")!;
     expect(anna.events.find((e) => e.tag === "BIRT")?.date?.raw).toBe("5 JAN 1885");
   });
 
-  it("converts a Matricula Online link to the master's language on load", () => {
-    const master = dataset(`0 HEAD
+  it("converts a Matricula Online link to the main's language on load", () => {
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/
@@ -121,7 +121,7 @@ describe("normalizeDataset", () => {
 1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/preddvor/04120/?pg=56
 0 TRLR
 `);
-    const profile = inferMasterProfile(master);
+    const profile = inferMainProfile(main);
     const { dataset: out, report } = normalizeDataset(compare, profile);
     expect(out.individuals.get("@I1@")!.links).toEqual([
       "https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/04120/?pg=56",
@@ -130,8 +130,8 @@ describe("normalizeDataset", () => {
     expect(report.linkExamples).toHaveLength(1);
   });
 
-  it("converts a Geneanet cemetery link to the master's language on load", () => {
-    const master = dataset(`0 HEAD
+  it("converts a Geneanet cemetery link to the main's language on load", () => {
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 WWW https://de.geneanet.org/friedhof/view/1111111
@@ -143,7 +143,7 @@ describe("normalizeDataset", () => {
 1 WWW https://en.geneanet.org/cemetery/view/9833663
 0 TRLR
 `);
-    const profile = inferMasterProfile(master);
+    const profile = inferMainProfile(main);
     const { dataset: out, report } = normalizeDataset(compare, profile);
     expect(out.individuals.get("@I1@")!.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
     expect(report.linksConverted).toBe(1);
@@ -189,14 +189,14 @@ describe("inferNameLayout", () => {
 });
 
 describe("normalizeDataset (married-name reshaping)", () => {
-  const marnmMaster = dataset(`0 HEAD
+  const marnmMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /Kovač/
 2 _MARNM Maček
 0 TRLR
 `);
-  const recordMaster = dataset(`0 HEAD
+  const recordMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /Težak/
@@ -205,7 +205,7 @@ describe("normalizeDataset (married-name reshaping)", () => {
 0 TRLR
 `);
 
-  it("converts a separate TYPE married record into inline _MARNM when the master uses _MARNM", () => {
+  it("converts a separate TYPE married record into inline _MARNM when the main uses _MARNM", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -214,7 +214,7 @@ describe("normalizeDataset (married-name reshaping)", () => {
 2 TYPE married
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(marnmMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(marnmMain));
     const name = out.individuals.get("@I1@")!.names;
     expect(name).toHaveLength(1);
     expect(name[0].married).toBe("Kovač");
@@ -222,7 +222,7 @@ describe("normalizeDataset (married-name reshaping)", () => {
     expect(report.nameVariantExamples).toHaveLength(1);
   });
 
-  it("converts inline _MARNM into a separate TYPE married record when the master uses records", () => {
+  it("converts inline _MARNM into a separate TYPE married record when the main uses records", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -230,7 +230,7 @@ describe("normalizeDataset (married-name reshaping)", () => {
 2 _MARNM Kovač
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(recordMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names).toHaveLength(2);
     expect(names[0].married).toBeUndefined();
@@ -239,8 +239,8 @@ describe("normalizeDataset (married-name reshaping)", () => {
     expect(report.nameVariantsReshaped).toBe(1);
   });
 
-  it("leaves married names untouched when the master records none", () => {
-    const noneMaster = dataset(`0 HEAD
+  it("leaves married names untouched when the main records none", () => {
+    const noneMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /Kovač/
@@ -253,15 +253,15 @@ describe("normalizeDataset (married-name reshaping)", () => {
 2 _MARNM Kovač
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(noneMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(noneMain));
     expect(out.individuals.get("@I1@")!.names[0].married).toBe("Kovač");
     expect(report.nameVariantsReshaped).toBe(0);
   });
 });
 
 describe("normalizeDataset (name-variant reshaping)", () => {
-  // Master uses separate, lowercase TYPE records for every variant.
-  const recordMaster = dataset(`0 HEAD
+  // Main uses separate, lowercase TYPE records for every variant.
+  const recordMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /Težak/
@@ -275,8 +275,8 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 TYPE nick
 0 TRLR
 `);
-  // Master uses inline custom tags.
-  const tagMaster = dataset(`0 HEAD
+  // Main uses inline custom tags.
+  const tagMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /Kovač/
@@ -286,7 +286,7 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 0 TRLR
 `);
 
-  it("folds inline _BIRN into a TYPE birth record when the master uses records", () => {
+  it("folds inline _BIRN into a TYPE birth record when the main uses records", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -294,14 +294,14 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 _BIRN Zelzer
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(recordMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names).toHaveLength(2);
     expect(names[1].type).toBe("birth");
     expect(names[1].surname).toBe("Zelzer");
   });
 
-  it("folds a TYPE birth record into inline _BIRN when the master uses tags", () => {
+  it("folds a TYPE birth record into inline _BIRN when the main uses tags", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -310,13 +310,13 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 TYPE birth
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(tagMain));
     const indi = out.individuals.get("@I1@")!;
     expect(indi.names).toHaveLength(1);
     expect(indi.raw.children.find((c) => c.tag === "NAME")!.children.some((c) => c.tag === "_BIRN" && c.value === "Zelzer")).toBe(true);
   });
 
-  it("renames a sibling AKA tag (_AKAN) to the master's preferred tag (_AKA)", () => {
+  it("renames a sibling AKA tag (_AKAN) to the main's preferred tag (_AKA)", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -324,7 +324,7 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 _AKAN Cic
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(tagMain));
     const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
     expect(nameNode.children.some((c) => c.tag === "_AKA" && c.value === "Cic")).toBe(true);
     expect(nameNode.children.some((c) => c.tag === "_AKAN")).toBe(false);
@@ -340,13 +340,13 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 TYPE aka
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(tagMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(tagMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names).toHaveLength(2);
     expect(names[1].type).toBe("aka");
   });
 
-  it("recases and unifies TYPE tokens to the master's spelling (MARRIED→married, maiden→birth)", () => {
+  it("recases and unifies TYPE tokens to the main's spelling (MARRIED→married, maiden→birth)", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -357,14 +357,14 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 TYPE maiden
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(recordMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names[1].type).toBe("married");
     expect(names[2].type).toBe("birth");
     expect(report.nameVariantsReshaped).toBe(2);
   });
 
-  it("converts a NICK sub-tag into a TYPE nick record when the master uses records", () => {
+  it("converts a NICK sub-tag into a TYPE nick record when the main uses records", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -372,7 +372,7 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 2 NICK Mimi
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(recordMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(recordMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names[0].nickname).toBeUndefined();
     expect(names.some((n) => n.type === "nick" && n.given === "Mimi")).toBe(true);
@@ -380,8 +380,8 @@ describe("normalizeDataset (name-variant reshaping)", () => {
 });
 
 describe("normalizeDataset (place reshaping)", () => {
-  it("splits a packed incoming place into the master's structured PLAC + ADDR on load", () => {
-    const master = dataset(`0 HEAD
+  it("splits a packed incoming place into the main's structured PLAC + ADDR on load", () => {
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -396,7 +396,7 @@ describe("normalizeDataset (place reshaping)", () => {
 2 PLAC Kranj (Slovenija), Kidričeva 38/a (porodnišnica)
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("Kranj,Slovenia");
     expect(birth.address?.raw).toBe("Kidričeva 38/a (porodnišnica)");
@@ -404,8 +404,8 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(report.placeExamples).toHaveLength(1);
   });
 
-  it("folds a structured incoming PLAC + ADDR into the master's packed PLAC on load", () => {
-    const master = dataset(`0 HEAD
+  it("folds a structured incoming PLAC + ADDR into the main's packed PLAC on load", () => {
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -420,14 +420,14 @@ describe("normalizeDataset (place reshaping)", () => {
 2 ADDR Kranj 15
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("Kranj (Slovenija), Kranj 15");
     expect(birth.address?.raw).toBeUndefined();
   });
 
   it("leaves a PLAC with an explicit FORM untouched, keeping all its parts", () => {
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -446,7 +446,7 @@ describe("normalizeDataset (place reshaping)", () => {
 4 LATI N35.737800122222225
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
     const resi = out.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "RESI")!;
     const placNode = resi.children.find((c) => c.tag === "PLAC")!;
     // FORM declares 5 parts; the empty Municipality slot must be kept so the
@@ -456,7 +456,7 @@ describe("normalizeDataset (place reshaping)", () => {
   });
 
   it("preserves a reshaped PLAC's MAP children and its position", () => {
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -476,7 +476,7 @@ describe("normalizeDataset (place reshaping)", () => {
 2 NOTE later
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const resi = out.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "RESI")!;
     const placNode = resi.children.find((c) => c.tag === "PLAC")!;
     // The reshape changed the value but kept the MAP sub-node...
@@ -489,7 +489,7 @@ describe("normalizeDataset (place reshaping)", () => {
   });
 
   it("appends a leftover parish detail to an existing AGNC rather than duplicating it", () => {
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -505,13 +505,13 @@ describe("normalizeDataset (place reshaping)", () => {
 2 AGNC Maribor hospital
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.agency).toBe("Maribor hospital; župnija Kranj");
   });
 
   it("keeps a facility-only ADDR unchanged instead of duplicating it in parentheses", () => {
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -526,15 +526,15 @@ describe("normalizeDataset (place reshaping)", () => {
 2 ADDR Pokopališče Zgornje Bitnje
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
     const buri = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BURI")!;
     // The cemetery name is a facility; it must not be echoed as "X (X)".
     expect(buri.address?.raw).toBe("Pokopališče Zgornje Bitnje");
     expect(report.placesReshaped).toBe(0);
   });
 
-  it("does not reshape (or count) places when the master's layout doesn't call for it", () => {
-    const master = dataset(`0 HEAD
+  it("does not reshape (or count) places when the main's layout doesn't call for it", () => {
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -548,19 +548,19 @@ describe("normalizeDataset (place reshaping)", () => {
 2 PLAC Kranj (Slovenija), Kidričeva 38/a
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("Kranj (Slovenija), Kidričeva 38/a");
     expect(report.placesReshaped).toBe(0);
   });
 });
 
-describe("normalizeDataset (master-learned place hierarchy)", () => {
-  // The master attests "Kranj,Kranj,Slovenia" and "Stražišče,Kranj,Slovenia"
+describe("normalizeDataset (main-learned place hierarchy)", () => {
+  // The main attests "Kranj,Kranj,Slovenia" and "Stražišče,Kranj,Slovenia"
   // elsewhere, plus a street tying Stražišče to "Hafnarjeva pot" — so an
   // incoming place naming only "Kranj" can be completed and, where the street
   // says more, sharpened. (A parish is not a sharpening hint — it spans villages.)
-  const master = dataset(`0 HEAD
+  const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -573,7 +573,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 0 TRLR
 `);
 
-  it("inserts the municipality level the master always writes for a known locality", () => {
+  it("inserts the municipality level the main always writes for a known locality", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @P1@ INDI
@@ -581,7 +581,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 PLAC Kranj,Slovenia
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("Kranj,Kranj,Slovenia");
   });
@@ -596,7 +596,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 AGNC župnija Šmartin
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
     expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
@@ -617,7 +617,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 PLAC Kranj (Slovenija), Hafnarjeva pot 21/a - župnija Šmartin
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
     expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
@@ -629,7 +629,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
     // corrected to the actual hamlet "Stražišče". A naive majority vote would
     // pick "Kranj" (it's outnumbered 4 to 1) — the generic ones must be
     // excluded from the tally instead of just outweighed.
-    const noisyMaster = dataset(`0 HEAD
+    const noisyMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 RESI
@@ -661,16 +661,16 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 ADDR Hafnarjeva pot 21/a
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(noisyMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(noisyMain));
     const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
   });
 
-  it("sharpens a generic locality from a master address using the old/new dual house-number form", () => {
-    // Master's own ADDR for @I2@ uses "21a / 53" (a historical house number
+  it("sharpens a generic locality from a main address using the old/new dual house-number form", () => {
+    // Main's own ADDR for @I2@ uses "21a / 53" (a historical house number
     // alongside the later official one) — decomposePlace must strip the whole
     // tail to learn "Hafnarjeva pot" cleanly, not a garbled locality.
-    const masterDual = dataset(`0 HEAD
+    const mainDual = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -689,14 +689,14 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 ADDR Hafnarjeva pot 21/a
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(masterDual));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(mainDual));
     const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
     expect(resi.address?.raw).toBe("Hafnarjeva pot 21/a");
   });
 
   it("does not relocate an already-specific locality whose ADDR just echoes it before a house number", () => {
-    // Master ties the *street* "Zgornje Bitnje" to the hamlet "Stražišče" (people
+    // Main ties the *street* "Zgornje Bitnje" to the hamlet "Stražišče" (people
     // on that road were filed under Stražišče). An incoming record already named
     // "Zgornje Bitnje" with ADDR "Zgornje Bitnje 165" must stay put — the ADDR is
     // "locality + house number", not a disambiguating street.
@@ -704,19 +704,19 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
     for (let i = 1; i <= 8; i++)
       g += `0 @S${i}@ INDI\n1 BIRT\n2 PLAC Stražišče,Kranj,Slovenia\n2 ADDR Zgornje Bitnje ${i}\n`;
     g += `0 TRLR\n`;
-    const master = dataset(g);
+    const main = dataset(g);
     const compare = dataset(
       `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n` +
       `2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 165\n0 TRLR\n`,
     );
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birt.place?.raw).toBe("Zgornje Bitnje,Kranj,Slovenia");
     expect(birt.address?.raw).toBe("Zgornje Bitnje 165");
   });
 
   it("keeps a 'po domače' house name once when a dangling dash precedes it in the ADDR", () => {
-    const master = dataset(
+    const main = dataset(
       `0 HEAD\n1 CHAR UTF-8\n` +
       `0 @I1@ INDI\n1 BIRT\n2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 7\n0 TRLR\n`,
     );
@@ -724,7 +724,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
       `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n` +
       `2 PLAC Zgornje Bitnje,Kranj,Slovenia\n2 ADDR Zgornje Bitnje 42 - (pd V dolini)\n0 TRLR\n`,
     );
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birt.address?.raw).toBe("Zgornje Bitnje 42 (pd V dolini)");
   });
@@ -738,7 +738,7 @@ describe("normalizeDataset (master-learned place hierarchy)", () => {
 2 ADDR Hafnarjeva pot 7
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
     expect(birth.place?.raw).toBe("Stražišče,Kranj,Slovenia");
   });
@@ -814,14 +814,14 @@ describe("inferDateProfile (numeric)", () => {
     expect(p.numeric).toMatchObject({ order: "YMD", separator: "-" });
   });
 
-  it("leaves month-word masters non-numeric", () => {
+  it("leaves month-word mains non-numeric", () => {
     const p = inferDateProfile(["20 FEB 1989", "1 JAN 1990"]);
     expect(p.numeric).toBeUndefined();
   });
 });
 
 describe("formatGedDate (numeric output)", () => {
-  it("renders into a DD.MM.YYYY master style", () => {
+  it("renders into a DD.MM.YYYY main style", () => {
     const profile = inferDateProfile(["20.02.1989"]);
     expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("12.02.1900");
     expect(formatGedDate(parseDate("FEB 1900"), profile)).toBe("02.1900");
@@ -829,17 +829,17 @@ describe("formatGedDate (numeric output)", () => {
     expect(formatGedDate(parseDate("ABT 5 JAN 1880"), profile)).toBe("ABT 05.01.1880");
   });
 
-  it("renders into a YYYY-MM-DD master style", () => {
+  it("renders into a YYYY-MM-DD main style", () => {
     const profile = inferDateProfile(["1989-02-20"]);
     expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("1900-02-12");
   });
 });
 
 describe("unknown-date placeholders", () => {
-  // A master that pads unknown components ("__.05.1900", ".__.____").
+  // A main that pads unknown components ("__.05.1900", ".__.____").
   const profile = inferDateProfile(["20.02.1989", "__.05.1888", ".__.____"]);
 
-  it("detects the master's placeholder character", () => {
+  it("detects the main's placeholder character", () => {
     expect(profile.numeric).toMatchObject({ order: "DMY", separator: ".", placeholder: "_" });
   });
 
@@ -848,7 +848,7 @@ describe("unknown-date placeholders", () => {
     expect(formatGedDate(parseDate("_.9.1911"), profile)).toBe("__.09.1911");
   });
 
-  it("re-renders a fully-unknown date in the master's placeholder layout", () => {
+  it("re-renders a fully-unknown date in the main's placeholder layout", () => {
     expect(formatGedDate(parseDate(".__.____"), profile)).toBe("__.__.____");
     expect(formatGedDate(parseDate("__.__.____"), profile)).toBe("__.__.____");
   });
@@ -879,26 +879,26 @@ describe("normalizeDataset (placeholder-date dropping)", () => {
 0 TRLR
 `;
 
-  it("strips an all-placeholder DATE when the master has no placeholder convention", () => {
-    // Master writes real numeric dates only — no "__.__.____" house style.
-    const master = dataset(`0 HEAD
+  it("strips an all-placeholder DATE when the main has no placeholder convention", () => {
+    // Main writes real numeric dates only — no "__.__.____" house style.
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
 2 DATE 20.02.1989
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(dataset(COMPARE_PH), inferMasterProfile(master));
+    const { dataset: out, report } = normalizeDataset(dataset(COMPARE_PH), inferMainProfile(main));
     const death = out.individuals.get("@I1@")!.events.find((e) => e.tag === "DEAT")!;
     expect(death.date).toBeUndefined();
     expect(death.place?.raw).toBe("Spodnje Bitnje"); // the rest of the event is untouched
     expect(report.dateExamples).toContainEqual({ before: ".__.____", after: "(blank)" });
   });
 
-  it("keeps and reshapes a placeholder DATE when the master uses one", () => {
-    // Master pads unknown components ("__.__.____") — two such values establish
+  it("keeps and reshapes a placeholder DATE when the main uses one", () => {
+    // Main pads unknown components ("__.__.____") — two such values establish
     // it as a house convention, so the incoming placeholder is kept, not dropped.
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -910,7 +910,7 @@ describe("normalizeDataset (placeholder-date dropping)", () => {
 2 DATE 20.02.1989
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(dataset(COMPARE_PH), inferMasterProfile(master));
+    const { dataset: out } = normalizeDataset(dataset(COMPARE_PH), inferMainProfile(main));
     const death = out.individuals.get("@I1@")!.events.find((e) => e.tag === "DEAT")!;
     expect(death.date?.raw).toBe("__.__.____");
   });
@@ -927,7 +927,7 @@ describe("parseDate (2-digit years)", () => {
     expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 1950 });
   });
 
-  it("re-renders an expanded 2-digit year in the master's full-year style", () => {
+  it("re-renders an expanded 2-digit year in the main's full-year style", () => {
     const profile = inferDateProfile(["20 Feb 1989"]);
     expect(formatGedDate(parseDate("03.06.88", "DMY"), profile)).toBe("3 Jun 1988");
   });
@@ -953,7 +953,7 @@ describe("date qualifiers", () => {
     expect(formatGedDate(parseDate("FROM 5 JAN 1900 TO 3 MAR 1905"), profile)).toBe(
       "FROM 5 Jan 1900 TO 3 Mar 1905",
     );
-    // Endpoints in a numeric source are reformatted to the master style too.
+    // Endpoints in a numeric source are reformatted to the main style too.
     expect(formatGedDate(parseDate("FROM 05.01.1900 TO 03.03.1905", "DMY"), profile)).toBe(
       "FROM 5 Jan 1900 TO 3 Mar 1905",
     );
@@ -973,15 +973,15 @@ describe("date qualifiers", () => {
 });
 
 describe("normalizeDataset (numeric conversion)", () => {
-  const numericMaster = (dates: string[]) => `0 HEAD
+  const numericMain = (dates: string[]) => `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 ${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
 0 TRLR
 `;
 
-  it("converts month-word compare dates to the master's DD.MM.YYYY", () => {
-    const profile = inferMasterProfile(dataset(numericMaster(["20.02.1989", "01.05.1990"])));
+  it("converts month-word compare dates to the main's DD.MM.YYYY", () => {
+    const profile = inferMainProfile(dataset(numericMain(["20.02.1989", "01.05.1990"])));
     const compare = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -994,9 +994,9 @@ ${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
     expect(birth.date?.raw).toBe("05.01.1885");
   });
 
-  it("converts the master's example (D Mmm YYYY) from a numeric compare file", () => {
-    // Master like Renko-Rakar-Jekovec-Pezdirc.ged: "20 Feb 1989".
-    const profile = inferMasterProfile(dataset(numericMaster(["20 Feb 1989", "1 May 1990"])));
+  it("converts the main's example (D Mmm YYYY) from a numeric compare file", () => {
+    // Main like Renko-Rakar-Jekovec-Pezdirc.ged: "20 Feb 1989".
+    const profile = inferMainProfile(dataset(numericMain(["20 Feb 1989", "1 May 1990"])));
     const compare = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -1010,8 +1010,8 @@ ${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
   });
 
   it("uses the compare file's own order to disambiguate its numeric dates", () => {
-    // Master is month-word; compare is unambiguously MDY (a 02/20 proves it).
-    const profile = inferMasterProfile(dataset(numericMaster(["20 Feb 1989"])));
+    // Main is month-word; compare is unambiguously MDY (a 02/20 proves it).
+    const profile = inferMainProfile(dataset(numericMain(["20 Feb 1989"])));
     const compare = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -1030,8 +1030,8 @@ ${dates.map((d) => `1 EVEN\n2 DATE ${d}`).join("\n")}
 });
 
 describe("normalizeDataset (unknown-name placeholders)", () => {
-  // A master that leaves unknown name parts blank (Marija has no surname slot).
-  const blankMaster = dataset(`0 HEAD
+  // A main that leaves unknown name parts blank (Marija has no surname slot).
+  const blankMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija //
@@ -1040,8 +1040,8 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 0 TRLR
 `);
 
-  // A master that marks unknown surnames with the literal token "NN".
-  const nnMaster = dataset(`0 HEAD
+  // A main that marks unknown surnames with the literal token "NN".
+  const nnMain = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /NN/
@@ -1052,7 +1052,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 0 TRLR
 `);
 
-  it("strips placeholder surnames when the master leaves unknown parts blank", () => {
+  it("strips placeholder surnames when the main leaves unknown parts blank", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -1061,7 +1061,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 2 SURN ____
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(blankMain));
     const indi = out.individuals.get("@I1@")!;
     const nameNode = indi.raw.children.find((c) => c.tag === "NAME")!;
     expect(indi.names[0].surname).toBeUndefined();
@@ -1073,14 +1073,14 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
     expect(report.unknownNameExamples[0]).toEqual({ before: "____", after: "(blank)" });
   });
 
-  it("rewrites placeholders to the master's token when it uses one", () => {
+  it("rewrites placeholders to the main's token when it uses one", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Jožef /????/
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(nnMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(nnMain));
     expect(out.individuals.get("@I1@")!.names[0].surname).toBe("NN");
     expect(report.unknownNamesReshaped).toBe(1);
   });
@@ -1092,7 +1092,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 1 NAME ??? /Novak/
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(blankMain));
     const indi = out.individuals.get("@I1@")!;
     const name = indi.names[0];
     expect(name.given).toBeUndefined();
@@ -1107,7 +1107,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 1 NAME N /Novak/
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(blankMain));
     expect(out.individuals.get("@I1@")!.names[0].given).toBe("N");
     expect(report.unknownNamesReshaped).toBe(0);
   });
@@ -1121,7 +1121,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 2 SURN ____
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(blankMain));
     const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
     expect(nameNode.value).toBe("Jožef /Novak/");
     expect(nameNode.children.some((c) => c.tag === "SURN")).toBe(false);
@@ -1137,7 +1137,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 2 SURN NN
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(blankMain));
     const indi = out.individuals.get("@I1@")!;
     expect(indi.names[0].given).toBe("Jožef");
     expect(indi.names[0].surname).toBeUndefined();
@@ -1153,14 +1153,14 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 2 SURN NN
 0 TRLR
 `);
-    const { dataset: out, report } = normalizeDataset(compare, inferMasterProfile(blankMaster));
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(blankMain));
     const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
     expect(nameNode.value).toBe("Jožef //");
     expect(nameNode.children.some((c) => c.tag === "SURN")).toBe(false);
     expect(report.unknownNamesReshaped).toBe(1);
   });
 
-  it("rewrites a placeholder SURN sub-tag to the master's token", () => {
+  it("rewrites a placeholder SURN sub-tag to the main's token", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -1168,15 +1168,15 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 2 SURN ____
 0 TRLR
 `);
-    const { dataset: out } = normalizeDataset(compare, inferMasterProfile(nnMaster));
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(nnMain));
     const nameNode = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "NAME")!;
     expect(nameNode.value).toBe("Jožef /NN/");
     expect(nameNode.children.find((c) => c.tag === "SURN")!.value).toBe("NN");
   });
 
-  it("detects the master's NN token convention", () => {
-    expect(inferMasterProfile(nnMaster).unknownName).toEqual({ form: "token", token: "NN" });
-    expect(inferMasterProfile(blankMaster).unknownName).toEqual({ form: "blank" });
+  it("detects the main's NN token convention", () => {
+    expect(inferMainProfile(nnMain).unknownName).toEqual({ form: "token", token: "NN" });
+    expect(inferMainProfile(blankMain).unknownName).toEqual({ form: "blank" });
   });
 
   it("keeps the NN convention despite many half-known names", () => {
@@ -1185,7 +1185,7 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
     const halfKnown = Array.from({ length: 20 }, (_, i) =>
       `0 @H${i}@ INDI\n1 NAME /Novak${i}/`,
     ).join("\n");
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Marija /NN/
@@ -1194,11 +1194,11 @@ describe("normalizeDataset (unknown-name placeholders)", () => {
 ${halfKnown}
 0 TRLR
 `);
-    expect(inferMasterProfile(master).unknownName).toEqual({ form: "token", token: "NN" });
+    expect(inferMainProfile(main).unknownName).toEqual({ form: "token", token: "NN" });
   });
 
   it("uses the blank convention when fully-blank names outnumber tokens", () => {
-    const master = dataset(`0 HEAD
+    const main = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME //
@@ -1208,6 +1208,6 @@ ${halfKnown}
 1 NAME Janez /NN/
 0 TRLR
 `);
-    expect(inferMasterProfile(master).unknownName).toEqual({ form: "blank" });
+    expect(inferMainProfile(main).unknownName).toEqual({ form: "blank" });
   });
 });

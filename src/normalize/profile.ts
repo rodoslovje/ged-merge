@@ -5,7 +5,7 @@ import { firstChild } from "../gedcom/node";
 import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
   DateFormatProfile,
-  MasterProfile,
+  MainProfile,
   NumericDateFormat,
   PlaceFormatProfile,
   PlaceHierarchy,
@@ -50,16 +50,16 @@ const DEFAULT_QUALIFIER_TOKENS: DateFormatProfile["qualifierTokens"] = {
 };
 
 /**
- * Infer the master's date and place conventions by sampling its records.
- * Conservative: when the master gives no signal we fall back to GEDCOM-standard
+ * Infer the main's date and place conventions by sampling its records.
+ * Conservative: when the main gives no signal we fall back to GEDCOM-standard
  * formatting (uppercase three-letter English months, no day padding).
  */
-export function inferMasterProfile(master: Dataset): MasterProfile {
+export function inferMainProfile(main: Dataset): MainProfile {
   const dateValues: string[] = [];
   const placeValues: string[] = [];
   const links: string[] = [];
   let addrCount = 0;
-  walkNodes(master.records, (node) => {
+  walkNodes(main.records, (node) => {
     if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
     if (node.value === undefined) return;
     if (node.tag === "DATE") dateValues.push(node.value);
@@ -71,9 +71,9 @@ export function inferMasterProfile(master: Dataset): MasterProfile {
     date: inferDateProfile(dateValues),
     place: inferPlaceProfile(placeValues, addrCount),
     linkLangs: detectLinkLangs(links),
-    placeFmt: inferPlaceExportFormat(master),
-    nameVariants: inferNameVariants(master),
-    unknownName: analyzeUnknownNames(master).target,
+    placeFmt: inferPlaceExportFormat(main),
+    nameVariants: inferNameVariants(main),
+    unknownName: analyzeUnknownNames(main).target,
   };
 }
 
@@ -126,7 +126,7 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
     padDay,
     qualifierTokens: DEFAULT_QUALIFIER_TOKENS,
   };
-  // Prefer numeric output only when it's the master's dominant style.
+  // Prefer numeric output only when it's the main's dominant style.
   if (numeric.count > monthWordValues && numeric.count > 0) {
     const resolved = numeric.resolve();
     const placeholder = detectDatePlaceholder(values);
@@ -362,8 +362,8 @@ type PlaceExportFormat = {
 const placeExportFormatCache = new WeakMap<Dataset, PlaceExportFormat>();
 
 /**
- * The master's place layout plus its PLAC part separator ("," vs ", "), used at
- * export to reshape incoming places to match the master.
+ * The main's place layout plus its PLAC part separator ("," vs ", "), used at
+ * export to reshape incoming places to match the main.
  * Cached by dataset identity — the result never changes for the same object.
  */
 export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
@@ -383,7 +383,7 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
       }
     }
   });
-  // Build preferred country form map: canonical-key → most-used display form in master.
+  // Build preferred country form map: canonical-key → most-used display form in main.
   const countryForms = new Map<string, Map<string, number>>();
   for (const v of values) {
     const country = decomposePlace(v).country;
@@ -413,11 +413,11 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
 const CHAIN_SEP = "\u0001";
 
 /**
- * Learn place associations from the master's own attested PLAC/ADDR/AGNC, so
+ * Learn place associations from the main's own attested PLAC/ADDR/AGNC, so
  * reshaping can recognize a more specific locality than an incoming place
  * names (via a shared parish or street) and fill in jurisdiction levels it
  * omits (e.g. a municipality) — without an external geographic database, just
- * what the master tree already shows elsewhere.
+ * what the main tree already shows elsewhere.
  */
 export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   const parentTally = new Map<string, Map<string, number>>();

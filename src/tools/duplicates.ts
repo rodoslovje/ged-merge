@@ -18,7 +18,7 @@ import { label, primaryName } from "../match/relatives";
  * one-to-one mapping — finding duplicates inside a single file must NOT do
  * one-to-one assignment (every person's best match would be themselves) and
  * must skip identity pairs. So this reuses the same blocking + gating + scoring
- * primitives but compares the master against itself, emitting every plausible
+ * primitives but compares the main against itself, emitting every plausible
  * unordered pair above a (higher than merge-default) threshold.
  */
 

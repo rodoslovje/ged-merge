@@ -21,35 +21,35 @@ const reduce = (state: WorkspaceState, ...actions: WorkspaceAction[]) =>
 
 describe("workspaceReducer — slots", () => {
   it("moves a slot through loading → loaded and preserves the other slot", () => {
-    const s1 = workspaceReducer(initialWorkspace, { type: "slotLoading", role: "master", fileName: "a.ged" });
-    expect(s1.master).toEqual({ status: "loading", fileName: "a.ged" });
+    const s1 = workspaceReducer(initialWorkspace, { type: "slotLoading", role: "main", fileName: "a.ged" });
+    expect(s1.main).toEqual({ status: "loading", fileName: "a.ged" });
     expect(s1.compare).toEqual({ status: "empty" });
 
     const f = file("a.ged");
-    const s2 = workspaceReducer(s1, { type: "slotLoaded", role: "master", file: f });
-    expect(s2.master).toEqual({ status: "loaded", file: f });
+    const s2 = workspaceReducer(s1, { type: "slotLoaded", role: "main", file: f });
+    expect(s2.main).toEqual({ status: "loaded", file: f });
   });
 
-  it("records lastMasterFile only for the master slot", () => {
+  it("records lastMainFile only for the main slot", () => {
     const fm = file("m.ged");
     const fc = file("c.ged");
     const s = reduce(
       initialWorkspace,
-      { type: "slotLoaded", role: "master", file: fm },
+      { type: "slotLoaded", role: "main", file: fm },
       { type: "slotLoaded", role: "compare", file: fc },
     );
-    expect(s.lastMasterFile).toBe(fm); // not overwritten by the compare load
+    expect(s.lastMainFile).toBe(fm); // not overwritten by the compare load
   });
 
-  it("keeps lastMasterFile while the master reloads (loading state)", () => {
+  it("keeps lastMainFile while the main reloads (loading state)", () => {
     const fm = file("m.ged");
     const s = reduce(
       initialWorkspace,
-      { type: "slotLoaded", role: "master", file: fm },
-      { type: "slotLoading", role: "master", fileName: "m2.ged" },
+      { type: "slotLoaded", role: "main", file: fm },
+      { type: "slotLoading", role: "main", fileName: "m2.ged" },
     );
-    expect(s.master).toEqual({ status: "loading", fileName: "m2.ged" });
-    expect(s.lastMasterFile).toBe(fm);
+    expect(s.main).toEqual({ status: "loading", fileName: "m2.ged" });
+    expect(s.lastMainFile).toBe(fm);
   });
 
   it("handles error and cleared", () => {
@@ -143,13 +143,13 @@ describe("workspaceReducer — start & reset", () => {
   it("reset returns a clean workspace with fresh empty collections", () => {
     const dirty = reduce(
       initialWorkspace,
-      { type: "slotLoaded", role: "master", file: file("m.ged") },
+      { type: "slotLoaded", role: "main", file: file("m.ged") },
       { type: "matched", result: result() },
       { type: "decisionsSet", decisions: new Map([[decisionKey("individual", "@I1@", "@I2@"), decision()]]) },
       { type: "setStart", id: "@I1@" },
     );
     const s = workspaceReducer(dirty, { type: "reset" });
-    expect(s.master).toEqual({ status: "empty" });
+    expect(s.main).toEqual({ status: "empty" });
     expect(s.matches).toBeNull();
     expect(s.decisions.size).toBe(0);
     expect(s.importBranches.size).toBe(0);

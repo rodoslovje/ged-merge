@@ -13,7 +13,7 @@ import { TimelineChart } from "./TimelineChart";
 import { ReportView } from "./ReportView";
 import { StartPersonSelector } from "./StartPersonSelector";
 
-// The full-page "Charts" hub for a person in the master file: one overlay that
+// The full-page "Charts" hub for a person in the main file: one overlay that
 // hosts every per-person diagram — the pedigree charts (tree / grid / fan /
 // circle, drawn by EditTree), the relationship-to-start diagram, and the family
 // timeline — behind a first-class kind switcher. The chosen kind persists
@@ -26,7 +26,7 @@ import { StartPersonSelector } from "./StartPersonSelector";
 const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "report"];
 
 interface Props {
-  masterDs: Dataset;
+  mainDs: Dataset;
   /** The person the hub opened on; re-roots inside the hub follow the user. */
   initialRootId: string;
   startId?: string;
@@ -41,7 +41,7 @@ interface Props {
   onPickStart?: (id: string) => void;
 }
 
-export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
+export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The hub's current person: starts at the person it was opened on and follows
@@ -70,7 +70,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   if (settings.kind === "report") {
     return (
       <ReportView
-        masterDs={masterDs}
+        mainDs={mainDs}
         rootId={rootId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
@@ -88,7 +88,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
   if (settings.kind === "timeline") {
     return (
       <TimelineChart
-        masterDs={masterDs}
+        mainDs={mainDs}
         rootId={rootId}
         startId={startId}
         changedPersonIds={changedPersonIds}
@@ -117,7 +117,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
             <p>{t("globalSearch.needStart")}</p>
             {onPickStart && (
               <StartPersonSelector
-                individuals={masterDs.individuals}
+                individuals={mainDs.individuals}
                 startId={undefined}
                 onChange={onPickStart}
                 icon="search"
@@ -133,7 +133,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
     }
     return (
       <RelationshipChart
-        masterDs={masterDs}
+        mainDs={mainDs}
         startId={startId}
         targetId={rootId}
         changedPersonIds={changedPersonIds}
@@ -149,7 +149,7 @@ export function ChartsHub({ masterDs, initialRootId, startId, changedPersonIds, 
 
   return (
     <EditTree
-      masterDs={masterDs}
+      mainDs={mainDs}
       rootId={rootId}
       startId={startId}
       changedPersonIds={changedPersonIds}

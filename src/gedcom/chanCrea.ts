@@ -64,8 +64,8 @@ function insertCreaIfAbsent(record: GedNode, today: string, now: string, order: 
  *
  * - `changedIds`: xrefs of all records modified by this save (edits + merge).
  * - `newIds`: xrefs of brand-new records added during this merge (get CREA).
- * - `usage`: which CHAN/CREA variants the master file already uses (detected
- *   on load) — only writes timestamps the master itself already employs.
+ * - `usage`: which CHAN/CREA variants the main file already uses (detected
+ *   on load) — only writes timestamps the main itself already employs.
  * - `today`: GEDCOM-formatted date string (from `todayGedcom()`).
  * - `now`: GEDCOM-formatted time string (from `nowGedcomTime()`) — only written
  *   onto DATE nodes that already carry a TIME subordinate.

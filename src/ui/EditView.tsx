@@ -12,7 +12,7 @@ import { ChartIcon } from "./icons/ChartIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
-import { decisionKey, decisionStatusByMasterId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMainId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addChild,
   addEventNode,
@@ -92,7 +92,7 @@ interface Props {
   /** Open the Charts hub on this person — at the last-used kind, or a specific
    *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
   onShowCharts: (id: string, kind?: ChartKind) => void;
-  /** True when the master file records married surnames inline as `_MARNM`, so
+  /** True when the main file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
   marriedNameTag?: boolean;
   /** Navigate to this person when it changes (used by the save dialog person links). */
@@ -109,17 +109,17 @@ interface Props {
    * candidate, if any — lets the name row show Confirm/Reject/Defer buttons
    * for that pair without switching to Merge mode. */
   matchCompareIdFor?: (id: string) => string | undefined;
-  /** Master ids in the same (filtered) order as Merge's own Left/Right/Prev/Next —
+  /** Main ids in the same (filtered) order as Merge's own Left/Right/Prev/Next —
    * lets Edit's Left/Right step through that same match list. `undefined` when
    * there's no incoming file loaded, in which case Left/Right do nothing. */
   matchOrder?: string[];
   /** Merge decisions — used to preview incoming values for confirmed matches. */
   decisions?: Map<string, CandidateDecision>;
-  /** Master ids with unsaved edits — relatives in that set show an "M" chip. */
+  /** Main ids with unsaved edits — relatives in that set show an "M" chip. */
   changedPersonIds: Set<string>;
   /** The incoming dataset — needed to resolve confirmed match incoming values. */
   compareDataset?: Dataset;
-  /** Called when an extra merge event is dismissed — sets its fields to "master" in the decision.
+  /** Called when an extra merge event is dismissed — sets its fields to "main" in the decision.
    * Takes the decision's own map key (not necessarily the Merge tab's currently selected
    * candidate — Edit can be showing a different confirmed person, e.g. after navigating to a
    * spouse) so the caller updates the right entry instead of whichever candidate Merge last had selected. */
@@ -401,7 +401,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   /**
    * Stable `nodeId`s of event nodes materialized this session from an
    * incoming-only ("extra") merge suggestion. Every field of such an event is a
-   * change relative to the saved master (the event didn't exist there), so the
+   * change relative to the saved main (the event didn't exist there), so the
    * whole row stays bold until Save — independently of `resolvedSessionFields`,
    * which is per-field and gets cleared once the confirmed decision disappears.
    * Unlike that set, this one must survive merge-state recomputes (the incoming
@@ -443,18 +443,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       mergeIncomingLinks: new Map<string, string[]>(),
       /** Field key → incoming source citations the merge will add (per-event "<tag>.sources" rows). */
       mergeIncomingSources: new Map<string, SourceCitation[]>(),
-      /** master person.events overall index → field key base aligned with orderedEventTags. */
-      masterMergeKeyBases: new Map<number, string>(),
-      /** master person.events overall index → the incoming event it's paired with, as
+      /** main person.events overall index → field key base aligned with orderedEventTags. */
+      mainMergeKeyBases: new Map<number, string>(),
+      /** main person.events overall index → the incoming event it's paired with, as
        * `${tag}:${compareIdx}` — see `CandidateDecision.rejectedEvents`. Lets deleting a
-       * paired master event also reject its incoming counterpart, so it isn't silently
+       * paired main event also reject its incoming counterpart, so it isn't silently
        * re-added on save. */
-      masterMergeCompareKeys: new Map<number, string>(),
-      /** master person.events overall index → sort key from incoming date, when master has no date. */
-      masterMergeSortKeys: new Map<number, number>(),
-      /** Incoming-only events with no master counterpart (BIRT excluded — always shown). */
+      mainMergeCompareKeys: new Map<number, string>(),
+      /** main person.events overall index → sort key from incoming date, when main has no date. */
+      mainMergeSortKeys: new Map<number, number>(),
+      /** Incoming-only events with no main counterpart (BIRT excluded — always shown). */
       extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number; compareIdx: number }[],
-      /** master family id → the `fam.<id>` key base used for that family's rows
+      /** main family id → the `fam.<id>` key base used for that family's rows
        * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
       familyMergeKeyBases: new Map<string, string>(),
       /** Whether the current person still has a confirmed merge decision. */
@@ -476,9 +476,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const mergeIncomingSources = new Map<string, SourceCitation[]>();
       for (const row of rows) {
         if (row.isGroupHeader) continue;
-        if (row.state === "agree" || row.state === "master-only") continue;
+        if (row.state === "agree" || row.state === "main-only") continue;
         const choice = dec.fields[row.key] ?? defaultChoice(row);
-        if (choice === "master") continue;
+        if (choice === "main") continue;
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`
         // (other rows, if any, as `incomingLinks`); both preview the same way.
@@ -487,7 +487,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         if (row.incomingSources?.length) mergeIncomingSources.set(row.key, row.incomingSources);
       }
 
-      // Map master overall event index → the key base that orderedEventTags assigned to it.
+      // Map main overall event index → the key base that orderedEventTags assigned to it.
       // This handles multi-instance keys (e.g. "RESI.0") that arise when incoming has more
       // events of the same tag, or when a same-tag pair scores too low to be merged.
       const mByTagIndices = new Map<string, number[]>();
@@ -496,9 +496,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         arr.push(i);
         mByTagIndices.set(ev.tag, arr);
       });
-      const masterMergeKeyBases = new Map<number, string>();
-      const masterMergeCompareKeys = new Map<number, string>();
-      const masterMergeSortKeys = new Map<number, number>();
+      const mainMergeKeyBases = new Map<number, string>();
+      const mainMergeCompareKeys = new Map<number, string>();
+      const mainMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[] = [];
       const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
 
@@ -517,19 +517,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
       for (const inst of orderedEventTags(person, incoming)) {
         const keyBase = inst.multi ? `${inst.tag}.${inst.keyIdx}` : inst.tag;
-        if (inst.masterIdx >= 0) {
-          const overallIdx = mByTagIndices.get(inst.tag)?.[inst.masterIdx];
+        if (inst.mainIdx >= 0) {
+          const overallIdx = mByTagIndices.get(inst.tag)?.[inst.mainIdx];
           if (overallIdx !== undefined) {
-            masterMergeKeyBases.set(overallIdx, keyBase);
+            mainMergeKeyBases.set(overallIdx, keyBase);
             if (inst.compareIdx >= 0 && !rejectedEvents?.has(`${inst.tag}:${inst.compareIdx}`)) {
-              masterMergeCompareKeys.set(overallIdx, `${inst.tag}:${inst.compareIdx}`);
+              mainMergeCompareKeys.set(overallIdx, `${inst.tag}:${inst.compareIdx}`);
             }
-            // Authoritative sort key for this master event (zone-aware, falling
-            // back to the paired incoming date when master itself has none), so
+            // Authoritative sort key for this main event (zone-aware, falling
+            // back to the paired incoming date when main itself has none), so
             // the row keeps the same chronological position as the merge preview.
-            const masterDate = person.events[overallIdx]?.date;
+            const mainDate = person.events[overallIdx]?.date;
             const incomingDate = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx]?.date : undefined;
-            masterMergeSortKeys.set(overallIdx, zoneSortKey(masterDate ?? incomingDate, inst.tag, anchors));
+            mainMergeSortKeys.set(overallIdx, zoneSortKey(mainDate ?? incomingDate, inst.tag, anchors));
           }
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
@@ -545,13 +545,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
 
-      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeCompareKeys, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return empty;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, compareDataset, person, dataset, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
-  const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, masterMergeKeyBases, masterMergeCompareKeys, masterMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById, hasMergeDecision } = mergeData;
+  const { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBaseById, hasMergeDecision } = mergeData;
 
   /**
    * `resolvedSessionFields` deliberately survives the remount that fires when
@@ -572,12 +572,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   /**
    * Reject an incoming individual event outright — called when the user
-   * deletes its paired master event, deletes/dismisses an unmatched "extra"
-   * suggestion row, or edits an extra row's field (materializing a new master
+   * deletes its paired main event, deletes/dismisses an unmatched "extra"
+   * suggestion row, or edits an extra row's field (materializing a new main
    * event from it). Persists into the confirmed decision's `rejectedEvents`
    * (see `CandidateDecision`) so the event is treated as absent everywhere —
    * the live preview here and the merge engine on Save — for the rest of the
-   * session, regardless of how master/incoming pairing reshuffles afterward.
+   * session, regardless of how main/incoming pairing reshuffles afterward.
    */
   function rejectIncomingEvent(tag: string, compareIdx: number) {
     if (!decisions || !person || !onUpdateDecision || compareIdx < 0) return;
@@ -594,7 +594,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   /**
    * Copy an "extra" incoming-only event's `SOUR` citations into `eventNode`
-   * — the master event a direct field edit just materialized for it. Must
+   * — the main event a direct field edit just materialized for it. Must
    * run before that event gets `rejectIncomingEvent`'d, since afterward its
    * sources are gone from comparison everywhere, including the merge engine
    * on Save. Returns undo patches for any `SOUR`/`REPO` records it imported.
@@ -623,15 +623,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (dec.status !== "confirmed") continue;
       const updatedFields = { ...dec.fields };
       for (const fkey of Object.keys(updatedFields)) {
-        if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "master";
+        if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
       }
-      // Also set any fields not yet explicitly decided (they default to "incoming") to "master".
+      // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
       const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
       for (const sub of EVENT_SUBS) {
         const fkey = `${keyBase}.${sub}`;
-        if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "master";
+        if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";
       }
-      if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "master";
+      if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "main";
       onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
@@ -639,7 +639,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   /**
    * Mark specific event sub-fields (e.g. "date", "value") as resolved to
-   * "master" once they've been directly edited/committed in Edit mode. Without
+   * "main" once they've been directly edited/committed in Edit mode. Without
    * this, `mergeHighlight` keeps treating the field as a still-pending incoming
    * suggestion — on the next render its input would be re-initialized from the
    * original incoming text, silently reverting the user's own edit and losing
@@ -651,7 +651,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * persist the dirty/bold marker in `resolvedSessionFields` — these must be
    * kept separate because `keyBase` is reassigned to a different event whenever
    * same-tag events or their pairing reshuffle (notably when an incoming-only
-   * "extra" row is materialized into a real master event), which would
+   * "extra" row is materialized into a real main event), which would
    * otherwise force the bold marker onto the wrong row.
    */
   function resolveMergeFields(keyBase: string, forcedId: string, subs: string[]) {
@@ -674,8 +674,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       let changed = false;
       for (const sub of incomingSubs) {
         const fkey = `${keyBase}.${sub}`;
-        if (updatedFields[fkey] !== "master") {
-          updatedFields[fkey] = "master";
+        if (updatedFields[fkey] !== "main") {
+          updatedFields[fkey] = "main";
           changed = true;
         }
       }
@@ -702,7 +702,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder } = useMediaFolder();
   const { openPerson } = usePhotoViewer();
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
-  // Follow the master's photo house-style (inline OBJE/FILE vs. shared top-level
+  // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
   const [photoDragOver, setPhotoDragOver] = useState(false);
@@ -737,7 +737,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     setPendingConfirm({ message, confirmLabel: t("confirm.ok"), danger: false, action: () => {} });
   }
 
-  /** Attach a photo by folder-relative path, following the master's media mode:
+  /** Attach a photo by folder-relative path, following the main's media mode:
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
    *  shared mode an `existingXref` (or a record with the same file) is reused,
    *  else a new top-level OBJE is created and captured as a record patch. */
@@ -1287,18 +1287,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // builds decision status (confirmed/rejected/deferred) for relatives shown
   // on the father/mother/partner/child cards, mirroring the candidate list's
   // status chip; a "confirmed" decision wins over any other stale decision
-  // recorded against the same master id.
+  // recorded against the same main id.
   const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical } = useMemo(
     () => buildPlaceSuggestions(dataset),
     [dataset],
   );
-  const decisionStatusById = useMemo(() => decisionStatusByMasterId(decisions), [decisions]);
+  const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
   if (!person) {
     return (
       <div className="section open edit-view">
         <div className="section-body">
-          <p className="gm-file master gm-data" title={`${t("tree.master")}: ${fileName}`}>{fileName}</p>
+          <p className="gm-file main gm-data" title={`${t("tree.main")}: ${fileName}`}>{fileName}</p>
           <p className="muted">{t("edit.empty")}</p>
         </div>
       </div>
@@ -1336,7 +1336,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   }
 
   // Status chips for a relative card: its merge decision (C/D/R) and/or an "M"
-  // chip when its master record has unsaved edits — mirroring the tree nodes.
+  // chip when its main record has unsaved edits — mirroring the tree nodes.
   function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string; modified?: boolean; modifiedLetter?: string; modifiedTooltip?: string } {
     const modified = !!id && changedPersonIds.has(id);
     const modifiedProps = modified ? { modified, modifiedLetter: t("edit.tree.modified").charAt(0), modifiedTooltip: t("edit.tree.modified") } : {};
@@ -1545,9 +1545,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             addrCanonical={addrCanonical}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
-            masterMergeKeyBases={masterMergeKeyBases}
-            masterMergeCompareKeys={masterMergeCompareKeys}
-            masterMergeSortKeys={masterMergeSortKeys}
+            mainMergeKeyBases={mainMergeKeyBases}
+            mainMergeCompareKeys={mainMergeCompareKeys}
+            mainMergeSortKeys={mainMergeSortKeys}
             extraMergeEvents={extraMergeEvents}
             onRejectIncomingEvent={rejectIncomingEvent}
             onMaterializeIncomingSources={materializeMergeEventSources}

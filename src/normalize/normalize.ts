@@ -6,7 +6,7 @@ import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
-import type { MasterProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
+import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
 import { reshapeNameVariants } from "./nameVariants";
 import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
@@ -17,7 +17,7 @@ const MAX_EXAMPLES = 12;
 const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true };
 
 /**
- * Normalize a compare dataset to the master's conventions.
+ * Normalize a compare dataset to the main's conventions.
  *
  * Operates on the lossless raw tree (so the eventual export carries the
  * normalized values) and then rebuilds the typed model so structured fields
@@ -33,7 +33,7 @@ const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, n
  */
 export function normalizeDataset(
   compare: Dataset,
-  profile: MasterProfile,
+  profile: MainProfile,
   sourceDateValues?: string[],
   options: NormalizeOptions = ALL_PASSES,
 ): { dataset: Dataset; report: NormalizationReport } {
@@ -61,7 +61,7 @@ export function normalizeDataset(
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
-  // re-rendering them in the master's style.
+  // re-rendering them in the main's style.
   const sourceOrder = inferSourceOrder(compare, sourceDateValues);
 
   // Only individuals and families carry the genealogical dates/places/links we
@@ -87,7 +87,7 @@ export function normalizeDataset(
     } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) {
       if (!options.links) return;
       // Matricula Online / Geneanet cemetery links carry a UI language in the
-      // URL itself; rewrite to the master's language so the compare/edit
+      // URL itself; rewrite to the main's language so the compare/edit
       // screens already show matching links and no further conversion is
       // needed at merge or export time.
       const next = rewriteLinkLang(node.value, profile.linkLangs);
@@ -99,10 +99,10 @@ export function normalizeDataset(
     }
   });
 
-  // An all-placeholder date (".__.____") carries no information. When the master
+  // An all-placeholder date (".__.____") carries no information. When the main
   // has no placeholder-date convention of its own, strip it entirely rather than
   // keep a foreign "__.__.____" marker — the date analog of reshapeUnknownNames'
-  // blank default for names. (When the master *does* use placeholder dates, the
+  // blank default for names. (When the main *does* use placeholder dates, the
   // walk above has already reshaped these to its layout, so we leave them.)
   if (options.dates && !profile.date.numeric?.placeholder) {
     for (const rec of editable) {
@@ -113,10 +113,10 @@ export function normalizeDataset(
     }
   }
 
-  // Reshape PLAC/ADDR/NOTE into the master's layout, e.g. splitting a packed
+  // Reshape PLAC/ADDR/NOTE into the main's layout, e.g. splitting a packed
   // "Town (Country), Street No" into structured PLAC + ADDR, or folding a
   // structured PLAC + ADDR into one packed PLAC — so the compare/edit screens
-  // already show places in the master's shape and no reshaping is needed when
+  // already show places in the main's shape and no reshaping is needed when
   // the record is later merged or saved.
   if (options.places && reshapesLayout(profile.placeFmt.layout)) {
     walkNodes(editable, (node) => {
@@ -124,11 +124,11 @@ export function normalizeDataset(
     });
   }
 
-  // Rewrite alternate names (married/birth/aka/nick) into the master's
+  // Rewrite alternate names (married/birth/aka/nick) into the main's
   // convention — an inline sub-tag on the primary NAME vs. a separate `TYPE`
-  // record — and recase `TYPE` tokens to the master's spelling, so the styles
+  // record — and recase `TYPE` tokens to the main's spelling, so the styles
   // match for comparison/merge and stay consistent in the export. Variants the
-  // master doesn't use are left untouched (never dropped).
+  // main doesn't use are left untouched (never dropped).
   if (options.names) {
     for (const rec of editable) {
       if (rec.tag !== "INDI") continue;
@@ -136,7 +136,7 @@ export function normalizeDataset(
         report.nameVariantsReshaped++;
         record(report.nameVariantExamples, seenName, change.before, change.after);
       }
-      // Rewrite unknown-name placeholders (NN, ____, ????) to the master's
+      // Rewrite unknown-name placeholders (NN, ____, ????) to the main's
       // convention, so the user's file never inherits a foreign placeholder.
       for (const change of reshapeUnknownNames(rec, profile.unknownName)) {
         report.unknownNamesReshaped++;
@@ -161,7 +161,7 @@ export function normalizeDataset(
 }
 
 /**
- * Reshape a node's PLAC/ADDR (if any) into the master's layout, recording an
+ * Reshape a node's PLAC/ADDR (if any) into the main's layout, recording an
  * example when the text actually changes. A pre-existing AGNC absorbs a
  * leftover parish detail rather than duplicating it in a second AGNC node.
  */

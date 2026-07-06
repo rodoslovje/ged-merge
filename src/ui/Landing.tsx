@@ -3,7 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
 
 interface Props {
-  masterState: SlotState;
+  mainState: SlotState;
   onLoadFile: (file: File) => void;
   onLoadSample: (fileName: string) => void;
 }
@@ -96,12 +96,12 @@ const TreeIcon = () => (
   </svg>
 );
 
-export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
+export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const loading = masterState.status === "loading";
+  const loading = mainState.status === "loading";
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -125,7 +125,7 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
 
   return (
     <div className="landing-b">
-      {/* Left: master loader */}
+      {/* Left: main loader */}
       <div className="lb-left">
         <p className="lb-eyebrow">{t("landing.eyebrow")}</p>
         <h1 className="lb-h1">
@@ -140,7 +140,7 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
           <div className="lb-drop lb-drop-loading">
             <span className="spinner" aria-hidden="true" />
             <span className="parsing-status-text">
-              {t("loader.parsing", { fileName: (masterState as { status: "loading"; fileName: string }).fileName })}
+              {t("loader.parsing", { fileName: (mainState as { status: "loading"; fileName: string }).fileName })}
             </span>
           </div>
         ) : (
@@ -184,14 +184,14 @@ export function Landing({ masterState, onLoadFile, onLoadSample }: Props) {
           </div>
         )}
 
-        {masterState.status === "error" && (
+        {mainState.status === "error" && (
           <p className="lb-error error">
-            {t("loader.error", { fileName: masterState.fileName, message: masterState.message })}
+            {t("loader.error", { fileName: mainState.fileName, message: mainState.message })}
           </p>
         )}
 
         {/* Sample tray — kept mounted while loading (disabled) so the layout doesn't shift */}
-        {(masterState.status === "empty" || loading) && (
+        {(mainState.status === "empty" || loading) && (
           <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
             <p className="lb-samples-h">
               <svg

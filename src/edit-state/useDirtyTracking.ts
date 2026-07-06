@@ -109,7 +109,7 @@ export function useDirtyTracking() {
     });
   }
 
-  /** Clear dirty state immediately when a new master file starts loading (before
+  /** Clear dirty state immediately when a new main file starts loading (before
    *  the parsed dataset is available). The loaded IDs are populated later by
    *  `resetOnLoad` once parsing completes. */
   function prepareForLoad() {
@@ -121,7 +121,7 @@ export function useDirtyTracking() {
     setChangedFamilyIds(new Set());
   }
 
-  /** Reset all tracking state on master file load. */
+  /** Reset all tracking state on main file load. */
   function resetOnLoad(dataset: Dataset) {
     loadedPersonIds.current = new Set(dataset.individuals.keys());
     loadedFamilyIds.current = new Set(dataset.families.keys());
@@ -132,7 +132,7 @@ export function useDirtyTracking() {
   }
 
   /** Restore tracking state cached from a previous session (IndexedDB hydrate).
-   *  Used instead of {@link resetOnLoad} when the re-parsed master is the edited
+   *  Used instead of {@link resetOnLoad} when the re-parsed main is the edited
    *  serialization, so the pre-edit snapshots and changed-id sets line up with it. */
   function hydrate(state: {
     loadedPersonIds: string[];

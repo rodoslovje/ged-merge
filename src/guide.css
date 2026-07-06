@@ -277,7 +277,7 @@
 .gm-badge.c { color: var(--state-match); background: color-mix(in oklch, var(--state-match) 15%, transparent); }
 .gm-badge.r { color: var(--state-major); background: color-mix(in oklch, var(--state-major) 15%, transparent); }
 .gm-badge.d { color: var(--state-minor); background: color-mix(in oklch, var(--state-minor) 15%, transparent); }
-.gm-badge.m { color: var(--state-master); background: color-mix(in oklch, var(--state-master) 15%, transparent); }
+.gm-badge.m { color: var(--state-main); background: color-mix(in oklch, var(--state-main) 15%, transparent); }
 .gm-badge.i { color: var(--state-incoming); background: color-mix(in oklch, var(--state-incoming) 15%, transparent); }
 .gm-badge.b { color: var(--accent); background: color-mix(in oklch, var(--accent) 15%, transparent); }
 /* Edit-mode "Modified" marker — solid amber, like the app's tree-node M badge. */
@@ -303,7 +303,7 @@
 .gm-swatch.match { background: var(--state-match); }
 .gm-swatch.minor { background: var(--state-minor); }
 .gm-swatch.major { background: var(--state-major); }
-.gm-swatch.master { background: var(--state-master); }
+.gm-swatch.main { background: var(--state-main); }
 .gm-swatch.incoming { background: var(--state-incoming); }
 /* Match-list N / D / link count colours — mirror the app's winning rule in
    theme/components.css (which overrides the --status-* base in index.css). */
