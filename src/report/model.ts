@@ -199,9 +199,11 @@ export function generationHeading(
   return { title: `${genN} — ${word}`, range, coverage };
 }
 
-/** Attach the record-level notes/sources the options ask for (never on dups). */
+/** Attach the record-level notes/sources the options ask for (never on dups).
+ *  Notes keep their URLs — the report shows them verbatim. */
 export function personExtras(entry: ReportEntry, indi: Individual, opts: ReportFactOptions): void {
-  if (opts.notes && indi.notes?.length) entry.notes = indi.notes;
+  const notes = indi.notesWithLinks ?? indi.notes;
+  if (opts.notes && notes?.length) entry.notes = notes;
   if (opts.sources && indi.sources?.length) entry.sources = indi.sources.map(sourceLine);
 }
 
@@ -289,7 +291,8 @@ export function marriageFact(
 }
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
-  if (opts.notes && e.note) fact.note = e.note;
+  const note = e.noteWithLinks ?? e.note;
+  if (opts.notes && note) fact.note = note;
   if (opts.sources && e.sources?.length) fact.sources = e.sources.map(sourceLine);
   return fact;
 }

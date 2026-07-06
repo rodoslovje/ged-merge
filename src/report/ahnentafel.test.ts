@@ -205,6 +205,17 @@ describe("buildAhnentafel", () => {
     expect(text).toContain("1. Solo One (1900–1980)\n   Emigrated twice.\n   * 1900\n     Born at home.");
   });
 
+  it("keeps URLs listed in notes in the report", () => {
+    const linked = wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE Zapis: https://data.matricula-online.eu/sl/test/?pg=1\n" +
+        "1 BIRT\n2 DATE 1900\n2 NOTE https://example.com/birth-record\n1 DEAT\n2 DATE 1980\n",
+    );
+    const ds2 = dataset(linked);
+    const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { notes: true })!.generations[0].entries[0];
+    expect(on.notes).toEqual(["Zapis: https://data.matricula-online.eu/sl/test/?pg=1"]);
+    expect(on.facts[0].note).toBe("https://example.com/birth-record");
+  });
+
   it("carries person and event source citations when the sources option is on", () => {
     const sourced = wrap(
       "0 @I1@ INDI\n1 NAME Solo /One/\n1 SOUR @S1@\n" +

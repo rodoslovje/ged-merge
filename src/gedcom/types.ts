@@ -217,6 +217,10 @@ export interface GedEvent {
   cause?: string;
   /** First inline NOTE sub-tag on this event (e.g. parish/facility from packed-place decomposition). */
   note?: string;
+  /** The same note with its URLs kept in place — present only when `note`
+   *  had links stripped out of it (they live in `links` for merging).
+   *  Renderers that show the note verbatim (reports) prefer this. */
+  noteWithLinks?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
   /** Source citations (`SOUR`) attached to this event. */
@@ -236,6 +240,10 @@ export interface Individual {
   links?: string[];
   /** Free-text NOTE records attached directly to the individual. */
   notes?: string[];
+  /** The same notes with their URLs kept in place — present only when `notes`
+   *  had links stripped (they live in `links` for merging). Renderers that
+   *  show notes verbatim (reports) prefer this. */
+  notesWithLinks?: string[];
   /** Source citations (`SOUR`) attached directly to the individual (not to a specific event). */
   sources?: SourceCitation[];
   /** Back-reference to the raw record for lossless round-tripping. */
@@ -252,6 +260,8 @@ export interface Family {
   links?: string[];
   /** Free-text NOTE records attached directly to the family. */
   notes?: string[];
+  /** The same notes with their URLs kept in place (see {@link Individual.notesWithLinks}). */
+  notesWithLinks?: string[];
   /** Source citations (`SOUR`) attached directly to the family (not to a specific event). */
   sources?: SourceCitation[];
   raw: GedNode;

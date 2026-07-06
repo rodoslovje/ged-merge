@@ -130,6 +130,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const spouseOf: string[] = [];
   const links: string[] = [];
   const notes: string[] = [];
+  const notesFull: string[] = [];
   const sources: SourceCitation[] = [];
   let sex: Sex = "U";
 
@@ -148,7 +149,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         if (child.value) spouseOf.push(child.value.trim());
         break;
       case "NOTE": {
-        collectNote(child, noteIndex, media, notes, links);
+        collectNote(child, noteIndex, media, notes, links, notesFull);
         break;
       }
       case "SOUR": {
@@ -167,6 +168,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (links.length) indi.links = dedupe(links);
   if (notes.length) indi.notes = notes;
+  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (sources.length) indi.sources = sources;
   return indi;
 }
@@ -176,6 +178,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   const events: GedEvent[] = [];
   const links: string[] = [];
   const notes: string[] = [];
+  const notesFull: string[] = [];
   const sources: SourceCitation[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
@@ -192,7 +195,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         if (child.value) children.push(child.value.trim());
         break;
       case "NOTE": {
-        collectNote(child, noteIndex, media, notes, links);
+        collectNote(child, noteIndex, media, notes, links, notesFull);
         break;
       }
       case "SOUR": {
@@ -211,6 +214,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (wife) fam.wife = wife;
   if (links.length) fam.links = dedupe(links);
   if (notes.length) fam.notes = notes;
+  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (sources.length) fam.sources = sources;
   return fam;
 }
@@ -242,6 +246,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     const text = resolveNoteText(noteNode, noteIndex, links);
     const noteStripped = text && stripNoteLinks(text);
     if (noteStripped) event.note = noteStripped;
+    const noteFull = text && tidyNoteText(text);
+    if (noteFull && noteFull !== noteStripped) event.noteWithLinks = noteFull;
   }
   if (links.length) event.links = dedupe(links);
   const sources = node.children
@@ -280,6 +286,17 @@ function stripHtmlMarkup(text: string): string {
   return text.replace(HTML_BLOCK_BREAK_RE, "\n").replace(HTML_TAG_RE, "");
 }
 
+/** Strip pasted-in HTML markup and tidy whitespace, keeping the text itself. */
+function tidyNoteText(text: string): string {
+  return stripHtmlMarkup(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 /**
  * Drop URLs from note text that `collectLinks` already pulled out into a
  * `links` array, so the same URL doesn't also surface as a separate note
@@ -288,13 +305,7 @@ function stripHtmlMarkup(text: string): string {
  * remaining text, or "" if nothing is left.
  */
 function stripNoteLinks(text: string): string {
-  return stripHtmlMarkup(text.replace(URL_RE, ""))
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return tidyNoteText(text.replace(URL_RE, ""));
 }
 
 /**
@@ -341,12 +352,16 @@ function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): str
   return text;
 }
 
-/** Collect one record-level NOTE's stripped text and any URLs it carries. */
-function collectNote(node: GedNode, notes: NoteIndex, media: MediaLinks, out: string[], links: string[]): void {
+/** Collect one record-level NOTE's stripped text and any URLs it carries.
+ *  `outFull` receives the same note with its URLs kept in place, for
+ *  renderers (reports) that show the note verbatim. */
+function collectNote(node: GedNode, notes: NoteIndex, media: MediaLinks, out: string[], links: string[], outFull: string[]): void {
   const isPtr = isPointer(node.value?.trim() ?? "");
   const text = resolveNoteText(node, notes, links);
   const stripped = text && stripNoteLinks(text);
   if (stripped) out.push(stripped);
+  const full = text && tidyNoteText(text);
+  if (full) outFull.push(full);
   // An inline note may also carry sub-tags / embedded media; let collectLinks
   // walk it. A pointer note has no such children, and its URLs were already
   // pulled from the resolved text above.

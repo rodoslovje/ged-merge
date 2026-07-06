@@ -92,6 +92,7 @@ describe("NOTE text with extracted URLs", () => {
     const buri = indi.events.find((e) => e.tag === "BURI")!;
     expect(buri.links).toEqual(["https://de.geneanet.org/friedhof/view/9833663"]);
     expect(buri.note).toBeUndefined();
+    expect(buri.noteWithLinks).toBe("https://de.geneanet.org/friedhof/view/9833663");
   });
 
   it("clears the HTML wrapper left around a rich-text-pasted link once its URL is stripped", () => {
@@ -121,6 +122,7 @@ describe("NOTE text with extracted URLs", () => {
     const ds = buildFromText(text);
     const indi = ds.individuals.get("@I1@")!;
     expect(indi.notes).toEqual(["rojstvo, smrt"]);
+    expect(indi.notesWithLinks).toBeUndefined();
   });
 
   it("strips just the URL from a NOTE that has other surrounding text", () => {
@@ -136,6 +138,7 @@ describe("NOTE text with extracted URLs", () => {
     const indi = ds.individuals.get("@I1@")!;
     expect(indi.links).toEqual(["https://data.matricula-online.eu/sl/test/?pg=1"]);
     expect(indi.notes).toEqual(["See for the record."]);
+    expect(indi.notesWithLinks).toEqual(["See https://data.matricula-online.eu/sl/test/?pg=1 for the record."]);
   });
 });
 
