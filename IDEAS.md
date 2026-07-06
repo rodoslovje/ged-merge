@@ -15,7 +15,7 @@ The general Settings panel exists (language, theme, name display, kinship, link-
 - **Geneanet Cemeteries metadata** — same idea as the Matricula Online metadata feature, for Geneanet Cemeteries links.
 
 ### Photos
-- **Drag & drop** — improve adding new photos by supporting drag-and-drop.
+- ~~**Drag & drop** — improve adding new photos by supporting drag-and-drop.~~ *Done: dropping a file from outside the media folder (or "Import from disk…" in the Add-media picker) copies it into the folder — Chrome/Edge, readwrite upgrade with a per-session browser prompt; collisions get a `-1` suffix.*
 
 ### Matching quality
 *(The 2026-07 overhaul is documented in [MATCHING.md](MATCHING.md); the dense-name-cluster false positives item shipped as part of it — parent-conflict penalties, placeholder-name handling, evidence ceiling.)*

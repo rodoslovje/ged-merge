@@ -10,7 +10,7 @@ import { useNodeStatus } from "./useNodeStatus";
 import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
-import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
+import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";

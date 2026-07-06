@@ -3,8 +3,8 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { xrefLabel } from "../gedcom/nameDisplay";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
-import { CardPhoto } from "./PersonPhotos";
-import type { PhotoRefContext } from "./PhotoViewer";
+import { CardPhoto } from "./PersonMedia";
+import type { MediaRefContext } from "./MediaViewer";
 
 interface Props {
   individual?: Individual;
@@ -40,8 +40,8 @@ interface Props {
   /** Pass to display a profile photo thumbnail from local media. */
   records?: GedNode[];
   /** When set, the enlarged photo's info panel lists the records citing each
-   *  shared photo and links into Edit (see {@link PhotoRefContext}). */
-  refCtx?: PhotoRefContext;
+   *  shared photo and links into Edit (see {@link MediaRefContext}). */
+  refCtx?: MediaRefContext;
 }
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */

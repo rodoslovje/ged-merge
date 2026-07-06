@@ -15,9 +15,9 @@ import {
 } from "../chart/treeLayout";
 import { ALL_DISPLAY, livingLabelFor, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
-import { collectFirstFilePath, TreeNodePhoto } from "./PersonPhotos";
+import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import type { PhotoRefContext } from "./PhotoViewer";
+import type { MediaRefContext } from "./MediaViewer";
 import { sexColorVar } from "./sex";
 
 /** Photo source for a node box — either side of a compare pair (main first).
@@ -26,8 +26,8 @@ export interface NodePhotoSource {
   node: { main?: { raw: GedNode }; incoming?: { raw: GedNode } };
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  mainRefCtx?: PhotoRefContext;
-  compareRefCtx?: PhotoRefContext;
+  mainRefCtx?: MediaRefContext;
+  compareRefCtx?: MediaRefContext;
 }
 
 /** The small letter-in-a-circle status badge (decision / modified / import),

@@ -13,9 +13,9 @@ import {
   type FieldRow,
   type RelativePair,
 } from "../review/types";
-import { PersonPhotos } from "./PersonPhotos";
+import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import { collectPhotoRefs } from "./PhotoViewer";
+import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
 export type RelativeSide = "main" | "incoming";
@@ -62,10 +62,10 @@ export function ComparePanel({
   // loaded and at least one side actually references a photo — otherwise the
   // empty tray leaves a stray separator under the header.
   const { folderName } = useMediaFolder();
-  const hasPhotos = useMemo(() => {
+  const hasMedia = useMemo(() => {
     if (!folderName) return false;
-    const m = mainIndi ? collectPhotoRefs(mainIndi.raw, mainDs.records).length : 0;
-    const c = compareIndi ? collectPhotoRefs(compareIndi.raw, compareDs.records).length : 0;
+    const m = mainIndi ? collectMediaRefs(mainIndi.raw, mainDs.records).length : 0;
+    const c = compareIndi ? collectMediaRefs(compareIndi.raw, compareDs.records).length : 0;
     return m + c > 0;
   }, [folderName, mainIndi, compareIndi, mainDs.records, compareDs.records]);
   const rows = useMemo<FieldRow[]>(() => {
@@ -161,20 +161,20 @@ export function ComparePanel({
 
   return (
     <div className="compare-panel">
-      {hasPhotos && (
-        <div className="compare-photos">
-          <div className="compare-photos-col">
+      {hasMedia && (
+        <div className="compare-media">
+          <div className="compare-media-col">
             {mainIndi && (
-              <PersonPhotos
+              <PersonMedia
                 raw={mainIndi.raw}
                 records={mainDs.records}
                 refCtx={{ dataset: mainDs, onNavigate: mainPerson.onNavigate }}
               />
             )}
           </div>
-          <div className="compare-photos-col">
+          <div className="compare-media-col">
             {compareIndi && (
-              <PersonPhotos
+              <PersonMedia
                 raw={compareIndi.raw}
                 records={compareDs.records}
                 refCtx={{ dataset: compareDs, onNavigate: incomingPerson.onNavigate }}

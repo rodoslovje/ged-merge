@@ -211,13 +211,13 @@ function diffStringSet(
 /** A photo's full file path plus a one-line summary of its descriptive
  *  metadata (title/date/place/description), used to detect added/removed/edited
  *  photos in the diff. */
-interface PhotoDesc {
+interface MediaDesc {
   path: string;
   meta: string;
 }
 
 /**
- * A resolver from a record's `OBJE` child to its {@link PhotoDesc} — read from
+ * A resolver from a record's `OBJE` child to its {@link MediaDesc} — read from
  * the inline node, or (for a `@O@` pointer) the shared record's content via
  * `objeIndex`. URL-only objects (web links, not photos) and unresolvable
  * pointers (e.g. a shared record pruned on removal) return undefined.
@@ -226,9 +226,9 @@ interface PhotoDesc {
  * diff, so a metadata-only edit to a shared `OBJE` isn't detectable here — only
  * inline photos surface metadata changes.
  */
-type PhotoResolver = (node: GedNode) => PhotoDesc | undefined;
+type MediaResolver = (node: GedNode) => MediaDesc | undefined;
 
-function makePhotoResolver(records: GedNode[]): PhotoResolver {
+function makeMediaResolver(records: GedNode[]): MediaResolver {
   const objeIndex = buildObjeIndex(records);
   return (node) => {
     const ptr = node.value?.trim();
@@ -242,12 +242,12 @@ function makePhotoResolver(records: GedNode[]): PhotoResolver {
 /** Diff a record's photos (`OBJE`), reporting each one added, removed, or (for
  *  inline photos) edited, as a self-describing one-liner — `path` plus its
  *  metadata. Rows are `noLabel`, so the preview shows them without a prefix. */
-function diffPhotos(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: PhotoResolver): FieldChange[] {
+function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: MediaResolver): FieldChange[] {
   const descs = (node: GedNode) =>
-    childrenByTag(node, "OBJE").map(resolve).filter((d): d is PhotoDesc => !!d);
+    childrenByTag(node, "OBJE").map(resolve).filter((d): d is MediaDesc => !!d);
   const beforeByPath = new Map(descs(before).map((d) => [d.path, d]));
   const afterByPath = new Map(descs(after).map((d) => [d.path, d]));
-  const line = (d: PhotoDesc) => (d.meta ? `${d.path} — ${d.meta}` : d.path);
+  const line = (d: MediaDesc) => (d.meta ? `${d.path} — ${d.meta}` : d.path);
   const diffs: FieldChange[] = [];
   for (const [path, d] of beforeByPath) {
     if (!afterByPath.has(path)) diffs.push({ recordId: id, field: fieldLabel, from: line(d), to: "", action: "incoming", noLabel: true });
@@ -260,7 +260,7 @@ function diffPhotos(id: string, before: GedNode, after: GedNode, fieldLabel: str
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolvePhoto: PhotoResolver): FieldChange[] {
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
@@ -281,7 +281,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
-  diffs.push(...diffPhotos(id, before, after, t("field.photos"), resolvePhoto));
+  diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
 
   return diffs;
 }
@@ -324,7 +324,7 @@ function diffFamilyNodes(
   after: GedNode,
   t: Translate,
   resolveName: (xref: string) => string,
-  resolvePhoto: PhotoResolver,
+  resolveMedia: MediaResolver,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
@@ -337,7 +337,7 @@ function diffFamilyNodes(
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
-  diffs.push(...diffPhotos(id, before, after, t("field.photos"), resolvePhoto));
+  diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
 
   return diffs;
 }
@@ -402,7 +402,7 @@ export function enrichEditReport(
   t: Translate,
 ): ChangeReport {
   const extra: FieldChange[] = [];
-  const resolvePhoto = makePhotoResolver(dataset.records);
+  const resolveMedia = makeMediaResolver(dataset.records);
 
   const resolveIndiName = (xref: string): string => {
     const indi = dataset.individuals.get(xref);
@@ -416,7 +416,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolvePhoto));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -464,7 +464,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolvePhoto));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia));
     }
   }
 

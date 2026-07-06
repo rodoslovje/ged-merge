@@ -637,8 +637,8 @@
               prihodnosti, smrt pred rojstvom in neverjetne starosti (ob smrti, ob poroki, starost starša, starostna
               razlika zakoncev). Ločen prehod <strong>strukture GEDCOM</strong> označi kodiranje, pokvarjene vrstice in
               ravni, zaostale CONT/CONC, različico, neznane ali lastne oznake in neberljive datume — mnoge z enim klikom
-              na <strong>Popravi</strong>. Ko je povezana mapa z mediji, <strong>Preveri mapo s fotografijami</strong>
-              našteje navedene fotografije, ki v njej manjkajo.
+              na <strong>Popravi</strong>. Ko je povezana mapa z mediji, <strong>Preveri mapo z mediji</strong>
+              našteje navedene medijske datoteke, ki v njej manjkajo.
             </p>
             <p>
               Klik na katero koli težavo odpre zapis v <span class="gm-pill">Urejanju</span>. Paketni popravki v enem
@@ -706,10 +706,12 @@
           <section id="photos">
             <h2><span class="guide-num">12</span>Fotografije in mediji</h2>
             <p>
-              Datoteke GEDCOM se na slike sklicujejo po imenu in jih ne vsebujejo, zato GED Merge za prikaz fotografij
-              potrebuje mapo, v kateri so. Mapo s fotografijami povežite s plošče s podatki o datoteki (ali sprejmite
-              ponudbo, ki se prikaže, ko se datoteka sklicuje na lokalne slike). Mapa se prebere lokalno — vaše
-              fotografije nikoli ne zapustijo naprave.
+              Datoteke GEDCOM se na medijske datoteke sklicujejo po imenu in jih ne vsebujejo, zato GED Merge za
+              njihov prikaz potrebuje mapo, v kateri so. Mapo z mediji povežite s plošče s podatki o datoteki (ali
+              sprejmite ponudbo, ki se prikaže, ko se datoteka sklicuje na lokalne medije). Fotografije (JPEG, PNG,
+              SVG, …) se pokažejo kot sličice; <strong>dokumenti PDF</strong> (skenirani zapisi) se pokažejo kot
+              ploščica 📄 in se odprejo v vgrajenem predogledu PDF. Mapa se prebere lokalno — vaše datoteke nikoli ne
+              zapustijo naprave.
             </p>
             <h3>Ogled</h3>
             <p>
@@ -718,21 +720,46 @@
               vrste sličic; <span class="gm-key">Esc</span> zapre. Za skupni medijski predmet plošča s podatki navede tudi
               zapise, ki se nanj sklicujejo, vsak kot povezava v <span class="gm-pill">Urejanje</span>. Kadar fotografija
               beleži <strong>označeno območje</strong> te osebe (izrez znotraj skupinske fotografije), GED Merge to
-              območje poudari, da veste, kdo je kdo.
+              območje poudari, da veste, kdo je kdo — sličice te osebe (vrsta, kartice, vozlišča diagramov) pa
+              prikažejo samo to območje, tako da skupinska fotografija služi kot njen portret.
             </p>
             <h3>Dodajanje in urejanje</h3>
             <p>
-              V <span class="gm-pill">Urejanju</span> <strong>Dodaj fotografijo</strong> pripne sliko iz mape s
-              fotografijami (Chrome in Edge sprejmeta tudi povlečeno datoteko). V pregledovalniku je plošča s podatki
+              V <span class="gm-pill">Urejanju</span> <strong>Dodaj medij</strong> pripne sliko iz mape z
+              mediji. V Chromu in Edgu lahko datoteko tudi povlečete v okno ali uporabite <strong>Uvozi z
+              diska…</strong> v izbirniku — datoteka od zunaj mape se najprej kopira vanjo (brskalnik enkrat na sejo
+              vpraša za dovoljenje za pisanje). V pregledovalniku je plošča s podatki
               <strong>uredljiva</strong>: spremenite fotografiji <strong>naslov</strong>, <strong>datum</strong> (datum,
               ki ga slika prikazuje), <strong>kraj</strong> in <strong>opis</strong> — vsako polje se shrani ob izgubi
-              fokusa in se pridruži običajni zgodovini razveljavi/ponovi. Ikona <span class="gm-glyph">×</span> odstrani
+              fokusa in se pridruži običajni zgodovini razveljavi/ponovi. <strong>⛶ Označi območje osebe</strong> (pod
+              polji) omogoča, da na skupinski fotografiji z vlečenjem narišete pravokotnik, ki označi to osebo — postane
+              njena sličica in poudarjeno območje zgoraj. Ikona <span class="gm-glyph">×</span> odstrani
               fotografijo z osebe; slikovna datoteka na disku ostane.
             </p>
+            <h3>Podpora brskalnikov</h3>
+            <p>
+              Prikaz, opisovanje in urejanje medijev deluje v vseh sodobnih brskalnikih. Razlike so v tem, kako
+              brskalnik spletni strani dovoli dostop do mape — samo brskalniki na osnovi Chromiuma (Chrome, Edge)
+              podpirajo datotečni API, ki ga GED Merge potrebuje, da si mapo zapomni in vanjo piše:
+            </p>
+            <table class="gm-table">
+              <thead><tr><th>Medijska funkcija</th><th>Chrome / Edge</th><th>Firefox / Safari / Brave</th></tr></thead>
+              <tbody>
+                <tr><td>Prikaz fotografij, pregledovalnik, opisi, brisanje in razvrščanje</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Izbirnik <strong>Dodaj medij</strong> (datoteke, ki so že v mapi)</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Mapa z mediji si zapomni izbiro med sejami</td><td>✓</td><td>— izberi jo ob vsaki seji</td></tr>
+                <tr><td>Povleci in spusti datoteko na osebo</td><td>✓</td><td>—</td></tr>
+                <tr><td><strong>Uvozi z diska…</strong> / kopiranje spuščenih datotek v mapo</td><td>✓</td><td>—</td></tr>
+              </tbody>
+            </table>
             <div class="gm-callout note">
               <span class="gm-callout-label">Opomba</span>
-              <p>Mape s fotografijami zahtevajo sodoben brskalnik (Chrome, Edge ali Firefox). Firefox ob izbiri mape
-              prikaže splošno opozorilo o »nalaganju« — nič se ne naloži; tako brskalnik le zaprosi za dostop do mape.</p>
+              <p>Firefox in Safari namenoma ne podpirata pisalnega datotečnega API-ja, zato GED Merge tam ne more
+              kopirati datotek v mapo — kopirajte jih sami (s katerim koli upraviteljem datotek) in po kliku na Osveži
+              se pokažejo v izbirniku <strong>Dodaj medij</strong>. Firefox in Brave ob izbiri mape prikažeta splošno
+              opozorilo o »nalaganju« — nič se ne naloži; tako brskalnik le zaprosi za dostop do mape. Brave ima
+              datotečni API privzeto izklopljen, zato se vede kot Firefox, razen če ga vklopite v
+              <code>brave://flags</code>.</p>
             </div>
           </section>
 
@@ -913,7 +940,7 @@
             <h2><span class="guide-num">19</span>Zasebnost</h2>
             <p>
               Vse branje, ujemanje, združevanje in urejanje poteka lokalno v vašem brskalniku, na vašem računalniku —
-              vključno z mapo s fotografijami, ki se bere le na napravi. Vaše rodoslovno drevo se nikoli ne
+              vključno z mapo z mediji, ki se bere le na napravi. Vaše rodoslovno drevo se nikoli ne
               pošlje na strežnik. Celoten <a href="../?legal=privacy">pravilnik o zasebnosti</a> in
               <a href="../?legal=terms">pogoji</a> so povezani tudi v nogi spodaj.
             </p>

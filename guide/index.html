@@ -632,8 +632,8 @@
               recorded as a husband, or a male as a wife), future-dated events, death before birth, and implausible ages
               (at death, at marriage, parent's age, spouse age gap). A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
-              dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check photo
-              folder</strong> lists referenced photos that are missing from it.
+              dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
+              folder</strong> lists referenced media files that are missing from it.
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
@@ -701,10 +701,11 @@
           <section id="photos">
             <h2><span class="guide-num">12</span>Photos &amp; media</h2>
             <p>
-              GEDCOM files reference image files by name rather than embedding them, so to display photos GED Merge needs
+              GEDCOM files reference media files by name rather than embedding them, so to display them GED Merge needs
               the folder they live in. Connect a <strong>media folder</strong> from the file-info panel (or accept the
-              prompt offered when a file references local images). The folder is read locally — your photos never leave
-              your device.
+              prompt offered when a file references local media). Photos (JPEG, PNG, SVG, …) show as thumbnails;
+              <strong>PDF documents</strong> (scanned records) show as a 📄 tile and open in the built-in PDF preview.
+              The folder is read locally — your files never leave your device.
             </p>
             <h3>Viewing</h3>
             <p>
@@ -713,22 +714,46 @@
               or the thumbnail tray; <span class="gm-key">Esc</span> closes. For a shared media object the info panel
               also lists the records that reference it, each a link into <span class="gm-pill">Edit</span>. When a photo
               records a <strong>marked region</strong> for this person (a crop within a group photo), GED Merge highlights
-              that area so you can tell who is who.
+              that area so you can tell who is who — and the person's thumbnails (tray, cards, chart nodes) show just
+              that region, so a group photo works as their portrait.
             </p>
             <h3>Adding &amp; editing</h3>
             <p>
-              In <span class="gm-pill">Edit</span>, <strong>Add photo</strong> attaches an image from your media folder
-              (Chrome and Edge can also accept a file dragged in). In the lightbox, the info panel is
+              In <span class="gm-pill">Edit</span>, <strong>Add media</strong> attaches an image from your media folder.
+              In Chrome and Edge you can also drag a file in, or use <strong>Import from disk…</strong> in the picker —
+              a file from outside the folder is copied into it first (the browser asks once per session to allow
+              writing). In the lightbox, the info panel is
               <strong>editable</strong>: change a photo's <strong>title</strong>, <strong>date</strong> (the date the
               image depicts), <strong>place</strong> and <strong>description</strong> — each field saves on blur and
-              joins the normal undo/redo history. The <span class="gm-glyph">×</span> control removes a photo from the
+              joins the normal undo/redo history. <strong>⛶ Mark person's region</strong> (under the fields) lets you
+              drag a rectangle on a group photo to mark this person — it becomes their thumbnail and the highlighted
+              region above. The <span class="gm-glyph">×</span> control removes a photo from the
               person; the image file on disk is kept.
             </p>
+            <h3>Browser support</h3>
+            <p>
+              Viewing, captioning and organizing media works in every modern browser. The differences are in how the
+              browser lets a website access your folder — only Chromium browsers (Chrome, Edge) implement the
+              file-system API that GED Merge needs to remember the folder and to write into it:
+            </p>
+            <table class="gm-table">
+              <thead><tr><th>Media feature</th><th>Chrome / Edge</th><th>Firefox / Safari / Brave</th></tr></thead>
+              <tbody>
+                <tr><td>Display photos, lightbox, captions, delete &amp; reorder</td><td>✓</td><td>✓</td></tr>
+                <tr><td><strong>Add media</strong> picker (files already in the folder)</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Media folder remembered across reloads</td><td>✓</td><td>— re-pick it each session</td></tr>
+                <tr><td>Drag &amp; drop a file onto a person</td><td>✓</td><td>—</td></tr>
+                <tr><td><strong>Import from disk…</strong> / copy dropped files into the folder</td><td>✓</td><td>—</td></tr>
+              </tbody>
+            </table>
             <div class="gm-callout note">
               <span class="gm-callout-label">Note</span>
-              <p>Media folders need a modern browser (Chrome, Edge or Firefox). Firefox shows a generic “upload”
-              warning when you pick a folder — nothing is uploaded; the prompt is just how the browser asks for folder
-              access.</p>
+              <p>Firefox and Safari deliberately don't implement the browser file-system write API, so GED Merge cannot
+              copy files into your folder there — copy them in yourself (any file manager) and they appear under
+              <strong>Add media</strong> after a Refresh. Firefox and Brave show a generic “upload” warning when you
+              pick a folder — nothing is uploaded; the prompt is just how the browser asks for folder access. Brave
+              ships the file-system API disabled, so it behaves like Firefox unless you enable it in
+              <code>brave://flags</code>.</p>
             </div>
           </section>
 
