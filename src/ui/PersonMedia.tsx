@@ -240,7 +240,7 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
       }}
     >
       {first?.crop ? (
-        <CroppedImg url={url} crop={first.crop} size={46} className="card-photo" />
+        <CroppedImg url={url} crop={first.crop} size={64} className="card-photo" />
       ) : (
         <img src={url} className="card-photo" alt="" />
       )}
