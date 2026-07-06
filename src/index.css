@@ -1701,6 +1701,25 @@ button:focus-visible {
   gap: 12px;
 }
 
+/* Read-only couple events (marriage, divorce, …) of a parent family, shown
+   centered on the connector between the father and mother cards. */
+.edit-parent-fam-events {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+/* Each event: label + date on the first line, place on its own line below. */
+.edit-parent-fam-event {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .edit-family {
   display: flex;
   flex-direction: column;
@@ -1746,6 +1765,23 @@ button:focus-visible {
   height: 1px;
   background: var(--border-2);
   align-self: center;
+}
+/* When the connector carries the couple's events, split the line into two
+   segments (::before/::after) with the label centered between them. */
+.edit-connector-h.has-events {
+  height: auto;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.edit-connector-h.has-events::before,
+.edit-connector-h.has-events::after {
+  content: "";
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: var(--border-2);
 }
 
 /* Vertical line linking the parents/families rows to the center person. */
@@ -5236,6 +5272,10 @@ kbd {
   }
   .edit-connector-h {
     display: none;
+  }
+  /* …but keep the couple-events label visible between the stacked cards. */
+  .edit-connector-h.has-events {
+    display: flex;
   }
 
   /* Editor: partner card takes full row */

@@ -62,6 +62,7 @@ import { AddPhotoDialog } from "./AddPhotoDialog";
 import { nodeId } from "./edit/nodeId";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./edit/editConstants";
+import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
 import { RelativePickerCard } from "./edit/RelativePickerCard";
@@ -1355,6 +1356,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             const motherName = personName(fam?.wife);
             const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
             const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
+            // Read-only glimpse of the parents' couple events (marriage,
+            // divorce, …), shown on the connector between the two cards —
+            // editable on either parent's own page.
+            const coupleEvents = fam?.events.filter(
+              (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
+            ) ?? [];
             return (
               <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
                 {fatherPickerOpen && !fam?.husband ? (
@@ -1382,7 +1389,28 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                     refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
-                <div className="edit-connector-h" />
+                <div className={`edit-connector-h ${coupleEvents.length ? "has-events" : ""}`}>
+                  {coupleEvents.length > 0 && (
+                    <div className="edit-parent-fam-events">
+                      {coupleEvents.map((ev, j) => {
+                        const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
+                        return (
+                          <span
+                            className="edit-parent-fam-event"
+                            key={`${ev.tag}-${j}`}
+                            title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
+                          >
+                            <span>
+                              {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
+                              {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
+                            </span>
+                            {place && <span className="gm-data">{place}</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 {motherPickerOpen && !fam?.wife ? (
                   <RelativePickerCard
                     roleLabel={t("field.mother")}
