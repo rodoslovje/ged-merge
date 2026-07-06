@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
-import { datesTooltipOf } from "../../gedcom/lifespan";
+import { lifespanTooltipOf } from "../../gedcom/age";
 import { primaryName } from "../../match/relatives";
 import { sexClass } from "../sex";
+import { useSettings } from "../SettingsContext";
 import { setName } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
@@ -46,6 +47,7 @@ export function NameEditor({
   /** Delete control, placed at the far right of the decision row (or the name row if no match). */
   controls?: ReactNode;
 }) {
+  const { settings } = useSettings();
   const primary = primaryName(person);
   // Stable merge values from first render (component is keyed per person)
   const givenMergeInit = useRef(mergeHighlight?.get("given"));
@@ -68,7 +70,7 @@ export function NameEditor({
   const surnameIsMerge = surnameMergeInit.current !== undefined && surname === surnameMergeInit.current;
 
   return (
-    <div className="edit-name-row" title={datesTooltipOf(person)}>
+    <div className="edit-name-row" title={lifespanTooltipOf(person, settings.showAge, t)}>
       {/* Given + surname stay together as one unwrappable unit, so a tight
           header wraps the Sex/Delete controls to their own row (see
           `.edit-person-header`) rather than breaking the name across lines. */}

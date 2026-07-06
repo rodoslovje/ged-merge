@@ -5,7 +5,7 @@ import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
 import { INDI_EVENT_TAGS } from "../../gedcom/builder";
 import { birthDateOf } from "../../gedcom/lifespan";
-import { ageBetween } from "../../gedcom/age";
+import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, zoneSortKey } from "../../review/fields";
 import { useSettings } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
@@ -98,19 +98,22 @@ export function EventList({
    * row keys so a row already mounted before a match was confirmed remounts
    * and picks up the now-available incoming values (see `mergeGenRef`). */
   mergeGen?: number;
-  /** Glyph-tagged parents' ages at this person's birth (e.g. "♂32 ♀28"),
-   * shown on the BIRT row when the "Show ages" setting is on. */
-  birthParentAges?: string;
+  /** Parents' ages at this person's birth (badge text e.g. "♂32 ♀28" plus
+   * full-precision tooltip), shown on the BIRT row when "Show ages" is on. */
+  birthParentAges?: { text: string; title: string };
 }) {
   const { settings } = useSettings();
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
-  // The person's age at an event, shown after its date ("Show ages" setting).
+  // The person's age at an event, shown after its date ("Show ages" setting);
+  // the tooltip carries the full-precision Y/M/D breakdown.
   const birthDate = settings.showAge ? birthDateOf(person) : undefined;
   function eventAge(ev: GedEvent): { text: string; title: string } | undefined {
     if (!settings.showAge || ev.tag === "BIRT") return undefined;
     const age = ageBetween(birthDate, ev.date);
-    return age === undefined ? undefined : { text: String(age), title: t("event.age.person") };
+    if (age === undefined) return undefined;
+    const detail = fullAgeBetween(birthDate, ev.date, t);
+    return { text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") };
   }
 
   /** Merge sub-field keys (e.g. "date", "addr") touched by `update`, for `onResolveMergeField`. */
@@ -207,7 +210,7 @@ export function EventList({
         resolvedSessionFields={resolvedSessionFields}
         eventNodeId={birtOriginalIdx >= 0 ? nodeId(rawEventNodes[birtOriginalIdx]) : undefined}
         materializedEventIds={materializedEventIds}
-        age={birthParentAges ? { text: birthParentAges, title: t("event.age.birthParents") } : undefined}
+        age={birthParentAges}
       />
       {allRows.map((row) =>
         row.kind === "main" ? (

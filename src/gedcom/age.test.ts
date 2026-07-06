@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { ageBetween, formatCoupleAges, lifespanAge, lifespanWithAge } from "./age";
+import {
+  ageBetween,
+  agePartsBetween,
+  formatCoupleAges,
+  fullAgeBetween,
+  lifespanAge,
+  lifespanTooltipOf,
+  lifespanWithAge,
+} from "./age";
 import type { GedDate, Individual } from "./types";
+import type { Translate } from "../locales/i18n";
+
+/** Minimal translator for the unit-letter keys used by the formatters. */
+const t: Translate = (key) => ({ "age.y": "y", "age.m": "m", "age.d": "d" })[key] ?? key;
 
 const d = (year?: number, month?: number, day?: number): GedDate => ({
   raw: "",
@@ -45,6 +57,47 @@ describe("ageBetween", () => {
   });
 });
 
+describe("agePartsBetween / fullAgeBetween", () => {
+  it("gives the full Y/M/D breakdown for full dates", () => {
+    expect(agePartsBetween(d(1908, 1, 26), d(1970, 3, 3))).toEqual({ years: 62, months: 1, days: 5 });
+    expect(fullAgeBetween(d(1908, 1, 26), d(1970, 3, 3), t)).toBe("62y 1m 5d");
+  });
+
+  it("borrows days from the month before the end date", () => {
+    // 15 Jun → 14 Jun next year: one day short of the anniversary (May has 31 days).
+    expect(agePartsBetween(d(1900, 6, 15), d(1901, 6, 14))).toEqual({ years: 0, months: 11, days: 30 });
+    // End in March: borrows February's 28 days.
+    expect(agePartsBetween(d(1900, 1, 30), d(1901, 3, 1))).toEqual({ years: 1, months: 1, days: 1 });
+  });
+
+  it("stops at year+month precision when a day is missing", () => {
+    expect(agePartsBetween(d(1900, 6), d(1935, 3, 10))).toEqual({ years: 34, months: 9 });
+    expect(fullAgeBetween(d(1900, 6), d(1935, 3, 10), t)).toBe("34y 9m");
+  });
+
+  it("stops at year precision when a month is missing", () => {
+    expect(agePartsBetween(d(1900), d(1935, 3, 10))).toEqual({ years: 35 });
+    expect(fullAgeBetween(d(1900), d(1935, 3, 10), t)).toBe("35y");
+  });
+
+  it("agrees with ageBetween on the whole years", () => {
+    const cases: [GedDate, GedDate][] = [
+      [d(1900, 6, 15), d(1935, 6, 14)],
+      [d(1900, 6, 15), d(1935, 6, 15)],
+      [d(1900, 6), d(1935, 3)],
+      [d(1900), d(1935)],
+    ];
+    for (const [b, a] of cases) {
+      expect(agePartsBetween(b, a)?.years).toBe(ageBetween(b, a));
+    }
+  });
+
+  it("is undefined for implausible spans", () => {
+    expect(agePartsBetween(d(1935), d(1900))).toBeUndefined();
+    expect(agePartsBetween(d(1900, 6), d(1900, 3))).toBeUndefined();
+  });
+});
+
 const indi = (events: Individual["events"]): Individual => ({
   id: "@I1@",
   names: [],
@@ -85,6 +138,17 @@ describe("lifespanAge / lifespanWithAge", () => {
 
   it("leaves the plain lifespan when the toggle is off", () => {
     expect(lifespanWithAge(dead, false)).toBe("1850–1920");
+  });
+});
+
+describe("lifespanTooltipOf", () => {
+  it("appends the full-precision age to the dates tooltip", () => {
+    const p = indi([
+      { tag: "BIRT", date: { ...d(1908, 1, 26), raw: "26 JAN 1908" } },
+      { tag: "DEAT", date: { ...d(1970, 3, 3), raw: "3 MAR 1970" } },
+    ]);
+    expect(lifespanTooltipOf(p, true, t)).toBe("26 JAN 1908 – 3 MAR 1970 (62y 1m 5d)");
+    expect(lifespanTooltipOf(p, false, t)).toBe("26 JAN 1908 – 3 MAR 1970");
   });
 });
 

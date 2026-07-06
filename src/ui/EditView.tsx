@@ -3,7 +3,7 @@ import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, pat
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
-import { ageAtDate, formatCoupleAges, lifespanWithAge } from "../gedcom/age";
+import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -1385,10 +1385,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     if (!birthDate) return undefined;
     const fatherId = parentFamilies.find((f) => f.husband)?.husband;
     const motherId = parentFamilies.find((f) => f.wife)?.wife;
-    return formatCoupleAges(
-      ageAtDate(fatherId ? dataset.individuals.get(fatherId) : undefined, birthDate),
-      ageAtDate(motherId ? dataset.individuals.get(motherId) : undefined, birthDate),
-    ) || undefined;
+    return coupleAgesDisplay(
+      fatherId ? dataset.individuals.get(fatherId) : undefined,
+      motherId ? dataset.individuals.get(motherId) : undefined,
+      birthDate,
+      t("event.age.birthParents"),
+      t,
+    );
   })();
 
   const startInfo = settings.showKinship && startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
@@ -1471,11 +1474,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                       {coupleEvents.map((ev, j) => {
                         const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
                         const coupleAges = settings.showAge && ev.date && fam
-                          ? formatCoupleAges(
-                              ageAtDate(fam.husband ? dataset.individuals.get(fam.husband) : undefined, ev.date),
-                              ageAtDate(fam.wife ? dataset.individuals.get(fam.wife) : undefined, ev.date),
+                          ? coupleAgesDisplay(
+                              fam.husband ? dataset.individuals.get(fam.husband) : undefined,
+                              fam.wife ? dataset.individuals.get(fam.wife) : undefined,
+                              ev.date,
+                              t("event.age.couple"),
+                              t,
                             )
-                          : "";
+                          : undefined;
                         return (
                           <span
                             className="edit-parent-fam-event"
@@ -1485,7 +1491,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                             <span>
                               {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
                               {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
-                              {coupleAges && <> <span className="gm-data edit-event-age">{coupleAges}</span></>}
+                              {coupleAges && <> <span className="gm-data edit-event-age" title={coupleAges.title}>{coupleAges.text}</span></>}
                             </span>
                             {place && <span className="gm-data">{place}</span>}
                           </span>

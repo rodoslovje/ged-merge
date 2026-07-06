@@ -2,7 +2,7 @@ import type { Family, Individual, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
 import { firstChild } from "../../gedcom/node";
-import { ageAtDate, formatCoupleAges } from "../../gedcom/age";
+import { coupleAgesDisplay } from "../../gedcom/age";
 import { useSettings } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
@@ -47,11 +47,14 @@ export function FamilyEventRow({
 
   const coupleAges =
     settings.showAge && individuals && ev?.date
-      ? formatCoupleAges(
-          ageAtDate(fam.husband ? individuals.get(fam.husband) : undefined, ev.date),
-          ageAtDate(fam.wife ? individuals.get(fam.wife) : undefined, ev.date),
+      ? coupleAgesDisplay(
+          fam.husband ? individuals.get(fam.husband) : undefined,
+          fam.wife ? individuals.get(fam.wife) : undefined,
+          ev.date,
+          t("event.age.couple"),
+          t,
         )
-      : "";
+      : undefined;
 
   return (
     <EventFieldsRow
@@ -78,7 +81,7 @@ export function FamilyEventRow({
       mergeIncomingSources={mergeIncomingSources}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
       resolvedSessionFields={resolvedSessionFields}
-      age={coupleAges ? { text: coupleAges, title: t("event.age.couple") } : undefined}
+      age={coupleAges}
     />
   );
 }
