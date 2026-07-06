@@ -1356,6 +1356,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             const motherName = personName(fam?.wife);
             const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
             const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
+            // Read-only glimpse of the parents' couple events (marriage,
+            // divorce, …), shown on the connector between the two cards —
+            // editable on either parent's own page.
+            const coupleEvents = fam?.events.filter(
+              (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
+            ) ?? [];
             return (
               <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
                 {fatherPickerOpen && !fam?.husband ? (
@@ -1383,7 +1389,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                     refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
-                <div className="edit-connector-h" />
+                <div className={`edit-connector-h ${coupleEvents.length ? "has-events" : ""}`}>
+                  {coupleEvents.length > 0 && (
+                    <div className="edit-parent-fam-events">
+                      {coupleEvents.map((ev, j) => (
+                        <span
+                          key={`${ev.tag}-${j}`}
+                          title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
+                        >
+                          {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}{" "}
+                          <span className="gm-data">
+                            {[ev.date?.raw, ev.place ? ev.place.parts[0] || ev.place.raw : undefined].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {motherPickerOpen && !fam?.wife ? (
                   <RelativePickerCard
                     roleLabel={t("field.mother")}
@@ -1409,29 +1431,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                     refCtx={{ dataset, onNavigate: navigate }}
                   />
                 )}
-                {(() => {
-                  // Read-only glimpse of the parents' couple events (marriage,
-                  // divorce, …) — editable on either parent's own page.
-                  const couple = fam?.events.filter(
-                    (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
-                  ) ?? [];
-                  if (!couple.length) return null;
-                  return (
-                    <div className="edit-parent-fam-events">
-                      {couple.map((ev, j) => (
-                        <span
-                          key={`${ev.tag}-${j}`}
-                          title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
-                        >
-                          {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}{" "}
-                          <span className="gm-data">
-                            {[ev.date?.raw, ev.place ? ev.place.parts[0] || ev.place.raw : undefined].filter(Boolean).join(" · ")}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
               </div>
             );
           })}
