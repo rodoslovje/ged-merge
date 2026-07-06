@@ -1,5 +1,7 @@
 node_modules
 dist
+.claude/allow-main-edits
+.claude/worktrees/
 dist-ssr
 *.local
 .DS_Store
