@@ -54,7 +54,7 @@
           "@type": "WebPageElement",
           "name": "Edit mode",
           "url": "https://gedmerge.com/guide/#edit",
-          "description": "Browse and edit individuals, names, events, families, notes, sources and photos directly in your master GEDCOM."
+          "description": "Browse and edit individuals, names, events, families, notes, sources and photos directly in your main GEDCOM file."
         },
         {
           "@type": "WebPageElement",
@@ -140,7 +140,7 @@
             <li><a href="#loading">3. Loading files</a></li>
 
             <li class="guide-toc-part">II · Core Concepts</li>
-            <li><a href="#master-incoming">4. Master &amp; Incoming</a></li>
+            <li><a href="#master-incoming">4. Main file &amp; Incoming</a></li>
             <li><a href="#score">5. The match score</a></li>
             <li><a href="#home-person">6. Start person &amp; kinship</a></li>
             <li><a href="#house-style">7. House style &amp; normalization</a></li>
@@ -211,7 +211,7 @@
             <p>The app shell is the same in every mode. From the top bar you can:</p>
             <ul>
               <li><strong>Mode tabs</strong> — switch between <span class="gm-pill">Edit</span>, <span class="gm-pill">Merge</span> and <span class="gm-pill">Tools</span> (shortcuts <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
-              <li><strong>File pills</strong> — the loaded master and incoming file names. Click a pill to see or replace that file.</li>
+              <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
               <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens them in the tree.</li>
@@ -259,7 +259,7 @@
           <section id="loading">
             <h2><span class="guide-num">3</span>Loading files</h2>
             <p>
-              Drag a file onto the drop zone, or click to browse. The <strong>master</strong> is your primary tree —
+              Drag a file onto the drop zone, or click to browse. The <strong>main file</strong> is your primary tree —
               load it first. In <span class="gm-pill">Merge</span> mode you then load an <strong>incoming</strong> file:
               another <em>.ged</em>, or a <strong>matches CSV</strong> exported from
               <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
@@ -269,7 +269,7 @@
               After a file loads, the <strong>file-info panel</strong> reports what was read — individual and family
               counts, GEDCOM version, encoding, and the file's detected <strong>house style</strong>: its date format,
               place layout, source layout and name layout (explained in <a href="#house-style">§7</a>). For an incoming
-              file it also lists how many dates, places, links and names were reshaped to match your master, and how
+              file it also lists how many dates, places, links and names were reshaped to match your main file, and how
               many split copies of the same person were merged into one.
             </p>
             <div class="gm-callout tip">
@@ -283,9 +283,9 @@
           <p class="guide-part-head">Part II — Core Concepts</p>
 
           <section id="master-incoming">
-            <h2><span class="guide-num">4</span>Master &amp; Incoming</h2>
+            <h2><span class="guide-num">4</span>Main file &amp; Incoming</h2>
             <p>
-              The <strong>Master</strong> file is your primary family tree — the one you own and maintain. The
+              The <strong>main</strong> file is your primary family tree — the one you own and maintain. The
               <strong>Incoming</strong> file is what you compare against it: a second GEDCOM, or a matches CSV from
               <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>.
               Edits and merges only ever build a <em>new copy</em> for download; your originals on
@@ -342,7 +342,7 @@
               <li><strong>Name layout</strong> — whether alternate names live as inline sub-tags or as separate typed name records.</li>
             </ul>
             <p>
-              When you load an <strong>incoming</strong> file, GED Merge <strong>normalizes</strong> it to your master's
+              When you load an <strong>incoming</strong> file, GED Merge <strong>normalizes</strong> it to your main file's
               house style before comparing — reformatting its dates, reshaping its places, rewriting links (Matricula,
               Geneanet) and reshaping name variants — so the comparison is like-for-like and anything you merge in
               already matches your file's conventions. The <a href="#tools">Normalize</a> tool applies the same idea
@@ -367,11 +367,11 @@
           <p class="guide-part-head">Part III — The Three Modes</p>
 
           <section id="edit">
-            <h2><span class="guide-num">9</span>Edit — your master GEDCOM</h2>
+            <h2><span class="guide-num">9</span>Edit — your main GEDCOM file</h2>
             <h3>Navigating</h3>
             <p>
               Switch to <span class="gm-pill">Edit</span> (<span class="gm-key">E</span>) to browse and modify your
-              master directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
+              main file directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
               click a relative's card to walk the tree; <strong>Back</strong> returns to where you came from. If the
               current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
               that comparison. Every change is held in memory and reversible with
@@ -583,7 +583,7 @@
               For each conflicting field, choose which value to keep:
             </p>
             <ul>
-              <li><span class="gm-badge m">M</span> — keep the <strong>Master</strong> value</li>
+              <li><span class="gm-badge m">M</span> — keep the <strong>Main</strong> file's value</li>
               <li><span class="gm-badge i">I</span> — take the <strong>Incoming</strong> value</li>
               <li><span class="gm-badge b">B</span> — keep <strong>Both</strong></li>
             </ul>
@@ -601,18 +601,18 @@
               descendants from both files in one diagram, so you can be sure they're really the same person. Nodes are
               colour-coded: <span class="gm-swatch match"></span> match, <span class="gm-swatch minor"></span> minor
               differences, <span class="gm-swatch major"></span> major differences,
-              <span class="gm-swatch master"></span> master only, <span class="gm-swatch incoming"></span> incoming only.
+              <span class="gm-swatch master"></span> main file only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
-              into your master on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
+              into your main file on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
               <strong>Export ▾</strong> menu all work here just like the other diagrams (see <a href="#edit">§9</a>) —
               except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
-              master.
+              main file.
             </p>
             <h3>Merging</h3>
             <p>
               <strong>Save GEDCOM</strong> previews every confirmed match and edit, then downloads the merged file —
-              applying your field-level choices to a copy of the master and pulling in any new individuals and families
+              applying your field-level choices to a copy of the main file and pulling in any new individuals and families
               connected to those confirmed matches. Full detail in <a href="#saving">§14</a>.
             </p>
           </section>
@@ -621,7 +621,7 @@
             <h2><span class="guide-num">11</span>Tools — whole-file maintenance</h2>
             <p>
               The <span class="gm-pill">Tools</span> tab (<span class="gm-key">T</span>) runs checks and clean-ups across
-              your entire master file. Each tool works in the browser and previews its result before you download; your
+              your entire main file. Each tool works in the browser and previews its result before you download; your
               live file is untouched until you do.
             </p>
             <h3>Health check</h3>
@@ -658,7 +658,7 @@
             <h3>Privacy</h3>
             <p>
               Produces a <strong>redacted copy</strong> of your file for sharing or publishing, with living people
-              protected — your live master is never touched. GED Merge <em>infers</em> who is likely living: anyone with
+              protected — your live main file is never touched. GED Merge <em>infers</em> who is likely living: anyone with
               no death, burial or cremation event whose estimated birth is recent enough. The estimate comes from their
               own birth year, or — when that's missing — from dated relatives, or finally a configurable assume-living
               fallback. A breakdown shows how many were flagged by birth date, by relatives, or assumed.
@@ -807,7 +807,7 @@
             <p><strong>Field-choice badges</strong> — rectangular, in the compare panel:</p>
             <table class="gm-table">
               <tbody>
-                <tr><td><span class="gm-badge m">M</span></td><td>Keep the Master field value</td></tr>
+                <tr><td><span class="gm-badge m">M</span></td><td>Keep the Main file's field value</td></tr>
                 <tr><td><span class="gm-badge i">I</span></td><td>Take the Incoming field value</td></tr>
                 <tr><td><span class="gm-badge b">B</span></td><td>Keep Both values</td></tr>
               </tbody>
@@ -818,7 +818,7 @@
                 <tr><td><span class="gm-swatch match"></span></td><td>Match — the records agree</td></tr>
                 <tr><td><span class="gm-swatch minor"></span></td><td>Minor differences</td></tr>
                 <tr><td><span class="gm-swatch major"></span></td><td>Major differences / conflicts</td></tr>
-                <tr><td><span class="gm-swatch master"></span></td><td>Present in the master only</td></tr>
+                <tr><td><span class="gm-swatch master"></span></td><td>Present in the main file only</td></tr>
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Present in the incoming only</td></tr>
               </tbody>
             </table>
@@ -891,8 +891,8 @@
             <table class="gm-table">
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>The standard family-tree exchange format (<em>.ged</em>) GED Merge reads and writes.</td></tr>
-                <tr><td><strong>Master</strong></td><td>Your primary tree — the file you edit and merge into.</td></tr>
-                <tr><td><strong>Incoming</strong></td><td>The file you compare against the master: another GEDCOM or a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV.</td></tr>
+                <tr><td><strong>Main file</strong></td><td>Your primary tree — the file you edit and merge into.</td></tr>
+                <tr><td><strong>Incoming</strong></td><td>The file you compare against the main file: another GEDCOM or a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV.</td></tr>
                 <tr><td><strong>Match score</strong></td><td>0–100% likelihood that two records are the same person.</td></tr>
                 <tr><td><strong>Start person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
                 <tr><td><strong>House style</strong></td><td>A file's own date, place, source and name conventions.</td></tr>
