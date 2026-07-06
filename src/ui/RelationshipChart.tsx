@@ -288,7 +288,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
                         kinshipLineage={kinshipOf.lineage(b.id)}
                         photo={indi ? { node: { main: { raw: indi.raw } }, mainRecords: mainDs.records, mainRefCtx: { dataset: mainDs, onNavigate } } : undefined}
                         display={settings}
-                        living={isPresumedLiving(indi)}
+                        living={isPresumedLiving(indi, mainDs)}
                         nodeH={nodeH}
                         badges={
                           settings.showBadges

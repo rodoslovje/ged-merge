@@ -53,7 +53,7 @@ export function buildAhnentafel(
 
     for (const { num, indi, marriages } of queue) {
       const dupOf = firstNum.get(indi.id);
-      const entry = makeEntry(indi, num, nameOf, vitals(indi, marriages, opts), nowYear, dupOf);
+      const entry = makeEntry(indi, num, nameOf, vitals(indi, marriages, opts), nowYear, dupOf, ds);
       if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
       total++;
@@ -75,7 +75,7 @@ export function buildAhnentafel(
       // to the mother's entry so the date/place isn't lost.
       if (father) {
         const wife = famF!.wife ? ds.individuals.get(famF!.wife) : undefined;
-        const fact = marriageFact(famF!, wife && nameOf(wife), opts, wife && isPresumedLiving(wife, nowYear));
+        const fact = marriageFact(famF!, wife && nameOf(wife), opts, wife && isPresumedLiving(wife, ds, nowYear));
         next.push({ num: 2 * num, indi: father, marriages: fact ? [fact] : [] });
       }
       if (mother) {

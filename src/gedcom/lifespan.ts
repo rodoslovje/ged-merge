@@ -1,4 +1,4 @@
-import type { GedDate, Individual } from "./types";
+import type { Dataset, GedDate, Individual } from "./types";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
@@ -80,20 +80,84 @@ export function isDeceased(indi: Individual | undefined): boolean {
 /** Years since a birth still counts a person as possibly living (privacy default). */
 const LIVING_WINDOW_YEARS = 100;
 
+/** A rough generational gap (years) used to estimate an undated birth from kin. */
+const GENERATION = 28;
+
+/** The kin relation an undated birth estimate was derived from. */
+export type EstimateRelation = "father" | "mother" | "spouse" | "child";
+
+/** When a birth estimate is derived from a relative, the single relative whose
+ *  date drove it, so callers can explain which relation and how the age follows. */
+export interface BirthEstimate {
+  /** The year this person's birth is estimated at. */
+  estimatedYear: number;
+  relation: EstimateRelation;
+  relativeId: string;
+  relativeName: string;
+  /** The relative's own birth year that the estimate was offset from. */
+  relativeYear: number;
+}
+
 /**
- * Whether a person is presumed living for chart-privacy purposes. They count as
- * living only when they carry no death event *and* were born within the last
- * {@link LIVING_WINDOW_YEARS} years. Undated people with no death event are treated
- * as deceased (not redacted) — otherwise every dateless ancient ancestor would be
- * hidden, which is the opposite of useful on a chart.
+ * Estimate a birth year from dated immediate relatives (parents, spouse,
+ * children) when the person carries no birth date of their own, biased toward
+ * the most recent evidence so borderline people lean "living" — the safe
+ * default for privacy heuristics.
+ */
+export function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate | undefined {
+  let best: BirthEstimate | undefined;
+  const consider = (rel: Individual | undefined, relation: EstimateRelation, delta: number) => {
+    if (!rel) return;
+    const ry = birthYear(rel);
+    if (ry === undefined) return;
+    const v = ry + delta;
+    if (best === undefined || v > best.estimatedYear) {
+      best = {
+        estimatedYear: v,
+        relation,
+        relativeId: rel.id,
+        relativeName: rel.names[0]?.full?.trim() || rel.id,
+        relativeYear: ry,
+      };
+    }
+  };
+  // Parents → this person was born ~a generation later.
+  for (const famId of indi.childOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", GENERATION);
+    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", GENERATION);
+  }
+  // Spouse (same generation) and children (~a generation earlier).
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", 0);
+    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -GENERATION);
+  }
+  return best;
+}
+
+/**
+ * Whether a person is presumed living for chart-privacy purposes. They count
+ * as living when they carry no death event *and* either their own birth, or —
+ * when that's missing — a birth estimated from dated relatives via `ds`, falls
+ * within the last {@link LIVING_WINDOW_YEARS} years. A person with no death
+ * event, no birth, and no datable relatives (typically a fully-undated ancient
+ * ancestor) is treated as deceased (not redacted) — otherwise every such
+ * ancestor would be hidden, which is the opposite of useful on a chart.
  */
 export function isPresumedLiving(
   indi: Individual | undefined,
+  ds?: Dataset,
   now: number = new Date().getFullYear(),
 ): boolean {
   if (!indi || isDeceased(indi)) return false;
   const by = birthYear(indi);
-  return by !== undefined && now - by < LIVING_WINDOW_YEARS;
+  if (by !== undefined) return now - by < LIVING_WINDOW_YEARS;
+  const est = ds && estimateBirthYear(indi, ds);
+  return est !== undefined && now - est.estimatedYear < LIVING_WINDOW_YEARS;
 }
 
 /**
