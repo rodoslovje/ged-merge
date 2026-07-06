@@ -1179,7 +1179,7 @@ button:focus-visible {
   border-radius: var(--radius-sm);
 }
 .start-option:hover,
-.start-option.highlighted { background: var(--panel); }
+.start-option.highlighted { background: var(--accent-soft); }
 .start-option.active { color: var(--accent); }
 .start-empty { padding: 6px 8px; }
 
