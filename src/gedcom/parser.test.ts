@@ -126,6 +126,55 @@ describe("parseGedcom", () => {
       expect(indi.names[0].full).toContain("Janez");
       expect(indi.events.some((e) => e.tag === "BIRT" && e.date?.year === 1850)).toBe(true);
     });
+
+    // MyHeritage attaches auto-generated transcription blurbs to source
+    // citations, and when the pasted text itself contains a line break, it
+    // writes that break as a bare physical line instead of another CONC/CONT
+    // line — not valid GEDCOM syntax, but overwhelmingly the real-world cause
+    // of "unparsable line" warnings, so it's folded back into the value
+    // instead of being flagged and detached.
+    const MYHERITAGE_TEXT = [
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Rudolph /Simonich/",
+      "1 SOUR @S1@",
+      "2 DATA",
+      "3 TEXT Rudolph Simonich, born 1866",
+      "4 CONC ; a newspaper excerpt follows:",
+      "In the rugged town of Butte, where men are",
+      "measured by exacting standards.",
+      "4 CONC  He was unanimously respected.",
+      "1 BIRT",
+      "2 DATE 1866",
+      "0 TRLR",
+      "",
+    ].join("\n");
+
+    it("folds a MyHeritage-style embedded line break into the TEXT value, with no warning", () => {
+      const parsed = parseGedcom(toBuffer(MYHERITAGE_TEXT));
+      expect(parsed.warnings).toHaveLength(0);
+      const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+      const text = indi.children.find((c) => c.tag === "SOUR")!.children.find((c) => c.tag === "DATA")!.children.find(
+        (c) => c.tag === "TEXT",
+      )!;
+      // CONC lines concatenate with no separator; folded free-text lines join
+      // with "\n" (matching CONT semantics for a genuine embedded line break).
+      expect(text.value).toBe(
+        "Rudolph Simonich, born 1866; a newspaper excerpt follows:\n" +
+          "In the rugged town of Butte, where men are\n" +
+          "measured by exacting standards. He was unanimously respected.",
+      );
+      expect(text.children).toHaveLength(0);
+    });
+
+    it("still parses the record's other fields correctly", () => {
+      const ds = buildDataset(parseGedcom(toBuffer(MYHERITAGE_TEXT)));
+      const indi = ds.individuals.get("@I1@")!;
+      expect(indi.names[0].full).toContain("Rudolph");
+      expect(indi.events.some((e) => e.tag === "BIRT" && e.date?.year === 1866)).toBe(true);
+    });
   });
 
   it("warns when two records define the same xref (last one wins)", () => {

@@ -29,12 +29,27 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   // stack[level] holds the most recent node opened at that level.
   const stack: GedNode[] = [];
 
+  // Some exporters (MyHeritage in particular) paste free text — census
+  // transcriptions, newspaper excerpts — into a TEXT/NOTE value and forget to
+  // re-encode the text's own embedded line breaks as CONT/CONC: the break
+  // just becomes a bare physical line with no level/tag prefix, which isn't
+  // valid GEDCOM syntax. `textBlob` tracks the node whose value is "in
+  // progress" (its own line, or a CONT/CONC continuation of it), so a line
+  // that fails to fit the tree for that reason gets folded back into the
+  // value it clearly belongs to instead of being flagged and detached.
+  // Cleared on any well-formed non-CONT/CONC line.
+  let textBlob: GedNode | undefined;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim() === "") continue;
 
     const m = LINE_RE.exec(line);
     if (!m) {
+      if (textBlob) {
+        textBlob.value = (textBlob.value ?? "") + "\n" + line;
+        continue;
+      }
       warnings.push({ kind: "syntax", message: `Unparsable line (kept verbatim): ${truncate(line)}`, line: i + 1 });
       // Keep the line losslessly: attach a verbatim node at the current point
       // in the stream (the deepest open node's children, or the root list), so
@@ -61,6 +76,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
       }
       const sep = tag === "CONT" ? "\n" : "";
       parent.value = (parent.value ?? "") + sep + (value ?? "");
+      textBlob = parent;
       continue;
     }
 
@@ -73,6 +89,14 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     } else {
       const parent = stack[level - 1];
       if (!parent) {
+        // A line that happens to match the tag grammar (a digit, some words)
+        // but doesn't fit the tree is almost always more of the same
+        // unescaped free text, just coincidentally starting with a number —
+        // fold it too, same as the no-match case above.
+        if (textBlob) {
+          textBlob.value = (textBlob.value ?? "") + "\n" + line;
+          continue;
+        }
         warnings.push({
           kind: "structure",
           message: `Line at level ${level} has no parent at level ${level - 1}`,
@@ -87,6 +111,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
 
     stack[level] = node;
     stack.length = level + 1; // discard deeper, now-stale entries
+    textBlob = tag === "TEXT" || tag === "NOTE" ? node : undefined;
   }
 
   const version = detectVersion(roots, warnings);
