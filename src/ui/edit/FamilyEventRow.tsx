@@ -1,7 +1,9 @@
-import type { Family, SourceCitation } from "../../gedcom/types";
+import type { Family, Individual, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
 import { firstChild } from "../../gedcom/node";
+import { coupleAgesDisplay } from "../../gedcom/age";
+import { useSettings } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
@@ -10,7 +12,7 @@ import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onRetag, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
-  mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields,
+  mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   openEditSource: OpenEditSource;
@@ -33,11 +35,26 @@ export function FamilyEventRow({
    * then be empty anyway. */
   famMergeKeyBase?: string;
   resolvedSessionFields?: Set<string>;
+  /** Pass to show the husband's/wife's ages after the event date ("Show ages"
+   * setting), e.g. "♂32 ♀28". */
+  individuals?: Map<string, Individual>;
 }) {
+  const { settings } = useSettings();
   const ev = fam.events.find((e) => e.tag === tag);
   const label = t(`event.${tag}`);
   const eventNode = firstChild(fam.raw, tag);
   const tagChoices = familyTagChoices(fam, tag);
+
+  const coupleAges =
+    settings.showAge && individuals && ev?.date
+      ? coupleAgesDisplay(
+          fam.husband ? individuals.get(fam.husband) : undefined,
+          fam.wife ? individuals.get(fam.wife) : undefined,
+          ev.date,
+          { husband: t("event.age.husband"), wife: t("event.age.wife") },
+          t,
+        )
+      : undefined;
 
   return (
     <EventFieldsRow
@@ -64,6 +81,7 @@ export function FamilyEventRow({
       mergeIncomingSources={mergeIncomingSources}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
       resolvedSessionFields={resolvedSessionFields}
+      age={coupleAges}
     />
   );
 }

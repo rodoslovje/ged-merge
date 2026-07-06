@@ -1,5 +1,6 @@
+import { useTranslation } from "react-i18next";
 import type { GedNode, Individual } from "../gedcom/types";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
@@ -48,6 +49,7 @@ interface Props {
 export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
   const nameOf = useNameOf();
   const { settings } = useSettings();
+  const { t } = useTranslation();
   if (!individual) {
     return (
       <div className="person-card-wrap">
@@ -65,14 +67,14 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
     );
   }
 
-  const lifespan = lifespanOf(individual);
+  const lifespan = lifespanWithAge(individual, settings.showAge);
   return (
     <div className="person-card-wrap">
       {roleLabel && <div className="person-card-role">{roleLabel}</div>}
       <div className="person-card-row">
         <button
           className={`person-card ${sexClass(individual.sex)}`}
-          title={datesTooltipOf(individual)}
+          title={lifespanTooltipOf(individual, settings.showAge, t)}
           onClick={() => onSelect?.(individual.id)}
         >
           {records && <CardPhoto raw={individual.raw} records={records} refCtx={refCtx} />}

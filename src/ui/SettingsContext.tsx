@@ -20,6 +20,10 @@ export interface AppSettings extends NameDisplayOptions {
    *  headers, relative cards, match candidates, tree nodes). When off, no
    *  kinship is shown anywhere even if a start person is set. */
   showKinship: boolean;
+  /** Show ages: at death after the lifespan (current age for the living), the
+   *  person's age next to each event date, and the parents'/spouses' ages on
+   *  birth and family events. */
+  showAge: boolean;
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
@@ -33,6 +37,7 @@ const DEFAULTS: AppSettings = {
   ...DEFAULT_NAME_DISPLAY,
   showXref: false,
   showKinship: true,
+  showAge: false,
   allowLinkFetch: false,
   persistWorkspace: false,
 };
@@ -62,6 +67,7 @@ function load(): AppSettings {
       marriedSurname: bool(parsed.marriedSurname, DEFAULTS.marriedSurname),
       showXref: bool(parsed.showXref, DEFAULTS.showXref),
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
+      showAge: bool(parsed.showAge, DEFAULTS.showAge),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
     };

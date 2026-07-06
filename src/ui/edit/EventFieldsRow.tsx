@@ -41,6 +41,7 @@ export function EventFieldsRow({
   resolvedSessionFields,
   eventNodeId,
   materializedEventIds,
+  age,
 }: {
   ev: GedEvent | undefined;
   label: string;
@@ -82,6 +83,10 @@ export function EventFieldsRow({
    * every field of such an event renders bold (it's all new vs the saved
    * main), independently of `resolvedSessionFields`. */
   materializedEventIds?: Set<number>;
+  /** Age badges shown after the date ("Show ages" setting) — the person's age
+   * at this event, or one glyph-tagged badge per spouse/parent (e.g. "♂32"
+   * "♀28"), each with its own tooltip. */
+  age?: { text: string; title: string }[];
 }) {
   // A generic `EVEN` is labelled "Event"; its descriptive `TYPE` is edited in
   // the "Title" slot and its own line value (`1 EVEN <v>`) in the "Agency" slot
@@ -327,17 +332,25 @@ export function EventFieldsRow({
 
       {/* Column 2: date (row 1), sources (row 2), and — for standard events —
        * the TYPE sub-tag (row 3). */}
-      <ClearableInput
-        wrapClassName="edit-event-date-cell"
-        className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
-        value={dateField.value}
-        placeholder={t("event.colDate")}
-        title={t("event.date", { event: label })}
-        autoFocus={autoFocusDate}
-        onChange={dateField.onChange}
-        onBlur={() => commitAll({})}
-        onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
-      />
+      <div className="edit-event-date-cell">
+        <ClearableInput
+          className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
+          value={dateField.value}
+          placeholder={t("event.colDate")}
+          title={t("event.date", { event: label })}
+          autoFocus={autoFocusDate}
+          onChange={dateField.onChange}
+          onBlur={() => commitAll({})}
+          onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
+        />
+        {age && (
+          <span className="edit-event-age gm-data">
+            {age.map((a, i) => (
+              <span key={i} title={a.title}>{a.text}</span>
+            ))}
+          </span>
+        )}
+      </div>
       <div className="edit-event-sources-cell">
         {ev?.sources?.length || sourcesMergeVal?.length ? (
           <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />

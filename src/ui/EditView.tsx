@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
-import { lifespanOf } from "../gedcom/lifespan";
+import { birthDateOf } from "../gedcom/lifespan";
+import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -1374,7 +1375,25 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     .map((famId) => dataset.families.get(famId))
     .filter((f): f is NonNullable<typeof f> => !!f);
 
-  const lifespan = lifespanOf(person);
+  const lifespan = lifespanWithAge(person, settings.showAge);
+
+  // Glyph-tagged parents' ages at this person's birth, for the BIRT row
+  // ("Show ages" setting). First parent family with each role wins.
+  const birthParentAges = (() => {
+    if (!settings.showAge) return undefined;
+    const birthDate = birthDateOf(person);
+    if (!birthDate) return undefined;
+    const fatherId = parentFamilies.find((f) => f.husband)?.husband;
+    const motherId = parentFamilies.find((f) => f.wife)?.wife;
+    return coupleAgesDisplay(
+      fatherId ? dataset.individuals.get(fatherId) : undefined,
+      motherId ? dataset.individuals.get(motherId) : undefined,
+      birthDate,
+      { husband: t("event.age.father"), wife: t("event.age.mother") },
+      t,
+    );
+  })();
+
   const startInfo = settings.showKinship && startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
   const startPersonName = startId
     ? formatName(dataset.individuals.get(startId)!)
@@ -1454,6 +1473,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                     <div className="edit-parent-fam-events">
                       {coupleEvents.map((ev, j) => {
                         const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
+                        const coupleAges = settings.showAge && ev.date && fam
+                          ? coupleAgesDisplay(
+                              fam.husband ? dataset.individuals.get(fam.husband) : undefined,
+                              fam.wife ? dataset.individuals.get(fam.wife) : undefined,
+                              ev.date,
+                              { husband: t("event.age.husband"), wife: t("event.age.wife") },
+                              t,
+                            )
+                          : undefined;
                         return (
                           <span
                             className="edit-parent-fam-event"
@@ -1463,6 +1491,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                             <span>
                               {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
                               {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
+                              {coupleAges && (
+                                <> <span className="gm-data edit-event-age">
+                                  {coupleAges.map((a, j2) => (
+                                    <span key={j2} title={a.title}>{a.text}</span>
+                                  ))}
+                                </span></>
+                              )}
                             </span>
                             {place && <span className="gm-data">{place}</span>}
                           </span>
@@ -1650,6 +1685,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             pendingFocusNodeId={pendingFocusEventNodeId}
             undoVersion={undoVersion}
             mergeGen={mergeGenRef.current}
+            birthParentAges={birthParentAges}
           />
         </div>
 
@@ -1772,6 +1808,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                       mergeIncomingSources={mergeIncomingSources}
                       famMergeKeyBase={famMergeKeyBase}
                       resolvedSessionFields={resolvedSessionFields}
+                      individuals={dataset.individuals}
                     />
                   );
                 })()}
@@ -1802,6 +1839,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                       mergeIncomingSources={mergeIncomingSources}
                       famMergeKeyBase={famMergeKeyBase}
                       resolvedSessionFields={resolvedSessionFields}
+                      individuals={dataset.individuals}
                     />
                   );
                 })}
