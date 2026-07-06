@@ -14,6 +14,7 @@ import {
   type SourceLine,
 } from "../report/model";
 import { childrenOfLabel, factText, reportToText } from "../report/text";
+import { reportToRtf } from "../report/rtf";
 import { childGroups, planEntry } from "../report/narrative";
 import { citationMark, narrativeEntry, narrativeLangFor, type NarrativeEntryText } from "../report/narrativeText";
 import type { Translate } from "../locales/i18n";
@@ -41,7 +42,8 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // Entries are compact glyph fact lines (* born, ~ baptized, ⚭ married,
 // † died, ▭ buried), the same vocabulary the Timeline draws; clicking an
 // entry opens the shared detail panel, from which the report can be
-// re-rooted. Exports: plain text download and the print dialog (Save as PDF).
+// re-rooted. Exports: plain text and RTF downloads and the print dialog
+// (Save as PDF).
 
 // Same swatch convention as the Timeline: the root keeps the full-strength
 // accent, everyone else fades toward the panel.
@@ -227,6 +229,19 @@ export function ReportView({ masterDs, rootId, changedPersonIds, decisions, back
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.txt`,
                     reportToText(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf }),
+                  ),
+              },
+              {
+                key: "rtf",
+                icon: <FileTextIcon />,
+                label: t("export.rtf"),
+                title: t("report.exportRtf.tooltip"),
+                onSelect: () =>
+                  data &&
+                  downloadText(
+                    `${chartSlug(rootEntry?.name, pageKind)}.rtf`,
+                    reportToRtf(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf }),
+                    "application/rtf",
                   ),
               },
               {
