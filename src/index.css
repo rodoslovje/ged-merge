@@ -2606,16 +2606,16 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
 }
-/* Full-bleed against the card's left/top/bottom border: the negative margins
-   cancel .person-card's 5px 8px padding, and the btn clips the img to the
-   card's inner corner radius. Size must stay in sync with CardPhoto's
+/* The negative margins eat most of .person-card's 5px 8px padding so the
+   photo sits just ~3px inside the card border, keeping its own rounded
+   corners (the btn clips the img). Size must stay in sync with CardPhoto's
    CroppedImg size (PersonMedia.tsx). */
 .card-photo-btn {
   display: inline-flex;
   padding: 0;
   border: none;
-  margin: -5px 0 -5px -8px;
-  border-radius: calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px);
+  margin: -2px 0 -2px -5px;
+  border-radius: 5px;
   overflow: hidden;
   background: none;
   cursor: zoom-in;
