@@ -700,7 +700,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     setResolvedSessionFields((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }
 
-  const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder } = useMediaFolder();
+  const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
@@ -911,17 +911,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   async function resolveDroppedMedia(handlePromises: Promise<FileSystemHandle | null>[], fileCount: number) {
     if (!folderName) { infoDialog(t("media.selectFolderPrompt")); return; }
     if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("media.importUnsupported")); return; }
-    let anyOutside = false;
+    let anyFailed = false;
     let added = 0;
     for (const promise of handlePromises) {
       const handle = await promise;
       if (!handle || handle.kind !== "file" || !IMAGE_NAME_RE.test(handle.name)) continue;
-      const rel = await resolveDroppedHandle(handle);
+      // Inside the folder → reference it; outside → copy it in first (the
+      // browser asks once per session to allow writing to the folder).
+      let rel = await resolveDroppedHandle(handle);
+      if (!rel) {
+        const file = await (handle as FileSystemFileHandle).getFile().catch(() => null);
+        rel = file && (await importFile(file));
+      }
       if (rel) { addMediaTo({ kind: "individual" }, rel); added++; }
-      else anyOutside = true;
+      else anyFailed = true;
     }
     if (added === 1) openLastMedia({ kind: "individual" });
-    if (anyOutside) infoDialog(t("media.outsideFolder"));
+    if (anyFailed) infoDialog(t("media.importFailed"));
   }
 
   // ── Add Source dialog ────────────────────────────────────────────────────

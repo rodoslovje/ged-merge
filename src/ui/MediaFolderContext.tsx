@@ -9,8 +9,8 @@ const IDB_KEY = "handle";
 
 // queryPermission / requestPermission are Chrome-only.
 interface FsHandlePerms extends FileSystemHandle {
-  queryPermission?(opts: { mode: "read" }): Promise<PermissionState>;
-  requestPermission?(opts: { mode: "read" }): Promise<PermissionState>;
+  queryPermission?(opts: { mode: "read" | "readwrite" }): Promise<PermissionState>;
+  requestPermission?(opts: { mode: "read" | "readwrite" }): Promise<PermissionState>;
 }
 
 function hasPermApi(h: FileSystemHandle): h is FsHandlePerms & Required<FsHandlePerms> {
@@ -44,6 +44,14 @@ interface MediaFolderCtx {
   /** Resolve a dragged file-system handle to a folder-relative path, or null
    *  when it isn't a file inside the chosen folder. */
   resolveDroppedHandle(handle: FileSystemHandle): Promise<string | null>;
+  /** Whether files from outside the folder can be copied in (handle mode —
+   *  Chrome/Edge; the write upgrade itself is still user-approved per session). */
+  canImportFiles: boolean;
+  /** Copy a file from outside into the folder root (upgrading the handle to
+   *  readwrite — the browser prompts once per session) and return its
+   *  folder-relative path, or null when the copy isn't possible/denied.
+   *  A name collision gets a `-1`, `-2`, … suffix before the extension. */
+  importFile(file: File): Promise<string | null>;
 }
 
 export const MediaFolderContext = createContext<MediaFolderCtx>({
@@ -54,6 +62,8 @@ export const MediaFolderContext = createContext<MediaFolderCtx>({
   canReferenceFiles: false,
   listImages: async () => [],
   resolveDroppedHandle: async () => null,
+  canImportFiles: false,
+  importFile: async () => null,
 });
 
 /** Image extensions listed in the picker / accepted on drop. */
@@ -383,6 +393,45 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     [folder],
   );
 
+  const importFile = useCallback(
+    async (file: File): Promise<string | null> => {
+      if (!folder || folder.kind !== "handle") return null;
+      const dir = folder.handle;
+      // Upgrade to readwrite; the browser prompts once per session. Without the
+      // permission API (non-Chromium), the create call below just fails → null.
+      if (hasPermApi(dir)) {
+        let perm = await dir.queryPermission({ mode: "readwrite" });
+        if (perm === "prompt") perm = await dir.requestPermission({ mode: "readwrite" });
+        if (perm !== "granted") return null;
+      }
+      // Pick a free name: "photo.jpg" → "photo-1.jpg", "photo-2.jpg", …
+      const dot = file.name.lastIndexOf(".");
+      const base = dot > 0 ? file.name.slice(0, dot) : file.name;
+      const ext = dot > 0 ? file.name.slice(dot) : "";
+      let name = file.name;
+      for (let n = 1; ; n++) {
+        try {
+          await dir.getFileHandle(name, { create: false });
+          name = `${base}-${n}${ext}`; // taken — try the next suffix
+        } catch {
+          break; // free
+        }
+      }
+      try {
+        const fh = await dir.getFileHandle(name, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(file);
+        await writable.close();
+      } catch {
+        return null; // write failed (permission revoked mid-flight, disk error)
+      }
+      // A stale known-miss for this name would hide the fresh copy.
+      blobCache.current.delete(name);
+      return name;
+    },
+    [folder],
+  );
+
   return (
     <MediaFolderContext.Provider
       value={{
@@ -393,6 +442,8 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
         canReferenceFiles: folder?.kind === "handle",
         listImages,
         resolveDroppedHandle,
+        canImportFiles: folder?.kind === "handle",
+        importFile,
       }}
     >
       {/* Hidden input for Firefox webkitdirectory fallback */}

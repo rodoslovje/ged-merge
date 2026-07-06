@@ -1084,8 +1084,8 @@ export const sl = {
   "media.deleteConfirm": "Odstranim ta medij?\n\nSklic se odstrani s te osebe; datoteka na disku ostane.",
   "media.selectFolderPrompt": "Izberi mapo z mediji\n\nZa dodajanje medijev najprej izberi mapo na računalniku, kjer so shranjene medijske datoteke.",
   "media.chooseFolder": "Izberi mapo",
-  "media.outsideFolder": "Ta datoteka je zunaj tvoje mape z mediji. Izberi datoteko iz mape ali jo najprej premakni vanjo.",
   "media.importUnsupported": "Vlečenje datotek od zunaj mape zahteva Chrome ali Edge. V drugih brskalnikih uporabi »Dodaj medij« in izberi med datotekami, ki so že v tvoji mapi.",
+  "media.importFailed": "Datoteke ni bilo mogoče kopirati v mapo z mediji. Dovoli pisanje, ko brskalnik vpraša, ali pa datoteko sam kopiraj v mapo in uporabi »Dodaj medij«.",
   "media.field.event": "Dogodek",
   "media.field.title": "Naslov",
   "media.field.date": "Datum",
@@ -1099,6 +1099,8 @@ export const sl = {
   "addMedia.search": "Išči medije…",
   "addMedia.searchTooltip": "Filtriraj po imenu datoteke ali opisu",
   "addMedia.noMatches": "Nobena medijska datoteka ne ustreza filtru.",
+  "addMedia.import": "Uvozi z diska…",
+  "addMedia.importTooltip": "Kopiraj slike od koder koli na računalniku v mapo z mediji in jih pripni",
   "addMedia.refresh": "Osveži",
   "addMedia.cancel": "Prekliči",
   "addMedia.add": "Dodaj ({{count}})"

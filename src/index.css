@@ -1888,8 +1888,15 @@ button:focus-visible {
   padding-left: 2px;
 }
 .add-media-subfolder::before { content: "📁 "; }
-/* Refresh sits on the left; Cancel/Add stay grouped on the right. */
+/* Import/Refresh sit on the left; Cancel/Add stay grouped on the right. */
 .add-media-refresh { margin-right: auto; }
+/* Inline copy-failure hint between the import button and the right group. */
+.add-media-import-error {
+  color: var(--danger);
+  font-size: 0.78em;
+  align-self: center;
+  max-width: 45%;
+}
 .add-media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));

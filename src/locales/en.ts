@@ -991,8 +991,8 @@ export const en = {
   "media.deleteConfirm": "Remove this media item?\n\nThe reference is removed from this person; the file on disk is kept.",
   "media.selectFolderPrompt": "Choose a media folder\n\nTo add media, first choose the folder on your computer that holds your media files.",
   "media.chooseFolder": "Choose folder",
-  "media.outsideFolder": "That file is outside your media folder. Pick a file from inside the folder, or drag it into the folder first.",
   "media.importUnsupported": "Dragging in files from outside your folder needs Chrome or Edge. In other browsers, use “Add media” to choose from files already in your folder.",
+  "media.importFailed": "Couldn't copy a file into your media folder. Allow write access when the browser asks, or copy the file into the folder yourself and use “Add media”.",
   "media.field.event": "Event",
   "media.field.title": "Title",
   "media.field.date": "Date",
@@ -1006,6 +1006,8 @@ export const en = {
   "addMedia.search": "Search media…",
   "addMedia.searchTooltip": "Filter by filename or description",
   "addMedia.noMatches": "No media files match your filter.",
+  "addMedia.import": "Import from disk…",
+  "addMedia.importTooltip": "Copy images from anywhere on your computer into the media folder and attach them",
   "addMedia.refresh": "Refresh",
   "addMedia.cancel": "Cancel",
   "addMedia.add": "Add ({{count}})"

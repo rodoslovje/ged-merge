@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { objeInfoOf } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -78,7 +78,7 @@ function groupBySubfolder(items: FolderImage[]): { folder: string; items: Folder
  *  selected photos to the current person. Works in both handle and filemap
  *  modes — it only references files by relative path, never writes. */
 export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
-  const { folderName, canReferenceFiles, openFolder, listImages, resolveFile } = useMediaFolder();
+  const { folderName, canReferenceFiles, openFolder, listImages, resolveFile, canImportFiles, importFile } = useMediaFolder();
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<FolderImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -86,11 +86,15 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   // Bumped by Refresh to re-walk the folder (handle mode picks up files copied
   // in while the dialog is open).
   const [reloadKey, setReloadKey] = useState(0);
+  // Hidden file input backing "Import from disk…" (Chrome/Edge only).
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importError, setImportError] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setSelected(new Set());
     setQuery("");
+    setImportError(false);
     setLoading(true);
     let cancelled = false;
     (async () => {
@@ -150,6 +154,22 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   const handleRefresh = () => {
     if (canReferenceFiles) setReloadKey((k) => k + 1);
     else void openFolder();
+  };
+
+  /** Copy files chosen from anywhere on disk into the media folder, then add
+   *  them straight to the record. Failures keep the dialog open with a hint. */
+  const handleImport = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const picked: PickedMedia[] = [];
+    let failed = false;
+    for (const file of Array.from(files)) {
+      const rel = await importFile(file);
+      if (rel) picked.push({ path: rel });
+      else failed = true;
+    }
+    if (picked.length) onAdd(picked);
+    if (failed) setImportError(true);
+    else onClose();
   };
 
   const q = query.trim().toLowerCase();
@@ -239,6 +259,26 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
           )}
         </div>
         <div className="add-media-footer">
+          {canImportFiles && (
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => { void handleImport(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                className="tree-open-btn add-media-import"
+                title={t("addMedia.importTooltip")}
+                onClick={() => importInputRef.current?.click()}
+              >
+                {t("addMedia.import")}
+              </button>
+            </>
+          )}
+          {importError && <span className="add-media-import-error">{t("media.importFailed")}</span>}
           <button className="tree-open-btn add-media-refresh" onClick={handleRefresh}>
             {t("addMedia.refresh")}
           </button>
