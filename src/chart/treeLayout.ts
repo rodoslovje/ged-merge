@@ -12,7 +12,7 @@ export type ChartAlignment = "lr" | "tb";
 // ─── Node / grid sizing ───────────────────────────────────────────────────────
 
 export const NODE_W = 220;
-// Box height matches the Edit-mode person card (a ~46px photo + padding).
+// Box height matches the Edit-mode person card (a ~50px photo + padding).
 export const NODE_H = 56;
 // Each stacked detail line (lifespan, place, kinship) below the name is this tall.
 export const DETAIL_ROW_H = 16;
@@ -39,9 +39,9 @@ export function detailRowCount(o: DetailToggles): number {
 export function nodeHeight(o: DetailToggles): number {
   return NODE_H + Math.max(0, detailRowCount(o) - 1) * DETAIL_ROW_H;
 }
-export const PHOTO_SIZE = 46;
-// Photo sits on the left, vertically centred.
-export const PHOTO_X = 5;
+export const PHOTO_SIZE = 50;
+// Photo sits on the left, vertically centred, ~3px inside the box border.
+export const PHOTO_X = 3;
 export const PHOTO_Y = (NODE_H - PHOTO_SIZE) / 2;
 // Text begins right of the photo column when a media folder is loaded (photos
 // then occupy the reserved space); otherwise it starts at the left padding.
