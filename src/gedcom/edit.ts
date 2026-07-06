@@ -1,5 +1,5 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
-import { buildSourceContext, clearObjeNodeCache, isPointer, type SourceContext } from "./source";
+import { buildSourceContext, clearObjeNodeCache, isPointer, type CropRegion, type SourceContext } from "./source";
 import { birthSortKey } from "./lifespan";
 import { childrenByTag, firstChild, hasChild, removeChildren } from "./node";
 import { mediaContainerOf, type MediaAddress } from "./media";
@@ -947,6 +947,26 @@ export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
     const v = fields.description.trim();
     if (v) objeNode.children.push({ level: objeNode.level + 1, tag: "_DSCR", value: v, children: [] });
   }
+}
+
+/**
+ * Write (or clear, with `null`) the GEDCOM 7 `CROP` region on an `OBJE` *link*
+ * node — the rectangle of a group photo that depicts the linking record. It
+ * lives on the link, not the shared media record, so two people can mark
+ * different regions of the same image. Values are rounded to integers per the
+ * spec; zero `TOP`/`LEFT` are written explicitly so the region is unambiguous.
+ */
+export function setCropRegion(linkNode: GedNode, crop: CropRegion | null): void {
+  removeChildren(linkNode, "CROP");
+  if (!crop || crop.width <= 0 || crop.height <= 0) return;
+  const node: GedNode = { level: linkNode.level + 1, tag: "CROP", children: [] };
+  const push = (tag: string, value: number) =>
+    node.children.push({ level: linkNode.level + 2, tag, value: String(Math.max(0, Math.round(value))), children: [] });
+  push("TOP", crop.top);
+  push("LEFT", crop.left);
+  push("WIDTH", crop.width);
+  push("HEIGHT", crop.height);
+  linkNode.children.push(node);
 }
 
 /**

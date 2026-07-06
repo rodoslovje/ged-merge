@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { GedNode } from "../gedcom/types";
-import { isPointer, looksLikeUrl, objeNodesFor } from "../gedcom/source";
+import { cropOf, isPointer, looksLikeUrl, objeNodesFor, type CropRegion } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
@@ -30,19 +30,70 @@ interface Props {
   editable?: MediaEditControls;
 }
 
-/** Returns the first local *image* path from a person's OBJE links, or null —
- *  the profile-photo pick for cards and chart nodes, which render in `<img>`
- *  (so a PDF, previewable only in the viewer, is skipped here). */
-export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string | null {
+/** The first local *image* from a person's OBJE links (with the link's crop
+ *  region, when marked), or null — the profile-photo pick for cards and chart
+ *  nodes, which render in `<img>` (so a PDF, previewable only in the viewer,
+ *  is skipped here). */
+export function collectFirstImage(raw: GedNode, records: GedNode[]): { file: string; crop?: CropRegion } | null {
   const objeNodes = objeNodesFor(records);
   for (const child of raw.children) {
     if (child.tag !== "OBJE") continue;
     const val = child.value?.trim();
     const objeNode = val && isPointer(val) ? objeNodes.get(val) : child;
     const file = objeNode?.children.find((c) => c.tag === "FILE")?.value?.trim();
-    if (file && !looksLikeUrl(file) && mediaKindOf(file) === "image") return file;
+    // The crop lives on the link node (`child`), not the shared record.
+    if (file && !looksLikeUrl(file) && mediaKindOf(file) === "image") return { file, crop: cropOf(child) };
   }
   return null;
+}
+
+/** Returns the first local image path from a person's OBJE links, or null. */
+export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string | null {
+  return collectFirstImage(raw, records)?.file ?? null;
+}
+
+/** An `<img>` cover-fitted so that just `crop` (in source-image pixels) fills a
+ *  `size`×`size` box — the person's marked region of a group photo becomes
+ *  their thumbnail. Falls back to a plain cover fit until the natural image
+ *  size is known; offsets are clamped so the box never shows past the edges. */
+export function CroppedImg({
+  url,
+  crop,
+  size,
+  className,
+  style,
+}: {
+  url: string;
+  crop: CropRegion;
+  size: number;
+  /** Class for the wrapper box (reuse the thumb class the plain `<img>` had). */
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  let imgStyle: CSSProperties;
+  if (nat) {
+    const scale = Math.max(size / crop.width, size / crop.height);
+    const clampOffset = (centered: number, min: number) => Math.min(0, Math.max(min, centered));
+    const left = clampOffset(size / 2 - (crop.left + crop.width / 2) * scale, size - nat.w * scale);
+    const top = clampOffset(size / 2 - (crop.top + crop.height / 2) * scale, size - nat.h * scale);
+    imgStyle = { position: "absolute", left, top, width: nat.w * scale, height: nat.h * scale, maxWidth: "none" };
+  } else {
+    imgStyle = { width: size, height: size, objectFit: "cover" };
+  }
+  return (
+    <span
+      className={className}
+      style={{ position: "relative", display: "block", overflow: "hidden", width: size, height: size, ...style }}
+    >
+      <img
+        src={url}
+        alt=""
+        style={imgStyle}
+        onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+      />
+    </span>
+  );
 }
 
 /** Thumbnail strip for a person — each opens the shared full viewer at its
@@ -117,6 +168,8 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
           >
             {mediaKindOf(ref.file) === "pdf" ? (
               <span className="person-media-thumb person-media-doc" aria-hidden="true">📄</span>
+            ) : ref.crop ? (
+              <CroppedImg url={item.url} crop={ref.crop} size={64} className="person-media-thumb" />
             ) : (
               <img src={item.url} className="person-media-thumb" alt="" />
             )}
@@ -153,21 +206,22 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
   );
 }
 
-/** Small profile photo for PersonCard — shows the first local photo; opens the
- *  shared viewer (with the person's full photo set) on click. */
+/** Small profile photo for PersonCard — shows the first local photo (the
+ *  person's marked region when the link carries a crop); opens the shared
+ *  viewer (with the person's full photo set) on click. */
 export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: GedNode[]; refCtx?: MediaRefContext }) {
   const { folderName, resolveFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
-  const firstPath = useMemo(() => collectFirstFilePath(raw, records), [raw, records]);
+  const first = useMemo(() => collectFirstImage(raw, records), [raw, records]);
 
   useEffect(() => {
-    if (!folderName || !firstPath) { setUrl(null); return; }
+    if (!folderName || !first) { setUrl(null); return; }
     let cancelled = false;
-    resolveFile(firstPath).then((u) => { if (!cancelled) setUrl(u); });
+    resolveFile(first.file).then((u) => { if (!cancelled) setUrl(u); });
     return () => { cancelled = true; };
-  }, [folderName, firstPath, resolveFile]);
+  }, [folderName, first, resolveFile]);
 
   if (!url) return null;
   // A span (not a button): CardPhoto renders inside the PersonCard <button>,
@@ -185,7 +239,11 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); open(); }
       }}
     >
-      <img src={url} className="card-photo" alt="" />
+      {first?.crop ? (
+        <CroppedImg url={url} crop={first.crop} size={46} className="card-photo" />
+      ) : (
+        <img src={url} className="card-photo" alt="" />
+      )}
     </span>
   );
 }
@@ -221,12 +279,12 @@ export function TreeNodePhoto({
 
   const source = useMemo(() => {
     if (node.main?.raw) {
-      const p = collectFirstFilePath(node.main.raw, mainRecords);
-      if (p) return { path: p, raw: node.main.raw, records: mainRecords, refCtx: mainRefCtx };
+      const first = collectFirstImage(node.main.raw, mainRecords);
+      if (first) return { ...first, raw: node.main.raw, records: mainRecords, refCtx: mainRefCtx };
     }
     if (node.incoming?.raw && compareRecords) {
-      const p = collectFirstFilePath(node.incoming.raw, compareRecords);
-      if (p) return { path: p, raw: node.incoming.raw, records: compareRecords, refCtx: compareRefCtx };
+      const first = collectFirstImage(node.incoming.raw, compareRecords);
+      if (first) return { ...first, raw: node.incoming.raw, records: compareRecords, refCtx: compareRefCtx };
     }
     return null;
   }, [node, mainRecords, compareRecords, mainRefCtx, compareRefCtx]);
@@ -234,19 +292,29 @@ export function TreeNodePhoto({
   useEffect(() => {
     if (!folderName || !source) { setUrl(null); return; }
     let cancelled = false;
-    resolveFile(source.path).then((u) => { if (!cancelled) setUrl(u); });
+    resolveFile(source.file).then((u) => { if (!cancelled) setUrl(u); });
     return () => { cancelled = true; };
   }, [folderName, source, resolveFile]);
 
   if (!url || !source) return null;
+  const open = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openPerson(source.raw, source.records, 0, source.refCtx);
+  };
   return (
     <foreignObject x={x} y={y} width={size} height={size}>
-      <img
-        src={url}
-        alt=""
-        style={{ width: size, height: size, objectFit: "cover", borderRadius: 5, display: "block", cursor: "zoom-in" }}
-        onClick={(e) => { e.stopPropagation(); openPerson(source.raw, source.records, 0, source.refCtx); }}
-      />
+      {source.crop ? (
+        <span style={{ display: "block", cursor: "zoom-in" }} onClick={open}>
+          <CroppedImg url={url} crop={source.crop} size={size} style={{ borderRadius: 5 }} />
+        </span>
+      ) : (
+        <img
+          src={url}
+          alt=""
+          style={{ width: size, height: size, objectFit: "cover", borderRadius: 5, display: "block", cursor: "zoom-in" }}
+          onClick={open}
+        />
+      )}
     </foreignObject>
   );
 }

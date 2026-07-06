@@ -1783,7 +1783,8 @@ button:focus-visible {
   line-height: 0;
 }
 /* Corner badge marking a thumbnail whose link carries a GEDCOM 7 crop region —
-   the cover-fitted thumb can't show a faithful outline, so flag it instead. */
+   the thumb shows just that region, so the badge signals it's a cutout of a
+   larger photo. */
 .person-media-crop-badge {
   position: absolute;
   bottom: 2px;
@@ -2029,6 +2030,27 @@ button:focus-visible {
   /* Glides to the next person when hovering down the "referenced by" list. */
   transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
 }
+/* The rectangle being drawn in crop-marking mode: solid accent, no glide (it
+   must track the pointer exactly). */
+.photo-crop-box.photo-crop-draft {
+  border: 2px solid var(--accent);
+  transition: none;
+}
+.person-media-cropwrap.crop-editing {
+  cursor: crosshair;
+  /* Let pointer events drive the drag on touch screens too. */
+  touch-action: none;
+}
+/* Crop-marking controls under the info-panel edit form. */
+.media-crop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  align-items: flex-start;
+}
+.media-crop-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.media-crop-hint { color: var(--muted); font-size: 0.78rem; }
 .photo-crop-name {
   position: absolute;
   top: 100%;

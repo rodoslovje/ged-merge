@@ -20,6 +20,7 @@ import {
   pruneUnreferencedMedia,
   removeMediaAt,
   reorderMedia,
+  setCropRegion,
   setMediaInfo,
   changeEventTagAtIndex,
   changeFamilyEventTag,
@@ -1509,5 +1510,38 @@ describe("family media", () => {
     expect(fam.raw.children).toContain(marr); // event survives
     expect(marr.children.some((c) => c.tag === "OBJE")).toBe(false);
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false); // shared record pruned
+  });
+});
+
+// ─── setCropRegion ────────────────────────────────────────────────────────────
+
+describe("setCropRegion", () => {
+  it("writes an integer CROP block on the link node and clears it with null", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const link = attachInlineMedia(indi.raw, "group.jpg");
+
+    setCropRegion(link, { top: 10.6, left: 0, width: 120.2, height: 140 });
+    const crop = link.children.find((c) => c.tag === "CROP")!;
+    const v = (tag: string) => crop.children.find((c) => c.tag === tag)?.value;
+    expect(v("TOP")).toBe("11");
+    expect(v("LEFT")).toBe("0");
+    expect(v("WIDTH")).toBe("120");
+    expect(v("HEIGHT")).toBe("140");
+
+    // Replacing overwrites rather than duplicating.
+    setCropRegion(link, { top: 1, left: 2, width: 3, height: 4 });
+    expect(link.children.filter((c) => c.tag === "CROP")).toHaveLength(1);
+
+    setCropRegion(link, null);
+    expect(link.children.some((c) => c.tag === "CROP")).toBe(false);
+  });
+
+  it("rejects a degenerate region", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const link = attachInlineMedia(indi.raw, "group.jpg");
+    setCropRegion(link, { top: 0, left: 0, width: 0, height: 10 });
+    expect(link.children.some((c) => c.tag === "CROP")).toBe(false);
   });
 });

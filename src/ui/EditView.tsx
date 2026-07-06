@@ -32,6 +32,7 @@ import {
   findSharedMediaByFile,
   removeMediaAt,
   reorderMedia,
+  setCropRegion,
   setMediaInfo,
   detachChildFromFamily,
   detachSpouseRole,
@@ -53,7 +54,7 @@ import {
   type EditSourceFields,
   type NewSourceFields,
 } from "../gedcom/edit";
-import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation } from "../gedcom/source";
+import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, type CropRegion } from "../gedcom/source";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { PersonCard } from "./PersonCard";
@@ -806,11 +807,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
   }
 
+  /** Write (or clear) the person-region crop on the owner's media link. The
+   *  CROP lives on the link node inside the owner record, so a plain owner
+   *  commit covers undo/dirty/save-preview. */
+  function editMediaCropOn(owner: MediaOwner, addr: MediaAddress, crop: CropRegion | null) {
+    ownerCommit(owner, (raw) => {
+      const child = mediaNodeAt(raw, addr);
+      if (child) setCropRegion(child, crop);
+    });
+  }
+
   /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
   const mediaCtxFor = (owner: MediaOwner): MediaRefContext => ({
     dataset,
     onNavigate: navigate,
     onEditMedia: (addr, fields) => editMediaOn(owner, addr, fields),
+    onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
   });
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
 

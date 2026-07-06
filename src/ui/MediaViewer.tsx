@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -52,6 +53,12 @@ export interface MediaEdit {
   context?: string;
   initial: MediaEditFields;
   onSave: (fields: MediaEditFields) => void;
+  /** This link's GEDCOM 7 crop region (the record's marked part of the photo)
+   *  as it was when the viewer opened — seeds the crop editor. */
+  crop?: CropRegion;
+  /** When set (image media in Edit context), the info panel offers marking the
+   *  record's region: save a drawn rectangle, or `null` to clear it. */
+  onSaveCrop?: (crop: CropRegion | null) => void;
 }
 
 /** A crop region plus the label (person name) shown under it. */
@@ -93,6 +100,9 @@ export interface MediaRefContext {
    *  callback writes a photo's fields back by its media address (record- or
    *  event-level `OBJE`). */
   onEditMedia?: (addr: MediaAddress, fields: MediaEditFields) => void;
+  /** Writes (or clears, with `null`) the link's crop region — the part of a
+   *  group photo depicting the record. Enables the viewer's crop editor. */
+  onEditMediaCrop?: (addr: MediaAddress, crop: CropRegion | null) => void;
 }
 
 interface MediaViewerCtx {
@@ -259,6 +269,11 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                   description: ref.description ?? "",
                 },
                 onSave: (fields) => onEditMedia(ref, fields),
+                crop: ref.crop,
+                onSaveCrop:
+                  refCtx?.onEditMediaCrop && mediaKindOf(ref.file) === "image"
+                    ? (crop) => refCtx.onEditMediaCrop!(ref, crop)
+                    : undefined,
               }
             : undefined,
           details:
@@ -355,6 +370,7 @@ function MediaStage({
   title,
   hoverMark,
   allCrops,
+  cropEdit,
 }: {
   url: string;
   kind?: "image" | "pdf";
@@ -364,6 +380,9 @@ function MediaStage({
   hoverMark: CropMark | null;
   /** Every tagged person on this photo; revealed (with names) on image hover/touch. */
   allCrops: CropMark[];
+  /** Crop-marking mode: dragging on the image draws the record's region (in
+   *  natural pixels) into `draft`; the overlay's controls save or discard it. */
+  cropEdit?: { draft: CropRegion | null; onDraft: (crop: CropRegion | null) => void };
 }) {
   // Natural pixel size, captured on load; cleared while a new image loads so a
   // stale size from the previous photo can't briefly misposition a box.
@@ -380,26 +399,62 @@ function MediaStage({
     height: `${(c.height / natural!.h) * 100}%`,
   });
 
-  const canReveal = allCrops.length > 0;
+  // Anchor of an in-progress crop drag, in natural image pixels.
+  const dragAnchor = useRef<{ x: number; y: number } | null>(null);
+
+  const canReveal = !cropEdit && allCrops.length > 0;
   // A hovered name shows just that person; otherwise an image hover reveals all.
-  const marks = hoverMark ? [hoverMark] : revealing ? allCrops : [];
+  const marks = cropEdit ? [] : hoverMark ? [hoverMark] : revealing ? allCrops : [];
 
   // A PDF renders in the browser's built-in viewer; crop regions don't apply.
   if (kind === "pdf") {
     return <iframe className="media-lightbox-doc" src={url} title={title ?? ""} />;
   }
 
+  // The wrapper shrink-wraps the image, so its client rect maps 1:1 onto the
+  // natural pixel space the CROP tags use.
+  const toNatural = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * natural!.w;
+    const y = ((e.clientY - rect.top) / rect.height) * natural!.h;
+    return { x: Math.max(0, Math.min(natural!.w, x)), y: Math.max(0, Math.min(natural!.h, y)) };
+  };
+  const draftFrom = (anchor: { x: number; y: number }, p: { x: number; y: number }): CropRegion => ({
+    left: Math.min(anchor.x, p.x),
+    top: Math.min(anchor.y, p.y),
+    width: Math.abs(p.x - anchor.x),
+    height: Math.abs(p.y - anchor.y),
+  });
+
   return (
     <div
-      className="person-media-cropwrap"
+      className={`person-media-cropwrap ${cropEdit ? "crop-editing" : ""}`}
       onMouseEnter={canReveal ? () => setRevealing(true) : undefined}
       onMouseLeave={canReveal ? () => setRevealing(false) : undefined}
       onTouchStart={canReveal ? () => setRevealing((v) => !v) : undefined}
+      onPointerDown={cropEdit && natural ? (e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragAnchor.current = toNatural(e);
+        cropEdit.onDraft(null);
+      } : undefined}
+      onPointerMove={cropEdit && natural ? (e) => {
+        if (!dragAnchor.current) return;
+        cropEdit.onDraft(draftFrom(dragAnchor.current, toNatural(e)));
+      } : undefined}
+      onPointerUp={cropEdit && natural ? (e) => {
+        if (!dragAnchor.current) return;
+        const draft = draftFrom(dragAnchor.current, toNatural(e));
+        dragAnchor.current = null;
+        // A click without a real drag clears instead of leaving a sliver.
+        cropEdit.onDraft(draft.width >= 4 && draft.height >= 4 ? draft : null);
+      } : undefined}
     >
       <img
         src={url}
         className="person-media-full"
         alt={title ?? ""}
+        draggable={false}
         onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
       />
       {natural && marks.map((m, i) => (
@@ -407,6 +462,9 @@ function MediaStage({
           <span className="photo-crop-name" title={m.label}>{m.label}</span>
         </div>
       ))}
+      {natural && cropEdit?.draft && (
+        <div className="photo-crop-box photo-crop-draft" style={box(cropEdit.draft)} />
+      )}
     </div>
   );
 }
@@ -433,7 +491,14 @@ function MediaViewerOverlay({
   // the image. Reset whenever the active photo changes so it can't bleed across
   // photos. (By default no boxes are drawn; see MediaStage.)
   const [hoverMark, setHoverMark] = useState<CropMark | null>(null);
-  useEffect(() => { setHoverMark(null); }, [index]);
+  // Crop-marking mode: the in-progress rectangle, plus per-photo values already
+  // saved this viewing so the button label/remove option stay current (the
+  // items themselves are built once, when the viewer opens).
+  const [cropEditing, setCropEditing] = useState(false);
+  const [cropDraft, setCropDraft] = useState<CropRegion | null>(null);
+  const [cropSaved, setCropSaved] = useState<Record<number, CropRegion | null>>({});
+  useEffect(() => { setHoverMark(null); setCropEditing(false); setCropDraft(null); }, [index]);
+  const effectiveCrop = current.edit ? (index in cropSaved ? cropSaved[index] : current.edit.crop) : undefined;
   // Autofocus the edit form's first field only on the add-flow open — never on
   // tray navigation or plain "expand from Edit". Consumed after the first render
   // so even returning to the start photo won't refocus.
@@ -479,19 +544,80 @@ function MediaViewerOverlay({
       )}
       <div className="media-lightbox" onClick={(e) => e.stopPropagation()}>
         <div className="person-media-stage">
-          <MediaStage url={current.url} kind={current.kind} title={current.title} hoverMark={hoverMark} allCrops={current.allCrops ?? []} />
+          <MediaStage
+            url={current.url}
+            kind={current.kind}
+            title={current.title}
+            hoverMark={hoverMark}
+            allCrops={current.allCrops ?? []}
+            cropEdit={cropEditing ? { draft: cropDraft, onDraft: setCropDraft } : undefined}
+          />
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
             {current.edit ? (
-              <MediaInfoEditor
-                key={index}
-                edit={current.edit}
-                seed={edits[index] ?? current.edit.initial}
-                onSaved={(f) => setEdits((p) => ({ ...p, [index]: f }))}
-                autoFocus={allowFocus}
-                t={t}
-              />
+              <>
+                <MediaInfoEditor
+                  key={index}
+                  edit={current.edit}
+                  seed={edits[index] ?? current.edit.initial}
+                  onSaved={(f) => setEdits((p) => ({ ...p, [index]: f }))}
+                  autoFocus={allowFocus}
+                  t={t}
+                />
+                {current.edit.onSaveCrop && current.kind !== "pdf" && (
+                  <div className="media-crop-controls">
+                    {!cropEditing ? (
+                      <button
+                        type="button"
+                        className="tree-open-btn"
+                        onClick={() => { setCropDraft(effectiveCrop ?? null); setCropEditing(true); }}
+                      >
+                        ⛶ {t(effectiveCrop ? "media.crop.change" : "media.crop.add")}
+                      </button>
+                    ) : (
+                      <>
+                        <div className="media-crop-hint">{t("media.crop.hint")}</div>
+                        <div className="media-crop-buttons">
+                          <button
+                            type="button"
+                            className="tree-open-btn"
+                            disabled={!cropDraft}
+                            onClick={() => {
+                              current.edit!.onSaveCrop!(cropDraft);
+                              setCropSaved((p) => ({ ...p, [index]: cropDraft }));
+                              setCropEditing(false);
+                            }}
+                          >
+                            {t("media.crop.save")}
+                          </button>
+                          {effectiveCrop && (
+                            <button
+                              type="button"
+                              className="tree-open-btn"
+                              onClick={() => {
+                                current.edit!.onSaveCrop!(null);
+                                setCropSaved((p) => ({ ...p, [index]: null }));
+                                setCropDraft(null);
+                                setCropEditing(false);
+                              }}
+                            >
+                              {t("media.crop.remove")}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="tree-open-btn"
+                            onClick={() => { setCropEditing(false); setCropDraft(null); }}
+                          >
+                            {t("media.crop.cancel")}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 {current.title && <div className="media-lightbox-caption">{current.title}</div>}
