@@ -993,6 +993,7 @@ export const en = {
   "media.chooseFolder": "Choose folder",
   "media.outsideFolder": "That file is outside your media folder. Pick a file from inside the folder, or drag it into the folder first.",
   "media.importUnsupported": "Dragging in files from outside your folder needs Chrome or Edge. In other browsers, use “Add media” to choose from files already in your folder.",
+  "media.field.event": "Event",
   "media.field.title": "Title",
   "media.field.date": "Date",
   "media.field.place": "Place",

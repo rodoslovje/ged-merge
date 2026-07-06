@@ -1086,6 +1086,7 @@ export const sl = {
   "media.chooseFolder": "Izberi mapo",
   "media.outsideFolder": "Ta datoteka je zunaj tvoje mape z mediji. Izberi datoteko iz mape ali jo najprej premakni vanjo.",
   "media.importUnsupported": "Vlečenje datotek od zunaj mape zahteva Chrome ali Edge. V drugih brskalnikih uporabi »Dodaj medij« in izberi med datotekami, ki so že v tvoji mapi.",
+  "media.field.event": "Dogodek",
   "media.field.title": "Naslov",
   "media.field.date": "Datum",
   "media.field.place": "Kraj",

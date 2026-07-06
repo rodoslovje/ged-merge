@@ -2116,6 +2116,8 @@ button:focus-visible {
   word-break: break-word;
   margin-bottom: 2px;
 }
+/* "· Birth" event marker after the filename, for event-attached media. */
+.media-lightbox-context { font-style: italic; }
 .media-edit-field { display: flex; flex-direction: column; gap: 2px; }
 .media-edit-field > span { color: var(--muted); font-size: 0.78rem; }
 .media-edit-field .edit-input { width: 100%; box-sizing: border-box; }

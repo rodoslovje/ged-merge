@@ -3,17 +3,19 @@ import type { GedNode } from "../gedcom/types";
 import { isPointer, looksLikeUrl, objeNodesFor } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
-import { collectMediaRefs, useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
+import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
+import { collectMediaRefs, type MediaAddress, type MediaRef } from "../gedcom/media";
 
-/** Edit-mode controls for a person's photo tray. When supplied, the tray always
+/** Edit-mode controls for a record's media tray. When supplied, the tray always
  *  renders (even with no photos), each thumb gains a delete affordance and can
  *  be dragged to reorder, and a trailing "+" placeholder adds a photo. */
 export interface MediaEditControls {
   /** Add a new photo (open the picker / prompt for a media folder). */
   onAdd: () => void;
-  /** Delete the photo at this `OBJE` child index (see {@link MediaRef.objeIndex}). */
-  onDelete: (objeIndex: number) => void;
-  /** Move the photo from one `OBJE` child index to another. */
+  /** Delete the media at this address (record- or event-level `OBJE`). */
+  onDelete: (addr: MediaAddress) => void;
+  /** Move a record-level photo from one `OBJE` child index to another.
+   *  Event-level media keep their event's position and aren't reorderable. */
   onReorder: (fromObjeIndex: number, toObjeIndex: number) => void;
 }
 
@@ -49,9 +51,9 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
   const { folderName, resolveFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const { t } = useTranslation();
-  // Resolved photos keep their `OBJE` child index so edit ops target the right
-  // child even when some refs don't resolve (file missing from the folder).
-  const [items, setItems] = useState<{ url: string; objeIndex: number; hasCrop: boolean }[]>([]);
+  // Resolved photos keep their full media ref so edit ops re-find the right
+  // node even when some refs don't resolve (file missing from the folder).
+  const [items, setItems] = useState<{ url: string; ref: MediaRef }[]>([]);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const refs = useMemo(() => collectMediaRefs(raw, records), [raw, records]);
@@ -66,8 +68,8 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
       if (cancelled) return;
       setItems(
         refs
-          .map((r, i) => ({ url: results[i], objeIndex: r.objeIndex, hasCrop: !!r.crop }))
-          .filter((x): x is { url: string; objeIndex: number; hasCrop: boolean } => x.url !== null),
+          .map((r, i) => ({ url: results[i], ref: r }))
+          .filter((x): x is { url: string; ref: MediaRef } => x.url !== null),
       );
     });
     return () => {
@@ -76,36 +78,42 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
   }, [folderName, refs, resolveFile]);
 
   // With no photos to show, the tray renders nothing — even when editable: the
-  // "add photo" affordance for an empty person lives as a chip in the actions
+  // "add media" affordance for an empty record lives as a chip in the actions
   // row (see EditView), so the tray only appears once there are photos.
   if (items.length === 0) return null;
 
+  // Reordering only makes sense among the record's own OBJE children; media
+  // that lives under an event stays with its event.
+  const reorderable = (i: number) => !!editable && !items[i].ref.eventTag;
   const drop = (toTrayIndex: number) => {
-    if (!editable || dragFrom === null || dragFrom === toTrayIndex) return;
-    editable.onReorder(items[dragFrom].objeIndex, items[toTrayIndex].objeIndex);
+    if (!editable || dragFrom === null || dragFrom === toTrayIndex || !reorderable(toTrayIndex)) return;
+    editable.onReorder(items[dragFrom].ref.objeIndex, items[toTrayIndex].ref.objeIndex);
     setDragFrom(null);
   };
 
   return (
     <div className="person-media">
-      {items.map((item, i) => (
+      {items.map((item, i) => {
+        const { ref } = item;
+        const eventLabel = ref.eventTag ? t(`event.${ref.eventTag}`, { defaultValue: ref.eventTag }) : undefined;
+        return (
         <span
-          key={item.objeIndex}
+          key={`${ref.eventTag ?? ""}.${ref.eventIndex ?? 0}.${ref.objeIndex}`}
           className="person-media-item"
-          draggable={!!editable}
-          onDragStart={editable ? () => setDragFrom(i) : undefined}
-          onDragOver={editable ? (e) => e.preventDefault() : undefined}
-          onDrop={editable ? () => drop(i) : undefined}
-          onDragEnd={editable ? () => setDragFrom(null) : undefined}
+          draggable={reorderable(i)}
+          onDragStart={reorderable(i) ? () => setDragFrom(i) : undefined}
+          onDragOver={reorderable(i) ? (e) => e.preventDefault() : undefined}
+          onDrop={reorderable(i) ? () => drop(i) : undefined}
+          onDragEnd={reorderable(i) ? () => setDragFrom(null) : undefined}
         >
           <button
             type="button"
             className="person-media-btn"
-            title={t("media.enlarge")}
+            title={eventLabel ? `${t("media.enlarge")} · ${eventLabel}` : t("media.enlarge")}
             onClick={() => openPerson(raw, records, i, refCtx)}
           >
             <img src={item.url} className="person-media-thumb" alt="" />
-            {item.hasCrop && (
+            {ref.crop && (
               <span className="person-media-crop-badge" title={t("media.cropRegion")} aria-hidden="true">
                 ⛶
               </span>
@@ -116,13 +124,14 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
               type="button"
               className="person-media-delete"
               title={t("media.delete")}
-              onClick={() => editable.onDelete(item.objeIndex)}
+              onClick={() => editable.onDelete(ref)}
             >
               ✕
             </button>
           )}
         </span>
-      ))}
+        );
+      })}
       {editable && (
         <button
           type="button"

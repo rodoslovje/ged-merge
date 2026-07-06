@@ -2,6 +2,7 @@ import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVE
 import { buildSourceContext, clearObjeNodeCache, isPointer, type SourceContext } from "./source";
 import { birthSortKey } from "./lifespan";
 import { childrenByTag, firstChild, hasChild, removeChildren } from "./node";
+import { mediaContainerOf, type MediaAddress } from "./media";
 import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
 
 /**
@@ -825,13 +826,13 @@ export function createMediaRecord(records: GedNode[], url: string, title?: strin
   return raw;
 }
 
-// ── Individual photos (OBJE) ────────────────────────────────────────────────
+// ── Record media (OBJE) ─────────────────────────────────────────────────────
 //
-// Edit-mode helpers for attaching/removing/reordering a person's photos. The
-// inline-vs-shared choice (whether to write an inline `1 OBJE`/`2 FILE` block or
-// a `1 OBJE @O@` pointer to a top-level record) is the caller's, driven by the
-// main file's detected `MediaMode`; these helpers just realize whichever the
-// caller picks.
+// Edit-mode helpers for attaching/removing/reordering a record's media — the
+// record is a person (`INDI`) or a family (`FAM`). The inline-vs-shared choice
+// (whether to write an inline `1 OBJE`/`2 FILE` block or a `1 OBJE @O@` pointer
+// to a top-level record) is the caller's, driven by the main file's detected
+// `MediaMode`; these helpers just realize whichever the caller picks.
 
 /** Build an `OBJE` node (a `FILE` plus an optional `TITL`) at `level`. */
 function buildObjeNode(level: number, file: string, title?: string): GedNode {
@@ -854,57 +855,59 @@ export function findSharedMediaByFile(records: GedNode[], file: string): GedNode
   return undefined;
 }
 
-/** Append a new `OBJE` node after the individual's last existing `OBJE` (so a
+/** Append a new `OBJE` node after the record's last existing `OBJE` (so a
  * just-added photo is reliably last among the photos, regardless of where the
  * existing ones sit in the record), or at the canonical position if it's the
  * first. Mirrors `addEventNode`'s "after the last same-tag node" placement. */
-function appendMediaNode(indi: Individual, node: GedNode): GedNode {
-  const objes = childrenByTag(indi.raw, "OBJE");
+function appendMediaNode(raw: GedNode, node: GedNode): GedNode {
+  const objes = childrenByTag(raw, "OBJE");
   if (objes.length > 0) {
-    const lastIdx = indi.raw.children.indexOf(objes[objes.length - 1]);
-    indi.raw.children.splice(lastIdx + 1, 0, node);
+    const lastIdx = raw.children.indexOf(objes[objes.length - 1]);
+    raw.children.splice(lastIdx + 1, 0, node);
   } else {
-    insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
+    insertOrdered(raw, node, raw.tag === "FAM" ? FAM_CHILD_ORDER : INDI_CHILD_ORDER);
   }
   return node;
 }
 
-/** Add an inline `1 OBJE`/`2 FILE` photo block to an individual (inline mode). */
-export function attachInlineMedia(indi: Individual, file: string, title?: string): GedNode {
-  return appendMediaNode(indi, buildObjeNode(indi.raw.level + 1, file, title));
+/** Add an inline `1 OBJE`/`2 FILE` photo block to an `INDI`/`FAM` record (inline mode). */
+export function attachInlineMedia(raw: GedNode, file: string, title?: string): GedNode {
+  return appendMediaNode(raw, buildObjeNode(raw.level + 1, file, title));
 }
 
 /** Add a `1 OBJE @O@` pointer to a top-level shared media record (shared mode). */
-export function attachMediaPointer(indi: Individual, objeXref: string): GedNode {
-  return appendMediaNode(indi, { level: indi.raw.level + 1, tag: "OBJE", value: objeXref, children: [] });
+export function attachMediaPointer(raw: GedNode, objeXref: string): GedNode {
+  return appendMediaNode(raw, { level: raw.level + 1, tag: "OBJE", value: objeXref, children: [] });
 }
 
 /**
- * Remove the `objeIndex`th `OBJE` child of an individual (0-based among its
- * `OBJE` children). If it was a pointer to a top-level shared record, prune
- * that record when nothing else in the dataset still references it.
+ * Remove the `OBJE` at `addr` from a record — on the record itself or under
+ * one of its events (see {@link MediaAddress}). If it was a pointer to a
+ * top-level shared record, prune that record when nothing else in the dataset
+ * still references it.
  */
-export function removeIndividualMediaAtIndex(dataset: Dataset, indi: Individual, objeIndex: number): void {
-  const node = childrenByTag(indi.raw, "OBJE")[objeIndex];
-  if (!node) return;
-  const i = indi.raw.children.indexOf(node);
-  if (i !== -1) indi.raw.children.splice(i, 1);
+export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress): void {
+  const container = mediaContainerOf(raw, addr);
+  const node = container && childrenByTag(container, "OBJE")[addr.objeIndex];
+  if (!container || !node) return;
+  const i = container.children.indexOf(node);
+  if (i !== -1) container.children.splice(i, 1);
   const ptr = node.value?.trim();
   if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
 }
 
 /**
- * Move an individual's `OBJE` child from position `from` to `to` (0-based among
+ * Move a record's `OBJE` child from position `from` to `to` (0-based among
  * its `OBJE` children), leaving every non-`OBJE` child in place — so a tray
  * reorder doesn't disturb the rest of the record's field order.
  */
-export function reorderIndividualMedia(indi: Individual, from: number, to: number): void {
-  const slots = indi.raw.children.map((c, i) => (c.tag === "OBJE" ? i : -1)).filter((i) => i >= 0);
-  const objes = slots.map((i) => indi.raw.children[i]);
+export function reorderMedia(raw: GedNode, from: number, to: number): void {
+  const slots = raw.children.map((c, i) => (c.tag === "OBJE" ? i : -1)).filter((i) => i >= 0);
+  const objes = slots.map((i) => raw.children[i]);
   if (from === to || from < 0 || to < 0 || from >= objes.length || to >= objes.length) return;
   const [moved] = objes.splice(from, 1);
   objes.splice(to, 0, moved);
-  slots.forEach((slotIdx, k) => { indi.raw.children[slotIdx] = objes[k]; });
+  slots.forEach((slotIdx, k) => { raw.children[slotIdx] = objes[k]; });
 }
 
 /** Editable descriptive fields of a photo (`OBJE`). Each maps to a sub-tag;

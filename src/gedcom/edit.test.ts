@@ -18,8 +18,8 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
   pruneUnreferencedMedia,
-  removeIndividualMediaAtIndex,
-  reorderIndividualMedia,
+  removeMediaAt,
+  reorderMedia,
   setMediaInfo,
   changeEventTagAtIndex,
   changeFamilyEventTag,
@@ -1344,7 +1344,7 @@ describe("individual media", () => {
   it("attaches an inline OBJE/FILE block (with title)", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const node = attachInlineMedia(indi, "photos/janez.jpg", "Janez 1870");
+    const node = attachInlineMedia(indi.raw, "photos/janez.jpg", "Janez 1870");
     expect(node.tag).toBe("OBJE");
     expect(node.children.find((c) => c.tag === "FILE")?.value).toBe("photos/janez.jpg");
     expect(node.children.find((c) => c.tag === "TITL")?.value).toBe("Janez 1870");
@@ -1357,7 +1357,7 @@ describe("individual media", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const rec = createMediaRecord(ds.records, "photos/janez.jpg", "Janez 1870");
-    attachMediaPointer(indi, rec.xref!);
+    attachMediaPointer(indi.raw, rec.xref!);
     const ptr = indi.raw.children.find((c) => c.tag === "OBJE");
     expect(ptr?.value).toBe(rec.xref);
     expect(ds.records.filter((r) => r.tag === "OBJE")).toHaveLength(1);
@@ -1373,9 +1373,9 @@ describe("individual media", () => {
   it("removes an inline photo by index", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    attachInlineMedia(indi, "a.jpg");
-    attachInlineMedia(indi, "b.jpg");
-    removeIndividualMediaAtIndex(ds, indi, 0);
+    attachInlineMedia(indi.raw, "a.jpg");
+    attachInlineMedia(indi.raw, "b.jpg");
+    removeMediaAt(ds, indi.raw, { objeIndex: 0 });
     const remaining = indi.raw.children.filter((c) => c.tag === "OBJE");
     expect(remaining).toHaveLength(1);
     expect(remaining[0].children.find((c) => c.tag === "FILE")?.value).toBe("b.jpg");
@@ -1385,8 +1385,8 @@ describe("individual media", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const rec = createMediaRecord(ds.records, "a.jpg");
-    attachMediaPointer(indi, rec.xref!);
-    removeIndividualMediaAtIndex(ds, indi, 0);
+    attachMediaPointer(indi.raw, rec.xref!);
+    removeMediaAt(ds, indi.raw, { objeIndex: 0 });
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
   });
 
@@ -1395,9 +1395,9 @@ describe("individual media", () => {
     const i1 = ds.individuals.get("@I1@")!;
     const i2 = ds.individuals.get("@I2@")!;
     const rec = createMediaRecord(ds.records, "family.jpg");
-    attachMediaPointer(i1, rec.xref!);
-    attachMediaPointer(i2, rec.xref!);
-    removeIndividualMediaAtIndex(ds, i1, 0);
+    attachMediaPointer(i1.raw, rec.xref!);
+    attachMediaPointer(i2.raw, rec.xref!);
+    removeMediaAt(ds, i1.raw, { objeIndex: 0 });
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
   });
 
@@ -1405,7 +1405,7 @@ describe("individual media", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const rec = createMediaRecord(ds.records, "scan.jpg");
-    attachMediaPointer(indi, rec.xref!);
+    attachMediaPointer(indi.raw, rec.xref!);
     // A SOUR record also points at the same media object.
     ds.records.push({
       level: 0,
@@ -1413,17 +1413,17 @@ describe("individual media", () => {
       tag: "SOUR",
       children: [{ level: 1, tag: "OBJE", value: rec.xref, children: [] }],
     });
-    removeIndividualMediaAtIndex(ds, indi, 0);
+    removeMediaAt(ds, indi.raw, { objeIndex: 0 });
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
   });
 
   it("reorders OBJE children without disturbing other fields", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    attachInlineMedia(indi, "a.jpg");
-    attachInlineMedia(indi, "b.jpg");
-    attachInlineMedia(indi, "c.jpg");
-    reorderIndividualMedia(indi, 2, 0);
+    attachInlineMedia(indi.raw, "a.jpg");
+    attachInlineMedia(indi.raw, "b.jpg");
+    attachInlineMedia(indi.raw, "c.jpg");
+    reorderMedia(indi.raw, 2, 0);
     const files = indi.raw.children
       .filter((c) => c.tag === "OBJE")
       .map((o) => o.children.find((c) => c.tag === "FILE")?.value);
@@ -1436,7 +1436,7 @@ describe("individual media", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const rec = createMediaRecord(ds.records, "a.jpg");
-    attachMediaPointer(indi, rec.xref!);
+    attachMediaPointer(indi.raw, rec.xref!);
     pruneUnreferencedMedia(ds, rec.xref!);
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
   });
@@ -1444,7 +1444,7 @@ describe("individual media", () => {
   it("sets and clears photo metadata (title/date/place/description)", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const obje = attachInlineMedia(indi, "a.jpg");
+    const obje = attachInlineMedia(indi.raw, "a.jpg");
     setMediaInfo(obje, { title: "Wedding", date: "1900", place: "Ljubljana", description: "On the steps" });
     const child = (tag: string) => obje.children.find((c) => c.tag === tag)?.value;
     expect(child("TITL")).toBe("Wedding");
@@ -1462,7 +1462,7 @@ describe("individual media", () => {
   it("normalizes a FILE-level TITL up to the OBJE and drops a NOTE used as description", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const obje = attachInlineMedia(indi, "a.jpg");
+    const obje = attachInlineMedia(indi.raw, "a.jpg");
     const fileNode = obje.children.find((c) => c.tag === "FILE")!;
     fileNode.children.push({ level: fileNode.level + 1, tag: "TITL", value: "stale", children: [] });
     obje.children.push({ level: obje.level + 1, tag: "NOTE", value: "old desc", children: [] });
@@ -1472,5 +1472,42 @@ describe("individual media", () => {
     expect(obje.children.find((c) => c.tag === "TITL")?.value).toBe("New title");
     expect(obje.children.some((c) => c.tag === "NOTE")).toBe(false);
     expect(obje.children.find((c) => c.tag === "_DSCR")?.value).toBe("New desc");
+  });
+});
+
+// ─── Family media (OBJE) ──────────────────────────────────────────────────────
+
+describe("family media", () => {
+  it("attaches an inline OBJE to a FAM record", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    const node = attachInlineMedia(fam.raw, "wedding.jpg", "Wedding");
+    expect(fam.raw.children).toContain(node);
+    expect(node.children.find((c) => c.tag === "FILE")?.value).toBe("wedding.jpg");
+  });
+
+  it("attaches a shared pointer to a FAM record and prunes on removal", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    const rec = createMediaRecord(ds.records, "wedding.jpg");
+    attachMediaPointer(fam.raw, rec.xref!);
+    expect(fam.raw.children.find((c) => c.tag === "OBJE")?.value).toBe(rec.xref);
+    removeMediaAt(ds, fam.raw, { objeIndex: 0 });
+    expect(fam.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
+  it("removes an event-level OBJE by address, leaving the event in place", () => {
+    const ds = buildFromText(FAM_BASE);
+    const fam = ds.families.get("@F1@")!;
+    const marr: GedNode = { level: 1, tag: "MARR", children: [] };
+    fam.raw.children.push(marr);
+    const rec = createMediaRecord(ds.records, "wedding.jpg");
+    marr.children.push({ level: 2, tag: "OBJE", value: rec.xref, children: [] });
+
+    removeMediaAt(ds, fam.raw, { eventTag: "MARR", eventIndex: 0, objeIndex: 0 });
+    expect(fam.raw.children).toContain(marr); // event survives
+    expect(marr.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false); // shared record pruned
   });
 });

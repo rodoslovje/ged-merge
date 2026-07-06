@@ -11,7 +11,8 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { cropOf, isPointer, objeInfoOf, objeNodesFor, type CropRegion } from "../gedcom/source";
+import type { CropRegion } from "../gedcom/source";
+import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
 import { mediaUsedBy, type PersonRef } from "../tools/sources";
 import { lifespanLabel } from "../match/relatives";
 import { PersonLink } from "./PersonLink";
@@ -45,6 +46,9 @@ export interface MediaEditFields {
  *  callback that writes them back through the edit/undo flow. */
 export interface MediaEdit {
   file: string;
+  /** Where the media is attached when not on the record itself — the event's
+   *  display label (e.g. "Birth"), shown read-only under the filename. */
+  context?: string;
   initial: MediaEditFields;
   onSave: (fields: MediaEditFields) => void;
 }
@@ -83,18 +87,22 @@ export interface MediaRefContext {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   /** When provided (Edit/main context), the info panel becomes editable; the
-   *  callback writes a photo's fields back by its `OBJE` child index. */
-  onEditMedia?: (objeIndex: number, fields: MediaEditFields) => void;
+   *  callback writes a photo's fields back by its media address (record- or
+   *  event-level `OBJE`). */
+  onEditMedia?: (addr: MediaAddress, fields: MediaEditFields) => void;
 }
 
 interface MediaViewerCtx {
   /** Open the viewer with already-resolved items. */
   openItems(items: MediaItem[], startIndex?: number): void;
-  /** Resolve a person/record's local photos, then open the viewer. `focusEdit`
+  /** Resolve a person/record's local photos, then open the viewer. `start` is
+   *  the tray index to open at, or a media address (the add flow targets the
+   *  just-added `OBJE` that way — a plain "last index" could land on an
+   *  event-level photo, which sorts after the record-level ones). `focusEdit`
    *  autofocuses the edit form's first field once — used by the add flow so a
    *  just-added photo is ready to caption; left off for plain viewing (tray
    *  navigation / opening from Edit) so the user decides whether to edit. */
-  openPerson(raw: GedNode, records: GedNode[], startIndex?: number, refCtx?: MediaRefContext, focusEdit?: boolean): void;
+  openPerson(raw: GedNode, records: GedNode[], start?: number | MediaAddress, refCtx?: MediaRefContext, focusEdit?: boolean): void;
 }
 
 const MediaViewerContext = createContext<MediaViewerCtx>({
@@ -121,64 +129,6 @@ export function mediaMetaRows(
   if (info.description) rows.push({ label: t("tools.sources.mediaDesc"), value: info.description });
   if (info.file) rows.push({ label: t("tools.sources.mediaFile"), value: info.file });
   return rows;
-}
-
-/** A local photo linked from a record: its file, title, descriptive content
- *  fields (date depicted, place, free-text description), and—when the OBJE is a
- *  pointer to a shared media record—that record's xref (for the "referenced by"
- *  list). */
-export interface MediaRef {
-  file: string;
-  title?: string;
-  /** A level-1 `DATE` — the date the media depicts (not an edit timestamp). */
-  date?: string;
-  place?: string;
-  /** Free-text description, from `_DSCR` or `NOTE`. */
-  description?: string;
-  /** Shared media record xref, present only for pointer-style OBJE links. */
-  xref?: string;
-  /** GEDCOM 7 crop region from the OBJE *link* — the part of this (group) photo
-   *  that depicts the record. Lives on the link, not the shared media record. */
-  crop?: CropRegion;
-  /** Position of this photo's `OBJE` among the record's `OBJE` children
-   *  (counting URL-only ones too), so Edit-mode delete/reorder can target the
-   *  right child even when some `OBJE`s aren't displayable photos. */
-  objeIndex: number;
-}
-
-/** Local file, title, and descriptive content for one OBJE node, or null when
- *  it's a URL/has no file. Reuses the shared OBJE parser; keeps only nodes whose
- *  `FILE` is a local filename (a displayable photo), dropping URL-only links. */
-function objeMediaRef(objeNode: GedNode): Omit<MediaRef, "xref" | "objeIndex"> | null {
-  const info = objeInfoOf(objeNode);
-  if (!info.file || info.url) return null;
-  return {
-    file: info.file,
-    title: info.title,
-    date: info.date,
-    place: info.place,
-    description: info.description,
-  };
-}
-
-/** Every local photo (file + title) linked from a record's OBJE children. */
-export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
-  const objeNodes = objeNodesFor(records);
-  const refs: MediaRef[] = [];
-  let objeIndex = -1;
-  for (const child of raw.children) {
-    if (child.tag !== "OBJE") continue;
-    objeIndex++;
-    const val = child.value?.trim();
-    const xref = val && isPointer(val) ? val : undefined;
-    const objeNode = xref ? objeNodes.get(xref) : child;
-    if (!objeNode) continue;
-    const ref = objeMediaRef(objeNode);
-    // The crop region lives on the link node (`child`), not the shared OBJE
-    // record — different people crop different parts of the same image.
-    if (ref) refs.push({ ...ref, xref, crop: cropOf(child), objeIndex });
-  }
-  return refs;
 }
 
 /** Every tagged person's crop region on a shared media object, with a name label
@@ -263,33 +213,48 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openPerson = useCallback(
-    async (raw: GedNode, records: GedNode[], startIndex = 0, refCtx?: MediaRefContext, focusEdit = false) => {
+    async (raw: GedNode, records: GedNode[], start: number | MediaAddress = 0, refCtx?: MediaRefContext, focusEdit = false) => {
       const refs = collectMediaRefs(raw, records);
       if (refs.length === 0) return;
       const resolved = await Promise.all(refs.map((r) => resolveFile(r.file)));
       const items: MediaItem[] = [];
+      let startIndex = typeof start === "number" ? start : 0;
+      const atStart = (r: MediaAddress) =>
+        typeof start === "object" &&
+        r.eventTag === start.eventTag &&
+        (r.eventIndex ?? 0) === (start.eventIndex ?? 0) &&
+        r.objeIndex === start.objeIndex;
       for (let i = 0; i < refs.length; i++) {
         const url = resolved[i];
         if (!url) continue;
         const ref = refs[i];
         const { xref } = ref;
         const onEditMedia = refCtx?.onEditMedia;
+        if (atStart(ref)) startIndex = items.length;
+        // Media attached to an event (rather than the record itself) shows the
+        // event's label so it's clear what the photo documents.
+        const eventLabel = ref.eventTag
+          ? t(`event.${ref.eventTag}`, { defaultValue: ref.eventTag })
+          : undefined;
+        const metaRows = mediaMetaRows(ref, t);
+        if (eventLabel) metaRows.unshift({ label: t("media.field.event"), value: eventLabel });
         items.push({
           url,
           allCrops: refCtx && xref ? mediaCropMarks(refCtx.dataset, xref) : undefined,
           title: ref.title || basename(ref.file),
           // When editable, the form replaces the static rows; otherwise show them.
-          meta: onEditMedia ? undefined : mediaMetaRows(ref, t),
+          meta: onEditMedia ? undefined : metaRows,
           edit: onEditMedia
             ? {
                 file: ref.file,
+                context: eventLabel,
                 initial: {
                   title: ref.title ?? "",
                   date: ref.date ?? "",
                   place: ref.place ?? "",
                   description: ref.description ?? "",
                 },
-                onSave: (fields) => onEditMedia(ref.objeIndex, fields),
+                onSave: (fields) => onEditMedia(ref, fields),
               }
             : undefined,
           details:
@@ -349,7 +314,10 @@ function MediaInfoEditor({
   const blurOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") e.currentTarget.blur(); };
   return (
     <div className="media-lightbox-edit">
-      <div className="media-lightbox-file" title={edit.file}>{basename(edit.file)}</div>
+      <div className="media-lightbox-file" title={edit.file}>
+        {basename(edit.file)}
+        {edit.context && <span className="media-lightbox-context"> · {edit.context}</span>}
+      </div>
       <label className="media-edit-field">
         <span>{t("media.field.title")}</span>
         <input className="edit-input" autoFocus={autoFocus} value={fields.title} onChange={(e) => set("title")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />

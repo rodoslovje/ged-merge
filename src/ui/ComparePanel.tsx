@@ -15,7 +15,7 @@ import {
 } from "../review/types";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import { collectMediaRefs } from "./MediaViewer";
+import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
 export type RelativeSide = "main" | "incoming";
