@@ -140,7 +140,7 @@ function AppContent() {
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { main, compare, lastMainFile, matches, matching, decisions, importBranches, startId } = workspace;
+  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, startId } = workspace;
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
@@ -177,6 +177,11 @@ function AppContent() {
   // Edit-state cached from a previous session, applied (instead of resetOnLoad)
   // once the edited main re-parses. Null when there is nothing to restore.
   const pendingEditStateRef = useRef<StoredEditState | null>(null);
+  // Set on the first user-initiated load. The startup restore checks it before
+  // (and after) each async hop: a user who drops a file while the cached
+  // workspace is still being read must win — feeding the cached file to the
+  // worker afterwards would overwrite the user's freshly-loaded one.
+  const userLoadedRef = useRef(false);
   // The raw compare Blob (File on load, cached Blob on hydrate) — kept so that
   // enabling persistence mid-session can cache the compare exactly, including a
   // CSV that can't be re-serialized from its dataset.
@@ -476,7 +481,7 @@ function AppContent() {
       ? loadWorkspace()
       : Promise.resolve({});
     void hydrate.then((ws) => {
-      if (cancelled) return;
+      if (cancelled || userLoadedRef.current) return;
       if (!ws.main) {
         hydratedRef.current = true; // nothing cached — persist freely from here
         return;
@@ -492,7 +497,7 @@ function AppContent() {
       const feed = (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
         dispatch({ type: "slotLoading", role, fileName: sf.fileName });
         void sf.blob.arrayBuffer().then((buffer) => {
-          if (cancelled) return;
+          if (cancelled || userLoadedRef.current) return;
           post(
             sf.isCsv
               ? { type: "parseCsv", fileName: sf.fileName, buffer }
@@ -522,6 +527,7 @@ function AppContent() {
   async function loadFile(role: DatasetRole, file: File) {
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
+    userLoadedRef.current = true;
     hydratedRef.current = true;
     expectCompareRef.current = false;
     pendingSessionRef.current = null;
@@ -732,6 +738,12 @@ function AppContent() {
     const mainFileName = lastMainFile?.fileName;
     if (!mainFileName) return; // nothing loaded yet → nothing to cache
     if (!hydratedRef.current) return; // a startup restore is still settling
+    // While a main (re)load is parsing, lastMainFile/mainDataset still hold the
+    // PREVIOUS file. Writing then would cache the old file's text and flip
+    // mainCachedRef, so the new file would never be cached this session and a
+    // reload would restore the old one. `main` is in the deps, so the
+    // slotLoading dispatch also cancels any already-scheduled write below.
+    if (main.status !== "loaded") return;
     const handle = window.setTimeout(async () => {
       const edited = editVersion > 0; // dataset differs from the cached original
       const editState: StoredEditState | undefined = edited
@@ -763,7 +775,7 @@ function AppContent() {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, startId, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
+  }, [persistEnabled, decisions, importBranches, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on
@@ -1997,6 +2009,11 @@ function AppContent() {
           </div>
           <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
             <EditView
+              // Remount on every main (re)load: Edit keeps per-person input
+              // state keyed by xref, and a different file can reuse the same
+              // xrefs — reusing the mounted tree would show the old file's
+              // values (stale name/birth) mixed into the new dataset.
+              key={`edit-${mainLoadGen}`}
               dataset={mainDataset}
               fileName={lastMainFile.fileName}
               startId={startId}
@@ -2022,6 +2039,10 @@ function AppContent() {
           </div>
           <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>
             <ToolsView
+              // Same remount-on-load rule as EditView: tool results (validation
+              // report, duplicate pairs) computed from the previous dataset must
+              // not survive into a newly loaded file.
+              key={`tools-${mainLoadGen}`}
               dataset={mainDataset}
               fileName={lastMainFile.fileName}
               onNavigate={(id) => {

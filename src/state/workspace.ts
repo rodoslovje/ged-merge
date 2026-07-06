@@ -42,6 +42,14 @@ export interface WorkspaceState {
   /** The last successfully-loaded main, kept while a reload is in progress so
    *  the views don't flash back to the landing page. */
   lastMainFile: LoadedFile | null;
+  /** Bumped every time a main file finishes loading (first load, reload, or
+   *  replacement). Views with per-person local state (Edit, Tools) key on this
+   *  so a different dataset remounts them: xref collisions between files (both
+   *  roots being @I1@, say) would otherwise let React reuse input components
+   *  whose local state still holds the previous file's values. The in-place
+   *  dataset rebuild after save dispatches no slotLoaded, so saving keeps the
+   *  current view state. */
+  mainLoadGen: number;
   matches: MatchResult | null;
   /** True while the worker is (re)computing matches. */
   matching: boolean;
@@ -57,6 +65,7 @@ export const initialWorkspace: WorkspaceState = {
   main: { status: "empty" },
   compare: { status: "empty" },
   lastMainFile: null,
+  mainLoadGen: 0,
   matches: null,
   matching: false,
   startId: undefined,
@@ -92,7 +101,10 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
     case "slotLoaded": {
       const next: WorkspaceState = { ...state, [slotKey(action.role)]: { status: "loaded", file: action.file } };
       // A freshly-loaded main becomes the preserved baseline.
-      if (action.role === "main") next.lastMainFile = action.file;
+      if (action.role === "main") {
+        next.lastMainFile = action.file;
+        next.mainLoadGen = state.mainLoadGen + 1;
+      }
       return next;
     }
 
@@ -147,6 +159,9 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
     case "reset":
       return {
         ...initialWorkspace,
+        // Keep counting across a reset so a later load never reuses a
+        // generation key an earlier file already rendered under.
+        mainLoadGen: state.mainLoadGen,
         decisions: new Map(),
         importBranches: new Set(),
       };

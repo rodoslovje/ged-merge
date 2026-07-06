@@ -41,6 +41,31 @@ describe("workspaceReducer — slots", () => {
     expect(s.lastMainFile).toBe(fm); // not overwritten by the compare load
   });
 
+  it("bumps mainLoadGen on every main load, but never on compare loads", () => {
+    const s1 = workspaceReducer(initialWorkspace, { type: "slotLoaded", role: "main", file: file("a.ged") });
+    expect(s1.mainLoadGen).toBe(1);
+    // A compare load must not remount the Edit/Tools views.
+    const s2 = workspaceReducer(s1, { type: "slotLoaded", role: "compare", file: file("c.ged") });
+    expect(s2.mainLoadGen).toBe(1);
+    // Replacing the main (same or different file) is a new generation — Edit's
+    // per-person input state must not survive into a dataset that may reuse
+    // the same xrefs for different people.
+    const s3 = reduce(
+      s2,
+      { type: "slotLoading", role: "main", fileName: "b.ged" },
+      { type: "slotLoaded", role: "main", file: file("b.ged") },
+    );
+    expect(s3.mainLoadGen).toBe(2);
+  });
+
+  it("keeps counting mainLoadGen across a reset (generation keys never repeat)", () => {
+    const loaded = workspaceReducer(initialWorkspace, { type: "slotLoaded", role: "main", file: file("a.ged") });
+    const afterReset = workspaceReducer(loaded, { type: "reset" });
+    expect(afterReset.mainLoadGen).toBe(1);
+    const reloaded = workspaceReducer(afterReset, { type: "slotLoaded", role: "main", file: file("b.ged") });
+    expect(reloaded.mainLoadGen).toBe(2);
+  });
+
   it("keeps lastMainFile while the main reloads (loading state)", () => {
     const fm = file("m.ged");
     const s = reduce(
