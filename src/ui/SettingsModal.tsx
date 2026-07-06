@@ -29,6 +29,7 @@ const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸�
 const SAMPLE_NAME: PersonName = { full: "Ana Novak", given: "Ana", surname: "Novak", married: "Kovač" };
 const SAMPLE_XREF = "@I42@";
 const SAMPLE_LIFESPAN = "1850–1920";
+const SAMPLE_AGE = 70;
 
 /**
  * General settings: name-display preferences, the record-id toggle, and the
@@ -122,7 +123,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <span className="settings-preview-person">
                 <span className={`person-name ${sexClass("F")}`}>{nameOf(SAMPLE_NAME)}</span>
                 {settings.showXref && <span className="person-xref gm-data">{xrefLabel(SAMPLE_XREF)}</span>}
-                <span className="person-years gm-data">{SAMPLE_LIFESPAN}</span>
+                <span className="person-years gm-data">{settings.showAge ? `${SAMPLE_LIFESPAN} (${SAMPLE_AGE})` : SAMPLE_LIFESPAN}</span>
               </span>
             </div>
 
@@ -194,6 +195,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.display.xref")}</span>
                 <span className="settings-hint">{t("settings.display.xref.hint")}</span>
+              </span>
+            </label>
+
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showAge}
+                onChange={(e) => set({ showAge: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.age")}</span>
+                <span className="settings-hint">{t("settings.display.age.hint")}</span>
               </span>
             </label>
           </section>

@@ -1,4 +1,4 @@
-import type { Individual } from "./types";
+import type { GedDate, Individual } from "./types";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
@@ -50,6 +50,24 @@ function dateRawOf(indi: Individual | undefined, tags: readonly string[]): strin
   for (const tag of tags) {
     const raw = indi?.events.find((e) => e.tag === tag)?.date?.raw;
     if (raw) return raw;
+  }
+  return undefined;
+}
+
+/** The structured birth date (birth, else baptism/christening), if it has a year. */
+export function birthDateOf(indi: Individual | undefined): GedDate | undefined {
+  return structuredDateOf(indi, BIRTH_TAGS);
+}
+
+/** The structured death date (death, else burial/cremation), if it has a year. */
+export function deathDateOf(indi: Individual | undefined): GedDate | undefined {
+  return structuredDateOf(indi, DEATH_TAGS);
+}
+
+function structuredDateOf(indi: Individual | undefined, tags: readonly string[]): GedDate | undefined {
+  for (const tag of tags) {
+    const d = indi?.events.find((e) => e.tag === tag)?.date;
+    if (d?.year !== undefined) return d;
   }
   return undefined;
 }

@@ -1,5 +1,6 @@
 import type { GedNode, Individual } from "../gedcom/types";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf } from "../gedcom/lifespan";
+import { lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
@@ -65,7 +66,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
     );
   }
 
-  const lifespan = lifespanOf(individual);
+  const lifespan = lifespanWithAge(individual, settings.showAge);
   return (
     <div className="person-card-wrap">
       {roleLabel && <div className="person-card-role">{roleLabel}</div>}
