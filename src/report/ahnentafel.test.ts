@@ -200,9 +200,10 @@ describe("buildAhnentafel", () => {
     const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { notes: true })!.generations[0].entries[0];
     expect(on.notes).toEqual(["Emigrated twice."]);
     expect(on.facts[0].note).toBe("Born at home.");
-    // Text: person note under the name, event note indented under its fact.
+    // Text: fact lines first (event note indented under its fact), then the
+    // person note after the facts.
     const text = reportToText(tr, buildAhnentafel(ds2, "@I1@", nameOf, NOW, { notes: true })!, "ancestors", "T");
-    expect(text).toContain("1. Solo One (1900–1980)\n   Emigrated twice.\n   * 1900\n     Born at home.");
+    expect(text).toContain("1. Solo One (1900–1980)\n   * 1900\n     Born at home.\n   † 1980\n   Emigrated twice.");
   });
 
   it("keeps URLs listed in notes in the report", () => {
@@ -292,6 +293,29 @@ describe("reportToText (ancestors)", () => {
     expect(text).toContain("1. Young X");
     expect(text).not.toContain("1950");
     expect(text).not.toContain("Kranj");
+  });
+
+  it("replaces a redacted living name with the injected kinship label", () => {
+    const recent = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Young /X/\n1 SEX F\n1 BIRT\n2 DATE 1950\n",
+    ));
+    const d = buildAhnentafel(recent, "@I1@", nameOf, NOW)!;
+    const text = reportToText(tr, d, "ancestors", "T", {
+      privacyLiving: true,
+      livingNameOf: (p) => `kinship-of-${p.id}-${p.sex}`,
+    });
+    expect(text).toContain("1. kinship-of-@I1@-F");
+    expect(text).not.toContain("Young X");
+  });
+
+  it("orders an entry body: facts, then person notes, then person sources", () => {
+    const full = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE A person note.\n1 SOUR @S1@\n" +
+        "1 BIRT\n2 DATE 1900\n1 DEAT\n2 DATE 1980\n0 @S1@ SOUR\n1 TITL Krstna knjiga\n",
+    ));
+    const d = buildAhnentafel(full, "@I1@", nameOf, NOW, { notes: true, sources: true })!;
+    const text = reportToText(tr, d, "ancestors", "T");
+    expect(text).toContain("1. Solo One (1900–1980)\n   * 1900\n   † 1980\n   A person note.\n   § Krstna knjiga");
   });
 
   it("leads with the table of contents when asked, one row per generation", () => {

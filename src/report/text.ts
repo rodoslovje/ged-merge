@@ -3,6 +3,7 @@
 // headings, "Children of no. X" group headings (register only), numbered
 // entries, indented glyph fact lines — kept pure so it's unit-testable.
 
+import type { Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import {
   generationHeading,
@@ -18,8 +19,13 @@ import {
 import { citationMark, type NarrativeEntryText } from "./narrativeText";
 
 export interface ReportTextOptions {
-  /** Redact presumed-living people: keep their number + name, drop the rest. */
+  /** Redact presumed-living people: keep their number, replace the name (see
+   *  {@link ReportTextOptions.livingNameOf}), drop the rest. */
   privacyLiving?: boolean;
+  /** Display name for a redacted living person — their kinship to the root or
+   *  the localized "Living" placeholder, same as the chart nodes. Injected by
+   *  the view, which owns the kinship resolver; without it the name stays. */
+  livingNameOf?: (person: { id: string; sex: Sex }) => string;
   /** Narrative style: render this prose (paragraph with citation markers,
    *  overflow notes, numbered citations) instead of the glyph fact lines.
    *  Injected by the view, which owns the planner + language pack — keeps
@@ -51,7 +57,7 @@ export function reportToText(
       // Register generations group children per union, both parents named.
       if (entry.parentNum !== undefined && entry.parentFam !== lastFam) {
         if (lastFam !== undefined) lines.push("");
-        lines.push(childrenOfLabel(t, entry, opts.privacyLiving));
+        lines.push(childrenOfLabel(t, entry, opts));
         lastFam = entry.parentFam;
       }
       lines.push(...entryLines(t, entry, opts));
@@ -61,21 +67,31 @@ export function reportToText(
   return lines.join("\n").replace(/\n+$/, "\n");
 }
 
+/** A person's rendered name: the recorded name, or — redacted living under
+ *  privacy — the injected kinship/"Living" replacement, like the chart nodes. */
+export function reportName(
+  p: { id: string; sex: Sex; name: string; living: boolean },
+  opts: ReportTextOptions,
+): string {
+  return opts.privacyLiving && p.living && opts.livingNameOf ? opts.livingNameOf(p) : p.name;
+}
+
 /** The per-union group heading, naming both parents when the spouse is known
  *  (the parent's register number is redundant next to their name). Names carry
  *  the lifespan like any entry — dropped for the living under privacy. */
-export function childrenOfLabel(t: Translate, entry: ReportEntry, privacy = false): string {
-  const name = entry.parent && refText(entry.parent, privacy);
-  const spouse = entry.parentSpouse && refText(entry.parentSpouse, privacy);
+export function childrenOfLabel(t: Translate, entry: ReportEntry, opts: ReportTextOptions = {}): string {
+  const name = entry.parent && refText(entry.parent, opts);
+  const spouse = entry.parentSpouse && refText(entry.parentSpouse, opts);
   return spouse
     ? t("register.childrenOfBoth", { name, spouse })
     : t("register.childrenOf", { name });
 }
 
 /** A heading person as text: "Luka Renko (1974)". */
-function refText(ref: PersonRef, privacy: boolean): string {
-  const years = !(privacy && ref.living) && ref.years;
-  return years ? `${ref.name} (${years})` : ref.name;
+function refText(ref: PersonRef, opts: ReportTextOptions): string {
+  const name = reportName(ref, opts);
+  const years = !(opts.privacyLiving && ref.living) && ref.years;
+  return years ? `${name} (${years})` : name;
 }
 
 /** The entry's leading number: "5." for ancestors and the root, the NGSQ
@@ -87,7 +103,7 @@ export function entryNum(entry: ReportEntry): string {
 function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): string[] {
   const redacted = !!opts.privacyLiving && entry.living;
   const num = entryNum(entry);
-  const head = `${num} ${entry.name}${!redacted && entry.years ? ` (${entry.years})` : ""}`;
+  const head = `${num} ${reportName(entry, opts)}${!redacted && entry.years ? ` (${entry.years})` : ""}`;
   if (entry.dupOf !== undefined) {
     return [`${head} → ${t("ahnentafel.dup", { n: entry.dupOf })}`];
   }
@@ -112,14 +128,15 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
     });
     return lines;
   }
-  // Person notes and sources under the name, event ones under their fact line.
-  for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
-  for (const src of entry.sources ?? []) lines.push(indent + sourceText(t, src));
+  // Fact lines first (event notes/sources nested under their line), then the
+  // person's own notes, then their record-level sources.
   for (const f of entry.facts) {
     lines.push(indent + factText(t, f));
     if (f.note) lines.push(...noteLines(f.note, indent + "  "));
     for (const src of f.sources ?? []) lines.push(indent + "  " + sourceText(t, src));
   }
+  for (const note of entry.notes ?? []) lines.push(...noteLines(note, indent));
+  for (const src of entry.sources ?? []) lines.push(indent + sourceText(t, src));
   return lines;
 }
 

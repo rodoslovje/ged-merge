@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, Sex } from "../gedcom/types";
 import type { TreeMode } from "../chart/personTree";
+import { livingLabelFor } from "../chart/nodeDisplay";
+import { createKinshipResolver } from "../match/kinship";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
 import {
@@ -14,10 +16,10 @@ import {
   type ReportEntry,
   type SourceLine,
 } from "../report/model";
-import { childrenOfLabel, factText, reportToText } from "../report/text";
+import { childrenOfLabel, factText, reportName, reportToText, type ReportTextOptions } from "../report/text";
 import { reportToRtf } from "../report/rtf";
 import { childGroups, planEntry } from "../report/narrative";
-import { citationMark, narrativeEntry, narrativeLangFor, type NarrativeEntryText } from "../report/narrativeText";
+import { citationMark, narrativeEntry, narrativeLangFor } from "../report/narrativeText";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
@@ -114,10 +116,17 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
   );
   const data = mode === "descendants" ? descendants : ancestors;
 
-  // Redact people inferred to be living: keep their number and name (the
-  // family structure), drop the dates, places and fact lines.
+  // Redact people inferred to be living: keep their number (the family
+  // structure), replace the name with their kinship to the root — or the
+  // "Living" placeholder — and drop the dates, places and fact lines, the
+  // same convention as the chart nodes.
   const privacy = settings.privacyLiving;
   const redacted = useCallback((e: ReportEntry) => privacy && e.living, [privacy]);
+  const kinship = useMemo(() => createKinshipResolver(mainDs, currentRootId, t), [mainDs, currentRootId, t]);
+  const livingNameOf = useCallback(
+    (p: { id: string; sex: Sex }) => kinship.label(p.id) || livingLabelFor(t, p.sex),
+    [kinship, t],
+  );
   // Table of contents up top: one row per generation, linked to its section
   // in every rendering (page scroll, text lines, RTF bookmarks, print anchors).
   const toc = settings.reportToc;
@@ -132,6 +141,12 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
     return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num)));
   }, [settings.reportNarrative, data, t, i18n.language]);
 
+  // One options object for all renderings (page names, txt, RTF, print).
+  const exportOpts = useMemo<ReportTextOptions>(
+    () => ({ privacyLiving: privacy, livingNameOf, narrativeOf, toc }),
+    [privacy, livingNameOf, narrativeOf, toc],
+  );
+
   // Esc / Backspace leave, A/D switch direction; kind digits are the hub's.
   useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
 
@@ -142,7 +157,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
     [data],
   );
   const pageKind = t(mode === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle");
-  const exportTitle = [rootEntry?.name, rootEntry && !redacted(rootEntry) ? rootEntry.years : undefined, "—", pageKind]
+  const exportTitle = [rootEntry && reportName(rootEntry, exportOpts), rootEntry && !redacted(rootEntry) ? rootEntry.years : undefined, "—", pageKind]
     .filter(Boolean)
     .join(" ");
 
@@ -175,7 +190,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
       });
       const ref = (r: PersonRef, k: number) => (
         <span key={k}>
-          <span className={`report-name ${sexClass(r.sex)}`}>{r.name}</span>
+          <span className={`report-name ${sexClass(r.sex)}`}>{reportName(r, exportOpts)}</span>
           {!(privacy && r.living) && r.years && <span className="report-years gm-data">{r.years}</span>}
         </span>
       );
@@ -185,7 +200,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
           part === "\u0001" && e.parent ? ref(e.parent, k) : part === "\u0002" && e.parentSpouse ? ref(e.parentSpouse, k) : part,
         );
     },
-    [t, privacy],
+    [t, privacy, exportOpts],
   );
 
   // Cross-reference jump: scroll a numbered entry into view and flash it.
@@ -206,7 +221,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
       title={
         rootEntry ? (
           <>
-            <span className={`tree-title-name ${sexClass(rootEntry.sex)}`}>{rootEntry.name}</span>
+            <span className={`tree-title-name ${sexClass(rootEntry.sex)}`}>{reportName(rootEntry, exportOpts)}</span>
             {!redacted(rootEntry) && rootEntry.years && <span className="tree-title-years gm-data">{rootEntry.years}</span>}
             <span className="tree-title-break" aria-hidden="true" />
             <span className="tree-title-kind">{pageKind}</span>
@@ -232,7 +247,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.txt`,
-                    reportToText(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf, toc }),
+                    reportToText(t, data, mode, exportTitle, exportOpts),
                   ),
               },
               {
@@ -244,7 +259,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.rtf`,
-                    reportToRtf(t, data, mode, exportTitle, { privacyLiving: privacy, narrativeOf, toc }),
+                    reportToRtf(t, data, mode, exportTitle, exportOpts),
                     "application/rtf",
                   ),
               },
@@ -255,7 +270,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                 title: t("tree.exportPdf.tooltip"),
                 onSelect: () =>
                   data &&
-                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), privacy, toc, narrativeOf)),
+                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), exportOpts)),
               },
             ]}
           />
@@ -351,7 +366,7 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                         )}
                         <div className="report-entry-body">
                           <div>
-                            <span className={`report-name ${sexClass(e.sex)}`}>{e.name}</span>
+                            <span className={`report-name ${sexClass(e.sex)}`}>{reportName(e, exportOpts)}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
                             {/* Working-state chips (decision C/R/D + unsaved-edit M) —
                                 same letters and tokens as the tree charts' badges.
@@ -386,16 +401,6 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                               </button>
                             )}
                           </div>
-                          {!redacted(e) &&
-                            !narrativeOf &&
-                            (e.notes ?? []).map((note, j) => (
-                              <div key={`n${j}`} className="report-note">
-                                {note}
-                              </div>
-                            ))}
-                          {!redacted(e) &&
-                            !narrativeOf &&
-                            (e.sources ?? []).map((src, j) => sourceNode(src, sourceLabel(t, src), `s${j}`))}
                           {/* Narrative style: the prose paragraph (footnote
                               markers included), the person's own notes, then
                               the numbered footnotes — source citations and
@@ -424,6 +429,9 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                                 </>
                               );
                             })()}
+                          {/* List style: fact lines first (event notes/sources
+                              nested under their line), then the person's own
+                              notes, then their record-level sources. */}
                           {!redacted(e) &&
                             !narrativeOf &&
                             e.facts.map((f, j) => (
@@ -433,6 +441,16 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
                                 {(f.sources ?? []).map((src, k) => sourceNode(src, sourceLabel(t, src), k))}
                               </div>
                             ))}
+                          {!redacted(e) &&
+                            !narrativeOf &&
+                            (e.notes ?? []).map((note, j) => (
+                              <div key={`n${j}`} className="report-note">
+                                {note}
+                              </div>
+                            ))}
+                          {!redacted(e) &&
+                            !narrativeOf &&
+                            (e.sources ?? []).map((src, j) => sourceNode(src, sourceLabel(t, src), `s${j}`))}
                         </div>
                       </div>
                     </div>
@@ -500,12 +518,10 @@ function printDoc(
   direction: TreeMode,
   title: string,
   fileName: string,
-  privacy: boolean,
-  toc: boolean,
-  narrativeOf?: (entry: ReportEntry) => NarrativeEntryText,
+  opts: ReportTextOptions,
 ): string {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
-  if (toc) {
+  if (opts.toc) {
     // Anchor links to the generation headings — clickable in the saved PDF.
     parts.push(
       `<nav class="toc"><div class="toc-head">${escapeHtml(t("report.toc"))}</div>` +
@@ -522,15 +538,15 @@ function printDoc(
     let lastFam: string | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentFam !== lastFam) {
-        parts.push(`<h3>${escapeHtml(childrenOfLabel(t, e, privacy))}</h3>`);
+        parts.push(`<h3>${escapeHtml(childrenOfLabel(t, e, opts))}</h3>`);
         lastFam = e.parentFam;
       }
-      const hidden = privacy && e.living;
+      const hidden = !!opts.privacyLiving && e.living;
       const numCell =
         `<span class="num">${e.num}${e.childIndex === undefined ? "." : ""}</span>` +
         (e.childIndex !== undefined ? `<span class="rom">${romanIndex(e.childIndex)}.</span>` : "");
       const head =
-        `${numCell} <strong>${escapeHtml(e.name)}</strong>` +
+        `${numCell} <strong>${escapeHtml(reportName(e, opts))}</strong>` +
         (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
       const sourceDiv = (s: SourceLine, mark?: string) => {
@@ -539,10 +555,10 @@ function printDoc(
       };
       const noteDiv = (n: string) => `<div class="note">${escapeHtml(n)}</div>`;
       const body: string[] = [];
-      if (!hidden && narrativeOf) {
+      if (!hidden && opts.narrativeOf) {
         // Narrative style: paragraph (footnote markers included), person
         // notes, then the numbered footnotes (citations + long event notes).
-        const nt = narrativeOf(e);
+        const nt = opts.narrativeOf(e);
         if (nt.paragraph) body.push(`<div class="para">${escapeHtml(nt.paragraph)}</div>`);
         body.push(...(e.notes ?? []).map(noteDiv));
         body.push(
@@ -551,7 +567,8 @@ function printDoc(
           ),
         );
       } else if (!hidden) {
-        body.push(...(e.notes ?? []).map(noteDiv), ...(e.sources ?? []).map((s) => sourceDiv(s)));
+        // List style: fact lines first (event notes/sources nested under
+        // their line), then the person's notes, then their sources.
         body.push(
           ...e.facts.map(
             (f) =>
@@ -561,6 +578,7 @@ function printDoc(
               `</div>`,
           ),
         );
+        body.push(...(e.notes ?? []).map(noteDiv), ...(e.sources ?? []).map((s) => sourceDiv(s)));
       }
       parts.push(`<div class="entry">${head}${body.join("")}</div>`);
     }

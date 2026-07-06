@@ -73,9 +73,9 @@ export interface ReportFactOptions {
   occupation?: boolean;
   education?: boolean;
   residence?: boolean;
-  /** Person notes under the name, event notes under their fact line. */
+  /** Person notes after the fact lines, event notes under their fact line. */
   notes?: boolean;
-  /** Person sources under the name, event sources under their fact line. */
+  /** Person sources after the person notes, event sources under their fact line. */
   sources?: boolean;
 }
 
@@ -106,7 +106,7 @@ export interface ReportEntry {
   /** Register report: position among the union's children in birth order
    *  (1-based), rendered as the NGSQ roman numeral (I, II, III …). */
   childIndex?: number;
-  /** Record-level person notes, shown under the name when notes are enabled. */
+  /** Record-level person notes, shown after the fact lines when enabled. */
   notes?: string[];
   /** Record-level source citations, when enabled. */
   sources?: SourceLine[];

@@ -8,7 +8,7 @@
 
 import type { Translate } from "../locales/i18n";
 import { generationHeading, sourceLabel, tocRows, type ReportData, type ReportEntry, type SourceLine } from "./model";
-import { childrenOfLabel, entryNum, factText, type ReportTextOptions } from "./text";
+import { childrenOfLabel, entryNum, factText, reportName, type ReportTextOptions } from "./text";
 import { citationMark } from "./narrativeText";
 
 /** Hanging indent for entry bodies, in twips (~0.42" ≈ the page's 2.6em). */
@@ -56,7 +56,7 @@ export function reportToRtf(
     for (const entry of g.entries) {
       // Register generations group children per union, both parents named.
       if (entry.parentNum !== undefined && entry.parentFam !== lastFam) {
-        parts.push(para("\\sb160\\sa60\\i", esc(childrenOfLabel(t, entry, opts.privacyLiving))));
+        parts.push(para("\\sb160\\sa60\\i", esc(childrenOfLabel(t, entry, opts))));
         lastFam = entry.parentFam;
       }
       parts.push(...entryParas(t, entry, opts));
@@ -80,7 +80,7 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   // lines) align at INDENT; \keepn keeps the head with its first fact line.
   const headFmt = `\\li${INDENT}\\fi-${INDENT}\\tx${INDENT}\\sb60\\keepn`;
   const head =
-    `${esc(entryNum(entry))}\\tab {\\b ${esc(entry.name)}}` +
+    `${esc(entryNum(entry))}\\tab {\\b ${esc(reportName(entry, opts))}}` +
     (!redacted && entry.years ? ` {\\cf${CF_MUTED} ${esc(entry.years)}}` : "");
   if (entry.dupOf !== undefined) {
     return [para(headFmt, `${head} {\\cf${CF_MUTED} ${esc(`→ ${t("ahnentafel.dup", { n: entry.dupOf })}`)}}`)];
@@ -101,14 +101,15 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
     });
     return paras;
   }
-  // Person notes and sources under the name, event ones under their fact line.
-  for (const note of entry.notes ?? []) paras.push(notePara(note, INDENT));
-  for (const src of entry.sources ?? []) paras.push(sourcePara(t, src, INDENT));
+  // Fact lines first (event notes/sources nested under their line), then the
+  // person's own notes, then their record-level sources.
   for (const f of entry.facts) {
     paras.push(para(`\\li${INDENT}\\cf${CF_FACT}`, esc(factText(t, f))));
     if (f.note) paras.push(notePara(f.note, NESTED));
     for (const src of f.sources ?? []) paras.push(sourcePara(t, src, NESTED));
   }
+  for (const note of entry.notes ?? []) paras.push(notePara(note, INDENT));
+  for (const src of entry.sources ?? []) paras.push(sourcePara(t, src, INDENT));
   return paras;
 }
 

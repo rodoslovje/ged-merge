@@ -87,6 +87,21 @@ describe("reportToRtf (ancestors)", () => {
     expect(out).not.toContain("1950");
     expect(out).not.toContain("Kranj");
   });
+
+  it("replaces a redacted living name with the injected kinship label", () => {
+    const recent = buildAhnentafel(
+      dataset(wrap("0 @I1@ INDI\n1 NAME Young /X/\n1 BIRT\n2 DATE 1950\n")),
+      "@I1@",
+      nameOf,
+      NOW,
+    )!;
+    const out = reportToRtf(tr, recent, "ancestors", "T", {
+      privacyLiving: true,
+      livingNameOf: () => "kinship.label",
+    });
+    expect(out).toContain("{\\b kinship.label}");
+    expect(out).not.toContain("Young X");
+  });
 });
 
 describe("reportToRtf (register / options)", () => {
