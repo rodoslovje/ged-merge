@@ -145,10 +145,10 @@ export function OtherNamesEditor({
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
-            title={t("photo.add")}
+            title={t("media.add")}
             onClick={onAddPhoto}
           >
-            + {t("photo.add")}
+            + {t("media.add")}
           </button>
         )}
         {showAddLink && (

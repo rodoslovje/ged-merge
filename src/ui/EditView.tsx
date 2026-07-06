@@ -58,7 +58,7 @@ import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { PersonCard } from "./PersonCard";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
-import { AddPhotoDialog } from "./AddPhotoDialog";
+import { AddMediaDialog } from "./AddMediaDialog";
 import { nodeId } from "./edit/nodeId";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./edit/editConstants";
@@ -74,8 +74,8 @@ import { AddEventSelect } from "./edit/AddEventSelect";
 import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { PersonPhotos } from "./PersonPhotos";
-import { collectPhotoRefs, usePhotoViewer, type PhotoEditFields } from "./PhotoViewer";
+import { PersonMedia } from "./PersonMedia";
+import { collectMediaRefs, useMediaViewer, type MediaEditFields } from "./MediaViewer";
 
 /** Image filenames the photo drop zone accepts. */
 const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i;
@@ -700,12 +700,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   }
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder } = useMediaFolder();
-  const { openPerson } = usePhotoViewer();
-  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  const { openPerson } = useMediaViewer();
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
-  const [photoDragOver, setPhotoDragOver] = useState(false);
+  const [mediaDragOver, setMediaDragOver] = useState(false);
 
   const commit: Commit = (mutate, extraPatches) => {
     if (!person) return;
@@ -730,7 +730,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     setTick((v) => v + 1);
   };
 
-  // ── Photos (OBJE) ──────────────────────────────────────────────────────────
+  // ── Media (OBJE) ──────────────────────────────────────────────────────────
 
   /** Pop a benign (non-destructive) acknowledgement dialog. */
   function infoDialog(message: string) {
@@ -741,7 +741,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
    *  shared mode an `existingXref` (or a record with the same file) is reused,
    *  else a new top-level OBJE is created and captured as a record patch. */
-  function addPhotoToPerson(file: string, existingXref?: string) {
+  function addMediaToPerson(file: string, existingXref?: string) {
     if (!person) return;
     if (mediaMode === "inline") {
       commit((indi) => { attachInlineMedia(indi, file); });
@@ -761,7 +761,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    *  edited on the person record (normal commit); a shared top-level OBJE is
    *  edited in place and captured as a `record` patch for undo, with the person
    *  marked dirty so the change surfaces in the save preview. */
-  function editPersonMedia(objeIndex: number, fields: PhotoEditFields) {
+  function editPersonMedia(objeIndex: number, fields: MediaEditFields) {
     if (!person) return;
     const objeChild = childrenByTag(person.raw, "OBJE")[objeIndex];
     if (!objeChild) return;
@@ -788,12 +788,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   }
 
   /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
-  const photoRefCtx = { dataset, onNavigate: navigate, onEditMedia: editPersonMedia };
+  const mediaRefCtx = { dataset, onNavigate: navigate, onEditMedia: editPersonMedia };
 
   /** After adding a single photo, open it in the viewer so its metadata can be
    *  filled in straight away. */
   function openLastPhoto() {
-    if (person) openPerson(person.raw, dataset.records, Number.MAX_SAFE_INTEGER, photoRefCtx, true);
+    if (person) openPerson(person.raw, dataset.records, Number.MAX_SAFE_INTEGER, mediaRefCtx, true);
   }
 
   /** The "Add photo" entry point: ensure a media folder is chosen, then open
@@ -803,14 +803,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   function handleAddPhoto() {
     if (!folderName) {
       setPendingConfirm({
-        message: t("photo.selectFolderPrompt"),
-        confirmLabel: t("photo.chooseFolder"),
+        message: t("media.selectFolderPrompt"),
+        confirmLabel: t("media.chooseFolder"),
         danger: false,
         action: () => { void openFolder(); },
       });
       return;
     }
-    setPhotoPickerOpen(true);
+    setMediaPickerOpen(true);
   }
 
   /** Remove the person's `objeIndex`th photo. Mirrors `commitRemoveSource`:
@@ -840,7 +840,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   function handleDeletePhoto(objeIndex: number) {
     setPendingConfirm({
-      message: t("photo.deleteConfirm"),
+      message: t("media.deleteConfirm"),
       confirmLabel: t("confirm.delete"),
       action: () => deletePhoto(objeIndex),
     });
@@ -849,10 +849,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   /** Reference dropped image files that live inside the chosen media folder.
    *  DataTransferItems are invalidated after the first `await`, so every
    *  handle is requested synchronously up front, then resolved. */
-  function handlePhotoDrop(e: React.DragEvent) {
+  function handleMediaDrop(e: React.DragEvent) {
     if (!e.dataTransfer.types.includes("Files")) return; // internal reorder drag
     e.preventDefault();
-    setPhotoDragOver(false);
+    setMediaDragOver(false);
     const handlePromises: Promise<FileSystemHandle | null>[] = [];
     let fileCount = 0;
     for (const item of Array.from(e.dataTransfer.items)) {
@@ -862,23 +862,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (get) handlePromises.push(get.call(item));
     }
     if (fileCount === 0) return;
-    void resolveDroppedPhotos(handlePromises, fileCount);
+    void resolveDroppedMedia(handlePromises, fileCount);
   }
 
-  async function resolveDroppedPhotos(handlePromises: Promise<FileSystemHandle | null>[], fileCount: number) {
-    if (!folderName) { infoDialog(t("photo.selectFolderPrompt")); return; }
-    if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("photo.importUnsupported")); return; }
+  async function resolveDroppedMedia(handlePromises: Promise<FileSystemHandle | null>[], fileCount: number) {
+    if (!folderName) { infoDialog(t("media.selectFolderPrompt")); return; }
+    if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("media.importUnsupported")); return; }
     let anyOutside = false;
     let added = 0;
     for (const promise of handlePromises) {
       const handle = await promise;
       if (!handle || handle.kind !== "file" || !IMAGE_NAME_RE.test(handle.name)) continue;
       const rel = await resolveDroppedHandle(handle);
-      if (rel) { addPhotoToPerson(rel); added++; }
+      if (rel) { addMediaToPerson(rel); added++; }
       else anyOutside = true;
     }
     if (added === 1) openLastPhoto();
-    if (anyOutside) infoDialog(t("photo.outsideFolder"));
+    if (anyOutside) infoDialog(t("media.outsideFolder"));
   }
 
   // ── Add Source dialog ────────────────────────────────────────────────────
@@ -1433,14 +1433,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         <div className="edit-connector-v" />
 
         <div
-          className={`edit-person ${photoDragOver ? "photo-drop-active" : ""}`}
+          className={`edit-person ${mediaDragOver ? "media-drop-active" : ""}`}
           onDragOver={(e) => {
             if (!e.dataTransfer.types.includes("Files")) return;
             e.preventDefault();
-            setPhotoDragOver(true);
+            setMediaDragOver(true);
           }}
-          onDragLeave={(e) => { if (e.currentTarget === e.target) setPhotoDragOver(false); }}
-          onDrop={handlePhotoDrop}
+          onDragLeave={(e) => { if (e.currentTarget === e.target) setMediaDragOver(false); }}
+          onDrop={handleMediaDrop}
         >
           <div className="edit-person-header">
             <NameEditor
@@ -1470,13 +1470,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               }
             />
           </div>
-          <PersonPhotos
+          <PersonMedia
             // person.raw is mutated in place, so remount on each edit/undo to
             // re-read the OBJE children (resolved files are blob-cached).
             key={`photos-${person.id}-${tick}-${undoVersion}`}
             raw={person.raw}
             records={dataset.records}
-            refCtx={photoRefCtx}
+            refCtx={mediaRefCtx}
             editable={{ onAdd: handleAddPhoto, onDelete: handleDeletePhoto, onReorder: (from, to) => commit((indi) => reorderIndividualMedia(indi, from, to)) }}
           />
           <OtherNamesEditor
@@ -1495,7 +1495,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.notes ?? []).length}
             onAddNote={() => setNotesAdded(true)}
-            showAddPhoto={collectPhotoRefs(person.raw, dataset.records).length === 0}
+            showAddPhoto={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddPhoto={handleAddPhoto}
             marriedNameTag={marriedNameTag}
             leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
@@ -1764,11 +1764,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         t={t}
         editing={editingSourceDialogProps()}
       />
-      <AddPhotoDialog
-        isOpen={photoPickerOpen}
-        onClose={() => setPhotoPickerOpen(false)}
+      <AddMediaDialog
+        isOpen={mediaPickerOpen}
+        onClose={() => setMediaPickerOpen(false)}
         onAdd={(photos) => {
-          for (const p of photos) addPhotoToPerson(p.path, p.existingXref);
+          for (const p of photos) addMediaToPerson(p.path, p.existingXref);
           if (photos.length === 1) openLastPhoto();
         }}
         dataset={dataset}

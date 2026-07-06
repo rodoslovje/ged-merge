@@ -3,8 +3,8 @@ import type { GedNode } from "../gedcom/types";
 import { PAD } from "../chart/treeLayout";
 import type { FanChart, FanSegment } from "../chart/fanLayout";
 import type { TreeNode } from "../chart/personTree";
-import { TreeNodePhoto } from "./PersonPhotos";
-import type { PhotoRefContext } from "./PhotoViewer";
+import { TreeNodePhoto } from "./PersonMedia";
+import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge } from "./TreeNodeBox";
 import { sexColorVar } from "./sex";
 
@@ -30,8 +30,8 @@ interface Props {
   /** Photo sources, shared with the tree views' `TreeNodePhoto`. */
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  mainRefCtx?: PhotoRefContext;
-  compareRefCtx?: PhotoRefContext;
+  mainRefCtx?: MediaRefContext;
+  compareRefCtx?: MediaRefContext;
   /** Optional badge dot per node. */
   badgeOf?: (node: TreeNode) => FanBadge | undefined;
 }
@@ -133,8 +133,8 @@ function Segment({
   clickHint: string;
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  mainRefCtx?: PhotoRefContext;
-  compareRefCtx?: PhotoRefContext;
+  mainRefCtx?: MediaRefContext;
+  compareRefCtx?: MediaRefContext;
   badge?: FanBadge;
 }) {
   const { node } = seg;

@@ -40,8 +40,8 @@ import { SourceRefs } from "./SourceRef";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
-import { MediaThumb, type MediaGalleryItem } from "./PersonPhotos";
-import { mediaMetaRows } from "./PhotoViewer";
+import { MediaThumb, type MediaGalleryItem } from "./PersonMedia";
+import { mediaMetaRows } from "./MediaViewer";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 

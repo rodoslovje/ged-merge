@@ -3,7 +3,7 @@ import type { GedNode } from "../gedcom/types";
 import { PAD, type Flat, type Placed } from "../chart/treeLayout";
 import type { NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
-import type { PhotoRefContext } from "./PhotoViewer";
+import type { MediaRefContext } from "./MediaViewer";
 import { nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
 
 // The layered (tidy-tree / grid) diagram body shared by the Edit Tree and the
@@ -31,8 +31,8 @@ interface Props {
   /** Photo sources; the compare side is optional (single-file views). */
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  mainRefCtx?: PhotoRefContext;
-  compareRefCtx?: PhotoRefContext;
+  mainRefCtx?: MediaRefContext;
+  compareRefCtx?: MediaRefContext;
   display: NodeDisplayOptions;
   nodeH: number;
 }

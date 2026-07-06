@@ -32,7 +32,7 @@ import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartMinimap } from "./ChartMinimap";
 import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";
-import { collectFirstFilePath } from "./PersonPhotos";
+import { collectFirstFilePath } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartIcon } from "./icons/ChartIcon";
 import { chartSlug } from "./exportSvg";

@@ -1766,13 +1766,13 @@ button:focus-visible {
 .edit-person .person-label { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
 
 /* Photo strip — edit panel and compare panel */
-.person-photos {
+.person-media {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 0 0 12px;
 }
-.person-photo-btn {
+.person-media-btn {
   position: relative;
   padding: 0;
   border: 1px solid var(--border);
@@ -1784,7 +1784,7 @@ button:focus-visible {
 }
 /* Corner badge marking a thumbnail whose link carries a GEDCOM 7 crop region —
    the cover-fitted thumb can't show a faithful outline, so flag it instead. */
-.person-photo-crop-badge {
+.person-media-crop-badge {
   position: absolute;
   bottom: 2px;
   right: 2px;
@@ -1798,8 +1798,8 @@ button:focus-visible {
   text-align: center;
   pointer-events: none;
 }
-.person-photo-btn:hover { border-color: var(--accent); }
-.person-photo-thumb {
+.person-media-btn:hover { border-color: var(--accent); }
+.person-media-thumb {
   width: 64px;
   height: 64px;
   object-fit: cover;
@@ -1807,13 +1807,13 @@ button:focus-visible {
   border-radius: 5px;
 }
 /* Editable tray: thumb wrapper hosting the hover delete button. */
-.person-photo-item {
+.person-media-item {
   position: relative;
   display: inline-flex;
   line-height: 0;
 }
-.person-photo-item[draggable="true"] { cursor: grab; }
-.person-photo-delete {
+.person-media-item[draggable="true"] { cursor: grab; }
+.person-media-delete {
   position: absolute;
   top: -6px;
   right: -6px;
@@ -1831,8 +1831,8 @@ button:focus-visible {
   opacity: 0;
   transition: opacity 0.1s;
 }
-.person-photo-item:hover .person-photo-delete { opacity: 1; }
-.person-photo-add {
+.person-media-item:hover .person-media-delete { opacity: 1; }
+.person-media-add {
   width: 64px;
   height: 64px;
   border: 1px dashed var(--border);
@@ -1843,28 +1843,28 @@ button:focus-visible {
   line-height: 1;
   cursor: pointer;
 }
-.person-photo-add:hover { border-color: var(--accent); color: var(--accent); }
+.person-media-add:hover { border-color: var(--accent); color: var(--accent); }
 /* Whole-person drop target highlight while dragging image files over it. */
-.edit-person.photo-drop-active {
+.edit-person.media-drop-active {
   outline: 2px dashed var(--accent);
   outline-offset: 4px;
   border-radius: var(--radius-sm);
 }
-/* Add-photo picker dialog. */
-.add-photo-dialog { width: min(720px, 92vw); }
-.add-photo-search { margin: 0 16px; max-width: 320px; }
+/* Add-media picker dialog. */
+.add-media-dialog { width: min(720px, 92vw); }
+.add-media-search { margin: 0 16px; max-width: 320px; }
 /* Fill the modal's height (the .modal base is a 90vh flex column) so the grid
  * scrolls and the footer sticks to the bottom, instead of capping the body. */
-.add-photo-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.add-media-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* A lone message (loading / no matches) centers in the body rather than
  * clinging to the top. Higher specificity than `.modal-body > div`. */
-.add-photo-body .add-photo-empty {
+.add-media-body .add-media-empty {
   margin: auto;
   max-width: 36ch;
   text-align: center;
   color: var(--muted);
 }
-.add-photo-footer {
+.add-media-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -1874,28 +1874,28 @@ button:focus-visible {
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
 }
-.add-photo-section {
+.add-media-section {
   font-size: 0.85em;
   font-weight: 600;
   color: var(--muted);
   margin: 12px 0 6px;
 }
-.add-photo-section:first-child { margin-top: 0; }
-.add-photo-subfolder {
+.add-media-section:first-child { margin-top: 0; }
+.add-media-subfolder {
   font-size: 0.78em;
   color: var(--muted);
   margin: 10px 0 4px;
   padding-left: 2px;
 }
-.add-photo-subfolder::before { content: "📁 "; }
+.add-media-subfolder::before { content: "📁 "; }
 /* Refresh sits on the left; Cancel/Add stay grouped on the right. */
-.add-photo-refresh { margin-right: auto; }
-.add-photo-grid {
+.add-media-refresh { margin-right: auto; }
+.add-media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px;
 }
-.add-photo-cell {
+.add-media-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1907,18 +1907,18 @@ button:focus-visible {
   cursor: pointer;
   overflow: hidden;
 }
-.add-photo-cell:hover { border-color: var(--accent); }
-.add-photo-cell.selected {
+.add-media-cell:hover { border-color: var(--accent); }
+.add-media-cell.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent) inset;
 }
-.add-photo-thumb {
+.add-media-thumb {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 4px;
 }
-.add-photo-name {
+.add-media-name {
   font-size: 0.72em;
   color: var(--muted);
   max-width: 100%;
@@ -1926,7 +1926,7 @@ button:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.person-photo-overlay {
+.person-media-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -1938,8 +1938,8 @@ button:focus-visible {
 }
 /* Reserve room at the bottom for the fixed thumbnail tray, so the centered
  * photo never sits under it. */
-.person-photo-overlay.has-tray { padding-bottom: 96px; }
-.person-photo-full {
+.person-media-overlay.has-tray { padding-bottom: 96px; }
+.person-media-full {
   max-width: min(90vw, 1200px);
   max-height: 90vh;
   object-fit: contain;
@@ -1947,7 +1947,7 @@ button:focus-visible {
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
   cursor: default;
 }
-.person-photo-close {
+.person-media-close {
   position: absolute;
   top: 16px;
   right: 20px;
@@ -1959,10 +1959,10 @@ button:focus-visible {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.person-photo-close:hover { background: rgba(255, 255, 255, 0.1); }
+.person-media-close:hover { background: rgba(255, 255, 255, 0.1); }
 
 /* Lightbox stage + thumbnail tray for multi-photo navigation */
-.person-photo-stage {
+.person-media-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1974,10 +1974,10 @@ button:focus-visible {
   align-self: center;
   cursor: default;
 }
-.person-photo-stage .person-photo-full { max-height: 80vh; max-width: 100%; }
+.person-media-stage .person-media-full { max-height: 80vh; max-width: 100%; }
 /* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop boxes can
    be positioned as plain percentages of the image (no letterboxing inside). */
-.person-photo-cropwrap {
+.person-media-cropwrap {
   position: relative;
   display: inline-flex;
   max-width: 100%;
@@ -2018,7 +2018,7 @@ button:focus-visible {
 /* "Referenced by" rows that carry a crop region: hint that hovering moves the marker. */
 .media-lightbox-info .tools-usage li.has-crop { cursor: pointer; border-radius: var(--radius-sm); }
 .media-lightbox-info .tools-usage li.has-crop:hover { background: var(--accent-soft); }
-.person-photo-nav {
+.person-media-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -2036,12 +2036,12 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
 }
-.person-photo-nav:hover { background: rgba(255, 255, 255, 0.15); }
-.person-photo-prev { left: 20px; }
-.person-photo-next { right: 20px; }
+.person-media-nav:hover { background: rgba(255, 255, 255, 0.15); }
+.person-media-prev { left: 20px; }
+.person-media-next { right: 20px; }
 /* Fixed thumbnail tray pinned to the bottom of the viewport — independent of
  * the centered photo's size, so it never overlaps it. */
-.person-photo-tray {
+.person-media-tray {
   position: absolute;
   left: 0;
   right: 0;
@@ -2054,7 +2054,7 @@ button:focus-visible {
   background: rgba(0, 0, 0, 0.55);
   cursor: default;
 }
-.person-photo-tray-thumb {
+.person-media-tray-thumb {
   padding: 0;
   border: 2px solid transparent;
   border-radius: 5px;
@@ -2065,9 +2065,9 @@ button:focus-visible {
   flex: 0 0 auto;
   transition: opacity 0.12s, border-color 0.12s;
 }
-.person-photo-tray-thumb:hover { opacity: 0.85; }
-.person-photo-tray-thumb.active { opacity: 1; border-color: var(--accent); }
-.person-photo-tray-thumb img {
+.person-media-tray-thumb:hover { opacity: 0.85; }
+.person-media-tray-thumb.active { opacity: 1; border-color: var(--accent); }
+.person-media-tray-thumb img {
   width: 56px;
   height: 56px;
   object-fit: cover;
@@ -2129,22 +2129,22 @@ button:focus-visible {
 }
 @media (max-width: 720px) {
   .media-lightbox { flex-direction: column; align-items: center; }
-  .person-photo-stage .person-photo-full { max-height: 55vh; }
+  .person-media-stage .person-media-full { max-height: 55vh; }
   .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
 }
 
 /* Compare panel photos strip */
-.compare-photos {
+.compare-media {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 0;
 }
-.compare-photos-col {
+.compare-media-col {
   flex: 1;
   padding: 8px 12px;
 }
-.compare-photos-col .person-photos { margin-bottom: 0; }
+.compare-media-col .person-media { margin-bottom: 0; }
 
 /* Tools sources panel inline thumbnail (rendered in place of the media icon) */
 .tools-media-thumb-btn {

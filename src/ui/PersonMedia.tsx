@@ -3,15 +3,15 @@ import type { GedNode } from "../gedcom/types";
 import { isPointer, looksLikeUrl, objeNodesFor } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
-import { collectPhotoRefs, usePhotoViewer, type PhotoItem, type PhotoRefContext } from "./PhotoViewer";
+import { collectMediaRefs, useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
 
 /** Edit-mode controls for a person's photo tray. When supplied, the tray always
  *  renders (even with no photos), each thumb gains a delete affordance and can
  *  be dragged to reorder, and a trailing "+" placeholder adds a photo. */
-export interface PhotoEditControls {
+export interface MediaEditControls {
   /** Add a new photo (open the picker / prompt for a media folder). */
   onAdd: () => void;
-  /** Delete the photo at this `OBJE` child index (see {@link PhotoRef.objeIndex}). */
+  /** Delete the photo at this `OBJE` child index (see {@link MediaRef.objeIndex}). */
   onDelete: (objeIndex: number) => void;
   /** Move the photo from one `OBJE` child index to another. */
   onReorder: (fromObjeIndex: number, toObjeIndex: number) => void;
@@ -21,10 +21,10 @@ interface Props {
   raw: GedNode;
   records: GedNode[];
   /** When set, the viewer's info panel lists the records citing each shared
-   *  photo and links into Edit (see {@link PhotoRefContext}). */
-  refCtx?: PhotoRefContext;
-  /** When set, the tray is editable (add / delete / reorder); see {@link PhotoEditControls}. */
-  editable?: PhotoEditControls;
+   *  photo and links into Edit (see {@link MediaRefContext}). */
+  refCtx?: MediaRefContext;
+  /** When set, the tray is editable (add / delete / reorder); see {@link MediaEditControls}. */
+  editable?: MediaEditControls;
 }
 
 /** Returns the first local file path from a person's OBJE links, or null. */
@@ -45,16 +45,16 @@ export function collectFirstFilePath(raw: GedNode, records: GedNode[]): string |
  *  trailing "+" to add another photo. Renders nothing when the person has no
  *  photos; the empty-state "add photo" affordance is a chip in EditView's
  *  actions row instead. */
-export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
+export function PersonMedia({ raw, records, refCtx, editable }: Props) {
   const { folderName, resolveFile } = useMediaFolder();
-  const { openPerson } = usePhotoViewer();
+  const { openPerson } = useMediaViewer();
   const { t } = useTranslation();
   // Resolved photos keep their `OBJE` child index so edit ops target the right
   // child even when some refs don't resolve (file missing from the folder).
   const [items, setItems] = useState<{ url: string; objeIndex: number; hasCrop: boolean }[]>([]);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
-  const refs = useMemo(() => collectPhotoRefs(raw, records), [raw, records]);
+  const refs = useMemo(() => collectMediaRefs(raw, records), [raw, records]);
 
   useEffect(() => {
     if (!folderName || refs.length === 0) {
@@ -87,11 +87,11 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
   };
 
   return (
-    <div className="person-photos">
+    <div className="person-media">
       {items.map((item, i) => (
         <span
           key={item.objeIndex}
-          className="person-photo-item"
+          className="person-media-item"
           draggable={!!editable}
           onDragStart={editable ? () => setDragFrom(i) : undefined}
           onDragOver={editable ? (e) => e.preventDefault() : undefined}
@@ -100,13 +100,13 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
         >
           <button
             type="button"
-            className="person-photo-btn"
-            title={t("photo.enlarge")}
+            className="person-media-btn"
+            title={t("media.enlarge")}
             onClick={() => openPerson(raw, records, i, refCtx)}
           >
-            <img src={item.url} className="person-photo-thumb" alt="" />
+            <img src={item.url} className="person-media-thumb" alt="" />
             {item.hasCrop && (
-              <span className="person-photo-crop-badge" title={t("photo.cropRegion")} aria-hidden="true">
+              <span className="person-media-crop-badge" title={t("media.cropRegion")} aria-hidden="true">
                 ⛶
               </span>
             )}
@@ -114,8 +114,8 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
           {editable && (
             <button
               type="button"
-              className="person-photo-delete"
-              title={t("photo.delete")}
+              className="person-media-delete"
+              title={t("media.delete")}
               onClick={() => editable.onDelete(item.objeIndex)}
             >
               ✕
@@ -126,8 +126,8 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
       {editable && (
         <button
           type="button"
-          className="person-photo-add"
-          title={t("photo.add")}
+          className="person-media-add"
+          title={t("media.add")}
           onClick={editable.onAdd}
         >
           +
@@ -139,9 +139,9 @@ export function PersonPhotos({ raw, records, refCtx, editable }: Props) {
 
 /** Small profile photo for PersonCard — shows the first local photo; opens the
  *  shared viewer (with the person's full photo set) on click. */
-export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: GedNode[]; refCtx?: PhotoRefContext }) {
+export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: GedNode[]; refCtx?: MediaRefContext }) {
   const { folderName, resolveFile } = useMediaFolder();
-  const { openPerson } = usePhotoViewer();
+  const { openPerson } = useMediaViewer();
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const firstPath = useMemo(() => collectFirstFilePath(raw, records), [raw, records]);
@@ -163,7 +163,7 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
       role="button"
       tabIndex={0}
       className="card-photo-btn"
-      title={t("photo.enlarge")}
+      title={t("media.enlarge")}
       onClick={(e) => { e.stopPropagation(); open(); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); open(); }
@@ -191,16 +191,16 @@ export function TreeNodePhoto({
   node: { main?: { raw: GedNode }; incoming?: { raw: GedNode } };
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
-  /** Referenced-by/navigation context for a main-side photo (see {@link PhotoRefContext}). */
-  mainRefCtx?: PhotoRefContext;
+  /** Referenced-by/navigation context for a main-side photo (see {@link MediaRefContext}). */
+  mainRefCtx?: MediaRefContext;
   /** Referenced-by/navigation context for a compare-side photo. */
-  compareRefCtx?: PhotoRefContext;
+  compareRefCtx?: MediaRefContext;
   x: number;
   y: number;
   size: number;
 }) {
   const { folderName, resolveFile } = useMediaFolder();
-  const { openPerson } = usePhotoViewer();
+  const { openPerson } = useMediaViewer();
   const [url, setUrl] = useState<string | null>(null);
 
   const source = useMemo(() => {
@@ -240,8 +240,8 @@ export function TreeNodePhoto({
 export interface MediaGalleryItem {
   file: string;
   title?: string;
-  meta?: PhotoItem["meta"];
-  details?: PhotoItem["details"];
+  meta?: MediaItem["meta"];
+  details?: MediaItem["details"];
 }
 
 /** Inline media marker used in the Sources tree: renders the resolved local
@@ -263,10 +263,10 @@ export function MediaThumb({
   /** Caption headline shown beside the enlarged image. */
   caption?: string;
   /** Descriptive caption rows for the info panel (single-photo open only). */
-  meta?: PhotoItem["meta"];
+  meta?: MediaItem["meta"];
   /** Record metadata + referencing-records list for the info panel.
    *  Receives a `close` callback so links can dismiss the viewer on navigate. */
-  details?: PhotoItem["details"];
+  details?: MediaItem["details"];
   /** Sibling photos at the same tree level, for a navigable tray. When given,
    *  clicking opens the whole gallery (resolving each file on demand) starting
    *  at `index`, instead of just this one photo. */
@@ -275,7 +275,7 @@ export function MediaThumb({
   index?: number;
 }) {
   const { folderName, resolveFile } = useMediaFolder();
-  const { openItems } = usePhotoViewer();
+  const { openItems } = useMediaViewer();
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
 
@@ -293,7 +293,7 @@ export function MediaThumb({
   const open = async () => {
     if (gallery && gallery.length > 0) {
       const resolved = await Promise.all(gallery.map((g) => resolveFile(g.file)));
-      const items: PhotoItem[] = [];
+      const items: MediaItem[] = [];
       let start = 0;
       for (let i = 0; i < gallery.length; i++) {
         const u = resolved[i];
@@ -312,7 +312,7 @@ export function MediaThumb({
     <button
       type="button"
       className="tools-media-thumb-btn"
-      title={t("photo.enlarge")}
+      title={t("media.enlarge")}
       onClick={(e) => { e.stopPropagation(); open(); }}
     >
       <img src={url} className="tools-media-thumb" alt="" />

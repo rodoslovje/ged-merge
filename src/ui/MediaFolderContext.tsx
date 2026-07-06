@@ -39,7 +39,7 @@ interface MediaFolderCtx {
    *  still reference files already inside the folder (see `listImages`). */
   canReferenceFiles: boolean;
   /** Folder-relative paths of every image file in the chosen folder, for the
-   *  Add-photo picker. Works in both handle and filemap modes. */
+   *  Add-media picker. Works in both handle and filemap modes. */
   listImages(): Promise<string[]>;
   /** Resolve a dragged file-system handle to a folder-relative path, or null
    *  when it isn't a file inside the chosen folder. */
@@ -139,7 +139,7 @@ async function findByBasename(
  *  webkitRelativePath looks like "FolderName/sub/photo.jpg".
  *  We store two keys per file:
  *    1. The path with the leading folder segment stripped ("sub/photo.jpg")
- *    2. The bare basename ("photo.jpg")
+ *    2. The bare basename ("media.jpg")
  *  Both lowercased for case-insensitive matching. */
 function buildFileMap(files: FileList): { map: Map<string, File>; name: string; paths: string[] } {
   const map = new Map<string, File>();

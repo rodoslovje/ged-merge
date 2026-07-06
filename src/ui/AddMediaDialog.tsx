@@ -8,7 +8,7 @@ import type { Translate } from "../locales/i18n";
 /** A photo chosen in the picker: its folder-relative path plus, when the file
  *  is already backed by a shared top-level `OBJE`, that record's xref (so
  *  shared-mode adds reuse it instead of creating a duplicate). */
-export interface PickedPhoto {
+export interface PickedMedia {
   path: string;
   existingXref?: string;
 }
@@ -16,7 +16,7 @@ export interface PickedPhoto {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (photos: PickedPhoto[]) => void;
+  onAdd: (photos: PickedMedia[]) => void;
   dataset: Dataset;
   t: Translate;
 }
@@ -77,7 +77,7 @@ function groupBySubfolder(items: FolderImage[]): { folder: string; items: Folder
  *  in the file ("New") and ones already referenced ("Existing"), and adds the
  *  selected photos to the current person. Works in both handle and filemap
  *  modes — it only references files by relative path, never writes. */
-export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
+export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   const { folderName, canReferenceFiles, openFolder, listImages, resolveFile } = useMediaFolder();
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<FolderImage[]>([]);
@@ -136,7 +136,7 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   const handleAdd = () => {
     const byPath = new Map(images.map((im) => [im.path, im] as const));
-    const picked: PickedPhoto[] = [...selected]
+    const picked: PickedMedia[] = [...selected]
       .map((path) => byPath.get(path))
       .filter((im): im is FolderImage => !!im)
       .map((im) => ({ path: im.path, existingXref: im.existingXref }));
@@ -158,17 +158,17 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   const existingImages = images.filter((im) => im.existing && matches(im));
 
   const grid = (items: FolderImage[]) => (
-    <div className="add-photo-grid">
+    <div className="add-media-grid">
       {items.map((im) => (
         <button
           key={im.path}
           type="button"
-          className={`add-photo-cell ${selected.has(im.path) ? "selected" : ""}`}
+          className={`add-media-cell ${selected.has(im.path) ? "selected" : ""}`}
           title={im.meta ? `${im.path}\n${im.meta}` : im.path}
           onClick={() => toggle(im.path)}
         >
-          <img src={im.url} alt="" className="add-photo-thumb" />
-          <span className="add-photo-name">{basename(im.path)}</span>
+          <img src={im.url} alt="" className="add-media-thumb" />
+          <span className="add-media-name">{basename(im.path)}</span>
         </button>
       ))}
     </div>
@@ -178,10 +178,10 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
   // folder's own files first (no heading), then each subfolder under a heading.
   const section = (label: string, items: FolderImage[]) => (
     <>
-      <div className="add-photo-section">{label}</div>
+      <div className="add-media-section">{label}</div>
       {groupBySubfolder(items).map(({ folder, items: groupItems }) => (
         <div key={folder || "(root)"}>
-          {folder && <div className="add-photo-subfolder">{folder}</div>}
+          {folder && <div className="add-media-subfolder">{folder}</div>}
           {grid(groupItems)}
         </div>
       ))}
@@ -190,15 +190,15 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal add-photo-dialog" role="dialog" aria-modal="true" aria-label={t("addPhoto.title")} onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-media-dialog" role="dialog" aria-modal="true" aria-label={t("addMedia.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{t("addPhoto.title")}</h2>
-          <div className="name-search-wrap add-photo-search">
+          <h2>{t("addMedia.title")}</h2>
+          <div className="name-search-wrap add-media-search">
             <input
               type="text"
               className="name-search"
-              placeholder={t("addPhoto.search")}
-              title={t("addPhoto.searchTooltip")}
+              placeholder={t("addMedia.search")}
+              title={t("addMedia.searchTooltip")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -215,36 +215,36 @@ export function AddPhotoDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
           </div>
           <button className="modal-close" onClick={onClose} title={t("help.close")}>×</button>
         </div>
-        <div className="modal-body add-photo-body">
+        <div className="modal-body add-media-body">
           {loading ? (
-            <div className="add-photo-empty">{t("addPhoto.loading")}</div>
+            <div className="add-media-empty">{t("addMedia.loading")}</div>
           ) : (
             <>
               {/* With no filter, the "New" section always shows — explaining how
                   to add images when there are none. Under a filter it's hidden
                   when empty, and a "no matches" hint covers an empty result. */}
               {newImages.length > 0 ? (
-                section(t("addPhoto.new"), newImages)
+                section(t("addMedia.new"), newImages)
               ) : !q ? (
                 <>
-                  <div className="add-photo-section">{t("addPhoto.new")}</div>
-                  <div className="add-source-hint">{t("addPhoto.newHint", { folder: folderName ?? "" })}</div>
+                  <div className="add-media-section">{t("addMedia.new")}</div>
+                  <div className="add-source-hint">{t("addMedia.newHint", { folder: folderName ?? "" })}</div>
                 </>
               ) : null}
-              {existingImages.length > 0 && section(t("addPhoto.existing"), existingImages)}
+              {existingImages.length > 0 && section(t("addMedia.existing"), existingImages)}
               {q && newImages.length === 0 && existingImages.length === 0 && (
-                <div className="add-photo-empty">{t("addPhoto.noMatches")}</div>
+                <div className="add-media-empty">{t("addMedia.noMatches")}</div>
               )}
             </>
           )}
         </div>
-        <div className="add-photo-footer">
-          <button className="tree-open-btn add-photo-refresh" onClick={handleRefresh}>
-            {t("addPhoto.refresh")}
+        <div className="add-media-footer">
+          <button className="tree-open-btn add-media-refresh" onClick={handleRefresh}>
+            {t("addMedia.refresh")}
           </button>
-          <button className="tree-open-btn" onClick={onClose}>{t("addPhoto.cancel")}</button>
+          <button className="tree-open-btn" onClick={onClose}>{t("addMedia.cancel")}</button>
           <button className="tree-open-btn" disabled={selected.size === 0} onClick={handleAdd}>
-            {t("addPhoto.add", { count: selected.size })}
+            {t("addMedia.add", { count: selected.size })}
           </button>
         </div>
       </div>

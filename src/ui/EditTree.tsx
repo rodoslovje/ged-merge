@@ -14,7 +14,7 @@ import { useFanChart } from "./useFanChart";
 import { formatMarriage } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
-import { collectFirstFilePath } from "./PersonPhotos";
+import { collectFirstFilePath } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";

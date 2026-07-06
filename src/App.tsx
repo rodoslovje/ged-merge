@@ -59,7 +59,7 @@ import { SearchIcon } from "./ui/icons/SearchIcon";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
-import { PhotoViewerProvider } from "./ui/PhotoViewer";
+import { MediaViewerProvider } from "./ui/MediaViewer";
 import type { TreeMode } from "./chart/personTree";
 import {
   applyFilters,
@@ -2125,9 +2125,9 @@ export function App() {
     <SettingsProvider>
       <ChartSettingsProvider>
         <MediaFolderProvider>
-          <PhotoViewerProvider>
+          <MediaViewerProvider>
             <AppContent />
-          </PhotoViewerProvider>
+          </MediaViewerProvider>
         </MediaFolderProvider>
       </ChartSettingsProvider>
     </SettingsProvider>
