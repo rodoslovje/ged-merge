@@ -64,9 +64,12 @@ function dataset(text: string) {
 const NOW = 2026;
 
 // I1 dated ancestor (deceased); I2 his son with a recent dated birth and no
-// death; I3 a grandchild with NO birth date at all (estimable from I2, born
-// ~2026 → recent); I4 a person with no death and an old dated birth (too old
-// to be estimated as living even indirectly).
+// death; I3 his grandchild with NO birth date at all (1-hop estimate from I2,
+// born ~2026 → recent); I5 a great-grandchild whose own parent (I3) is ALSO
+// undated, so only reachable via I2 two hops up (tests the transitive walk).
+// I4 an old dated birth with no death (too old on its own); I8 I4's undated
+// child (tests a network estimate that comes out old). I6 is fully isolated —
+// no family links, so the network search finds nothing at all.
 const FAMILY = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -88,17 +91,36 @@ const FAMILY = `0 HEAD
 1 NAME Maja /Novak/
 1 SEX F
 1 FAMC @F2@
+1 FAMS @F3@
 0 @I4@ INDI
 1 NAME Stari /Mož/
 1 SEX M
 1 BIRT
 2 DATE 1850
+1 FAMS @F4@
+0 @I5@ INDI
+1 NAME Nina /Novak/
+1 SEX F
+1 FAMC @F3@
+0 @I6@ INDI
+1 NAME Osamljen /Nihče/
+1 SEX M
+0 @I8@ INDI
+1 NAME Vnuk /Star/
+1 SEX M
+1 FAMC @F4@
 0 @F1@ FAM
 1 HUSB @I1@
 1 CHIL @I2@
 0 @F2@ FAM
 1 HUSB @I2@
 1 CHIL @I3@
+0 @F3@ FAM
+1 HUSB @I3@
+1 CHIL @I5@
+0 @F4@ FAM
+1 HUSB @I4@
+1 CHIL @I8@
 `;
 
 describe("isPresumedLiving", () => {
@@ -121,7 +143,19 @@ describe("isPresumedLiving", () => {
     expect(isPresumedLiving(get("@I4@"), ds, NOW)).toBe(false);
   });
 
-  it("without a Dataset, falls back to the birth-only rule (undated ⇒ not living)", () => {
-    expect(isPresumedLiving(get("@I3@"), undefined, NOW)).toBe(false);
+  it("reaches a dated relative transitively when the direct parent is also undated", () => {
+    expect(isPresumedLiving(get("@I5@"), ds, NOW)).toBe(true);
+  });
+
+  it("is not living when the only reachable dated relative implies an old birth", () => {
+    expect(isPresumedLiving(get("@I8@"), ds, NOW)).toBe(false);
+  });
+
+  it("presumes living when no death event and no datable relative exist anywhere in reach", () => {
+    expect(isPresumedLiving(get("@I6@"), ds, NOW)).toBe(true);
+  });
+
+  it("without a Dataset, presumes living too (no way to disprove it)", () => {
+    expect(isPresumedLiving(get("@I3@"), undefined, NOW)).toBe(true);
   });
 });
