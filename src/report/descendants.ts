@@ -62,7 +62,7 @@ export function buildDescendants(
       const dupOf = firstNum.get(indi.id);
       // A repeat appearance keeps the person's original register number.
       const num = dupOf ?? ++counter;
-      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts, nowYear), nowYear, dupOf);
+      const entry = makeEntry(indi, num, nameOf, vitals(ds, indi, nameOf, opts, nowYear), nowYear, dupOf, ds);
       Object.assign(entry, family);
       if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
@@ -84,8 +84,8 @@ export function buildDescendants(
           next.push({
             indi: kid,
             parentNum: num,
-            parent: personRef(indi, nameOf, nowYear),
-            parentSpouse: partner && personRef(partner, nameOf, nowYear),
+            parent: personRef(indi, nameOf, nowYear, ds),
+            parentSpouse: partner && personRef(partner, nameOf, nowYear, ds),
             parentFam: fam.id,
             childIndex: i + 1,
           });

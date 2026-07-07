@@ -101,7 +101,7 @@ function lifespanAgeEndpoints(
 ): [GedDate | undefined, GedDate | undefined] | undefined {
   if (!indi) return undefined;
   if (isDeceased(indi)) return [birthDateOf(indi), deathDateOf(indi)];
-  if (isPresumedLiving(indi, now.getFullYear())) return [birthDateOf(indi), todayDate(now)];
+  if (isPresumedLiving(indi, undefined, now.getFullYear())) return [birthDateOf(indi), todayDate(now)];
   return undefined;
 }
 

@@ -1,4 +1,4 @@
-import type { GedDate, Individual } from "./types";
+import type { Dataset, GedDate, Individual } from "./types";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
@@ -80,20 +80,142 @@ export function isDeceased(indi: Individual | undefined): boolean {
 /** Years since a birth still counts a person as possibly living (privacy default). */
 const LIVING_WINDOW_YEARS = 100;
 
+/** A rough generational gap (years) used to estimate an undated birth from kin. */
+const GENERATION = 28;
+
+/** The kin relation an undated birth estimate was derived from. */
+export type EstimateRelation = "father" | "mother" | "spouse" | "child";
+
+/** When a birth estimate is derived from a relative, the single relative whose
+ *  date drove it, so callers can explain which relation and how the age follows. */
+export interface BirthEstimate {
+  /** The year this person's birth is estimated at. */
+  estimatedYear: number;
+  relation: EstimateRelation;
+  relativeId: string;
+  relativeName: string;
+  /** The relative's own birth year that the estimate was offset from. */
+  relativeYear: number;
+}
+
 /**
- * Whether a person is presumed living for chart-privacy purposes. They count as
- * living only when they carry no death event *and* were born within the last
- * {@link LIVING_WINDOW_YEARS} years. Undated people with no death event are treated
- * as deceased (not redacted) — otherwise every dateless ancient ancestor would be
- * hidden, which is the opposite of useful on a chart.
+ * Estimate a birth year from dated immediate relatives (parents, spouse,
+ * children) when the person carries no birth date of their own, biased toward
+ * the most recent evidence so borderline people lean "living" — the safe
+ * default for privacy heuristics.
+ */
+export function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate | undefined {
+  let best: BirthEstimate | undefined;
+  const consider = (rel: Individual | undefined, relation: EstimateRelation, delta: number) => {
+    if (!rel) return;
+    const ry = birthYear(rel);
+    if (ry === undefined) return;
+    const v = ry + delta;
+    if (best === undefined || v > best.estimatedYear) {
+      best = {
+        estimatedYear: v,
+        relation,
+        relativeId: rel.id,
+        relativeName: rel.names[0]?.full?.trim() || rel.id,
+        relativeYear: ry,
+      };
+    }
+  };
+  // Parents → this person was born ~a generation later.
+  for (const famId of indi.childOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", GENERATION);
+    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", GENERATION);
+  }
+  // Spouse (same generation) and children (~a generation earlier).
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", 0);
+    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -GENERATION);
+  }
+  return best;
+}
+
+/** How many relationship hops {@link isPresumedLiving}'s network search follows
+ *  looking for a dated relative, and how many individuals it will visit doing
+ *  so — bounds the search on very large or densely intermarried trees. */
+const NETWORK_SEARCH_MAX_HOPS = 8;
+const NETWORK_SEARCH_MAX_VISITED = 500;
+
+/**
+ * Estimate a birth year by walking the family graph outward from `start` —
+ * parents (a generation earlier), spouses (same generation), children (a
+ * generation later), and so on transitively — until a relative with their own
+ * recorded birth year is found. Unlike {@link estimateBirthYear} this isn't
+ * limited to immediate kin, so it reaches e.g. a grandparent when the person's
+ * own parent is undated too. Search is bounded by hops and visited-count so it
+ * stays cheap on large datasets; among everything found within those bounds it
+ * returns the most recent (safe-default, "presume living") estimate.
+ */
+function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): number | undefined {
+  const visited = new Set<string>([start.id]);
+  let frontier: { id: string; offset: number }[] = [{ id: start.id, offset: 0 }];
+  let best: number | undefined;
+  for (let hop = 0; hop < NETWORK_SEARCH_MAX_HOPS && frontier.length && visited.size < NETWORK_SEARCH_MAX_VISITED; hop++) {
+    const next: { id: string; offset: number }[] = [];
+    const visit = (id: string | undefined, offset: number) => {
+      if (!id || visited.has(id) || visited.size >= NETWORK_SEARCH_MAX_VISITED) return;
+      visited.add(id);
+      next.push({ id, offset });
+    };
+    for (const { id, offset } of frontier) {
+      const person = ds.individuals.get(id);
+      if (!person) continue;
+      // Parents are a generation earlier: offset(parent) = offset(self) + GENERATION.
+      for (const famId of person.childOf) {
+        const fam = ds.families.get(famId);
+        if (!fam) continue;
+        visit(fam.husband, offset + GENERATION);
+        visit(fam.wife, offset + GENERATION);
+      }
+      // Spouses share a generation; children are a generation later.
+      for (const famId of person.spouseOf) {
+        const fam = ds.families.get(famId);
+        if (!fam) continue;
+        const otherId = fam.husband === id ? fam.wife : fam.husband;
+        visit(otherId, offset);
+        for (const cid of fam.children) visit(cid, offset - GENERATION);
+      }
+    }
+    for (const { id, offset } of next) {
+      const by = birthYear(ds.individuals.get(id));
+      if (by === undefined) continue;
+      const candidate = by + offset;
+      if (best === undefined || candidate > best) best = candidate;
+    }
+    frontier = next;
+  }
+  return best;
+}
+
+/**
+ * Whether a person is presumed living for chart-privacy purposes. No death
+ * event is the starting assumption of "living"; it's overridden only when
+ * there's dating evidence that places their birth more than
+ * {@link LIVING_WINDOW_YEARS} years ago — their own recorded birth, or,
+ * failing that, one estimated from relatives found via `ds` (see
+ * {@link estimateBirthYearFromNetwork}). With no death event, no birth, and no
+ * datable relative anywhere in reach, there's nothing to disprove "living" —
+ * so, per the safe-default policy, they count as living too.
  */
 export function isPresumedLiving(
   indi: Individual | undefined,
+  ds?: Dataset,
   now: number = new Date().getFullYear(),
 ): boolean {
   if (!indi || isDeceased(indi)) return false;
   const by = birthYear(indi);
-  return by !== undefined && now - by < LIVING_WINDOW_YEARS;
+  if (by !== undefined) return now - by < LIVING_WINDOW_YEARS;
+  const est = ds && estimateBirthYearFromNetwork(indi, ds);
+  return est === undefined || now - est < LIVING_WINDOW_YEARS;
 }
 
 /**

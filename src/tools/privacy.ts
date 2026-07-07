@@ -1,6 +1,6 @@
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
 import { cloneNode, hasChild } from "../gedcom/node";
-import { birthYear, deathYear, isDeceased, lifespanOf } from "../gedcom/lifespan";
+import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
 
 /**
  * Privacy / anonymization for living people.
@@ -28,21 +28,6 @@ export type StripCategory = "events" | "notes" | "sources" | "media" | "contact"
 
 /** Why an individual was flagged as living — surfaced in the preview breakdown. */
 export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath";
-
-/** The kin relation an undated birth estimate was derived from. */
-export type EstimateRelation = "father" | "mother" | "spouse" | "child";
-
-/** When a "from relatives" flag is raised, the single relative whose date drove
- *  the estimate, so the preview can show which relation and how the age follows. */
-export interface BirthEstimate {
-  /** The year this person's birth is estimated at. */
-  estimatedYear: number;
-  relation: EstimateRelation;
-  relativeId: string;
-  relativeName: string;
-  /** The relative's own birth year that the estimate was offset from. */
-  relativeYear: number;
-}
 
 export interface PrivacyOptions {
   /** Treat an undated, un-dead person as living if their (estimated) birth is
@@ -126,9 +111,6 @@ const EMAIL_TAGS = new Set(["EMAIL", "EMAI"]);
 const PHONE_TAGS = new Set(["PHON", "FAX"]);
 const EXTERNAL_ID_TAGS = new Set(["_UID", "_FID", "AFN", "RIN"]);
 
-/** A rough generational gap (years) used to estimate an undated birth from kin. */
-const GENERATION = 28;
-
 /** The detail bucket a non-structural child falls into, for the strip toggles. */
 function detailCategory(tag: string): StripCategory {
   if (CONTACT_TAGS.has(tag)) return "contact";
@@ -139,43 +121,6 @@ function detailCategory(tag: string): StripCategory {
 }
 
 // ── Living detection ─────────────────────────────────────────────────────────
-
-/** Estimate a birth year from dated immediate relatives, biased toward the most
- *  recent evidence (so borderline people lean "living" — the safe default). */
-function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate | undefined {
-  let best: BirthEstimate | undefined;
-  const consider = (rel: Individual | undefined, relation: EstimateRelation, delta: number) => {
-    if (!rel) return;
-    const ry = birthYear(rel);
-    if (ry === undefined) return;
-    const v = ry + delta;
-    if (best === undefined || v > best.estimatedYear) {
-      best = {
-        estimatedYear: v,
-        relation,
-        relativeId: rel.id,
-        relativeName: rel.names[0]?.full?.trim() || rel.id,
-        relativeYear: ry,
-      };
-    }
-  };
-  // Parents → this person was born ~a generation later.
-  for (const famId of indi.childOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", GENERATION);
-    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", GENERATION);
-  }
-  // Spouse (same generation) and children (~a generation earlier).
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
-    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", 0);
-    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -GENERATION);
-  }
-  return best;
-}
 
 /** Why this individual counts as living (plus the estimate behind a "relative"
  *  flag), or undefined when presumed deceased. */

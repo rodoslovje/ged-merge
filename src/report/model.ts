@@ -123,13 +123,13 @@ export interface PersonRef {
   living: boolean;
 }
 
-export function personRef(indi: Individual, nameOf: NameOf, nowYear: number): PersonRef {
+export function personRef(indi: Individual, nameOf: NameOf, nowYear: number, ds: Dataset): PersonRef {
   return {
     id: indi.id,
     name: nameOf(indi),
     sex: indi.sex,
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
-    living: isPresumedLiving(indi, nowYear),
+    living: isPresumedLiving(indi, ds, nowYear),
   };
 }
 
@@ -229,6 +229,7 @@ export function makeEntry(
   facts: FactLine[],
   nowYear: number,
   dupOf: number | undefined,
+  ds: Dataset,
 ): ReportEntry {
   return {
     num,
@@ -236,7 +237,7 @@ export function makeEntry(
     sex: indi.sex,
     name: nameOf(indi),
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
-    living: isPresumedLiving(indi, nowYear),
+    living: isPresumedLiving(indi, ds, nowYear),
     dupOf,
     facts: dupOf === undefined ? facts : [],
   };
@@ -365,7 +366,7 @@ export function marriageFacts(
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, nowYear));
+      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, ds, nowYear));
     })
     .filter((f): f is FactLine => f !== undefined);
 }

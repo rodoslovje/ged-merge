@@ -380,7 +380,7 @@ function makeNode(
     name: nameOf(primary),
     years: birthYears(main, incoming),
     place: placeLabel(primary),
-    living: isPresumedLiving(main) || isPresumedLiving(incoming),
+    living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs),
     sex,
     detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt),
     children: [],

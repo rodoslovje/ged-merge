@@ -137,7 +137,7 @@ export function buildTimeline(
   const add = (indi: Individual | undefined, role: TimelineRole, marriage: TimelineMark[] = []) => {
     if (!indi || seen.has(indi.id)) return;
     seen.add(indi.id);
-    rows.push(makeRow(t, indi, role, nameOf, [...eventMarks(t, indi), ...marriage], nowYear));
+    rows.push(makeRow(t, indi, role, nameOf, [...eventMarks(t, indi), ...marriage], nowYear, ds));
   };
 
   // Parents (father then mother), each carrying every marriage of theirs —
@@ -230,11 +230,12 @@ function makeRow(
   nameOf: NameOf,
   marks: TimelineMark[],
   nowYear: number,
+  ds: Dataset,
 ): TimelineRow {
   const birth = birthYear(indi);
   const death = deathYear(indi);
   const deceased = isDeceased(indi);
-  const living = isPresumedLiving(indi, nowYear);
+  const living = isPresumedLiving(indi, ds, nowYear);
 
   // Every dated year the record carries, for open bar ends.
   const eventYears = indi.events
