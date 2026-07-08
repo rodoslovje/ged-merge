@@ -102,7 +102,15 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
     }));
     const shortest = shortestPath(mainDs, startSel, targetSel);
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
-      opts.unshift({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
+      // A bloodline can never be shorter than the general shortest path, only
+      // equal or longer. Insert before the first bloodline that's strictly
+      // longer, so equal-length bloodlines stay ahead of it — a tie in step
+      // count still defaults to the blood relationship (index 0).
+      const insertAt = blood.findIndex((b) => b.hops > shortest.hops);
+      opts.splice(insertAt === -1 ? opts.length : insertAt, 0, {
+        path: shortest,
+        label: t("relpath.optShortest", { count: shortest.hops }),
+      });
     }
     return opts;
   }, [mainDs, startSel, targetSel, t, nameOf]);
