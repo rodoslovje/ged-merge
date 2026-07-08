@@ -351,8 +351,17 @@ interface BuiltSvg {
  * Clone a live diagram SVG into a standalone document: styles inlined, photos
  * embedded, wrapped in a titled header + site/timestamp footer. Shared by the
  * `.svg` download and the print-to-PDF path.
+ * @param haloFilter bake in the white halo behind hairlines/text (see below).
+ *   Default on, for the standalone `.svg` download. The print/PDF path turns
+ *   it off: the halo exists only so a transparent-background export stays
+ *   legible on a dark-themed viewer, which doesn't apply to a printed page
+ *   (always opaque white paper) — and confirmed by hand, this specific filter
+ *   combination (feMorphology dilate + feGaussianBlur + feComposite + feMerge)
+ *   makes Firefox's macOS "Save to PDF" pipeline rasterize the page as fully
+ *   blank, even though the identical markup renders fine on-screen and in
+ *   Firefox's own print preview.
  */
-async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
+async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloFilter = true): Promise<BuiltSvg> {
   const clone = live.cloneNode(true) as SVGSVGElement;
 
   // Resolve every colour with the light palette forced, so the export looks the
@@ -411,10 +420,13 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Prom
   while (clone.firstChild) content.appendChild(clone.firstChild);
 
   // Everything renders through the white-halo filter so the export stays
-  // legible on dark backdrops despite the transparent background.
+  // legible on dark backdrops despite the transparent background (skipped for
+  // print — see the `haloFilter` doc comment above).
   const frame = document.createElementNS(SVG_NS, "g");
-  frame.setAttribute("filter", `url(#${HALO_ID})`);
-  clone.appendChild(svgHaloFilter());
+  if (haloFilter) {
+    frame.setAttribute("filter", `url(#${HALO_ID})`);
+    clone.appendChild(svgHaloFilter());
+  }
   clone.appendChild(frame);
   frame.appendChild(content);
 
@@ -504,7 +516,7 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
  * Uses a hidden iframe (not window.open) to dodge popup blockers.
  */
 export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<void> {
-  const { svg, width, height } = await buildExportSvg(live, opts);
+  const { svg, width, height } = await buildExportSvg(live, opts, false);
   // Make the SVG fill the print page; the @page size matches its pixel extent.
   svg.removeAttribute("width");
   svg.removeAttribute("height");
