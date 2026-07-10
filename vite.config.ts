@@ -1,10 +1,25 @@
+import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Version shown in the footer and atop the /changelog page: the last commit
+// date (yyyy-mm-dd), not the build time — a rebuild with no new commits keeps
+// showing the same version.
+function getAppVersion(): string {
+  try {
+    return execSync("git log -1 --format=%cd --date=format:%Y-%m-%d").toString().trim();
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(getAppVersion()),
+  },
   plugins: [
     react(),
     // Installable, fully-offline PWA. The whole tool is client-side, so once
@@ -25,9 +40,9 @@ export default defineConfig({
         // outputs → every page works offline.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         // Root navigations fall back to the app shell; the standalone guide
-        // pages are precached, so keep them off the fallback.
+        // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/guide\//, /^\/navodila\//],
+        navigateFallbackDenylist: [/^\/guide\//, /^\/navodila\//, /^\/changelog\//],
       },
       manifest: {
         name: "GED Merge — GEDCOM merge, compare & edit",
@@ -53,13 +68,14 @@ export default defineConfig({
   base: "./",
   build: {
     rollupOptions: {
-      // Multi-page build: the app shell, plus a static, crawlable /guide
-      // page for SEO (no client-side router exists to serve it otherwise).
+      // Multi-page build: the app shell, plus static, crawlable /guide and
+      // /changelog pages (no client-side router exists to serve them otherwise).
       input: {
         main: resolve(__dirname, "index.html"),
         guide: resolve(__dirname, "guide/index.html"),
         // Slovenian translation of the guide, on a localized slug for SLO SEO.
         navodila: resolve(__dirname, "navodila/index.html"),
+        changelog: resolve(__dirname, "changelog/index.html"),
       },
     },
   },

@@ -947,6 +947,7 @@ export const en = {
   "landing.feat.local.title": "100% local",
   "landing.feat.local.body": "Everything runs in your browser. Your data never leaves your device.",
 
+  "footer.changelog": "What's new in this version",
   "footer.privacy": "Privacy",
   "footer.terms": "Terms",
   "footer.contact": "Contact",

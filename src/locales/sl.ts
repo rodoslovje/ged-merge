@@ -1040,6 +1040,7 @@ export const sl = {
   "landing.feat.local.title": "100% lokalno",
   "landing.feat.local.body": "Vse se izvaja v vašem brskalniku. Vaši podatki nikoli ne zapustijo vaše naprave.",
 
+  "footer.changelog": "Novosti v tej različici",
   "footer.privacy": "Zasebnost",
   "footer.terms": "Pogoji",
   "footer.contact": "Kontakt",
