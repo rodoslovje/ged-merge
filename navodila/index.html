@@ -375,7 +375,10 @@
               pregledujete in spreminjate glavno datoteko — brez druge datoteke. Osebo izberite v polju
               <strong>Skoči na osebo</strong> ali kliknite kartico sorodnika in se sprehodite po drevesu;
               <strong>Nazaj</strong> vas vrne na prejšnjo osebo. Če se trenutna oseba ujema tudi z vhodno datoteko,
-              <strong>Združi</strong> v orodni vrstici skoči naravnost na tisto primerjavo.
+              <strong>Združi</strong> v orodni vrstici skoči naravnost na tisto primerjavo, glava osebe pa prikaže iste
+              gumbe za odločitev <span class="gm-badge c round">C</span> / <span class="gm-badge r round">Z</span> /
+              <span class="gm-badge d round">D</span> — priročno za odpravo stanja <strong>Zavrnjeno</strong>, ne da bi
+              zapustili Urejanje; ujemanje se s tem vrne na seznam v Združevanju (glejte <a href="#merge">§10</a>).
               Vsaka sprememba je v pomnilniku in jo lahko razveljavite z <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>,
               dokler ne prenesete datoteke.
             </p>
@@ -599,6 +602,14 @@
               <span class="gm-badge r round">Z</span> <strong>Zavrni</strong> (<span class="gm-key">R</span>) ali
               <span class="gm-badge d round">K</span> <strong>Preloži</strong> za poznejšo odločitev (<span class="gm-key">D</span>).
               Združijo se le <strong>potrjena</strong> ujemanja.
+            </p>
+            <p>
+              <strong>Zavrni</strong> pomeni "ni ista oseba" — uporabite ga pri napačnem predlogu, da ne zasipava
+              seznama. Zavrnjeni pari takoj izginejo s seznama ujemanj; prikazani ostanejo le neoznačeni, potrjeni in
+              preloženi. Da ujemanje vrnete nazaj, ali razveljavite zavrnitev z <span class="gm-key">Ctrl</span><span
+              class="gm-key">Z</span>, ali odprite osebo v <strong>Urejanju</strong> (§9) in znova kliknite
+              <span class="gm-badge r round">Z</span>, da počistite stanje — v obeh primerih se ujemanje spet pojavi na
+              seznamu.
             </p>
             <h3>Primerjalno drevo</h3>
             <p>
@@ -826,12 +837,13 @@
             </table>
             <p><strong>Oznake stanja</strong> — okrogli žetoni na vrsticah kandidatov (Združevanje) ter na vozliščih ali
               vnosih vsakega diagrama. Preklop <strong>Značke</strong> v nastavitvah diagrama (§9) jih na diagramih
-              pokaže ali skrije; na seznamu ujemanj v Združevanju so vedno prikazane.</p>
+              pokaže ali skrije; na seznamu ujemanj v Združevanju sta vedno prikazani oznaki potrjeno in preloženo —
+              zavrnjeno ujemanje se namesto oznake s seznama umakne (glejte §10).</p>
             <table class="gm-table">
               <thead><tr><th>Oznaka</th><th>Pomen</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-badge c round">P</span></td><td>Potrjeno ujemanje — ob shranjevanju bo združeno</td></tr>
-                <tr><td><span class="gm-badge r round">Z</span></td><td>Zavrnjeno ujemanje</td></tr>
+                <tr><td><span class="gm-badge r round">Z</span></td><td>Zavrnjeno ujemanje — ni ista oseba; skrito s seznama ujemanj v Združevanju</td></tr>
                 <tr><td><span class="gm-badge d round">K</span></td><td>Kasneje (preloženo) — odloči se kasneje</td></tr>
                 <tr><td><span class="gm-badge mod round">S</span></td><td>Spremenjeno — zapis, ki ste ga uredili (prikazano na diagramih)</td></tr>
               </tbody>

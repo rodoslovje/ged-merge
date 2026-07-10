@@ -62,10 +62,10 @@ import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
 import type { TreeMode } from "./chart/personTree";
 import {
-  applyFilters,
   DEFAULT_FILTERS,
   DEFAULT_SORT,
   nextSort,
+  visibleCandidates,
   type Filters,
   type SortKey,
   type SortState,
@@ -861,7 +861,7 @@ function AppContent() {
   // When filters change: keep current person if they survive the new filter;
   // otherwise jump to the first person in the new filtered list.
   function handleFilters(f: Filters) {
-    const newVisible = applyFilters(allSorted, f);
+    const newVisible = visibleCandidates(allSorted, f, decisions);
     const currentStillVisible = current
       ? newVisible.some(c => c.mainId === current.mainId && c.compareId === current.compareId)
       : false;

@@ -1,5 +1,5 @@
 import type { IndividualCandidate } from "../match/types";
-import type { MatchDecisionStatus } from "../review/types";
+import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 
 export type Candidate = IndividualCandidate;
 
@@ -115,6 +115,23 @@ export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
       (!f.onlyImports || importTotal(c) > 0) &&
       c.score >= f.minScore,
   );
+}
+
+/**
+ * The match list's display filter: hides rejected matches (always — there's
+ * no setting for it, they'd just clutter the list) on top of the user's active
+ * `Filters`. Rejected candidates stay in the ranked list passed in, so undoing
+ * a rejection (or clearing the flag from Edit mode) brings them straight back.
+ */
+export function visibleCandidates<T extends Candidate>(
+  list: T[],
+  filters: Filters,
+  decisions: Map<string, CandidateDecision>,
+): T[] {
+  const notRejected = list.filter(
+    (c) => decisions.get(decisionKey("individual", c.mainId, c.compareId))?.status !== "rejected",
+  );
+  return applyFilters(notRejected, filters);
 }
 
 /**
