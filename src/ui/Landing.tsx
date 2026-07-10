@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
-import { pickFile, fileFromDrop } from "./filePicker";
+import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
 
 interface Props {
   mainState: SlotState;
@@ -113,9 +113,12 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
   }
 
   async function browse() {
+    if (!supportsFilePicker) {
+      inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+      return;
+    }
     const picked = await pickFile(MAIN_ACCEPT);
-    if (picked) onLoadFile(picked.file, picked.handle);
-    else inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+    if (picked) onLoadFile(picked.file, picked.handle); // null = user cancelled — do nothing
   }
 
   async function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -169,6 +172,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
               type="file"
               accept=".ged,.gedcom,text/plain"
               onChange={onChange}
+              onClick={(e) => e.stopPropagation()}
             />
             <svg
               className="lb-dz-ico"

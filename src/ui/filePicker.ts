@@ -9,6 +9,11 @@ export interface PickedFile {
   handle?: FileSystemFileHandle;
 }
 
+/** Whether the native File System Access picker is available at all — callers
+ *  use this (not a `pickFile` null result, which also means "cancelled") to
+ *  decide whether to fall back to a hidden `<input type=file>`. */
+export const supportsFilePicker = "showOpenFilePicker" in window;
+
 export interface AcceptSpec {
   description: string;
   /** MIME → extensions, as required by showOpenFilePicker's `accept`. */

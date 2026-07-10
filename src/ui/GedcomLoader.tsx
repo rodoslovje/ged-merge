@@ -7,7 +7,7 @@ import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { pickFile, fileFromDrop, type AcceptSpec } from "./filePicker";
+import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
 
 function countLocalMedia(records: GedNode[]): number {
   let n = 0;
@@ -105,9 +105,12 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
   }
 
   async function browse() {
+    if (!supportsFilePicker) {
+      inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+      return;
+    }
     const picked = await pickFile(accept);
-    if (picked) onLoad(picked.file, picked.handle);
-    else inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+    if (picked) onLoad(picked.file, picked.handle); // null = user cancelled — do nothing
   }
 
   async function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -196,6 +199,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
             type="file"
             accept={accent === "incoming" ? ".ged,.gedcom,.csv,text/plain,text/csv" : ".ged,.gedcom,text/plain"}
             onChange={onChange}
+            onClick={(e) => e.stopPropagation()}
           />
           {loaded ? (
             <span className="dropzone-text">{t("loader.dropReplace")}</span>
