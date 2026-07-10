@@ -119,7 +119,7 @@ export const sl = {
   "tools.duplicates.showCompare": "Pokaži primerjavo drug ob drugem",
   "tools.duplicates.hideCompare": "Skrij primerjavo",
   "tools.duplicates.merge": "Združi",
-  "tools.duplicates.reject": "Ni dvojnik",
+  "tools.duplicates.reject": "Zavrni",
   "tools.duplicates.unreject": "Razveljavi zavrnitev",
   "tools.duplicates.showRejected": "Zavrnjeni",
   "tools.duplicates.showActive": "Nazaj na dvojnike",

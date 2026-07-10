@@ -119,7 +119,7 @@ export const en = {
   "tools.duplicates.showCompare": "Show side-by-side comparison",
   "tools.duplicates.hideCompare": "Hide comparison",
   "tools.duplicates.merge": "Merge",
-  "tools.duplicates.reject": "Not a duplicate",
+  "tools.duplicates.reject": "Reject",
   "tools.duplicates.unreject": "Undo reject",
   "tools.duplicates.showRejected": "Rejected",
   "tools.duplicates.showActive": "Back to duplicates",

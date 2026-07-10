@@ -33,7 +33,7 @@ import { individualFieldRows } from "../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { type PersonNav } from "./ReadOnlyCompare";
-import { isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { BackButton } from "./BackButton";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
@@ -830,6 +830,21 @@ function DuplicateCompare({
   // Re-seed defaults if the underlying rows change (e.g. dataset edited elsewhere).
   useEffect(() => { setFields(duplicateDefaults(rows)); }, [rows]);
 
+  // C/R mirror the Merge view's confirm/reject shortcuts: C opens the merge
+  // confirmation (same as clicking Merge), R rejects immediately (same as
+  // clicking Reject — reversible from the Rejected list, so no confirm needed).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target) || isModalOpen()) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      if (key === KEY.confirm) { e.preventDefault(); setConfirming(true); return; }
+      if (key === KEY.reject) { e.preventDefault(); onReject(pair.aId, pair.bId); return; }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pair, onReject]);
+
   const nav: PersonNav = {
     linkable: (id) => dataset.individuals.has(id),
     onNavigate,
@@ -951,10 +966,18 @@ function DuplicateCompare({
       )}
       <div className="tools-merge-bar">
         <span className="tools-merge-hint">{t("tools.duplicates.survivorHint", { name: pair.aLabel })}</span>
-        <button className="nav-btn" onClick={() => onReject(pair.aId, pair.bId)}>
+        <button
+          className="nav-btn"
+          title={t("compare.decisionTooltip", { action: t("tools.duplicates.reject"), key: KEY.reject.toUpperCase() })}
+          onClick={() => onReject(pair.aId, pair.bId)}
+        >
           {t("tools.duplicates.reject")}
         </button>
-        <button className="nav-btn primary tools-run" onClick={() => setConfirming(true)}>
+        <button
+          className="nav-btn primary tools-run"
+          title={t("compare.decisionTooltip", { action: t("tools.duplicates.merge"), key: KEY.confirm.toUpperCase() })}
+          onClick={() => setConfirming(true)}
+        >
           {t("tools.duplicates.merge")}
         </button>
       </div>
