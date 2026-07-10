@@ -1644,6 +1644,16 @@ function AppContent() {
       </a>
       <span className="app-footer-sep">·</span>
       <a
+        href={i18n.language === "sl" ? "posodobitve/" : "changelog/"}
+        className="app-footer-link"
+        target="_blank"
+        rel="noopener noreferrer"
+        title={t("footer.changelog")}
+      >
+        v{__APP_VERSION__}
+      </a>
+      <span className="app-footer-sep">·</span>
+      <a
         href={i18n.language === "sl" ? "navodila/" : "guide/"}
         className="app-footer-link"
         target="_blank"
