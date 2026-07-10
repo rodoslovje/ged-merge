@@ -577,15 +577,26 @@ function DuplicatesPanel({
   expandedRef.current = expanded;
 
   // Apply a merge, then drop from the list the merged pair and any other pair
-  // that referenced the now-removed record (it no longer exists).
+  // that referenced the now-removed record (it no longer exists). Jumps to
+  // whatever takes the merged pair's old place in the (pre-merge) shown list —
+  // same auto-advance as rejecting a pair — so the panel doesn't just go blank.
   function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
     if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    setExpanded(null);
+    const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
+    const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
     setState((s) =>
       s.status === "done"
         ? { status: "done", result: s.result.filter((p) => p.aId !== removedId && p.bId !== removedId) }
         : s,
     );
+    if (remaining.length === 0) {
+      setExpanded(null);
+      return;
+    }
+    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
+    const next = remaining[nextIdx];
+    setSelected(nextIdx);
+    setExpanded(`${next.aId}-${next.bId}`);
   }
 
   // Dismiss a pair as not-a-duplicate: persisted via the parent, so it won't
