@@ -967,18 +967,18 @@ function DuplicateCompare({
       <div className="tools-merge-bar">
         <span className="tools-merge-hint">{t("tools.duplicates.survivorHint", { name: pair.aLabel })}</span>
         <button
-          className="nav-btn"
-          title={t("compare.decisionTooltip", { action: t("tools.duplicates.reject"), key: KEY.reject.toUpperCase() })}
-          onClick={() => onReject(pair.aId, pair.bId)}
-        >
-          {t("tools.duplicates.reject")}
-        </button>
-        <button
           className="nav-btn primary tools-run"
           title={t("compare.decisionTooltip", { action: t("tools.duplicates.merge"), key: KEY.confirm.toUpperCase() })}
           onClick={() => setConfirming(true)}
         >
           {t("tools.duplicates.merge")}
+        </button>
+        <button
+          className="nav-btn"
+          title={t("compare.decisionTooltip", { action: t("tools.duplicates.reject"), key: KEY.reject.toUpperCase() })}
+          onClick={() => onReject(pair.aId, pair.bId)}
+        >
+          {t("tools.duplicates.reject")}
         </button>
       </div>
       {confirming && (
