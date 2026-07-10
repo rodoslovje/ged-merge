@@ -52,6 +52,7 @@ import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
 import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, markFreshStart, consumeFreshStart, type StoredSession, type StoredEditState } from "./persist/idb";
+import { hashFile, hasPermApi } from "./persist/fingerprint";
 import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
 import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
@@ -192,6 +193,23 @@ function AppContent() {
   // fire-and-forget original write from loadFile can't race and clobber a later
   // edited write. False after a fresh main load → the next debounce caches it.
   const mainCachedRef = useRef(false);
+  // Live FileSystemFileHandle for main/compare, when the browser supports the
+  // File System Access API and the file was picked/dropped via one (Firefox/
+  // Safari, or a plain drag of a file without a resolvable handle, leave this
+  // null). State (not a ref) because it drives the "Verify" button's visibility.
+  const [mainHandle, setMainHandle] = useState<FileSystemFileHandle | null>(null);
+  const [compareHandle, setCompareHandle] = useState<FileSystemFileHandle | null>(null);
+  // SHA-256 of the file's bytes *as loaded from disk*, fixed at load time and
+  // carried unchanged through every later cache write (which may re-serialize
+  // an edited main dataset) — see fingerprint.ts. Used to tell "the on-disk
+  // file changed" apart from "I edited it in here".
+  const mainOriginalHashRef = useRef<string | null>(null);
+  const compareOriginalHashRef = useRef<string | null>(null);
+  // Set (only from the startup-restore effect) when a silent disk check finds
+  // the cached file no longer matches what's on disk. A separate effect below
+  // reacts to it with a fresh `loadFile`/handle closure, since the effect that
+  // detects the mismatch runs once at mount and can't safely call either.
+  const [externalChangeAlert, setExternalChangeAlert] = useState<{ role: DatasetRole; fileName: string } | null>(null);
   // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
@@ -502,7 +520,13 @@ function AppContent() {
       pendingEditStateRef.current = ws.session?.editState ?? null;
       expectCompareRef.current = !!ws.compare;
       mainCachedRef.current = true; // restored main is already in the cache
-      if (ws.compare) compareBlobRef.current = ws.compare.blob;
+      setMainHandle(ws.main.handle ?? null);
+      mainOriginalHashRef.current = ws.main.originalHash ?? null;
+      if (ws.compare) {
+        compareBlobRef.current = ws.compare.blob;
+        setCompareHandle(ws.compare.handle ?? null);
+        compareOriginalHashRef.current = ws.compare.originalHash ?? null;
+      }
       // A cached start person will be restored explicitly; suppress the one-time
       // auto-default so it doesn't fight the restore.
       if (ws.session?.startId) autoStartRef.current = true;
@@ -520,6 +544,29 @@ function AppContent() {
       };
       feed("main", ws.main); // main first so its profile is set before compare normalizes
       if (ws.compare) feed("compare", ws.compare);
+
+      // Best-effort, silent check that the on-disk file still matches what we
+      // cached (Chrome/Edge only, and only when the browser still reports read
+      // permission without a prompt — a live gesture is needed otherwise, which
+      // the "Verify" button provides). A mismatch surfaces via `externalChangeAlert`,
+      // handled by a separate effect that always sees the current render's
+      // `loadFile`/handle state (this mount effect's closure would otherwise call
+      // a permanently-stale `loadFile`).
+      const verifyOnHydrate = async (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
+        if (!sf.handle || !sf.originalHash || !hasPermApi(sf.handle)) return;
+        try {
+          const perm = await sf.handle.queryPermission({ mode: "read" });
+          if (perm !== "granted") return;
+          const file = await sf.handle.getFile();
+          const hash = await hashFile(file);
+          if (cancelled) return;
+          if (hash !== sf.originalHash) setExternalChangeAlert({ role, fileName: sf.fileName });
+        } catch {
+          /* handle stale/revoked, file moved, etc. — nothing to report */
+        }
+      };
+      void verifyOnHydrate("main", ws.main);
+      if (ws.compare) void verifyOnHydrate("compare", ws.compare);
     });
     return () => { cancelled = true; };
   }, [post]);
@@ -536,7 +583,7 @@ function AppContent() {
     loadFile(role, new File([blob], fileName, { type: "text/plain" }));
   }
 
-  async function loadFile(role: DatasetRole, file: File) {
+  async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
     userLoadedRef.current = true;
@@ -544,6 +591,9 @@ function AppContent() {
     expectCompareRef.current = false;
     pendingSessionRef.current = null;
     pendingEditStateRef.current = null;
+    // Also guards a reload triggered by the external-change check below: if
+    // there's unsaved work, this asks before discarding it exactly as it would
+    // for any other replace.
     if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
     }
@@ -557,6 +607,9 @@ function AppContent() {
     const fileName = file.name.normalize("NFC");
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     dispatch({ type: "slotLoading", role, fileName });
+    // Fixed at this fresh load — carried unchanged through every later cache
+    // write for this file (see the originalHash doc comment on StoredFile).
+    const originalHash = await hashFile(file);
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
     // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
@@ -564,9 +617,13 @@ function AppContent() {
     // so the next debounce re-caches it.
     if (role === "compare") {
       compareBlobRef.current = file;
-      if (persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now() });
+      setCompareHandle(handle ?? null);
+      compareOriginalHashRef.current = originalHash;
+      if (persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now(), originalHash, handle });
     } else {
       mainCachedRef.current = false;
+      setMainHandle(handle ?? null);
+      mainOriginalHashRef.current = originalHash;
     }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
@@ -629,6 +686,57 @@ function AppContent() {
       return;
     }
     post(newMsg, [buffer]); // transfer ownership — avoids copying large files
+  }
+
+  // Reacts to a mismatch found by the startup-restore's silent disk check
+  // (`externalChangeAlert`). Kept as its own effect — rather than resolving the
+  // reload inline where the mismatch is found — because that check runs once in
+  // the mount-only hydration effect, whose closure over `loadFile`/handle state
+  // is permanently stale; this effect re-fires fresh each time the alert is set,
+  // so it always sees the current render's `loadFile` and handle state.
+  useEffect(() => {
+    if (!externalChangeAlert) return;
+    const { role, fileName } = externalChangeAlert;
+    void confirmDialog(t("load.externalChange", { fileName }), t("load.externalChange.reload")).then((reload) => {
+      setExternalChangeAlert(null);
+      if (!reload) return;
+      const handle = role === "main" ? mainHandle : compareHandle;
+      if (!handle) return;
+      void handle.getFile().then((file) => loadFile(role, file, handle));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalChangeAlert]);
+
+  /** Manual re-check for the loaded main/compare file against disk (the
+   *  "Verify" button in GedcomLoader) — unlike the silent startup check, a real
+   *  click gesture lets this request permission if it isn't already granted. */
+  async function verifyNow(role: DatasetRole) {
+    const handle = role === "main" ? mainHandle : compareHandle;
+    const originalHash = role === "main" ? mainOriginalHashRef.current : compareOriginalHashRef.current;
+    if (!handle || !originalHash) return;
+    if (hasPermApi(handle)) {
+      let perm = await handle.queryPermission({ mode: "read" });
+      if (perm === "prompt") perm = await handle.requestPermission({ mode: "read" });
+      if (perm !== "granted") {
+        setSaveToast(t("load.verify.denied"));
+        return;
+      }
+    }
+    let file: File;
+    try {
+      file = await handle.getFile();
+    } catch {
+      setSaveToast(t("load.verify.unreadable"));
+      return;
+    }
+    const hash = await hashFile(file);
+    if (hash === originalHash) {
+      setSaveToast(t("load.verify.unchanged"));
+      return;
+    }
+    if (await confirmDialog(t("load.externalChange", { fileName: file.name }), t("load.externalChange.reload"))) {
+      void loadFile(role, file, handle);
+    }
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -773,6 +881,8 @@ function AppContent() {
           fileName: mainFileName,
           blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
           savedAt: Date.now(),
+          originalHash: mainOriginalHashRef.current ?? undefined,
+          handle: mainHandle ?? undefined,
         });
         mainCachedRef.current = true;
       }
@@ -789,7 +899,7 @@ function AppContent() {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
+  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds, mainHandle]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on
@@ -809,6 +919,8 @@ function AppContent() {
         fileName: lastMainFile.fileName,
         blob: new Blob([serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })]),
         savedAt: Date.now(),
+        originalHash: mainOriginalHashRef.current ?? undefined,
+        handle: mainHandle ?? undefined,
       });
     }
     if (compareBlobRef.current && compare.status === "loaded") {
@@ -817,6 +929,8 @@ function AppContent() {
         blob: compareBlobRef.current,
         isCsv: /\.csv$/i.test(compare.file.fileName),
         savedAt: Date.now(),
+        originalHash: compareOriginalHashRef.current ?? undefined,
+        handle: compareHandle ?? undefined,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1958,20 +2072,24 @@ function AppContent() {
             <GedcomLoader
               title={t("load.main")}
               state={main}
-              onLoad={(f) => loadFile("main", f)}
+              onLoad={(f, h) => loadFile("main", f, h)}
               accent="main"
+              canVerify={!!mainHandle}
+              onVerify={() => verifyNow("main")}
             />
             {showCompareInPanel && (
               <div className="loader-with-samples">
                 <GedcomLoader
                   title={t("load.incoming")}
                   state={compare}
-                  onLoad={(f) => loadFile("compare", f)}
+                  onLoad={(f, h) => loadFile("compare", f, h)}
                   onUnload={unloadCompare}
                   accent="incoming"
                   highlight={compare.status === "empty"}
                   tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
                   description={t("merge.intro.incomingHint")}
+                  canVerify={!!compareHandle}
+                  onVerify={() => verifyNow("compare")}
                 />
                 {compare.status === "empty" && (
                   <div className="sample-links">
@@ -2001,7 +2119,7 @@ function AppContent() {
       {!lastMainFile && (
         <Landing
           mainState={main}
-          onLoadFile={(f) => loadFile("main", f)}
+          onLoadFile={(f, h) => loadFile("main", f, h)}
           onLoadSample={(fileName) => loadSample("main", fileName)}
         />
       )}

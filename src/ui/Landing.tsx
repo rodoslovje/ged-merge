@@ -1,12 +1,15 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
+import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
 
 interface Props {
   mainState: SlotState;
-  onLoadFile: (file: File) => void;
+  onLoadFile: (file: File, handle?: FileSystemFileHandle) => void;
   onLoadSample: (fileName: string) => void;
 }
+
+const MAIN_ACCEPT = { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
 
 const SAMPLES: { key: string; file: string }[] = [
   { key: "europe",     file: "EuropeRoyalFamilies.ged" },
@@ -109,17 +112,26 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function onDrop(e: DragEvent<HTMLDivElement>) {
+  async function browse() {
+    if (!supportsFilePicker) {
+      inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+      return;
+    }
+    const picked = await pickFile(MAIN_ACCEPT);
+    if (picked) onLoadFile(picked.file, picked.handle); // null = user cancelled — do nothing
+  }
+
+  async function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) onLoadFile(file);
+    const picked = await fileFromDrop(e.dataTransfer);
+    if (picked) onLoadFile(picked.file, picked.handle);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      inputRef.current?.click();
+      void browse();
     }
   }
 
@@ -148,7 +160,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
             className={`lb-drop${dragging ? " dragover" : ""}`}
             role="button"
             tabIndex={0}
-            onClick={() => inputRef.current?.click()}
+            onClick={() => void browse()}
             onKeyDown={onKeyDown}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -160,6 +172,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
               type="file"
               accept=".ged,.gedcom,text/plain"
               onChange={onChange}
+              onClick={(e) => e.stopPropagation()}
             />
             <svg
               className="lb-dz-ico"

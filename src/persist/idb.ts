@@ -55,6 +55,15 @@ export interface StoredFile {
   /** Compare slot only: the file was a genealogical-index matches CSV. */
   isCsv?: boolean;
   savedAt: number;
+  /** SHA-256 of the file's bytes *as originally loaded from disk* — fixed at
+   *  first load and carried through unchanged by later cache writes (which may
+   *  re-serialize an edited dataset into `blob`). Lets a restore detect that
+   *  the on-disk file itself has since changed, as opposed to in-app edits. */
+  originalHash?: string;
+  /** Chrome/Edge only: a live handle to the source file, so a restore can
+   *  silently re-read it and compare against `originalHash`. Structured-clone
+   *  friendly, same technique as the media-folder directory handle. */
+  handle?: FileSystemFileHandle;
 }
 
 /** Unsaved Edit-mode state, present only once the dataset has actually been

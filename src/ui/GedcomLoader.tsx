@@ -7,6 +7,7 @@ import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
 
 function countLocalMedia(records: GedNode[]): number {
   let n = 0;
@@ -70,7 +71,7 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
 interface Props {
   title: string;
   state: SlotState;
-  onLoad: (file: File) => void;
+  onLoad: (file: File, handle?: FileSystemFileHandle) => void;
   /** When set on a loaded slot, offers an "unload" button that removes the file. */
   onUnload?: () => void;
   /** Role colour applied to the loaded filename. */
@@ -79,13 +80,22 @@ interface Props {
   tooltip?: string;
   /** Short description shown below the title before any file is loaded. */
   description?: string;
+  /** Shows a "Verify" button next to the filename that re-checks the file
+   *  against disk (only meaningful once a live handle was captured for it). */
+  canVerify?: boolean;
+  onVerify?: () => void;
 }
 
-export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight, tooltip, description }: Props) {
+export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight, tooltip, description, canVerify, onVerify }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { t } = useTranslation();
   const { folderName, openFolder, clearFolder } = useMediaFolder();
+
+  const accept: AcceptSpec =
+    accent === "incoming"
+      ? { description: "GEDCOM or CSV files", mime: { "text/plain": [".ged", ".gedcom"], "text/csv": [".csv"] } }
+      : { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -94,17 +104,26 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function onDrop(e: DragEvent<HTMLDivElement>) {
+  async function browse() {
+    if (!supportsFilePicker) {
+      inputRef.current?.click(); // unsupported browser — fall back to the hidden input
+      return;
+    }
+    const picked = await pickFile(accept);
+    if (picked) onLoad(picked.file, picked.handle); // null = user cancelled — do nothing
+  }
+
+  async function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) onLoad(file);
+    const picked = await fileFromDrop(e.dataTransfer);
+    if (picked) onLoad(picked.file, picked.handle);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      inputRef.current?.click();
+      void browse();
     }
   }
 
@@ -156,7 +175,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
       )}
 
       {(state.status === "loaded" || state.status === "error") && (
-        <div className="summary">{renderSummary(state, accent, t, folderUi, onUnload)}</div>
+        <div className="summary">{renderSummary(state, accent, t, folderUi, onUnload, canVerify, onVerify)}</div>
       )}
 
       {state.status !== "loading" && (
@@ -165,7 +184,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
           role="button"
           tabIndex={0}
           title={tooltip}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => void browse()}
           onKeyDown={onKeyDown}
           onDragOver={(e) => {
             e.preventDefault();
@@ -180,6 +199,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
             type="file"
             accept={accent === "incoming" ? ".ged,.gedcom,.csv,text/plain,text/csv" : ".ged,.gedcom,text/plain"}
             onChange={onChange}
+            onClick={(e) => e.stopPropagation()}
           />
           {loaded ? (
             <span className="dropzone-text">{t("loader.dropReplace")}</span>
@@ -218,6 +238,8 @@ function renderSummary(
   t: Translate,
   folderUi: React.ReactNode,
   onUnload?: () => void,
+  canVerify?: boolean,
+  onVerify?: () => void,
 ): React.ReactNode {
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
@@ -287,10 +309,19 @@ function renderSummary(
     <>
       <div className="loader-filename-row">
         <div className={`gm-file ${accent} loader-filename`} title={`${t(accent === "main" ? "tree.main" : "tree.incoming")}: ${fileName}`}>{fileName}</div>
-        {onUnload && (
-          <button className="loader-unload-btn" onClick={onUnload} title={t("loader.unload.tooltip")}>
-            {t("loader.unload")}
-          </button>
+        {(canVerify || onUnload) && (
+          <div className="loader-file-actions">
+            {canVerify && onVerify && (
+              <button className="loader-verify-btn" onClick={onVerify} title={t("load.verify.tooltip")}>
+                {t("load.verify")}
+              </button>
+            )}
+            {onUnload && (
+              <button className="loader-unload-btn" onClick={onUnload} title={t("loader.unload.tooltip")}>
+                {t("loader.unload")}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="loader-cols">
