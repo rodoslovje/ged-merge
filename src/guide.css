@@ -431,6 +431,26 @@
   opacity: 0.9;
 }
 
+/* ── /changelog page: single-column variant of the guide shell, no TOC ───── */
+.guide-shell.changelog-shell {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 720px;
+}
+.changelog-entry {
+  margin-bottom: 8px;
+}
+.changelog-entry h2 {
+  font-size: 1.1rem;
+  margin: 40px 0 10px;
+  color: var(--accent);
+  border-bottom: none;
+  padding-bottom: 0;
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.changelog-entry:first-child h2 {
+  margin-top: 0;
+}
+
 /* ── Narrow screens: collapse to a single column, TOC on top ─────────────── */
 @media (max-width: 880px) {
   .guide-shell {

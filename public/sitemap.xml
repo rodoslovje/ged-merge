@@ -27,4 +27,22 @@
     <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/navodila/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/guide/" />
   </url>
+  <url>
+    <loc>https://gedmerge.com/changelog/</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/changelog/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/posodobitve/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/changelog/" />
+  </url>
+  <url>
+    <loc>https://gedmerge.com/posodobitve/</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/changelog/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/posodobitve/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/changelog/" />
+  </url>
 </urlset>
