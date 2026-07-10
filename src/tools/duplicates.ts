@@ -36,6 +36,14 @@ export interface DuplicatePair {
  *  because here both records come from the same curated file. */
 const DEFAULT_MIN_SCORE = 0.7;
 
+/** Order-independent key for a duplicate pair, used to track a user's
+ *  reject/un-reject decision across re-runs of `findDuplicates`. Pairs are
+ *  sorted rather than keyed by `aId`/`bId` directly because the survivor/removed
+ *  orientation (see {@link relationshipCount}) can flip as the dataset changes. */
+export function duplicatePairKey(aId: string, bId: string): string {
+  return aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
+}
+
 export function findDuplicates(
   ds: Dataset,
   minScore: number = DEFAULT_MIN_SCORE,

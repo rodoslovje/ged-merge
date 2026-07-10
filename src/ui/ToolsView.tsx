@@ -7,7 +7,7 @@ import { countInferableSex } from "../tools/fixSex";
 import { countFixableDates } from "../tools/fixDates";
 import { validateStructure, type StructureReport, type StructCategory, type StructIssue } from "../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../tools/mediaFiles";
-import { findDuplicates, makeDuplicatePair, type DuplicatePair } from "../tools/duplicates";
+import { findDuplicates, makeDuplicatePair, duplicatePairKey, type DuplicatePair } from "../tools/duplicates";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import {
   findLiving,
@@ -33,7 +33,7 @@ import { individualFieldRows } from "../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { type PersonNav } from "./ReadOnlyCompare";
-import { isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { BackButton } from "./BackButton";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
@@ -74,6 +74,13 @@ interface Props {
    *  per the field choices, mutating the dataset in place and pushing to undo.
    *  Returns true when the merge applied (records changed). */
   onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
+  /** Rejected within-file duplicate pairs (keyed by `duplicatePairKey`), persisted
+   *  so a re-run of the duplicate scan doesn't resurface them. */
+  rejectedDuplicates: Set<string>;
+  /** Dismiss a pair as not-a-duplicate; persisted across scan re-runs. */
+  onRejectDuplicate: (aId: string, bId: string) => void;
+  /** Undo a previous reject, so the pair reappears in the active list. */
+  onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
 type AsyncState<T> =
@@ -99,7 +106,7 @@ function ToolsLoading({ label }: { label: string }) {
   );
 }
 
-export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate }: Props) {
+export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
 
@@ -136,7 +143,7 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
           <ValidatePanel dataset={dataset} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} />
+          <DuplicatesPanel dataset={dataset} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
           <NormalizePanel dataset={dataset} fileName={fileName} active={active} />
@@ -540,17 +547,25 @@ function DuplicatesPanel({
   onNavigate,
   active,
   onMergeDuplicate,
+  rejectedDuplicates,
+  onRejectDuplicate,
+  onUnrejectDuplicate,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
   onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
+  rejectedDuplicates: Set<string>;
+  onRejectDuplicate: (aId: string, bId: string) => void;
+  onUnrejectDuplicate: (aId: string, bId: string) => void;
 }) {
   const { t } = useTranslation();
   const [state, setState] = useState<AsyncState<DuplicatePair[]>>({ status: "idle" });
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Toggles the list between active candidates and previously-rejected pairs.
+  const [showRejected, setShowRejected] = useState(false);
   // Keyboard-highlighted pair (index into the currently shown list).
   const [selected, setSelected] = useState(0);
   const selectedRef = useRef(0);
@@ -562,15 +577,47 @@ function DuplicatesPanel({
   expandedRef.current = expanded;
 
   // Apply a merge, then drop from the list the merged pair and any other pair
-  // that referenced the now-removed record (it no longer exists).
+  // that referenced the now-removed record (it no longer exists). Jumps to
+  // whatever takes the merged pair's old place in the (pre-merge) shown list —
+  // same auto-advance as rejecting a pair — so the panel doesn't just go blank.
   function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
     if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    setExpanded(null);
+    const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
+    const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
     setState((s) =>
       s.status === "done"
         ? { status: "done", result: s.result.filter((p) => p.aId !== removedId && p.bId !== removedId) }
         : s,
     );
+    if (remaining.length === 0) {
+      setExpanded(null);
+      return;
+    }
+    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
+    const next = remaining[nextIdx];
+    setSelected(nextIdx);
+    setExpanded(`${next.aId}-${next.bId}`);
+  }
+
+  // Dismiss a pair as not-a-duplicate: persisted via the parent, so it won't
+  // resurface next time the scan runs. The pair itself stays in `state.result`
+  // (unlike a merge, nothing about the dataset changed) — it just moves from
+  // the active list into the rejected one via the `rejectedDuplicates` filter.
+  // Jumps to whatever takes its old place in the (pre-reject) shown list —
+  // same auto-advance behavior as rejecting a match in Merge — so the panel
+  // doesn't just go blank.
+  function handleReject(aId: string, bId: string) {
+    const idx = shown.findIndex((p) => p.aId === aId && p.bId === bId);
+    onRejectDuplicate(aId, bId);
+    const remaining = shown.filter((p) => !(p.aId === aId && p.bId === bId));
+    if (remaining.length === 0) {
+      setExpanded(null);
+      return;
+    }
+    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
+    const next = remaining[nextIdx];
+    setSelected(nextIdx);
+    setExpanded(`${next.aId}-${next.bId}`);
   }
 
   // Open a related pair surfaced from inside an open comparison (a spouse/parent
@@ -601,6 +648,7 @@ function DuplicatesPanel({
     setExpanded(null);
     setQuery("");
     setSelected(0);
+    setShowRejected(false);
   }, [dataset]);
 
   // Run the (potentially heavy) scan the first time the tab is shown, letting
@@ -617,10 +665,15 @@ function DuplicatesPanel({
 
   const q = useDebounced(query).trim().toLowerCase();
   const pairs = state.status === "done" ? state.result : null;
+  const rejectedCount = useMemo(
+    () => (pairs ?? []).filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId))).length,
+    [pairs, rejectedDuplicates],
+  );
   const shown = useMemo(() => {
     if (!pairs) return [];
-    return q ? pairs.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : pairs;
-  }, [pairs, q]);
+    const base = pairs.filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected);
+    return q ? base.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : base;
+  }, [pairs, q, rejectedDuplicates, showRejected]);
 
   // Keep the highlight inside the (re)filtered list: a new filter starts at the
   // top; merging out a pair clamps to the last remaining one.
@@ -685,30 +738,59 @@ function DuplicatesPanel({
         <>
           <div className="tools-filter-row">
             <TreeSearch value={query} onChange={setQuery} />
-            <p className="tools-summary">{t("tools.duplicates.found", { count: state.result.length })}</p>
+            {rejectedCount > 0 && (
+              <button className="tools-chip tools-dup-toggle" onClick={() => setShowRejected((v) => !v)}>
+                {showRejected ? t("tools.duplicates.showActive") : (
+                  <>{t("tools.duplicates.showRejected")} <span className="tools-chip-count">{rejectedCount}</span></>
+                )}
+              </button>
+            )}
+            <p className="tools-summary">
+              {showRejected
+                ? t("tools.duplicates.rejectedCount", { count: rejectedCount })
+                : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
+            </p>
           </div>
           {shown.length === 0 ? (
-            <p className="tools-clean">{t("tools.search.noMatch")}</p>
+            <p className="tools-clean">
+              {q
+                ? t("tools.search.noMatch")
+                : showRejected
+                  ? t("tools.duplicates.noneRejected")
+                  : t("tools.duplicates.allRejected")}
+            </p>
           ) : (
             <ul className="tools-pairs" ref={listRef}>
               {shown.map((p, i) => {
                 const key = `${p.aId}-${p.bId}`;
-                const open = expanded === key;
+                const open = !showRejected && expanded === key;
                 return (
                   <li key={key} className={`tools-pair ${i === selected ? "selected" : ""}`}>
                     <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
-                      <button
-                        className={`tools-pair-toggle ${open ? "open" : ""}`}
-                        onClick={() => setExpanded(open ? null : key)}
-                        title={open ? t("tools.duplicates.hideCompare") : t("tools.duplicates.showCompare")}
-                        aria-expanded={open}
-                      >
-                        ▶
-                      </button>
+                      {showRejected ? (
+                        <span className="tools-pair-toggle-spacer" aria-hidden="true" />
+                      ) : (
+                        <button
+                          className={`tools-pair-toggle ${open ? "open" : ""}`}
+                          onClick={() => setExpanded(open ? null : key)}
+                          title={open ? t("tools.duplicates.hideCompare") : t("tools.duplicates.showCompare")}
+                          aria-expanded={open}
+                        >
+                          ▶
+                        </button>
+                      )}
                       <span className={`tools-cat cat-${p.category}`}>{Math.round(p.score)}</span>
                       <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} />
                       <span className="tools-pair-sep">↔</span>
                       <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} />
+                      {showRejected && (
+                        <button
+                          className="tools-issue-link tools-pair-unreject"
+                          onClick={() => onUnrejectDuplicate(p.aId, p.bId)}
+                        >
+                          {t("tools.duplicates.unreject")}
+                        </button>
+                      )}
                     </div>
                     {open && (
                       <DuplicateCompare
@@ -716,6 +798,7 @@ function DuplicatesPanel({
                         pair={p}
                         onNavigate={onNavigate}
                         onMerge={handleMerge}
+                        onReject={handleReject}
                         onOpenPair={openPair}
                       />
                     )}
@@ -745,12 +828,14 @@ function DuplicateCompare({
   pair,
   onNavigate,
   onMerge,
+  onReject,
   onOpenPair,
 }: {
   dataset: Dataset;
   pair: DuplicatePair;
   onNavigate: (id: string) => void;
   onMerge: (survivorId: string, removedId: string, decision: CandidateDecision) => void;
+  onReject: (aId: string, bId: string) => void;
   onOpenPair: (aId: string, bId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -767,6 +852,21 @@ function DuplicateCompare({
   const [confirming, setConfirming] = useState(false);
   // Re-seed defaults if the underlying rows change (e.g. dataset edited elsewhere).
   useEffect(() => { setFields(duplicateDefaults(rows)); }, [rows]);
+
+  // C/R mirror the Merge view's confirm/reject shortcuts: C opens the merge
+  // confirmation (same as clicking Merge), R rejects immediately (same as
+  // clicking Reject — reversible from the Rejected list, so no confirm needed).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target) || isModalOpen()) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      if (key === KEY.confirm) { e.preventDefault(); setConfirming(true); return; }
+      if (key === KEY.reject) { e.preventDefault(); onReject(pair.aId, pair.bId); return; }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pair, onReject]);
 
   const nav: PersonNav = {
     linkable: (id) => dataset.individuals.has(id),
@@ -889,8 +989,19 @@ function DuplicateCompare({
       )}
       <div className="tools-merge-bar">
         <span className="tools-merge-hint">{t("tools.duplicates.survivorHint", { name: pair.aLabel })}</span>
-        <button className="nav-btn primary tools-run" onClick={() => setConfirming(true)}>
+        <button
+          className="nav-btn primary tools-run"
+          title={t("compare.decisionTooltip", { action: t("tools.duplicates.merge"), key: KEY.confirm.toUpperCase() })}
+          onClick={() => setConfirming(true)}
+        >
           {t("tools.duplicates.merge")}
+        </button>
+        <button
+          className="nav-btn"
+          title={t("compare.decisionTooltip", { action: t("tools.duplicates.reject"), key: KEY.reject.toUpperCase() })}
+          onClick={() => onReject(pair.aId, pair.bId)}
+        >
+          {t("tools.duplicates.reject")}
         </button>
       </div>
       {confirming && (

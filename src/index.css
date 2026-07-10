@@ -5653,6 +5653,8 @@ kbd {
 }
 .tools-pair-toggle:hover { color: var(--text); }
 .tools-pair-toggle.open { transform: rotate(90deg); }
+.tools-pair-toggle-spacer { flex: none; width: 18px; height: 18px; }
+.tools-pair-unreject { margin-left: auto; }
 .tools-pair-compare { margin: 8px 0 4px; overflow-x: auto; }
 .tools-related-hint {
   margin: 10px 0 0; padding: 8px 10px; border-radius: 7px;
