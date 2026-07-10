@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="sl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,37 +7,37 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
     <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
     <meta name="theme-color" content="#151310" />
-    <title>Changelog — GED Merge | GEDCOM editor, compare &amp; merge</title>
+    <title>Novosti — GED Merge | urejanje, primerjava in združevanje GEDCOM</title>
     <meta
       name="description"
-      content="What's new in GED Merge, the free browser-based GEDCOM editor, compare and merge tool — newest changes first."
+      content="Kaj je novega v GED Merge, brezplačnem orodju za urejanje, primerjavo in združevanje datotek GEDCOM v brskalniku — najnovejše spremembe najprej."
     />
-    <link rel="canonical" href="https://gedmerge.com/changelog/" />
-    <link rel="alternate" hreflang="en" href="https://gedmerge.com/changelog/" />
+    <link rel="canonical" href="https://gedmerge.com/posodobitve/" />
     <link rel="alternate" hreflang="sl" href="https://gedmerge.com/posodobitve/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/changelog/" />
     <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/changelog/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Changelog — GED Merge" />
-    <meta property="og:description" content="What's new in GED Merge — newest changes first." />
-    <meta property="og:url" content="https://gedmerge.com/changelog/" />
+    <meta property="og:title" content="Novosti — GED Merge" />
+    <meta property="og:description" content="Kaj je novega v GED Merge — najnovejše spremembe najprej." />
+    <meta property="og:url" content="https://gedmerge.com/posodobitve/" />
     <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
     <meta property="og:image:width" content="2400" />
     <meta property="og:image:height" content="1260" />
     <meta property="og:site_name" content="GED Merge" />
-    <meta property="og:locale" content="en" />
-    <meta property="og:locale:alternate" content="sl_SI" />
+    <meta property="og:locale" content="sl_SI" />
+    <meta property="og:locale:alternate" content="en" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Changelog — GED Merge" />
-    <meta name="twitter:description" content="What's new in GED Merge — newest changes first." />
+    <meta name="twitter:title" content="Novosti — GED Merge" />
+    <meta name="twitter:description" content="Kaj je novega v GED Merge — najnovejše spremembe najprej." />
     <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
 
     <script>
-      // Set the theme before first paint to avoid a flash: saved choice, else
-      // the OS preference. Kept in sync with the main app (App.tsx).
+      // Temo nastavimo pred prvim izrisom, da preprečimo utripanje: shranjena
+      // izbira, sicer nastavitev operacijskega sistema. Usklajeno z aplikacijo.
       (function () {
         try {
           var saved = localStorage.getItem("gedmerge.theme");
@@ -51,7 +51,7 @@
     <script type="module" src="/src/changelog-entry.ts"></script>
   </head>
   <body>
-    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <!-- ── Zgornja glava (kot v aplikaciji) ─────────────────────────────────── -->
     <header class="guide-topbar">
       <div class="guide-topbar-inner">
         <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
@@ -71,8 +71,8 @@
           </span>
         </a>
         <div class="guide-topbar-controls">
-          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Toggle theme" title="Toggle theme">🌙</button>
-          <a class="guide-lang" href="../posodobitve/" hreflang="sl" lang="sl">Slovenščina</a>
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Preklopi temo" title="Preklopi temo">🌙</button>
+          <a class="guide-lang" href="../changelog/" hreflang="en" lang="en">English</a>
         </div>
       </div>
     </header>
@@ -80,113 +80,113 @@
     <div class="guide-shell changelog-shell">
       <main class="guide-main">
         <header class="guide-header">
-          <h1>Changelog</h1>
-          <p>What's new in GED Merge, newest first. Only user-facing changes are listed here.</p>
+          <h1>Novosti</h1>
+          <p>Kaj je novega v GED Merge, najnovejše spremembe najprej. Tukaj so navedene le uporabniku vidne spremembe.</p>
         </header>
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
             <h2>2026-07-10</h2>
             <ul>
-              <li>Rejecting a match in Merge now hides it from the list right away, and the compare panel auto-advances to the next candidate.</li>
+              <li>Zavrnitev ujemanja v Združevanju zdaj takoj skrije zapis s seznama, primerjalni pladenj pa samodejno preskoči na naslednjega kandidata.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-07-08</h2>
             <ul>
-              <li>Fixed a bug where the PDF / print export of a chart could come out blank.</li>
-              <li>The relationship diagram now prefers a path through a shared ancestor over an arbitrary same-length route.</li>
+              <li>Odpravljena napaka, zaradi katere je bil izvoz grafikona v PDF/tisk lahko prazen.</li>
+              <li>Diagram sorodstva zdaj daje prednost poti prek skupnega prednika pred naključno enako dolgo potjo.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-07-07</h2>
             <ul>
-              <li>More reliable "living person" detection: when someone has no birth date of their own, GED Merge now also looks at dated relatives before assuming they're living.</li>
+              <li>Zanesljivejše zaznavanje živečih oseb: kadar oseba nima lastnega datuma rojstva, GED Merge zdaj pred privzeto oznako živeče osebe preveri tudi datirane sorodnike.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-07-06</h2>
             <ul>
-              <li>New Settings → Display → <strong>Show ages</strong> toggle: ages next to lifespans and event dates, plus a full year/month/day breakdown in tooltips.</li>
-              <li>Photos are now called <strong>media</strong> everywhere, with support for SVG and PDF files, dragging files straight into your media folder, and marking a person's region on a group photo to use as their thumbnail.</li>
-              <li>Reports gained an RTF export, an optional table of contents, and living-person redaction.</li>
-              <li>Added support for GEDCOM files exported from MyHeritage.</li>
+              <li>Nova nastavitev Nastavitve → Prikaz → <strong>Prikaži starosti</strong>: starosti ob razponih let in datumih dogodkov, ter poln razčlenjen prikaz let/mesecev/dni v namigih.</li>
+              <li>Fotografije se zdaj povsod imenujejo <strong>mediji</strong>, s podporo za datoteke SVG in PDF, vlečenjem datotek neposredno v mapo z mediji ter označevanjem območja osebe na skupinski fotografiji za uporabo kot sličico.</li>
+              <li>Poročila so dobila izvoz v RTF, možno kazalo vsebine in prečiščenje živečih oseb.</li>
+              <li>Dodana podpora za datoteke GEDCOM, izvožene iz MyHeritage.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-07-04</h2>
             <ul>
-              <li>New <strong>Report</strong> chart kind: an Ahnentafel ancestor report and an NGSQ-style descendant register, each available as a compact list or as flowing narrative prose — in English and Slovenian.</li>
-              <li>The Charts hub now brings Tree, Grid, Fan, Circle, Timeline, Relationship and Report together under one tab strip, with a shared GEDCOM / SVG / PDF export menu.</li>
+              <li>Nova vrsta grafikona <strong>Poročilo</strong>: prednikovsko poročilo (Ahnentafel) in potomsko poročilo v slogu NGSQ, vsako na voljo kot strnjen seznam ali kot tekoče pripovedno besedilo — v angleščini in slovenščini.</li>
+              <li>Središče grafikonov zdaj združuje Drevo, Mrežo, Pahljačo, Krog, Časovnico, Sorodstvo in Poročilo pod enim zavihkom, s skupnim izvozom v GEDCOM/SVG/PDF.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-07-01</h2>
             <ul>
-              <li>GED Merge is now an installable, fully offline-capable app (PWA).</li>
-              <li>Optional local persistence: turn it on and a reload restores your loaded files and progress.</li>
-              <li>Added global search across the whole file.</li>
+              <li>GED Merge je zdaj namestljiva aplikacija, ki v celoti deluje brez povezave (PWA).</li>
+              <li>Neobvezna lokalna trajnost: vklopite jo in osvežitev strani obnovi naložene datoteke ter napredek.</li>
+              <li>Dodano globalno iskanje po celotni datoteki.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-06-30</h2>
             <ul>
-              <li>Set a <strong>start person</strong> and see everyone ranked by kinship distance, colour-coded by paternal or maternal line.</li>
+              <li>Nastavite <strong>izhodiščno osebo</strong> in si oglejte vse osebe, razvrščene po sorodstveni razdalji, barvno označene po očetovski ali materini liniji.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-06-29</h2>
             <ul>
-              <li>Health check now flags pedigree loops (a person who is their own ancestor) and sex/role mismatches.</li>
+              <li>Pregled zdaj zazna zanke v rodovniku (oseba, ki je svoj lastni prednik) ter neujemanja spola in vloge.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-06-28</h2>
             <ul>
-              <li>Added Grid, Fan and Circle chart types alongside the family tree.</li>
+              <li>Dodane vrste grafikonov Mreža, Pahljača in Krog poleg družinskega drevesa.</li>
             </ul>
           </section>
 
           <section class="changelog-entry">
             <h2>2026-06-27</h2>
             <ul>
-              <li>Added the relationship diagram, and a Privacy tool that redacts living people before you share a file.</li>
-              <li>Any chart can now be exported as SVG or PDF.</li>
+              <li>Dodan diagram sorodstva in orodje Zasebnost, ki pred deljenjem datoteke prečisti živeče osebe.</li>
+              <li>Vsak grafikon je zdaj mogoče izvoziti kot SVG ali PDF.</li>
             </ul>
           </section>
         </article>
 
         <div class="guide-cta">
-          <p>Ready to edit, compare, or merge your own GEDCOM file?</p>
-          <a href="../">Open GED Merge</a>
+          <p>Ste pripravljeni urediti, primerjati ali združiti svojo datoteko GEDCOM?</p>
+          <a href="../">Odpri GED Merge</a>
         </div>
       </main>
     </div>
 
-    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <!-- ── Noga (kot v aplikaciji) ──────────────────────────────────────────── -->
     <footer class="app-footer guide-footer">
       <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
       <span class="app-footer-sep">·</span>
-      <a class="app-footer-link" href="../guide/">User's Guide</a>
+      <a class="app-footer-link" href="../navodila/">Navodila za uporabo</a>
       <span class="app-footer-sep">·</span>
-      <a class="app-footer-link" href="../?legal=privacy">Privacy</a>
+      <a class="app-footer-link" href="../?legal=privacy">Zasebnost</a>
       <span class="app-footer-sep">·</span>
-      <a class="app-footer-link" href="../?legal=terms">Terms</a>
+      <a class="app-footer-link" href="../?legal=terms">Pogoji</a>
       <span class="app-footer-sep">·</span>
-      <a class="app-footer-link" href="mailto:support@gedmerge.com">Contact</a>
+      <a class="app-footer-link" href="mailto:support@gedmerge.com">Kontakt</a>
     </footer>
 
     <script>
-      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
-      // key, so the choice carries over to the app and survives reloads.
+      // Preklop teme za gumb v glavi. Uporablja isti ključ "gedmerge.theme" kot
+      // aplikacija, zato se izbira prenese vanjo in ohrani ob osvežitvi.
       (function () {
         var btn = document.getElementById("gm-theme");
         if (!btn) return;

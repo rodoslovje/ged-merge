@@ -42,7 +42,7 @@ export default defineConfig({
         // Root navigations fall back to the app shell; the standalone guide
         // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/guide\//, /^\/navodila\//, /^\/changelog\//],
+        navigateFallbackDenylist: [/^\/guide\//, /^\/navodila\//, /^\/changelog\//, /^\/posodobitve\//],
       },
       manifest: {
         name: "GED Merge — GEDCOM merge, compare & edit",
@@ -76,6 +76,8 @@ export default defineConfig({
         // Slovenian translation of the guide, on a localized slug for SLO SEO.
         navodila: resolve(__dirname, "navodila/index.html"),
         changelog: resolve(__dirname, "changelog/index.html"),
+        // Slovenian translation of the changelog, on a localized slug for SLO SEO.
+        posodobitve: resolve(__dirname, "posodobitve/index.html"),
       },
     },
   },

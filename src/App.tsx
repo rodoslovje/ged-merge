@@ -1644,7 +1644,7 @@ function AppContent() {
       </a>
       <span className="app-footer-sep">·</span>
       <a
-        href="changelog/"
+        href={i18n.language === "sl" ? "posodobitve/" : "changelog/"}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
