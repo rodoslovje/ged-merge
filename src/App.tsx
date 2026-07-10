@@ -2099,7 +2099,7 @@ function AppContent() {
       {!lastMainFile && (
         <Landing
           mainState={main}
-          onLoadFile={(f) => loadFile("main", f)}
+          onLoadFile={(f, h) => loadFile("main", f, h)}
           onLoadSample={(fileName) => loadSample("main", fileName)}
         />
       )}
