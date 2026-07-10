@@ -592,9 +592,21 @@ function DuplicatesPanel({
   // resurface next time the scan runs. The pair itself stays in `state.result`
   // (unlike a merge, nothing about the dataset changed) — it just moves from
   // the active list into the rejected one via the `rejectedDuplicates` filter.
+  // Jumps to whatever takes its old place in the (pre-reject) shown list —
+  // same auto-advance behavior as rejecting a match in Merge — so the panel
+  // doesn't just go blank.
   function handleReject(aId: string, bId: string) {
+    const idx = shown.findIndex((p) => p.aId === aId && p.bId === bId);
     onRejectDuplicate(aId, bId);
-    setExpanded(null);
+    const remaining = shown.filter((p) => !(p.aId === aId && p.bId === bId));
+    if (remaining.length === 0) {
+      setExpanded(null);
+      return;
+    }
+    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
+    const next = remaining[nextIdx];
+    setSelected(nextIdx);
+    setExpanded(`${next.aId}-${next.bId}`);
   }
 
   // Open a related pair surfaced from inside an open comparison (a spouse/parent
