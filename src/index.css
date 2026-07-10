@@ -913,9 +913,15 @@ button:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.loader-unload-btn {
+.loader-file-actions {
   flex: none;
   margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.loader-verify-btn,
+.loader-unload-btn {
+  flex: none;
   font-size: 0.78rem;
   padding: 3px 10px;
   border: 1px solid var(--border);
@@ -924,6 +930,10 @@ button:focus-visible {
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
+}
+.loader-verify-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .loader-unload-btn:hover {
   border-color: var(--danger);
