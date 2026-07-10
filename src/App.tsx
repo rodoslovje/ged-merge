@@ -41,6 +41,7 @@ import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
+import { duplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
@@ -140,7 +141,7 @@ function AppContent() {
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, startId } = workspace;
+  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
@@ -446,6 +447,17 @@ function AppContent() {
             // suppressed it in anticipation of a restore that isn't coming).
             autoStartRef.current = false;
           }
+          // Restore rejected within-file duplicates only if the cached session
+          // actually belongs to this same-named main (defence in depth on top of
+          // the single-slot cache) and each pair's both records still exist.
+          const restoredRejected = pendingSessionRef.current?.rejectedDuplicates;
+          if (restoredRejected?.length && pendingSessionRef.current?.mainFileName === msg.fileName) {
+            const valid = restoredRejected.filter((key) => {
+              const [a, b] = key.split("|");
+              return !!a && !!b && file.dataset.individuals.has(a) && file.dataset.individuals.has(b);
+            });
+            if (valid.length) dispatch({ type: "rejectedDuplicatesSet", pairs: new Set(valid) });
+          }
           // Main-only restore (no compare to match): nothing more to wait for.
           if (!expectCompareRef.current) hydratedRef.current = true;
         }
@@ -571,6 +583,7 @@ function AppContent() {
       sortEligiblePersonIdsRef.current = new Set();
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
+      dispatch({ type: "rejectedDuplicatesCleared" }); // rejects reference this main's xrefs only
       setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
     } else {
@@ -768,6 +781,7 @@ function AppContent() {
         compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
         decisions: Array.from(decisions),
         importBranches: Array.from(importBranches),
+        rejectedDuplicates: Array.from(rejectedDuplicates),
         startId,
         editState,
         savedAt: Date.now(),
@@ -775,7 +789,7 @@ function AppContent() {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
+  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on
@@ -2142,6 +2156,17 @@ function AppContent() {
                   if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
                 }
                 return true;
+              }}
+              rejectedDuplicates={rejectedDuplicates}
+              onRejectDuplicate={(aId, bId) => {
+                const next = new Set(rejectedDuplicates);
+                next.add(duplicatePairKey(aId, bId));
+                dispatch({ type: "rejectedDuplicatesSet", pairs: next });
+              }}
+              onUnrejectDuplicate={(aId, bId) => {
+                const next = new Set(rejectedDuplicates);
+                next.delete(duplicatePairKey(aId, bId));
+                dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
             />
           </div>

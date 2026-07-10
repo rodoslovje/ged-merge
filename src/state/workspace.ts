@@ -59,6 +59,10 @@ export interface WorkspaceState {
   decisions: Map<string, CandidateDecision>;
   /** Import-branch requests, keyed by `importKey(...)`. */
   importBranches: Set<string>;
+  /** Within-file duplicate pairs the user has dismissed as not-a-duplicate,
+   *  keyed by `duplicatePairKey(...)`, so re-running the Tools duplicate scan
+   *  doesn't resurface them. */
+  rejectedDuplicates: Set<string>;
 }
 
 export const initialWorkspace: WorkspaceState = {
@@ -71,6 +75,7 @@ export const initialWorkspace: WorkspaceState = {
   startId: undefined,
   decisions: new Map(),
   importBranches: new Set(),
+  rejectedDuplicates: new Set(),
 };
 
 export type WorkspaceAction =
@@ -87,6 +92,8 @@ export type WorkspaceAction =
   | { type: "confirmedDecisionsCleared" }
   | { type: "importBranchesSet"; branches: Set<string> }
   | { type: "importBranchesCleared" }
+  | { type: "rejectedDuplicatesSet"; pairs: Set<string> }
+  | { type: "rejectedDuplicatesCleared" }
   | { type: "reset" };
 
 function slotKey(role: DatasetRole): "main" | "compare" {
@@ -156,6 +163,12 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
     case "importBranchesCleared":
       return state.importBranches.size === 0 ? state : { ...state, importBranches: new Set() };
 
+    case "rejectedDuplicatesSet":
+      return { ...state, rejectedDuplicates: new Set(action.pairs) };
+
+    case "rejectedDuplicatesCleared":
+      return state.rejectedDuplicates.size === 0 ? state : { ...state, rejectedDuplicates: new Set() };
+
     case "reset":
       return {
         ...initialWorkspace,
@@ -164,6 +177,7 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
         mainLoadGen: state.mainLoadGen,
         decisions: new Map(),
         importBranches: new Set(),
+        rejectedDuplicates: new Set(),
       };
   }
 }
