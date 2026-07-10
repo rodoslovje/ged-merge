@@ -374,8 +374,11 @@
               main file directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
               click a relative's card to walk the tree; <strong>Back</strong> returns to where you came from. If the
               current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
-              that comparison. Every change is held in memory and reversible with
-              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
+              that comparison, and the person header shows the same
+              <span class="gm-badge c round">C</span> / <span class="gm-badge r round">R</span> / <span class="gm-badge d round">D</span>
+              decision buttons — handy for clearing a <strong>Rejected</strong> status without leaving Edit, which puts
+              the match back in the Merge list (see <a href="#merge">§10</a>). Every change is held in memory and
+              reversible with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
             </p>
             <h3>Charts hub</h3>
             <p>
@@ -594,6 +597,14 @@
               <span class="gm-badge r round">R</span> <strong>Reject</strong> (<span class="gm-key">R</span>), or
               <span class="gm-badge d round">D</span> <strong>Defer</strong> to decide later (<span class="gm-key">D</span>).
               Only <strong>confirmed</strong> matches are merged on save.
+            </p>
+            <p>
+              <strong>Reject</strong> means "not the same person" — use it on a false-positive candidate so it stops
+              cluttering the list. Rejected pairs disappear from the match list immediately; only unmarked, confirmed
+              and deferred candidates stay shown. To bring one back, either <span class="gm-key">Ctrl</span><span
+              class="gm-key">Z</span> to undo the rejection, or open that person in <strong>Edit</strong> (§9) and click
+              <span class="gm-badge r round">R</span> again to clear the status — the match reappears in the list
+              either way.
             </p>
             <h3>Compare Tree</h3>
             <p>
@@ -818,13 +829,14 @@
               </tbody>
             </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and on every chart's nodes or
-              entries. The <strong>Badges</strong> toggle in Chart settings (§9) shows or hides these on charts; they
-              always show on the Merge match list.</p>
+              entries. The <strong>Badges</strong> toggle in Chart settings (§9) shows or hides these on charts; on the
+              Merge match list, confirmed and deferred badges always show — a rejected match is removed from the list
+              instead of being badged there (see §10).</p>
             <table class="gm-table">
               <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-badge c round">C</span></td><td>Confirmed match — it will be merged on save</td></tr>
-                <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match</td></tr>
+                <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match — not the same person; hidden from the Merge match list</td></tr>
                 <tr><td><span class="gm-badge d round">D</span></td><td>Deferred — decide later</td></tr>
                 <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts)</td></tr>
               </tbody>

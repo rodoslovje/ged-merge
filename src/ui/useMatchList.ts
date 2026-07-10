@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { applyFilters, applySort, STATUS_RANK, type Candidate, type Filters, type SortState } from "./matchView";
+import { applySort, STATUS_RANK, visibleCandidates, type Candidate, type Filters, type SortState } from "./matchView";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import type { MatchResult } from "../match/types";
 
@@ -55,8 +55,12 @@ export function useMatchList(params: {
     return applySort(matches.individuals, sort, statusRank);
   }, [matches, sort, decisions]);
 
-  // Filtered list for display — preserves the sort order of allSorted.
-  const visible = useMemo(() => applyFilters(allSorted, filters), [allSorted, filters]);
+  // Filtered list for display — preserves the sort order of allSorted. Also
+  // drops rejected matches (see `visibleCandidates`).
+  const visible = useMemo(
+    () => visibleCandidates(allSorted, filters, decisions),
+    [allSorted, filters, decisions],
+  );
 
   // Main ids in `visible`'s order, deduped to one entry per main (first
   // candidate wins, matching `indexByMain` below) — lets Edit's Left/Right

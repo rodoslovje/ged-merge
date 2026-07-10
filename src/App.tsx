@@ -62,10 +62,10 @@ import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
 import type { TreeMode } from "./chart/personTree";
 import {
-  applyFilters,
   DEFAULT_FILTERS,
   DEFAULT_SORT,
   nextSort,
+  visibleCandidates,
   type Filters,
   type SortKey,
   type SortState,
@@ -858,10 +858,23 @@ function AppContent() {
     if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
   }, []);
 
+  // Rejecting the selected candidate drops it from the visible list right
+  // away — jump to whatever takes its place (the next row, or the new last
+  // row if it was the bottom one) so the compare panel doesn't keep showing a
+  // person that just disappeared from the list. Uses the pre-rejection
+  // visible/index refs, so "its place" means its old position.
+  const selectAfterReject = useCallback((mainId: string, compareId: string) => {
+    const remaining = visibleRef.current.filter((c) => !(c.mainId === mainId && c.compareId === compareId));
+    if (remaining.length === 0) return;
+    const idx = Math.min(visibleIndexRef.current, remaining.length - 1);
+    const c = remaining[idx];
+    if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
+  }, []);
+
   // When filters change: keep current person if they survive the new filter;
   // otherwise jump to the first person in the new filtered list.
   function handleFilters(f: Filters) {
-    const newVisible = applyFilters(allSorted, f);
+    const newVisible = visibleCandidates(allSorted, f, decisions);
     const currentStillVisible = current
       ? newVisible.some(c => c.mainId === current.mainId && c.compareId === current.compareId)
       : false;
@@ -1060,10 +1073,12 @@ function AppContent() {
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.mainId, current.compareId);
+    const wasRejected = decisions.get(key)?.status === "rejected";
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, next);
     undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
     dispatch({ type: "decisionsSet", decisions: after });
+    if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
   }
 
   // Same as `updateDecision`, but for EditView: the person being edited there
