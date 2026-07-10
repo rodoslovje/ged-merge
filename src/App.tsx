@@ -571,12 +571,7 @@ function AppContent() {
     loadFile(role, new File([blob], fileName, { type: "text/plain" }));
   }
 
-  async function loadFile(
-    role: DatasetRole,
-    file: File,
-    handle?: FileSystemFileHandle,
-    opts?: { skipReplaceConfirm?: boolean },
-  ) {
+  async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
     userLoadedRef.current = true;
@@ -584,13 +579,14 @@ function AppContent() {
     expectCompareRef.current = false;
     pendingSessionRef.current = null;
     pendingEditStateRef.current = null;
-    if (!opts?.skipReplaceConfirm) {
-      if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
-        if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
-      }
-      if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
-        if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
-      }
+    // Also guards a reload triggered by the external-change check below: if
+    // there's unsaved work, this asks before discarding it exactly as it would
+    // for any other replace.
+    if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
+      if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
+    }
+    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
+      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
 
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
@@ -693,7 +689,7 @@ function AppContent() {
       if (!reload) return;
       const handle = role === "main" ? mainHandle : compareHandle;
       if (!handle) return;
-      void handle.getFile().then((file) => loadFile(role, file, handle, { skipReplaceConfirm: true }));
+      void handle.getFile().then((file) => loadFile(role, file, handle));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalChangeAlert]);
@@ -726,7 +722,7 @@ function AppContent() {
       return;
     }
     if (await confirmDialog(t("load.externalChange", { fileName: file.name }), t("load.externalChange.reload"))) {
-      void loadFile(role, file, handle, { skipReplaceConfirm: true });
+      void loadFile(role, file, handle);
     }
   }
 
