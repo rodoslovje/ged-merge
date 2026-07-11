@@ -181,16 +181,15 @@ export function EventFieldsRow({
   // full of holes. Incoming merge suggestions count as "shown" (their value is
   // displayed even before it's written), so they never hide.
   const optCls = (shown: boolean) => (shown ? "" : " ev-collapsed");
-  // Date and place appear on almost every event and share row 1, so for ordinary
-  // date/place events we keep them in fixed positions even when empty — the most
-  // common events then read as a stable two-column table (empty cells are an
-  // invisible click target until hovered) rather than fields popping in at
-  // varying spots. Value-events (OCCU/EDUC/RETI/EVEN) have no place and lead with
-  // their value instead, so they stay fully compact.
+  // The date is the event's anchor, so ordinary date/place events always show it
+  // (it's also where a brand-new event is typed). Place and every other field
+  // are content-driven: shown only when they have a value (or an incoming merge
+  // value, or the user adds them), so an event without a place reserves no empty
+  // slot. Value-events (OCCU/EDUC/RETI/EVEN) lead with their value instead.
   const primaryLine = !hasTitle;
   const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
   const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
-  const placeShown = primaryLine || Boolean(placeField.value.trim()) || placeField.isMerge;
+  const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
@@ -214,12 +213,8 @@ export function EventFieldsRow({
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
     { key: "source", label: t("edit.addLink") },
-    ...(primaryLine
-      ? [{ key: "addr", label: t("event.colAddr") }]
-      : [
-          { key: "place", label: t("event.colPlace") },
-          { key: "addr", label: t("event.colAddr") },
-        ]),
+    { key: "place", label: t("event.colPlace") },
+    { key: "addr", label: t("event.colAddr") },
     ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
     { key: "agency", label: t("event.colAgency") },
     { key: "cause", label: t("event.colCause") },
@@ -440,8 +435,8 @@ export function EventFieldsRow({
         </div>
       </div>
 
-      {/* Primary line, column 2: the date. */}
-      <div className={"edit-event-date-cell" + optCls(show.date)}>
+      {/* Primary line, column 2: the date (wider only when age badges show). */}
+      <div className={"edit-event-date-cell" + (age ? " edit-event-date-cell--age" : "") + optCls(show.date)}>
         <ClearableInput
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
@@ -466,25 +461,9 @@ export function EventFieldsRow({
        * they don't fit — so a short extra like a cause rides on the first row
        * beside the place instead of claiming a near-empty second row. */}
       <div className="edit-event-body">
-        {primaryLine ? (
-          <PlaceAutocomplete
-            value={placeField.value}
-            suggestions={placeSuggestions}
-            canonical={placeCanonical}
-            isDirty={placeField.isDirty || placeForced}
-            isMerge={placeField.isMerge}
-            className="edit-input edit-event-place"
-            wrapClassName={"edit-event-primary" + optCls(show.place)}
-            wrapStyle={chW(placeField.value, 60)}
-            placeholder={t("event.colPlace")}
-            title={t("event.place", { event: label })}
-            onChange={placeField.set}
-            onCommit={(val) => commitAll({ place: val })}
-            onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
-          />
-        ) : (
-          // The value/title is a value-event's primary field, so it always
-          // shows (its own click target), just like Place on ordinary events.
+        {/* Value-events lead with their value (its own click target, always
+         * shown); ordinary events lead with the date, already rendered above. */}
+        {!primaryLine && (
           <ClearableInput
             wrapClassName="edit-event-primary"
             wrapStyle={chW(titleField.value, 60)}
@@ -497,8 +476,24 @@ export function EventFieldsRow({
             onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
           />
         )}
-        {!primaryLine &&
-          extraPlace("place", t("event.colPlace"), show.place, placeField, placeForced, placeSuggestions, placeCanonical, "edit-event-place", t("event.place", { event: label }), (val) => commitAll({ place: val }))}
+        {/* Place — the same everywhere: unlabelled (a place reads as a place) and
+         * shown only when it has content, so no event reserves an empty slot. */}
+        <span data-detail="place" className={"edit-event-extra edit-event-extra--place" + optCls(show.place)}>
+          <PlaceAutocomplete
+            value={placeField.value}
+            suggestions={placeSuggestions}
+            canonical={placeCanonical}
+            isDirty={placeField.isDirty || placeForced}
+            isMerge={placeField.isMerge}
+            className="edit-input edit-event-place"
+            wrapClassName="edit-event-extra-field"
+            wrapStyle={chW(placeField.value, 60)}
+            title={t("event.place", { event: label })}
+            onChange={placeField.set}
+            onCommit={(val) => commitAll({ place: val })}
+            onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
+          />
+        </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }))}
         {showTypeCell &&
           extraText("type", t("event.colType"), show.type, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
@@ -535,25 +530,24 @@ export function EventFieldsRow({
           ))}
         </span>
         {/* Add a source / place / note / other detail without keeping every empty
-         * field on screen — the menu offers only the ones not already shown. */}
+         * field on screen — the menu offers only the ones not already shown. A
+         * real (visible) <select> so it's reliably keyboard-openable, unlike the
+         * opacity-0 overlay chips. */}
         {addable.length > 0 && (
-          <label className="add-chip add-chip-select edit-event-addfield" title={t("edit.addDetailTooltip")}>
-            + {t("edit.addDetail")}
-            <select
-              className="add-chip-select-inner"
-              value=""
-              title={t("edit.addDetail")}
-              onChange={(e) => {
-                const k = e.target.value;
-                if (k) addDetail(k);
-              }}
-            >
-              <option value="" />
-              {addable.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
-            </select>
-          </label>
+          <select
+            className="edit-event-addfield"
+            value=""
+            title={t("edit.addDetailTooltip")}
+            onChange={(e) => {
+              const k = e.target.value;
+              if (k) addDetail(k);
+            }}
+          >
+            <option value="">+ {t("edit.addDetail")}</option>
+            {addable.map((f) => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
         )}
       </div>
     </div>

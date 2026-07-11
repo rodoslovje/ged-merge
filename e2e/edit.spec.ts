@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
@@ -28,6 +28,17 @@ function writeLegacyLinkFixture(url: string): string {
   return filePath;
 }
 
+/** Fill an event field, first adding it via the event's "+ Add" menu when it
+ * isn't already shown (place/address/etc. only render once they have a value).
+ * Assumes another field in the row is focused so the menu is revealed. */
+async function setEventField(row: Locator, cls: string, key: string, value: string) {
+  const input = row.locator(`.${cls}`).first();
+  if (!(await input.isVisible())) {
+    await row.locator(".edit-event-addfield").selectOption(key);
+  }
+  await input.fill(value);
+}
+
 test("edit mode: name, sex and event fields are editable and exportable", async ({ page }) => {
   await page.goto("/");
 
@@ -48,9 +59,11 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
 
   const birth = page.locator(".edit-event").first();
   await birth.locator(".edit-event-date").fill("1 JAN 1900");
-  await birth.locator(".edit-event-place").fill("Ljubljana, Slovenija");
-  await birth.locator(".edit-event-addr").fill("Glavni trg 1");
-  await birth.locator(".edit-link-add").click();
+  // Place, address and sources are added on demand from the event's "+ Add"
+  // menu when the event doesn't already have them.
+  await setEventField(birth, "edit-event-place", "place", "Ljubljana, Slovenija");
+  await setEventField(birth, "edit-event-addr", "addr", "Glavni trg 1");
+  await birth.locator(".edit-event-addfield").selectOption("source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
@@ -73,6 +86,33 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   expect(content).toContain("https://example.com/test");
 });
 
+test("edit mode: the event-type ▾ and the + Add menu are keyboard-operable", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
+  await page.getByRole("button", { name: "Edit" }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const birth = page.locator(".edit-event").first();
+
+  // The event-type dropdown (a <select> overlaid on the label) can be focused
+  // from the keyboard — this is what drives changing the type / removing the
+  // event without a mouse.
+  const typeSelect = birth.locator(".edit-event-type-select");
+  await typeSelect.focus();
+  await expect(typeSelect).toBeFocused();
+  // Its menu includes the "Remove this event" entry.
+  await expect(typeSelect.locator("option", { hasText: "Remove this event" })).toHaveCount(1);
+
+  // The + Add menu is reachable and operable from the keyboard, and the field
+  // it adds receives focus so editing continues on the keyboard.
+  const addSelect = birth.locator(".edit-event-addfield");
+  await addSelect.focus();
+  await expect(addSelect).toBeFocused();
+  await addSelect.selectOption("cause");
+  await expect(birth.locator('[data-detail="cause"] input')).toBeFocused();
+});
+
 test("edit mode: family marriage fields are editable and exportable", async ({ page }) => {
   await page.goto("/");
 
@@ -82,9 +122,9 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
 
   const marriage = page.locator(".edit-family .edit-event").first();
   await marriage.locator(".edit-event-date").fill("3 MAR 1999");
-  await marriage.locator(".edit-event-place").fill("Maribor, Slovenija");
-  await marriage.locator(".edit-event-addr").fill("Trg 5");
-  await marriage.locator(".edit-event-sources-cell .edit-link-add").click();
+  await setEventField(marriage, "edit-event-place", "place", "Maribor, Slovenija");
+  await setEventField(marriage, "edit-event-addr", "addr", "Trg 5");
+  await marriage.locator(".edit-event-addfield").selectOption("source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
