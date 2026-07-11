@@ -9,6 +9,7 @@ import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
 import { placeKey } from "./placeSuggestions";
+import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
 /** Sentinel `<option>` value for the "Remove this event" entry at the end of
@@ -409,6 +410,7 @@ export function EventFieldsRow({
                 className="edit-event-type-select"
                 value={tag}
                 title={onChangeTag ? t("edit.changeEventType") : t("edit.removeEvent")}
+                onKeyDown={openPickerOnEnter}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === REMOVE_OPTION) onRemove?.();
@@ -544,6 +546,7 @@ export function EventFieldsRow({
             className="edit-event-addfield"
             value=""
             title={t("edit.addDetailTooltip")}
+            onKeyDown={openPickerOnEnter}
             onChange={(e) => {
               const k = e.target.value;
               if (k) addDetail(k);
