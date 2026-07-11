@@ -6,7 +6,7 @@ import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { dateCompareKey, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
-import { ageBetween, coupleAgesDisplay, fullAgeBetween, type AgeBadge } from "../gedcom/age";
+import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
 import { inferPlaceExportFormat } from "../normalize/profile";
@@ -191,8 +191,8 @@ export function individualFieldRows(
   // spouse so every decision about a person is made in one place.
   if (mainDs && compareDs) {
     const parentRows: FieldRow[] = [];
-    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband"), parentRelative(compare, compareDs, "husband"));
-    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife"), parentRelative(compare, compareDs, "wife"));
+    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband", showAge), parentRelative(compare, compareDs, "husband", showAge));
+    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife", showAge), parentRelative(compare, compareDs, "wife", showAge));
     if (parentRows.length > 0) {
       rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
       rows.push(...parentRows);
@@ -208,8 +208,8 @@ export function individualFieldRows(
       const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
       const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
       const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
-      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse)] : [];
-      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse)] : [];
+      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse, showAge)] : [];
+      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse, showAge)] : [];
 
       const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
 
@@ -281,8 +281,8 @@ export function individualFieldRows(
 
       const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
       const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
-      const mChildRels = individualsToRelatives(mChildren);
-      const cChildRels = individualsToRelatives(cChildren);
+      const mChildRels = individualsToRelatives(mChildren, showAge);
+      const cChildRels = individualsToRelatives(cChildren, showAge);
 
       if (mChildRels.length > 0 || cChildRels.length > 0) {
         rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
@@ -293,7 +293,16 @@ export function individualFieldRows(
   return rows;
 }
 
-function partnerToRelative(partner: Individual): Relative {
+/** The abbreviated lifespan ("1817–1921"), with the age appended ("1817–1921
+ *  (104)") when `showAge` — the same suffix person cards get in Edit mode. */
+function relativeYears(indi: Individual, showAge: boolean): string {
+  const years = formatLifespan(findEvent(indi, "BIRT")?.date?.year, findEvent(indi, "DEAT")?.date?.year, isDeceased(indi));
+  if (!showAge || !years) return years;
+  const age = lifespanAge(indi);
+  return age === undefined ? years : `${years} (${age})`;
+}
+
+function partnerToRelative(partner: Individual, showAge = false): Relative {
   return {
     id: partner.id,
     name: partner.names[0],
@@ -302,16 +311,16 @@ function partnerToRelative(partner: Individual): Relative {
     birthYear: findEvent(partner, "BIRT")?.date?.year,
     birthApprox: findEvent(partner, "BIRT")?.date?.qualifier !== "exact",
     displayName: displayName(partner.names[0]),
-    years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
+    years: relativeYears(partner, showAge),
     sex: partner.sex,
   };
 }
 
-function individualsToRelatives(indis: Individual[]): Relative[] {
+function individualsToRelatives(indis: Individual[], showAge = false): Relative[] {
   return indis
     .map((child, order) => ({ child, order, sort: birthSortKey(child) }))
     .sort((a, b) => a.sort - b.sort || a.order - b.order)
-    .map(({ child }) => partnerToRelative(child));
+    .map(({ child }) => partnerToRelative(child, showAge));
 }
 
 interface FamPair {
@@ -424,6 +433,7 @@ function parentRelative(
   indi: Individual | undefined,
   ds: Dataset,
   role: "husband" | "wife",
+  showAge = false,
 ): Relative[] {
   if (!indi) return [];
   for (const famId of indi.childOf) {
@@ -437,7 +447,7 @@ function parentRelative(
       birthYear: findEvent(parent, "BIRT")?.date?.year,
       birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
       displayName: displayName(parent.names[0]),
-      years: formatLifespan(findEvent(parent, "BIRT")?.date?.year, findEvent(parent, "DEAT")?.date?.year, isDeceased(parent)),
+      years: relativeYears(parent, showAge),
       sex: parent.sex,
     }];
   }
