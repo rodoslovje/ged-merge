@@ -443,9 +443,12 @@ export function EventFieldsRow({
         </div>
       </div>
 
-      {/* Primary line, column 2: the date (wider only when age badges show). */}
-      <div className={"edit-event-date-cell" + (age ? " edit-event-date-cell--age" : "") + optCls(show.date)}>
+      {/* Leading item 2: the date — a content-width input pushed to the right of
+       * a fixed slot so the years line up; the age badge follows outside the
+       * slot so it never changes the date's position or size. */}
+      <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
+          wrapStyle={chW(dateField.value, 14)}
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
           placeholder={t("event.colDate")}
@@ -455,14 +458,14 @@ export function EventFieldsRow({
           onBlur={() => commitAll({})}
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
-        {age && (
-          <span className="edit-event-age gm-data">
-            {age.map((a, i) => (
-              <span key={i} title={a.title}>{a.text}</span>
-            ))}
-          </span>
-        )}
       </div>
+      {age && (
+        <span className="edit-event-age gm-data">
+          {age.map((a, i) => (
+            <span key={i} title={a.title}>{a.text}</span>
+          ))}
+        </span>
+      )}
 
       {/* Body: the primary field (Place, or the value for value-events) plus
        * every populated secondary field flow together here and wrap only when

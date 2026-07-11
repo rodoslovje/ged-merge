@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
@@ -60,6 +60,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
   const { settings } = useSettings();
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
@@ -139,6 +141,21 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     return () => window.removeEventListener("keydown", onKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); // handleClose intentionally omitted — stable by design, only wraps onClose prop
+
+  // Remember what was focused before the dialog opened (this render runs before
+  // the dialog's own autoFocus), so focus can return there when it closes — a
+  // keyboard user lands back on the trigger and can Tab onward.
+  if (isOpen && !wasOpenRef.current) {
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+  }
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+    if (isOpen || !wasOpen) return;
+    const el = restoreFocusRef.current;
+    restoreFocusRef.current = null;
+    if (el && document.contains(el)) el.focus();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

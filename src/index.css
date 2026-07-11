@@ -2377,14 +2377,6 @@ button:focus-visible {
 .edit-event-label--select { position: relative; padding-right: 11px; cursor: pointer; }
 .edit-event-label--select:hover,
 .edit-event-label--select:focus-within { color: var(--text); }
-/* The <select> sits at opacity 0 over the label, so its own focus ring is
- * invisible — show focus on the label instead so keyboard users can see it's
- * selected (then Space / Enter / ↓ opens the type / remove menu). */
-.edit-event-label--select:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
-}
 /* Prominent so the label clearly reads as a clickable dropdown. */
 .edit-event-type-caret { margin-left: 4px; font-size: 1.35em; line-height: 1; opacity: 1; color: var(--accent); }
 .edit-event-type-select {
@@ -2396,28 +2388,18 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-/* Leading item 2: the date, right-aligned so dates line up in a column just
- * before the body. Sized to the widest ordinary date ("28 NOV 1489") rather
- * than a generous fixed track — and only widened when age badges share the cell
- * (the "Show ages" setting, off by default). */
+/* Leading item 2: the date. The cell is a fixed 8em slot with the date pushed to
+ * its right edge, so the years line up in a column across rows (whether or not
+ * ages are shown). The input itself is content-width — not a full-slot box — so
+ * a focused date field hugs its text instead of a wide box with empty space; the
+ * age badge sits just after the slot (outside it, so it never shifts the date). */
 .edit-event-date-cell {
   flex: 0 0 8em;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
 }
-/* With age badges the cell is wider, but the date keeps a fixed 8em right-
- * aligned slot so the years still line up column-to-column; the age badges take
- * the remaining space to the right of the date. */
-/* With age badges the cell grows to its content instead of a fixed track, so the
- * place packs in right after the age (same tight gap as the no-age rows). The
- * date keeps a fixed 8em right-aligned slot (two classes to beat the base
- * `> .clearable-wrap { flex: 1 }`) so the years stay column-aligned, and the age
- * sits at its natural width right after it. */
-.edit-event-date-cell--age { flex: 0 0 auto; }
-.edit-event-date-cell.edit-event-date-cell--age > .clearable-wrap { flex: 0 0 8em; }
-.edit-event-date-cell > .clearable-wrap { flex: 1; min-width: 0; }
+.edit-event-date-cell > .clearable-wrap { flex: 0 0 auto; min-width: 0; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {
@@ -2461,23 +2443,33 @@ button:focus-visible {
  * blank labelled inputs). */
 .edit-event .ev-collapsed { display: none; }
 /* The "+ Add" menu is a real (visible) <select> styled as a dashed chip, so it
- * opens reliably from the keyboard (Tab to it, then Space / ↓) — unlike the
- * opacity-0 overlay chips. It's hidden until the event is hovered or focused, so
- * a populated event shows no add affordance at rest; a keyboard user tabbing
- * through the event has focus-within, which reveals it. */
+ * opens reliably from the keyboard (Tab to it, then Space / Enter / ↓) — unlike
+ * the opacity-0 overlay chips. At rest it's collapsed to nothing but stays in
+ * the DOM and focusable (so it keeps its place in the tab order and focus can
+ * return to it after a dialog closes); it expands to a chip on hover, on focus,
+ * or when any field in the event is focused. */
 .edit-event-addfield {
-  display: none;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px dashed transparent;
   font: inherit;
   font-size: 0.85rem;
   color: var(--muted);
   background: transparent;
-  border: 1px dashed var(--border-2);
   border-radius: var(--radius-sm);
-  padding: 2px 6px;
   cursor: pointer;
 }
 .edit-event:hover .edit-event-addfield,
-.edit-event:focus-within .edit-event-addfield { display: inline-block; }
+.edit-event:focus-within .edit-event-addfield,
+.edit-event-addfield:focus {
+  width: auto;
+  opacity: 1;
+  overflow: visible;
+  padding: 2px 6px;
+  border-color: var(--border-2);
+}
 .edit-event-addfield:hover,
 .edit-event-addfield:focus-visible { border-color: var(--accent); color: var(--text); }
 /* Body: the primary field (place, or a value-event's value) plus sources and
@@ -2658,6 +2650,23 @@ button:focus-visible {
 .sex-select:focus { outline: none; border-color: var(--accent); }
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
+
+/* One consistent keyboard-focus ring for every edit chip / dropdown — the
+ * add-event / add-source / add-note chips, the Sex picker, the event-type ▾ and
+ * the "+ Add" field menu — so focus looks the same whether the control is a
+ * button, a plain <select>, or a <label> wrapping an opacity-0 overlay select
+ * (which needs :focus-within, since the select's own ring is invisible). */
+.sex-select:focus-visible,
+.edit-name-chip-add:focus-visible,
+.add-chip:focus-visible,
+.add-chip-select:focus-within,
+.edit-link-add:focus-visible,
+.edit-event-addfield:focus-visible,
+.edit-event-label--select:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 
 .edit-links {
   font-size: 0.88rem;
