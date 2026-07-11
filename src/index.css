@@ -2468,6 +2468,9 @@ button:focus-visible {
   max-width: 100%;
   min-width: 0;
 }
+/* At rest an extras field shows only its value (kept clean); its name appears
+ * as a faint label when the event row is hovered or focused, and always as the
+ * input's native tooltip. */
 .edit-event-extra-label {
   flex: none;
   font-family: var(--font-mono);
@@ -2475,7 +2478,10 @@ button:focus-visible {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--faint);
+  display: none;
 }
+.edit-event:hover .edit-event-extra-label,
+.edit-event:focus-within .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
 /* Notes run long, so the note takes the remaining width and wraps to its own
