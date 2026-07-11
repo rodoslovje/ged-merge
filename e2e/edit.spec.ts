@@ -93,12 +93,14 @@ test("edit mode: the event-type ▾ and the + Add menu are keyboard-operable", a
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator(".edit-person").waitFor();
 
-  const birth = page.locator(".edit-event").first();
+  // Use the first event that actually has a type dropdown (not every event is
+  // reassignable/removable, e.g. a bare birth).
+  const ev = page.locator(".edit-event", { has: page.locator(".edit-event-type-select") }).first();
 
   // The event-type dropdown (a <select> overlaid on the label) can be focused
   // from the keyboard — this is what drives changing the type / removing the
   // event without a mouse.
-  const typeSelect = birth.locator(".edit-event-type-select");
+  const typeSelect = ev.locator(".edit-event-type-select");
   await typeSelect.focus();
   await expect(typeSelect).toBeFocused();
   // Its menu includes the "Remove this event" entry.
@@ -106,11 +108,11 @@ test("edit mode: the event-type ▾ and the + Add menu are keyboard-operable", a
 
   // The + Add menu is reachable and operable from the keyboard, and the field
   // it adds receives focus so editing continues on the keyboard.
-  const addSelect = birth.locator(".edit-event-addfield");
+  const addSelect = ev.locator(".edit-event-addfield");
   await addSelect.focus();
   await expect(addSelect).toBeFocused();
   await addSelect.selectOption("cause");
-  await expect(birth.locator('[data-detail="cause"] input')).toBeFocused();
+  await expect(ev.locator('[data-detail="cause"] input')).toBeFocused();
 });
 
 test("edit mode: family marriage fields are editable and exportable", async ({ page }) => {
