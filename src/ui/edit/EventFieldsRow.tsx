@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GedEvent, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
@@ -145,9 +145,10 @@ export function EventFieldsRow({
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
-  // event (they start empty). `focusKey` autofocuses the one just added.
+  // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Title slot to its TYPE and the Agency slot to its line
   // value; every other event keeps the normal value/agency mapping.
   const titleField = isEven ? typeField : valueField;
@@ -233,6 +234,19 @@ export function EventFieldsRow({
     setRevealed((prev) => new Set(prev).add(key));
     setFocusKey(key);
   }
+
+  // Move focus into a field the moment it's added from the "+ Detail" menu, so
+  // the whole flow stays on the keyboard. The fields are always in the DOM (just
+  // CSS-hidden until shown), so `autoFocus` wouldn't fire on reveal — focus it
+  // imperatively once the reveal has committed.
+  useEffect(() => {
+    if (!focusKey) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(
+      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea`,
+    );
+    el?.focus();
+    setFocusKey(null);
+  }, [focusKey]);
 
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event removed — the latter via a "Remove this event" entry
@@ -321,7 +335,7 @@ export function EventFieldsRow({
     clearUpdate: Partial<EventFieldUpdate>,
   ) {
     return (
-      <span key={key} className={"edit-event-extra" + optCls(shown)}>
+      <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
         <span className="edit-event-extra-label">{labelText}</span>
         <ClearableInput
           wrapClassName="edit-event-extra-field"
@@ -329,7 +343,6 @@ export function EventFieldsRow({
           className={fieldCls("edit-input", field.isMerge, field.isDirty || forced)}
           value={field.value}
           title={title}
-          autoFocus={focusKey === key}
           onChange={field.onChange}
           onBlur={() => commitAll({})}
           onClear={() => { field.clear(); commitAll(clearUpdate); }}
@@ -353,7 +366,7 @@ export function EventFieldsRow({
     commit: (val: string) => void,
   ) {
     return (
-      <span key={key} className={"edit-event-extra" + optCls(shown)}>
+      <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
         <span className="edit-event-extra-label">{labelText}</span>
         <PlaceAutocomplete
           value={field.value}
@@ -374,7 +387,7 @@ export function EventFieldsRow({
   }
 
   return (
-    <div className="edit-event">
+    <div className="edit-event" ref={rootRef}>
       {/* Column 1: event-type label with the expand toggle beside it. When the
        * tag can be reassigned and/or the event removed, a hidden <select>
        * overlay turns the label into a menu — type choices (if any) plus a
@@ -491,7 +504,7 @@ export function EventFieldsRow({
           extraText("type", t("event.colType"), show.type, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
         {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
         {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
-        <span className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
+        <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
           <span className="edit-event-extra-label">{t("event.colNote")}</span>
           <ClearableTextarea
             wrapClassName="edit-event-extra-field"
@@ -500,7 +513,6 @@ export function EventFieldsRow({
             value={noteField.value}
             title={t("event.note", { event: label })}
             rows={1}
-            autoFocus={focusKey === "note"}
             onChange={noteField.onChange}
             onBlur={() => commitAll({})}
             onClear={() => { noteField.clear(); commitAll({ note: "" }); }}

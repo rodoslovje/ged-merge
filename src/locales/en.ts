@@ -262,7 +262,7 @@ export const en = {
   "edit.export": "Export GEDCOM",
   "edit.exportTooltip": "Download the edited file",
   "edit.addLink": "Add Source",
-  "edit.addDetail": "Detail",
+  "edit.addDetail": "Add",
   "edit.addDetailTooltip": "Add a source, address, note or other detail to this event",
   "edit.removeLink": "Remove this link",
   "edit.removeEvent": "Remove this event",
