@@ -11,14 +11,18 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, GedDate, GedNode, Individual } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
 import { familySpouses, mediaUsedBy, type PersonRef } from "../tools/sources";
 import { lifespanLabel } from "../match/relatives";
+import { parseDate } from "../gedcom/date";
+import { ageAtDate, fullAgeBetween } from "../gedcom/age";
+import { birthDateOf } from "../gedcom/lifespan";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
+import { useSettings } from "./SettingsContext";
 import { basename } from "./mediaPath";
 
 /**
@@ -149,34 +153,60 @@ export function mediaMetaRows(
   return rows;
 }
 
+/** When `showAge` and the tagged person's age at the photo's date `at` is known,
+ *  the age-in-years suffix appended to their crop-box label (e.g. " (34)"), else "". */
+function ageSuffix(indi: Individual | undefined, at: GedDate | undefined, showAge: boolean): string {
+  if (!showAge || !at) return "";
+  const age = ageAtDate(indi, at);
+  return age === undefined ? "" : ` (${age})`;
+}
+
 /** Every tagged person's crop region on a shared media object, with a name label
  *  — the boxes revealed when the lightbox image is hovered/touched. Skips
- *  references that carry no crop region. */
-function mediaCropMarks(dataset: Dataset, mediaXref: string): CropMark[] {
+ *  references that carry no crop region. Each label gains the person's age at the
+ *  photo's date `at` when `showAge` (see {@link ageSuffix}). */
+function mediaCropMarks(
+  dataset: Dataset,
+  mediaXref: string,
+  at: GedDate | undefined,
+  showAge: boolean,
+): CropMark[] {
   return mediaUsedBy(dataset, mediaXref)
     .filter((u) => u.crop)
-    .map((u) => ({ crop: u.crop!, label: personsLabel(dataset, u.persons) }));
+    .map((u) => ({ crop: u.crop!, label: personsLabel(dataset, u.persons, at, showAge) }));
 }
 
 /** Combined "Name lifespan" label for a usage row's person(s) — name + lifespan
- *  ("Ana Novak 1900–1980") rather than the full birth date; "&"-joined for a
- *  family. Used for both the hover marker and the reveal-all boxes. */
-function personsLabel(dataset: Dataset, persons: PersonRef[]): string {
+ *  ("Ana Novak 1900–1980") rather than the full birth date, plus the person's age
+ *  at the photo's date `at` when `showAge`; "&"-joined for a family. Used for both
+ *  the hover marker and the reveal-all boxes. */
+function personsLabel(
+  dataset: Dataset,
+  persons: PersonRef[],
+  at?: GedDate,
+  showAge = false,
+): string {
   return persons
     .map((p) => {
       const indi = dataset.individuals.get(p.id);
-      return indi ? lifespanLabel(indi) : p.label;
+      return (indi ? lifespanLabel(indi) : p.label) + ageSuffix(indi, at, showAge);
     })
     .join(" & ");
 }
 
 /** Crop-box label for an *inline* media link's owning record — the person's
- *  name, or the spouses' names for a family. */
-function recordCropLabel(dataset: Dataset, raw: GedNode): string {
+ *  name, or the spouses' names for a family, each with their age at the photo's
+ *  date `at` when `showAge`. */
+function recordCropLabel(
+  dataset: Dataset,
+  raw: GedNode,
+  at: GedDate | undefined,
+  showAge: boolean,
+): string {
   if (!raw.xref) return "";
   const persons: PersonRef[] =
     raw.tag === "FAM" ? familySpouses(dataset, raw.xref) : [{ id: raw.xref, label: raw.xref }];
-  return personsLabel(dataset, persons);
+  return personsLabel(dataset, persons, at, showAge);
 }
 
 /** The "referenced by N records" block shown in the info panel for a shared
@@ -188,6 +218,8 @@ export function MediaReferencedBy({
   onNavigate,
   onHoverCrop,
   refreshKey = 0,
+  at,
+  showAge = false,
 }: {
   dataset: Dataset;
   mediaXref: string;
@@ -199,6 +231,10 @@ export function MediaReferencedBy({
    *  mutated in place (stable reference), so the memo needs another trigger
    *  to re-read the live records. */
   refreshKey?: number;
+  /** The photo's parsed date; each cited person's age at it is shown when `showAge`. */
+  at?: GedDate;
+  /** Append each cited person's age at the photo's date (behind the app setting). */
+  showAge?: boolean;
 }) {
   const { t } = useTranslation();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey is the in-place-mutation trigger
@@ -216,15 +252,23 @@ export function MediaReferencedBy({
             <li
               key={`${u.persons.map((p) => p.id).join("-")}-${i}`}
               className={hoverable ? "has-crop" : undefined}
-              onMouseEnter={hoverable ? () => onHoverCrop!({ crop: u.crop!, label: personsLabel(dataset, u.persons) }) : undefined}
+              onMouseEnter={hoverable ? () => onHoverCrop!({ crop: u.crop!, label: personsLabel(dataset, u.persons, at, showAge) }) : undefined}
               onMouseLeave={hoverable ? () => onHoverCrop!(null) : undefined}
             >
-              {u.persons.map((p, j) => (
-                <span key={p.id}>
-                  {j > 0 && <span className="tools-usage-amp">&amp;</span>}
-                  <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
-                </span>
-              ))}
+              {u.persons.map((p, j) => {
+                const indi = dataset.individuals.get(p.id);
+                const age = showAge && at ? ageAtDate(indi, at) : undefined;
+                const full = age !== undefined ? fullAgeBetween(birthDateOf(indi), at, t) : undefined;
+                return (
+                  <span key={p.id}>
+                    {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+                    <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+                    {age !== undefined && (
+                      <span className="tools-usage-age gm-data" title={full || undefined}>{" "}({age})</span>
+                    )}
+                  </span>
+                );
+              })}
             </li>
           );
         })}
@@ -238,6 +282,8 @@ export function MediaReferencedBy({
 export function MediaViewerProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { resolveFile } = useMediaFolder();
+  const { settings } = useSettings();
+  const showAge = settings.showAge;
   const [request, setRequest] = useState<{ items: MediaItem[]; index: number; focusEdit: boolean } | null>(null);
 
   const openItems = useCallback((items: MediaItem[], startIndex = 0, focusEdit = false) => {
@@ -271,6 +317,30 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
           : undefined;
         const metaRows = mediaMetaRows(ref, t);
         if (eventLabel) metaRows.unshift({ label: t("media.field.event"), value: eventLabel });
+        // The date the photo depicts, parsed — drives every age display for this
+        // photo (the opener's date-row age below, and each tagged person's age on
+        // the crop-box labels + the referenced-by list).
+        const photoDate = ref.date ? parseDate(ref.date) : undefined;
+        // Fold the opener's age (in years, parenthesized) at the photo date into
+        // the "date depicted" row — unambiguous for a person's photo, skipped for
+        // a FAM (no single subject).
+        if (showAge && photoDate && raw.tag === "INDI") {
+          const opener = refCtx?.dataset.individuals.get(raw.xref ?? "");
+          const openerAge = ageAtDate(opener, photoDate);
+          const di = metaRows.findIndex((r) => r.label === t("tools.sources.mediaDate"));
+          if (openerAge !== undefined && di >= 0) {
+            const full = fullAgeBetween(birthDateOf(opener), photoDate, t);
+            metaRows[di] = {
+              ...metaRows[di],
+              value: (
+                <>
+                  {ref.date}{" "}
+                  <span className="gm-data" title={full || undefined}>({openerAge})</span>
+                </>
+              ),
+            };
+          }
+        }
         items.push({
           url,
           kind: mediaKindOf(ref.file) === "pdf" ? "pdf" : "image",
@@ -279,7 +349,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
           // this record's own link can crop it — re-read it by address.
           getAllCrops: refCtx
             ? xref
-              ? () => mediaCropMarks(refCtx.dataset, xref)
+              ? () => mediaCropMarks(refCtx.dataset, xref, photoDate, showAge)
               : () => {
                   const fresh = collectMediaRefs(raw, records).find(
                     (r) =>
@@ -287,7 +357,9 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                       (r.eventIndex ?? 0) === (ref.eventIndex ?? 0) &&
                       r.objeIndex === ref.objeIndex,
                   );
-                  return fresh?.crop ? [{ crop: fresh.crop, label: recordCropLabel(refCtx.dataset, raw) }] : [];
+                  return fresh?.crop
+                    ? [{ crop: fresh.crop, label: recordCropLabel(refCtx.dataset, raw, photoDate, showAge) }]
+                    : [];
                 }
             : undefined,
           title: ref.title || basename(ref.file),
@@ -320,6 +392,8 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                     onNavigate={(id) => { close(); refCtx.onNavigate(id); }}
                     onHoverCrop={onHoverCrop}
                     refreshKey={refreshKey}
+                    at={photoDate}
+                    showAge={showAge}
                   />
                 )
               : undefined,
@@ -327,7 +401,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
       }
       openItems(items, startIndex, focusEdit);
     },
-    [resolveFile, t, openItems],
+    [resolveFile, t, openItems, showAge],
   );
 
   return (
