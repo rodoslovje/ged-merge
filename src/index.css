@@ -2429,6 +2429,23 @@ button:focus-visible {
 .edit-event-place,
 .edit-event-addr { width: 100%; min-width: 0; }
 .edit-event-date { text-align: right; }
+/* Compact events: a field with no value (`.ev-collapsed`) takes zero height at
+ * rest and is revealed only while the event row is hovered or focused, so a
+ * simple event (date + place) sits on one line instead of reserving empty
+ * rows. Populated fields already rise to the top rows (see `rowOf`), so the
+ * revealed empty ones appear beneath them without shifting the visible values.
+ * Place/address wrappers are block; every other optional wrapper is a flex row. */
+.edit-event .ev-collapsed { display: none; }
+.edit-event:hover .ev-collapsed,
+.edit-event:focus-within .ev-collapsed { display: flex; }
+.edit-event:hover .place-autocomplete-wrap.ev-collapsed,
+.edit-event:focus-within .place-autocomplete-wrap.ev-collapsed { display: block; }
+/* The "+ add source" affordance is hover-only too, so an event that already
+ * has a citation shows just its icon at rest and reveals the add button on
+ * hover — no event ever reserves a permanent add-source row. */
+.edit-event .edit-link-add { display: none; }
+.edit-event:hover .edit-link-add,
+.edit-event:focus-within .edit-link-add { display: inline-block; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;

@@ -185,6 +185,25 @@ export function EventFieldsRow({
   const arranged = [...rows.filter((r) => r.data), ...rows.filter((r) => !r.data)];
   const rowOf = (key: string) => arranged.findIndex((r) => r.key === key) + 1;
 
+  // Compact layout: a field with no value (and not showing an incoming merge
+  // value) is collapsed to zero height at rest and only revealed when the event
+  // row is hovered or focused, so a simple event (e.g. date + place) occupies a
+  // single line instead of reserving empty rows. Populated fields already rise
+  // to the top via `rowOf`, so revealed empty ones appear below them without
+  // shifting the visible content. Incoming merge suggestions count as "shown"
+  // (their value is displayed even before it's written), so they never hide.
+  const optCls = (shown: boolean) => (shown ? "" : " ev-collapsed");
+  const dateShown = Boolean(dateField.value.trim()) || dateField.isMerge;
+  const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
+  const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
+  const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
+  const titleShown = Boolean(titleField.value.trim()) || titleField.isMerge;
+  const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
+  const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
+  const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
+  const sourcesShown =
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0;
+
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event removed — the latter via a "Remove this event" entry
   // appended to the end of the list.
@@ -263,7 +282,7 @@ export function EventFieldsRow({
   function causeInput(wrapClassName: string, gridRow: number) {
     return (
       <ClearableInput
-        wrapClassName={wrapClassName}
+        wrapClassName={wrapClassName + optCls(causeShown)}
         wrapStyle={{ gridRow }}
         className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
         value={causeField.value}
@@ -332,7 +351,7 @@ export function EventFieldsRow({
 
       {/* Column 2: date (row 1), sources (row 2), and — for standard events —
        * the TYPE sub-tag (row 3). */}
-      <div className="edit-event-date-cell">
+      <div className={"edit-event-date-cell" + optCls(dateShown)}>
         <ClearableInput
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
@@ -351,7 +370,7 @@ export function EventFieldsRow({
           </span>
         )}
       </div>
-      <div className="edit-event-sources-cell">
+      <div className={"edit-event-sources-cell" + optCls(sourcesShown)}>
         {ev?.sources?.length || sourcesMergeVal?.length ? (
           <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
         ) : null}
@@ -377,7 +396,7 @@ export function EventFieldsRow({
       </div>
       {showTypeCell && (
         <ClearableInput
-          wrapClassName="edit-event-type-cell"
+          wrapClassName={"edit-event-type-cell" + optCls(typeShown)}
           className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
           value={typeField.value}
           placeholder={t("event.colType")}
@@ -398,7 +417,7 @@ export function EventFieldsRow({
         isDirty={placeField.isDirty || placeForced}
         isMerge={placeField.isMerge}
         className="edit-input edit-event-place"
-        wrapClassName="edit-event-c3"
+        wrapClassName={"edit-event-c3" + optCls(placeShown)}
         wrapStyle={{ gridRow: rowOf("place") }}
         placeholder={t("event.colPlace")}
         title={t("event.place", { event: label })}
@@ -413,7 +432,7 @@ export function EventFieldsRow({
         isDirty={addrField.isDirty || addrForced}
         isMerge={addrField.isMerge}
         className="edit-input edit-event-addr"
-        wrapClassName="edit-event-c4"
+        wrapClassName={"edit-event-c4" + optCls(addrShown)}
         wrapStyle={{ gridRow: rowOf("place") }}
         placeholder={t("event.colAddr")}
         title={t("event.addr", { event: label })}
@@ -423,7 +442,7 @@ export function EventFieldsRow({
       />
       {hasTitle && (
         <ClearableInput
-          wrapClassName="edit-event-c3"
+          wrapClassName={"edit-event-c3" + optCls(titleShown)}
           wrapStyle={{ gridRow: rowOf("mid") }}
           className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
           value={titleField.value}
@@ -436,7 +455,7 @@ export function EventFieldsRow({
       )}
       {causeInMid && causeInput("edit-event-c3", rowOf("mid"))}
       <ClearableInput
-        wrapClassName="edit-event-c4"
+        wrapClassName={"edit-event-c4" + optCls(agencyShown)}
         wrapStyle={{ gridRow: rowOf("mid") }}
         className={fieldCls("edit-input edit-event-agency", agencySlotField.isMerge, agencySlotField.isDirty || agencySlotForced)}
         value={agencySlotField.value}
@@ -447,7 +466,7 @@ export function EventFieldsRow({
         onClear={() => { agencySlotField.clear(); commitAll(agencyClearUpdate); }}
       />
       <ClearableTextarea
-        wrapClassName="edit-event-c3"
+        wrapClassName={"edit-event-c3" + optCls(noteShown)}
         wrapStyle={{ gridRow: rowOf("note") }}
         className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
         value={noteField.value}
