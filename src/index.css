@@ -2344,7 +2344,10 @@ button:focus-visible {
 .edit-event {
   display: grid;
   grid-template-columns: 96px 180px 2fr 1fr auto;
-  gap: 14px;
+  /* Column gap between label/date/place; no row gap, so the extras line sits
+   * directly under the primary line (and adds nothing when it's empty). */
+  column-gap: 14px;
+  row-gap: 0;
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
@@ -2446,6 +2449,45 @@ button:focus-visible {
 .edit-event .edit-link-add { display: none; }
 .edit-event:hover .edit-link-add,
 .edit-event:focus-within .edit-link-add { display: inline-block; }
+/* Extras line: sources + the secondary fields (type, agency, cause, note, and
+ * — for value-events — place/address) flow together and wrap below the primary
+ * Date/Place line, each a small label + a content-sized input, so populated
+ * fields pack onto one line instead of each claiming a fixed grid cell. */
+.edit-event-extras {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin-top: 2px;
+  min-width: 0;
+}
+.edit-event-extra {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+/* An empty extra collapses to nothing at rest and reappears inline (not as a
+ * full-width block, which the generic `.ev-collapsed` reveal would give it). */
+.edit-event:hover .edit-event-extra.ev-collapsed,
+.edit-event:focus-within .edit-event-extra.ev-collapsed { display: inline-flex; }
+.edit-event-extra-label {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.edit-event-extra-field { min-width: 0; }
+.edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* Notes run long, so the note takes the remaining width and wraps to its own
+ * line when the others fill the row. */
+.edit-event-extra--note { flex: 1 1 22ch; min-width: 14ch; }
+.edit-event-extra--note .edit-event-extra-field { flex: 1; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
