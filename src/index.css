@@ -2336,27 +2336,20 @@ button:focus-visible {
  * otherwise each row sizes its 2fr/1fr columns from its own content only,
  * and Place/Address/Source drift out of alignment row to row. */
 .edit-events {
-  display: grid;
-  grid-template-columns: 96px 180px 2fr 1fr auto;
   font-size: 0.88rem;
 }
 
+/* Three fixed leading tracks — label, date, then the body. The label and date
+ * widths are the same on every event, so those columns line up as a table; the
+ * body (place + all secondary fields) flows within the last track and wraps
+ * only when it runs out of width. */
 .edit-event {
   display: grid;
-  grid-template-columns: 96px 180px 2fr 1fr auto;
-  /* Column gap between label/date/place; no row gap, so the extras line sits
-   * directly under the primary line (and adds nothing when it's empty). */
+  grid-template-columns: 96px 180px minmax(0, 1fr);
   column-gap: 14px;
-  row-gap: 0;
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
-}
-/* Inside .edit-events, subgrid the shared tracks so column widths are
- * computed once across all rows instead of per row. */
-.edit-events > .edit-event {
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
 }
 /* The header row that used to sit above the first event is gone, so give the
  * first event a top border to keep it separated from the content above. */
@@ -2447,20 +2440,21 @@ button:focus-visible {
 .edit-event-addfield { display: none; }
 .edit-event:hover .edit-event-addfield,
 .edit-event:focus-within .edit-event-addfield { display: inline-block; }
-/* Extras line: sources + the secondary fields (type, agency, cause, note, and
- * — for value-events — place/address) flow together and wrap below the primary
- * Date/Place line, each a small label + a content-sized input, so populated
- * fields pack onto one line instead of each claiming a fixed grid cell. */
-.edit-event-extras {
-  grid-column: 1 / -1;
-  grid-row: 2;
+/* Body: the primary field (place, or a value-event's value) plus sources and
+ * the secondary fields (type, agency, cause, note, and — for value-events —
+ * place/address) all flow together and wrap, each a content-sized input (the
+ * secondary ones prefixed by a hover label), so populated fields pack onto the
+ * first row beside the place and only spill to a second row when they don't
+ * fit — no fixed grid cells, no near-empty rows. */
+.edit-event-body {
+  grid-column: 3;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 16px;
-  margin-top: 2px;
   min-width: 0;
 }
+.edit-event-primary { min-width: 0; }
 .edit-event-extra {
   display: inline-flex;
   align-items: baseline;
@@ -2484,10 +2478,9 @@ button:focus-visible {
 .edit-event:focus-within .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
-/* Notes run long, so the note takes the remaining width and wraps to its own
- * line when the others fill the row. */
-.edit-event-extra--note { flex: 1 1 22ch; min-width: 14ch; }
-.edit-event-extra--note .edit-event-extra-field { flex: 1; }
+/* The note is content-sized like the other fields (it wraps its text within
+ * that width); when long it pushes the whole body to a second row. */
+.edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
@@ -5430,26 +5423,17 @@ kbd {
     width: 100%;
   }
 
-  /* Event rows: collapse the 5-column desktop grid into a compact two-column
-   * layout — label + toggle on top, then date/sources, then the field pairs
-   * two per row (their inline grid-row is overridden so they flow naturally). */
-  .edit-events {
-    grid-template-columns: 1fr;
-  }
-  .edit-events > .edit-event {
-    grid-template-columns: 1fr 1fr;
-    grid-column: 1 / -1;
+  /* Event rows: drop the fixed date track — label + date share the top row and
+   * the flowing body takes the full width beneath them. */
+  .edit-event {
+    grid-template-columns: 96px minmax(0, 1fr);
     column-gap: 12px;
-    row-gap: 6px;
+    row-gap: 4px;
     padding: 10px 0;
   }
-  .edit-event-type-row { grid-column: 1 / -1; grid-row: 1; }
-  .edit-event-date-cell { grid-column: 1; grid-row: 2; }
-  .edit-event-sources-cell { grid-column: 2; grid-row: 2; justify-content: flex-start; }
-  .edit-event-type-cell { grid-column: 1 / -1; grid-row: auto; }
-  .edit-event-c3 { grid-column: 1; grid-row: auto !important; }
-  .edit-event-c4 { grid-column: 2; grid-row: auto !important; }
-  .edit-event > .edit-input { width: 100%; }
+  .edit-event-type-row { grid-column: 1; grid-row: 1; }
+  .edit-event-date-cell { grid-column: 2; grid-row: 1; justify-content: flex-start; }
+  .edit-event-body { grid-column: 1 / -1; grid-row: 2; }
 }
 
 /* Really narrow: one field per full-width row (label + toggle stay paired on
@@ -5463,17 +5447,12 @@ kbd {
     gap: 8px;
   }
 
-  .edit-events > .edit-event {
+  .edit-event {
     grid-template-columns: 1fr;
   }
-  .edit-event-date-cell,
-  .edit-event-sources-cell,
-  .edit-event-type-cell,
-  .edit-event-c3,
-  .edit-event-c4 {
-    grid-column: 1;
-    grid-row: auto !important;
-  }
+  .edit-event-type-row { grid-column: 1; grid-row: 1; }
+  .edit-event-date-cell { grid-column: 1; grid-row: 2; }
+  .edit-event-body { grid-column: 1; grid-row: 3; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
