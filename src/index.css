@@ -2339,14 +2339,16 @@ button:focus-visible {
   font-size: 0.88rem;
 }
 
-/* Three fixed leading tracks — label, date, then the body. The label and date
- * widths are the same on every event, so those columns line up as a table; the
- * body (place + all secondary fields) flows within the last track and wraps
- * only when it runs out of width. */
+/* One wrapping line per event. Label and date are fixed-width leading items so
+ * they line up as a table across events; the body fields (place + all secondary
+ * fields) follow and wrap — and because the whole row is one flex-wrap context
+ * (the body is `display: contents`), wrapped fields fall back to the full width
+ * under the date rather than being trapped in a third column. */
 .edit-event {
-  display: grid;
-  grid-template-columns: 96px 180px minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   column-gap: 14px;
+  row-gap: 4px;
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
@@ -2354,10 +2356,11 @@ button:focus-visible {
 /* The header row that used to sit above the first event is gone, so give the
  * first event a top border to keep it separated from the content above. */
 .edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
-/* Column 1, row 1: the event-type label with the expand toggle right beside it. */
+/* Leading item 1: the event-type label with the expand toggle right beside it.
+ * Fixed 96px so the date lines up across events; long labels overflow to the
+ * right (over the gap) rather than widening the item and pushing the date. */
 .edit-event-type-row {
-  grid-column: 1;
-  grid-row: 1;
+  flex: 0 0 96px;
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -2383,13 +2386,13 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-/* Column 2 stacks date (row 1), sources (row 2) and — for standard events —
- * the TYPE sub-tag (row 3) beneath each other. */
+/* Leading item 2: the date, fixed 180px and right-aligned so dates line up in a
+ * column just before the body. */
 .edit-event-date-cell {
-  grid-column: 2;
-  grid-row: 1;
+  flex: 0 0 180px;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
 }
 .edit-event-date-cell > .clearable-wrap { flex: 1; min-width: 0; }
@@ -2446,14 +2449,9 @@ button:focus-visible {
  * secondary ones prefixed by a hover label), so populated fields pack onto the
  * first row beside the place and only spill to a second row when they don't
  * fit — no fixed grid cells, no near-empty rows. */
-.edit-event-body {
-  grid-column: 3;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 16px;
-  min-width: 0;
-}
+/* The body isn't its own box — its fields join the event's flex-wrap line
+ * directly, so they flow after the date and wrap back to the full width. */
+.edit-event-body { display: contents; }
 .edit-event-primary { min-width: 0; }
 .edit-event-extra {
   display: inline-flex;
@@ -5423,17 +5421,12 @@ kbd {
     width: 100%;
   }
 
-  /* Event rows: drop the fixed date track — label + date share the top row and
-   * the flowing body takes the full width beneath them. */
+  /* Event rows: tighter gaps; the flex-wrap already reflows the body as width
+   * shrinks, so no column changes are needed. */
   .edit-event {
-    grid-template-columns: 96px minmax(0, 1fr);
     column-gap: 12px;
-    row-gap: 4px;
     padding: 10px 0;
   }
-  .edit-event-type-row { grid-column: 1; grid-row: 1; }
-  .edit-event-date-cell { grid-column: 2; grid-row: 1; justify-content: flex-start; }
-  .edit-event-body { grid-column: 1 / -1; grid-row: 2; }
 }
 
 /* Really narrow: one field per full-width row (label + toggle stay paired on
@@ -5447,12 +5440,9 @@ kbd {
     gap: 8px;
   }
 
-  .edit-event {
-    grid-template-columns: 1fr;
-  }
-  .edit-event-type-row { grid-column: 1; grid-row: 1; }
-  .edit-event-date-cell { grid-column: 1; grid-row: 2; }
-  .edit-event-body { grid-column: 1; grid-row: 3; }
+  /* Very narrow: let the date shrink so the label + date still share a line
+   * before the body wraps beneath. */
+  .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
