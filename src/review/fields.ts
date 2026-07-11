@@ -5,7 +5,8 @@ import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { dateCompareKey, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
-import { formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
 import { inferPlaceExportFormat } from "../normalize/profile";
@@ -108,6 +109,9 @@ export function individualFieldRows(
   placeFmt?: PlaceTargetFormat,
   /** Incoming events to treat as absent — see `CandidateDecision.rejectedEvents`. */
   rejectedEvents?: Set<string>,
+  /** Append the age at each event date (person / parents / couple), matching the
+   *  Edit view's "Show ages" setting. Off by default so other callers are unchanged. */
+  showAge = false,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
   const mn = main?.names[0];
@@ -168,6 +172,11 @@ export function individualFieldRows(
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
+    if (showAge) {
+      attachAges(subRows, `${keyBase}.date`,
+        eventAgeBadges(main, mainDs, me, tag, t),
+        eventAgeBadges(compare, compareDs, ce, tag, t));
+    }
     for (const r of subRows) { r.eventMainIdx = mainIdx; r.eventCompareIdx = effectiveCompareIdx; }
     if (subRows.length > 0) {
       rows.push({
@@ -182,8 +191,8 @@ export function individualFieldRows(
   // spouse so every decision about a person is made in one place.
   if (mainDs && compareDs) {
     const parentRows: FieldRow[] = [];
-    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband"), parentRelative(compare, compareDs, "husband"));
-    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife"), parentRelative(compare, compareDs, "wife"));
+    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband", showAge), parentRelative(compare, compareDs, "husband", showAge));
+    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife", showAge), parentRelative(compare, compareDs, "wife", showAge));
     if (parentRows.length > 0) {
       rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
       rows.push(...parentRows);
@@ -199,8 +208,8 @@ export function individualFieldRows(
       const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
       const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
       const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
-      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse)] : [];
-      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse)] : [];
+      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse, showAge)] : [];
+      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse, showAge)] : [];
 
       const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
 
@@ -228,6 +237,11 @@ export function individualFieldRows(
       pushRow(marriageRows, `${famKey}.MARR.agency`, t("event.colAgency"), mMar?.agency, cMar?.agency);
       pushRow(marriageRows, `${famKey}.MARR.cause`, t("event.colCause"), mMar?.cause, cMar?.cause);
       pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
+      if (showAge) {
+        attachAges(marriageRows, `${famKey}.MARR.date`,
+          coupleEventAges(mFam, mainDs, mMar, t),
+          coupleEventAges(cFam, compareDs, cMar, t));
+      }
       if (marriageRows.length > 0) {
         rows.push({
           key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
@@ -248,6 +262,11 @@ export function individualFieldRows(
         pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
         pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
         pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
+        if (showAge) {
+          attachAges(etagRows, `${famKey}.${etag}.date`,
+            coupleEventAges(mFam, mainDs, mEv, t),
+            coupleEventAges(cFam, compareDs, cEv, t));
+        }
         if (etagRows.length > 0) {
           rows.push({
             key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
@@ -262,8 +281,8 @@ export function individualFieldRows(
 
       const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
       const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
-      const mChildRels = individualsToRelatives(mChildren);
-      const cChildRels = individualsToRelatives(cChildren);
+      const mChildRels = individualsToRelatives(mChildren, showAge);
+      const cChildRels = individualsToRelatives(cChildren, showAge);
 
       if (mChildRels.length > 0 || cChildRels.length > 0) {
         rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
@@ -274,7 +293,16 @@ export function individualFieldRows(
   return rows;
 }
 
-function partnerToRelative(partner: Individual): Relative {
+/** The abbreviated lifespan ("1817–1921"), with the age appended ("1817–1921
+ *  (104)") when `showAge` — the same suffix person cards get in Edit mode. */
+function relativeYears(indi: Individual, showAge: boolean): string {
+  const years = formatLifespan(findEvent(indi, "BIRT")?.date?.year, findEvent(indi, "DEAT")?.date?.year, isDeceased(indi));
+  if (!showAge || !years) return years;
+  const age = lifespanAge(indi);
+  return age === undefined ? years : `${years} (${age})`;
+}
+
+function partnerToRelative(partner: Individual, showAge = false): Relative {
   return {
     id: partner.id,
     name: partner.names[0],
@@ -283,16 +311,16 @@ function partnerToRelative(partner: Individual): Relative {
     birthYear: findEvent(partner, "BIRT")?.date?.year,
     birthApprox: findEvent(partner, "BIRT")?.date?.qualifier !== "exact",
     displayName: displayName(partner.names[0]),
-    years: formatLifespan(findEvent(partner, "BIRT")?.date?.year, findEvent(partner, "DEAT")?.date?.year, isDeceased(partner)),
+    years: relativeYears(partner, showAge),
     sex: partner.sex,
   };
 }
 
-function individualsToRelatives(indis: Individual[]): Relative[] {
+function individualsToRelatives(indis: Individual[], showAge = false): Relative[] {
   return indis
     .map((child, order) => ({ child, order, sort: birthSortKey(child) }))
     .sort((a, b) => a.sort - b.sort || a.order - b.order)
-    .map(({ child }) => partnerToRelative(child));
+    .map(({ child }) => partnerToRelative(child, showAge));
 }
 
 interface FamPair {
@@ -405,6 +433,7 @@ function parentRelative(
   indi: Individual | undefined,
   ds: Dataset,
   role: "husband" | "wife",
+  showAge = false,
 ): Relative[] {
   if (!indi) return [];
   for (const famId of indi.childOf) {
@@ -418,7 +447,7 @@ function parentRelative(
       birthYear: findEvent(parent, "BIRT")?.date?.year,
       birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
       displayName: displayName(parent.names[0]),
-      years: formatLifespan(findEvent(parent, "BIRT")?.date?.year, findEvent(parent, "DEAT")?.date?.year, isDeceased(parent)),
+      years: relativeYears(parent, showAge),
       sex: parent.sex,
     }];
   }
@@ -485,6 +514,76 @@ export function fieldDiffCounts(
 }
 
 // --- helpers ---------------------------------------------------------------
+
+/** Set the age badges on an already-built date row (found by key); a no-op when
+ *  the row wasn't pushed (no date on either side) or there are no ages. */
+function attachAges(
+  rows: FieldRow[],
+  key: string,
+  mainAges: AgeBadge[] | undefined,
+  incomingAges: AgeBadge[] | undefined,
+): void {
+  if (!mainAges && !incomingAges) return;
+  const row = rows.find((r) => r.key === key);
+  if (!row) return;
+  if (mainAges) row.mainAges = mainAges;
+  if (incomingAges) row.incomingAges = incomingAges;
+}
+
+/** The parent (father via HUSB, mother via WIFE) from the first family this
+ *  person is a child in — for the parents' ages on a birth row. */
+function parentIndi(indi: Individual, ds: Dataset, role: "husband" | "wife"): Individual | undefined {
+  for (const famId of indi.childOf) {
+    const id = ds.families.get(famId)?.[role];
+    const parent = id ? ds.individuals.get(id) : undefined;
+    if (parent) return parent;
+  }
+  return undefined;
+}
+
+/** Age(s) at an individual event's date: the parents' ages ("♂/♀") on a birth,
+ *  otherwise the person's own age. Undefined when the date or a birth is missing. */
+function eventAgeBadges(
+  indi: Individual | undefined,
+  ds: Dataset | undefined,
+  ev: GedEvent | undefined,
+  tag: string,
+  t: Translate,
+): AgeBadge[] | undefined {
+  if (!ev?.date) return undefined;
+  if (tag === "BIRT") {
+    if (!indi || !ds) return undefined;
+    return coupleAgesDisplay(
+      parentIndi(indi, ds, "husband"),
+      parentIndi(indi, ds, "wife"),
+      ev.date,
+      { husband: t("event.age.father"), wife: t("event.age.mother") },
+      t,
+    );
+  }
+  const birth = birthDateOf(indi);
+  const age = ageBetween(birth, ev.date);
+  if (age === undefined) return undefined;
+  const detail = fullAgeBetween(birth, ev.date, t);
+  return [{ text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") }];
+}
+
+/** The husband's and wife's ages ("♂/♀") at a family event's date. */
+function coupleEventAges(
+  fam: Family | undefined,
+  ds: Dataset | undefined,
+  ev: GedEvent | undefined,
+  t: Translate,
+): AgeBadge[] | undefined {
+  if (!fam || !ds || !ev?.date) return undefined;
+  return coupleAgesDisplay(
+    fam.husband ? ds.individuals.get(fam.husband) : undefined,
+    fam.wife ? ds.individuals.get(fam.wife) : undefined,
+    ev.date,
+    { husband: t("event.age.husband"), wife: t("event.age.wife") },
+    t,
+  );
+}
 
 function pushRow(
   rows: FieldRow[],

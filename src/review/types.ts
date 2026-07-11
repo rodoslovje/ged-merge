@@ -1,4 +1,5 @@
 import type { SourceCitation, Sex } from "../gedcom/types";
+import type { AgeBadge } from "../gedcom/age";
 import { dateRefines } from "../gedcom/date";
 
 /** Whether a candidate match has been acted on. */
@@ -38,6 +39,14 @@ export interface FieldRow {
    *  abbreviated "Name yyyy–yyyy" lines). */
   mainTitle?: string;
   incomingTitle?: string;
+  /**
+   * For an event's date sub-row: the age(s) at that date, shown after the date
+   * when "Show ages" is on — the person's own age for individual events, the
+   * father's/mother's ages ("♂/♀") on a birth, the couple's ages on a family
+   * event. Same badges Edit mode renders; only populated when `showAge` is set.
+   */
+  mainAges?: AgeBadge[];
+  incomingAges?: AgeBadge[];
   /**
    * For relative rows (father, mother, partners, children): the referenced
    * person's id per line, aligned with the lines of `main` / `incoming`.
