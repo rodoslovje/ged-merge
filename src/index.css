@@ -5725,6 +5725,7 @@ kbd {
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
 .tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; content-visibility: auto; contain-intrinsic-size: auto 24px; }
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
+.tools-usage-age { color: var(--muted); }
 .tools-usage-block { padding-left: 26px; }
 .tools-cat {
   min-width: 32px; text-align: center;
