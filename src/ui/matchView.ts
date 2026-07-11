@@ -1,7 +1,31 @@
 import type { IndividualCandidate } from "../match/types";
+import type { Dataset } from "../gedcom/types";
+import type { Translate } from "../locales/i18n";
+import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
+import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 
 export type Candidate = IndividualCandidate;
+
+/**
+ * A candidate's lifespan label and full-date hover tooltip, with the age
+ * appended when `showAge` — the same treatment person cards get in Edit mode.
+ * Resolves the live main record so the age reflects any edits; falls back to the
+ * candidate's own year/date snapshot when the record can't be looked up.
+ */
+export function candidateLifespan(
+  c: Candidate,
+  mainDataset: Dataset | undefined,
+  showAge: boolean,
+  t: Translate,
+): { span: string; title: string } {
+  const indi = mainDataset?.individuals.get(c.mainId);
+  if (indi) return { span: lifespanWithAge(indi, showAge), title: lifespanTooltipOf(indi, showAge, t) };
+  return {
+    span: formatLifespan(c.birthYear, c.deathYear, c.deceased),
+    title: datesTooltip(c.birthDate, c.deathDate, c.deceased),
+  };
+}
 
 /** Decision-status sort order (lower sorts first); undecided leads the list. */
 export const STATUS_RANK: Record<MatchDecisionStatus, number> = {
