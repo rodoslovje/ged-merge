@@ -42,9 +42,13 @@ export function NotesEditor({
     onCommit(next.map((n) => n.trim()).filter(Boolean));
   }
 
-  // Size each note to its content so short notes sit next to each other and flow
-  // to the next line only when they don't fit (long notes wrap within this cap).
-  const noteWidth = (v: string) => ({ width: `${Math.min(48, Math.max(6, v.length + 2))}ch` });
+  // Size each note to its widest line (not its total length — a multi-line note
+  // is only as wide as its longest line) so short notes sit next to each other
+  // and flow to the next line only when they don't fit.
+  const noteWidth = (v: string) => {
+    const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
+    return { width: `${Math.min(48, Math.max(6, longest + 2))}ch` };
+  };
 
   const noteFields = notes.map((note, i) => (
     <ClearableTextarea

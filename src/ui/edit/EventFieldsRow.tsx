@@ -171,6 +171,12 @@ export function EventFieldsRow({
   // place and the secondary fields pack onto one wrapped line and only spill to
   // a second row when they genuinely don't fit.
   const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(6, v.trim().length + 2))}ch` });
+  // Notes can be multi-line, so size them to the widest line, not the whole
+  // string's length (which would over-widen a stack of short lines).
+  const noteW = (v: string, max = 50) => {
+    const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
+    return { width: `${Math.min(max, Math.max(6, longest + 2))}ch` };
+  };
 
   // Compact layout: a field with no value (and not showing an incoming merge
   // value) is collapsed to zero height/width at rest and only revealed when the
@@ -503,7 +509,7 @@ export function EventFieldsRow({
           <span className="edit-event-extra-label">{t("event.colNote")}</span>
           <ClearableTextarea
             wrapClassName="edit-event-extra-field"
-            wrapStyle={chW(noteField.value, 50)}
+            wrapStyle={noteW(noteField.value)}
             className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
             value={noteField.value}
             title={t("event.note", { event: label })}
