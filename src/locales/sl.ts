@@ -262,6 +262,8 @@ export const sl = {
   "edit.export": "Izvozi GEDCOM",
   "edit.exportTooltip": "Prenesi urejeno datoteko",
   "edit.addLink": "Dodaj vir",
+  "edit.addDetail": "Podrobnost",
+  "edit.addDetailTooltip": "Dodaj vir, naslov, opombo ali drugo podrobnost temu dogodku",
   "edit.addLinkTooltip": "Dodaj vir tej osebi",
   "edit.openLink": "Odpri povezavo v novem zavihku",
   "edit.removeLink": "Odstrani to povezavo",

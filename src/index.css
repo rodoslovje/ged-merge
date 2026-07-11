@@ -2438,17 +2438,15 @@ button:focus-visible {
  * rows. Populated fields already rise to the top rows (see `rowOf`), so the
  * revealed empty ones appear beneath them without shifting the visible values.
  * Place/address wrappers are block; every other optional wrapper is a flex row. */
+/* Empty fields the user hasn't added stay hidden — they're added on demand from
+ * the "+ Detail" menu, not revealed en masse (which read as a crowded row of
+ * blank labelled inputs). */
 .edit-event .ev-collapsed { display: none; }
-.edit-event:hover .ev-collapsed,
-.edit-event:focus-within .ev-collapsed { display: flex; }
-.edit-event:hover .place-autocomplete-wrap.ev-collapsed,
-.edit-event:focus-within .place-autocomplete-wrap.ev-collapsed { display: block; }
-/* The "+ add source" affordance is hover-only too, so an event that already
- * has a citation shows just its icon at rest and reveals the add button on
- * hover — no event ever reserves a permanent add-source row. */
-.edit-event .edit-link-add { display: none; }
-.edit-event:hover .edit-link-add,
-.edit-event:focus-within .edit-link-add { display: inline-block; }
+/* The "+ Detail" menu chip is hover-only, so a fully-populated event shows no
+ * add affordance until you hover or focus it. */
+.edit-event-addfield { display: none; }
+.edit-event:hover .edit-event-addfield,
+.edit-event:focus-within .edit-event-addfield { display: inline-block; }
 /* Extras line: sources + the secondary fields (type, agency, cause, note, and
  * — for value-events — place/address) flow together and wrap below the primary
  * Date/Place line, each a small label + a content-sized input, so populated
@@ -2470,10 +2468,6 @@ button:focus-visible {
   max-width: 100%;
   min-width: 0;
 }
-/* An empty extra collapses to nothing at rest and reappears inline (not as a
- * full-width block, which the generic `.ev-collapsed` reveal would give it). */
-.edit-event:hover .edit-event-extra.ev-collapsed,
-.edit-event:focus-within .edit-event-extra.ev-collapsed { display: inline-flex; }
 .edit-event-extra-label {
   flex: none;
   font-family: var(--font-mono);

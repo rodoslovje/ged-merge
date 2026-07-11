@@ -144,6 +144,10 @@ export function EventFieldsRow({
   const initialTagRef = useRef(tag);
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
+  // event (they start empty). `focusKey` autofocuses the one just added.
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [focusKey, setFocusKey] = useState<string | null>(null);
   // EVEN remaps the Title slot to its TYPE and the Agency slot to its line
   // value; every other event keeps the normal value/agency mapping.
   const titleField = isEven ? typeField : valueField;
@@ -186,12 +190,48 @@ export function EventFieldsRow({
   const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
   const placeShown = primaryLine || Boolean(placeField.value.trim()) || placeField.isMerge;
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
-  const titleShown = Boolean(titleField.value.trim()) || titleField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
     Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0;
+  // A field renders when it has content OR the user added it from the "+ Detail"
+  // menu. Empty, un-added fields stay hidden — no more revealing every empty
+  // field on hover, which read as a crowded row of blank labelled inputs.
+  const show = {
+    date: dateShown || revealed.has("date"),
+    place: placeShown || revealed.has("place"),
+    addr: addrShown || revealed.has("addr"),
+    type: typeShown || revealed.has("type"),
+    agency: agencyShown || revealed.has("agency"),
+    cause: causeShown || revealed.has("cause"),
+    note: noteShown || revealed.has("note"),
+  };
+  // Fields offered by the "+ Detail" menu: source is always addable; the rest
+  // only while not already showing. Place/address adapt to the event kind
+  // (ordinary events show Place on the primary line, so only Address is offered).
+  const addable: { key: string; label: string }[] = [
+    { key: "source", label: t("edit.addLink") },
+    ...(primaryLine
+      ? [{ key: "addr", label: t("event.colAddr") }]
+      : [
+          { key: "place", label: t("event.colPlace") },
+          { key: "addr", label: t("event.colAddr") },
+        ]),
+    ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
+    { key: "agency", label: t("event.colAgency") },
+    { key: "cause", label: t("event.colCause") },
+    { key: "note", label: t("event.colNote") },
+  ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
+
+  function addDetail(key: string) {
+    if (key === "source") {
+      onAddSource();
+      return;
+    }
+    setRevealed((prev) => new Set(prev).add(key));
+    setFocusKey(key);
+  }
 
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event removed — the latter via a "Remove this event" entry
@@ -267,8 +307,9 @@ export function EventFieldsRow({
   }
 
   // A secondary field on the flowing "extras" line: a small label + a
-  // content-sized input. Collapsed (zero size) when empty; revealed on row
-  // hover/focus like the primary fields. Used for Type / Agency / Cause.
+  // content-sized input. Hidden when empty and not added; shown once it has a
+  // value or the user picks it from the "+ Detail" menu. Used for Type / Agency
+  // / Cause.
   function extraText(
     key: string,
     labelText: string,
@@ -287,6 +328,7 @@ export function EventFieldsRow({
           className={fieldCls("edit-input", field.isMerge, field.isDirty || forced)}
           value={field.value}
           title={title}
+          autoFocus={focusKey === key}
           onChange={field.onChange}
           onBlur={() => commitAll({})}
           onClear={() => { field.clear(); commitAll(clearUpdate); }}
@@ -350,7 +392,7 @@ export function EventFieldsRow({
       </div>
 
       {/* Primary line, column 2: the date. */}
-      <div className={"edit-event-date-cell" + optCls(dateShown)}>
+      <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
@@ -382,7 +424,7 @@ export function EventFieldsRow({
             isDirty={placeField.isDirty || placeForced}
             isMerge={placeField.isMerge}
             className="edit-input edit-event-place"
-            wrapClassName={"edit-event-c3" + optCls(placeShown)}
+            wrapClassName={"edit-event-c3" + optCls(show.place)}
             wrapStyle={{ gridRow: 1 }}
             placeholder={t("event.colPlace")}
             title={t("event.place", { event: label })}
@@ -397,7 +439,7 @@ export function EventFieldsRow({
             isDirty={addrField.isDirty || addrForced}
             isMerge={addrField.isMerge}
             className="edit-input edit-event-addr"
-            wrapClassName={"edit-event-c4" + optCls(addrShown)}
+            wrapClassName={"edit-event-c4" + optCls(show.addr)}
             wrapStyle={{ gridRow: 1 }}
             placeholder={t("event.colAddr")}
             title={t("event.addr", { event: label })}
@@ -407,8 +449,10 @@ export function EventFieldsRow({
           />
         </>
       ) : (
+        // The value/title is a value-event's primary field, so it always shows
+        // (its own click target), just like Place on ordinary events.
         <ClearableInput
-          wrapClassName={"edit-event-c3" + optCls(titleShown)}
+          wrapClassName="edit-event-c3"
           wrapStyle={{ gridRow: 1 }}
           className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
           value={titleField.value}
@@ -439,17 +483,9 @@ export function EventFieldsRow({
               🔗
             </button>
           ))}
-          <button
-            type="button"
-            className="edit-link-add"
-            title={t("event.addSource", { event: label })}
-            onClick={onAddSource}
-          >
-            + {t("edit.addLink")}
-          </button>
         </span>
         {!primaryLine && (
-          <span className={"edit-event-extra" + optCls(placeShown)}>
+          <span className={"edit-event-extra" + optCls(show.place)}>
             <span className="edit-event-extra-label">{t("event.colPlace")}</span>
             <PlaceAutocomplete
               value={placeField.value}
@@ -468,7 +504,7 @@ export function EventFieldsRow({
           </span>
         )}
         {!primaryLine && (
-          <span className={"edit-event-extra" + optCls(addrShown)}>
+          <span className={"edit-event-extra" + optCls(show.addr)}>
             <span className="edit-event-extra-label">{t("event.colAddr")}</span>
             <PlaceAutocomplete
               value={addrField.value}
@@ -487,10 +523,10 @@ export function EventFieldsRow({
           </span>
         )}
         {showTypeCell &&
-          extraText("type", t("event.colType"), typeShown, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
-        {extraText("agency", t("event.colAgency"), agencyShown, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
-        {extraText("cause", t("event.colCause"), causeShown, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
-        <span className={"edit-event-extra edit-event-extra--note" + optCls(noteShown)}>
+          extraText("type", t("event.colType"), show.type, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
+        {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
+        {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
+        <span className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
           <span className="edit-event-extra-label">{t("event.colNote")}</span>
           <ClearableTextarea
             wrapClassName="edit-event-extra-field"
@@ -498,11 +534,33 @@ export function EventFieldsRow({
             value={noteField.value}
             title={t("event.note", { event: label })}
             rows={1}
+            autoFocus={focusKey === "note"}
             onChange={noteField.onChange}
             onBlur={() => commitAll({})}
             onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
           />
         </span>
+        {/* Add a source / place / note / other detail without keeping every empty
+         * field on screen — the menu offers only the ones not already shown. */}
+        {addable.length > 0 && (
+          <label className="add-chip add-chip-select edit-event-addfield" title={t("edit.addDetailTooltip")}>
+            + {t("edit.addDetail")}
+            <select
+              className="add-chip-select-inner"
+              value=""
+              title={t("edit.addDetail")}
+              onChange={(e) => {
+                const k = e.target.value;
+                if (k) addDetail(k);
+              }}
+            >
+              <option value="" />
+              {addable.map((f) => (
+                <option key={f.key} value={f.key}>{f.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
     </div>
   );
