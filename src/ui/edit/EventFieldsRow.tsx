@@ -193,9 +193,16 @@ export function EventFieldsRow({
   // shifting the visible content. Incoming merge suggestions count as "shown"
   // (their value is displayed even before it's written), so they never hide.
   const optCls = (shown: boolean) => (shown ? "" : " ev-collapsed");
-  const dateShown = Boolean(dateField.value.trim()) || dateField.isMerge;
+  // Date and place appear on almost every event and share row 1, so for ordinary
+  // date/place events we keep them in fixed positions even when empty — the most
+  // common events then read as a stable two-column table (empty cells are an
+  // invisible click target until hovered) rather than fields popping in at
+  // varying spots. Value-events (OCCU/EDUC/RETI/EVEN) have no place and lead with
+  // their value instead, so they stay fully compact.
+  const primaryLine = !hasTitle;
+  const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
   const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
-  const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
+  const placeShown = primaryLine || Boolean(placeField.value.trim()) || placeField.isMerge;
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
   const titleShown = Boolean(titleField.value.trim()) || titleField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
