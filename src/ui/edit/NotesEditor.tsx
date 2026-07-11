@@ -42,11 +42,33 @@ export function NotesEditor({
     onCommit(next.map((n) => n.trim()).filter(Boolean));
   }
 
+  // Size each note to its content so short notes sit next to each other and flow
+  // to the next line only when they don't fit (long notes wrap within this cap).
+  const noteWidth = (v: string) => ({ width: `${Math.min(48, Math.max(6, v.length + 2))}ch` });
+
+  const noteFields = notes.map((note, i) => (
+    <ClearableTextarea
+      key={i}
+      ref={(el) => { textareaRefs.current[i] = el; }}
+      wrapClassName="edit-note-chip"
+      wrapStyle={noteWidth(note)}
+      className="edit-input edit-event-note"
+      value={note}
+      placeholder={t("field.notes")}
+      title={t("field.notes")}
+      rows={1}
+      onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? e.target.value : n)))}
+      onBlur={() => commitNotes(notes)}
+      onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
+    />
+  ));
+
   return (
     <div className="edit-notes">
-      {sectionLabel && (
+      {sectionLabel ? (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>
+          {noteFields}
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
@@ -56,21 +78,9 @@ export function NotesEditor({
             + {t("edit.addNote")}
           </button>
         </div>
+      ) : (
+        noteFields
       )}
-      {notes.map((note, i) => (
-        <ClearableTextarea
-          key={i}
-          ref={(el) => { textareaRefs.current[i] = el; }}
-          className="edit-input edit-event-note"
-          value={note}
-          placeholder={t("field.notes")}
-          title={t("field.notes")}
-          rows={1}
-          onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? e.target.value : n)))}
-          onBlur={() => commitNotes(notes)}
-          onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
-        />
-      ))}
     </div>
   );
 }

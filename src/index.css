@@ -2357,11 +2357,13 @@ button:focus-visible {
  * first event a top border to keep it separated from the content above. */
 .edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
 /* Leading item 1: the event-type label with the expand toggle right beside it.
- * Fixed 96px so the date lines up across events; long labels overflow to the
- * right (over the gap) rather than widening the item and pushing the date. */
+ * Fixed width so dates line up across events, and right-aligned so every label
+ * ends just before the date — short labels no longer leave a gap, and long ones
+ * overflow to the left (never toward the date). */
 .edit-event-type-row {
   flex: 0 0 96px;
   display: flex;
+  justify-content: flex-end;
   align-items: baseline;
   gap: 6px;
 }
@@ -2408,12 +2410,13 @@ button:focus-visible {
 /* With age badges the cell is wider, but the date keeps a fixed 8em right-
  * aligned slot so the years still line up column-to-column; the age badges take
  * the remaining space to the right of the date. */
-.edit-event-date-cell--age { flex-basis: 13.5em; }
-/* Two classes on the cell so this beats the base `> .clearable-wrap { flex: 1 }`
- * (equal-specificity, defined later) — the date keeps a fixed 8em slot instead
- * of splitting the row with the age, which was clipping the year. */
+/* With age badges the cell grows to its content instead of a fixed track, so the
+ * place packs in right after the age (same tight gap as the no-age rows). The
+ * date keeps a fixed 8em right-aligned slot (two classes to beat the base
+ * `> .clearable-wrap { flex: 1 }`) so the years stay column-aligned, and the age
+ * sits at its natural width right after it. */
+.edit-event-date-cell--age { flex: 0 0 auto; }
 .edit-event-date-cell.edit-event-date-cell--age > .clearable-wrap { flex: 0 0 8em; }
-.edit-event-date-cell--age > .edit-event-age { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
 .edit-event-date-cell > .clearable-wrap { flex: 1; min-width: 0; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
@@ -2968,6 +2971,7 @@ button:focus-visible {
 .edit-record-label-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 4px;
 }
