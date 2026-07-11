@@ -8,6 +8,7 @@ export function NotesEditor({
   addOnMount,
   addTrigger,
   sectionLabel,
+  baselineNotes,
   t,
   onCommit,
 }: {
@@ -15,9 +16,13 @@ export function NotesEditor({
   addOnMount?: boolean;
   addTrigger?: number;
   sectionLabel?: string;
+  /** The notes as they were at the last clean/saved state; any note not in here
+   * is new or changed and renders bold, like other new/changed data. */
+  baselineNotes?: string[];
   t: Translate;
   onCommit: (notes: string[]) => void;
 }) {
+  const baseline = new Set(baselineNotes ?? initialNotes);
   const [notes, setNotes] = useState(() => addOnMount ? [...initialNotes, ""] : initialNotes);
   const prevTrigger = useRef(addTrigger ?? 0);
   const focusNewRef = useRef<number | null>(addOnMount ? initialNotes.length : null);
@@ -56,7 +61,7 @@ export function NotesEditor({
       ref={(el) => { textareaRefs.current[i] = el; }}
       wrapClassName="edit-note-chip"
       wrapStyle={noteWidth(note)}
-      className="edit-input edit-event-note"
+      className={`edit-input edit-event-note${note.trim() && !baseline.has(note) ? " edit-input--dirty" : ""}`}
       value={note}
       placeholder={t("field.notes")}
       title={t("field.notes")}

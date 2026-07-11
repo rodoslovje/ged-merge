@@ -165,6 +165,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
   const focusNextName = useRef(false);
+  // Per-person snapshot of notes at the last clean/saved state, so newly added
+  // or edited notes can render bold. Refreshed whenever the person has no unsaved
+  // edits (freshly opened or just saved); preserved once it's being edited.
+  const noteBaselineRef = useRef(new Map<string, string[]>());
   // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
@@ -1647,18 +1651,27 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               />
             </div>
           )}
-          {((person.notes ?? []).length > 0 || notesAdded) && (
-            <div className="edit-record-section">
-              <NotesEditor
-                key={`notes-${person.id}-${undoVersion}`}
-                notes={person.notes ?? []}
-                addOnMount={notesAdded && !(person.notes ?? []).length}
-                sectionLabel={t("field.notes")}
-                t={t}
-                onCommit={(notes) => commit((indi) => setNotes(indi, notes))}
-              />
-            </div>
-          )}
+          {((person.notes ?? []).length > 0 || notesAdded) && (() => {
+            // Refresh the baseline while the person is clean (its notes are the
+            // saved state); keep it once edits begin so changed notes stay bold.
+            const bl = noteBaselineRef.current;
+            if (!changedPersonIds.has(person.id) || !bl.has(person.id)) {
+              bl.set(person.id, person.notes ?? []);
+            }
+            return (
+              <div className="edit-record-section">
+                <NotesEditor
+                  key={`notes-${person.id}-${undoVersion}`}
+                  notes={person.notes ?? []}
+                  addOnMount={notesAdded && !(person.notes ?? []).length}
+                  sectionLabel={t("field.notes")}
+                  baselineNotes={bl.get(person.id)}
+                  t={t}
+                  onCommit={(notes) => commit((indi) => setNotes(indi, notes))}
+                />
+              </div>
+            );
+          })()}
           <EventList
             key={person.id}
             person={person}
