@@ -15,6 +15,7 @@ import {
 } from "../review/types";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
+import { useSettings } from "./SettingsContext";
 import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
@@ -44,6 +45,7 @@ export function ComparePanel({
   onNavigate,
 }: Props) {
   const { t } = useTranslation();
+  const { settings } = useSettings();
   const mainPerson = {
     linkable: (id: string) => canNavigate("main", id),
     onNavigate: (id: string) => onNavigate("main", id),
@@ -70,8 +72,8 @@ export function ComparePanel({
   }, [folderName, mainIndi, compareIndi, mainDs.records, compareDs.records]);
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, undefined, rejectedEvents);
-  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision]);
+    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, undefined, rejectedEvents, settings.showAge);
+  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
@@ -253,6 +255,7 @@ export function ComparePanel({
                         otherLinkIcons={row.incomingLinkIcons}
                         person={row.mainRefs ? { refs: row.mainRefs, ...mainPerson } : undefined}
                       />
+                      <EventAges ages={row.mainAges} />
                     </td>
                     <td
                       className={choice !== "main" ? "f-val gm-data chosen" : "f-val gm-data"}
@@ -266,6 +269,7 @@ export function ComparePanel({
                         otherLinkIcons={row.mainLinkIcons}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
+                      <EventAges ages={row.incomingAges} />
                     </td>
                   </>
                 )}
@@ -276,6 +280,19 @@ export function ComparePanel({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Age badges shown after an event's date value ("Show ages" setting) — the
+ *  same muted "♂32 ♀28" / "62" chips the Edit view renders. */
+function EventAges({ ages }: { ages?: { text: string; title: string }[] }) {
+  if (!ages?.length) return null;
+  return (
+    <span className="edit-event-age compare-event-age gm-data">
+      {ages.map((a, i) => (
+        <span key={i} title={a.title}>{a.text}</span>
+      ))}
+    </span>
   );
 }
 
