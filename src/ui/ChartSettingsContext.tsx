@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ChartAlignment } from "../chart/treeLayout";
+import { useSettings } from "./SettingsContext";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
 // Compare Tree, Relationship chart). One instance drives all three so a change
@@ -121,10 +122,16 @@ export const ChartSettingsContext = createContext<ChartSettingsCtx>({
   set: () => {},
 });
 
-function load(): ChartSettings {
+/**
+ * Load the persisted chart settings. `defaultShowAge` seeds the Age toggle when
+ * the stored blob doesn't pin it (a fresh user, or one from before the toggle
+ * existed) — so charts follow the global "Show ages" preference by default, then
+ * become independent the moment the user flips the per-chart toggle.
+ */
+function load(defaultShowAge: boolean): ChartSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) return { ...DEFAULTS, showAge: defaultShowAge };
     const parsed = JSON.parse(raw) as Partial<ChartSettings>;
     // Each field falls back to its default, so older saved blobs (which lack the
     // newer display/privacy flags) load cleanly.
@@ -141,7 +148,7 @@ function load(): ChartSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
-      showAge: bool(parsed.showAge, DEFAULTS.showAge),
+      showAge: bool(parsed.showAge, defaultShowAge),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
       showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
@@ -166,7 +173,7 @@ function load(): ChartSettings {
       reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),
     };
   } catch {
-    return DEFAULTS;
+    return { ...DEFAULTS, showAge: defaultShowAge };
   }
 }
 
@@ -179,7 +186,11 @@ function save(settings: ChartSettings): void {
 }
 
 export function ChartSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<ChartSettings>(load);
+  // Seed the Age toggle from the global "Show ages" preference on first load, so
+  // charts honour it by default (SettingsProvider wraps this one, so the global
+  // value is already resolved synchronously here).
+  const { settings: appSettings } = useSettings();
+  const [settings, setSettings] = useState<ChartSettings>(() => load(appSettings.showAge));
 
   const update = useCallback((patch: Partial<ChartSettings>) => {
     setSettings((prev) => {
