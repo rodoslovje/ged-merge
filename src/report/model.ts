@@ -5,6 +5,7 @@
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { ageAtDate } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../chart/timeline";
 import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
@@ -50,6 +51,12 @@ export interface FactLine {
   note?: string;
   /** The event's formatted source citations, when enabled. */
   sources?: SourceLine[];
+  /** The subject's own whole-years age at this dated event (personal events
+   *  only — not birth/marriage, which carry {@link ages} instead). */
+  age?: number;
+  /** Sex-tagged ages for events about a couple: a marriage carries both
+   *  spouses ("♂32", "♀28"); a birth carries the parents. */
+  ages?: string[];
 }
 
 /** One rendered citation: the "§ title" text, the cited page kept separate
@@ -73,6 +80,10 @@ export interface ReportFactOptions {
   occupation?: boolean;
   education?: boolean;
   residence?: boolean;
+  /** Show the age reached at each dated fact: the person's own age on their
+   *  personal events, and the sex-tagged pair (♂ / ♀) on a marriage (both
+   *  spouses) and a birth (the parents). */
+  age?: boolean;
   /** Person notes after the fact lines, event notes under their fact line. */
   notes?: boolean;
   /** Person sources after the person notes, event sources under their fact line. */
@@ -251,30 +262,32 @@ export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[
   if (opts.occupation) {
     for (const e of indi.events) {
       if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
-      out.push(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
+      out.push(withAge(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   if (opts.education) {
     for (const e of indi.events) {
       if (e.tag !== "EDUC" || (!e.value && !dated(e))) continue;
-      out.push(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
+      out.push(withAge(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   if (opts.residence) {
     for (const e of indi.events) {
       if (e.tag !== "RESI" || !dated(e)) continue;
-      out.push(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts));
+      out.push(withAge(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   return out;
 }
 
-/** A fact line for the first of the given events that has a date or a place. */
-export function factFor(indi: Individual, tags: string[], opts: ReportFactOptions = {}): FactLine | undefined {
+/** A fact line for the first of the given events that has a date or a place.
+ *  `ds` (when given) lets a birth line carry the parents' ages. */
+export function factFor(indi: Individual, tags: string[], opts: ReportFactOptions = {}, ds?: Dataset): FactLine | undefined {
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      return withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
+      const fact = withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
+      return withAge(fact, indi, e.date, ds, opts);
     }
   }
   return undefined;
@@ -286,10 +299,11 @@ export function marriageFact(
   spouse: string | undefined,
   opts: ReportFactOptions = {},
   spouseLiving?: boolean,
+  ds?: Dataset,
 ): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr || !dated(marr)) return undefined;
-  return withNote(
+  const fact = withNote(
     {
       tag: "MARR",
       glyph: MARRIAGE_SYMBOL,
@@ -304,6 +318,8 @@ export function marriageFact(
     marr,
     opts,
   );
+  if (opts.age && ds) fact.ages = coupleAges(fam, ds, marr.date);
+  return fact;
 }
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
@@ -311,6 +327,56 @@ function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLin
   if (opts.notes && note) fact.note = note;
   if (opts.sources && e.sources?.length) fact.sources = e.sources.map(sourceLine);
   return fact;
+}
+
+/** "♂35" / "♀30": one person's sex-tagged age at `at`, or undefined if unknown. */
+function sexAge(indi: Individual | undefined, glyph: string, at: GedDate | undefined): string | undefined {
+  const age = ageAtDate(indi, at);
+  return age === undefined ? undefined : `${glyph}${age}`;
+}
+
+/** The parents' sex-tagged ages (♂ father, ♀ mother) at a person's birth —
+ *  each parent taken from the first child-family that records that role. */
+function parentAges(indi: Individual, ds: Dataset, at: GedDate | undefined): string[] | undefined {
+  const families = indi.childOf.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
+  const father = families.find((f) => f.husband && ds.individuals.has(f.husband))?.husband;
+  const mother = families.find((f) => f.wife && ds.individuals.has(f.wife))?.wife;
+  const ages = [
+    sexAge(father ? ds.individuals.get(father) : undefined, "♂", at),
+    sexAge(mother ? ds.individuals.get(mother) : undefined, "♀", at),
+  ].filter((s): s is string => s !== undefined);
+  return ages.length ? ages : undefined;
+}
+
+/** Both spouses' sex-tagged ages (♂ husband, ♀ wife) at a marriage. */
+function coupleAges(fam: Family, ds: Dataset, at: GedDate | undefined): string[] | undefined {
+  const ages = [
+    sexAge(fam.husband ? ds.individuals.get(fam.husband) : undefined, "♂", at),
+    sexAge(fam.wife ? ds.individuals.get(fam.wife) : undefined, "♀", at),
+  ].filter((s): s is string => s !== undefined);
+  return ages.length ? ages : undefined;
+}
+
+/** Attach the age to a personal fact when the Age option is on: the parents'
+ *  ages on a birth (the child's birth), or the subject's own age otherwise. */
+function withAge(fact: FactLine, indi: Individual, at: GedDate | undefined, ds: Dataset | undefined, opts: ReportFactOptions): FactLine {
+  if (!opts.age) return fact;
+  if (fact.tag === "BIRT") {
+    if (ds) fact.ages = parentAges(indi, ds, at);
+  } else {
+    const age = ageAtDate(indi, at);
+    if (age !== undefined) fact.age = age;
+  }
+  return fact;
+}
+
+/** The parenthetical age for a fact's date in the compact list/text/RTF
+ *  renderings: "(62)" for the subject's own age, "(♂32 ♀28)" for a marriage or
+ *  a birth (both partners / the parents). Undefined when no age is attached. */
+export function factAgeSuffix(f: FactLine): string | undefined {
+  if (f.ages?.length) return `(${f.ages.join(" ")})`;
+  if (f.age !== undefined) return `(${f.age})`;
+  return undefined;
 }
 
 /** A citation as one compact "§ title" line, its cited page and resolved link. */
@@ -366,7 +432,7 @@ export function marriageFacts(
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, ds, nowYear));
+      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, ds, nowYear), ds);
     })
     .filter((f): f is FactLine => f !== undefined);
 }

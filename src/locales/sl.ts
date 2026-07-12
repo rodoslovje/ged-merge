@@ -581,6 +581,7 @@ export const sl = {
   "report.gen.known": "znanih {{known}} od {{of}}",
   "report.toc": "Kazalo",
   "tree.settings.report.facts": "Dejstva",
+  "tree.settings.report.age": "Starost",
   "tree.settings.report.occupation": "Poklic",
   "tree.settings.report.education": "Izobrazba",
   "tree.settings.report.residence": "Prebivališče",

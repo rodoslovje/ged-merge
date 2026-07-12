@@ -575,6 +575,7 @@ export const en = {
   "report.gen.known": "{{known}} of {{of}} known",
   "report.toc": "Contents",
   "tree.settings.report.facts": "Facts",
+  "tree.settings.report.age": "Age",
   "tree.settings.report.occupation": "Occupation",
   "tree.settings.report.education": "Education",
   "tree.settings.report.residence": "Residence",

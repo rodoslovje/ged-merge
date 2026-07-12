@@ -169,6 +169,13 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
               <span className="chart-settings-heading">{t("tree.settings.report.facts")}</span>
               <div className="chart-settings-segmented chart-settings-toggles">
                 <button
+                  className={settings.showAge ? "active" : ""}
+                  aria-pressed={settings.showAge}
+                  onClick={() => set({ showAge: !settings.showAge })}
+                >
+                  {t("tree.settings.report.age")}
+                </button>
+                <button
                   className={settings.showOccupation ? "active" : ""}
                   aria-pressed={settings.showOccupation}
                   onClick={() => set({ showOccupation: !settings.showOccupation })}

@@ -103,7 +103,7 @@ export function buildDescendants(
 /** Facts in report order: * ~, every union's ⚭, the optional ⚒/⌂ lines, † ▭. */
 function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions, nowYear: number): FactLine[] {
   return [
-    factFor(indi, ["BIRT"], opts),
+    factFor(indi, ["BIRT"], opts, ds),
     factFor(indi, ["BAPM", "CHR"], opts),
     ...marriageFacts(ds, indi, nameOf, opts, nowYear),
     ...extraFacts(indi, opts),
