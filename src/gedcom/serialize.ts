@@ -1,4 +1,5 @@
 import { firstChild } from "./node";
+import { isPointer } from "./uri";
 import type { Dataset, GedNode } from "./types";
 
 export interface SerializeOptions {
@@ -126,13 +127,26 @@ function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number
     // text begins on a CONT line (e.g. "0 @N@ NOTE" then "1 CONT ..."), so the
     // head line gets no trailing space.
     const segments = node.value.split("\n");
-    pushSegment(lines, head, segments[0], depth, maxLen);
+    pushSegment(lines, head, escapeLeadingAt(segments[0]), depth, maxLen);
     for (let i = 1; i < segments.length; i++) {
-      pushSegment(lines, `${depth + 1} CONT`, segments[i], depth, maxLen);
+      pushSegment(lines, `${depth + 1} CONT`, escapeLeadingAt(segments[i]), depth, maxLen);
     }
   }
 
   for (const child of node.children) emitNode(child, depth + 1, lines, maxLen);
+}
+
+/**
+ * Double a leading at-sign (`@` → `@@`) so a text value can't re-read as a
+ * pointer in a strict importer — the GEDCOM at-sign escape, applied per
+ * physical line (the tag line and each CONT continuation). The parser folds
+ * `@@` back to `@`, so escaping is round-trip symmetric. Values that *are*
+ * at-sign constructs keep their single `@`: pointers (`@I1@`) and 5.5.1
+ * calendar/escape sequences (`@#DJULIAN@ …`).
+ */
+function escapeLeadingAt(text: string): string {
+  if (!text.startsWith("@") || text.startsWith("@#") || isPointer(text)) return text;
+  return "@" + text;
 }
 
 /**

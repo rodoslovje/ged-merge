@@ -251,6 +251,44 @@ describe("serializeGedcom", () => {
     });
   });
 
+  describe("leading at-sign escaping", () => {
+    it("doubles a leading @ so the value can't re-read as a pointer", () => {
+      const out = serializeGedcom([
+        { level: 0, xref: "@N1@", tag: "NOTE", value: "@home with Mother", children: [] },
+      ]);
+      expect(out).toBe("0 @N1@ NOTE @@home with Mother\n");
+    });
+
+    it("escapes each CONT segment's leading @ separately", () => {
+      const out = serializeGedcom([
+        { level: 0, xref: "@N1@", tag: "NOTE", value: "first\n@second", children: [] },
+      ]);
+      expect(out).toBe("0 @N1@ NOTE first\n1 CONT @@second\n");
+    });
+
+    it("round-trips a file that already uses the @@ escape byte-for-byte", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 NOTE @@home", "0 TRLR", ""].join("\n");
+      expect(roundTrip(text)).toBe(text);
+    });
+
+    it("leaves pointer values and calendar escapes untouched", () => {
+      const text = [
+        "0 HEAD",
+        "1 GEDC",
+        "2 VERS 5.5.1",
+        "0 @I1@ INDI",
+        "1 BIRT",
+        "2 DATE @#DJULIAN@ 14 JAN 1700",
+        "1 FAMS @F1@",
+        "0 @F1@ FAM",
+        "1 HUSB @I1@",
+        "0 TRLR",
+        "",
+      ].join("\n");
+      expect(roundTrip(text)).toBe(text);
+    });
+  });
+
   it("renders an inserted node tree at the right depth (ignores node.level)", () => {
     const text = serializeGedcom([
       {

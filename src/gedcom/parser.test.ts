@@ -193,5 +193,75 @@ describe("parseGedcom", () => {
     expect(
       ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@")),
     ).toBe(true);
+    // The shadowed earlier record is dropped from records[] too — otherwise
+    // both would serialize and the *saved* file would carry @I1@ twice.
+    const copies = ds.records.filter((r) => r.xref === "@I1@");
+    expect(copies).toHaveLength(1);
+    expect(copies[0].children.find((c) => c.tag === "NAME")?.value).toBe("Bo /Kos/");
+  });
+
+  it("folds a doubled leading at-sign (@@) back to a literal @", () => {
+    const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE @@home with Mother", "0 TRLR", ""].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    expect(indi.children.find((c) => c.tag === "NOTE")?.value).toBe("@home with Mother");
+  });
+
+  describe("level-jump recovery", () => {
+    it("attaches a line that skips a level to the deepest open node, with a warning", () => {
+      const text = [
+        "0 HEAD",
+        "0 @I1@ INDI",
+        "1 BIRT",
+        "3 PLAC Kranj", // level 3 under a level-1 event: no level-2 parent open
+        "0 TRLR",
+        "",
+      ].join("\n");
+      const parsed = parseGedcom(toBuffer(text));
+      expect(parsed.warnings.some((w) => w.kind === "structure" && w.message.includes("attached to the nearest"))).toBe(
+        true,
+      );
+      // The stray line stays inside its record (under BIRT), not at top level.
+      expect(parsed.records).toHaveLength(3);
+      const birt = parsed.records[1].children.find((c) => c.tag === "BIRT")!;
+      expect(birt.children.find((c) => c.tag === "PLAC")?.value).toBe("Kranj");
+    });
+
+    it("keeps children of a clamped node attached to it", () => {
+      const text = [
+        "0 HEAD",
+        "0 @I1@ INDI",
+        "2 BIRT", // level jump: clamps under INDI
+        "3 DATE 1900", // its child must follow it
+        "0 TRLR",
+        "",
+      ].join("\n");
+      const parsed = parseGedcom(toBuffer(text));
+      const birt = parsed.records[1].children.find((c) => c.tag === "BIRT")!;
+      expect(birt.children.find((c) => c.tag === "DATE")?.value).toBe("1900");
+    });
+  });
+
+  describe("NAME value parsing", () => {
+    const nameOf = (nameLine: string) => {
+      const text = ["0 HEAD", "0 @I1@ INDI", `1 NAME ${nameLine}`, "0 TRLR", ""].join("\n");
+      const ds = buildDataset(parseGedcom(toBuffer(text)));
+      return ds.individuals.get("@I1@")!.names[0];
+    };
+
+    it("keeps a token after the surname as the suffix", () => {
+      const name = nameOf("John /Smith/ Jr");
+      expect(name.given).toBe("John");
+      expect(name.surname).toBe("Smith");
+      expect(name.suffix).toBe("Jr");
+      expect(name.full).toBe("John Smith Jr");
+    });
+
+    it("treats the token after the slashes as the given name when nothing precedes them", () => {
+      const name = nameOf("/Novak/ Janez");
+      expect(name.given).toBe("Janez");
+      expect(name.surname).toBe("Novak");
+      expect(name.suffix).toBeUndefined();
+    });
   });
 });

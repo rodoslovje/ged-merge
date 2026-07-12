@@ -582,6 +582,17 @@ describe("setName", () => {
     expect(rebuildIndividual(ds, indi).names[0].surname).toBe("Kovač");
   });
 
+  it("replaces a / typed into a name part with a space (slash-form delimiter)", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setName(indi, { given: "Janez/Ivan", surname: "Novak" });
+
+    expect(serializeGedcom(ds.records)).toContain("1 NAME Janez Ivan /Novak/");
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.names[0].given).toBe("Janez Ivan");
+    expect(updated.names[0].surname).toBe("Novak");
+  });
+
   it("creates a NAME line when missing", () => {
     const ds = buildFromText([
       "0 HEAD",

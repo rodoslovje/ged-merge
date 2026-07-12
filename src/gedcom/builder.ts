@@ -62,23 +62,35 @@ export function buildDataset(parsed: ParseResult): Dataset {
   // (`1 NOTE @xref@`), so resolve those to real text up front.
   const notes = buildNoteIndex(parsed.records);
 
-  // Duplicate xrefs would silently last-win in the Maps below (and in every
-  // shared-record index above), leaving matching/merge working against a
-  // half-hidden record — surface that instead of hiding it.
+  // Duplicate xrefs last-win in the Maps below (and in every shared-record
+  // index above), leaving matching/merge working against a half-hidden record.
+  // Surface that — and drop the shadowed raw records too, or both would still
+  // serialize and a saved file would carry the same id twice (strict importers
+  // reject that, or bind every pointer to whichever copy they read last).
   const seenXrefs = new Set<string>();
+  let hasDuplicate = false;
   for (const record of parsed.records) {
     if (!record.xref) continue;
     if (seenXrefs.has(record.xref)) {
+      hasDuplicate = true;
       parsed.warnings.push({
         kind: "structure",
-        message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id.`,
+        message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is dropped.`,
       });
     } else {
       seenXrefs.add(record.xref);
     }
   }
+  let records = parsed.records;
+  if (hasDuplicate) {
+    const lastIndex = new Map<string, number>();
+    records.forEach((r, i) => {
+      if (r.xref) lastIndex.set(r.xref, i);
+    });
+    records = records.filter((r, i) => !r.xref || lastIndex.get(r.xref) === i);
+  }
 
-  for (const record of parsed.records) {
+  for (const record of records) {
     if (record.tag === "INDI" && record.xref) {
       individuals.set(record.xref, buildIndividual(record, media, sourceCtx, notes));
     } else if (record.tag === "FAM" && record.xref) {
@@ -91,11 +103,11 @@ export function buildDataset(parsed: ParseResult): Dataset {
     charset: parsed.charset,
     individuals,
     families,
-    records: parsed.records,
+    records,
     warnings: parsed.warnings,
     eol: parsed.eol,
     finalNewline: parsed.finalNewline,
-    chanCreaUsage: detectChanCreaUsage(parsed.records),
+    chanCreaUsage: detectChanCreaUsage(records),
   };
 }
 

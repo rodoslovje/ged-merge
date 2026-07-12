@@ -84,6 +84,7 @@ export type WorkspaceAction =
   | { type: "slotError"; role: DatasetRole; fileName: string; message: string }
   | { type: "slotCleared"; role: DatasetRole }
   | { type: "matchingStarted" }
+  | { type: "matchingStopped" }
   | { type: "matched"; result: MatchResult }
   | { type: "matchesCleared" }
   | { type: "setStart"; id: string | undefined }
@@ -126,6 +127,10 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "matchingStarted":
       return state.matching ? state : { ...state, matching: true };
+
+    case "matchingStopped":
+      // Matching ended without a result (the worker died); drop the spinner.
+      return state.matching ? { ...state, matching: false } : state;
 
     case "matched":
       return { ...state, matches: action.result, matching: false };

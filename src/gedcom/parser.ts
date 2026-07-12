@@ -65,7 +65,12 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     const level = Number(m[1]);
     const xref = m[2];
     const tag = m[3].toUpperCase();
-    const value = m[4];
+    let value = m[4];
+    // GEDCOM doubles a leading at-sign (`@@`) so a value can start with a
+    // literal `@` without reading as a pointer. Fold it back to a single `@`;
+    // the serializer re-doubles it on output, so a valid file still
+    // round-trips byte-faithfully.
+    if (value !== undefined && value.startsWith("@@")) value = value.slice(1);
 
     // CONT (new line) and CONC (no separator) extend the parent's value.
     if (tag === "CONT" || tag === "CONC") {
@@ -97,13 +102,21 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
           textBlob.value = (textBlob.value ?? "") + "\n" + line;
           continue;
         }
+        // Clamp the level jump: attach to the deepest open node, so the line
+        // stays inside the record it appeared in (serialization takes depth
+        // from tree position, so it re-emits at the clamped level). Promoting
+        // it to a root would silently move the data out of its record.
+        let ancestor: GedNode | undefined;
+        for (let l = Math.min(level, stack.length) - 1; l >= 0 && !ancestor; l--) ancestor = stack[l];
         warnings.push({
           kind: "structure",
-          message: `Line at level ${level} has no parent at level ${level - 1}`,
+          message: `Line at level ${level} has no parent at level ${level - 1}; ${
+            ancestor ? `attached to the nearest containing ${ancestor.tag} line` : "kept as a top-level record"
+          }.`,
           line: i + 1,
         });
-        // Treat as a root to avoid losing data.
-        roots.push(node);
+        if (ancestor) ancestor.children.push(node);
+        else roots.push(node); // nothing open at all — keep as a root rather than lose data
       } else {
         parent.children.push(node);
       }

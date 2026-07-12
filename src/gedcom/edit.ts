@@ -325,7 +325,12 @@ export function removeFamilyEvent(fam: Family, tag: string): void {
  * let them go stale and contradict the edited name — always remove them.
  */
 function writeNameValue(node: GedNode, given: string, surname: string): void {
-  node.value = surname ? `${given} /${surname}/`.trim() : given;
+  // `/` is the slash-form's surname delimiter and has no escape in GEDCOM —
+  // a part containing one would corrupt the value ("Janez/Ivan /Novak/" reads
+  // back with surname "Ivan "). Replace it with a space to keep the name legible.
+  const g = given.replace(/\s*\/\s*/g, " ").trim();
+  const s = surname.replace(/\s*\/\s*/g, " ").trim();
+  node.value = s ? `${g} /${s}/`.trim() : g;
   removeChildren(node, ["GIVN", "SURN"]);
 }
 

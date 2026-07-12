@@ -29,7 +29,7 @@ export function isUnknownNameToken(text: string | undefined): boolean {
  */
 export function parseName(value: string | undefined, subTags: Map<string, string>): PersonName {
   const prefix = subTags.get("NPFX");
-  const suffix = subTags.get("NSFX");
+  let suffix = subTags.get("NSFX");
   const nickname = subTags.get("NICK");
   const type = subTags.get("TYPE");
   // Married surname stored inline (Gramps/PAF/Brother's Keeper style). The
@@ -49,6 +49,14 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   if (slash) {
     given = slash[1].trim() || undefined;
     surname = slash[2].trim() || undefined;
+    // A token after the closing slash is conventionally a suffix
+    // ("John /Smith/ Jr"); when nothing precedes the slashes it's the given
+    // name of a surname-first writer ("/Novak/ Janez").
+    const trailing = slash[3].trim() || undefined;
+    if (trailing) {
+      if (given) suffix = trailing;
+      else given = trailing;
+    }
   } else {
     given = raw || undefined;
   }

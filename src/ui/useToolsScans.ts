@@ -152,6 +152,20 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
             p.onResult(res.data);
           }
         };
+        // The worker died outside a request handler (uncaught throw) or a
+        // message failed to (de)serialize — no per-request `error` response is
+        // coming, so fail every waiter or their scans would spin forever.
+        const fail = (message: string) => {
+          if (workerRef.current !== worker) return; // late event from a replaced worker
+          const waiting = [...pendingRef.current.values()];
+          terminate(); // worker state is unknown; the next scan respawns fresh
+          for (const p of waiting) {
+            if (p.onError) p.onError(message);
+            else console.error(`tools worker: ${message}`);
+          }
+        };
+        worker.onerror = (e: ErrorEvent) => fail(e.message || "The background worker failed.");
+        worker.onmessageerror = () => fail("The background worker sent an unreadable message.");
         workerRef.current = worker;
       }
       const key = `${datasetSeqRef.current}:${editVersionRef.current}`;
@@ -162,7 +176,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
       pendingRef.current.set(req.requestId, pending);
       workerRef.current.postMessage(req);
     },
-    [editVersionRef],
+    [editVersionRef, terminate],
   );
 
   const start = useCallback(

@@ -496,8 +496,25 @@ function AppContent() {
         hydratedRef.current = true;
       }
   };
+  // The worker itself died (uncaught throw or an undeliverable message): fail
+  // whatever was waiting on it, or the slot/matching spinners hang forever
+  // with nothing in the UI hinting why.
+  const handleWorkerFailure = (message: string) => {
+    for (const role of ["main", "compare"] as const) {
+      const slot = workspace[role];
+      if (slot.status === "loading") {
+        dispatch({ type: "slotError", role, fileName: slot.fileName, message });
+        // Same as a parse failure: a file whose load crashes the worker must
+        // not stay cached, or every reload would crash into it again.
+        void deleteFile(role);
+      }
+    }
+    matchingStartRef.current = null;
+    dispatch({ type: "matchingStopped" });
+    hydratedRef.current = true; // a failed restore must not block persistence
+  };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
-  const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage);
+  const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
 
   // Restore a cached workspace on mount: re-feed the stored files through the
   // worker so the parse → normalize → match pipeline (and start-person ranking)

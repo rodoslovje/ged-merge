@@ -13,6 +13,10 @@ import type { WorkerRequest, WorkerResponse } from "../worker/messages";
  */
 export function useGedcomWorker(
   onMessage: (msg: WorkerResponse) => void,
+  /** Called when the worker itself fails — an uncaught throw (`onerror`) or an
+   *  undeliverable message (`onmessageerror`). Without it such failures are
+   *  silent and a "loading"/"matching" state would spin forever. */
+  onFailure?: (message: string) => void,
 ): {
   post: (msg: WorkerRequest, transfer?: Transferable[]) => void;
   /** Terminate the running worker and start a fresh one. Used to hard-abort an
@@ -23,12 +27,24 @@ export function useGedcomWorker(
   const workerRef = useRef<Worker | null>(null);
   const handlerRef = useRef(onMessage);
   handlerRef.current = onMessage;
+  const failureRef = useRef(onFailure);
+  failureRef.current = onFailure;
 
   const spawn = useCallback(() => {
     const worker = new Worker(new URL("../worker/gedcom.worker.ts", import.meta.url), {
       type: "module",
     });
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => handlerRef.current(e.data);
+    worker.onerror = (e: ErrorEvent) => {
+      if (workerRef.current !== worker) return; // late event from a replaced worker
+      console.error("gedcom worker:", e.message, e);
+      failureRef.current?.(e.message || "The background worker failed.");
+    };
+    worker.onmessageerror = () => {
+      if (workerRef.current !== worker) return;
+      console.error("gedcom worker: message could not be deserialized");
+      failureRef.current?.("The background worker sent an unreadable message.");
+    };
     workerRef.current = worker;
   }, []);
 
