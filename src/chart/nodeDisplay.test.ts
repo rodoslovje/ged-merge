@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
 
 /** Minimal Individual carrying only the events `placeLabel` reads. */
 function person(events: { tag: string; place?: string }[]): Individual {
@@ -59,5 +59,42 @@ describe("nodeDisplay", () => {
   it("does not redact deceased people even with privacy on", () => {
     const d = nodeDisplay(opts({ privacyLiving: true }), { ...base, living: false });
     expect(d.name).toBe("Janez Novak");
+  });
+
+  it("folds age into the lifespan line when both are shown", () => {
+    const d = nodeDisplay(opts({ showAge: true }), { ...base, age: 73, ageLabel: "age" });
+    expect(d.years).toBe("1817–1890 (73)");
+  });
+
+  it("shows a standalone age line when the lifespan is hidden", () => {
+    const d = nodeDisplay(opts({ showLifespan: false, showAge: true }), { ...base, age: 73, ageLabel: "star" });
+    expect(d.years).toBe("star 73");
+  });
+
+  it("leaves the lifespan alone when age is off or unknown", () => {
+    expect(nodeDisplay(opts({ showAge: false }), { ...base, age: 73, ageLabel: "age" }).years).toBe("1817–1890");
+    expect(nodeDisplay(opts({ showAge: true }), { ...base, age: undefined, ageLabel: "age" }).years).toBe("1817–1890");
+  });
+});
+
+describe("lifespanLine", () => {
+  const of = (o: { showLifespan: boolean; showAge: boolean }, i: { years?: string; age?: number; ageLabel?: string }) =>
+    lifespanLine(o, i);
+
+  it("combines lifespan and age in parentheses", () => {
+    expect(of({ showLifespan: true, showAge: true }, { years: "1850–1920", age: 70, ageLabel: "age" })).toBe("1850–1920 (70)");
+  });
+
+  it("shows the labelled age alone when the lifespan is off", () => {
+    expect(of({ showLifespan: false, showAge: true }, { years: "1850–1920", age: 70, ageLabel: "stara" })).toBe("stara 70");
+  });
+
+  it("returns just the lifespan when age is off", () => {
+    expect(of({ showLifespan: true, showAge: false }, { years: "1850–1920", age: 70, ageLabel: "age" })).toBe("1850–1920");
+  });
+
+  it("returns nothing when neither is shown or no data backs them", () => {
+    expect(of({ showLifespan: false, showAge: false }, { years: "1850–1920", age: 70, ageLabel: "age" })).toBeUndefined();
+    expect(of({ showLifespan: true, showAge: true }, { years: "", age: undefined, ageLabel: "age" })).toBeUndefined();
   });
 });

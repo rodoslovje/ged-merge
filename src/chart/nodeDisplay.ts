@@ -15,6 +15,9 @@ export interface NodeDisplayOptions {
   showKinship: boolean;
   showPhoto: boolean;
   showLifespan: boolean;
+  /** Show the person's age — folded into the lifespan line as "(N)", or, when
+   *  the lifespan is hidden, standing on its own as "<age-word> N". */
+  showAge: boolean;
   showPlace: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
@@ -28,6 +31,7 @@ export const ALL_DISPLAY: NodeDisplayOptions = {
   showKinship: true,
   showPhoto: true,
   showLifespan: true,
+  showAge: false,
   showPlace: true,
   showMarriageDate: true,
   showMarriagePlace: true,
@@ -68,6 +72,15 @@ export function livingLabelFor(t: Translate, sex?: Sex | string): string {
   return t("tree.node.living", { context: sex === "M" || sex === "F" ? sex : undefined });
 }
 
+/**
+ * The word introducing a standalone age line ("age", or the gendered Slovenian
+ * "star"/"stara"), gendered when the sex is known via the same `_M`/`_F` context
+ * convention as {@link livingLabelFor}.
+ */
+export function ageLabelFor(t: Translate, sex?: Sex | string): string {
+  return t("tree.node.age", { context: sex === "M" || sex === "F" ? sex : undefined });
+}
+
 /** Place events tried in order — show the first one that records a place. */
 const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
 
@@ -91,6 +104,12 @@ export function placeLabel(indi: Individual | undefined): string | undefined {
 export interface NodeDisplayInput {
   name: string;
   years?: string;
+  /** The person's whole-years age (at death, or current for the living), when
+   *  known — see `lifespanAge`. Folded into the shown lifespan line. */
+  age?: number;
+  /** The localized, gendered word to introduce a standalone age line — supply
+   *  {@link ageLabelFor}. Only used when the lifespan line is hidden. */
+  ageLabel?: string;
   place?: string;
   /** Kinship-to-start label, when known. */
   kinship?: string;
@@ -119,6 +138,23 @@ export interface NodeDisplay {
 }
 
 /**
+ * The lifespan line with the age folded in, honouring the two toggles:
+ * lifespan + age → "1817–1890 (73)"; age only → "<ageLabel> 73"; lifespan only
+ * → "1817–1890"; neither (or no data) → undefined. Shared by every chart that
+ * renders a lifespan line so the behaviour stays identical.
+ */
+export function lifespanLine(
+  opts: { showLifespan: boolean; showAge: boolean },
+  input: { years?: string; age?: number; ageLabel?: string },
+): string | undefined {
+  const span = opts.showLifespan ? input.years || undefined : undefined;
+  if (opts.showAge && input.age !== undefined) {
+    return span ? `${span} (${input.age})` : `${input.ageLabel ?? ""} ${input.age}`.trim();
+  }
+  return span;
+}
+
+/**
  * Resolve which fields a node actually shows under the current settings. A living
  * person in privacy mode collapses to just their relationship (or "Living"): no
  * years, place, kinship line, or photo. Otherwise each field is gated by its toggle.
@@ -135,7 +171,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
   }
   return {
     name: input.name,
-    years: opts.showLifespan ? input.years : undefined,
+    years: lifespanLine(opts, input),
     place: opts.showPlace ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,

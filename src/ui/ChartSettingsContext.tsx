@@ -39,6 +39,9 @@ export interface ChartSettings {
   showPhoto: boolean;
   /** Show the birth–death lifespan years. */
   showLifespan: boolean;
+  /** Show the person's age: appended to the lifespan in parentheses, or — when
+   *  the lifespan is hidden — as its own "age N" line. */
+  showAge: boolean;
   /** Show a place line (first available of birth / residence / death). */
   showPlace: boolean;
   /** Show the status badges on nodes — the merge-decision C/R/D letters, the
@@ -79,6 +82,7 @@ const DEFAULTS: ChartSettings = {
   showKinship: true,
   showPhoto: true,
   showLifespan: true,
+  showAge: false,
   showPlace: false,
   showBadges: true,
   showMarriageDate: false,
@@ -137,6 +141,7 @@ function load(): ChartSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
+      showAge: bool(parsed.showAge, DEFAULTS.showAge),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
       showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),

@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../chart/timeline";
-import { formatMarriage, livingLabelFor } from "../chart/nodeDisplay";
+import { ageLabelFor, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
+import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -255,8 +256,13 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
   const rowMeta = (row: TimelineRow): string => {
     const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
     if (redacted(row)) return role ?? "";
+    const lifespan = lifespanLine(settings, {
+      years: row.years,
+      age: lifespanAge(mainDs.individuals.get(row.id)),
+      ageLabel: ageLabelFor(t, row.sex),
+    });
     const parts = [
-      settings.showLifespan ? row.years : undefined,
+      lifespan,
       settings.showPlace ? row.place : undefined,
       role,
     ].filter(Boolean);

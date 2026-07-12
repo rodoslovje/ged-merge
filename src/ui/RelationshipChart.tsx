@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
+import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { formatMarriage, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -288,6 +289,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
                       <TreeNodeBox
                         name={b.name}
                         years={b.years}
+                        age={lifespanAge(indi)}
                         place={placeLabel(indi)}
                         sex={b.sex}
                         color={color}

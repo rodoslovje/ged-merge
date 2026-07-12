@@ -524,6 +524,7 @@ export const en = {
   "tree.settings.alignment.tb": "Top → Bottom",
   "tree.settings.person": "Person",
   "tree.settings.display.lifespan": "Lifespan",
+  "tree.settings.display.age": "Age",
   "tree.settings.display.photo": "Photo",
   "tree.settings.display.kinship": "Kinship",
   "tree.settings.display.place": "Place",
@@ -640,6 +641,7 @@ export const en = {
   // The cited page in a source line: "§ Krstna knjiga, page 23".
   "report.source.page": "page {{page}}",
   "tree.node.living": "Living",
+  "tree.node.age": "age",
   "tree.openInMatches": "Open this match in the Matches list",
   "tree.main": "Main",
   "tree.incoming": "Incoming",
