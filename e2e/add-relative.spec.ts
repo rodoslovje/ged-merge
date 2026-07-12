@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
+const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
 test("edit mode: adding father/mother/partner/child creates new people and links them", async ({ page }) => {
   await page.goto("/");
