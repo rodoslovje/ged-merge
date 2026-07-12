@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageLabelFor, formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
+import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
@@ -94,7 +94,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
     // The endpoint always shows the lifespan; Age appends "(N)" when it's on.
     return lifespanLine(
       { showLifespan: true, showAge: settings.showAge },
-      { years: lifespanOf(indi), age: lifespanAge(indi), ageLabel: ageLabelFor(t, indi.sex) },
+      { years: lifespanOf(indi), age: lifespanAge(indi) },
     );
   };
 

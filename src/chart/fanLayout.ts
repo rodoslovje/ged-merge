@@ -163,9 +163,9 @@ export function buildFanChart(
     /** Localized "Living" placeholder for a redacted living person, resolved
      *  per node so it can follow the person's sex. */
     livingLabelOf?: (node: TreeNode) => string;
-    /** Localized, gendered word introducing a standalone age line ("age" /
-     *  "star" / "stara"), resolved per node so it can follow the person's sex. */
-    ageLabelOf?: (node: TreeNode) => string;
+    /** Fully-localized standalone age phrase ("age 40" / "star 40 let"),
+     *  resolved per node so it can follow the person's sex and age. */
+    ageTextOf?: (node: TreeNode) => string | undefined;
     /** Relationship of a node to the chart root ("Father", "Grandmother", …),
      *  shown in place of a redacted living person's name. */
     kinshipOf?: (node: TreeNode) => string | undefined;
@@ -175,7 +175,7 @@ export function buildFanChart(
   const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
   const display = opts.display ?? ALL_DISPLAY;
   const livingLabelOf = opts.livingLabelOf ?? (() => "Living");
-  const ageLabelOf = opts.ageLabelOf ?? (() => "age");
+  const ageTextOf = opts.ageTextOf ?? (() => undefined);
   // Only reserve photo space for people who actually have one — and only when the
   // photo field is shown (privacy hides it). Otherwise the text uses the full ring.
   const hasPhoto = (node: TreeNode) =>
@@ -192,7 +192,7 @@ export function buildFanChart(
       name: node.name,
       years: node.years,
       age: node.age,
-      ageLabel: ageLabelOf(node),
+      ageText: ageTextOf(node),
       place: node.place,
       kinship,
       living: node.living,

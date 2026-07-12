@@ -91,7 +91,7 @@ describe("report Age fact option", () => {
       .generations.flatMap((g) => g.entries)
       .find((e) => e.id === "@I3@")!;
     const prose = narrativeParagraph(makeT("sl"), narrativeLangFor("sl"), entry, planEntry(entry));
-    // Peter is male → "star", not "stara".
-    expect(prose).toContain("(star 64)");
+    // Peter is male → "star", not "stara"; the unit "let" trails the number.
+    expect(prose).toContain("(star 64 let)");
   });
 });

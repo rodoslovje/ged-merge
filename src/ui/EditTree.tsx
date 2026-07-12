@@ -11,7 +11,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { useFanChart } from "./useFanChart";
-import { ageLabelFor, formatMarriage, lifespanLine } from "../chart/nodeDisplay";
+import { formatMarriage, lifespanLine } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonMedia";
@@ -248,7 +248,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
   const rootYears = tree
-    ? lifespanLine({ showLifespan: true, showAge: display.showAge }, { years: tree.years, age: tree.age, ageLabel: ageLabelFor(t, tree.sex) })
+    ? lifespanLine({ showLifespan: true, showAge: display.showAge }, { years: tree.years, age: tree.age })
     : undefined;
   // Shared title for the SVG / PDF export header.
   const editTreeTitle = [tree?.name, rootYears, "—", chartKind].filter(Boolean).join(" ");

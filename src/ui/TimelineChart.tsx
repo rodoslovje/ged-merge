@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../chart/timeline";
-import { ageLabelFor, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -244,7 +244,7 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
     rootRow && !redacted(rootRow)
       ? lifespanLine(
           { showLifespan: true, showAge: settings.showAge },
-          { years: rootRow.years, age: lifespanAge(mainDs.individuals.get(rootRow.id)), ageLabel: ageLabelFor(t, rootRow.sex) },
+          { years: rootRow.years, age: lifespanAge(mainDs.individuals.get(rootRow.id)) },
         )
       : undefined;
   const exportTitle = [rootRow && rowName(rootRow), rootYears, "—", pageKind].filter(Boolean).join(" ");
@@ -262,10 +262,11 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
   const rowMeta = (row: TimelineRow): string => {
     const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
     if (redacted(row)) return role ?? "";
+    const age = lifespanAge(mainDs.individuals.get(row.id));
     const lifespan = lifespanLine(settings, {
       years: row.years,
-      age: lifespanAge(mainDs.individuals.get(row.id)),
-      ageLabel: ageLabelFor(t, row.sex),
+      age,
+      ageText: age !== undefined ? ageStandalone(t, row.sex, age) : undefined,
     });
     const parts = [
       lifespan,

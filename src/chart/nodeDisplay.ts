@@ -73,12 +73,13 @@ export function livingLabelFor(t: Translate, sex?: Sex | string): string {
 }
 
 /**
- * The word introducing a standalone age line ("age", or the gendered Slovenian
- * "star"/"stara"), gendered when the sex is known via the same `_M`/`_F` context
- * convention as {@link livingLabelFor}.
+ * The full standalone age phrase for a node's own line when the lifespan is
+ * hidden — "age 40", or the gendered, unit-bearing Slovenian "star 40 let" /
+ * "stara 40 let". Gendered via the same `_M`/`_F` context convention as
+ * {@link livingLabelFor}; the number is interpolated so the unit can trail it.
  */
-export function ageLabelFor(t: Translate, sex?: Sex | string): string {
-  return t("tree.node.age", { context: sex === "M" || sex === "F" ? sex : undefined });
+export function ageStandalone(t: Translate, sex: Sex | string | undefined, age: number): string {
+  return t("tree.node.agePhrase", { context: sex === "M" || sex === "F" ? sex : undefined, age });
 }
 
 /** Place events tried in order — show the first one that records a place. */
@@ -107,9 +108,9 @@ export interface NodeDisplayInput {
   /** The person's whole-years age (at death, or current for the living), when
    *  known — see `lifespanAge`. Folded into the shown lifespan line. */
   age?: number;
-  /** The localized, gendered word to introduce a standalone age line — supply
-   *  {@link ageLabelFor}. Only used when the lifespan line is hidden. */
-  ageLabel?: string;
+  /** The fully-localized standalone age phrase ("age 40" / "star 40 let") —
+   *  supply {@link ageStandalone}. Only used when the lifespan line is hidden. */
+  ageText?: string;
   place?: string;
   /** Kinship-to-start label, when known. */
   kinship?: string;
@@ -139,17 +140,18 @@ export interface NodeDisplay {
 
 /**
  * The lifespan line with the age folded in, honouring the two toggles:
- * lifespan + age → "1817–1890 (73)"; age only → "<ageLabel> 73"; lifespan only
- * → "1817–1890"; neither (or no data) → undefined. Shared by every chart that
- * renders a lifespan line so the behaviour stays identical.
+ * lifespan + age → "1817–1890 (73)"; age only → the standalone "age 73" /
+ * "star 73 let" ({@link ageText}); lifespan only → "1817–1890"; neither (or no
+ * data) → undefined. Shared by every chart that renders a lifespan line so the
+ * behaviour stays identical.
  */
 export function lifespanLine(
   opts: { showLifespan: boolean; showAge: boolean },
-  input: { years?: string; age?: number; ageLabel?: string },
+  input: { years?: string; age?: number; ageText?: string },
 ): string | undefined {
   const span = opts.showLifespan ? input.years || undefined : undefined;
   if (opts.showAge && input.age !== undefined) {
-    return span ? `${span} (${input.age})` : `${input.ageLabel ?? ""} ${input.age}`.trim();
+    return span ? `${span} (${input.age})` : (input.ageText ?? String(input.age));
   }
   return span;
 }
