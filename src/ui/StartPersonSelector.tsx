@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
+import { foldSearch } from "./globalSearch";
 import { useNameOf } from "./SettingsContext";
 import { SearchIcon } from "./icons/SearchIcon";
 
@@ -76,7 +77,7 @@ export function StartPersonSelector({
         .map((i) => {
           const span = lifespanOf(i);
           const name = nameOf(i);
-          const search = span ? `${nameSearchText(i)} ${span}` : nameSearchText(i);
+          const search = foldSearch(span ? `${nameSearchText(i)} ${span}` : nameSearchText(i));
           return { id: i.id, text: span ? `${name} ${span}` : name, title: datesTooltipOf(i), search };
         })
         .sort((a, b) => a.text.localeCompare(b.text)),
@@ -87,7 +88,7 @@ export function StartPersonSelector({
     // Every whitespace-separated term must appear somewhere in the person's name
     // text, in any order — so "rezka jeko" finds someone with nick "Rezka" and
     // married name "Jekovec" even though those live in different name fields.
-    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const terms = foldSearch(query.trim()).split(/\s+/).filter(Boolean);
     const base = terms.length
       ? options.filter((o) => terms.every((term) => o.search.includes(term)))
       : options;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Translate } from "../../locales/i18n";
+import { openPickerOnEnter } from "./openPicker";
 
 /** Dropdown chip that adds an event tag from a list of available tags.
  * Resets to the placeholder after selection. */
@@ -29,6 +30,7 @@ export function AddEventSelect({
       <select
         className="add-chip-select-inner"
         value={value}
+        onKeyDown={openPickerOnEnter}
         onChange={(e) => {
           const tag = e.target.value;
           setValue("");

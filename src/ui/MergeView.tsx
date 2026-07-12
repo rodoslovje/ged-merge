@@ -1,7 +1,6 @@
 import { type Dispatch, type RefObject, type SetStateAction, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
@@ -13,6 +12,7 @@ import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
 import {
+  candidateLifespan,
   type Candidate,
   type Filters,
   type SortKey,
@@ -221,17 +221,15 @@ export function MergeView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
+  const currentLifespan = current ? candidateLifespan(current, mainDataset, settings.showAge, t) : undefined;
   const compareHeader = current ? (
     <>
       <div className={`person-label ${sexClass(current.sex)}`}>
         <span className="person-name-group">
           <span className="person-name">{current.name}</span>
-          {formatLifespan(current.birthYear, current.deathYear, current.deceased) && (
-            <span
-              className="person-years gm-data"
-              title={datesTooltip(current.birthDate, current.deathDate, current.deceased)}
-            >
-              {formatLifespan(current.birthYear, current.deathYear, current.deceased)}
+          {currentLifespan?.span && (
+            <span className="person-years gm-data" title={currentLifespan.title}>
+              {currentLifespan.span}
             </span>
           )}
           {status !== "undecided" && (
@@ -324,6 +322,7 @@ export function MergeView({
                   showFilters={showFilters}
                   showRelation={!!startId}
                   kinshipByMain={kinshipByMain}
+                  mainDataset={mainDataset}
                 />
               </Section>
             </div>

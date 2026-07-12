@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../chart/fanLayout";
 import type { TreeNode } from "../chart/personTree";
-import { livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ageStandalone, livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
 // Compare trees: build the FanChart from the (prebuilt) ancestors tree and
@@ -33,9 +33,10 @@ export function useFanChart(
   const { hasPhoto, display, kinshipOf } = opts;
   const { t } = useTranslation();
   const livingLabelOf = useCallback((n: TreeNode) => livingLabelFor(t, n.sex), [t]);
+  const ageTextOf = useCallback((n: TreeNode) => (n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined), [t]);
   const fan = useMemo(
-    () => (tree ? buildFanChart(tree, shape, { hasPhoto, display, livingLabelOf, kinshipOf }) : undefined),
-    [tree, shape, hasPhoto, display, livingLabelOf, kinshipOf],
+    () => (tree ? buildFanChart(tree, shape, { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf }) : undefined),
+    [tree, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf],
   );
   const nodes = useMemo(() => {
     const m = new Map<string, FanSegment>();

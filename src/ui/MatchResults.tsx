@@ -13,8 +13,9 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 import { formatFieldLabel } from "../review/fields";
-import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
-import { formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import type { Dataset } from "../gedcom/types";
+import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
 
 interface Props {
@@ -34,6 +35,8 @@ interface Props {
   showFilters: boolean;
   /** Per-main kinship to the start person, shown under each name. */
   kinshipByMain?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
+  /** Live main dataset, to resolve each row's record for the age suffix. */
+  mainDataset: Dataset | undefined;
 }
 
 /** Shared attributes for the small, language-neutral column-header icons. */
@@ -63,8 +66,10 @@ export function MatchResults({
   showRelation,
   showFilters,
   kinshipByMain,
+  mainDataset,
 }: Props) {
   const { t } = useTranslation();
+  const { settings } = useSettings();
   const total = result.individuals.length;
 
   // Rank 0 = primary (▲/▼), rank 1 = secondary (△/▽).
@@ -289,6 +294,8 @@ export function MatchResults({
               showRelation={showRelation}
               kinship={kinshipByMain?.get(c.mainId)}
               onSelect={onSelect}
+              mainDataset={mainDataset}
+              showAge={settings.showAge}
             />
           ))}
         </ul>
@@ -305,6 +312,8 @@ const CandidateRow = memo(function CandidateRow({
   showRelation,
   kinship,
   onSelect,
+  mainDataset,
+  showAge,
 }: {
   candidate: IndividualCandidate;
   index: number;
@@ -313,8 +322,11 @@ const CandidateRow = memo(function CandidateRow({
   showRelation: boolean;
   kinship?: { label: string; lineageClass: string; tooltip?: string };
   onSelect: (index: number) => void;
+  mainDataset: Dataset | undefined;
+  showAge: boolean;
 }) {
   const { t } = useTranslation();
+  const lifespan = candidateLifespan(candidate, mainDataset, showAge, t);
 
   // Cached per candidate, so re-renders triggered only by an index shift (e.g.
   // a filter toggle) don't rebuild this string for every row.
@@ -339,12 +351,9 @@ const CandidateRow = memo(function CandidateRow({
         <button className="candidate-main" onClick={() => onSelect(index)}>
           <span className={`person-label ${sexClass(candidate.sex)}`}>
             <span className="person-name">{candidate.name}</span>
-            {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased) && (
-              <span
-                className="person-years gm-data"
-                title={datesTooltip(candidate.birthDate, candidate.deathDate, candidate.deceased)}
-              >
-                {formatLifespan(candidate.birthYear, candidate.deathYear, candidate.deceased)}
+            {lifespan.span && (
+              <span className="person-years gm-data" title={lifespan.title}>
+                {lifespan.span}
               </span>
             )}
             {candidate.relationshipLinked && (

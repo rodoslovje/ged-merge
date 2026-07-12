@@ -2336,33 +2336,34 @@ button:focus-visible {
  * otherwise each row sizes its 2fr/1fr columns from its own content only,
  * and Place/Address/Source drift out of alignment row to row. */
 .edit-events {
-  display: grid;
-  grid-template-columns: 96px 180px 2fr 1fr auto;
   font-size: 0.88rem;
 }
 
+/* One wrapping line per event. Label and date are fixed-width leading items so
+ * they line up as a table across events; the body fields (place + all secondary
+ * fields) follow and wrap — and because the whole row is one flex-wrap context
+ * (the body is `display: contents`), wrapped fields fall back to the full width
+ * under the date rather than being trapped in a third column. */
 .edit-event {
-  display: grid;
-  grid-template-columns: 96px 180px 2fr 1fr auto;
-  gap: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  row-gap: 4px;
   align-items: baseline;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
-/* Inside .edit-events, subgrid the shared tracks so column widths are
- * computed once across all rows instead of per row. */
-.edit-events > .edit-event {
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-}
 /* The header row that used to sit above the first event is gone, so give the
  * first event a top border to keep it separated from the content above. */
 .edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
-/* Column 1, row 1: the event-type label with the expand toggle right beside it. */
+/* Leading item 1: the event-type label with the expand toggle right beside it.
+ * Fixed width so dates line up across events, and right-aligned so every label
+ * ends just before the date — short labels no longer leave a gap, and long ones
+ * overflow to the left (never toward the date). */
 .edit-event-type-row {
-  grid-column: 1;
-  grid-row: 1;
+  flex: 0 0 96px;
   display: flex;
+  justify-content: flex-end;
   align-items: baseline;
   gap: 6px;
 }
@@ -2387,16 +2388,18 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-/* Column 2 stacks date (row 1), sources (row 2) and — for standard events —
- * the TYPE sub-tag (row 3) beneath each other. */
+/* Leading item 2: the date. The cell is a fixed 8em slot with the date pushed to
+ * its right edge, so the years line up in a column across rows (whether or not
+ * ages are shown). The input itself is content-width — not a full-slot box — so
+ * a focused date field hugs its text instead of a wide box with empty space; the
+ * age badge sits just after the slot (outside it, so it never shifts the date). */
 .edit-event-date-cell {
-  grid-column: 2;
-  grid-row: 1;
+  flex: 0 0 8em;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
 }
-.edit-event-date-cell > .clearable-wrap { flex: 1; min-width: 0; }
+.edit-event-date-cell > .clearable-wrap { flex: 0 0 auto; min-width: 0; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {
@@ -2407,6 +2410,8 @@ button:focus-visible {
   font-size: 0.9em;
   white-space: nowrap;
 }
+/* In the merge compare table the badge trails the date text inline. */
+.compare-event-age { margin-left: 0.5em; vertical-align: baseline; }
 .edit-event-sources-cell {
   grid-column: 2;
   grid-row: 2;
@@ -2429,6 +2434,82 @@ button:focus-visible {
 .edit-event-place,
 .edit-event-addr { width: 100%; min-width: 0; }
 .edit-event-date { text-align: right; }
+/* Compact events: a field with no value (`.ev-collapsed`) takes zero height at
+ * rest and is revealed only while the event row is hovered or focused, so a
+ * simple event (date + place) sits on one line instead of reserving empty
+ * rows. Populated fields already rise to the top rows (see `rowOf`), so the
+ * revealed empty ones appear beneath them without shifting the visible values.
+ * Place/address wrappers are block; every other optional wrapper is a flex row. */
+/* Empty fields the user hasn't added stay hidden — they're added on demand from
+ * the "+ Detail" menu, not revealed en masse (which read as a crowded row of
+ * blank labelled inputs). */
+.edit-event .ev-collapsed { display: none; }
+/* The "+ Add" menu is a real (visible) <select> styled as a dashed chip, so it
+ * opens reliably from the keyboard (Tab to it, then Space / Enter / ↓) — unlike
+ * the opacity-0 overlay chips. At rest it's collapsed to nothing but stays in
+ * the DOM and focusable (so it keeps its place in the tab order and focus can
+ * return to it after a dialog closes); it expands to a chip on hover, on focus,
+ * or when any field in the event is focused. */
+.edit-event-addfield {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px dashed transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.edit-event:hover .edit-event-addfield,
+.edit-event:focus-within .edit-event-addfield,
+.edit-event-addfield:focus {
+  width: auto;
+  opacity: 1;
+  overflow: visible;
+  padding: 2px 6px;
+  border-color: var(--border-2);
+}
+.edit-event-addfield:hover,
+.edit-event-addfield:focus-visible { border-color: var(--accent); color: var(--text); }
+/* Body: the primary field (place, or a value-event's value) plus sources and
+ * the secondary fields (type, agency, cause, note, and — for value-events —
+ * place/address) all flow together and wrap, each a content-sized input (the
+ * secondary ones prefixed by a hover label), so populated fields pack onto the
+ * first row beside the place and only spill to a second row when they don't
+ * fit — no fixed grid cells, no near-empty rows. */
+/* The body isn't its own box — its fields join the event's flex-wrap line
+ * directly, so they flow after the date and wrap back to the full width. */
+.edit-event-body { display: contents; }
+.edit-event-primary { min-width: 0; }
+.edit-event-extra {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+/* At rest an extras field shows only its value (kept clean); its name appears
+ * as a faint label when the event row is hovered or focused, and always as the
+ * input's native tooltip. */
+.edit-event-extra-label {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+  display: none;
+}
+.edit-event:hover .edit-event-extra-label,
+.edit-event:focus-within .edit-event-extra-label { display: inline; }
+.edit-event-extra-field { min-width: 0; }
+.edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* The note is content-sized like the other fields (it wraps its text within
+ * that width); when long it pushes the whole body to a second row. */
+.edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
 .edit-event-link {
   color: var(--accent);
   word-break: break-all;
@@ -2467,6 +2548,11 @@ button:focus-visible {
   cursor: pointer;
   user-select: none;
 }
+/* The overlay <select> is at opacity 0, so keyboard focus shows on the chip
+ * label instead — this is what makes "+ Add", the event-type ▾ and the
+ * add-event chips reachable and operable from the keyboard (Tab to focus, then
+ * Space / Enter / ↓ opens the menu). */
+.add-chip-select:focus-within { border-color: var(--accent); color: var(--text); }
 .add-chip-select-inner {
   position: absolute;
   inset: 0;
@@ -2566,6 +2652,23 @@ button:focus-visible {
 .sex-select:focus { outline: none; border-color: var(--accent); }
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
+
+/* One consistent keyboard-focus ring for every edit chip / dropdown — the
+ * add-event / add-source / add-note chips, the Sex picker, the event-type ▾ and
+ * the "+ Add" field menu — so focus looks the same whether the control is a
+ * button, a plain <select>, or a <label> wrapping an opacity-0 overlay select
+ * (which needs :focus-within, since the select's own ring is invisible). */
+.sex-select:focus-visible,
+.edit-name-chip-add:focus-visible,
+.add-chip:focus-visible,
+.add-chip-select:focus-within,
+.edit-link-add:focus-visible,
+.edit-event-addfield:focus-visible,
+.edit-event-label--select:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 
 .edit-links {
   font-size: 0.88rem;
@@ -2879,6 +2982,7 @@ button:focus-visible {
 .edit-record-label-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 4px;
 }
@@ -5371,26 +5475,12 @@ kbd {
     width: 100%;
   }
 
-  /* Event rows: collapse the 5-column desktop grid into a compact two-column
-   * layout — label + toggle on top, then date/sources, then the field pairs
-   * two per row (their inline grid-row is overridden so they flow naturally). */
-  .edit-events {
-    grid-template-columns: 1fr;
-  }
-  .edit-events > .edit-event {
-    grid-template-columns: 1fr 1fr;
-    grid-column: 1 / -1;
+  /* Event rows: tighter gaps; the flex-wrap already reflows the body as width
+   * shrinks, so no column changes are needed. */
+  .edit-event {
     column-gap: 12px;
-    row-gap: 6px;
     padding: 10px 0;
   }
-  .edit-event-type-row { grid-column: 1 / -1; grid-row: 1; }
-  .edit-event-date-cell { grid-column: 1; grid-row: 2; }
-  .edit-event-sources-cell { grid-column: 2; grid-row: 2; justify-content: flex-start; }
-  .edit-event-type-cell { grid-column: 1 / -1; grid-row: auto; }
-  .edit-event-c3 { grid-column: 1; grid-row: auto !important; }
-  .edit-event-c4 { grid-column: 2; grid-row: auto !important; }
-  .edit-event > .edit-input { width: 100%; }
 }
 
 /* Really narrow: one field per full-width row (label + toggle stay paired on
@@ -5404,17 +5494,9 @@ kbd {
     gap: 8px;
   }
 
-  .edit-events > .edit-event {
-    grid-template-columns: 1fr;
-  }
-  .edit-event-date-cell,
-  .edit-event-sources-cell,
-  .edit-event-type-cell,
-  .edit-event-c3,
-  .edit-event-c4 {
-    grid-column: 1;
-    grid-row: auto !important;
-  }
+  /* Very narrow: let the date shrink so the label + date still share a line
+   * before the body wraps beneath. */
+  .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
@@ -5724,6 +5806,7 @@ kbd {
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
 .tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; content-visibility: auto; contain-intrinsic-size: auto 24px; }
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
+.tools-usage-age { color: var(--muted); }
 .tools-usage-block { padding-left: 26px; }
 .tools-cat {
   min-width: 32px; text-align: center;

@@ -96,6 +96,7 @@ export function TreeSvg({
               <TreeNodeBox
                 name={n.name}
                 years={n.years}
+                age={n.age}
                 place={n.place}
                 sex={n.sex}
                 color={colorOf(n)}

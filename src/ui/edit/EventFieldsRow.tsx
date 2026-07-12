@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GedEvent, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
@@ -9,6 +9,7 @@ import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
 import { placeKey } from "./placeSuggestions";
+import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
 /** Sentinel `<option>` value for the "Remove this event" entry at the end of
@@ -144,6 +145,11 @@ export function EventFieldsRow({
   const initialTagRef = useRef(tag);
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
   const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
+  // event (they start empty). `focusKey` moves focus to the one just added.
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Title slot to its TYPE and the Agency slot to its line
   // value; every other event keeps the normal value/agency mapping.
   const titleField = isEven ? typeField : valueField;
@@ -161,29 +167,88 @@ export function EventFieldsRow({
   const hasTitle = showValue;
   const showTypeCell = !isEven;
 
-  // Columns 3/4 lay out as three fixed rows, mirroring column 2's
-  // Date / Sources / Type stack:
-  //   1. Place + Address
-  //   2. (Title — or Cause, when the event has no Title slot) + Agency
-  //   3. Note + (Cause, when it wasn't already shown in row 2)
-  // All three rows are always shown, but a row with no data sinks below the
-  // rows that have some (stable order: Place, then mid, then Note), so populated
-  // fields rise to the top. Cause appears exactly once: row 2 (mid) for plain
-  // events, row 3 (note) for events that carry a Title.
-  const causeInMid = !hasTitle;
-  const placeData = Boolean(placeField.value.trim()) || Boolean(addrField.value.trim());
-  const midData =
-    (hasTitle && Boolean(titleField.value.trim())) ||
-    (causeInMid && Boolean(causeField.value.trim())) ||
-    Boolean(agencySlotField.value.trim());
-  const noteData = Boolean(noteField.value.trim()) || (!causeInMid && Boolean(causeField.value.trim()));
-  const rows = [
-    { key: "place", data: placeData },
-    { key: "mid", data: midData },
-    { key: "note", data: noteData },
-  ] as const;
-  const arranged = [...rows.filter((r) => r.data), ...rows.filter((r) => !r.data)];
-  const rowOf = (key: string) => arranged.findIndex((r) => r.key === key) + 1;
+  // Sizes a flowing field to its content (in `ch`) so short values like "fsd"
+  // don't each claim a full-width column — that content-sizing is what lets the
+  // place and the secondary fields pack onto one wrapped line and only spill to
+  // a second row when they genuinely don't fit.
+  const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(6, v.trim().length + 2))}ch` });
+  // Notes can be multi-line, so size them to the widest line, not the whole
+  // string's length (which would over-widen a stack of short lines).
+  const noteW = (v: string, max = 50) => {
+    const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
+    return { width: `${Math.min(max, Math.max(6, longest + 2))}ch` };
+  };
+
+  // Compact layout: a field with no value (and not showing an incoming merge
+  // value) is collapsed to zero height/width at rest and only revealed when the
+  // event row is hovered or focused. The primary line carries the near-universal
+  // Date + Place (or the value, for value-events); every other populated field
+  // flows together on a wrapped "extras" line below, so a typical event with a
+  // couple of extra fields lands on two rows instead of a rigid three-row grid
+  // full of holes. Incoming merge suggestions count as "shown" (their value is
+  // displayed even before it's written), so they never hide.
+  const optCls = (shown: boolean) => (shown ? "" : " ev-collapsed");
+  // The date is the event's anchor, so ordinary date/place events always show it
+  // (it's also where a brand-new event is typed). Place and every other field
+  // are content-driven: shown only when they have a value (or an incoming merge
+  // value, or the user adds them), so an event without a place reserves no empty
+  // slot. Value-events (OCCU/EDUC/RETI/EVEN) lead with their value instead.
+  const primaryLine = !hasTitle;
+  const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
+  const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
+  const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
+  const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
+  const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
+  const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
+  const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
+  const sourcesShown =
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0;
+  // A field renders when it has content OR the user added it from the "+ Detail"
+  // menu. Empty, un-added fields stay hidden — no more revealing every empty
+  // field on hover, which read as a crowded row of blank labelled inputs.
+  const show = {
+    date: dateShown || revealed.has("date"),
+    place: placeShown || revealed.has("place"),
+    addr: addrShown || revealed.has("addr"),
+    type: typeShown || revealed.has("type"),
+    agency: agencyShown || revealed.has("agency"),
+    cause: causeShown || revealed.has("cause"),
+    note: noteShown || revealed.has("note"),
+  };
+  // Fields offered by the "+ Detail" menu: source is always addable; the rest
+  // only while not already showing. Place/address adapt to the event kind
+  // (ordinary events show Place on the primary line, so only Address is offered).
+  const addable: { key: string; label: string }[] = [
+    { key: "place", label: t("event.colPlace") },
+    { key: "addr", label: t("event.colAddr") },
+    { key: "agency", label: t("event.colAgency") },
+    { key: "source", label: t("event.colLink") },
+    ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
+    { key: "cause", label: t("event.colCause") },
+    { key: "note", label: t("event.colNote") },
+  ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
+
+  function addDetail(key: string) {
+    if (key === "source") {
+      onAddSource();
+      return;
+    }
+    setRevealed((prev) => new Set(prev).add(key));
+    setFocusKey(key);
+  }
+
+  // Move focus into a field the moment it's added from the "+ Detail" menu, so
+  // the whole flow stays on the keyboard. The fields are always in the DOM (just
+  // CSS-hidden until shown), so `autoFocus` wouldn't fire on reveal — focus it
+  // imperatively once the reveal has committed.
+  useEffect(() => {
+    if (!focusKey) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(
+      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea`,
+    );
+    el?.focus();
+    setFocusKey(null);
+  }, [focusKey]);
 
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event removed — the latter via a "Remove this event" entry
@@ -258,30 +323,77 @@ export function EventFieldsRow({
     commitField(merged);
   }
 
-  // Cause renders in column 3 (middle row) for plain events, or column 4
-  // (note row) for events that carry a Title — never both.
-  function causeInput(wrapClassName: string, gridRow: number) {
+  // A secondary field on the flowing "extras" line: a small label + a
+  // content-sized input. Hidden when empty and not added; shown once it has a
+  // value or the user picks it from the "+ Detail" menu. Used for Type / Agency
+  // / Cause.
+  function extraText(
+    key: string,
+    labelText: string,
+    shown: boolean,
+    field: ReturnType<typeof useField>,
+    forced: boolean,
+    title: string,
+    clearUpdate: Partial<EventFieldUpdate>,
+  ) {
     return (
-      <ClearableInput
-        wrapClassName={wrapClassName}
-        wrapStyle={{ gridRow }}
-        className={fieldCls("edit-input edit-event-cause", causeField.isMerge, causeField.isDirty || causeForced)}
-        value={causeField.value}
-        placeholder={t("event.colCause")}
-        title={t("event.cause", { event: label })}
-        onChange={causeField.onChange}
-        onBlur={() => commitAll({})}
-        onClear={() => { causeField.clear(); commitAll({ cause: "" }); }}
-      />
+      <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
+        <span className="edit-event-extra-label">{labelText}</span>
+        <ClearableInput
+          wrapClassName="edit-event-extra-field"
+          wrapStyle={chW(field.value)}
+          className={fieldCls("edit-input", field.isMerge, field.isDirty || forced)}
+          value={field.value}
+          title={title}
+          onChange={field.onChange}
+          onBlur={() => commitAll({})}
+          onClear={() => { field.clear(); commitAll(clearUpdate); }}
+        />
+      </span>
+    );
+  }
+
+  // A place/address field on the flowing body: a hover label + a content-sized
+  // autocomplete. Used for Address (all events) and, on value-events, Place.
+  function extraPlace(
+    key: string,
+    labelText: string,
+    shown: boolean,
+    field: ReturnType<typeof useField>,
+    forced: boolean,
+    suggestions: string[],
+    canonical: Map<string, string>,
+    cls: string,
+    title: string,
+    commit: (val: string) => void,
+  ) {
+    return (
+      <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
+        <span className="edit-event-extra-label">{labelText}</span>
+        <PlaceAutocomplete
+          value={field.value}
+          suggestions={suggestions}
+          canonical={canonical}
+          isDirty={field.isDirty || forced}
+          isMerge={field.isMerge}
+          className={"edit-input " + cls}
+          wrapClassName="edit-event-extra-field"
+          wrapStyle={chW(field.value)}
+          title={title}
+          onChange={field.set}
+          onCommit={commit}
+          onClear={() => { field.clear(); commit(""); }}
+        />
+      </span>
     );
   }
 
   return (
-    <div className="edit-event">
-      {/* Column 1, row 1: event-type label with the expand toggle beside it.
-       * When the tag can be reassigned and/or the event removed, a hidden
-       * <select> overlay turns the label into a menu — type choices (if any)
-       * plus a "Remove this event" entry at the end. */}
+    <div className="edit-event" ref={rootRef}>
+      {/* Column 1: event-type label with the expand toggle beside it. When the
+       * tag can be reassigned and/or the event removed, a hidden <select>
+       * overlay turns the label into a menu — type choices (if any) plus a
+       * "Remove this event" entry at the end. */}
       <div className="edit-event-type-row">
         <div
           className={fieldCls(
@@ -298,6 +410,7 @@ export function EventFieldsRow({
                 className="edit-event-type-select"
                 value={tag}
                 title={onChangeTag ? t("edit.changeEventType") : t("edit.removeEvent")}
+                onKeyDown={openPickerOnEnter}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === REMOVE_OPTION) onRemove?.();
@@ -330,10 +443,12 @@ export function EventFieldsRow({
         </div>
       </div>
 
-      {/* Column 2: date (row 1), sources (row 2), and — for standard events —
-       * the TYPE sub-tag (row 3). */}
-      <div className="edit-event-date-cell">
+      {/* Leading item 2: the date — a content-width input pushed to the right of
+       * a fixed slot so the years line up; the age badge follows outside the
+       * slot so it never changes the date's position or size. */}
+      <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
+          wrapStyle={chW(dateField.value, 14)}
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
           placeholder={t("event.colDate")}
@@ -343,122 +458,110 @@ export function EventFieldsRow({
           onBlur={() => commitAll({})}
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
-        {age && (
-          <span className="edit-event-age gm-data">
-            {age.map((a, i) => (
-              <span key={i} title={a.title}>{a.text}</span>
-            ))}
-          </span>
-        )}
       </div>
-      <div className="edit-event-sources-cell">
-        {ev?.sources?.length || sourcesMergeVal?.length ? (
-          <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
-        ) : null}
-        {links.map((link, i) => (
-          <button
-            key={i}
-            type="button"
-            className="link-icon edit-link-icon"
-            title={link}
-            onClick={() => openEditLink(i)}
-          >
-            🔗
-          </button>
-        ))}
-        <button
-          type="button"
-          className="edit-link-add"
-          title={t("event.addSource", { event: label })}
-          onClick={onAddSource}
-        >
-          + {t("edit.addLink")}
-        </button>
-      </div>
-      {showTypeCell && (
-        <ClearableInput
-          wrapClassName="edit-event-type-cell"
-          className={fieldCls("edit-input edit-event-type", typeField.isMerge, typeField.isDirty || typeForced)}
-          value={typeField.value}
-          placeholder={t("event.colType")}
-          title={t("event.type", { event: label })}
-          onChange={typeField.onChange}
-          onBlur={() => commitAll({})}
-          onClear={() => { typeField.clear(); commitAll({ type: "" }); }}
-        />
+      {age && (
+        <span className="edit-event-age gm-data">
+          {age.map((a, i) => (
+            <span key={i} title={a.title}>{a.text}</span>
+          ))}
+        </span>
       )}
 
-      {/* Columns 3/4 — three rows (Place/Address, Title-or-Cause/Agency,
-       * Note/(Cause)); each lands on the row `rowOf` assigns so empty rows sink
-       * to the bottom. */}
-      <PlaceAutocomplete
-        value={placeField.value}
-        suggestions={placeSuggestions}
-        canonical={placeCanonical}
-        isDirty={placeField.isDirty || placeForced}
-        isMerge={placeField.isMerge}
-        className="edit-input edit-event-place"
-        wrapClassName="edit-event-c3"
-        wrapStyle={{ gridRow: rowOf("place") }}
-        placeholder={t("event.colPlace")}
-        title={t("event.place", { event: label })}
-        onChange={placeField.set}
-        onCommit={(val) => commitAll({ place: val })}
-        onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
-      />
-      <PlaceAutocomplete
-        value={addrField.value}
-        suggestions={placeToAddrs.get(placeKey(placeField.value)) ?? []}
-        canonical={addrCanonical}
-        isDirty={addrField.isDirty || addrForced}
-        isMerge={addrField.isMerge}
-        className="edit-input edit-event-addr"
-        wrapClassName="edit-event-c4"
-        wrapStyle={{ gridRow: rowOf("place") }}
-        placeholder={t("event.colAddr")}
-        title={t("event.addr", { event: label })}
-        onChange={addrField.set}
-        onCommit={(val) => commitAll({ address: val })}
-        onClear={() => { addrField.clear(); commitAll({ address: "" }); }}
-      />
-      {hasTitle && (
-        <ClearableInput
-          wrapClassName="edit-event-c3"
-          wrapStyle={{ gridRow: rowOf("mid") }}
-          className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
-          value={titleField.value}
-          placeholder={t("event.colTitle")}
-          title={titleLabel}
-          onChange={titleField.onChange}
-          onBlur={() => commitAll({})}
-          onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
-        />
-      )}
-      {causeInMid && causeInput("edit-event-c3", rowOf("mid"))}
-      <ClearableInput
-        wrapClassName="edit-event-c4"
-        wrapStyle={{ gridRow: rowOf("mid") }}
-        className={fieldCls("edit-input edit-event-agency", agencySlotField.isMerge, agencySlotField.isDirty || agencySlotForced)}
-        value={agencySlotField.value}
-        placeholder={t("event.colAgency")}
-        title={agencySlotLabel}
-        onChange={agencySlotField.onChange}
-        onBlur={() => commitAll({})}
-        onClear={() => { agencySlotField.clear(); commitAll(agencyClearUpdate); }}
-      />
-      <ClearableTextarea
-        wrapClassName="edit-event-c3"
-        wrapStyle={{ gridRow: rowOf("note") }}
-        className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-        value={noteField.value}
-        placeholder={t("event.colNote")}
-        title={t("event.note", { event: label })}
-        rows={1}
-        onChange={noteField.onChange}
-        onBlur={() => commitAll({})}
-        onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-      />
-      {!causeInMid && causeInput("edit-event-c4", rowOf("note"))}
+      {/* Body: the primary field (Place, or the value for value-events) plus
+       * every populated secondary field flow together here and wrap only when
+       * they don't fit — so a short extra like a cause rides on the first row
+       * beside the place instead of claiming a near-empty second row. */}
+      <div className="edit-event-body">
+        {/* Value-events lead with their value (its own click target, always
+         * shown); ordinary events lead with the date, already rendered above. */}
+        {!primaryLine && (
+          <ClearableInput
+            wrapClassName="edit-event-primary"
+            wrapStyle={chW(titleField.value, 60)}
+            className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
+            value={titleField.value}
+            placeholder={t("event.colTitle")}
+            title={titleLabel}
+            onChange={titleField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
+          />
+        )}
+        {/* Place — the same everywhere: unlabelled (a place reads as a place) and
+         * shown only when it has content, so no event reserves an empty slot. */}
+        <span data-detail="place" className={"edit-event-extra edit-event-extra--place" + optCls(show.place)}>
+          <PlaceAutocomplete
+            value={placeField.value}
+            suggestions={placeSuggestions}
+            canonical={placeCanonical}
+            isDirty={placeField.isDirty || placeForced}
+            isMerge={placeField.isMerge}
+            className="edit-input edit-event-place"
+            wrapClassName="edit-event-extra-field"
+            wrapStyle={chW(placeField.value, 60)}
+            title={t("event.place", { event: label })}
+            onChange={placeField.set}
+            onCommit={(val) => commitAll({ place: val })}
+            onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
+          />
+        </span>
+        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }))}
+        {showTypeCell &&
+          extraText("type", t("event.colType"), show.type, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
+        {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
+        {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
+        <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
+          <span className="edit-event-extra-label">{t("event.colNote")}</span>
+          <ClearableTextarea
+            wrapClassName="edit-event-extra-field"
+            wrapStyle={noteW(noteField.value)}
+            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+            value={noteField.value}
+            title={t("event.note", { event: label })}
+            rows={1}
+            onChange={noteField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+          />
+        </span>
+        <span className={"edit-event-extra edit-event-extra--sources" + optCls(sourcesShown)}>
+          {ev?.sources?.length || sourcesMergeVal?.length ? (
+            <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
+          ) : null}
+          {links.map((link, i) => (
+            <button
+              key={i}
+              type="button"
+              className="link-icon edit-link-icon"
+              title={link}
+              onClick={() => openEditLink(i)}
+            >
+              🔗
+            </button>
+          ))}
+        </span>
+        {/* Add a source / place / note / other detail without keeping every empty
+         * field on screen — the menu offers only the ones not already shown. A
+         * real (visible) <select> so it's reliably keyboard-openable, unlike the
+         * opacity-0 overlay chips. */}
+        {addable.length > 0 && (
+          <select
+            className="edit-event-addfield"
+            value=""
+            title={t("edit.addDetailTooltip")}
+            onKeyDown={openPickerOnEnter}
+            onChange={(e) => {
+              const k = e.target.value;
+              if (k) addDetail(k);
+            }}
+          >
+            <option value="">+ {t("edit.addDetail")}</option>
+            {addable.map((f) => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
     </div>
   );
 }

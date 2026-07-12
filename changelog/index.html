@@ -90,6 +90,21 @@
             <ul>
               <li>The Tools scans (Health check, Find duplicates, Normalize, Sources) now run in the background — the app stays responsive while a large file is scanned, instead of freezing until the scan finishes.</li>
               <li>The duplicate scan shows its progress and can be cancelled.</li>
+              <li>Tidier <strong>+ Add</strong> menu in Edit mode: Place, Address and Agency now come before Source, the source entry reads simply <strong>Source</strong>, and the media button is labelled <strong>Add Media</strong>.</li>
+              <li>New <strong>Age</strong> option under a chart's Person settings: each person's age (at death, or current for the living) shows in parentheses after their lifespan — or, when the lifespan is turned off, as its own "age N" line. It appears on the node boxes and in the chart title, works on the tree, pedigree, fan, relationship and timeline charts, and starts on automatically when the global <strong>Show ages</strong> preference is on.</li>
+              <li>New <strong>Age</strong> option under a report's Facts settings: the age reached shows in parentheses next to each fact's date — the person's own age on their events, both spouses' ages (♂ / ♀) on a marriage, and the parents' ages on a birth. In the narrative style it reads "(age N)" / "(star/stara N let)".</li>
+              <li>Search now ignores accents: typing <strong>Ziva</strong> finds <strong>Živa</strong>, <strong>Skofja</strong> finds <strong>Škofja</strong> — so names and places aren't missed when čšž and similar letters are typed plainly. Applies to the whole-file search and every person picker.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-07-11</h2>
+            <ul>
+              <li>Much more compact <strong>Edit mode</strong>: each event now fits on a single line — the date, place and any other filled-in fields flow together and wrap only when needed, instead of taking three rows. A hover-only <strong>+ Add</strong> menu adds a source, place, note or other detail on demand, so empty fields no longer clutter the view.</li>
+              <li>Full keyboard editing: Tab through every field, and press <strong>Enter</strong> on the event-type ▾, the Sex picker or the + Add menu to open it; the field you add is focused for typing, and closing the Add Source dialog returns you where you were.</li>
+              <li>Person sources and notes are more compact too, and newly added or changed notes now show in bold like other edited data.</li>
+              <li>Merge mode now respects the <strong>Show ages</strong> display setting, just like Edit mode: the person's age appears next to the lifespan in the matches list and the compare panel header, next to each relative (parents, partners, children) in the compare table, and after each event date — the person's own age, the parents' ages on a birth, and both spouses' ages on marriage and other family events.</li>
+              <li>When <strong>Show ages</strong> is on, the photo viewer now shows how old a person was when a dated photo was taken — in the "Date depicted" line, and, for group photos, next to each tagged person on their hover box and in the "referenced by" list.</li>
             </ul>
           </section>
 

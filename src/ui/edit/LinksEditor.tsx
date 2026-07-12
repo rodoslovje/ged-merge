@@ -66,23 +66,12 @@ export function LinksEditor({
     });
   }
 
-  return (
-    <div className="edit-links">
-      {sectionLabel && (
-        <div className="edit-record-label-row">
-          <span className="edit-record-label">{sectionLabel}</span>
-          {((sources?.length ?? 0) > 0 || (incomingSources?.length ?? 0) > 0) && (
-            <SourceRefs t={t} mainSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
-          )}
-          <button
-            type="button"
-            className="edit-name-chip edit-name-chip-add"
-            title={t("edit.addLinkTooltip")}
-            onClick={onAddSource}
-          >
-            + {t("edit.addLink")}
-          </button>
-        </div>
+  // Citation icons (real SOUR + legacy 🔗 links + incoming-merge previews) all
+  // sit together so the whole sources block reads as a single row.
+  const icons = (
+    <>
+      {((sources?.length ?? 0) > 0 || (incomingSources?.length ?? 0) > 0) && (
+        <SourceRefs t={t} mainSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
       )}
       {links.map((link, i) => (
         <button
@@ -107,6 +96,27 @@ export function LinksEditor({
           🔗
         </a>
       ))}
+    </>
+  );
+
+  return (
+    <div className="edit-links">
+      {sectionLabel ? (
+        <div className="edit-record-label-row">
+          <span className="edit-record-label">{sectionLabel}</span>
+          {icons}
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addLinkTooltip")}
+            onClick={onAddSource}
+          >
+            + {t("edit.addLink")}
+          </button>
+        </div>
+      ) : (
+        icons
+      )}
     </div>
   );
 }
