@@ -133,6 +133,31 @@ export function individualFieldRows(
   pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), main?.notes?.join("\n"), compare?.notes?.join("\n"));
 
+  buildEventRows(rows, t, main, compare, mainDs, compareDs, shouldReshape, rejectedEvents, showAge);
+
+  // Relatives last: parents, partner(s), the marriage facts, then children.
+  // Marriage and children live on the FAM record but are reconciled here on the
+  // spouse so every decision about a person is made in one place.
+  if (mainDs && compareDs) {
+    buildParentRows(rows, t, main, compare, mainDs, compareDs, showAge);
+    buildFamilyRows(rows, t, main, compare, mainDs, compareDs, showAge);
+  }
+  return rows;
+}
+
+/** One group (header + type/date/…/sources sub-rows) per event instance, in the
+ *  shared zone-aware chronological order (`orderedEventTags`). */
+function buildEventRows(
+  rows: FieldRow[],
+  t: Translate,
+  main: Individual | undefined,
+  compare: Individual | undefined,
+  mainDs: Dataset | undefined,
+  compareDs: Dataset | undefined,
+  shouldReshape: boolean,
+  rejectedEvents: Set<string> | undefined,
+  showAge: boolean,
+): void {
   for (const { tag, mainIdx, compareIdx, keyIdx, multi } of orderedEventTags(main, compare)) {
     const mainEvents = main?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
@@ -181,112 +206,107 @@ export function individualFieldRows(
       rows.push(...subRows);
     }
   }
+}
 
-  // Relatives last: parents, partner(s), the marriage facts, then children.
-  // Marriage and children live on the FAM record but are reconciled here on the
-  // spouse so every decision about a person is made in one place.
-  if (mainDs && compareDs) {
-    const parentRows: FieldRow[] = [];
-    pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband", showAge), parentRelative(compare, compareDs, "husband", showAge));
-    pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife", showAge), parentRelative(compare, compareDs, "wife", showAge));
-    if (parentRows.length > 0) {
-      rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
-      rows.push(...parentRows);
+/** Father/mother rows under one "Parents" group header. */
+function buildParentRows(
+  rows: FieldRow[],
+  t: Translate,
+  main: Individual | undefined,
+  compare: Individual | undefined,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  showAge: boolean,
+): void {
+  const parentRows: FieldRow[] = [];
+  pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband", showAge), parentRelative(compare, compareDs, "husband", showAge));
+  pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife", showAge), parentRelative(compare, compareDs, "wife", showAge));
+  if (parentRows.length > 0) {
+    rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
+    rows.push(...parentRows);
+  }
+}
+
+/** Per spouse-family group: the partner row, the family events (marriage,
+ *  engagement, separation, divorce), family notes, and the aligned children
+ *  list. Families are paired across the two files by `pairFamilies`. */
+function buildFamilyRows(
+  rows: FieldRow[],
+  t: Translate,
+  main: Individual | undefined,
+  compare: Individual | undefined,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  showAge: boolean,
+): void {
+  const famPairs = pairFamilies(main, compare, mainDs, compareDs);
+  famPairs.forEach((pair) => {
+    const mFam = pair.mainFam;
+    const cFam = pair.compareFam;
+    const famKey = cFam ? `fam.${cFam.id}` : `fam.${mFam!.id}`;
+
+    const mSpouseId = mFam ? (mFam.husband === main?.id ? mFam.wife : mFam.husband) : undefined;
+    const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
+    const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
+    const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
+    const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse, showAge)] : [];
+    const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse, showAge)] : [];
+
+    const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
+
+    rows.push({
+      key: `${famKey}.header`,
+      label: t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` }),
+      main: "",
+      incoming: "",
+      state: "agree",
+      isGroupHeader: true,
+    });
+
+    if (mSpouseRel.length > 0 || cSpouseRel.length > 0) {
+      pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
     }
 
-    const famPairs = pairFamilies(main, compare, mainDs, compareDs);
-    famPairs.forEach((pair) => {
-      const mFam = pair.mainFam;
-      const cFam = pair.compareFam;
-      const famKey = cFam ? `fam.${cFam.id}` : `fam.${mFam!.id}`;
-
-      const mSpouseId = mFam ? (mFam.husband === main?.id ? mFam.wife : mFam.husband) : undefined;
-      const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
-      const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
-      const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
-      const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse, showAge)] : [];
-      const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse, showAge)] : [];
-
-      const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
-
-      rows.push({
-        key: `${famKey}.header`,
-        label: t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` }),
-        main: "",
-        incoming: "",
-        state: "agree",
-        isGroupHeader: true,
-      });
-
-      if (mSpouseRel.length > 0 || cSpouseRel.length > 0) {
-        pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
-      }
-
-      const mMar = mFam?.events.find((e) => e.tag === "MARR");
-      const cMar = cFam?.events.find((e) => e.tag === "MARR");
-      const marriageRows: FieldRow[] = [];
-      pushRow(marriageRows, `${famKey}.MARR.type`, t("event.colType"), mMar?.type, cMar?.type);
-      pushRow(marriageRows, `${famKey}.MARR.date`, t("event.colDate"), mMar?.date?.raw, cMar?.date?.raw);
-      pushRow(marriageRows, `${famKey}.MARR.place`, t("event.colPlace"), mMar?.place?.raw, cMar?.place?.raw, undefined, undefined, cMar?.place?.originalRaw);
-      pushRow(marriageRows, `${famKey}.MARR.addr`, t("event.colAddr"), mMar?.address?.raw, cMar?.address?.raw, undefined, undefined, cMar?.address?.originalRaw);
-      pushRow(marriageRows, `${famKey}.MARR.note`, t("event.colNote"), mMar?.note, cMar?.note);
-      pushRow(marriageRows, `${famKey}.MARR.agency`, t("event.colAgency"), mMar?.agency, cMar?.agency);
-      pushRow(marriageRows, `${famKey}.MARR.cause`, t("event.colCause"), mMar?.cause, cMar?.cause);
-      pushSourcesRow(marriageRows, `${famKey}.MARR.sources`, t("field.sources"), mMar?.sources, cMar?.sources, mMar?.links, cMar?.links);
+    for (const etag of ["MARR", "ENGA", "SEPA", "DIV"] as const) {
+      const mEv = mFam?.events.find((e) => e.tag === etag);
+      const cEv = cFam?.events.find((e) => e.tag === etag);
+      if (!mEv && !cEv) continue;
+      const etagRows: FieldRow[] = [];
+      pushRow(etagRows, `${famKey}.${etag}.type`, t("event.colType"), mEv?.type, cEv?.type);
+      pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
+      pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
+      pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
+      pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
+      pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
       if (showAge) {
-        attachAges(marriageRows, `${famKey}.MARR.date`,
-          coupleEventAges(mFam, mainDs, mMar, t),
-          coupleEventAges(cFam, compareDs, cMar, t));
+        attachAges(etagRows, `${famKey}.${etag}.date`,
+          coupleEventAges(mFam, mainDs, mEv, t),
+          coupleEventAges(cFam, compareDs, cEv, t));
       }
-      if (marriageRows.length > 0) {
+      if (etagRows.length > 0) {
         rows.push({
-          key: `${famKey}.MARR.header`, label: t("event.MARR", { defaultValue: "Marriage" }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+          key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
         });
-        rows.push(...marriageRows);
+        rows.push(...etagRows);
       }
+    }
 
-      for (const etag of ["ENGA", "SEPA", "DIV"] as const) {
-        const mEv = mFam?.events.find((e) => e.tag === etag);
-        const cEv = cFam?.events.find((e) => e.tag === etag);
-        if (!mEv && !cEv) continue;
-        const etagRows: FieldRow[] = [];
-        pushRow(etagRows, `${famKey}.${etag}.type`, t("event.colType"), mEv?.type, cEv?.type);
-        pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
-        pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
-        pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
-        pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
-        pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
-        pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
-        pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
-        if (showAge) {
-          attachAges(etagRows, `${famKey}.${etag}.date`,
-            coupleEventAges(mFam, mainDs, mEv, t),
-            coupleEventAges(cFam, compareDs, cEv, t));
-        }
-        if (etagRows.length > 0) {
-          rows.push({
-            key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
-          });
-          rows.push(...etagRows);
-        }
-      }
+    const mFamNotes = mFam?.notes?.join("\n");
+    const cFamNotes = cFam?.notes?.join("\n");
+    pushRow(rows, `${famKey}.notes`, formatFieldLabel(t, `${famKey}.notes`), mFamNotes, cFamNotes);
 
-      const mFamNotes = mFam?.notes?.join("\n");
-      const cFamNotes = cFam?.notes?.join("\n");
-      pushRow(rows, `${famKey}.notes`, formatFieldLabel(t, `${famKey}.notes`), mFamNotes, cFamNotes);
+    const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
+    const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
+    const mChildRels = individualsToRelatives(mChildren, showAge);
+    const cChildRels = individualsToRelatives(cChildren, showAge);
 
-      const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
-      const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
-      const mChildRels = individualsToRelatives(mChildren, showAge);
-      const cChildRels = individualsToRelatives(cChildren, showAge);
-
-      if (mChildRels.length > 0 || cChildRels.length > 0) {
-        rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
-        pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
-      }
-    });
-  }
-  return rows;
+    if (mChildRels.length > 0 || cChildRels.length > 0) {
+      rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
+      pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
+    }
+  });
 }
 
 /** The abbreviated lifespan ("1817–1921"), with the age appended ("1817–1921
