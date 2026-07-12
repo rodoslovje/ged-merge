@@ -133,12 +133,14 @@ function AppContent() {
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
   const matchingStartRef = useRef<number | null>(null);
   const matchedTimerRef = useRef<number | null>(null);
-  // The shared workspace store (reducer). Migrating in slices — the file slots
-  // live here now; matches/decisions/etc. are still separate useState below and
-  // move over in later steps. `lastMainFile` is the most recently *successfully*
-  // loaded main, kept while a reload is in progress so the Merge/Edit views
-  // stay mounted (showing the previous data) instead of flashing the landing
-  // page while `main` is transiently "loading" or "error".
+  // The shared workspace store (reducer) — the whole data pipeline: file slots,
+  // match result, merge decisions, import branches, rejected duplicates, start
+  // person. Purely-UI-local state (selection, modals, sort/filters, navigation)
+  // stays in useState below by design — see state/workspace.ts. `lastMainFile`
+  // is the most recently *successfully* loaded main, kept while a reload is in
+  // progress so the Merge/Edit views stay mounted (showing the previous data)
+  // instead of flashing the landing page while `main` is transiently "loading"
+  // or "error".
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
@@ -1295,6 +1297,18 @@ function AppContent() {
   const mainDataset = lastMainFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
 
+  /** Shared tail of every Tools-tab fix action: record the patch batch as one
+   *  undo entry and mark each touched record dirty. Returns the patch count so
+   *  callers can report how many records the fix touched. */
+  function applyToolPatches(patches: RecordPatch[]): number {
+    if (!mainDataset || patches.length === 0) return 0;
+    handlePushEdit(patches);
+    for (const p of patches) {
+      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
+    }
+    return patches.length;
+  }
+
   // Charts hub: the full-page per-person diagram overlay (pedigree charts +
   // relationship). Which diagram it shows is the persisted chart "kind".
   const [chartsRootId, setChartsRootId] = useState<string | null>(null);
@@ -2238,70 +2252,13 @@ function AppContent() {
                 setMode("edit");
               }}
               active={mode === "tools"}
-              onApplyPlaceRename={(from, to, scope) => {
-                if (!mainDataset) return;
-                const patches = applyPlaceRename(mainDataset, from, to, scope);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-              }}
-              onFixBrokenLinks={() => {
-                if (!mainDataset) return 0;
-                const patches = fixBrokenLinks(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixSexFromRole={() => {
-                if (!mainDataset) return 0;
-                const patches = fixSexFromRole(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixDates={() => {
-                if (!mainDataset) return 0;
-                const patches = fixDates(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixDuplicatePointers={() => {
-                if (!mainDataset) return 0;
-                const patches = fixDuplicatePointers(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onMergeDuplicate={(survivorId, removedId, decision) => {
-                if (!mainDataset) return false;
-                const patches = mergeDuplicate(mainDataset, survivorId, removedId, decision, t);
-                if (patches.length === 0) return false;
-                handlePushEdit(patches);
-                for (const p of patches) {
-                  if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                }
-                return true;
-              }}
+              onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
+              onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
+              onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
+              onFixDates={() => applyToolPatches(fixDates(mainDataset))}
+              onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
+              onMergeDuplicate={(survivorId, removedId, decision) =>
+                applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) > 0}
               rejectedDuplicates={rejectedDuplicates}
               onRejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
