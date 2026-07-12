@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   categorize,
@@ -17,6 +17,7 @@ import type { Dataset } from "../gedcom/types";
 import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
+import { useVirtualList } from "./useVirtualList";
 
 interface Props {
   result: MatchResult;
@@ -86,15 +87,16 @@ export function MatchResults({
     return `sortbtn ${extra}${active}`;
   };
 
+  // Only the rows near the viewport are mounted — an index-scale compare file
+  // yields tens of thousands of candidates. scrollMargin mirrors the rows'
+  // scroll-margin-top, so auto-scrolls clear the sticky header row.
+  const virtual = useVirtualList({ count: list.length, estimate: 40, itemsKey: list, scrollMargin: 40 });
+
   // Keep the selected row visible as the user pages with Prev/Next or arrows.
-  const listRef = useRef<HTMLUListElement>(null);
+  const { scrollToIndex } = virtual;
   useEffect(() => {
-    if (window.innerWidth > 880) {
-      // children[0] is the header row; candidate rows start at children[1]
-      const el = listRef.current?.children[selectedIndex + 1] as HTMLElement | undefined;
-      el?.scrollIntoView({ block: "nearest" });
-    }
-  }, [selectedIndex, list]);
+    if (window.innerWidth > 880) scrollToIndex(selectedIndex);
+  }, [selectedIndex, list, scrollToIndex]);
 
   return (
     <div className="results">
@@ -181,7 +183,7 @@ export function MatchResults({
             : t("filter.noPassFilter")}
         </p>
       ) : (
-        <ul className="candidate-list" ref={listRef}>
+        <ul className="candidate-list">
           <li className="candidate-list-head">
             <button className={cls("label", "person-col")} onClick={() => onToggleSort("label")}>
               {t("list.person")}{arrow("label")}
@@ -282,22 +284,27 @@ export function MatchResults({
               </button>
             </span>
           </li>
-          {list.map((c, i) => (
-            <CandidateRow
-              // Stable per candidate pair (no index): lets React reuse rows
-              // across filter/sort changes instead of remounting the whole list.
-              key={`${c.mainId}-${c.compareId}`}
-              candidate={c}
-              index={i}
-              selected={i === selectedIndex}
-              status={decisions.get(decisionKey("individual", c.mainId, c.compareId))?.status}
-              showRelation={showRelation}
-              kinship={kinshipByMain?.get(c.mainId)}
-              onSelect={onSelect}
-              mainDataset={mainDataset}
-              showAge={settings.showAge}
-            />
-          ))}
+          <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+          {list.slice(virtual.start, virtual.end).map((c, j) => {
+            const i = virtual.start + j;
+            return (
+              <CandidateRow
+                // Stable per candidate pair (no index): lets React reuse rows
+                // across filter/sort changes instead of remounting the whole list.
+                key={`${c.mainId}-${c.compareId}`}
+                candidate={c}
+                index={i}
+                selected={i === selectedIndex}
+                status={decisions.get(decisionKey("individual", c.mainId, c.compareId))?.status}
+                showRelation={showRelation}
+                kinship={kinshipByMain?.get(c.mainId)}
+                onSelect={onSelect}
+                mainDataset={mainDataset}
+                showAge={settings.showAge}
+              />
+            );
+          })}
+          <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
         </ul>
       )}
     </div>
