@@ -73,7 +73,7 @@ Prioritized technical-debt items from the full code review. None changes behavio
 - **Explicitly not worth it**: SharedArrayBuffer for the dataset (needs a columnar rewrite + COOP/COEP headers that break subpath hosting); wholesale EditView immutability rewrite; touching `src/chart/` (cleanest layer in the app).
 
 ### Test / CI hardening
-- **Four e2e specs depend on gitignored `test-data/Senen.ged`** (`edit`, `export-pdf`, `global-search`, `add-relative` specs) — broken in any fresh checkout/CI; commit an anonymized e2e fixture (the corpus anonymizer already exists) or add skip guards.
+- ~~**Four e2e specs depend on gitignored `test-data/Senen.ged`** (`edit`, `export-pdf`, `global-search`, `add-relative` specs) — broken in any fresh checkout/CI; commit an anonymized e2e fixture (the corpus anonymizer already exists) or add skip guards.~~ *(done 2026-07-12 — the four specs load the already-committed anonymized Senen slice `src/__fixtures__/corpus/reunion-5.5.1-utf8.ged` (377 people, pseudonymized names, dates intact); global-search assertions retargeted to the pseudonyms ("Marta3 Karel2 Moharič" b. 1934). Full e2e passes with no `test-data/` present.)*
 - **e2e tests the dev server, not the build**: point Playwright's `webServer` at `npm run preview` in CI and add a PWA/service-worker smoke spec (currently zero automated coverage of the offline/update flow).
 - Dedicated unit tests for the highest-value untested modules: `tools/validate.ts`, `match/scoreIndividual.ts`, `merge/applyRelations.ts`, `normalize/date.ts`/`place.ts`; property-based round-trip fuzzing of the parser (fast-check); a `vitest bench` perf floor for `matchDatasets`.
 

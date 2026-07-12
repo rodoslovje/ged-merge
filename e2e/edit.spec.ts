@@ -5,7 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
+const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
 /** A minimal GEDCOM with a legacy `WWW` link (pre-dating the "Add Source"
  * feature) on @I1@'s BIRT event, for tests of editing such links. */

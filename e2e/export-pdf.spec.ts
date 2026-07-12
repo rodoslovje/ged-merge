@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
+const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
 // The chart print/PDF path (ChartExportMenu → exportCanvasPdf → printSvg)
 // wraps the diagram in a white "halo" SVG filter (feMorphology + feGaussianBlur

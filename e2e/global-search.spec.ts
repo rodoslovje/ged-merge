@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SAMPLE = path.resolve(__dirname, "../test-data/Senen.ged");
+const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
 /** Load the sample and wait for Edit mode (the default) to render. */
 async function loadSample(page: import("@playwright/test").Page) {
@@ -20,15 +20,15 @@ test("global search: / opens the dialog, finds a person, and opens them in Edit"
   const modal = page.locator(".global-search-modal");
   await expect(modal).toBeVisible();
 
-  await modal.locator(".global-search-input").fill("andrija rač");
+  await modal.locator(".global-search-input").fill("marta3 moha");
   const rows = modal.locator(".global-search-row");
   await expect(rows.first()).toBeVisible();
-  await expect(rows.first()).toContainText("Andrija");
+  await expect(rows.first()).toContainText("Marta3");
 
   // Opening a result closes the dialog and lands on that person in Edit.
   await rows.first().locator(".global-search-open").click();
   await expect(modal).toHaveCount(0);
-  await expect(page.locator(".edit-name-input").first()).toHaveValue(/Andrija/);
+  await expect(page.locator(".edit-name-input").first()).toHaveValue(/Marta3/);
 });
 
 test("global search: Escape closes the dialog without navigating", async ({ page }) => {
@@ -49,11 +49,11 @@ test("global search: the Born facet narrows results", async ({ page }) => {
 
   await page.keyboard.press("/");
   const modal = page.locator(".global-search-modal");
-  await modal.locator(".global-search-input").fill("milan romuald");
-  await expect(modal.locator(".global-search-row", { hasText: "Romuald" })).toHaveCount(1);
+  await modal.locator(".global-search-input").fill("marta3 karel2");
+  await expect(modal.locator(".global-search-row", { hasText: "Karel2" })).toHaveCount(1);
 
-  // Milan Romuald Rački was born 1934; a "born from 1950" facet must exclude him.
+  // Marta3 Karel2 Moharič was born 1934; a "born from 1950" facet must exclude her.
   await modal.locator(".global-search-filter-toggle").click();
   await modal.locator(".gsf-year").first().fill("1950");
-  await expect(modal.locator(".global-search-row", { hasText: "Romuald" })).toHaveCount(0);
+  await expect(modal.locator(".global-search-row", { hasText: "Karel2" })).toHaveCount(0);
 });
