@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
+import type { NormalizeOptions } from "../normalize/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../tools/validate";
 import { countInferableSex } from "../tools/fixSex";
 import { countFixableDates } from "../tools/fixDates";
@@ -41,7 +41,7 @@ import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
 import { MediaThumb, type MediaGalleryItem } from "./PersonMedia";
 import { mediaMetaRows } from "./MediaViewer";
-import { useToolsWorker, type ToolsWorker } from "./useToolsWorker";
+import { useToolsScans, type ToolsScans } from "./useToolsScans";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
@@ -50,6 +50,9 @@ const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "source
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
   dataset: Dataset;
+  /** Content version of the dataset, bumped synchronously on every mutation —
+   *  tells the scans cache when the worker's copy of the file is stale. */
+  editVersionRef: { readonly current: number };
   /** Main file name, used to name the normalized download. */
   fileName: string;
   /** Jump to a person/family record in Edit mode. */
@@ -82,13 +85,6 @@ interface Props {
   /** Undo a previous reject, so the pair reappears in the active list. */
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
-
-type AsyncState<T> =
-  | { status: "idle" }
-  | { status: "running"; progress?: { done: number; total: number } }
-  | { status: "cancelled" }
-  | { status: "error"; message: string }
-  | { status: "done"; result: T };
 
 /** Let React paint the "working…" state before a blocking computation runs. */
 function nextTick(): Promise<void> {
@@ -131,11 +127,13 @@ function ToolsError({ message }: { message: string }) {
   return <p className="tools-clean">{t("tools.scan.error", { message })}</p>;
 }
 
-export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
-  // One shared worker runs the heavy whole-file scans off the main thread.
-  const tools = useToolsWorker();
+  // One shared worker runs the heavy whole-file scans off the main thread;
+  // the results live here (not in the panels) so switching sub-tabs or modes
+  // neither restarts a scan nor loses a finished one.
+  const scans = useToolsScans(dataset, editVersionRef);
 
   // Cheap whole-file counts for the header overview; recomputed only per dataset.
   const stats = useMemo(() => ({
@@ -167,19 +165,19 @@ export function ToolsView({ dataset, fileName, onNavigate, active, onApplyPlaceR
       </div>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} tools={tools} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} tools={tools} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onUnrejectDuplicate={onUnrejectDuplicate} />
+          <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} tools={tools} fileName={fileName} active={active} />
+          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} />
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "sources" && (
-          <SourcesPanel dataset={dataset} tools={tools} fileName={fileName} onNavigate={onNavigate} active={active} />
+          <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} />
@@ -232,7 +230,7 @@ type IssueRow =
 
 function ValidatePanel({
   dataset,
-  tools,
+  scans,
   onNavigate,
   active,
   onFixBrokenLinks,
@@ -241,7 +239,7 @@ function ValidatePanel({
   onFixDuplicatePointers,
 }: {
   dataset: Dataset;
-  tools: ToolsWorker;
+  scans: ToolsScans;
   onNavigate: (id: string) => void;
   active: boolean;
   onFixBrokenLinks: () => number;
@@ -250,28 +248,14 @@ function ValidatePanel({
   onFixDuplicatePointers: () => number;
 }) {
   const { t } = useTranslation();
-  // Only compute once the tab is actually shown, then memoize per dataset.
-  const [report, setReport] = useState<ValidationReport | null>(null);
-  // Structural ("spec") pass over the raw line tree + parser warnings, shown as
-  // its own section above the record-level issues.
-  const [structure, setStructure] = useState<StructureReport | null>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
-
-  // Run both validation passes in the tools worker; existing lists stay up
-  // until the fresh ones arrive (matters when a fix triggers a re-validate).
-  const runValidate = useCallback(
-    () =>
-      tools.run(
-        { type: "validate", dataset },
-        ({ report, structure }) => {
-          setReport(report);
-          setStructure(structure);
-        },
-        undefined,
-        (message) => setScanError(message),
-      ),
-    [tools, dataset],
-  );
+  // Both validation passes come from the worker scan cache. While a re-run is
+  // in flight (a fix triggers one), the previous lists stay up via `lastRef`
+  // so the panel doesn't flash back to a spinner.
+  const scan = scans.validate;
+  const lastRef = useRef<{ report: ValidationReport; structure: StructureReport } | null>(null);
+  if (scan.status === "done") lastRef.current = scan.result;
+  const report = scan.status === "done" ? scan.result.report : (lastRef.current?.report ?? null);
+  const structure = scan.status === "done" ? scan.result.structure : (lastRef.current?.structure ?? null);
   const [filter, setFilter] = useState<IssueCategory | StructCategory | "all">("all");
   const [query, setQuery] = useState("");
   // Transient confirmation after a one-button fix: which fix, and how many
@@ -316,14 +300,12 @@ function ValidatePanel({
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
     // refresh both lists; the current ones stay up until the fresh ones arrive.
-    runValidate();
+    scans.refresh("validate");
     setFilter("all");
   }
 
   useEffect(() => {
-    setReport(null);
-    setStructure(null);
-    setScanError(null);
+    lastRef.current = null;
     setFilter("all");
     setQuery("");
     setFixDone(null);
@@ -337,12 +319,8 @@ function ValidatePanel({
   }, [dataset, folderName]);
 
   useEffect(() => {
-    if (!active || report) return;
-    // The cleanup cancels a scan left in flight when the panel unmounts or the
-    // file changes; a delivered result already cleared itself, so cancelling
-    // after that is a no-op.
-    return runValidate();
-  }, [active, report, runValidate]);
+    if (active) scans.ensure("validate");
+  }, [active, scans]);
 
   const q = useDebounced(query).trim().toLowerCase();
 
@@ -380,7 +358,9 @@ function ValidatePanel({
     [structure, dataset],
   );
 
-  if (!report) return scanError ? <ToolsError message={scanError} /> : <ToolsLoading label={t("tools.running")} />;
+  if (!report) {
+    return scan.status === "error" ? <ToolsError message={scan.message} /> : <ToolsLoading label={t("tools.running")} />;
+  }
 
   // Record-level + structural findings count together toward the total / "All".
   const total = report.issues.length + (structure?.issues.length ?? 0);
@@ -592,7 +572,7 @@ function StructRow({
 
 function DuplicatesPanel({
   dataset,
-  tools,
+  scans,
   onNavigate,
   active,
   onMergeDuplicate,
@@ -601,7 +581,7 @@ function DuplicatesPanel({
   onUnrejectDuplicate,
 }: {
   dataset: Dataset;
-  tools: ToolsWorker;
+  scans: ToolsScans;
   onNavigate: (id: string) => void;
   active: boolean;
   onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
@@ -610,9 +590,9 @@ function DuplicatesPanel({
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }) {
   const { t } = useTranslation();
-  const [state, setState] = useState<AsyncState<DuplicatePair[]>>({ status: "idle" });
-  // Cancels the in-flight worker scan; null when none is running.
-  const cancelScanRef = useRef<(() => void) | null>(null);
+  // The scan result lives in the ToolsView-level cache, so it survives
+  // switching sub-tabs or modes while the (minutes-long) scan keeps running.
+  const state = scans.duplicates;
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -636,11 +616,7 @@ function DuplicatesPanel({
     if (!onMergeDuplicate(survivorId, removedId, decision)) return;
     const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
     const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
-    setState((s) =>
-      s.status === "done"
-        ? { status: "done", result: s.result.filter((p) => p.aId !== removedId && p.bId !== removedId) }
-        : s,
-    );
+    scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
     if (remaining.length === 0) {
       setExpanded(null);
       return;
@@ -684,7 +660,7 @@ function DuplicatesPanel({
     if (!pair) {
       const made = makeDuplicatePair(dataset, aId, bId);
       if (!made) return;
-      setState({ status: "done", result: [made, ...state.result] });
+      scans.updateDuplicates((pairs) => [made, ...pairs]);
       setQuery("");
       setSelected(0); // prepended → top of the (unfiltered) list
       setExpanded(`${made.aId}-${made.bId}`);
@@ -696,45 +672,18 @@ function DuplicatesPanel({
   }
 
   useEffect(() => {
-    setState({ status: "idle" });
     setExpanded(null);
     setQuery("");
     setSelected(0);
     setShowRejected(false);
   }, [dataset]);
 
-  // Run the (potentially minutes-long) scan in the tools worker the first time
-  // the tab is shown; the UI stays responsive and shows progress + cancel.
-  // The effect intentionally doesn't return a cleanup: it re-fires on its own
-  // state flip (idle → running), and results should survive a mode switch —
-  // cancellation is handled explicitly below.
+  // Start the (potentially minutes-long) scan the first time the tab is shown.
+  // It runs in the tools worker and its state lives in the ToolsView-level
+  // cache, so browsing to another tab or mode neither cancels nor restarts it.
   useEffect(() => {
-    if (!active || state.status !== "idle") return;
-    setState({ status: "running" });
-    cancelScanRef.current = tools.run(
-      { type: "findDuplicates", dataset },
-      ({ pairs }) => {
-        cancelScanRef.current = null;
-        setState({ status: "done", result: pairs });
-      },
-      (done, total) =>
-        setState((s) => (s.status === "running" ? { status: "running", progress: { done, total } } : s)),
-      (message) => {
-        cancelScanRef.current = null;
-        setState({ status: "error", message });
-      },
-    );
-  }, [active, state.status, dataset, tools]);
-
-  // Abort an in-flight scan when the file changes or the panel unmounts (the
-  // worker can only be stopped by cancelling — the scan itself never yields).
-  useEffect(
-    () => () => {
-      cancelScanRef.current?.();
-      cancelScanRef.current = null;
-    },
-    [dataset],
-  );
+    if (active) scans.ensure("duplicates");
+  }, [active, scans]);
 
   const q = useDebounced(query).trim().toLowerCase();
   const pairs = state.status === "done" ? state.result : null;
@@ -806,7 +755,7 @@ function DuplicatesPanel({
     return (
       <div className="tools-loading">
         <div className="parsing-status">{t("tools.scan.cancelled")}</div>
-        <button className="nav-btn tools-run" onClick={() => setState({ status: "idle" })}>
+        <button className="nav-btn tools-run" onClick={() => scans.refresh("duplicates")}>
           {t("tools.scan.rerun")}
         </button>
       </div>
@@ -817,11 +766,7 @@ function DuplicatesPanel({
       <ToolsLoading
         label={t("tools.duplicates.running")}
         progress={state.status === "running" ? state.progress : undefined}
-        onCancel={() => {
-          cancelScanRef.current?.();
-          cancelScanRef.current = null;
-          setState({ status: "cancelled" });
-        }}
+        onCancel={scans.cancelDuplicates}
       />
     );
   }
@@ -1118,11 +1063,10 @@ function DuplicateCompare({
 
 // ── Bulk normalize ───────────────────────────────────────────────────────────
 
-function NormalizePanel({ dataset, tools, fileName, active }: { dataset: Dataset; tools: ToolsWorker; fileName: string; active: boolean }) {
+function NormalizePanel({ dataset, scans, fileName, active }: { dataset: Dataset; scans: ToolsScans; fileName: string; active: boolean }) {
   const { t } = useTranslation();
-  const [state, setState] = useState<AsyncState<NormalizationReport>>({ status: "idle" });
-  // Cancels the in-flight preview scan; null when none is running.
-  const cancelScanRef = useRef<(() => void) | null>(null);
+  // The preview report comes from the ToolsView-level worker scan cache.
+  const state = scans.normalize;
   // Which passes the user wants applied on download; the preview report above
   // always reflects all three so the counts show what each would change.
   const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true });
@@ -1130,53 +1074,28 @@ function NormalizePanel({ dataset, tools, fileName, active }: { dataset: Dataset
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    setState({ status: "idle" });
     setSelected({ dates: true, places: true, links: true, names: true });
     setDownloading(false);
   }, [dataset]);
 
-  // Run the preview in the tools worker the first time the tab is shown. No
-  // cleanup here — the effect re-fires on its own state flip (idle → running);
-  // in-flight work is cancelled explicitly below.
+  // Run the preview in the tools worker the first time the tab is shown; the
+  // result lives in the ToolsView-level cache, so revisits are instant.
   useEffect(() => {
-    if (!active || state.status !== "idle") return;
-    setState({ status: "running" });
-    cancelScanRef.current = tools.run(
-      { type: "normalizePreview", dataset },
-      ({ report }) => {
-        cancelScanRef.current = null;
-        setState({ status: "done", result: report });
-      },
-      undefined,
-      (message) => {
-        cancelScanRef.current = null;
-        setState({ status: "error", message });
-      },
-    );
-  }, [active, state.status, dataset, tools]);
-
-  // Abort an in-flight preview when the file changes or the panel unmounts.
-  useEffect(
-    () => () => {
-      cancelScanRef.current?.();
-      cancelScanRef.current = null;
-    },
-    [dataset],
-  );
+    if (active) scans.ensure("normalize");
+  }, [active, scans]);
 
   function download() {
     if (downloading) return;
     setDownloading(true);
     // The worker re-runs only the selected passes and serializes the result,
     // so just the finished text crosses back to the main thread.
-    tools.run(
-      { type: "normalizeText", dataset, options: selected },
-      ({ text }) => {
+    scans.runNormalizeText(
+      selected,
+      (text) => {
         setDownloading(false);
         const base = fileName.replace(/\.ged$/i, "");
         downloadText(`${base}.gedmerge.ged`, text);
       },
-      undefined,
       () => setDownloading(false),
     );
   }
@@ -1819,13 +1738,13 @@ function initialSourceOpen(tree: SourceTree): Set<string> {
 
 function SourcesPanel({
   dataset,
-  tools,
+  scans,
   fileName,
   onNavigate,
   active,
 }: {
   dataset: Dataset;
-  tools: ToolsWorker;
+  scans: ToolsScans;
   fileName: string;
   onNavigate: (id: string) => void;
   active: boolean;
@@ -1836,15 +1755,15 @@ function SourcesPanel({
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the duplicate finder.
   const [showDuplicates, setShowDuplicates] = useState(false);
-  // Scanned automatically so the toggle can show the count (only when > 0).
-  const [dupReport, setDupReport] = useState<DuplicateReport | null>(null);
+  // Scanned automatically (in the tools worker) so the toggle can show the
+  // count; cached at the ToolsView level so revisits don't re-scan.
+  const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
     setQuery("");
     setShowDuplicates(false);
-    setDupReport(null);
   }, [dataset]);
 
   useEffect(() => {
@@ -1855,13 +1774,9 @@ function SourcesPanel({
     }
   }, [active, tree, dataset]);
 
-  // Find duplicates in the tools worker once the tab is shown, then leave the
-  // result cached for the toggle badge and the finder view. The cleanup cancels
-  // a scan still in flight when the panel unmounts or the file changes.
   useEffect(() => {
-    if (!active || dupReport) return;
-    return tools.run({ type: "sourceDuplicates", dataset }, ({ report }) => setDupReport(report));
-  }, [active, dupReport, dataset, tools]);
+    if (active) scans.ensure("sourceDuplicates");
+  }, [active, scans]);
 
   const dupCount = dupReport?.groups.length ?? 0;
 

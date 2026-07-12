@@ -8,20 +8,22 @@ import type { DuplicateReport } from "../tools/sourceDuplicates";
 /**
  * Requests for the tools worker (whole-file Tools-tab scans).
  *
- * Every request carries the live dataset (structured-cloned into the worker),
- * so a scan always sees the current main-thread state — including in-place
- * edits the gedcom worker's own copy never learns about. The tools worker
- * keeps no state of its own, which is what makes terminate-based cancellation
- * (see `useToolsWorker`) safe.
+ * The dataset is uploaded once with `setDataset` and cached in the worker;
+ * scan requests then reference that cached copy. Structured-cloning an
+ * index-scale file blocks the main thread for seconds, so the clone must
+ * happen once per content version — not once per scan (see `useToolsScans`,
+ * which re-uploads only when the file or its edit version changes). Messages
+ * are processed in order, so a scan always sees the upload that preceded it.
  */
 export type ToolsRequest =
-  | { type: "findDuplicates"; requestId: number; dataset: Dataset }
-  | { type: "validate"; requestId: number; dataset: Dataset }
-  | { type: "sourceDuplicates"; requestId: number; dataset: Dataset }
-  | { type: "normalizePreview"; requestId: number; dataset: Dataset }
-  | { type: "normalizeText"; requestId: number; dataset: Dataset; options: NormalizeOptions };
+  | { type: "setDataset"; dataset: Dataset }
+  | { type: "findDuplicates"; requestId: number }
+  | { type: "validate"; requestId: number }
+  | { type: "sourceDuplicates"; requestId: number }
+  | { type: "normalizePreview"; requestId: number }
+  | { type: "normalizeText"; requestId: number; options: NormalizeOptions };
 
-/** Result payload for each request type. */
+/** Result payload for each scan request type. */
 export interface ToolsResultMap {
   findDuplicates: { pairs: DuplicatePair[] };
   validate: { report: ValidationReport; structure: StructureReport };

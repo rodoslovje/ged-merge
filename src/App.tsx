@@ -214,7 +214,14 @@ function AppContent() {
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
   const [editVersion, setEditVersion] = useState(0);
-  const bumpEdit = useCallback(() => setEditVersion((v) => v + 1), []);
+  // Same counter as a synchronously-updated ref, for consumers that must see
+  // the bump in the tick the mutation happens (the tools worker's dataset
+  // cache re-validates against just-fixed data before React re-renders).
+  const editVersionRef = useRef(0);
+  const bumpEdit = useCallback(() => {
+    editVersionRef.current += 1;
+    setEditVersion((v) => v + 1);
+  }, []);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   const undoRedo = useUndoRedo();
@@ -637,6 +644,7 @@ function AppContent() {
       undoRedo.clearAll();
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
+      editVersionRef.current = 0;
       sortEligiblePersonIdsRef.current = new Set();
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
@@ -1658,6 +1666,7 @@ function AppContent() {
     // so drop the "dataset is edited" flag and mark the main cached — the
     // debounce (sole main writer) then leaves it alone until the next edit.
     setEditVersion(0);
+    editVersionRef.current = 0;
     mainCachedRef.current = true;
   }
 
@@ -2201,6 +2210,7 @@ function AppContent() {
               // not survive into a newly loaded file.
               key={`tools-${mainLoadGen}`}
               dataset={mainDataset}
+              editVersionRef={editVersionRef}
               fileName={lastMainFile.fileName}
               onNavigate={(id) => {
                 // Tag the current entry as Tools and push an Edit entry, so the

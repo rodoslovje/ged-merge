@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import type { Dataset } from "../gedcom/types";
 import { findDuplicates } from "../tools/duplicates";
 import { validateDataset } from "../tools/validate";
 import { validateStructure } from "../tools/structure";
@@ -11,11 +12,20 @@ import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "./toolsMessage
  * Off-main-thread whole-file Tools scans, so a long pass (the duplicate scan
  * takes minutes on an index-scale file) never freezes the tab. Deliberately
  * separate from the gedcom worker: a running scan must not delay a parse or
- * match, and being stateless — every request ships the dataset it scans —
- * this worker can be terminated to cancel without leaving stale state behind.
+ * match. The dataset arrives once via `setDataset` and stays cached — the
+ * price of one resident copy buys scans that start without re-cloning a
+ * possibly huge file. The main thread may terminate this worker at any time
+ * to cancel (a synchronous scan can't be interrupted any other way); it is
+ * respawned and re-fed lazily on the next run.
  */
+let dataset: Dataset | undefined;
+
 self.onmessage = (e: MessageEvent<ToolsRequest>) => {
   const req = e.data;
+  if (req.type === "setDataset") {
+    dataset = req.dataset;
+    return;
+  }
   try {
     post({ type: "result", requestId: req.requestId, data: run(req) });
   } catch (err) {
@@ -27,24 +37,26 @@ self.onmessage = (e: MessageEvent<ToolsRequest>) => {
   }
 };
 
-function run(req: ToolsRequest): ToolsResultMap[ToolsRequest["type"]] {
+function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap[keyof ToolsResultMap] {
+  if (!dataset) throw new Error("no dataset loaded");
   switch (req.type) {
     case "findDuplicates": {
-      const pairs = findDuplicates(req.dataset, undefined, undefined, (done, total) =>
-        post({ type: "progress", requestId: req.requestId, done, total }),
+      const id = req.requestId;
+      const pairs = findDuplicates(dataset, undefined, undefined, (done, total) =>
+        post({ type: "progress", requestId: id, done, total }),
       );
       return { pairs };
     }
     case "validate":
-      return { report: validateDataset(req.dataset), structure: validateStructure(req.dataset) };
+      return { report: validateDataset(dataset), structure: validateStructure(dataset) };
     case "sourceDuplicates":
-      return { report: findSourceDuplicates(req.dataset) };
+      return { report: findSourceDuplicates(dataset) };
     case "normalizePreview":
-      return { report: bulkNormalize(req.dataset).report };
+      return { report: bulkNormalize(dataset).report };
     case "normalizeText": {
-      const { dataset: out } = bulkNormalize(req.dataset, req.options);
+      const { dataset: out } = bulkNormalize(dataset, req.options);
       ensureUtf8Charset(out.records, out); // downloads are UTF-8 bytes
-      return { text: serializeGedcom(out.records, downloadOptions(req.dataset)) };
+      return { text: serializeGedcom(out.records, downloadOptions(dataset)) };
     }
   }
 }
