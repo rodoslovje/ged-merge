@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { lifespanLabel } from "../../match/relatives";
+import { foldSearch } from "../globalSearch";
 
 /** Inline picker that lets the user either search for an existing person or add a new one. */
 export function RelativePickerCard({
@@ -37,12 +38,12 @@ export function RelativePickerCard({
   }, [onCancel]);
 
   const options = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = foldSearch(query.trim());
     return [...individuals.values()]
       .filter((i) => i.id !== excludeId)
       .map((i) => ({ id: i.id, text: lifespanLabel(i) }))
       .sort((a, b) => a.text.localeCompare(b.text))
-      .filter((o) => !q || o.text.toLowerCase().includes(q))
+      .filter((o) => !q || foldSearch(o.text).includes(q))
       .slice(0, 10);
   }, [individuals, excludeId, query]);
 

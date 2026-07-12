@@ -31,6 +31,17 @@ export interface SearchRow {
 /** Cap on rendered results — a whole-file query can match thousands. */
 export const MAX_RESULTS = 50;
 
+/**
+ * Lower-case and strip diacritics so a query typed without the accents still
+ * finds accented names — "Ziva" matches "Živa", "Skofja" matches "Škofja".
+ * Applied to both the indexed haystack and the query so the comparison is
+ * accent-blind on both sides. (NFD splits a letter from its combining mark,
+ * which `\p{Diacritic}` then removes — the same fold the matcher uses.)
+ */
+export function foldSearch(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 /** True when the individual carries a URL on the record or any of its events. */
 function anyLinks(indi: Individual): boolean {
   return (indi.links?.length ?? 0) > 0 || indi.events.some((e) => (e.links?.length ?? 0) > 0);
@@ -47,7 +58,7 @@ function placeText(indi: Individual): string {
     if (e.place?.raw) parts.push(e.place.raw);
     if (e.address?.raw) parts.push(e.address.raw);
   }
-  return parts.join(" ").toLowerCase();
+  return foldSearch(parts.join(" "));
 }
 
 /**
@@ -63,7 +74,7 @@ export function buildSearchRows(
   for (const indi of individuals.values()) {
     const span = lifespanOf(indi);
     const name = nameOf(indi);
-    const searchText = span ? `${nameSearchText(indi)} ${span}`.toLowerCase() : nameSearchText(indi);
+    const searchText = foldSearch(span ? `${nameSearchText(indi)} ${span}` : nameSearchText(indi));
     rows.push({
       id: indi.id,
       name,
@@ -143,7 +154,7 @@ function matchesFilters(row: SearchRow, f: GlobalFilters, ctx: FilterContext): b
   if (f.sex !== undefined && row.sex !== f.sex) return false;
   if (f.bornFrom !== undefined && (row.birthYear === undefined || row.birthYear < f.bornFrom)) return false;
   if (f.bornTo !== undefined && (row.birthYear === undefined || row.birthYear > f.bornTo)) return false;
-  const place = f.place.trim().toLowerCase();
+  const place = foldSearch(f.place.trim());
   if (place && !row.placeText.includes(place)) return false;
   if (f.hasLinks && !row.hasLinks) return false;
   if (f.hasNotes && !row.hasNotes) return false;
@@ -170,7 +181,7 @@ export function searchPeople(
   filters: GlobalFilters,
   ctx: FilterContext,
 ): SearchRow[] {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = foldSearch(query.trim()).split(/\s+/).filter(Boolean);
   const active = hasActiveFilters(filters);
   const out: SearchRow[] = [];
   for (const row of rows) {
