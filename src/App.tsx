@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSS
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
-import { useMode, type Mode } from "./ui/useMode";
+import { useMode } from "./ui/useMode";
+import { useAppHistory } from "./ui/useAppHistory";
 import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
@@ -51,9 +52,9 @@ import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
-import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, markFreshStart, consumeFreshStart, type StoredSession, type StoredEditState } from "./persist/idb";
+import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, consumeFreshStart, type StoredSession, type StoredEditState } from "./persist/idb";
 import { hashFile, hasPermApi } from "./persist/fingerprint";
-import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
+import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
@@ -62,7 +63,6 @@ import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
-import type { TreeMode } from "./chart/personTree";
 import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
@@ -72,19 +72,6 @@ import {
   type SortKey,
   type SortState,
 } from "./ui/matchView";
-
-/** Which candidate pair the full-page compare tree is showing, and how. */
-interface TreeView {
-  mainId: string;
-  compareId: string;
-  mode: TreeMode;
-}
-
-/** A compare selection remembered in browser history (for the Back button). */
-interface SelRef {
-  mainId: string;
-  compareId: string;
-}
 
 // Reuses the landing.samples.<key>.name translation keys, so the sample
 // label is only defined once per language.
@@ -157,15 +144,6 @@ function AppContent() {
   // outside `decisions` because it's a bulk-add, not a per-candidate decision.
   const importBranchesRef = useRef(importBranches);
   importBranchesRef.current = importBranches;
-  // Tracks whether there are unsaved changes — updated each render so the
-  // stable popstate handler can check without stale-closure issues.
-  const hasUnsavedChangesRef = useRef(false);
-  // Set right before an intentional reload so the beforeunload handler skips
-  // the browser's native "leave page?" prompt after an in-app confirmation.
-  const skipUnloadWarnRef = useRef(false);
-  // Holds the currently-registered beforeunload handler so an intentional
-  // reload can detach it synchronously before navigating.
-  const beforeUnloadRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
   // A merge session read from IndexedDB on startup, applied once the first match
   // result arrives (the candidate list it keys into must exist first). Null when
   // there is nothing to restore or it has already been consumed.
@@ -288,70 +266,6 @@ function AppContent() {
   // Privacy/Terms modal (also opened via a `?legal=` URL param), in a hook.
   const { legalOpen, legalPage, openLegal, closeLegal } = useLegalModal();
 
-  // Full-page "Compare tree" view, kept in sync with browser history so the
-  // back button returns to the main view.
-  const [treeView, setTreeView] = useState<TreeView | null>(null);
-
-  useEffect(() => {
-    // Keep a throwaway "leave-guard" entry beneath the app's main entry. The
-    // browser Back button then lands on a same-document popstate we can intercept
-    // with our own confirmation dialog, instead of the un-stylable native
-    // beforeunload prompt. Set up once; a remount keeps the existing entries.
-    if (window.history.state?.gedPage !== "main") {
-      window.history.replaceState({ ...window.history.state, gedPage: "leave-guard" }, "");
-      window.history.pushState({ gedPage: "main" }, "");
-    }
-
-    function onPop(e: PopStateEvent) {
-      const st = (e.state ?? {}) as {
-        gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
-        gedChartsId?: string; gedChartsBack?: string;
-        gedEditTreeId?: string; gedRelId?: string;
-        gedMode?: Mode; gedNavigateTo?: string;
-      };
-      // Landing on the leave-guard = the user pressed Back from the app's main
-      // entry and is about to leave the app. Intercept it.
-      if (st.gedPage === "leave-guard") {
-        if (hasUnsavedChangesRef.current) {
-          // Re-push main so we stay on the app, then confirm asynchronously.
-          window.history.pushState({ gedPage: "main" }, "");
-          confirmDialog(t("app.navLeaveConfirm"), t("confirm.leave")).then((ok) => {
-            if (ok) {
-              // Already confirmed in-app — skip the native beforeunload prompt,
-              // then navigate past the re-pushed main and the guard to leave.
-              skipUnloadWarnRef.current = true;
-              window.history.go(-2);
-            }
-          });
-        } else {
-          // No unsaved changes: continue past the guard to the previous page.
-          window.history.back();
-        }
-        return;
-      }
-      setTreeView(st.gedTree ?? null);
-      // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
-      // history can still carry them, so they map onto the hub too.
-      setChartsRootId(st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null);
-      // Each charts entry records where its Back returns to (set at push time),
-      // so forward/back through several chart entries keeps the label honest.
-      setChartsBackKey(st.gedChartsBack ?? "edit.tree.back");
-      // Restore the mode recorded for this entry (e.g. returning to the Tools tab
-      // after opening a person from it). Absent on older/plain entries, in which
-      // case the current mode is left untouched.
-      if (st.gedMode) setMode(st.gedMode);
-      if (st.gedNavigateTo) setNavigateToId(st.gedNavigateTo);
-      // Restore a remembered compare selection (set when a person link pushed it).
-      if (st.gedSel) {
-        const { mainId, compareId } = st.gedSel;
-        setSelectedId({ mainId, compareId });
-      }
-    }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
 
@@ -362,44 +276,6 @@ function AppContent() {
     if (!(await confirmDialog(t("settings.data.clearConfirm"), t("confirm.continue")))) return;
     await clearWorkspace();
     setSaveToast(t("settings.data.cleared"));
-  }
-
-  /** Record the current compare selection in the current history entry so the
-   *  browser Back button returns here after a person-link or tree push. */
-  function rememberSelection() {
-    if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
-  }
-
-  function openTree(mainId: string, compareId: string) {
-    rememberSelection();
-    const view: TreeView = { mainId, compareId, mode: "ancestors" };
-    window.history.pushState({ gedTree: view }, "");
-    setTreeView(view);
-    setChartsRootId(null); // overlays are exclusive (see openCharts)
-  }
-  /** Re-root the open tree on another person, as a new history entry. */
-  function rerootTree(mainId?: string, compareId?: string) {
-    if (!mainId && !compareId) return;
-    setTreeView((cur) => {
-      const view: TreeView = { mainId: mainId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
-      window.history.pushState({ gedTree: view }, "");
-      return view;
-    });
-  }
-  /** Leave the open tree and select this pair back in the Matches list. Pushes a
-   *  fresh matches entry so the browser Back button returns to the tree. */
-  function showInMatches(mainId: string, compareId: string) {
-    window.history.pushState({ gedSel: { mainId, compareId } }, "");
-    setSelectedId({ mainId, compareId });
-    setTreeView(null);
-  }
-  function changeTreeMode(mode: TreeMode) {
-    setTreeView((cur) => {
-      if (!cur) return cur;
-      const next = { ...cur, mode };
-      window.history.replaceState({ gedTree: next }, "");
-      return next;
-    });
   }
 
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
@@ -980,6 +856,18 @@ function AppContent() {
   const visibleIndexRef = useRef(visibleIndex);
   visibleIndexRef.current = visibleIndex;
 
+  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
+
+  // Browser-history/overlay state machine: the full-page overlays (Compare
+  // Tree / Charts hub), popstate restoration of mode/selection/navigation, and
+  // the unsaved-changes leave guards (history entry + beforeunload).
+  const {
+    treeView, chartsRootId, setChartsRootId, chartsBackKey,
+    overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
+    openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
+    discardAndReload,
+  } = useAppHistory({ confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind });
+
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
       (side === "main" ? indexByMain : indexByCompare).has(id),
@@ -1154,8 +1042,6 @@ function AppContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
-
   // Switch to Edit, pointing it at whichever candidate Merge currently has
   // selected (so the person carries over instead of Edit staying on whoever
   // it last showed).
@@ -1191,11 +1077,6 @@ function AppContent() {
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
   const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools });
   modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools };
-  // True while a full-page chart overlay covers the mode views — mode switching
-  // (and the hidden views' own bare-key handlers, via their `active` props)
-  // must not act on the app underneath. Assigned below, once the overlay state
-  // it derives from has been declared.
-  const overlayOpenRef = useRef(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1209,7 +1090,7 @@ function AppContent() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [overlayOpenRef]); // a stable ref — effectively mount-only
 
   // As soon as a fresh match result lands, point Edit at the first candidate —
   // same as switching into Edit mode via its "e" shortcut already does for
@@ -1307,35 +1188,6 @@ function AppContent() {
       if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
     }
     return patches.length;
-  }
-
-  // Charts hub: the full-page per-person diagram overlay (pedigree charts +
-  // relationship). Which diagram it shows is the persisted chart "kind".
-  const [chartsRootId, setChartsRootId] = useState<string | null>(null);
-  // i18n key for where the hub's Back lands (the history entry beneath the
-  // hub's): the previous chart on a re-root, the Compare Tree, or the mode view.
-  const [chartsBackKey, setChartsBackKey] = useState("edit.tree.back");
-  overlayOpenRef.current = !!(treeView || chartsRootId);
-  const overlayOpen = overlayOpenRef.current;
-
-  /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
-  function openCharts(id: string, kind?: ChartKind) {
-    if (kind) setChartKind(kind);
-    const backKey = chartsRootId
-      ? "edit.back" // re-root on top of an open chart: Back = the previous chart
-      : treeView
-        ? "charts.back.tree"
-        : mode === "merge"
-          ? "charts.back.merge"
-          : mode === "tools"
-            ? "charts.back.tools"
-            : "edit.tree.back";
-    window.history.pushState({ gedChartsId: id, gedChartsBack: backKey }, "");
-    setChartsBackKey(backKey);
-    setChartsRootId(id);
-    // The overlays are exclusive; opened from inside the Compare Tree, the hub
-    // replaces it on screen and the browser Back button returns to the tree.
-    setTreeView(null);
   }
 
   /** The header Charts trigger: the person the active mode is looking at, or
@@ -1500,41 +1352,6 @@ function AppContent() {
   }, [importBranches]);
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
-
-  // Warn before leaving the page when there are unsaved changes. Registered once
-  // on mount and reads refs so it always reflects the current state without
-  // re-subscribing. The handler is kept in a ref so an intentional in-app reload
-  // can detach it synchronously before navigating — some browsers (e.g. Firefox)
-  // abort a programmatic reload while a beforeunload listener is attached.
-  useEffect(() => {
-    function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (skipUnloadWarnRef.current || !hasUnsavedChangesRef.current) return;
-      e.preventDefault();
-      e.returnValue = "";
-    }
-    beforeUnloadRef.current = onBeforeUnload;
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      beforeUnloadRef.current = null;
-    };
-  }, []);
-
-  /** Drop the unsaved-changes guard and reload to the landing page. The cached
-   *  workspace is marked for clearing (consumed on the next boot, see
-   *  markFreshStart) so the reload shows the loader instead of restoring the
-   *  session. Runs synchronously inside the dialog button's click handler so
-   *  the reload keeps the user's activation — Firefox blocks a programmatic
-   *  reload that fires from an async continuation. */
-  function discardAndReload() {
-    skipUnloadWarnRef.current = true;
-    if (beforeUnloadRef.current) {
-      window.removeEventListener("beforeunload", beforeUnloadRef.current);
-      beforeUnloadRef.current = null;
-    }
-    markFreshStart();
-    window.location.reload();
-  }
 
   async function handleTitleClick() {
     const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
