@@ -47,7 +47,8 @@ describe("buildSearchRows", () => {
     expect(row.span).toBe("1841–1902");
     expect(row.birthYear).toBe(1841);
     expect(row.sex).toBe("F");
-    expect(row.placeText).toContain("šentvid");
+    // placeText is diacritic-folded (accent-blind haystack), so "Šentvid" → "sentvid".
+    expect(row.placeText).toContain("sentvid");
     expect(row.hasLinks).toBe(true);
     expect(row.hasNotes).toBe(true);
     expect(row.hasSources).toBe(false);
@@ -78,6 +79,19 @@ describe("searchPeople — query", () => {
   it("requires every term to match, in any order", () => {
     expect(searchPeople(rows, "kov marija", NO_FILTERS, noCtx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
     expect(searchPeople(rows, "marija novak", NO_FILTERS, noCtx)).toHaveLength(0);
+  });
+
+  it("matches accented names typed without the accents (and vice versa)", () => {
+    expect(searchPeople(rows, "kovacic", NO_FILTERS, noCtx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
+    expect(searchPeople(rows, "Kovačič", NO_FILTERS, noCtx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
+  });
+
+  it("matches accented birth places typed without the accents", () => {
+    const placed = buildSearchRows(
+      toMap([indi([{ full: "Ana Test" }], [birth(1850, "Škofja Loka")])]),
+      nameOf,
+    );
+    expect(searchPeople(placed, "", filters({ place: "skofja" }), noCtx)).toHaveLength(1);
   });
 
   it("caps the result count", () => {

@@ -6,6 +6,7 @@
 import type { Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import {
+  factAgeSuffix,
   generationHeading,
   romanIndex,
   sourceLabel,
@@ -155,7 +156,9 @@ function sourceText(t: Translate, src: SourceLine): string {
  *  Oblak`, `⚒ 1958, orodjar`. The AGNC joins the comma run like the place;
  *  the CAUS gets its localized frame: `† 1912, Ljubljana (vzrok: pljučnica)`. */
 export function factText(t: Translate, f: FactLine): string {
-  const when = [f.date, f.value, f.place, f.agency].filter(Boolean).join(", ");
+  const age = factAgeSuffix(f);
+  const datePart = f.date && age ? `${f.date} ${age}` : f.date;
+  const when = [datePart, f.value, f.place, f.agency].filter(Boolean).join(", ");
   const cause = f.cause ? ` ${t("narrative.cause", { cause: f.cause })}` : "";
   return `${f.glyph} ${when}${cause}${f.spouse ? ` — ${f.spouse}` : ""}`;
 }

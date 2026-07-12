@@ -14,8 +14,9 @@ const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 /** The boolean display toggles, in popover order. */
 /** Per-person fields (the "Person" group). Badges = the on-node status letters
  *  (merge decision C/R/D, unsaved-edit M, import I) drawn by the tree charts. */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showPhoto" | "showKinship" | "showPlace" | "showBadges"; label: string }[] = [
+const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace" | "showBadges"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
+  { key: "showAge", label: "age" },
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
@@ -167,6 +168,13 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.report.facts")}</span>
               <div className="chart-settings-segmented chart-settings-toggles">
+                <button
+                  className={settings.showAge ? "active" : ""}
+                  aria-pressed={settings.showAge}
+                  onClick={() => set({ showAge: !settings.showAge })}
+                >
+                  {t("tree.settings.report.age")}
+                </button>
                 <button
                   className={settings.showOccupation ? "active" : ""}
                   aria-pressed={settings.showOccupation}

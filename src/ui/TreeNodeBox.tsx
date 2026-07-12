@@ -13,7 +13,7 @@ import {
   nameFit,
   truncate,
 } from "../chart/treeLayout";
-import { ALL_DISPLAY, livingLabelFor, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ageStandalone, ALL_DISPLAY, livingLabelFor, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -85,6 +85,8 @@ export function nodeStatusBadges(
 interface Props {
   name: string;
   years?: string;
+  /** Whole-years age, folded into the lifespan line when the Age toggle is on. */
+  age?: number;
   /** First-available place (birth → residence → death); shown on its own row when enabled. */
   place?: string;
   sex?: Sex | string;
@@ -123,6 +125,7 @@ interface Props {
 export function TreeNodeBox({
   name,
   years,
+  age,
   place,
   sex,
   color,
@@ -137,7 +140,7 @@ export function TreeNodeBox({
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
+  const disp = nodeDisplay(display, { name, years, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName

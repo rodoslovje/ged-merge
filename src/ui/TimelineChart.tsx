@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../chart/timeline";
-import { formatMarriage, livingLabelFor } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
+import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -236,11 +237,17 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
   const rootRow = rows.find((r) => r.role === "person");
   const nowYear = new Date().getFullYear();
 
-  // Shared title for the page heading and the SVG / PDF export header.
+  // Shared title for the page heading and the SVG / PDF export header. The title
+  // always shows the lifespan, so force it on and let Age append "(N)".
   const pageKind = t("timeline.pageTitle");
-  const exportTitle = [rootRow && rowName(rootRow), rootRow && !redacted(rootRow) ? rootRow.years : undefined, "—", pageKind]
-    .filter(Boolean)
-    .join(" ");
+  const rootYears =
+    rootRow && !redacted(rootRow)
+      ? lifespanLine(
+          { showLifespan: true, showAge: settings.showAge },
+          { years: rootRow.years, age: lifespanAge(mainDs.individuals.get(rootRow.id)) },
+        )
+      : undefined;
+  const exportTitle = [rootRow && rowName(rootRow), rootYears, "—", pageKind].filter(Boolean).join(" ");
 
   // Marriage ⚭ marks always draw; the two Marriage toggles add the visible
   // `⚭ 1925 Kranj` label text beside them (the tooltip carries it regardless).
@@ -255,8 +262,14 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
   const rowMeta = (row: TimelineRow): string => {
     const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
     if (redacted(row)) return role ?? "";
+    const age = lifespanAge(mainDs.individuals.get(row.id));
+    const lifespan = lifespanLine(settings, {
+      years: row.years,
+      age,
+      ageText: age !== undefined ? ageStandalone(t, row.sex, age) : undefined,
+    });
     const parts = [
-      settings.showLifespan ? row.years : undefined,
+      lifespan,
       settings.showPlace ? row.place : undefined,
       role,
     ].filter(Boolean);
@@ -271,7 +284,7 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
         rootRow ? (
           <>
             <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
-            {!redacted(rootRow) && rootRow.years && <span className="tree-title-years gm-data">{rootRow.years}</span>}
+            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
             <span className="tree-title-break" aria-hidden="true" />
             <span className="tree-title-kind">{pageKind}</span>
           </>

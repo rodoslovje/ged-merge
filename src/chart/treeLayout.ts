@@ -23,13 +23,16 @@ export const DETAIL_ROW_TOP = 40;
  *  get their own stacked row beneath the name. */
 export interface DetailToggles {
   showLifespan: boolean;
+  /** Age folds into the lifespan row, or — with the lifespan hidden — stands on
+   *  its own in that same row, so either toggle reserves the one row. */
+  showAge: boolean;
   showPlace: boolean;
   showKinship: boolean;
 }
 
 /** How many detail rows are enabled (0–3). */
 export function detailRowCount(o: DetailToggles): number {
-  return (o.showLifespan ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showKinship ? 1 : 0);
+  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the

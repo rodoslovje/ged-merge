@@ -1,5 +1,6 @@
 import type { Dataset, Family, Individual, Sex } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { lifespanAge } from "../gedcom/age";
 import { localityParts } from "../gedcom/place";
 import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
@@ -32,6 +33,9 @@ export interface TreeNode {
   name: string;
   /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
+  /** Whole-years age (at death, or current for the living) when known — folded
+   *  into the lifespan line by {@link nodeDisplay} when the Age toggle is on. */
+  age?: number;
   /** First-available place (birth → residence → death), most-specific locality. */
   place?: string;
   /** Presumed living (no death event + recent birth) — a privacy-redaction candidate. */
@@ -379,6 +383,7 @@ function makeNode(
     status,
     name: nameOf(primary),
     years: birthYears(main, incoming),
+    age: lifespanAge(primary),
     place: placeLabel(primary),
     living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs),
     sex,

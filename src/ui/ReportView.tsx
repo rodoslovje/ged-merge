@@ -103,8 +103,9 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
       residence: settings.showResidence,
       notes: settings.showNotes,
       sources: settings.showSources,
+      age: settings.showAge,
     }),
-    [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes, settings.showSources],
+    [settings.showOccupation, settings.showEducation, settings.showResidence, settings.showNotes, settings.showSources, settings.showAge],
   );
   const ancestors = useMemo(
     () => buildAhnentafel(mainDs, currentRootId, nameOf, undefined, factOpts),
