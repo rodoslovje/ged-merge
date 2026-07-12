@@ -64,7 +64,7 @@ Prioritized technical-debt items from the full code review. None changes behavio
 - **`eventUpdateHasContent` copy-pasted** in `setRecordEventField` and `addEventField` (`src/gedcom/edit.ts` ~181/~260).
 
 ### God-file decomposition (mechanical, high maintainability payoff)
-- **`src/ui/ToolsView.tsx` (~2.5k lines)** → per-panel files under `src/ui/tools/`; panels are already self-contained, near-pure code motion.
+- ~~**`src/ui/ToolsView.tsx` (~2.5k lines)** → per-panel files under `src/ui/tools/`; panels are already self-contained, near-pure code motion.~~ *(done 2026-07-12 — seven panel files + `tools/shared.tsx`; ToolsView.tsx keeps the tab shell + scans cache)*
 - **`src/gedcom/edit.ts` (~1.2k lines)** → split along its existing banner sections into `edit/{events,names,family,media,sources,cache}.ts`.
 - **`src/App.tsx` (~2.4k lines)**: collapse the six near-identical tool-fix callbacks into one `applyToolPatches` helper; extract a `useWorkspacePersistence` hook (hydration + debounced writer + persist toggle, ~300 cohesive lines) and a `useAppHistory` hook (overlay/history state machine). Also finish the started workspace-reducer migration rather than restructuring around it.
 - **`review/fields.ts` (~1.2k lines)**: split `individualFieldRows` (~190 lines) into `buildEventRows` / `buildParentRows` / `buildFamilyRows`; consider typing the stringly `row.key.split(".")` dispatch in `merge/applyFields.ts`.
