@@ -219,11 +219,11 @@ export function EventFieldsRow({
   // only while not already showing. Place/address adapt to the event kind
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
-    { key: "source", label: t("edit.addLink") },
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
-    ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
     { key: "agency", label: t("event.colAgency") },
+    { key: "source", label: t("event.colLink") },
+    ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
     { key: "cause", label: t("event.colCause") },
     { key: "note", label: t("event.colNote") },
   ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
