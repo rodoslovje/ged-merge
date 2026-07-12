@@ -23,8 +23,42 @@ import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
 type Row = FieldRow;
 
+/** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
+ *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
+const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "value"] as const;
+export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
+
+function isEventSubField(sub: string | undefined): sub is EventSubField {
+  return !!sub && (EVENT_SUB_FIELDS as readonly string[]).includes(sub);
+}
+
+/** An individual event row key, parsed into its typed parts. */
+export interface ParsedEventRowKey {
+  /** GEDCOM event tag ("BIRT", "RESI", …). */
+  tag: string;
+  /** Which sub-field of the event the row edits. */
+  sub: EventSubField;
+  /** Row-key prefix identifying the event instance ("BIRT", "RESI.0", …) —
+   *  ties the row to its `.header` group in the save preview. */
+  eventKey: string;
+}
+
+/** Parse an event row key ("BIRT.date", "RESI.0.place", …); undefined for
+ *  non-event keys ("given", "father", "notes", …). */
+export function parseEventRowKey(key: string): ParsedEventRowKey | undefined {
+  const parts = key.split(".");
+  // Multi-instance keys carry an output-order index in the middle: TAG.<n>.<sub>.
+  const [tag, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
+    ? [parts[0], parts[2]]
+    : parts.length === 2
+      ? [parts[0], parts[1]]
+      : [undefined, undefined];
+  if (!tag || !isEventSubField(sub)) return undefined;
+  return { tag, sub, eventKey: key.slice(0, -(sub.length + 1)) };
+}
+
 export interface EventSubEdit {
-  sub: string;
+  sub: EventSubField;
   field: string;
   from: string;
   to: string;
@@ -138,6 +172,7 @@ export function applyRows(
     }
 
     let applied = false;
+    const parsed = parseEventRowKey(row.key);
     if (row.key === "given" || row.key === "surname") {
       if (nameApplied) continue; // the whole NAME line is taken as a unit
       applied = applyName(target, incomingRecord, choice, sourMap, report.customTags);
@@ -150,11 +185,8 @@ export function applyRows(
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
-    } else {
-      const parts = row.key.split(".");
-      const [tag, sub] = parts.length === 3 && /^\d+$/.test(parts[1])
-        ? [parts[0], parts[2]]
-        : [parts[0], parts[1]];
+    } else if (parsed) {
+      const { tag, sub } = parsed;
       // The row's own true per-side array positions, not a position parsed
       // back out of `key` — that numeric suffix is an output-order index from
       // date/place pairing, not necessarily either side's real array index
@@ -166,24 +198,20 @@ export function applyRows(
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
       } else {
-        const subTag = SUB_TAG[sub];
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
         // directly like any other field.
-        if (subTag) applied = applyEventSub(target, incomingRecord, tag, subTag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
+        applied = applyEventSub(target, incomingRecord, tag, SUB_TAG[sub], choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
       }
     }
 
     if (applied) {
-      const subMatch = row.key.match(/\.(type|date|place|addr|note|agency|cause|sources|value)$/);
-      const eventKey = subMatch ? row.key.slice(0, -subMatch[0].length) : undefined;
-      const group = eventKey ? eventGroups.get(eventKey) : undefined;
-      const sub = subMatch?.[1];
-      if (eventKey && group && sub && sub !== "sources") {
-        let entries = eventEdits.get(eventKey);
-        if (!entries) { entries = []; eventEdits.set(eventKey, entries); }
-        entries.push({ sub, field: row.label, from: row.main, to: row.incoming, action: choice });
-      } else if (sub === "sources") {
+      const group = parsed ? eventGroups.get(parsed.eventKey) : undefined;
+      if (parsed && group && parsed.sub !== "sources") {
+        let entries = eventEdits.get(parsed.eventKey);
+        if (!entries) { entries = []; eventEdits.set(parsed.eventKey, entries); }
+        entries.push({ sub: parsed.sub, field: row.label, from: row.main, to: row.incoming, action: choice });
+      } else if (parsed?.sub === "sources") {
         // Render added citations as the same 📖/🔗 icons the main UI uses,
         // inline on the event's line — not as a separate "Source: …" text row.
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
