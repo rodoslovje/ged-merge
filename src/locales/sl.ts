@@ -119,6 +119,7 @@ export const sl = {
   "tools.duplicates.running": "Iskanje dvojnikov…",
   "tools.duplicates.none": "Ni najdenih verjetnih dvojnikov.",
   "tools.duplicates.found": "{{count}} možnih parov dvojnikov",
+  "tools.duplicates.showingTop": "Prikazanih je {{shown}} parov z najvišjo oceno od skupno {{total}} — seznam zožite z iskalnikom.",
   "tools.duplicates.showCompare": "Pokaži primerjavo drug ob drugem",
   "tools.duplicates.hideCompare": "Skrij primerjavo",
   "tools.duplicates.merge": "Združi",

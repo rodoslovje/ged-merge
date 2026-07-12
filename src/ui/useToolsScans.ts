@@ -93,6 +93,10 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   const datasetSeqRef = useRef(0);
   const datasetRef = useRef(dataset);
 
+  /** Set on unmount so an already-scheduled deferred post doesn't respawn the
+   *  worker after the hook is gone. */
+  const disposedRef = useRef(false);
+
   const terminate = useCallback(() => {
     workerRef.current?.terminate();
     workerRef.current = null;
@@ -110,7 +114,15 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     setStates(ALL_IDLE);
   }, [dataset, terminate]);
 
-  useEffect(() => terminate, [terminate]);
+  useEffect(() => {
+    // Reset on (re)mount — StrictMode runs this cleanup once during its
+    // double-mount, and a stuck `disposed` would silently drop every scan.
+    disposedRef.current = false;
+    return () => {
+      disposedRef.current = true;
+      terminate();
+    };
+  }, [terminate]);
 
   const setScan = useCallback((kind: ScanKind, value: ScanStates[ScanKind]) => {
     setStates((s) => ({ ...s, [kind]: value }));
@@ -155,40 +167,48 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
 
   const start = useCallback(
     (kind: ScanKind) => {
-      // Supersede a pending scan of the same kind (refresh while running).
-      for (const [id, p] of pendingRef.current) {
-        if (p.kind === kind) pendingRef.current.delete(id);
-      }
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
-      const requestId = nextIdRef.current++;
-      post(
-        { type: REQUEST_TYPE[kind], requestId },
-        {
-          kind,
-          onResult: (data) => {
-            if (kind === "validate") {
-              setScan("validate", { status: "done", result: data as ToolsResultMap["validate"] });
-            } else if (kind === "duplicates") {
-              setScan("duplicates", { status: "done", result: (data as ToolsResultMap["findDuplicates"]).pairs });
-            } else if (kind === "normalize") {
-              setScan("normalize", { status: "done", result: (data as ToolsResultMap["normalizePreview"]).report });
-            } else {
-              setScan("sourceDuplicates", { status: "done", result: (data as ToolsResultMap["sourceDuplicates"]).report });
-            }
+      // Defer the post one macrotask so React paints the spinner first: when
+      // the worker's dataset copy is stale, `post` structured-clones the whole
+      // file — seconds of blocked main thread on an index-scale dataset — and
+      // an effect can run before the browser has painted the "running" state.
+      setTimeout(() => {
+        // Dropped meanwhile: cancelled, dataset replaced, or hook unmounted.
+        if (disposedRef.current || statesRef.current[kind].status !== "running") return;
+        // Supersede a pending scan of the same kind (refresh while running).
+        for (const [id, p] of pendingRef.current) {
+          if (p.kind === kind) pendingRef.current.delete(id);
+        }
+        const requestId = nextIdRef.current++;
+        post(
+          { type: REQUEST_TYPE[kind], requestId },
+          {
+            kind,
+            onResult: (data) => {
+              if (kind === "validate") {
+                setScan("validate", { status: "done", result: data as ToolsResultMap["validate"] });
+              } else if (kind === "duplicates") {
+                setScan("duplicates", { status: "done", result: (data as ToolsResultMap["findDuplicates"]).pairs });
+              } else if (kind === "normalize") {
+                setScan("normalize", { status: "done", result: (data as ToolsResultMap["normalizePreview"]).report });
+              } else {
+                setScan("sourceDuplicates", { status: "done", result: (data as ToolsResultMap["sourceDuplicates"]).report });
+              }
+            },
+            onProgress:
+              kind === "duplicates"
+                ? (done, total) =>
+                    setStates((s) =>
+                      s.duplicates.status === "running"
+                        ? { ...s, duplicates: { status: "running", progress: { done, total } } }
+                        : s,
+                    )
+                : undefined,
+            onError: (message) => setScan(kind, { status: "error", message }),
           },
-          onProgress:
-            kind === "duplicates"
-              ? (done, total) =>
-                  setStates((s) =>
-                    s.duplicates.status === "running"
-                      ? { ...s, duplicates: { status: "running", progress: { done, total } } }
-                      : s,
-                  )
-              : undefined,
-          onError: (message) => setScan(kind, { status: "error", message }),
-        },
-      );
+        );
+      }, 0);
     },
     [post, setScan],
   );
@@ -231,17 +251,21 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
 
   const runNormalizeText = useCallback(
     (options: NormalizeOptions, onText: (text: string) => void, onError?: () => void) => {
-      const requestId = nextIdRef.current++;
-      post(
-        { type: "normalizeText", requestId, options },
-        {
-          onResult: (data) => onText((data as ToolsResultMap["normalizeText"]).text),
-          onError: (message) => {
-            console.error(`tools worker: ${message}`);
-            onError?.();
+      // Same paint-first deferral as start(): the post may re-upload the file.
+      setTimeout(() => {
+        if (disposedRef.current) return;
+        const requestId = nextIdRef.current++;
+        post(
+          { type: "normalizeText", requestId, options },
+          {
+            onResult: (data) => onText((data as ToolsResultMap["normalizeText"]).text),
+            onError: (message) => {
+              console.error(`tools worker: ${message}`);
+              onError?.();
+            },
           },
-        },
-      );
+        );
+      }, 0);
     },
     [post],
   );

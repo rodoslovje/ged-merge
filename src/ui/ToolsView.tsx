@@ -47,6 +47,10 @@ type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "p
 
 const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places"];
 
+/** How many duplicate pairs the list renders at once (highest scores first) —
+ *  see the `visible` memo in {@link DuplicatesPanel}. */
+const VISIBLE_PAIRS = 200;
+
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
   dataset: Dataset;
@@ -614,8 +618,8 @@ function DuplicatesPanel({
   // same auto-advance as rejecting a pair — so the panel doesn't just go blank.
   function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
     if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
-    const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
+    const idx = visible.findIndex((p) => p.aId === survivorId && p.bId === removedId);
+    const remaining = visible.filter((p) => p.aId !== removedId && p.bId !== removedId);
     scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
     if (remaining.length === 0) {
       setExpanded(null);
@@ -635,9 +639,9 @@ function DuplicatesPanel({
   // same auto-advance behavior as rejecting a match in Merge — so the panel
   // doesn't just go blank.
   function handleReject(aId: string, bId: string) {
-    const idx = shown.findIndex((p) => p.aId === aId && p.bId === bId);
+    const idx = visible.findIndex((p) => p.aId === aId && p.bId === bId);
     onRejectDuplicate(aId, bId);
-    const remaining = shown.filter((p) => !(p.aId === aId && p.bId === bId));
+    const remaining = visible.filter((p) => !(p.aId === aId && p.bId === bId));
     if (remaining.length === 0) {
       setExpanded(null);
       return;
@@ -667,7 +671,15 @@ function DuplicatesPanel({
       return;
     }
     setQuery("");
-    setSelected(state.result.indexOf(pair));
+    const idx = visible.indexOf(pair);
+    if (idx >= 0) {
+      setSelected(idx);
+    } else {
+      // Below the rendered window (or filtered out) — move it to the front so
+      // the opened comparison is actually on screen.
+      scans.updateDuplicates((pairs) => [pair, ...pairs.filter((p) => p !== pair)]);
+      setSelected(0);
+    }
     setExpanded(`${pair.aId}-${pair.bId}`);
   }
 
@@ -696,13 +708,19 @@ function DuplicatesPanel({
     const base = pairs.filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected);
     return q ? base.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : base;
   }, [pairs, q, rejectedDuplicates, showRejected]);
+  // Only the highest-scoring window is rendered: an index-scale file produces
+  // six-figure pair counts, and an unvirtualized list that long makes every
+  // interaction (expanding a pair, moving the highlight) re-draw for seconds.
+  // The list is score-sorted, so the cutoff keeps the pairs worth reviewing
+  // first; the search box reaches the tail.
+  const visible = useMemo(() => shown.slice(0, VISIBLE_PAIRS), [shown]);
 
   // Keep the highlight inside the (re)filtered list: a new filter starts at the
   // top; merging out a pair clamps to the last remaining one.
   useEffect(() => { setSelected(0); }, [q]);
   useEffect(() => {
-    setSelected((i) => (shown.length === 0 ? 0 : Math.min(i, shown.length - 1)));
-  }, [shown.length]);
+    setSelected((i) => (visible.length === 0 ? 0 : Math.min(i, visible.length - 1)));
+  }, [visible.length]);
 
   // Bring the keyboard-highlighted pair into view as it moves.
   useEffect(() => {
@@ -713,7 +731,7 @@ function DuplicatesPanel({
   // surrounding list (when it overflows) so a long list can be read without
   // moving the selection. Mirrors the Merge view's compare-panel shortcuts.
   useEffect(() => {
-    if (!active || shown.length === 0) return;
+    if (!active || visible.length === 0) return;
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -723,16 +741,16 @@ function DuplicatesPanel({
         e.preventDefault();
         const next = e.key === "ArrowLeft"
           ? Math.max(0, selectedRef.current - 1)
-          : Math.min(shown.length - 1, selectedRef.current + 1);
+          : Math.min(visible.length - 1, selectedRef.current + 1);
         setSelected(next);
         if (expandedRef.current !== null) {
-          const p = shown[next];
+          const p = visible[next];
           if (p) setExpanded(`${p.aId}-${p.bId}`);
         }
         return;
       }
       if (e.key === "Enter") {
-        const p = shown[selectedRef.current];
+        const p = visible[selectedRef.current];
         if (!p) return;
         e.preventDefault();
         const key = `${p.aId}-${p.bId}`;
@@ -748,7 +766,7 @@ function DuplicatesPanel({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, shown]);
+  }, [active, visible]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -792,6 +810,11 @@ function DuplicatesPanel({
                 : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
             </p>
           </div>
+          {shown.length > VISIBLE_PAIRS && (
+            <p className="tools-intro">
+              {t("tools.duplicates.showingTop", { shown: VISIBLE_PAIRS, total: shown.length })}
+            </p>
+          )}
           {shown.length === 0 ? (
             <p className="tools-clean">
               {q
@@ -802,7 +825,7 @@ function DuplicatesPanel({
             </p>
           ) : (
             <ul className="tools-pairs" ref={listRef}>
-              {shown.map((p, i) => {
+              {visible.map((p, i) => {
                 const key = `${p.aId}-${p.bId}`;
                 const open = !showRejected && expanded === key;
                 return (
