@@ -720,6 +720,24 @@ describe("findDuplicates", () => {
     expect(pair.score).toBeGreaterThanOrEqual(70);
   });
 
+  it("reports monotonic progress over the individuals scanned", () => {
+    // Enough individuals to cross the progress interval (256) at least twice.
+    const people = Array.from({ length: 600 }, (_, i) =>
+      `0 @I${i + 1}@ INDI\n1 NAME Oseba${i} /Priimek${i}/\n1 SEX M\n1 BIRT\n2 DATE ${1800 + (i % 100)}`,
+    ).join("\n");
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${people}\n0 TRLR`);
+    const calls: Array<[number, number]> = [];
+    findDuplicates(ds, undefined, undefined, (done, total) => calls.push([done, total]));
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    for (const [done, total] of calls) {
+      expect(total).toBe(600);
+      expect(done).toBeGreaterThan(0);
+      expect(done).toBeLessThanOrEqual(total);
+    }
+    const dones = calls.map(([done]) => done);
+    expect([...dones].sort((a, b) => a - b)).toEqual(dones);
+  });
+
   it("does not flag cousins with the same surname, town and era but different parents", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

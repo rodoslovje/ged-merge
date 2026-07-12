@@ -44,10 +44,16 @@ export function duplicatePairKey(aId: string, bId: string): string {
   return aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
 }
 
+/** How many individuals the scan processes between `onProgress` calls. */
+const PROGRESS_EVERY = 256;
+
 export function findDuplicates(
   ds: Dataset,
   minScore: number = DEFAULT_MIN_SCORE,
   config: MatchConfig = DEFAULT_CONFIG,
+  /** Called every {@link PROGRESS_EVERY} individuals — safe to post progress
+   *  messages from, even though the scan itself never yields. */
+  onProgress?: (done: number, total: number) => void,
 ): DuplicatePair[] {
   // Blocking: bucket individuals by phonetic/decade keys so only plausible
   // pairs reach the expensive scoring pass.
@@ -61,8 +67,11 @@ export function findDuplicates(
   }
 
   const out: DuplicatePair[] = [];
+  const total = ds.individuals.size;
+  let done = 0;
 
   for (const a of ds.individuals.values()) {
+    if (onProgress && ++done % PROGRESS_EVERY === 0) onProgress(done, total);
     const candidates = new Set<string>();
     for (const key of individualBlockKeys(a, soundex, ds)) {
       const bucket = index.get(key);
