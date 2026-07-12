@@ -6,9 +6,7 @@ import {
   sexConflicts,
 } from "./scoreIndividual";
 import { birthYear } from "../gedcom/lifespan";
-import { cachedFatherName, cachedMotherName } from "./profileCache";
-import { comparableName, givenSimilarity, parentGivenVerdict } from "./similarity";
-import { primaryName } from "./relatives";
+import { differentGiven, parentsVerdict } from "./similarity";
 import { clearTextCaches, soundex } from "./text";
 import {
   categorize,
@@ -76,20 +74,9 @@ function matchIndividuals(
  * (harmless — the duplicate just shows in the tree as before), never wrong merges.
  */
 const DUP_PAIR_SCORE = 85;
-/** Min given-name similarity for two records to be one person, not siblings —
- *  the within-pair score is a weighted average where surname/birth/place can
- *  drown out a clear given-name conflict, so this is a separate hard veto. */
-const SAME_PERSON_GIVEN = 0.85;
 /** Max birth-year gap tolerated between duplicate copies. Small enough to reject
  *  a namesake parent/child (decades apart) but to allow a transcription slip. */
 const DUP_MAX_YEAR_DIFF = 3;
-/** Given names too dissimilar to be one person (e.g. siblings sharing a surname). */
-function differentGiven(a: Individual, b: Individual): boolean {
-  const ga = comparableName(primaryName(a))?.given;
-  const gb = comparableName(primaryName(b))?.given;
-  if (!ga || !gb) return false;
-  return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
-}
 
 /** Birth years known on both sides and too far apart to be one person. */
 function birthYearsTooFar(a: Individual, b: Individual): boolean {
@@ -97,24 +84,6 @@ function birthYearsTooFar(a: Individual, b: Individual): boolean {
   const yb = birthYear(b);
   if (ya === undefined || yb === undefined) return false;
   return Math.abs(ya - yb) > DUP_MAX_YEAR_DIFF;
-}
-
-/** True when some comparable parental role clearly conflicts and none agrees
- *  — same-named cousins, not one person twice. Uses the shared three-band
- *  verdict (see `parentGivenVerdict`), so a similarity in the ambiguous gap
- *  between the bands neither vetoes nor rescues. */
-function parentsConflict(a: Individual, b: Individual, ds: Dataset): boolean {
-  const verdicts = [
-    parentGivenVerdict(
-      comparableName(cachedFatherName(a, ds))?.given,
-      comparableName(cachedFatherName(b, ds))?.given,
-    ),
-    parentGivenVerdict(
-      comparableName(cachedMotherName(a, ds))?.given,
-      comparableName(cachedMotherName(b, ds))?.given,
-    ),
-  ];
-  return verdicts.includes("conflict") && !verdicts.includes("agree");
 }
 
 /**
@@ -158,7 +127,7 @@ function findIncomingDuplicateClusters(
       // Hard vetoes a weighted-average score can't be trusted to enforce:
       // a distinct sibling (given name), a namesake (birth years far apart), or
       // a same-named cousin (conflicting parents) is never one person.
-      if (differentGiven(keep, cand) || birthYearsTooFar(keep, cand) || parentsConflict(keep, cand, compareDs)) continue;
+      if (differentGiven(keep, cand) || birthYearsTooFar(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
       if (scoreIndividualPair(keep, cand, compareDs, compareDs, config).score < DUP_PAIR_SCORE) continue;

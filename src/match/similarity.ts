@@ -1,7 +1,9 @@
-import type { GedDate, GedPlace, PersonName } from "../gedcom/types";
+import type { Dataset, GedDate, GedPlace, Individual, PersonName } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
+import { cachedFatherName, cachedMotherName } from "./profileCache";
+import { primaryName } from "./relatives";
 import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
 
 /**
@@ -53,6 +55,71 @@ export function parentGivenVerdict(
   const sim = givenSimilarity(a, b);
   if (sim >= PARENT_GIVEN_AGREE) return "agree";
   if (sim < PARENT_GIVEN_CONFLICT) return "conflict";
+  return "unknown";
+}
+
+/**
+ * Record-level same-person veto predicates, shared by the match engine's
+ * incoming-duplicate consolidation, the within-file duplicate finder and the
+ * pair scorer, so all three call "distinct relatives, not one person" at the
+ * same boundaries.
+ */
+
+/** Minimum given-name similarity (0..1) for two records to be the same person
+ *  rather than distinct relatives. Sits in the gap between distinct given names
+ *  (Franjo/Jakov ≈ 0.58, twins Anton/Alojz ≈ 0.64) and transcription variants of
+ *  one name (Jože/Jožef ≈ 0.96). Stricter than the merge name gate (0.5), which
+ *  is tuned to let nickname/cross-language variants through across two files. */
+export const SAME_PERSON_GIVEN = 0.85;
+
+/** True when both records have a given name and they're too dissimilar to be
+ *  one person (distinct sibling names rather than spelling variants of one) —
+ *  a separate hard veto, because the weighted-average pair score lets
+ *  surname/birth/place drown out a clear given-name conflict. */
+export function differentGiven(a: Individual, b: Individual): boolean {
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
+  if (!ga || !gb) return false;
+  return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
+}
+
+/** Verdict for the two records' father given names, each side resolved through
+ *  its own dataset (pass the same dataset twice for a within-file compare). */
+export function fatherGivenVerdict(
+  a: Individual, dsA: Dataset,
+  b: Individual, dsB: Dataset,
+): "agree" | "conflict" | "unknown" {
+  return parentGivenVerdict(
+    comparableName(cachedFatherName(a, dsA))?.given,
+    comparableName(cachedFatherName(b, dsB))?.given,
+  );
+}
+
+/** Verdict for the two records' mother given names — see {@link fatherGivenVerdict}. */
+export function motherGivenVerdict(
+  a: Individual, dsA: Dataset,
+  b: Individual, dsB: Dataset,
+): "agree" | "conflict" | "unknown" {
+  return parentGivenVerdict(
+    comparableName(cachedMotherName(a, dsA))?.given,
+    comparableName(cachedMotherName(b, dsB))?.given,
+  );
+}
+
+/**
+ * How the two records' parents relate: "agree" if a comparable father or mother
+ * matches (siblings and true duplicates both share parents), "conflict" if some
+ * comparable role clearly conflicts and none agrees (different families →
+ * same-named cousins, not one person twice), "unknown" if there's too little
+ * linked-parent data on either side to tell. Uses the three-band per-role
+ * verdict (see {@link parentGivenVerdict}), so a similarity in the ambiguous
+ * gap between the bands neither vetoes nor rescues.
+ */
+export function parentsVerdict(a: Individual, b: Individual, ds: Dataset): "agree" | "conflict" | "unknown" {
+  const father = fatherGivenVerdict(a, ds, b, ds);
+  const mother = motherGivenVerdict(a, ds, b, ds);
+  if (father === "agree" || mother === "agree") return "agree";
+  if (father === "conflict" || mother === "conflict") return "conflict";
   return "unknown";
 }
 

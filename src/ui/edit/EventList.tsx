@@ -3,7 +3,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
-import { INDI_EVENT_TAGS } from "../../gedcom/builder";
+import { INDI_EVENT_TAGS } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, zoneSortKey } from "../../review/fields";

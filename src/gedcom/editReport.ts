@@ -1,3 +1,4 @@
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "./eventTags";
 import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
@@ -6,13 +7,11 @@ import { parseName } from "./name";
 import { buildObjeIndex, isPointer, objeInfoOf } from "./source";
 import type { Translate } from "../locales/i18n";
 
-const INDIVIDUAL_EVENT_TAGS = new Set([
-  "BIRT", "BAPM", "CHR", "DEAT", "BURI", "CREM", "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI", "RESI", "EMIG", "IMMI", "NATU", "CENS", "WILL", "PROB",
-  "EVEN",
-]);
+/** Individual events the report diffs — the canonical set minus MARR, which
+ *  the individual editor doesn't surface. */
+const INDIVIDUAL_EVENT_TAGS = new Set(INDI_EVENT_TAG_ORDER);
 
-const FAMILY_EVENT_TAGS = new Set(["MARR", "ENGA", "SEPA", "DIV"]);
+const FAMILY_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
 const RECORD_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_WEBTAG"]);
 

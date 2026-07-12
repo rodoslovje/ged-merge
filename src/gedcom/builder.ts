@@ -19,16 +19,7 @@ import type {
   Sex,
 } from "./types";
 
-/** Event-bearing tags we lift into the typed `events` array. */
-export const INDI_EVENT_TAGS = new Set([
-  "BIRT", "DEAT", "BAPM", "CHR", "BURI", "CREM", "MARR", "RESI",
-  "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
-  "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "EVEN",
-]);
-const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "SEPA", "MARB", "MARL"]);
+import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "./eventTags";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
  *  with nothing in it (e.g. single-file chart building). Fresh on every call, so
@@ -110,11 +101,6 @@ export function buildDataset(parsed: ParseResult): Dataset {
     chanCreaUsage: detectChanCreaUsage(records),
   };
 }
-
-const ALL_EVENT_TAGS = new Set([
-  ...INDI_EVENT_TAGS,
-  "DIV", "ENGA", "SEPA", "MARB", "MARL",
-]);
 
 function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
   let recordChan = false, recordCrea = false, eventChan = false, eventCrea = false;

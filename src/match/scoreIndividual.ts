@@ -13,11 +13,12 @@ import {
 import {
   comparableName,
   dateSimilarity,
+  fatherGivenVerdict,
   givenNameSetSimilarity,
   givenSimilarity,
+  motherGivenVerdict,
   nameSetSimilarity,
   nameSimilarity,
-  parentGivenVerdict,
   placeSimilarity,
 } from "./similarity";
 import { foldToken, jaroWinkler } from "./text";
@@ -260,16 +261,12 @@ function bothParentsConflict(
   mainDs: Dataset,
   compareDs: Dataset,
 ): boolean {
-  const fm = comparableName(cachedFatherName(main, mainDs))?.given;
-  const fc = comparableName(cachedFatherName(compare, compareDs))?.given;
-  const mm = comparableName(cachedMotherName(main, mainDs))?.given;
-  const mc = comparableName(cachedMotherName(compare, compareDs))?.given;
-  if (!fm || !fc || !mm || !mc) return false;
   // Both roles must sit in the shared conflict band (see parentGivenVerdict) —
-  // the same boundary the duplicate vetoes use.
+  // the same boundary the duplicate vetoes use. A missing given name on either
+  // side of a role yields "unknown", never a conflict.
   return (
-    parentGivenVerdict(fm, fc) === "conflict" &&
-    parentGivenVerdict(mm, mc) === "conflict"
+    fatherGivenVerdict(main, mainDs, compare, compareDs) === "conflict" &&
+    motherGivenVerdict(main, mainDs, compare, compareDs) === "conflict"
   );
 }
 
