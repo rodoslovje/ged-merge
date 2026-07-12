@@ -55,11 +55,7 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 Prioritized technical-debt items from the full code review. None changes behavior on its own; pay down opportunistically as features touch the same files.
 
 ### Correctness edges (small, do first when nearby)
-- **Duplicate xref → corrupt save**: `buildDataset` warns and last-wins in the Maps, but *both* raw records stay in `records[]` and both serialize — a saved file can contain two `@I5@` records (`src/gedcom/builder.ts` ~69–87). Drop the shadowed raw record.
-- **No `@@` escaping** on output: a value starting with `@` re-reads as a pointer in strict 5.5.1 importers (`src/gedcom/serialize.ts` value emit).
-- **`/` in names corrupts the NAME slash-form** on write (`writeNameValue` in `src/gedcom/edit.ts`); a trailing token after the surname is also dropped from structured given (`src/gedcom/name.ts` regex).
-- **No `onerror`/`onmessageerror` on the workers** — an uncaught worker throw or failed structured clone vanishes silently (`useGedcomWorker.ts`, `useToolsScans.ts`).
-- **Parser level-jump recovery reparents to top level** silently — data survives but serializes in the wrong place (`src/gedcom/parser.ts` ~100–106).
+*All five fixed 2026-07-12: shadowed duplicate-xref records dropped from `records[]`; leading-`@` values escaped as `@@` on output (folded back on parse); `/` in name parts replaced with a space, and the trailing token after the surname kept (suffix — or given for surname-first `/Novak/ Janez` values); `onerror`/`onmessageerror` on both workers fail the waiting slots/scans instead of spinning; level-jump lines clamp to the deepest open node instead of reparenting to top level.*
 
 ### Duplication that will drift (low effort, medium payoff)
 - **Event-tag sets declared 4×**: `builder.ts`, `chanCrea.ts`, `editReport.ts`, `edit.ts` ordering arrays. Extract one `eventTags.ts`.
