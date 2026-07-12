@@ -1,4 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
+import { INDI_EVENT_TAG_ORDER } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -86,14 +87,9 @@ export function formatFieldLabel(t: Translate, key: string): string {
   return key;
 }
 
-/** Order events are displayed in; unknown tags follow, in first-seen order. */
-export const EVENT_ORDER = [
-  "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
-  "RESI", "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "DEAT", "BURI", "CREM",
-];
+/** Order events are displayed in; unknown tags — including the generic EVEN,
+ *  which has no fixed life-cycle slot — follow, in first-seen order. */
+export const EVENT_ORDER = INDI_EVENT_TAG_ORDER.filter((tag) => tag !== "EVEN");
 
 /**
  * Build the comparable field rows for an individual candidate. When datasets are

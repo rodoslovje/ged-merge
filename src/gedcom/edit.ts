@@ -1,4 +1,5 @@
-import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, INDI_EVENT_TAGS, type MediaLinks, type NoteIndex } from "./builder";
+import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, type MediaLinks, type NoteIndex } from "./builder";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, INDI_EVENT_TAGS } from "./eventTags";
 import { buildSourceContext, clearObjeNodeCache, isPointer, type CropRegion, type SourceContext } from "./source";
 import { birthSortKey } from "./lifespan";
 import { childrenByTag, firstChild, hasChild, removeChildren } from "./node";
@@ -14,29 +15,27 @@ import type { Dataset, Family, GedNode, Individual, Sex } from "./types";
  * update `dataset.individuals`) without rebuilding the whole dataset.
  */
 
+/** Trailing links/media/note/sources block shared by every child-order list. */
+const ATTACHMENT_CHILD_ORDER = ["WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR"];
+
 /** Canonical sub-tag order within an event (BIRT/DEAT/RESI/…) node. */
 export const EVENT_CHILD_ORDER = [
-  "TYPE", "DATE", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
+  "TYPE", "DATE", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", ...ATTACHMENT_CHILD_ORDER,
 ];
 
 /** Canonical top-level field order within an INDI record. */
 export const INDI_CHILD_ORDER = [
   "NAME", "SEX",
-  "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
-  "RESI", "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "EVEN",
-  "DEAT", "BURI", "CREM",
+  ...INDI_EVENT_TAG_ORDER,
   "FAMC", "FAMS",
-  "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
+  ...ATTACHMENT_CHILD_ORDER,
 ];
 
 /** Canonical top-level field order within a FAM record. */
 export const FAM_CHILD_ORDER = [
   "HUSB", "WIFE", "CHIL",
-  "MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV",
-  "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR",
+  ...FAM_EVENT_TAG_ORDER,
+  ...ATTACHMENT_CHILD_ORDER,
 ];
 
 /** Canonical sub-tag order within a `NAME` node. */
@@ -169,6 +168,17 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   }
 }
 
+/** Whether the update sets at least one non-blank field — i.e. applying it to
+ *  a brand-new event node would leave the node non-empty. */
+function eventUpdateHasContent(update: EventFieldUpdate): boolean {
+  return (
+    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
+    !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
+    !!update.type?.trim() || !!update.cause?.trim() ||
+    !!update.links?.some((l) => l.trim()) || !!update.addSource
+  );
+}
+
 /**
  * Update an event's date, place, address and/or links — finding (or
  * creating) the event subtree, e.g. `1 BIRT`/`1 MARR` with `2 DATE`/`2 PLAC`/
@@ -178,13 +188,8 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
 function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): GedNode | undefined {
   let event = firstChild(record, tag);
   const isNewEvent = !event;
-  const hasContent =
-    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
-    !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
-    !!update.type?.trim() || !!update.cause?.trim() ||
-    !!update.links?.some((l) => l.trim()) || !!update.addSource;
   if (!event) {
-    if (!hasContent) return undefined;
+    if (!eventUpdateHasContent(update)) return undefined;
     event = { level: record.level + 1, tag, children: [] };
     insertOrdered(record, event, order);
   }
@@ -257,12 +262,7 @@ export function restoreEvent(indi: Individual, tag: string, data: EventFieldUpda
  * can't silently overwrite the node just created for the other. Returns the
  * new node, or `undefined` if there was nothing to set. */
 export function addEventField(indi: Individual, tag: string, update: EventFieldUpdate): GedNode | undefined {
-  const hasContent =
-    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
-    !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
-    !!update.type?.trim() || !!update.cause?.trim() ||
-    !!update.links?.some((l) => l.trim()) || !!update.addSource;
-  if (!hasContent) return undefined;
+  if (!eventUpdateHasContent(update)) return undefined;
   addEventNode(indi, tag);
   const sameTagNodes = childrenByTag(indi.raw, tag);
   const newNode = sameTagNodes[sameTagNodes.length - 1];

@@ -1,4 +1,5 @@
 import type { Family, Sex, SourceCitation } from "../../gedcom/types";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
 import type { MatchDecisionStatus } from "../../review/types";
 
 /** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`). */
@@ -20,10 +21,10 @@ export const INDIVIDUAL_EVENT_GROUPS = [
 export const ASSIGNABLE_EVENT_TAGS: Set<string> = new Set(INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags));
 
 /** Family events that are hidden until explicitly added (marriage is always shown). */
-export const FAMILY_HIDDEN_EVENT_TAGS = ["ENGA", "SEPA", "DIV"];
+export const FAMILY_HIDDEN_EVENT_TAGS = EDITABLE_FAM_EVENT_TAGS.filter((tag) => tag !== "MARR");
 
 /** Family event tags the type-change dropdown can switch between. */
-export const FAMILY_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV"];
+export const FAMILY_EVENT_TAGS = EDITABLE_FAM_EVENT_TAGS;
 
 /** Tags `tag`'s type-change dropdown may switch to: every `FAMILY_EVENT_TAGS`
  * tag not already used by a different event on `fam` (switching into one
@@ -57,14 +58,10 @@ export function fieldWidth(value: string, placeholder: string, minLen = 3): stri
   return `${Math.max(len, minLen) + 3}ch`;
 }
 
-/** Display order for extra merge events (tags not yet in main) and secondary event sort key. */
-export const EXTRA_EVENT_ORDER = [
-  "BAPM", "CHR", "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
-  "RESI", "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "DEAT", "BURI", "CREM",
-];
+/** Display order for extra merge events (tags not yet in main) and secondary
+ *  event sort key — the canonical order minus BIRT (always shown separately)
+ *  and the generic EVEN (no fixed slot). */
+export const EXTRA_EVENT_ORDER = INDI_EVENT_TAG_ORDER.filter((tag) => tag !== "BIRT" && tag !== "EVEN");
 
 export const MATCH_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
 

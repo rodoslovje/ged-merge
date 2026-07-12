@@ -1,16 +1,7 @@
 import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered } from "./edit";
+import { ALL_EVENT_TAGS } from "./eventTags";
 import { firstChild, hasChild } from "./node";
 import type { ChanCreaUsage, GedNode } from "./types";
-
-const ALL_EVENT_TAGS = new Set([
-  "BIRT", "DEAT", "BAPM", "CHR", "BURI", "CREM", "MARR", "RESI",
-  "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
-  "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "EVEN",
-  "DIV", "ENGA", "SEPA", "MARB", "MARL",
-]);
 
 /** Format today's date as GEDCOM standard: `D MON YYYY` (e.g. `24 JUN 2026`). */
 export function todayGedcom(date: Date = new Date()): string {
