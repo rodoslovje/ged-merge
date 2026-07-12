@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSS
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
-import { useMode, type Mode } from "./ui/useMode";
+import { useMode } from "./ui/useMode";
+import { useAppHistory } from "./ui/useAppHistory";
 import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
@@ -51,9 +52,10 @@ import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider } from "./ui/MediaFolderContext";
-import { loadWorkspace, saveFile, deleteFile, saveSession, clearWorkspace, requestPersistentStorage, markFreshStart, consumeFreshStart, type StoredSession, type StoredEditState } from "./persist/idb";
-import { hashFile, hasPermApi } from "./persist/fingerprint";
-import { ChartSettingsProvider, useChartSettings, type ChartKind } from "./ui/ChartSettingsContext";
+import { saveFile, deleteFile } from "./persist/idb";
+import { hashFile } from "./persist/fingerprint";
+import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
+import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
@@ -62,7 +64,6 @@ import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
-import type { TreeMode } from "./chart/personTree";
 import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
@@ -72,19 +73,6 @@ import {
   type SortKey,
   type SortState,
 } from "./ui/matchView";
-
-/** Which candidate pair the full-page compare tree is showing, and how. */
-interface TreeView {
-  mainId: string;
-  compareId: string;
-  mode: TreeMode;
-}
-
-/** A compare selection remembered in browser history (for the Back button). */
-interface SelRef {
-  mainId: string;
-  compareId: string;
-}
 
 // Reuses the landing.samples.<key>.name translation keys, so the sample
 // label is only defined once per language.
@@ -119,13 +107,6 @@ function AppContent() {
   // set when an entry point asks for a specific diagram.
   const { settings: chartSettings, setKind: setChartKind } = useChartSettings();
   const nameOf = useNameOf();
-  // Opt-in workspace caching (off by default). Mirrored into a ref so the
-  // mount-only worker/hydration effect reads the current value without needing
-  // to re-run, and the (non-memoized) loadFile closure always sees it fresh.
-  const persistEnabled = settings.persistWorkspace;
-  const persistEnabledRef = useRef(persistEnabled);
-  persistEnabledRef.current = persistEnabled;
-
   // Whether we've already attempted the one-time default start person for the
   // currently loaded main, so a user who clears it isn't re-defaulted.
   const autoStartRef = useRef(false);
@@ -133,16 +114,20 @@ function AppContent() {
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
   const matchingStartRef = useRef<number | null>(null);
   const matchedTimerRef = useRef<number | null>(null);
-  // The shared workspace store (reducer). Migrating in slices — the file slots
-  // live here now; matches/decisions/etc. are still separate useState below and
-  // move over in later steps. `lastMainFile` is the most recently *successfully*
-  // loaded main, kept while a reload is in progress so the Merge/Edit views
-  // stay mounted (showing the previous data) instead of flashing the landing
-  // page while `main` is transiently "loading" or "error".
+  // The shared workspace store (reducer) — the whole data pipeline: file slots,
+  // match result, merge decisions, import branches, rejected duplicates, start
+  // person. Purely-UI-local state (selection, modals, sort/filters, navigation)
+  // stays in useState below by design — see state/workspace.ts. `lastMainFile`
+  // is the most recently *successfully* loaded main, kept while a reload is in
+  // progress so the Merge/Edit views stay mounted (showing the previous data)
+  // instead of flashing the landing page while `main` is transiently "loading"
+  // or "error".
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
+  const mainDataset = lastMainFile?.dataset;
+  const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
@@ -155,61 +140,6 @@ function AppContent() {
   // outside `decisions` because it's a bulk-add, not a per-candidate decision.
   const importBranchesRef = useRef(importBranches);
   importBranchesRef.current = importBranches;
-  // Tracks whether there are unsaved changes — updated each render so the
-  // stable popstate handler can check without stale-closure issues.
-  const hasUnsavedChangesRef = useRef(false);
-  // Set right before an intentional reload so the beforeunload handler skips
-  // the browser's native "leave page?" prompt after an in-app confirmation.
-  const skipUnloadWarnRef = useRef(false);
-  // Holds the currently-registered beforeunload handler so an intentional
-  // reload can detach it synchronously before navigating.
-  const beforeUnloadRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
-  // A merge session read from IndexedDB on startup, applied once the first match
-  // result arrives (the candidate list it keys into must exist first). Null when
-  // there is nothing to restore or it has already been consumed.
-  const pendingSessionRef = useRef<StoredSession | null>(null);
-  // Gates session persistence: stays false until the startup restore has settled
-  // (or there was nothing to restore), so the debounced writer can't overwrite a
-  // cached session with the empty state that exists mid-restore.
-  const hydratedRef = useRef(false);
-  // Whether the startup restore is still waiting on a compare file to match —
-  // decides whether persistence is enabled after the main parses or only once
-  // matching completes.
-  const expectCompareRef = useRef(false);
-  // Edit-state cached from a previous session, applied (instead of resetOnLoad)
-  // once the edited main re-parses. Null when there is nothing to restore.
-  const pendingEditStateRef = useRef<StoredEditState | null>(null);
-  // Set on the first user-initiated load. The startup restore checks it before
-  // (and after) each async hop: a user who drops a file while the cached
-  // workspace is still being read must win — feeding the cached file to the
-  // worker afterwards would overwrite the user's freshly-loaded one.
-  const userLoadedRef = useRef(false);
-  // The raw compare Blob (File on load, cached Blob on hydrate) — kept so that
-  // enabling persistence mid-session can cache the compare exactly, including a
-  // CSV that can't be re-serialized from its dataset.
-  const compareBlobRef = useRef<Blob | null>(null);
-  // Whether the main blob has been cached this session. The debounced effect
-  // is the *sole* writer of the main key (serializing the live dataset), so a
-  // fire-and-forget original write from loadFile can't race and clobber a later
-  // edited write. False after a fresh main load → the next debounce caches it.
-  const mainCachedRef = useRef(false);
-  // Live FileSystemFileHandle for main/compare, when the browser supports the
-  // File System Access API and the file was picked/dropped via one (Firefox/
-  // Safari, or a plain drag of a file without a resolvable handle, leave this
-  // null). State (not a ref) because it drives the "Verify" button's visibility.
-  const [mainHandle, setMainHandle] = useState<FileSystemFileHandle | null>(null);
-  const [compareHandle, setCompareHandle] = useState<FileSystemFileHandle | null>(null);
-  // SHA-256 of the file's bytes *as loaded from disk*, fixed at load time and
-  // carried unchanged through every later cache write (which may re-serialize
-  // an edited main dataset) — see fingerprint.ts. Used to tell "the on-disk
-  // file changed" apart from "I edited it in here".
-  const mainOriginalHashRef = useRef<string | null>(null);
-  const compareOriginalHashRef = useRef<string | null>(null);
-  // Set (only from the startup-restore effect) when a silent disk check finds
-  // the cached file no longer matches what's on disk. A separate effect below
-  // reacts to it with a fresh `loadFile`/handle closure, since the effect that
-  // detects the mismatch runs once at mount and can't safely call either.
-  const [externalChangeAlert, setExternalChangeAlert] = useState<{ role: DatasetRole; fileName: string } | null>(null);
   // Bumps on every dataset-mutating edit (and undo/redo of one). Drives the
   // persistence debounce and, when > 0, signals the dataset differs from the
   // originally-loaded file so the *edited* serialization must be cached.
@@ -286,119 +216,8 @@ function AppContent() {
   // Privacy/Terms modal (also opened via a `?legal=` URL param), in a hook.
   const { legalOpen, legalPage, openLegal, closeLegal } = useLegalModal();
 
-  // Full-page "Compare tree" view, kept in sync with browser history so the
-  // back button returns to the main view.
-  const [treeView, setTreeView] = useState<TreeView | null>(null);
-
-  useEffect(() => {
-    // Keep a throwaway "leave-guard" entry beneath the app's main entry. The
-    // browser Back button then lands on a same-document popstate we can intercept
-    // with our own confirmation dialog, instead of the un-stylable native
-    // beforeunload prompt. Set up once; a remount keeps the existing entries.
-    if (window.history.state?.gedPage !== "main") {
-      window.history.replaceState({ ...window.history.state, gedPage: "leave-guard" }, "");
-      window.history.pushState({ gedPage: "main" }, "");
-    }
-
-    function onPop(e: PopStateEvent) {
-      const st = (e.state ?? {}) as {
-        gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
-        gedChartsId?: string; gedChartsBack?: string;
-        gedEditTreeId?: string; gedRelId?: string;
-        gedMode?: Mode; gedNavigateTo?: string;
-      };
-      // Landing on the leave-guard = the user pressed Back from the app's main
-      // entry and is about to leave the app. Intercept it.
-      if (st.gedPage === "leave-guard") {
-        if (hasUnsavedChangesRef.current) {
-          // Re-push main so we stay on the app, then confirm asynchronously.
-          window.history.pushState({ gedPage: "main" }, "");
-          confirmDialog(t("app.navLeaveConfirm"), t("confirm.leave")).then((ok) => {
-            if (ok) {
-              // Already confirmed in-app — skip the native beforeunload prompt,
-              // then navigate past the re-pushed main and the guard to leave.
-              skipUnloadWarnRef.current = true;
-              window.history.go(-2);
-            }
-          });
-        } else {
-          // No unsaved changes: continue past the guard to the previous page.
-          window.history.back();
-        }
-        return;
-      }
-      setTreeView(st.gedTree ?? null);
-      // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
-      // history can still carry them, so they map onto the hub too.
-      setChartsRootId(st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null);
-      // Each charts entry records where its Back returns to (set at push time),
-      // so forward/back through several chart entries keeps the label honest.
-      setChartsBackKey(st.gedChartsBack ?? "edit.tree.back");
-      // Restore the mode recorded for this entry (e.g. returning to the Tools tab
-      // after opening a person from it). Absent on older/plain entries, in which
-      // case the current mode is left untouched.
-      if (st.gedMode) setMode(st.gedMode);
-      if (st.gedNavigateTo) setNavigateToId(st.gedNavigateTo);
-      // Restore a remembered compare selection (set when a person link pushed it).
-      if (st.gedSel) {
-        const { mainId, compareId } = st.gedSel;
-        setSelectedId({ mainId, compareId });
-      }
-    }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
-
-  /** Settings → wipe the cached workspace (main/compare files + merge session)
-   *  from IndexedDB. Doesn't touch the live, in-memory session — the current
-   *  work stays loaded; only the persisted copy used to restore on reload goes. */
-  async function handleClearCache() {
-    if (!(await confirmDialog(t("settings.data.clearConfirm"), t("confirm.continue")))) return;
-    await clearWorkspace();
-    setSaveToast(t("settings.data.cleared"));
-  }
-
-  /** Record the current compare selection in the current history entry so the
-   *  browser Back button returns here after a person-link or tree push. */
-  function rememberSelection() {
-    if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
-  }
-
-  function openTree(mainId: string, compareId: string) {
-    rememberSelection();
-    const view: TreeView = { mainId, compareId, mode: "ancestors" };
-    window.history.pushState({ gedTree: view }, "");
-    setTreeView(view);
-    setChartsRootId(null); // overlays are exclusive (see openCharts)
-  }
-  /** Re-root the open tree on another person, as a new history entry. */
-  function rerootTree(mainId?: string, compareId?: string) {
-    if (!mainId && !compareId) return;
-    setTreeView((cur) => {
-      const view: TreeView = { mainId: mainId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
-      window.history.pushState({ gedTree: view }, "");
-      return view;
-    });
-  }
-  /** Leave the open tree and select this pair back in the Matches list. Pushes a
-   *  fresh matches entry so the browser Back button returns to the tree. */
-  function showInMatches(mainId: string, compareId: string) {
-    window.history.pushState({ gedSel: { mainId, compareId } }, "");
-    setSelectedId({ mainId, compareId });
-    setTreeView(null);
-  }
-  function changeTreeMode(mode: TreeMode) {
-    setTreeView((cur) => {
-      if (!cur) return cur;
-      const next = { ...cur, mode };
-      window.history.replaceState({ gedTree: next }, "");
-      return next;
-    });
-  }
 
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
   // every worker message via useGedcomWorker's latest-handler ref.
@@ -424,13 +243,13 @@ function AppContent() {
           // session now that the candidate list (keyed by xref) exists. Setting
           // the home person re-ranks, producing another `matched` — harmless,
           // the session is already consumed (ref nulled).
-          const restored = pendingSessionRef.current;
+          const restored = persistence.pendingSessionRef.current;
           if (restored) {
-            pendingSessionRef.current = null;
+            persistence.pendingSessionRef.current = null;
             if (restored.decisions.length) dispatch({ type: "decisionsSet", decisions: new Map(restored.decisions) });
             if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
           }
-          hydratedRef.current = true; // restore settled — persistence may resume
+          persistence.hydratedRef.current = true; // restore settled — persistence may resume
         };
         // matchDatasets can finish in under a millisecond once the engine is
         // JIT-warm (e.g. re-matching on a main reload), too fast for React to
@@ -464,7 +283,7 @@ function AppContent() {
           // Only restore a start person that still exists in this main — a
           // stale id (e.g. cached against a different file) would leave the
           // views pointing at a person that isn't there ("no individuals").
-          const restoredStart = pendingSessionRef.current?.startId;
+          const restoredStart = persistence.pendingSessionRef.current?.startId;
           if (restoredStart && file.dataset.individuals.has(restoredStart)) {
             changeStart(restoredStart);
           } else {
@@ -475,8 +294,8 @@ function AppContent() {
           // Restore rejected within-file duplicates only if the cached session
           // actually belongs to this same-named main (defence in depth on top of
           // the single-slot cache) and each pair's both records still exist.
-          const restoredRejected = pendingSessionRef.current?.rejectedDuplicates;
-          if (restoredRejected?.length && pendingSessionRef.current?.mainFileName === msg.fileName) {
+          const restoredRejected = persistence.pendingSessionRef.current?.rejectedDuplicates;
+          if (restoredRejected?.length && persistence.pendingSessionRef.current?.mainFileName === msg.fileName) {
             const valid = restoredRejected.filter((key) => {
               const [a, b] = key.split("|");
               return !!a && !!b && file.dataset.individuals.has(a) && file.dataset.individuals.has(b);
@@ -484,7 +303,7 @@ function AppContent() {
             if (valid.length) dispatch({ type: "rejectedDuplicatesSet", pairs: new Set(valid) });
           }
           // Main-only restore (no compare to match): nothing more to wait for.
-          if (!expectCompareRef.current) hydratedRef.current = true;
+          if (!persistence.expectCompareRef.current) persistence.hydratedRef.current = true;
         }
       } else {
         dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: msg.message });
@@ -493,7 +312,7 @@ function AppContent() {
         void deleteFile(msg.role);
         // A failed restore won't reach `matched`/the main branch — unblock
         // persistence so later user-loaded files still get cached.
-        hydratedRef.current = true;
+        persistence.hydratedRef.current = true;
       }
   };
   // The worker itself died (uncaught throw or an undeliverable message): fail
@@ -511,89 +330,22 @@ function AppContent() {
     }
     matchingStartRef.current = null;
     dispatch({ type: "matchingStopped" });
-    hydratedRef.current = true; // a failed restore must not block persistence
+    persistence.hydratedRef.current = true; // a failed restore must not block persistence
   };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
   const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
 
-  // Restore a cached workspace on mount: re-feed the stored files through the
-  // worker so the parse → normalize → match pipeline (and start-person ranking)
-  // rebuilds exactly as a fresh load would. The merge session is stashed and
-  // applied in `applyMatched` once the candidate list exists.
-  useEffect(() => {
-    let cancelled = false;
-    // Logo-click fresh start: skip the restore and drop the cached workspace so
-    // this (and every later) boot lands on the loader.
-    if (consumeFreshStart()) {
-      void clearWorkspace();
-      hydratedRef.current = true;
-      return;
-    }
-    // Only read the cache when the user has opted in; otherwise there is nothing
-    // stored and we go straight to the landing page.
-    const hydrate: ReturnType<typeof loadWorkspace> = persistEnabledRef.current
-      ? loadWorkspace()
-      : Promise.resolve({});
-    void hydrate.then((ws) => {
-      if (cancelled || userLoadedRef.current) return;
-      if (!ws.main) {
-        hydratedRef.current = true; // nothing cached — persist freely from here
-        return;
-      }
-      pendingSessionRef.current = ws.session ?? null;
-      pendingEditStateRef.current = ws.session?.editState ?? null;
-      expectCompareRef.current = !!ws.compare;
-      mainCachedRef.current = true; // restored main is already in the cache
-      setMainHandle(ws.main.handle ?? null);
-      mainOriginalHashRef.current = ws.main.originalHash ?? null;
-      if (ws.compare) {
-        compareBlobRef.current = ws.compare.blob;
-        setCompareHandle(ws.compare.handle ?? null);
-        compareOriginalHashRef.current = ws.compare.originalHash ?? null;
-      }
-      // A cached start person will be restored explicitly; suppress the one-time
-      // auto-default so it doesn't fight the restore.
-      if (ws.session?.startId) autoStartRef.current = true;
-      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
-        dispatch({ type: "slotLoading", role, fileName: sf.fileName });
-        void sf.blob.arrayBuffer().then((buffer) => {
-          if (cancelled || userLoadedRef.current) return;
-          post(
-            sf.isCsv
-              ? { type: "parseCsv", fileName: sf.fileName, buffer }
-              : { type: "parse", role, fileName: sf.fileName, buffer },
-            [buffer],
-          );
-        });
-      };
-      feed("main", ws.main); // main first so its profile is set before compare normalizes
-      if (ws.compare) feed("compare", ws.compare);
-
-      // Best-effort, silent check that the on-disk file still matches what we
-      // cached (Chrome/Edge only, and only when the browser still reports read
-      // permission without a prompt — a live gesture is needed otherwise, which
-      // the "Verify" button provides). A mismatch surfaces via `externalChangeAlert`,
-      // handled by a separate effect that always sees the current render's
-      // `loadFile`/handle state (this mount effect's closure would otherwise call
-      // a permanently-stale `loadFile`).
-      const verifyOnHydrate = async (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
-        if (!sf.handle || !sf.originalHash || !hasPermApi(sf.handle)) return;
-        try {
-          const perm = await sf.handle.queryPermission({ mode: "read" });
-          if (perm !== "granted") return;
-          const file = await sf.handle.getFile();
-          const hash = await hashFile(file);
-          if (cancelled) return;
-          if (hash !== sf.originalHash) setExternalChangeAlert({ role, fileName: sf.fileName });
-        } catch {
-          /* handle stale/revoked, file moved, etc. — nothing to report */
-        }
-      };
-      void verifyOnHydrate("main", ws.main);
-      if (ws.compare) void verifyOnHydrate("compare", ws.compare);
-    });
-    return () => { cancelled = true; };
-  }, [post]);
+  // Opt-in IndexedDB persistence: startup hydration (re-feeding cached files
+  // through the worker), the debounced session/main writer, the enable toggle,
+  // and the on-disk external-change checks. Returns the restore-coordination
+  // refs the worker handlers above and the load/save flows below share.
+  const persistence = useWorkspacePersistence({
+    persistEnabled: settings.persistWorkspace,
+    workspace, mainDataset, editVersion, dirty, undoRedo,
+    sortEligiblePersonIdsRef, post, dispatch, autoStartRef,
+    loadFile, confirmDialog, setSaveToast,
+  });
+  const { persistEnabled, mainHandle, compareHandle } = persistence;
 
   // On unmount, cancel a pending "hold the spinner" timer so it can't fire a
   // setState after teardown.
@@ -610,11 +362,11 @@ function AppContent() {
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
-    userLoadedRef.current = true;
-    hydratedRef.current = true;
-    expectCompareRef.current = false;
-    pendingSessionRef.current = null;
-    pendingEditStateRef.current = null;
+    persistence.userLoadedRef.current = true;
+    persistence.hydratedRef.current = true;
+    persistence.expectCompareRef.current = false;
+    persistence.pendingSessionRef.current = null;
+    persistence.pendingEditStateRef.current = null;
     // Also guards a reload triggered by the external-change check below: if
     // there's unsaved work, this asks before discarding it exactly as it would
     // for any other replace.
@@ -640,14 +392,14 @@ function AppContent() {
     // write can't land after and clobber an edit. A fresh main resets the flag
     // so the next debounce re-caches it.
     if (role === "compare") {
-      compareBlobRef.current = file;
-      setCompareHandle(handle ?? null);
-      compareOriginalHashRef.current = originalHash;
-      if (persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now(), originalHash, handle });
+      persistence.compareBlobRef.current = file;
+      persistence.setCompareHandle(handle ?? null);
+      persistence.compareOriginalHashRef.current = originalHash;
+      if (persistence.persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now(), originalHash, handle });
     } else {
-      mainCachedRef.current = false;
-      setMainHandle(handle ?? null);
-      mainOriginalHashRef.current = originalHash;
+      persistence.mainCachedRef.current = false;
+      persistence.setMainHandle(handle ?? null);
+      persistence.mainOriginalHashRef.current = originalHash;
     }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
@@ -713,61 +465,10 @@ function AppContent() {
     post(newMsg, [buffer]); // transfer ownership — avoids copying large files
   }
 
-  // Reacts to a mismatch found by the startup-restore's silent disk check
-  // (`externalChangeAlert`). Kept as its own effect — rather than resolving the
-  // reload inline where the mismatch is found — because that check runs once in
-  // the mount-only hydration effect, whose closure over `loadFile`/handle state
-  // is permanently stale; this effect re-fires fresh each time the alert is set,
-  // so it always sees the current render's `loadFile` and handle state.
-  useEffect(() => {
-    if (!externalChangeAlert) return;
-    const { role, fileName } = externalChangeAlert;
-    void confirmDialog(t("load.externalChange", { fileName }), t("load.externalChange.reload")).then((reload) => {
-      setExternalChangeAlert(null);
-      if (!reload) return;
-      const handle = role === "main" ? mainHandle : compareHandle;
-      if (!handle) return;
-      void handle.getFile().then((file) => loadFile(role, file, handle));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalChangeAlert]);
-
-  /** Manual re-check for the loaded main/compare file against disk (the
-   *  "Verify" button in GedcomLoader) — unlike the silent startup check, a real
-   *  click gesture lets this request permission if it isn't already granted. */
-  async function verifyNow(role: DatasetRole) {
-    const handle = role === "main" ? mainHandle : compareHandle;
-    const originalHash = role === "main" ? mainOriginalHashRef.current : compareOriginalHashRef.current;
-    if (!handle || !originalHash) return;
-    if (hasPermApi(handle)) {
-      let perm = await handle.queryPermission({ mode: "read" });
-      if (perm === "prompt") perm = await handle.requestPermission({ mode: "read" });
-      if (perm !== "granted") {
-        setSaveToast(t("load.verify.denied"));
-        return;
-      }
-    }
-    let file: File;
-    try {
-      file = await handle.getFile();
-    } catch {
-      setSaveToast(t("load.verify.unreadable"));
-      return;
-    }
-    const hash = await hashFile(file);
-    if (hash === originalHash) {
-      setSaveToast(t("load.verify.unchanged"));
-      return;
-    }
-    if (await confirmDialog(t("load.externalChange", { fileName: file.name }), t("load.externalChange.reload"))) {
-      void loadFile(role, file, handle);
-    }
-  }
-
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
    *  restock a freshly-recreated worker after a hard-abort (see loadFile). */
   async function refeedCompare() {
-    const blob = compareBlobRef.current;
+    const blob = persistence.compareBlobRef.current;
     if (!blob || compare.status !== "loaded") return;
     const fileName = compare.file.fileName;
     const isCsv = /\.csv$/i.test(fileName);
@@ -788,9 +489,9 @@ function AppContent() {
     }
     // A user-initiated unload supersedes any in-flight startup restore of the
     // compare, mirroring loadFile.
-    expectCompareRef.current = false;
-    compareBlobRef.current = null;
-    if (persistEnabled) void deleteFile("compare");
+    persistence.expectCompareRef.current = false;
+    persistence.compareBlobRef.current = null;
+    if (persistence.persistEnabled) void deleteFile("compare");
     // Merge entries reference the now-gone incoming file; edits stay valid.
     undoRedo.dropMergeEntries();
     dispatch({ type: "slotCleared", role: "compare" });
@@ -816,10 +517,10 @@ function AppContent() {
     // Startup restore of an edited workspace: the re-parsed main is the edited
     // serialization, so adopt the cached pre-edit tracking and undo history
     // instead of treating the current (edited) records as the clean baseline.
-    const es = pendingEditStateRef.current;
+    const es = persistence.pendingEditStateRef.current;
     let hydrated = false;
     if (es) {
-      pendingEditStateRef.current = null;
+      persistence.pendingEditStateRef.current = null;
       // Defense in depth on top of the SESSION_SCHEMA gate in persist/idb.ts:
       // a cached edit-state whose shape no longer matches the app must never
       // brick startup — fall back to a clean baseline (the cached main text
@@ -874,93 +575,6 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
-  // Persist the workspace so a reload restores it: the pending merge session
-  // (decisions, import branches, start person) plus, once the dataset has been
-  // edited, the edited main text and the edit-state (dirty tracking + undo
-  // history). Debounced because these change rapidly while working; keyed to the
-  // loaded main/compare so a stale restore can be skipped.
-  useEffect(() => {
-    if (!persistEnabled) return; // caching is opt-in
-    const mainFileName = lastMainFile?.fileName;
-    if (!mainFileName) return; // nothing loaded yet → nothing to cache
-    if (!hydratedRef.current) return; // a startup restore is still settling
-    // While a main (re)load is parsing, lastMainFile/mainDataset still hold the
-    // PREVIOUS file. Writing then would cache the old file's text and flip
-    // mainCachedRef, so the new file would never be cached this session and a
-    // reload would restore the old one. `main` is in the deps, so the
-    // slotLoading dispatch also cancels any already-scheduled write below.
-    if (main.status !== "loaded") return;
-    const handle = window.setTimeout(async () => {
-      const edited = editVersion > 0; // dataset differs from the cached original
-      const editState: StoredEditState | undefined = edited
-        ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
-        : undefined;
-      // Cache the main's *current* serialization (edited or original) — this
-      // effect is the sole main writer. Re-serialize when the dataset has been
-      // edited, or once when it hasn't been cached yet this session (a pure-merge
-      // session then serializes only that first time, not on every decision). It
-      // is written before the session below, so a session record always points
-      // at an already-committed main.
-      if (mainDataset && (edited || !mainCachedRef.current)) {
-        await saveFile("main", {
-          fileName: mainFileName,
-          blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
-          savedAt: Date.now(),
-          originalHash: mainOriginalHashRef.current ?? undefined,
-          handle: mainHandle ?? undefined,
-        });
-        mainCachedRef.current = true;
-      }
-      await saveSession({
-        mainFileName,
-        compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
-        decisions: Array.from(decisions),
-        importBranches: Array.from(importBranches),
-        rejectedDuplicates: Array.from(rejectedDuplicates),
-        startId,
-        editState,
-        savedAt: Date.now(),
-      });
-    }, 800);
-    return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, changedPersonIds, changedFamilyIds, mainHandle]);
-
-  // React to the opt-in toggle: on enable, request durable storage (the only
-  // place that may prompt) and cache the current workspace right away; on
-  // disable, wipe the cache. The debounced effect above writes the session.
-  const prevPersistRef = useRef(persistEnabled);
-  useEffect(() => {
-    if (persistEnabled === prevPersistRef.current) return; // includes the mount no-op
-    prevPersistRef.current = persistEnabled;
-    if (!persistEnabled) {
-      void clearWorkspace();
-      return;
-    }
-    void requestPersistentStorage();
-    const ds = lastMainFile?.dataset;
-    if (ds && lastMainFile) {
-      void saveFile("main", {
-        fileName: lastMainFile.fileName,
-        blob: new Blob([serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })]),
-        savedAt: Date.now(),
-        originalHash: mainOriginalHashRef.current ?? undefined,
-        handle: mainHandle ?? undefined,
-      });
-    }
-    if (compareBlobRef.current && compare.status === "loaded") {
-      void saveFile("compare", {
-        fileName: compare.file.fileName,
-        blob: compareBlobRef.current,
-        isCsv: /\.csv$/i.test(compare.file.fileName),
-        savedAt: Date.now(),
-        originalHash: compareOriginalHashRef.current ?? undefined,
-        handle: compareHandle ?? undefined,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled]);
-
   function toggleSort(key: SortKey) {
     setSort((prev) => nextSort(prev, key));
   }
@@ -977,6 +591,18 @@ function AppContent() {
   visibleRef.current = visible;
   const visibleIndexRef = useRef(visibleIndex);
   visibleIndexRef.current = visibleIndex;
+
+  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
+
+  // Browser-history/overlay state machine: the full-page overlays (Compare
+  // Tree / Charts hub), popstate restoration of mode/selection/navigation, and
+  // the unsaved-changes leave guards (history entry + beforeunload).
+  const {
+    treeView, chartsRootId, setChartsRootId, chartsBackKey,
+    overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
+    openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
+    discardAndReload,
+  } = useAppHistory({ confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind });
 
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
@@ -1152,8 +778,6 @@ function AppContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
-
   // Switch to Edit, pointing it at whichever candidate Merge currently has
   // selected (so the person carries over instead of Edit staying on whoever
   // it last showed).
@@ -1189,11 +813,6 @@ function AppContent() {
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
   const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools });
   modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools };
-  // True while a full-page chart overlay covers the mode views — mode switching
-  // (and the hidden views' own bare-key handlers, via their `active` props)
-  // must not act on the app underneath. Assigned below, once the overlay state
-  // it derives from has been declared.
-  const overlayOpenRef = useRef(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1207,7 +826,7 @@ function AppContent() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [overlayOpenRef]); // a stable ref — effectively mount-only
 
   // As soon as a fresh match result lands, point Edit at the first candidate —
   // same as switching into Edit mode via its "e" shortcut already does for
@@ -1292,36 +911,16 @@ function AppContent() {
     [],
   );
 
-  const mainDataset = lastMainFile?.dataset;
-  const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
-
-  // Charts hub: the full-page per-person diagram overlay (pedigree charts +
-  // relationship). Which diagram it shows is the persisted chart "kind".
-  const [chartsRootId, setChartsRootId] = useState<string | null>(null);
-  // i18n key for where the hub's Back lands (the history entry beneath the
-  // hub's): the previous chart on a re-root, the Compare Tree, or the mode view.
-  const [chartsBackKey, setChartsBackKey] = useState("edit.tree.back");
-  overlayOpenRef.current = !!(treeView || chartsRootId);
-  const overlayOpen = overlayOpenRef.current;
-
-  /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
-  function openCharts(id: string, kind?: ChartKind) {
-    if (kind) setChartKind(kind);
-    const backKey = chartsRootId
-      ? "edit.back" // re-root on top of an open chart: Back = the previous chart
-      : treeView
-        ? "charts.back.tree"
-        : mode === "merge"
-          ? "charts.back.merge"
-          : mode === "tools"
-            ? "charts.back.tools"
-            : "edit.tree.back";
-    window.history.pushState({ gedChartsId: id, gedChartsBack: backKey }, "");
-    setChartsBackKey(backKey);
-    setChartsRootId(id);
-    // The overlays are exclusive; opened from inside the Compare Tree, the hub
-    // replaces it on screen and the browser Back button returns to the tree.
-    setTreeView(null);
+  /** Shared tail of every Tools-tab fix action: record the patch batch as one
+   *  undo entry and mark each touched record dirty. Returns the patch count so
+   *  callers can report how many records the fix touched. */
+  function applyToolPatches(patches: RecordPatch[]): number {
+    if (!mainDataset || patches.length === 0) return 0;
+    handlePushEdit(patches);
+    for (const p of patches) {
+      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
+    }
+    return patches.length;
   }
 
   /** The header Charts trigger: the person the active mode is looking at, or
@@ -1487,41 +1086,6 @@ function AppContent() {
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
 
-  // Warn before leaving the page when there are unsaved changes. Registered once
-  // on mount and reads refs so it always reflects the current state without
-  // re-subscribing. The handler is kept in a ref so an intentional in-app reload
-  // can detach it synchronously before navigating — some browsers (e.g. Firefox)
-  // abort a programmatic reload while a beforeunload listener is attached.
-  useEffect(() => {
-    function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (skipUnloadWarnRef.current || !hasUnsavedChangesRef.current) return;
-      e.preventDefault();
-      e.returnValue = "";
-    }
-    beforeUnloadRef.current = onBeforeUnload;
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      beforeUnloadRef.current = null;
-    };
-  }, []);
-
-  /** Drop the unsaved-changes guard and reload to the landing page. The cached
-   *  workspace is marked for clearing (consumed on the next boot, see
-   *  markFreshStart) so the reload shows the loader instead of restoring the
-   *  session. Runs synchronously inside the dialog button's click handler so
-   *  the reload keeps the user's activation — Firefox blocks a programmatic
-   *  reload that fires from an async continuation. */
-  function discardAndReload() {
-    skipUnloadWarnRef.current = true;
-    if (beforeUnloadRef.current) {
-      window.removeEventListener("beforeunload", beforeUnloadRef.current);
-      beforeUnloadRef.current = null;
-    }
-    markFreshStart();
-    window.location.reload();
-  }
-
   async function handleTitleClick() {
     const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
     if (!hasChanges) {
@@ -1684,7 +1248,7 @@ function AppContent() {
     // debounce (sole main writer) then leaves it alone until the next edit.
     setEditVersion(0);
     editVersionRef.current = 0;
-    mainCachedRef.current = true;
+    persistence.mainCachedRef.current = true;
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
@@ -1785,7 +1349,7 @@ function AppContent() {
         onClose={() => setShowSettings(false)}
         themeMode={themeMode}
         onThemeMode={changeThemeMode}
-        onClearCache={() => { setShowSettings(false); void handleClearCache(); }}
+        onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
       />
       {confirmDialogElement}
     </>
@@ -2101,7 +1665,7 @@ function AppContent() {
               onLoad={(f, h) => loadFile("main", f, h)}
               accent="main"
               canVerify={!!mainHandle}
-              onVerify={() => verifyNow("main")}
+              onVerify={() => persistence.verifyNow("main")}
             />
             {showCompareInPanel && (
               <div className="loader-with-samples">
@@ -2115,7 +1679,7 @@ function AppContent() {
                   tooltip={compare.status === "empty" ? t("load.incoming.tooltip") : undefined}
                   description={t("merge.intro.incomingHint")}
                   canVerify={!!compareHandle}
-                  onVerify={() => verifyNow("compare")}
+                  onVerify={() => persistence.verifyNow("compare")}
                 />
                 {compare.status === "empty" && (
                   <div className="sample-links">
@@ -2238,70 +1802,13 @@ function AppContent() {
                 setMode("edit");
               }}
               active={mode === "tools"}
-              onApplyPlaceRename={(from, to, scope) => {
-                if (!mainDataset) return;
-                const patches = applyPlaceRename(mainDataset, from, to, scope);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-              }}
-              onFixBrokenLinks={() => {
-                if (!mainDataset) return 0;
-                const patches = fixBrokenLinks(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixSexFromRole={() => {
-                if (!mainDataset) return 0;
-                const patches = fixSexFromRole(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixDates={() => {
-                if (!mainDataset) return 0;
-                const patches = fixDates(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onFixDuplicatePointers={() => {
-                if (!mainDataset) return 0;
-                const patches = fixDuplicatePointers(mainDataset);
-                if (patches.length > 0) {
-                  handlePushEdit(patches);
-                  for (const p of patches) {
-                    if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                  }
-                }
-                return patches.length;
-              }}
-              onMergeDuplicate={(survivorId, removedId, decision) => {
-                if (!mainDataset) return false;
-                const patches = mergeDuplicate(mainDataset, survivorId, removedId, decision, t);
-                if (patches.length === 0) return false;
-                handlePushEdit(patches);
-                for (const p of patches) {
-                  if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-                }
-                return true;
-              }}
+              onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
+              onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
+              onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
+              onFixDates={() => applyToolPatches(fixDates(mainDataset))}
+              onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
+              onMergeDuplicate={(survivorId, removedId, decision) =>
+                applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) > 0}
               rejectedDuplicates={rejectedDuplicates}
               onRejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
