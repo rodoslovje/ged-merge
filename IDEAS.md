@@ -50,3 +50,37 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 - **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media bundles.
 - **Subset / format export** — ~~export part of the main file as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch~~ *(done — every chart's Export menu offers a branch-GEDCOM export: main dataset + that chart's people, ≥2-member-family rule, no dangling xrefs)*, or export to CSV / JSON *(still open)*.
 
+## Refactoring backlog (from the 2026-07-12 whole-project review)
+
+Prioritized technical-debt items from the full code review. None changes behavior on its own; pay down opportunistically as features touch the same files.
+
+### Correctness edges (small, do first when nearby)
+- **Duplicate xref → corrupt save**: `buildDataset` warns and last-wins in the Maps, but *both* raw records stay in `records[]` and both serialize — a saved file can contain two `@I5@` records (`src/gedcom/builder.ts` ~69–87). Drop the shadowed raw record.
+- **No `@@` escaping** on output: a value starting with `@` re-reads as a pointer in strict 5.5.1 importers (`src/gedcom/serialize.ts` value emit).
+- **`/` in names corrupts the NAME slash-form** on write (`writeNameValue` in `src/gedcom/edit.ts`); a trailing token after the surname is also dropped from structured given (`src/gedcom/name.ts` regex).
+- **No `onerror`/`onmessageerror` on the workers** — an uncaught worker throw or failed structured clone vanishes silently (`useGedcomWorker.ts`, `useToolsScans.ts`).
+- **Parser level-jump recovery reparents to top level** silently — data survives but serializes in the wrong place (`src/gedcom/parser.ts` ~100–106).
+
+### Duplication that will drift (low effort, medium payoff)
+- **Event-tag sets declared 4×**: `builder.ts`, `chanCrea.ts`, `editReport.ts`, `edit.ts` ordering arrays. Extract one `eventTags.ts`.
+- **Match-veto constants declared per file**: `SAME_PERSON_GIVEN = 0.85` + `differentGiven` exist independently in `match/engine.ts` and `tools/duplicates.ts`; parent-conflict predicates in three files. Centralize next to `parentGivenVerdict` in `match/similarity.ts`.
+- **Event ordering derived twice**: `review/fields.ts` (zone-sort machinery) and `merge/applyFields.ts` (`sortEventsByDate`) rebuild the same lifespan-anchor ordering — the saved order matches the reviewed order only because two implementations agree. Factor one canonical function.
+- **`eventUpdateHasContent` copy-pasted** in `setRecordEventField` and `addEventField` (`src/gedcom/edit.ts` ~181/~260).
+
+### God-file decomposition (mechanical, high maintainability payoff)
+- **`src/ui/ToolsView.tsx` (~2.5k lines)** → per-panel files under `src/ui/tools/`; panels are already self-contained, near-pure code motion.
+- **`src/gedcom/edit.ts` (~1.2k lines)** → split along its existing banner sections into `edit/{events,names,family,media,sources,cache}.ts`.
+- **`src/App.tsx` (~2.4k lines)**: collapse the six near-identical tool-fix callbacks into one `applyToolPatches` helper; extract a `useWorkspacePersistence` hook (hydration + debounced writer + persist toggle, ~300 cohesive lines) and a `useAppHistory` hook (overlay/history state machine). Also finish the started workspace-reducer migration rather than restructuring around it.
+- **`review/fields.ts` (~1.2k lines)**: split `individualFieldRows` (~190 lines) into `buildEventRows` / `buildParentRows` / `buildFamilyRows`; consider typing the stringly `row.key.split(".")` dispatch in `merge/applyFields.ts`.
+
+### Scale / performance (as large-file usage grows)
+- **Virtualize the long lists** — match results, health-check issues, place/source trees all render every row (the duplicates list now caps at the top 200 as a stopgap, 2026-07-12).
+- **Memoize EditView subsections** (event rows, family grids) so a `tick` bump doesn't rebuild the whole subtree — do *not* rewrite its in-place-mutation model; the undo-patch machinery depends on it.
+- **O(N²) patterns in `edit.ts`**: `pruneUnreferencedMedia`/`pruneUnreferencedSource` DFS the whole dataset per removal; `nextXref` rescans all records per allocation. Reference-count / cache a max-xref counter.
+- **Explicitly not worth it**: SharedArrayBuffer for the dataset (needs a columnar rewrite + COOP/COEP headers that break subpath hosting); wholesale EditView immutability rewrite; touching `src/chart/` (cleanest layer in the app).
+
+### Test / CI hardening
+- **Four e2e specs depend on gitignored `test-data/Senen.ged`** (`edit`, `export-pdf`, `global-search`, `add-relative` specs) — broken in any fresh checkout/CI; commit an anonymized e2e fixture (the corpus anonymizer already exists) or add skip guards.
+- **e2e tests the dev server, not the build**: point Playwright's `webServer` at `npm run preview` in CI and add a PWA/service-worker smoke spec (currently zero automated coverage of the offline/update flow).
+- Dedicated unit tests for the highest-value untested modules: `tools/validate.ts`, `match/scoreIndividual.ts`, `merge/applyRelations.ts`, `normalize/date.ts`/`place.ts`; property-based round-trip fuzzing of the parser (fast-check); a `vitest bench` perf floor for `matchDatasets`.
+
