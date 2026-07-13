@@ -237,9 +237,9 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
   SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
   MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
-  NOBI: { software: MFT, category: "attribute", meaning: { en: "nobility title / award (5.5-EL)", sl: "plemiški naziv / priznanje (5.5-EL)" } },
+  NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },
   PRIV: { software: MFT, category: "internal", meaning: { en: "private-note flag", sl: "oznaka zasebne opombe" } },
-  LATR: { software: MFT, category: "attribute", meaning: { en: "custom fact", sl: "dejstvo po meri" } },
+  LATR: { software: MFT, category: "event", meaning: { en: "legal transaction", sl: "pravni posel" } },
 };
 
 /** MacFamilyTree source/place template machinery — one shared classification. */

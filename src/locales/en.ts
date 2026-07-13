@@ -752,6 +752,8 @@ export const en = {
   "event.RELI": "Religion",
   "event.NATI": "Nationality",
   "event.RACE": "Race / ethnicity",
+  "event.NOBI": "Award / title",
+  "event.LATR": "Legal transaction",
   "event.NCHI": "Number of children",
   "event._MILT": "Military service",
   "event._MILI": "Military service",
