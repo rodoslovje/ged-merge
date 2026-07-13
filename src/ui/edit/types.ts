@@ -2,6 +2,11 @@ import type { GedNode, Individual, Family } from "../../gedcom/types";
 import type { RecordPatch } from "../historyTypes";
 import type { EditSourceFields, EventFieldUpdate } from "../../gedcom/edit";
 
+/** A media edit target: the selected person's record, or one of their
+ *  families' — every media operation routes through the owner's
+ *  commit/rebuild/dirty flow. */
+export type MediaOwner = { kind: "individual" } | { kind: "family"; fam: Family };
+
 /** A mutation applied to the selected person's raw record, then rebuilt and
  * re-rendered. `extraPatches` carries undo/redo entries for any other
  * top-level record the mutation touched (e.g. a `SOUR`/`OBJE` created or

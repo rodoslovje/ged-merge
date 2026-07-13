@@ -1,4 +1,4 @@
-import type { DateOrder, DateQualifier } from "../gedcom/types";
+import type { DateOrder, DateQualifier, GedcomVersion } from "../gedcom/types";
 import type { LinkLangs } from "./links";
 
 /**
@@ -7,6 +7,9 @@ import type { LinkLangs } from "./links";
  * and the merged export stays internally consistent.
  */
 export interface MainProfile {
+  /** The main file's declared GEDCOM version — the migration target for a
+   * compare file declaring a different one. */
+  version: GedcomVersion;
   date: DateFormatProfile;
   place: PlaceFormatProfile;
   linkLangs: LinkLangs;
@@ -215,6 +218,9 @@ export interface NormalizeOptions {
   names: boolean;
   /** Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`). */
   vendorTags: boolean;
+  /** GEDCOM version migration (compare → main's version). Defaults to on;
+   * it only ever fires when the two declared versions actually differ. */
+  version?: boolean;
 }
 
 /**
@@ -249,4 +255,13 @@ export interface NormalizationReport {
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */
   consolidatedDuplicates?: number;
+  /** Present when the compare file declares a different GEDCOM version than
+   *  the main: its version-specific structures were rewritten to the main's
+   *  spec (e.g. 5.5.1 `NOTE` records → 7.0 `SNOTE`, date phrases ⇄ `PHRASE`). */
+  versionMigration?: {
+    from: GedcomVersion;
+    to: GedcomVersion;
+    changed: number;
+    examples: NormChange[];
+  };
 }

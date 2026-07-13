@@ -68,6 +68,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
   });
 
   return {
+    version: main.version,
     date: inferDateProfile(dateValues),
     place: inferPlaceProfile(placeValues, addrCount),
     linkLangs: detectLinkLangs(links),

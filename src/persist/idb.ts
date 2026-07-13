@@ -20,6 +20,7 @@
 import type { CandidateDecision } from "../review/types";
 import type { GedNode } from "../gedcom/types";
 import type { UndoEntry } from "../edit-state/useUndoRedo";
+import type { SharedRecordSnapshot } from "../edit-state/useDirtyTracking";
 
 const DB_NAME = "gedmerge-session";
 const DB_VERSION = 1;
@@ -78,6 +79,8 @@ export interface StoredEditState {
   changedFamilyIds: string[];
   personSnapshots: [string, GedNode][];
   familySnapshots: [string, GedNode][];
+  /** Shared-record (SOUR/OBJE) snapshots; absent in pre-existing caches. */
+  recordSnapshots?: [string, SharedRecordSnapshot][];
   sortEligiblePersonIds: string[];
   /** The unified undo/redo history (edit + merge + import entries). */
   undo: UndoEntry[];

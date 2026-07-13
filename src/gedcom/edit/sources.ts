@@ -3,7 +3,7 @@ import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
 import { insertOrdered, insertRecord, nextXref } from "./shared";
 import { bumpSourceCacheVersion } from "./cache";
-import { createMediaRecord } from "./media";
+import { createMediaRecord, referencedObjeXrefs } from "./media";
 
 /** Fields for a newly authored `SOUR` record — see `createSourceRecord`. */
 export interface NewSourceFields {
@@ -175,14 +175,15 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
     .map((c) => c.value!.trim());
   dataset.records.splice(sourceIndex, 1);
 
+  // Cascade-prune the source's page images — but only those nothing else
+  // references, checked against the *whole* tree in one pass: a shared photo
+  // that's also attached to a person or another source must survive (the same
+  // rule as `pruneUnreferencedMedia`).
+  const stillReferenced = referencedObjeXrefs(dataset.records, new Set(objeXrefs));
   for (const objeXref of objeXrefs) {
-    const stillReferenced = dataset.records.some(
-      (r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref),
-    );
-    if (!stillReferenced) {
-      const oi = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
-      if (oi !== -1) dataset.records.splice(oi, 1);
-    }
+    if (stillReferenced.has(objeXref)) continue;
+    const oi = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
+    if (oi !== -1) dataset.records.splice(oi, 1);
   }
   bumpSourceCacheVersion(dataset.records);
 }

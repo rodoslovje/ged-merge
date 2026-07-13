@@ -88,6 +88,10 @@
           <section class="changelog-entry">
             <h2>2026-07-13</h2>
             <ul>
+              <li>When the incoming file uses a different GEDCOM version than your main file (5.5.1 vs 7.0), it is now migrated to the main file's version on load — shared notes (<strong>NOTE</strong> ⇄ <strong>SNOTE</strong>), date phrases and interpreted/dual-year dates, age keywords, association roles, legacy identifiers (AFN/RFN/RIN ⇄ EXID), transliterated names and media types are all rewritten to the main file's spec, so merged records stay valid. The load summary shows what was migrated, with examples on hover.</li>
+              <li>More reliable undo bookkeeping: undoing an edit on a newly added person, or on a shared media record's details, no longer confuses the pending-changes count; adding a relative now also lists the affected family in the save preview; and undoing a deleted person restores them at their original position in the file.</li>
+              <li>Marking a pair as <strong>Not a duplicate</strong> in Tools can now be undone with the regular Undo/Redo.</li>
+              <li>The save preview now warns when a confirmed match no longer applies cleanly — the person was deleted, or edited after the match was confirmed — so stale field choices don't overwrite newer edits unnoticed.</li>
               <li>Better support for other genealogy programs' GEDCOM files: person attributes that used to be invisible — <strong>reference numbers (REFN)</strong>, titles, religion, nationality, physical description, number of children, graduation and generic facts — plus Brother's Keeper's <strong>funeral, interment, military-service and medical</strong> entries now show up in Edit mode and in merge comparisons, can be edited and added, and merge like any other event. Generic "Event"/"Fact" rows now show their type in the heading (e.g. <strong>Event — FamilySearch ID</strong>).</li>
               <li>The Health check now explains the custom tags other programs leave in a file — e.g. <strong>_UPD (160×) — MyHeritage: last-updated timestamp</strong> — instead of only listing them, covering the tags of Brother's Keeper, Family Historian, MyHeritage, Family Tree Maker/Ancestry, Legacy, RootsMagic, MacFamilyTree, webtrees, Gramps and PAF.</li>
               <li>Privacy tool: <strong>Remove submitter</strong> now also strips account traces other programs embed — MyHeritage site-publish records (with your account e-mail), Ancestry account tokens and webtrees editor names; the external-id strip also covers FamilySearch, Ancestry and Find&nbsp;a&nbsp;Grave ids.</li>
@@ -138,6 +142,16 @@
             <ul>
               <li>Fixed a bug where the PDF / print export of a chart could come out blank.</li>
               <li>The relationship diagram now prefers a path through a shared ancestor over an arbitrary same-length route.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li>Long lists stay fast on very large files: match results, Health check findings and duplicate pairs now render only the rows on screen while scrolling through the full list.</li>
+              <li>The duplicate finder no longer stops at the 200 highest-scoring pairs — every found pair can be scrolled to and reviewed.</li>
+              <li>Editing stays snappy on complex persons and very large files: committing a field no longer re-renders the whole person layout, and adding people or sources no longer rescans every record.</li>
+              <li>Fixed: removing a source's last citation could delete its page image even when that photo was still attached to a person, leaving a broken reference.</li>
             </ul>
           </section>
 

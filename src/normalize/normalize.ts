@@ -7,6 +7,7 @@ import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
+import { migrateVersion, versionFamily } from "./migrate";
 import { reshapeNameVariants } from "./nameVariants";
 import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
@@ -63,6 +64,25 @@ export function normalizeDataset(
   const seenName = new Set<string>();
   const seenUnknown = new Set<string>();
   const seenVendor = new Set<string>();
+
+  // Version migration runs first: it rewrites version-specific *syntax*
+  // (5.5.1 `INT`/phrase dates, `NOTE` records vs 7.0 `SNOTE`, …) into the
+  // main's spec so the house-style passes below see parseable values. An
+  // "unknown" declared version is treated as legacy 5.5.x, matching the
+  // serializer's download convention.
+  if (options.version !== false && versionFamily(compare.version) !== versionFamily(profile.version)) {
+    const seenMigration = new Set<string>();
+    const examples: NormChange[] = [];
+    const changed = migrateVersion(
+      records,
+      versionFamily(compare.version),
+      versionFamily(profile.version),
+      (before, after) => record(examples, seenMigration, before, after),
+    );
+    // Reported even when nothing needed rewriting — the versions still differ,
+    // and "migrated: 0" tells the user that was checked rather than skipped.
+    report.versionMigration = { from: compare.version, to: profile.version, changed, examples };
+  }
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before

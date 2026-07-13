@@ -22,6 +22,14 @@ export type UndoEntry =
       mode: "import";
       before: Set<string>;
       after: Set<string>;
+    }
+  | {
+      // A Tools-tab "not a duplicate" toggle. Holds the before/after of the
+      // rejected within-file duplicate-pair key set. References the main file
+      // only, so it survives a compare reload like `edit` entries do.
+      mode: "rejectDup";
+      before: Set<string>;
+      after: Set<string>;
     };
 
 const MAX_STACK = 100;
@@ -80,12 +88,22 @@ export function useUndoRedo() {
     setCanRedo(redo.length > 0);
   }, []);
 
-  /** Snapshot both stacks for persistence. */
-  const serialize = useCallback(() => ({ undo: undoStack.current, redo: redoStack.current }), []);
+  /** Snapshot both stacks for persistence. `rejectDup` entries are excluded:
+   *  an app version that predates them would hit its unknown-mode fallback on
+   *  hydrate and corrupt the decisions map, and losing just their undo history
+   *  on reload is harmless (the rejected pairs themselves persist separately). */
+  const serialize = useCallback(() => ({
+    undo: undoStack.current.filter((e) => e.mode !== "rejectDup"),
+    redo: redoStack.current.filter((e) => e.mode !== "rejectDup"),
+  }), []);
 
+  /** Drop entries that reference the incoming file (merge decisions, import
+   *  branches) — called when the compare is replaced or unloaded. Edit and
+   *  duplicate-rejection entries only touch main data and stay valid. */
   const dropMergeEntries = useCallback(() => {
-    undoStack.current = undoStack.current.filter((e) => e.mode === "edit");
-    redoStack.current = redoStack.current.filter((e) => e.mode === "edit");
+    const keep = (e: UndoEntry) => e.mode === "edit" || e.mode === "rejectDup";
+    undoStack.current = undoStack.current.filter(keep);
+    redoStack.current = redoStack.current.filter(keep);
     setCanUndo(undoStack.current.length > 0);
     setCanRedo(redoStack.current.length > 0);
   }, []);

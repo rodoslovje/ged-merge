@@ -3,13 +3,17 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 
 export type RecordKind = "individual" | "family";
 
+/** Snapshot maps also cover top-level shared records (SOUR/OBJE) edited via a
+ * `type: "record"` patch — keyed the same way, under the "record" kind. */
+export type SnapshotKind = RecordKind | "record";
+
 export type DirtyOp =
   | { action: "add"; kind: RecordKind; id: string }
   | { action: "remove"; kind: RecordKind; id: string };
 
 export type SnapshotOp =
-  | { action: "set"; kind: RecordKind; id: string; value: GedNode }
-  | { action: "delete"; kind: RecordKind; id: string };
+  | { action: "set"; kind: SnapshotKind; id: string; value: GedNode; owner?: { kind: RecordKind; id: string } }
+  | { action: "delete"; kind: SnapshotKind; id: string };
 
 export interface PatchApplyOps {
   dirty: DirtyOp[];
@@ -32,27 +36,74 @@ export function nodesEqual(a: GedNode, b: GedNode): boolean {
  * Returns which record ids to add/remove from the dirty set and which snapshots
  * to create/delete — pure, so the calling hook can apply the ops to React state.
  *
- * Cases per patch (in order):
+ * Cases per individual/family patch (in order):
  *  A  appliedState === null    → record disappears → clear dirty + clear snapshot
  *  B  redo + before === null   → redo of creation  → add dirty (new record)
  *  C  current == snapshot      → fully reverted    → clear dirty + clear snapshot
  *  D  redo of modification     → add dirty; restore missing snapshot from before
  *  E  undo, not fully reverted → add dirty
+ *
+ * A `type: "record"` patch with an `owner` (a shared SOUR/OBJE edited from a
+ * person's/family's card — the owner's own raw is untouched) re-evaluates the
+ * owner's dirty flag instead: back to the record's pre-edit snapshot → clear the
+ * owner (unless the owner has direct edits of its own, is a session-created
+ * record with no snapshot, or still has another modified shared record);
+ * otherwise keep/mark the owner dirty. Record patches without an owner don't
+ * affect dirty state.
  */
 export function computePatchApplyOps(
   patches: RecordPatch[],
   direction: "undo" | "redo",
-  getSnapshot: (kind: RecordKind, id: string) => GedNode | undefined,
-  getCurrentRaw: (kind: RecordKind, id: string) => GedNode | undefined,
+  getSnapshot: (kind: SnapshotKind, id: string) => GedNode | undefined,
+  getCurrentRaw: (kind: SnapshotKind, id: string) => GedNode | undefined,
+  /** Whether another shared-record snapshot (excluding `excludeId`) is owned by
+   * this owner — i.e. the owner may still carry a different shared-record edit. */
+  hasOtherOwnedRecordSnapshot: (owner: { kind: RecordKind; id: string }, excludeId: string) => boolean = () => false,
 ): PatchApplyOps {
   const dirty: DirtyOp[] = [];
   const snapshots: SnapshotOp[] = [];
 
   for (const patch of patches) {
-    if (patch.type === "record") continue;
-    const kind = patch.type;
     const { id, before, after } = patch;
     const appliedState = direction === "undo" ? before : after;
+
+    if (patch.type === "record") {
+      const owner = patch.owner;
+      // Shared record removed (undo of creation / redo of deletion): drop its
+      // snapshot. Owner dirtiness is carried by the owner's own patch in the
+      // same batch (the pointer add/remove), so nothing to decide here.
+      if (appliedState === null) {
+        snapshots.push({ action: "delete", kind: "record", id });
+        continue;
+      }
+      if (!owner) continue;
+
+      const recSnapshot = getSnapshot("record", id);
+      const recCurrent = getCurrentRaw("record", id);
+      const reverted = recSnapshot !== undefined && recCurrent !== undefined && nodesEqual(recCurrent, recSnapshot);
+      if (reverted) {
+        snapshots.push({ action: "delete", kind: "record", id });
+        // Clear the owner only when nothing else keeps it dirty: its own raw is
+        // back at its snapshot (a missing owner snapshot means a session-created
+        // owner, which must stay dirty) and no other edited shared record points
+        // at it.
+        const ownerSnap = getSnapshot(owner.kind, owner.id);
+        const ownerCurrent = getCurrentRaw(owner.kind, owner.id);
+        const ownerClean = ownerSnap !== undefined && ownerCurrent !== undefined && nodesEqual(ownerCurrent, ownerSnap);
+        if (ownerClean && !hasOtherOwnedRecordSnapshot(owner, id)) {
+          dirty.push({ action: "remove", kind: owner.kind, id: owner.id });
+        }
+      } else {
+        dirty.push({ action: "add", kind: owner.kind, id: owner.id });
+        // Mirror case D: restore a record snapshot a prior undo deleted.
+        if (direction === "redo" && recSnapshot === undefined && before !== null) {
+          snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before), owner });
+        }
+      }
+      continue;
+    }
+
+    const kind = patch.type;
 
     // A: undo of creation or redo of deletion — record now gone.
     if (appliedState === null) {
@@ -93,22 +144,44 @@ export function computePatchApplyOps(
   return { dirty, snapshots };
 }
 
+export interface PushCaptureOp {
+  kind: SnapshotKind;
+  id: string;
+  value: GedNode;
+  owner?: { kind: RecordKind; id: string };
+}
+
 /**
  * Compute which snapshots to capture when an edit is pushed onto the undo stack.
  * Only captures the first time each record becomes dirty (patch.before is the
  * true pre-edit baseline), so all subsequent edits stack on top without overwriting it.
+ * Shared-record (`type: "record"`) patches with a pre-edit state are captured too,
+ * so undo/redo can tell when the shared record is back to its original.
  */
 export function computePushCaptureOps(
   patches: RecordPatch[],
-  hasSnapshot: (kind: RecordKind, id: string) => boolean,
-): Array<{ kind: RecordKind; id: string; value: GedNode }> {
-  const ops: Array<{ kind: RecordKind; id: string; value: GedNode }> = [];
+  hasSnapshot: (kind: SnapshotKind, id: string) => boolean,
+): PushCaptureOp[] {
+  const ops: PushCaptureOp[] = [];
   for (const patch of patches) {
-    if (patch.type === "record" || patch.before === null) continue;
-    const kind = patch.type;
-    if (!hasSnapshot(kind, patch.id)) {
-      ops.push({ kind, id: patch.id, value: cloneRaw(patch.before) });
-    }
+    if (patch.before === null) continue;
+    const kind: SnapshotKind = patch.type;
+    if (hasSnapshot(kind, patch.id) || ops.some((o) => o.kind === kind && o.id === patch.id)) continue;
+    const op: PushCaptureOp = { kind, id: patch.id, value: cloneRaw(patch.before) };
+    if (patch.type === "record" && patch.owner) op.owner = patch.owner;
+    ops.push(op);
   }
   return ops;
+}
+
+/**
+ * Whether `markDirty` should capture a first-dirty fallback snapshot for this
+ * record: only when none exists yet AND the record pre-exists the session
+ * baseline. A session-created record must stay snapshot-less — with a snapshot
+ * of its creation state, undoing a later edit on it would look "fully reverted"
+ * (case C above) and wrongly clear the still-unsaved new record from the dirty
+ * set (dropping it from the save report and count).
+ */
+export function shouldCaptureFallbackSnapshot(hasSnapshot: boolean, isLoaded: boolean): boolean {
+  return !hasSnapshot && isLoaded;
 }

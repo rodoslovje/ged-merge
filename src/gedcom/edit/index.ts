@@ -15,7 +15,7 @@
 
 export {
   EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, NAME_CHILD_ORDER,
-  EVENT_LINK_TAG, insertOrdered, insertRecord, markEventTouched, nextXref,
+  EVENT_LINK_TAG, insertOrdered, insertRecord, insertRecordAt, markEventTouched, nextXref,
 } from "./shared";
 
 export {
