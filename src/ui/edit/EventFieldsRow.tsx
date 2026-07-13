@@ -89,10 +89,11 @@ export function EventFieldsRow({
    * "♀28"), each with its own tooltip. */
   age?: { text: string; title: string }[];
 }) {
-  // A generic `EVEN` is labelled "Event"; its descriptive `TYPE` is edited in
-  // the "Title" slot and its own line value (`1 EVEN <v>`) in the "Agency" slot
-  // (see the title/agency field bindings below). The Title slot shows for it too.
-  const isEven = tag === "EVEN";
+  // A generic `EVEN`/`FACT` is labelled "Event"/"Fact"; its descriptive `TYPE`
+  // is edited in the "Title" slot and its own line value (`1 EVEN <v>`) in the
+  // "Agency" slot (see the title/agency field bindings below). The Title slot
+  // shows for it too.
+  const isEven = tag === "EVEN" || tag === "FACT";
   const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
 
   // Compute merge values before hooks so they can be used as initial state.

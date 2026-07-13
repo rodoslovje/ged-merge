@@ -1,3 +1,93 @@
+0 @I1@ INDI
+1 NAME Henry /Tudor/
+2 GIVN Henry
+2 SURN Tudor
+2 NSFX King Henry VII
+1 NAME Henry /VII Tudor/
+2 GIVN Henry
+2 SURN VII Tudor
+2 NPFX King
+2 NSFX of England
+1 SEX M
+1 BIRT
+2 DATE 28 Jan 1456-1457
+2 PLAC Pembroke Castle
+2 SOUR @S2@
+3 PAGE Volume 10, page 827
+3 QUAY 0
+1 EVEN
+2 TYPE Alt. Birth
+2 DATE 28 Jan 1457
+2 PLAC Pembroke Castle, Pembrokeshire, Wales
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE Bet 1457 and 1509
+2 NOTE 2nd Earl of Richmond
+1 EVEN
+2 TYPE Death mask
+2 NOTE Link to Marilee Cody's "Tudor England" website
+1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/h7death.jpg
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE Clan
+2 DATE <unknown>
+2 NOTE Tudor
+1 EVEN
+2 TYPE LifeSketch
+2 DATE <unknown>
+2 NOTE Henry VII King of England (1457-1509) born Henry Tudor the Earl of Richmond on 28 January 1457 at Pembroke Castle, Pembrokeshire, Wales and died 21 April 1509 (age 52) Richmond Palace, Surrey, England in Winchester, Hampshire, England, United Kingdom. He
+1 EVEN 9C7M-B1Y
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/9C7M-B1Y
+1 OCCU
+2 PLAC Scotland
+2 NOTE Baillie of Kilmarnock
+1 TITL King of England
+1 RELI
+2 PLAC England
+2 NOTE Catholic
+1 RESI
+2 PLAC Surrey, England
+2 NOTE Richmond Palace
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE Bet 21 Aug 1485 and 21 Apr 1509
+2 NOTE King of England
+1 EVEN
+2 TYPE MilitaryService
+2 DATE 22 Aug 1485
+2 PLAC England
+2 NOTE He won his crown at the Battle of Bosworth Field, defeating Richard III and ending the War of the Roses.  Henry claimed the throne through his mother, Margaret Beaufort, a descendant of Edward III.
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE 22 Aug 1485
+2 NOTE Lord of Ireland
+1 EVEN
+2 TYPE King Henry VII
+2 DATE From 22 Aug 1485
+2 NOTE after defeating Richard III at the battle of Bosworth
+2 SOUR @S2@
+3 PAGE Volume 10, page 828
+3 QUAY 0
+1 EVEN
+2 TYPE Acceded
+2 DATE 30 Oct 1485
+2 PLAC Westminster Abbey, Westminster, Middlesex, England
+1 DEAT
+2 DATE 21 Apr 1509
+2 PLAC Richmond Palace
+2 SOUR @S5@
+3 PAGE 228
+3 QUAY 0
+1 _UID A2220CEE05D7D711BA228E18B8357A36A187
+1 BURI
+2 DATE 11 May 1509
+2 PLAC Westminster Abbey, Westminster, Middlesex, England
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F1@
+1 FAMC @F123@
 0 @I2@ INDI
 1 NAME Elizabeth /York/
 2 GIVN Elizabeth
@@ -60,6 +150,201 @@
 3 TIME 12:00:00
 1 FAMS @F1@
 1 FAMC @F165@
+0 @I3@ INDI
+1 NAME Edmund /Tudor/
+2 GIVN Edmund
+2 SURN Tudor
+2 NSFX Earl of Richmond
+1 NAME Edmund /Tudor/
+2 GIVN Edmund
+2 SURN Tudor
+2 NSFX 1st Earl of Richmond
+1 SEX M
+1 EVEN
+2 TYPE Alt. Birth
+2 DATE 11 Jun 1430
+2 PLAC Much Hadham, Hertfordshire, England
+1 BIRT
+2 DATE Abt 1430
+2 PLAC Hadham, Hertfordshire
+2 SOUR @S2@
+3 PAGE Volume 10, page 825
+3 QUAY 0
+1 EVEN
+2 TYPE Cause of Death
+2 DATE <unknown>
+2 NOTE During the opening rounds of the War of the Roses, Edmund was captured by the Yorkist Herbert family.  They imprisoned him at Carmarthen Castle  in south Wales, where he caught the plague and died.
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Tudor family of Penmynydd, North Wales.
+1 _PPEXCLUDE
+1 EVEN LZJP-WX1
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/LZJP-WX1
+1 TITL Earl of Richmond
+1 EVEN
+2 TYPE Knight
+2 DATE From 15 Dec 1449
+2 NOTE Knighted by his half-brother, Henry VI
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 EVEN
+2 TYPE Earl of Richmond
+2 DATE From 23 Nov 1452
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE 1453
+2 PLAC England
+2 NOTE 1st Earl of Richmond
+1 EVEN
+2 TYPE Alt. Death
+2 DATE 1 Nov 1456
+2 PLAC Carmarthen, Carmarthenshire, Wales
+1 EVEN
+2 TYPE Alt. Burial
+2 DATE 3 Nov 1456
+2 PLAC St Davids, Pembrokeshire, Wales
+1 DEAT
+2 DATE 3 Nov 1456
+2 PLAC Probably in Carmarthen Castle
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 _UID 2300C4FC09D7D711BA22444553540000B753
+1 BURI
+2 PLAC Greyfriars, Carmarthen
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F123@
+1 FAMC @F185@
+0 @I4@ INDI
+1 NAME Margaret /Beaufort/
+2 GIVN Margaret
+2 SURN Beaufort
+1 NAME Margaret /Beaufort/
+2 GIVN Margaret
+2 SURN Beaufort
+2 NPFX Lady
+1 SEX F
+1 BIRT
+2 DATE 31 May 1443
+2 PLAC Bletsoe
+2 SOUR @S2@
+3 PAGE Volume 4, page 207; volume 10, page 827
+3 QUAY 0
+1 EVEN
+2 TYPE Alt. Birth
+2 DATE 31 May 1443
+2 PLAC Bletsoe, Bedfordshire, England
+1 EVEN
+2 TYPE Portrait
+2 NOTE Link to Marilee Cody's "Tudor England" website
+1 EVEN
+2 TYPE LifeSketch
+2 DATE <unknown>
+2 NOTE wiki    https://en.wikipedia.org/wiki/Lady_Margaret_Beaufort
+3 CONT Portrait by Meynnart Wewyck, c. 1510
+3 CONT Born	31 May 1443
+3 CONT Bletsoe Castle, Bedfordshire, England
+3 CONT Died	29 June 1509 (aged 66)
+3 CONT Westminster Abbey, London, England
+3 CONT Buried	Henry VII Lady Chapel, Westminst
+1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/beaufort.jpg
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Duchess Of Suffolk
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Countess of Richmond and Derby
+1 EVEN
+2 TYPE Association
+2 NOTE Margaret was John's only daughter and heir of John /Beaufort/
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 EVEN LD79-GMG
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/LD79-GMG
+1 TITL Countess
+1 WILL
+2 DATE 6 Jun 1508
+2 NOTE She chose burial “in the monastery of Seynt Peter of Westm’r.”
+1 EVEN
+2 TYPE Alt. Death
+2 DATE 29 Jun 1509
+2 PLAC Westminster Abbey, Westminster, Middlesex, England
+1 DEAT
+2 DATE 29 Jun 1509
+2 SOUR @S2@
+3 PAGE Volume 4, page 207; volume 10, page 827
+3 QUAY 0
+1 EVEN
+2 TYPE Alt. Burial
+2 DATE 5 Jul 1509
+2 PLAC Westminster Abbey, Westminster, Middlesex, England
+1 _UID 2600C4FC09D7D711BA22444553540000BA83
+1 BURI
+2 PLAC Westminster Abbey
+2 SOUR @S2@
+3 PAGE Volume 4, page 207; volume 10, page 827
+3 QUAY 0
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F128@
+1 FAMS @F123@
+1 FAMS @F7@
+1 FAMS @F23@
+1 FAMC @F145@
+0 @I6@ INDI
+1 NAME John /Beaufort/
+2 GIVN John
+2 SURN Beaufort
+2 NSFX Duke of Somerset
+2 SOUR @S2@
+3 PAGE Volume 10, page 826
+3 QUAY 0
+1 SEX M
+1 BIRT
+2 DATE 25 Mar 1404
+2 PLAC Twickenham, Middlesex, England
+1 CHR
+2 DATE 25 Mar 1404
+2 PLAC Westminster, london, middlesex, England
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE Bet 25 Nov 1418 and 27 May 1444
+2 NOTE 3rd Earl of Somerset
+1 EVEN
+2 TYPE LifeSketch
+2 DATE <unknown>
+2 NOTE 1st Duke of Somerset. Born the son of John de Beaufort, 1st Earl of Somerset and Lady Margaret de Holand. He succeeded to the title of 3rd Earl of Somerset in November 1418. He fought in Henry V's 1419 campaigns in France and accompanied the king's younge
+1 _PPEXCLUDE
+1 EVEN 97Z8-H54
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/97Z8-H54
+1 TITL Duke Sommerset
+1 _UID 2E00C4FC09D7D711BA22444553540000C203
+1 DEAT
+2 DATE 27 May 1444
+2 PLAC Wimborne Minster, Dorset, England
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F145@
+1 FAMC @F176@
 0 @I14@ INDI
 1 NAME Henry /Tudor/
 2 GIVN Henry
@@ -91,6 +376,9 @@
 2 SOUR @S2@
 3 PAGE Volume 3, page 443
 3 QUAY 0
+1 RELI
+2 DATE Bet 1491 and 1534
+2 NOTE Catholic
 1 FAMS @F201@
 1 _PPEXCLUDE
 1 EVEN
@@ -117,23 +405,21 @@
 2 TYPE PhysicalDescription
 2 DATE <unknown>
 2 NOTE Very attractive, athletic, and reckless in his youth (he was not the immediate heir to the throne) an injury from jousting left him with a life-long, painful wound. His habits of eating and drink and partying lead to weight gain and his constant pain and.
+1 TITL King of England
+1 RELI
+2 DATE <unknown>
+2 NOTE Separated from the Roman Catholic church and established the Church of England, himself at the head. He made efforts to dissolve Catholic monasteries throughout England.
 1 RESI
 2 PLAC Hever Castle
-1 RELI
-2 DATE Bet 1491 and 1534
-2 NOTE Catholic
 1 RELI
 2 DATE 11 Jul 1533
 2 NOTE Excommunication
 1 RELI
-2 DATE 1538
-2 NOTE Dissolution of the monasteries
-1 RELI
 2 DATE Bet 1534 and 1547
 2 NOTE Church of England
 1 RELI
-2 DATE <unknown>
-2 NOTE Separated from the Roman Catholic church and established the Church of England, himself at the head. He made efforts to dissolve Catholic monasteries throughout England.
+2 DATE 1538
+2 NOTE Dissolution of the monasteries
 1 EVEN
 2 TYPE Alt. Death
 2 DATE 28 Jan 1547
@@ -268,6 +554,71 @@
 1 FAMS @F36@
 1 FAMS @F78@
 1 FAMC @F87@
+0 @I28@ INDI
+1 NAME Arthur /Tudor/
+2 GIVN Arthur
+2 SURN Tudor
+2 NSFX Knight of the Garter
+2 SOUR @S2@
+3 PAGE Volume 3, page 441
+3 QUAY 0
+1 NAME Arthur /Tudor/
+2 GIVN Arthur
+2 SURN Tudor
+2 NPFX Duke
+2 NSFX of Cornwall
+1 SEX M
+1 BIRT
+2 DATE 20 Sep 1486
+2 PLAC St Swithin's Priory, Winchester
+2 SOUR @S2@
+3 PAGE Volume 3, page 441
+3 QUAY 0
+1 CHR
+2 DATE 24 Sep 1486
+2 PLAC Winchester Cathedral
+2 SOUR @S2@
+3 PAGE Volume 3, page 441
+3 QUAY 0
+1 EVEN
+2 TYPE Knight of the Bath, Prince of Wales and Earl of Chester
+2 DATE From 29 Nov 1489
+2 SOUR @S2@
+3 PAGE Volume 3, pages 441, 442
+3 QUAY 0
+1 EVEN
+2 TYPE Knight of the Garter
+2 DATE 8 May 1491
+2 NOTE (instituted)
+2 SOUR @S2@
+3 PAGE Volume 3, page 442
+3 QUAY 0
+1 EVEN
+2 TYPE Portrait
+2 NOTE Link to Marilee Cody's "Tudor England" website
+1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/arthur2.jpg
+1 _PPEXCLUDE
+1 EVEN L1M4-S9J
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/L1M4-S9J
+1 TITL Prince of Wales
+1 DEAT
+2 DATE 2 Apr 1502
+2 PLAC Ludlow Castle, Shropshire
+2 SOUR @S2@
+3 PAGE Volume 3, page 442
+3 QUAY 0
+1 _UID 6A00C4FC09D7D711BA22444553540000FEC3
+1 BURI
+2 PLAC Worcester Cathedral
+2 SOUR @S2@
+3 PAGE Volume 3, page 442
+3 QUAY 0
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F44@
+1 FAMC @F1@
 0 @I34@ INDI
 1 NAME Edward /Tudor/
 2 GIVN Edward
@@ -289,6 +640,7 @@
 2 SOUR @S2@
 3 PAGE Volume 3, page 444
 3 QUAY 0
+1 TITL King of England
 1 EVEN
 2 TYPE King Edward VI
 2 DATE From 28 Jan 1547
@@ -318,6 +670,7 @@
 3 PAGE Volume 10, page 403
 3 QUAY 0
 1 SEX M
+1 TITL Earl
 1 DEAT
 2 DATE 1536
 1 _PPEXCLUDE
@@ -326,6 +679,57 @@
 2 DATE 15 JAN 2026
 3 TIME 12:00:00
 1 FAMS @F125@
+0 @I38@ INDI
+1 NAME Thomas /Howard/
+2 GIVN Thomas
+2 SURN Howard
+2 NSFX Duke of Norfolk
+1 SEX M
+1 BIRT
+2 DATE 1443
+2 PLAC Stoke Neyland
+2 SOUR @S2@
+3 PAGE Volume 9, page 612
+3 QUAY 0
+1 TITL Duke of Norfolk
+1 EVEN
+2 TYPE Earl Marshal of England
+2 DATE From 10 Jul 1510
+2 NOTE Created for life
+2 SOUR @S2@
+3 PAGE Volume 9, page 614
+3 QUAY 0
+1 EVEN
+2 TYPE Earl of Surrey
+2 DATE FROM 28 Jun 1483 TO 1 Feb 1513/4
+2 SOUR @S2@
+3 PAGE Volume 9, page 613
+3 QUAY 0
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE Duke of Norfolk
+2 DATE From 1 Feb 1514
+2 SOUR @S2@
+3 PAGE Volume 9, page 614
+3 QUAY 0
+1 DEAT
+2 DATE 21 May 1524
+2 PLAC Framlingham Castle
+2 SOUR @S2@
+3 PAGE Volume 9, page 615
+3 QUAY 0
+1 BURI
+2 DATE 26 Jun 1524
+2 PLAC Thetford Abbey
+2 SOUR @S2@
+3 PAGE Volume 9, page 615
+3 QUAY 0
+1 _UID 8300C4FC09D7D711BA224445535400001753
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F10@
+1 FAMS @F15@
 0 @I39@ INDI
 1 NAME Mary /Tudor/
 2 GIVN Mary
@@ -358,6 +762,135 @@
 1 FAMS @F126@
 1 FAMS @F127@
 1 FAMC @F1@
+0 @I40@ INDI
+1 NAME Charles /Brandon/
+2 GIVN Charles
+2 SURN Brandon
+2 NSFX Duke of Suffolk
+1 SEX M
+1 BIRT
+2 DATE Abt 1484
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 454
+3 QUAY 0
+1 EVEN
+2 TYPE Received wardship of Elizabeth, Baroness Lisle in her own right, with whom he made a contract of mar
+2 DATE 21 Apr 1513
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, pages 455, 459
+3 QUAY 0
+1 EVEN
+2 TYPE Viscount Lisle
+2 DATE From 15 May 1513
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 455
+3 QUAY 0
+1 EVEN
+2 TYPE Duke of Suffolk
+2 DATE From 1 Feb 1514
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 455
+3 QUAY 0
+1 _PPEXCLUDE
+1 TITL Duke of Suffolk
+1 DEAT
+2 DATE 22 Aug 1545
+2 PLAC Guildford Palace, Surrey
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 460
+3 QUAY 0
+1 BURI
+2 PLAC St George's Chapel, Windsor
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 460
+3 QUAY 0
+1 _UID 8800C4FC09D7D711BA224445535400001CA3
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F129@
+1 FAMS @F130@
+1 FAMS @F127@
+1 FAMS @F131@
+1 FAMC @F132@
+0 @I57@ INDI
+1 NAME Archibald /Douglas/
+2 GIVN Archibald
+2 SURN Douglas
+2 NSFX Earl of Angus [Scotland]
+2 SOUR @S2@
+3 PAGE Volume 1, page 157
+3 QUAY 0
+1 SEX M
+1 BIRT
+2 DATE Abt 1490
+2 SOUR @S2@
+3 PAGE Volume 1, page 157
+3 QUAY 0
+1 EVEN
+2 TYPE Association
+2 NOTE Archibald was George's son and heir of George /Douglas/
+2 SOUR @S2@
+3 PAGE Volume 1, page 157
+3 QUAY 0
+1 TITL Earl of Angus VI
+1 DEAT
+2 DATE Jan 1556-1557
+2 PLAC Tantallon Castle
+2 CAUS Erysipelas
+2 SOUR @S2@
+3 PAGE Volume 1, page 158
+3 QUAY 0
+1 _PPEXCLUDE
+1 BURI
+2 PLAC Abernethy
+2 SOUR @S2@
+3 PAGE Volume 1, page 158
+3 QUAY 0
+1 _UID B800C4FC09D7D711BA224445535400004CA3
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F140@
+1 FAMS @F141@
+1 FAMS @F142@
+1 FAMC @F143@
+0 @I151@ INDI
+1 NAME Henry /Grey/
+2 GIVN Henry
+2 SURN Grey
+2 NSFX Duke of Suffolk
+2 SOUR @S2@
+3 PAGE Volume 12, part 1, page 462
+3 QUAY 0
+1 SEX M
+1 BIRT
+2 DATE 17 Jan 1517
+2 SOUR @S2@
+3 PAGE Volume 4, page 420
+3 QUAY 0
+1 TITL Duke of Suffolk
+1 EVEN
+2 TYPE Duke of Suffolk
+2 DATE From 11 Oct 1551
+2 SOUR @S2@
+3 PAGE Volume 4, page 421
+3 QUAY 0
+1 _PPEXCLUDE
+1 DEAT
+2 DATE 23 Feb 1553-1554
+2 PLAC Tower Hill, London
+2 CAUS Beheaded
+2 SOUR @S2@
+3 PAGE Volume 4, page 421; volume 12, part 1, page 462
+3 QUAY 0
+1 _UID B95AFAACC0D7D711BA22A293179F6D36A22C
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F46@
+1 FAMS @F39@
+1 FAMC @F41@
 0 @I159@ INDI
 1 NAME Jane /Grey/
 2 GIVN Jane
@@ -369,6 +902,7 @@
 2 SOUR @S6@
 3 PAGE Volume 16, page 105
 3 QUAY 0
+1 TITL Queen of England
 1 EVEN
 2 TYPE Proclaimed Queen of England
 2 DATE 10 Jul 1553
@@ -392,6 +926,72 @@
 3 TIME 12:00:00
 1 FAMS @F51@
 1 FAMC @F39@
+0 @I191@ INDI
+1 NAME Catherine /Grey/
+2 GIVN Catherine
+2 SURN Grey
+1 SEX F
+1 BIRT
+2 DATE Aug 1540
+2 PLAC Probably at Dorset House, Westminster
+2 SOUR @S2@
+3 PAGE Volume 6, page 506
+3 QUAY 0
+1 EVEN
+2 TYPE Association
+2 NOTE Catherine was Henry's 2nd daughter and coheir of Henry /Grey/
+2 SOUR @S2@
+3 PAGE Volume 6, page 505
+3 QUAY 0
+1 TITL Lady
+1 DEAT
+2 DATE 27 Jan 1567-1568
+2 PLAC Cockfield Hall, Yoxford, Suffolk
+2 SOUR @S2@
+3 PAGE Volume 6, page 506
+3 QUAY 0
+1 _PPEXCLUDE
+1 BURI
+2 DATE 21 Feb 1567-1568
+2 PLAC Yoxford
+2 SOUR @S2@
+3 PAGE Volume 6, page 506
+3 QUAY 0
+1 _UID 92EDCE57CFD7D711BA22ACE9C2156A361A46
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F69@
+1 FAMS @F70@
+1 FAMC @F39@
+0 @I221@ INDI
+1 NAME Margaret /Douglas/
+2 GIVN Margaret
+2 SURN Douglas
+2 SOUR @S3@
+3 PAGE Volume 1, page 21
+3 QUAY 0
+1 SEX F
+1 BIRT
+2 DATE Oct 1515
+2 PLAC Harbottle
+2 SOUR @S3@
+3 PAGE Volume 1, page 22
+3 QUAY 0
+1 TITL Lady
+1 DEAT
+2 DATE 9 Mar 1577-1578
+2 PLAC Hackney
+2 SOUR @S3@
+3 PAGE Volume 1, page 22
+3 QUAY 0
+1 _PPEXCLUDE
+1 _UID F22E9C1D51DAD711BA22444553540000F8F3
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F93@
+1 FAMC @F141@
 0 @I222@ INDI
 1 NAME Matthew /Stuart/
 2 GIVN Matthew
@@ -403,6 +1003,7 @@
 1 SEX M
 1 BIRT
 2 DATE 1516
+1 TITL Earl Lennox 4th
 1 DEAT
 2 DATE 1571
 1 FAMC @F203@
@@ -423,6 +1024,7 @@
 1 SEX M
 1 BIRT
 2 DATE 1545
+1 TITL Lord Darnley
 1 DEAT
 2 DATE 10 Feb 1566-1567
 2 PLAC Edinburgh
@@ -445,6 +1047,7 @@
 3 PAGE Volume 1, page 22
 3 QUAY 0
 1 SEX M
+1 TITL Earl Lennox 6th
 1 DEAT
 2 DATE 1576
 1 _PPEXCLUDE
@@ -488,6 +1091,7 @@
 1 EVEN
 2 TYPE Portraits
 2 NOTE Link to Marilee Cody's "Tudor England" website
+1 TITL Queen of Scots
 1 FAMS @F202@
 1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/maryqosimages.html
 1 _PPEXCLUDE
@@ -521,6 +1125,7 @@
 2 SOUR @S3@
 3 PAGE Volume 1, page 26
 3 QUAY 0
+1 TITL King of England
 1 DEAT
 2 DATE 27 Mar 1625
 2 PLAC Theobalds Park,Hertfordshire,Herts,England
@@ -557,6 +1162,7 @@
 1 EVEN
 2 TYPE Portraits
 2 NOTE Link to Marilee Cody's "Tudor England" website
+1 TITL Queen of England
 1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/eliz1-images.html
 1 _PPEXCLUDE
 1 DEAT
@@ -597,6 +1203,7 @@
 2 SOUR @S5@
 3 PAGE Pages 528, 529
 3 QUAY 0
+1 TITL Queen of England
 1 NOTE (Research):from yearEVEN: FILE http://www.marileecody.com/mary1images.html
 1 _PPEXCLUDE
 1 DEAT
@@ -613,6 +1220,149 @@
 3 TIME 12:00:00
 1 FAMS @F121@
 1 FAMC @F31@
+0 @I272@ INDI
+1 NAME John /Beaufort/
+2 GIVN John
+2 SURN Beaufort
+2 NSFX Earl of Somerset
+1 SEX M
+1 BIRT
+2 DATE 1373
+2 PLAC Lincolnshire, England
+1 EVEN
+2 TYPE Alt. Birth
+2 DATE 1373
+2 PLAC Lincolnshire, England
+1 EVEN
+2 TYPE MilitaryService
+2 DATE Bet 1390 and 1394
+2 NOTE Between May and September 1390, Beaufort saw military service in North Africa in the Barbary Crusade led by Louis II, Duke of Bourbon.[8] In 1394, he was in Lithuania serving with the Teutonic Knights.
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE Legitimacy and use of the Beaufort name
+2 DATE <unknown>
+2 NOTE The descendants of Katherine Swynford and John of Gaunt are significant in English and Scottish history. Their four children had been given the surname "Beaufort" and with the approval of King Richard II and the Pope were legitimized in 1396.
+1 EVEN
+2 TYPE LifeSketch
+2 DATE <unknown>
+2 NOTE The Life Summary of John
+3 CONT When John Beaufort 1st Earl of Somerset was born on 29 January 1371, in Kettlethorpe, Lincolnshire, England, his father, John of Gaunt Duke of Lancaster, was 30 and his mother, Katherine de Roet Duchess of Lancaster, was 20. He ha
+1 EVEN
+2 TYPE MilitaryService
+2 DATE <unknown>
+2 NOTE Admiral of the North and West
+1 EVEN
+2 TYPE MilitaryService
+2 DATE <unknown>
+2 NOTE Captain of Calais
+1 EVEN
+2 TYPE MilitaryService
+2 DATE <unknown>
+2 NOTE Lord High Admiral of England
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Knight of the Garter
+1 EVEN 9HTZ-YQ8
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/9HTZ-YQ8
+1 TITL Earl Sommerset
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE 10 Feb 1397
+2 NOTE John was created Earl of Somerset on 10 February 1397, just a few days after the legitimation of the Beaufort children was recognized by Parliament. The same month, he was also appointed Admiral of the Irish fleet, as well as Constable of Dover Castle
+1 EVEN
+2 TYPE Legitimate
+2 DATE Feb 1397
+2 NOTE by Pope and Parliament
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE 29 Sep 1397
+2 NOTE he was created Marquess of Somerset and Marquess of Dorset on 29 September, and sometime later that year he was made a Knight of the Garter and appointed Lieutenant of Aquitaine.
+1 OCCU
+2 DATE 1397
+2 PLAC Dover, Kent, England
+2 NOTE Constable of Dover Castle
+1 OCCU
+2 DATE 1397
+2 NOTE  Warden of the Cinque Ports, In May, his admiralty was extended to include the northern fleet.  John remained in the king's favour even after his older half-brother Henry Bolingbroke (later Henry IV) was banished from England in 1398.
+1 EVEN
+2 TYPE MilitaryService
+2 DATE 1397
+2 NOTE Lord High Admiral of England
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE Bet 1397 and 1399
+2 NOTE 1st Marquess of Dorset
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE 1397
+2 NOTE 1st Earl of Somerset
+1 OCCU
+2 DATE 1399
+2 NOTE After Richard II was deposed by Henry Bolingbroke in 1399, the new king rescinded the titles that had been given to the counter-appellants, and thus John Beaufort became merely Earl of Somerset again
+1 OCCU
+2 DATE 1400
+2 NOTE Beaufort who was given the confiscated estates of the Welsh rebel leader Owain Glyndwr in 1400, although he would not have been able to take possession of these estates unless he had lived until after 1415. In 1404, he was named Constable of England.
+1 OCCU
+2 DATE 1404
+2 NOTE Lord High Constable of England
+1 EVEN
+2 TYPE Alt. Death
+2 DATE 16 Mar 1410
+2 PLAC St. Catherine's Hospital by the Tower, London, England
+1 DEAT
+2 DATE 16 Mar 1410
+2 PLAC St. Catherine's Hospital by the Tower, London, England
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F176@
+1 FAMC @F177@
+0 @I276@ INDI
+1 NAME Henry /Beaufort/
+2 GIVN Henry
+2 SURN Beaufort
+2 NSFX 2nd Earl Of Somerset
+1 NAME Henry /Beaufort/
+2 GIVN Henry
+2 SURN Beaufort
+2 NSFX 2nd Earl Of Somerset
+1 NAME Henry /Beaufort/
+2 GIVN Henry
+2 SURN Beaufort
+2 NSFX 2nd Earl Of Somerset
+1 SEX M
+1 BIRT
+2 DATE 25 Nov 1401
+2 PLAC Westminster, Middlesex, England
+1 EVEN
+2 TYPE MilitaryService
+2 PLAC Rouen, , Haute-Normandie, France
+2 NOTE Siege of Rouen, France
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Earl
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE 2nd Earl of Somerset
+1 EVEN LY5Y-G8D
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/LY5Y-G8D
+1 OCCU
+2 DATE <unknown>
+2 NOTE 2nd Earl of Somerset (16 Mar 1410- )
+1 TITL Earl Sommerset
+1 DEAT
+2 DATE 25 Nov 1418
+2 PLAC Siege of Rouen, France
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMC @F176@
 0 @I55@ INDI
 1 NAME Elizabeth  /Tudor/
 1 SEX F
@@ -703,12 +1453,12 @@
 2 DATE 15 JAN 2026
 0 @I358@ INDI
 1 NAME Rhys_Ap Gruffydd //
-1 FAMC @F211@
-1 FAMS @F210@
 1 TITL Lord Rhys
 1 SEX M
 1 DEAT
 2 DATE 1197
+1 FAMC @F211@
+1 FAMS @F210@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I359@ INDI
@@ -722,10 +1472,10 @@
 2 DATE 15 JAN 2026
 0 @I360@ INDI
 1 NAME Rhys_Ap Twedwr //
-1 FAMC @F213@
-1 FAMS @F212@
 1 TITL Prince S. Wales
 1 SEX M
+1 FAMC @F213@
+1 FAMS @F212@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I361@ INDI
@@ -849,10 +1599,10 @@
 2 DATE 15 JAN 2026
 0 @I376@ INDI
 1 NAME Llywelyn Fawr the_Great//
-1 FAMC @F226@
-1 FAMS @F225@
 1 TITL Prince of Wales
 1 SEX M
+1 FAMC @F226@
+1 FAMS @F225@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I377@ INDI
@@ -944,7 +1694,6 @@
 2 DATE 15 JAN 2026
 0 @I389@ INDI
 1 NAME Charles_VI the_Beloved //
-1 FAMC @F236@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -955,12 +1704,11 @@
 2 PLAC Paris,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F236@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I390@ INDI
 1 NAME Charles_V the_Wise //
-1 FAMC @F237@
-1 FAMS @F236@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -971,12 +1719,12 @@
 2 PLAC Vincennes,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F237@
+1 FAMS @F236@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I391@ INDI
 1 NAME John_II the_Good //
-1 FAMC @F238@
-1 FAMS @F237@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -987,12 +1735,12 @@
 2 PLAC London,England
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F238@
+1 FAMS @F237@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I392@ INDI
 1 NAME Philip_VI of_Valois //
-1 FAMC @F239@
-1 FAMS @F238@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -1002,6 +1750,8 @@
 2 PLAC Nogent-le-Roi,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F239@
+1 FAMS @F238@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I393@ INDI
@@ -1017,11 +1767,11 @@
 2 DATE 15 JAN 2026
 0 @I394@ INDI
 1 NAME Joan of_Burgundy //
-1 FAMS @F238@
 1 TITL Queen
 1 SEX F
 1 DEAT
 2 DATE ABT 1349
+1 FAMS @F238@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I395@ INDI
@@ -1034,13 +1784,13 @@
 2 DATE 15 JAN 2026
 0 @I396@ INDI
 1 NAME Joan of_Bourbon //
-1 FAMS @F236@
 1 TITL Queen
 1 SEX F
 1 BIRT
 2 DATE 1338
 1 DEAT
 2 DATE 4 Feb 1378
+1 FAMS @F236@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I397@ INDI
@@ -1054,7 +1804,6 @@
 2 DATE 15 JAN 2026
 0 @I398@ INDI
 1 NAME John of_Gaunt //
-1 FAMC @F240@
 1 TITL Duke of Lancast.
 1 SEX M
 1 BIRT
@@ -1063,12 +1812,11 @@
 1 DEAT
 2 DATE 3 Feb 1399
 2 PLAC Leicester Castle
+1 FAMC @F240@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I399@ INDI
 1 NAME Edward_III  //
-1 FAMC @F241@
-1 FAMS @F240@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1079,12 +1827,12 @@
 2 PLAC Sheen Palace
 1 BURI
 2 PLAC Westminster,Abbey,London,England
+1 FAMC @F241@
+1 FAMS @F240@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I400@ INDI
 1 NAME Edward_II  //
-1 FAMC @F242@
-1 FAMS @F241@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1095,13 +1843,12 @@
 2 PLAC Berkeley Castle,Gloucestershire
 1 BURI
 2 PLAC Gloucester,Cathedral
+1 FAMC @F242@
+1 FAMS @F241@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I401@ INDI
 1 NAME Edward_I (Longshanks) //
-1 FAMC @F243@
-1 FAMS @F242@
-1 FAMS @F337@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1112,12 +1859,13 @@
 2 PLAC Near Carlisle
 1 BURI
 2 PLAC Westminster,Abbey,London,England
+1 FAMC @F243@
+1 FAMS @F242@
+1 FAMS @F337@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I402@ INDI
 1 NAME Henry_III  //
-1 FAMC @F244@
-1 FAMS @F243@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1128,12 +1876,12 @@
 2 PLAC Westminster,Palace,London,England
 1 BURI
 2 PLAC Westminster,Abbey,London,England
+1 FAMC @F244@
+1 FAMS @F243@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I403@ INDI
 1 NAME John Lackland //
-1 FAMC @F245@
-1 FAMS @F244@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1144,13 +1892,12 @@
 2 PLAC Newark Castle,Newark,Nottinghamshire,England
 1 BURI
 2 PLAC Worcester,Cathedral
+1 FAMC @F245@
+1 FAMS @F244@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I404@ INDI
 1 NAME Henry_II Curtmantle //
-1 FAMC @F246@
-1 FAMS @F245@
-1 FAMS @F320@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1161,16 +1908,19 @@
 2 PLAC Chinon
 1 BURI
 2 PLAC Fontevraud Abbey
+1 FAMC @F246@
+1 FAMS @F245@
+1 FAMS @F320@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I405@ INDI
 1 NAME Geoffrey_V  /Plantagenet/
-1 FAMS @F246@
 1 TITL Count of Anjou
 1 SEX M
 1 DEAT
 2 DATE 7 Sep 1151
 2 PLAC Chateau-du-Loir
+1 FAMS @F246@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I406@ INDI
@@ -1188,8 +1938,6 @@
 2 DATE 15 JAN 2026
 0 @I407@ INDI
 1 NAME Henry_I Beauclerc //
-1 FAMC @F248@
-1 FAMS @F247@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1200,12 +1948,12 @@
 2 PLAC St Denis-le-,Fermont,Near Gisors
 1 BURI
 2 PLAC Reading Abbey
+1 FAMC @F248@
+1 FAMS @F247@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I408@ INDI
 1 NAME William_I the_Conqueror //
-1 FAMC @F249@
-1 FAMS @F248@
 1 TITL King of England
 1 SEX M
 1 BIRT
@@ -1216,35 +1964,37 @@
 2 PLAC Near Rouen,France
 1 BURI
 2 PLAC St Stephen Abbey,Caen,Normandy
+1 FAMC @F249@
+1 FAMS @F248@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I409@ INDI
 1 NAME Robert the_Devil //
-1 FAMC @F250@
-1 FAMS @F249@
 1 TITL Duke
 1 SEX M
 1 DEAT
 2 DATE 1035
+1 FAMC @F250@
+1 FAMS @F249@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I410@ INDI
 1 NAME Richard_II of_Normandy //
-1 FAMC @F251@
-1 FAMS @F250@
 1 TITL Duke
 1 SEX M
 1 DEAT
 2 DATE 1026
+1 FAMC @F251@
+1 FAMS @F250@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I411@ INDI
 1 NAME Richard_I the_Fearless of_Normandy//
-1 FAMS @F251@
 1 TITL Count
 1 SEX M
 1 DEAT
 2 DATE 996
+1 FAMS @F251@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I412@ INDI
@@ -1282,9 +2032,9 @@
 2 DATE 15 JAN 2026
 0 @I416@ INDI
 1 NAME Baldwin_V of_Flanders //
-1 FAMS @F252@
 1 TITL Count
 1 SEX M
+1 FAMS @F252@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I417@ INDI
@@ -1304,12 +2054,12 @@
 2 DATE 15 JAN 2026
 0 @I418@ INDI
 1 NAME Malcolm_III Canmore //
-1 FAMC @F254@
-1 FAMS @F253@
 1 TITL King of Scotland
 1 SEX M
 1 DEAT
 2 DATE 1093
+1 FAMC @F254@
+1 FAMS @F253@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I419@ INDI
@@ -1334,59 +2084,59 @@
 2 DATE 15 JAN 2026
 0 @I422@ INDI
 1 NAME Malcolm_II  //
-1 FAMC @F257@
-1 FAMS @F256@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F257@
+1 FAMS @F256@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I423@ INDI
 1 NAME Kenneth_II  //
-1 FAMC @F258@
-1 FAMS @F257@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F258@
+1 FAMS @F257@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I424@ INDI
 1 NAME Malcolm_I  //
-1 FAMC @F259@
-1 FAMS @F258@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F259@
+1 FAMS @F258@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I425@ INDI
 1 NAME Donald_II  //
-1 FAMC @F260@
-1 FAMS @F259@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F260@
+1 FAMS @F259@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I426@ INDI
 1 NAME Constantine_II  //
-1 FAMC @F261@
-1 FAMS @F260@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F261@
+1 FAMS @F260@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I427@ INDI
 1 NAME Kenneth_I  /MacAlpin/
-1 FAMC @F262@
-1 FAMS @F261@
 1 TITL King of Scotland
 1 SEX M
+1 FAMC @F262@
+1 FAMS @F261@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I428@ INDI
 1 NAME Alpin  //
-1 FAMS @F262@
 1 TITL King of Scotland
 1 SEX M
 1 DEAT
 2 DATE 834
+1 FAMS @F262@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I429@ INDI
@@ -1426,8 +2176,6 @@
 2 DATE 15 JAN 2026
 0 @I433@ INDI
 1 NAME Ethelred_II the_Unready //
-1 FAMC @F266@
-1 FAMS @F265@
 1 TITL King of Kent
 1 SEX M
 1 BIRT
@@ -1436,6 +2184,8 @@
 2 DATE 1016
 1 BURI
 2 PLAC St. Paul's
+1 FAMC @F266@
+1 FAMS @F265@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I434@ INDI
@@ -1477,8 +2227,6 @@
 2 DATE 15 JAN 2026
 0 @I437@ INDI
 1 NAME Alfred the_Great //
-1 FAMC @F270@
-1 FAMS @F269@
 1 TITL King West Saxons
 1 SEX M
 1 BIRT
@@ -1486,36 +2234,38 @@
 2 PLAC Wantage,,,England
 1 DEAT
 2 DATE 899
+1 FAMC @F270@
+1 FAMS @F269@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I438@ INDI
 1 NAME Ethelwulf  //
-1 FAMC @F271@
-1 FAMS @F270@
 1 TITL King of Wessex
 1 SEX M
 1 DEAT
 2 DATE 858
+1 FAMC @F271@
+1 FAMS @F270@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I439@ INDI
 1 NAME Egbert  //
-1 FAMC @F272@
-1 FAMS @F271@
 1 TITL King of Wessex
 1 SEX M
 1 DEAT
 2 DATE 839
+1 FAMC @F272@
+1 FAMS @F271@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I440@ INDI
 1 NAME Ealhmund of_Kent //
-1 FAMC @F273@
-1 FAMS @F272@
 1 TITL Under-King
 1 SEX M
 1 DEAT
 2 DATE 786
+1 FAMC @F273@
+1 FAMS @F272@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I441@ INDI
@@ -1580,22 +2330,22 @@
 2 DATE 15 JAN 2026
 0 @I449@ INDI
 1 NAME Cynric  //
-1 FAMC @F282@
-1 FAMS @F281@
 1 TITL King of Wessex
 1 SEX M
 1 DEAT
 2 DATE 560
+1 FAMC @F282@
+1 FAMS @F281@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I450@ INDI
 1 NAME Cerdic  //
-1 FAMC @F283@
-1 FAMS @F282@
 1 TITL King of Wessex
 1 SEX M
 1 DEAT
 2 DATE 534
+1 FAMC @F283@
+1 FAMS @F282@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I451@ INDI
@@ -1797,9 +2547,9 @@
 2 DATE 15 JAN 2026
 0 @I479@ INDI
 1 NAME Ethelred  /Mucel/
-1 FAMS @F308@
 1 TITL Ealdorman
 1 SEX M
+1 FAMS @F308@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I480@ INDI
@@ -1838,10 +2588,10 @@
 2 DATE 15 JAN 2026
 0 @I485@ INDI
 1 NAME Thored  //
-1 FAMC @F311@
-1 FAMS @F310@
 1 TITL Ealdorman
 1 SEX M
+1 FAMC @F311@
+1 FAMS @F310@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I486@ INDI
@@ -1865,20 +2615,17 @@
 2 DATE 15 JAN 2026
 0 @I489@ INDI
 1 NAME Stephen_I  //
-1 FAMS @F312@
 1 TITL King of Hungary
 1 SEX M
 1 BIRT
 2 DATE ABT 975
 1 DEAT
 2 DATE 1038
+1 FAMS @F312@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I490@ INDI
 1 NAME Eleanor of_Aquitaine //
-1 FAMC @F313@
-1 FAMS @F245@
-1 FAMS @F320@
 1 TITL Duchess
 1 SEX F
 1 BIRT
@@ -1889,17 +2636,20 @@
 2 PLAC Fontevraud
 1 BURI
 2 PLAC Fontevraud
+1 FAMC @F313@
+1 FAMS @F245@
+1 FAMS @F320@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I491@ INDI
 1 NAME William_X of_Aquitaine //
-1 FAMS @F313@
 1 TITL Duke
 1 SEX M
 1 BIRT
 2 DATE 1099
 1 DEAT
 2 DATE 1137
+1 FAMS @F313@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I492@ INDI
@@ -1919,9 +2669,9 @@
 2 DATE 15 JAN 2026
 0 @I493@ INDI
 1 NAME Aymer of_Angouleme /Taillefer/
-1 FAMS @F314@
 1 TITL Count
 1 SEX M
+1 FAMS @F314@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I494@ INDI
@@ -1947,9 +2697,9 @@
 2 DATE 15 JAN 2026
 0 @I496@ INDI
 1 NAME Raymond of_Provence //
-1 FAMS @F315@
 1 TITL Count
 1 SEX M
+1 FAMS @F315@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I497@ INDI
@@ -1969,24 +2719,24 @@
 2 DATE 15 JAN 2026
 0 @I498@ INDI
 1 NAME Ferdinand_III  //
-1 FAMC @F317@
-1 FAMS @F316@
 1 TITL King of Castile
 1 SEX M
 1 BIRT
 2 DATE 1199
 1 DEAT
 2 DATE 1252
+1 FAMC @F317@
+1 FAMS @F316@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I499@ INDI
 1 NAME Alfonso_IX  //
-1 FAMS @F317@
-1 FAMS @F332@
 1 TITL King of Castile
 1 SEX M
 1 DEAT
 2 DATE 1230
+1 FAMS @F317@
+1 FAMS @F332@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I500@ INDI
@@ -2002,25 +2752,25 @@
 2 DATE 15 JAN 2026
 0 @I501@ INDI
 1 NAME Alfonso_VIII  //
-1 FAMC @F319@
-1 FAMS @F318@
 1 TITL King of Castile
 1 SEX M
 1 BIRT
 2 DATE 1155
 1 DEAT
 2 DATE 1214
+1 FAMC @F319@
+1 FAMS @F318@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I502@ INDI
 1 NAME Sancho_III  //
-1 FAMS @F319@
 1 TITL King of Castile
 1 SEX M
 1 BIRT
 2 DATE ABT 1134
 1 DEAT
 2 DATE ABT 1158
+1 FAMS @F319@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I503@ INDI
@@ -2053,8 +2803,6 @@
 2 DATE 15 JAN 2026
 0 @I505@ INDI
 1 NAME Philip_IV the_Fair //
-1 FAMC @F322@
-1 FAMS @F321@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2065,13 +2813,12 @@
 2 PLAC Fontainebleau,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F322@
+1 FAMS @F321@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I506@ INDI
 1 NAME Philip_III the_Bold //
-1 FAMC @F323@
-1 FAMS @F322@
-1 FAMS @F338@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2082,12 +2829,13 @@
 2 PLAC Perpignan
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F323@
+1 FAMS @F322@
+1 FAMS @F338@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I507@ INDI
 1 NAME Louis_IX (St._Louis) //
-1 FAMC @F324@
-1 FAMS @F323@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2097,12 +2845,12 @@
 2 PLAC Tunis,,,Africa
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F324@
+1 FAMS @F323@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I508@ INDI
 1 NAME Louis_VIII the_Lion //
-1 FAMC @F325@
-1 FAMS @F324@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2113,12 +2861,12 @@
 2 PLAC Auvergne,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F325@
+1 FAMS @F324@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I509@ INDI
 1 NAME Philip_II Augustus //
-1 FAMC @F326@
-1 FAMS @F325@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2129,12 +2877,12 @@
 2 PLAC Mantes,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F326@
+1 FAMS @F325@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I510@ INDI
 1 NAME Louis_VII the_Younger //
-1 FAMC @F327@
-1 FAMS @F326@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2144,12 +2892,12 @@
 2 PLAC Paris,France
 1 BURI
 2 PLAC Abbey Barbeaux,Melun,France
+1 FAMC @F327@
+1 FAMS @F326@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I511@ INDI
 1 NAME Louis_VI the_Fat //
-1 FAMC @F328@
-1 FAMS @F327@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2160,24 +2908,24 @@
 2 PLAC Paris,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F328@
+1 FAMS @F327@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I512@ INDI
 1 NAME Philip_I the_Fair //
-1 FAMC @F329@
-1 FAMS @F328@
 1 TITL King of France
 1 SEX M
 1 BIRT
 2 DATE 1052
 1 DEAT
 2 DATE 29 Jul 1108
+1 FAMC @F329@
+1 FAMS @F328@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I513@ INDI
 1 NAME Henry_I  //
-1 FAMC @F330@
-1 FAMS @F329@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2187,12 +2935,12 @@
 2 PLAC Vitry-en-Brie,France
 1 BURI
 2 PLAC St. Denis,France
+1 FAMC @F330@
+1 FAMS @F329@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I514@ INDI
 1 NAME Robert_II the_Pious //
-1 FAMC @F331@
-1 FAMS @F330@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2200,11 +2948,12 @@
 2 PLAC Orleans,France
 1 DEAT
 2 DATE 1031
+1 FAMC @F331@
+1 FAMS @F330@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I515@ INDI
 1 NAME Hugh  /Capet/
-1 FAMS @F331@
 1 TITL King of France
 1 SEX M
 1 BIRT
@@ -2213,6 +2962,7 @@
 2 DATE Aug 996
 1 BURI
 2 PLAC St. Denis,France
+1 FAMS @F331@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I516@ INDI
@@ -2289,9 +3039,9 @@
 2 DATE 15 JAN 2026
 0 @I524@ INDI
 1 NAME Raymond of_Provence /Berenger/
-1 FAMS @F333@
 1 TITL Count IV
 1 SEX M
+1 FAMS @F333@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I525@ INDI
@@ -2330,9 +3080,9 @@
 2 DATE 15 JAN 2026
 0 @I528@ INDI
 1 NAME William of_Hainault //
-1 FAMS @F334@
 1 TITL Count
 1 SEX M
+1 FAMS @F334@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I529@ INDI
@@ -2348,9 +3098,9 @@
 2 DATE 15 JAN 2026
 0 @I530@ INDI
 1 NAME Payne of_Guienne /Roet/
-1 FAMS @F335@
 1 TITL Sir
 1 SEX M
+1 FAMS @F335@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I531@ INDI
@@ -2361,7 +3111,6 @@
 2 DATE 15 JAN 2026
 0 @I532@ INDI
 1 NAME Joan  //
-1 FAMC @F336@
 1 TITL Countess of Kent
 1 SEX F
 1 BIRT
@@ -2369,12 +3118,11 @@
 1 DEAT
 2 DATE 8 Aug 1385
 2 PLAC Wallingford,Castle,Berkshire,England
+1 FAMC @F336@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I533@ INDI
 1 NAME Edmund of_Woodstock //
-1 FAMC @F337@
-1 FAMS @F336@
 1 TITL Earl of Kent
 1 SEX M
 1 BIRT
@@ -2383,6 +3131,8 @@
 1 DEAT
 2 DATE 19 Mar 1330
 2 PLAC Winchester
+1 FAMC @F337@
+1 FAMS @F336@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I534@ INDI
@@ -2402,19 +3152,19 @@
 2 DATE 15 JAN 2026
 0 @I535@ INDI
 1 NAME Margaret of_Liddell /Wake/
-1 FAMC @F339@
-1 FAMS @F336@
 1 TITL Baroness
 1 SEX F
 1 DEAT
 2 DATE 29 Sep 1349
+1 FAMC @F339@
+1 FAMS @F336@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I536@ INDI
 1 NAME John  //
-1 FAMS @F339@
 1 TITL Lord Wake
 1 SEX M
+1 FAMS @F339@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I537@ INDI
@@ -2427,22 +3177,22 @@
 2 DATE 15 JAN 2026
 0 @I538@ INDI
 1 NAME Henry  /Howard/
-1 FAMC @F106@
-1 FAMS @F341@
 1 TITL Earl of Surrey
 1 SEX M
 1 DEAT
 2 DATE 1546
+1 FAMC @F106@
+1 FAMS @F341@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I539@ INDI
 1 NAME Thomas  /Howard/
-1 FAMC @F106@
-1 FAMS @F355@
 1 TITL Viscount Bindon
 1 SEX M
 1 DEAT
 2 DATE 1582
+1 FAMC @F106@
+1 FAMS @F355@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I540@ INDI
@@ -2455,22 +3205,22 @@
 2 DATE 15 JAN 2026
 0 @I541@ INDI
 1 NAME Thomas  /Howard/
-1 FAMC @F341@
-1 FAMS @F342@
-1 FAMS @F345@
 1 TITL Duke of Norfolk
 1 SEX M
 1 DEAT
 2 DATE 1572
+1 FAMC @F341@
+1 FAMS @F342@
+1 FAMS @F345@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I542@ INDI
 1 NAME Henry of_Northhampton /Howard/
-1 FAMC @F341@
 1 TITL Earl
 1 SEX M
 1 DEAT
 2 DATE 1614
+1 FAMC @F341@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I543@ INDI
@@ -2507,12 +3257,12 @@
 2 DATE 15 JAN 2026
 0 @I547@ INDI
 1 NAME Philip  /Howard/
-1 FAMC @F342@
-1 FAMS @F343@
 1 TITL Earl of Arundel
 1 SEX M
 1 DEAT
 2 DATE 1595
+1 FAMC @F342@
+1 FAMS @F343@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I548@ INDI
@@ -2523,12 +3273,12 @@
 2 DATE 15 JAN 2026
 0 @I549@ INDI
 1 NAME Thomas  /Howard/
-1 FAMC @F343@
-1 FAMS @F344@
 1 TITL Earl of Arundel
 1 SEX M
 1 DEAT
 2 DATE 1646
+1 FAMC @F343@
+1 FAMS @F344@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I550@ INDI
@@ -2549,13 +3299,13 @@
 2 DATE 15 JAN 2026
 0 @I552@ INDI
 1 NAME Thomas  /Howard/
-1 FAMC @F345@
-1 FAMS @F346@
-1 FAMS @F347@
 1 TITL Earl of Suffolk
 1 SEX M
 1 DEAT
 2 DATE 1626
+1 FAMC @F345@
+1 FAMS @F346@
+1 FAMS @F347@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I553@ INDI
@@ -2585,22 +3335,22 @@
 2 DATE 15 JAN 2026
 0 @I556@ INDI
 1 NAME Theophilus  /Howard/
-1 FAMC @F347@
-1 FAMS @F348@
 1 TITL Earl of Suffolk
 1 SEX M
 1 DEAT
 2 DATE 1640
+1 FAMC @F347@
+1 FAMS @F348@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I557@ INDI
 1 NAME Thomas of_Berkshire /Howard/
-1 FAMC @F347@
-1 FAMS @F349@
 1 TITL Earl
 1 SEX M
 1 DEAT
 2 DATE 1669
+1 FAMC @F347@
+1 FAMS @F349@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I558@ INDI
@@ -2641,29 +3391,29 @@
 2 DATE 15 JAN 2026
 0 @I563@ INDI
 1 NAME William of_Berkshire /Cecil/
-1 FAMS @F351@
 1 TITL Earl
 1 SEX M
 1 DEAT
 2 DATE 1668
+1 FAMS @F351@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I564@ INDI
 1 NAME Robert  /Devereux/
-1 FAMS @F352@
 1 TITL Earl of Essex
 1 SEX M
 1 DEAT
 2 DATE 1646
+1 FAMS @F352@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I565@ INDI
 1 NAME Robert  /Carr/
-1 FAMS @F353@
 1 TITL Earl of Somerset
 1 SEX M
 1 DEAT
 2 DATE 1645
+1 FAMS @F353@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I566@ INDI
@@ -2680,11 +3430,11 @@
 2 DATE 15 JAN 2026
 0 @I568@ INDI
 1 NAME George Rochford /Boleyn/
-1 FAMC @F125@
 1 TITL Viscount
 1 SEX M
 1 DEAT
 2 DATE 1536
+1 FAMC @F125@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I569@ INDI
@@ -2698,12 +3448,12 @@
 2 DATE 15 JAN 2026
 0 @I570@ INDI
 1 NAME Henry  /Carey/
-1 FAMC @F356@
-1 FAMS @F357@
 1 TITL Baron Hunsdon
 1 SEX M
 1 DEAT
 2 DATE 1596
+1 FAMC @F356@
+1 FAMS @F357@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I571@ INDI
@@ -2734,11 +3484,11 @@
 2 DATE 15 JAN 2026
 0 @I574@ INDI
 1 NAME William  /Knollys/
-1 FAMC @F358@
 1 TITL Earl of Banbury
 1 SEX M
 1 DEAT
 2 DATE 1632
+1 FAMC @F358@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I575@ INDI
@@ -2776,20 +3526,20 @@
 2 DATE 15 JAN 2026
 0 @I579@ INDI
 1 NAME Walter  /Devereux/
-1 FAMS @F360@
 1 TITL Earl of Essex
 1 SEX M
 1 DEAT
 2 DATE 1576
+1 FAMS @F360@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I580@ INDI
 1 NAME Robert of_Leicester /Dudley/
-1 FAMS @F361@
 1 TITL Earl
 1 SEX M
 1 DEAT
 2 DATE 1588
+1 FAMS @F361@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I581@ INDI
@@ -2802,18 +3552,18 @@
 2 DATE 15 JAN 2026
 0 @I582@ INDI
 1 NAME Thomas  /Leighton/
-1 FAMS @F363@
 1 TITL Lord De La Warr
 1 SEX M
+1 FAMS @F363@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I583@ INDI
 1 NAME Gerald  /Fitzgerald/
-1 FAMS @F364@
 1 TITL Lord Offaley
 1 SEX M
 1 DEAT
 2 DATE 1580
+1 FAMS @F364@
 1 CHAN
 2 DATE 15 JAN 2026
 0 @I584@ INDI

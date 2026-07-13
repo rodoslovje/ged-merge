@@ -130,6 +130,49 @@ describe("individualFieldRows", () => {
   });
 });
 
+describe("attribute tags and vendor events (BK premium support)", () => {
+  const person = (body: string, id = "@I1@") =>
+    dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 1910\n${body}\n0 TRLR\n`)
+      .individuals.get(id);
+
+  it("surfaces REFN and attribute tags (TITL/RELI/DSCR) as value rows", () => {
+    const rows = individualFieldRows(tr,
+      person("1 REFN 1234\n1 TITL Earl of Richmond\n1 RELI rimokatoliška\n1 DSCR tall"),
+      undefined,
+    );
+    expect(byKey(rows, "REFN.value")?.main).toBe("1234");
+    expect(byKey(rows, "TITL.value")?.main).toBe("Earl of Richmond");
+    expect(byKey(rows, "RELI.value")?.main).toBe("rimokatoliška");
+    expect(byKey(rows, "DSCR.value")?.main).toBe("tall");
+  });
+
+  it("lifts Brother's Keeper _INTE/_FNRL/_MILT as events with date and place", () => {
+    const rows = individualFieldRows(tr,
+      dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 20 APR 1910\n1 _MILT vojak\n2 DATE 1871\n1 _FNRL\n2 DATE 24 APR 1910\n2 PLAC Tunjice\n1 _INTE\n2 PLAC Tunjice\n0 TRLR\n`).individuals.get("@I1@"),
+      undefined,
+    );
+    expect(byKey(rows, "_MILT.value")?.main).toBe("vojak");
+    expect(byKey(rows, "_FNRL.date")?.main).toBe("24 APR 1910");
+    expect(byKey(rows, "_FNRL.place")?.main).toBe("Tunjice");
+    expect(byKey(rows, "_INTE.place")?.main).toBe("Tunjice");
+    // Death-zone ordering: DEAT before funeral before interment, all after _MILT.
+    const order = rows.filter((r) => r.isEventHeader).map((r) => r.key);
+    expect(order.indexOf("_MILT.header")).toBeLessThan(order.indexOf("DEAT.header"));
+    expect(order.indexOf("DEAT.header")).toBeLessThan(order.indexOf("_FNRL.header"));
+    expect(order.indexOf("_FNRL.header")).toBeLessThan(order.indexOf("_INTE.header"));
+  });
+
+  it("treats FACT like EVEN: TYPE in the header and Title slot, value as Agency", () => {
+    const rows = individualFieldRows(tr,
+      person("1 FACT 1234567\n2 TYPE RIN"),
+      undefined,
+    );
+    expect(rows.find((r) => r.isEventHeader && r.key === "FACT.header")?.label).toBe("event.FACT — RIN");
+    expect(byKey(rows, "FACT.type")?.label).toBe("event.colTitle");
+    expect(byKey(rows, "FACT.value")?.main).toBe("1234567");
+  });
+});
+
 describe("generic EVEN with a TYPE", () => {
   const even = (body: string, id: string) =>
     dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n${body}\n0 TRLR\n`)
@@ -140,8 +183,9 @@ describe("generic EVEN with a TYPE", () => {
       even("1 EVEN LDHD-PNT\n2 TYPE FamilySearch ID", "@I1@"),
       undefined,
     );
-    // The heading is the generic "Event" label, not the type value.
-    expect(rows.find((r) => r.isEventHeader && r.key === "EVEN.header")?.label).toBe("event.EVEN");
+    // The heading is the generic "Event" label with the TYPE appended, so the
+    // row reads "Event — FamilySearch ID" instead of an anonymous "Event".
+    expect(rows.find((r) => r.isEventHeader && r.key === "EVEN.header")?.label).toBe("event.EVEN — FamilySearch ID");
     // TYPE → "Title", line value → "Agency".
     const title = byKey(rows, "EVEN.type");
     expect(title?.label).toBe("event.colTitle");

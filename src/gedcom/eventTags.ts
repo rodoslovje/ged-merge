@@ -7,14 +7,19 @@
  * consumer picks it up together.
  */
 
-/** Individual event tags in canonical life-cycle order (birth → … → death). */
+/** Individual event tags in canonical life-cycle order (birth → … → death).
+ *  Includes the GEDCOM attribute tags (TITL, DSCR, RELI, …) — the app models
+ *  attributes as value-bearing events, like OCCU — and the Brother's Keeper
+ *  vendor events (_MILT military, _MEDC medical, _FNRL funeral, _INTE
+ *  interment), which carry the same DATE/PLAC substructure. */
 export const INDI_EVENT_TAG_ORDER = [
   "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
-  "OCCU", "EDUC", "RETI",
+  "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
+  "TITL", "DSCR", "RELI", "NATI", "NCHI", "_MEDC",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
-  "EVEN",
-  "DEAT", "BURI", "CREM",
+  "EVEN", "FACT", "REFN",
+  "DEAT", "_FNRL", "BURI", "_INTE", "CREM",
 ];
 
 /** Family event tags in canonical order. */

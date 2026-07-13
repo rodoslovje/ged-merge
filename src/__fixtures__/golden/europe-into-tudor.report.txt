@@ -1,24 +1,39 @@
 GED Merge change report
 =======================
 
-Records changed:  432
-Fields applied:   679
+Records changed:  445
+Fields applied:   703
 New persons:      239
 New families:     164
 Deferred:         8
 
 Applied changes
 ---------------
+Arthur Tudor  @I28@
+-------------------
+  event.TITL: set "Prince of Wales"
+
 Jane Grey  @I159@
 -----------------
+  event.TITL: set "Queen of England"
   event.colPlace: set "Tower of London,Chapel Royal,London,England"
+
+Margaret Douglas  @I221@
+------------------------
+  event.TITL: set "Lady"
+
+Edmund Tudor  @I3@
+------------------
+  event.TITL: set "Earl of Richmond"
 
 Elizabeth Tudor  @I265@
 -----------------------
+  event.TITL: set "Queen of England"
   event.colPlace: set "Richmond Palace,London,England"
 
 Henry Tudor  @I14@
 ------------------
+  event.TITL: set "King of England"
   event.colPlace: set "Whitehall,London,England"
 
 Henry Tudor + Jane Seymour  @F33@
@@ -40,18 +55,29 @@ Henry Tudor + Catherine Parr  @F36@
 
 James Stuart  @I257@
 --------------------
+  event.TITL: set "King of England"
   event.colPlace: set "Theobalds Park,Hertfordshire,Herts,England"
   event.colPlace: set "Westminster,Abbey,London,England"
 
 Mary Tudor  @I266@
 ------------------
+  event.TITL: set "Queen of England"
   event.colPlace: set "St. James Palace,,England"
   event.colPlace: set "Westminster,Abbey,London,England"
 
 Edward Tudor  @I34@
 -------------------
+  event.TITL: set "King of England"
   event.colPlace: set "Greenwich,Palace,England"
   event.colPlace: set "Westminster,Abbey,London,England"
+
+Henry Beaufort  @I276@
+----------------------
+  event.TITL: set "Earl Sommerset"
+
+Henry Tudor  @I1@
+-----------------
+  event.TITL: set "King of England"
 
 Elizabeth Tudor  @I55@
 ----------------------
@@ -67,13 +93,22 @@ Katherine Tudor  @I155@
 -----------------------
   merge.field.newPerson: set "Katherine Tudor"
 
+John Beaufort  @I6@
+-------------------
+  event.TITL: set "Duke Sommerset"
+
 Elizabeth York  @I2@
 --------------------
   event.colPlace: set "Tower of London,London,England"
 
+Henry Grey  @I151@
+------------------
+  event.TITL: set "Duke of Suffolk"
+
 Mary Stewart  @I254@
 --------------------
   event.colDate: set "7 Dec 1542" (was "Dec 1542")
+  event.TITL: set "Queen of Scots"
 
 Mary Stewart  @F202@
 --------------------
@@ -91,6 +126,7 @@ Anne Boleyn  @I16@
 Matthew Stuart  @I222@
 ----------------------
   event.colDate: set "1516"
+  event.TITL: set "Earl Lennox 4th"
   event.colDate: set "1571"
 
 John Stewart + ...  @F203@
@@ -106,10 +142,16 @@ John Stewart + ...  @F203@
 Henry Stuart  @I223@
 --------------------
   event.colDate: set "1545"
+  event.TITL: set "Lord Darnley"
 
 Charles Stuart  @I224@
 ----------------------
+  event.TITL: set "Earl Lennox 6th"
   event.colDate: set "1576"
+
+Thomas Howard  @I38@
+--------------------
+  event.TITL: set "Duke of Norfolk"
 
 Mary Tudor  @I39@
 -----------------
@@ -120,15 +162,31 @@ Mary Tudor  @F204@
   merge.field.newFamily: set ""
   event.MARR: set "9 Oct 1514 · Abbeville"
 
+Margaret Beaufort  @I4@
+-----------------------
+  event.TITL: set "Countess"
+
+Charles Brandon  @I40@
+----------------------
+  event.TITL: set "Duke of Suffolk"
+
 Jane Seymour  @I18@
 -------------------
   event.BIRT: set "ABT 1505 · Wolf Hall,Savernake,Wilts"
   event.colPlace: set "Hampton Court,Palace,England"
   event.BURI: set "12 Nov 1537 · St. George Chap.,Windsor,England"
 
+Catherine Grey  @I191@
+----------------------
+  event.TITL: set "Lady"
+
 Elizabeth Cavendish  @I225@
 ---------------------------
   event.colDate: set "1581"
+
+John Beaufort  @I272@
+---------------------
+  event.TITL: set "Earl Sommerset"
 
 Thomas  @I351@
 --------------
@@ -140,7 +198,12 @@ John Beaufort + Margaret de Holland,  @F176@
 
 Thomas Boleyn  @I36@
 --------------------
+  event.TITL: set "Earl"
   event.colDate: set "1536"
+
+Archibald Douglas  @I57@
+------------------------
+  event.TITL: set "Earl of Angus VI"
 
 Catherine Parr  @I20@
 ---------------------
