@@ -272,6 +272,12 @@ describe("normalizeDataset version migration wiring", () => {
     expect(out.records.find((r) => r.xref === "@N1@")!.tag).toBe("SNOTE");
   });
 
+  it("reports a zero-change migration when the versions differ but nothing needed rewriting", () => {
+    const clean551 = head("5.5.1") + "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE 5 JAN 1885\n0 TRLR\n";
+    const { report } = normalizeDataset(dataset(clean551), inferMainProfile(dataset(MAIN7)));
+    expect(report.versionMigration).toMatchObject({ from: "5.5.1", to: "7.0", changed: 0 });
+  });
+
   it("does not fire when both files share a version family", () => {
     const main551 = head("5.5.1") + "0 @I1@ INDI\n1 NAME Franc /Novak/\n0 TRLR\n";
     const { report } = normalizeDataset(dataset(COMPARE551), inferMainProfile(dataset(main551)));

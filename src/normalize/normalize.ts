@@ -74,9 +74,9 @@ export function normalizeDataset(
       versionFamily(profile.version),
       (before, after) => record(examples, seenMigration, before, after),
     );
-    if (changed > 0) {
-      report.versionMigration = { from: compare.version, to: profile.version, changed, examples };
-    }
+    // Reported even when nothing needed rewriting — the versions still differ,
+    // and "migrated: 0" tells the user that was checked rather than skipped.
+    report.versionMigration = { from: compare.version, to: profile.version, changed, examples };
   }
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
