@@ -2,13 +2,7 @@ import type { Family, Sex, SourceCitation } from "../../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
 import type { MatchDecisionStatus } from "../../review/types";
 
-/** Event tags that carry a direct text value on the tag line (e.g. `1 OCCU Farmer`).
- *  Includes the GEDCOM attribute tags and the value-bearing vendor events. */
-export const VALUE_EVENT_TAGS = new Set([
-  "OCCU", "EDUC", "RETI",
-  "TITL", "DSCR", "RELI", "NATI", "NCHI", "REFN",
-  "_MILT", "_MILI", "_MEDC",
-]);
+export { VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
 
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded.
  * The generic `EVEN` ("Event") and `FACT` live under Estate so they can be
@@ -51,7 +45,7 @@ export function familyEventHasMergeData(
 ): boolean {
   if (!famMergeKeyBase) return false;
   const base = `${famMergeKeyBase}.${tag}`;
-  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause"] as const;
+  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause", "value"] as const;
   if (EVENT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
   return (mergeIncomingSources.get(`${base}.sources`)?.length ?? 0) > 0;
 }

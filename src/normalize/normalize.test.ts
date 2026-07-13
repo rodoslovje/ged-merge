@@ -135,6 +135,91 @@ describe("normalizeDataset", () => {
     expect(report.vendorTagsRenamed).toBe(0);
   });
 
+  it("renames _SEPR to the standard SEPA family event", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @F1@ FAM
+1 _SEPR
+2 DATE 5 JAN 1930
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const fam = out.families.get("@F1@")!;
+    expect(fam.events.some((e) => e.tag === "SEPA")).toBe(true);
+    expect(fam.raw.children.some((c) => c.tag === "_SEPR")).toBe(false);
+  });
+
+  it("consolidates partnership-status encodings into _MSTAT", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @F1@ FAM
+1 EVEN
+2 TYPE MYHERITAGE:REL_PARTNERS
+0 @F2@ FAM
+1 _NMR
+1 _MSTAT Partners
+1 _MARRIED N
+0 @F3@ FAM
+1 _NMR
+0 @F4@ FAM
+1 _STAT Divorced
+0 TRLR
+`;
+    const { dataset: out, report } = normalizeDataset(dataset(compare), profile);
+    const tags = (id: string) => out.families.get(id)!.raw.children.map((c) => `${c.tag}${c.value ? " " + c.value : ""}`);
+    // MyHeritage relationship event becomes the canonical status tag.
+    expect(tags("@F1@")).toEqual(["_MSTAT Partners"]);
+    // The BK trio collapses to its value-bearing member.
+    expect(tags("@F2@")).toEqual(["_MSTAT Partners"]);
+    // A lone never-married flag carries the assertion itself.
+    expect(tags("@F3@")).toEqual(["_MSTAT Partners"]);
+    // FTM's _STAT is the same fact under another name.
+    expect(tags("@F4@")).toEqual(["_MSTAT Divorced"]);
+    expect(report.vendorTagsRenamed).toBe(5); // F1 + F2 (2 drops) + F3 + F4
+    // The typed model lifts _MSTAT as a family event with its value.
+    expect(out.families.get("@F1@")!.events.find((e) => e.tag === "_MSTAT")?.value).toBe("Partners");
+  });
+
+  it("converts agreeing _FREL/_MREL into FAMC PEDI and drops the birth-pair noise", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Adopted /Child/
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Natural /Child/
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Mixed /Child/
+1 FAMC @F1@
+0 @F1@ FAM
+1 CHIL @I1@
+2 _FREL Adopted
+2 _MREL Adopted
+1 CHIL @I2@
+2 _FREL Natural
+2 _MREL Natural
+1 CHIL @I3@
+2 _FREL Natural
+2 _MREL Adopted
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const famc = (id: string) => out.individuals.get(id)!.raw.children.find((c) => c.tag === "FAMC")!;
+    const chil = (id: string) => out.families.get("@F1@")!.raw.children.find((c) => c.tag === "CHIL" && c.value === id)!;
+    // Agreeing adopted pair → standard PEDI on the child's FAMC, vendor tags gone.
+    expect(famc("@I1@").children.find((c) => c.tag === "PEDI")?.value).toBe("adopted");
+    expect(chil("@I1@").children).toHaveLength(0);
+    // Default natural pair is dropped without a PEDI.
+    expect(famc("@I2@").children.some((c) => c.tag === "PEDI")).toBe(false);
+    expect(chil("@I2@").children).toHaveLength(0);
+    // Per-parent mismatch is preserved verbatim — PEDI cannot express it.
+    expect(chil("@I3@").children.map((c) => c.tag)).toEqual(["_FREL", "_MREL"]);
+  });
+
   it("does not mutate the input dataset", () => {
     const profile = inferMainProfile(dataset(MAIN));
     const input = dataset(COMPARE);

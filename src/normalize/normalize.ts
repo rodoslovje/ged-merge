@@ -11,6 +11,7 @@ import { reshapeNameVariants } from "./nameVariants";
 import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
 import { VENDOR_TAG_ALIASES } from "../gedcom/vendorTags";
+import { normalizeFamilyStatus, normalizePedigree } from "./familyStatus";
 
 const MAX_EXAMPLES = 12;
 
@@ -88,6 +89,13 @@ export function normalizeDataset(
         node.tag = canonical;
       }
     });
+    // Consolidate the vendor partnership-status encodings (MyHeritage REL_*
+    // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`, and
+    // agreeing _FREL/_MREL child relationships into standard FAMC PEDI.
+    for (const change of [...normalizeFamilyStatus(editable), ...normalizePedigree(records)]) {
+      report.vendorTagsRenamed++;
+      record(report.vendorTagExamples, seenVendor, change.before, change.after);
+    }
   }
 
   walkNodes(editable, (node) => {

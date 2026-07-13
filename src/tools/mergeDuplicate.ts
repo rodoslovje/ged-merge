@@ -1,5 +1,6 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
+import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import {
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
@@ -307,7 +308,7 @@ function foldFamily(dataset: Dataset, keepId: string, dropId: string): void {
   removeFamily(dataset, drop); // unlinks every remaining member's FAMS/FAMC to drop
 }
 
-const FAM_EVENT_TAGS = new Set(["MARR", "DIV", "ENGA", "SEPA"]);
+const FAM_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
 // ── small helpers ────────────────────────────────────────────────────────────
 

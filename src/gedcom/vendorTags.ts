@@ -261,11 +261,14 @@ export const VENDOR_PRIVACY_TAGS: Set<string> = new Set(Object.keys(PRIVACY_INFO
  * ever sees the canonical form. `_MILI` is Brother's Keeper's older spelling of
  * its `_MILT` military-service event. Deliberately conservative — only alias a
  * tag when the two are the same fact in the same shape; anything needing value
- * or structure translation belongs to a real normalization step instead.
- * (Phase 3 of the custom-tag plan grows this: _SEPR→SEPA, _FREL/_MREL→PEDI, …)
+ * or structure translation belongs to a real normalization step instead
+ * (see `normalize/familyStatus.ts` for the _NMR/_MARRIED/_FREL/_MREL rules).
+ * `_SEPR` is Brother's Keeper's separation event — same DATE/PLAC shape as
+ * the standard `SEPA` family event the app already supports.
  */
 export const VENDOR_TAG_ALIASES: Record<string, string> = {
   _MILI: "_MILT",
+  _SEPR: "SEPA",
 };
 
 /**

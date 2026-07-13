@@ -15,6 +15,7 @@ import type { Translate } from "../locales/i18n";
 import {
   applyEventSources,
   applyEventSub,
+  applyEventValue,
   applyNotes,
   cloneNodeRemapped,
   collectCustomTags,
@@ -356,18 +357,24 @@ export function applyIndividualFamilies(
       ctx.touched.add(famNode.xref!);
     }
 
-    // Engagement, Separation, Divorce — same pattern as MARR.
-    for (const evTag of ["ENGA", "SEPA", "DIV"] as const) {
+    // Engagement, Separation, Divorce, Status — same pattern as MARR; the
+    // value-bearing tags (`_MSTAT Partners`) additionally carry a `.value` sub.
+    for (const evTag of ["ENGA", "SEPA", "DIV", "_MSTAT"] as const) {
       const evName = ctx.t(`event.${evTag}`);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
+      for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = fields[key] ?? "incoming";
-        const subTag = SUB_TAG[sub];
-        if (!subTag) continue;
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
-        const applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags);
+        let applied: boolean;
+        if (sub === "value") {
+          applied = applyEventValue(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER);
+        } else {
+          const subTag = SUB_TAG[sub];
+          if (!subTag) continue;
+          applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags);
+        }
         if (applied) {
           evEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
           ctx.touched.add(famNode.xref!);

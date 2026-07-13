@@ -22,8 +22,10 @@ export const INDI_EVENT_TAG_ORDER = [
   "DEAT", "_FNRL", "BURI", "_INTE", "CREM",
 ];
 
-/** Family event tags in canonical order. */
-export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV"];
+/** Family event tags in canonical order. `_MSTAT` is the canonical
+ *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
+ *  normalization consolidates the other vendor encodings into. */
+export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "_MSTAT"];
 
 /** Event-bearing INDI children lifted into the typed `events` array. Includes
  *  MARR: some exports write a marriage event directly on the individual. */
@@ -37,4 +39,14 @@ export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_E
 
 /** Family events Edit mode can create and edit (MARB/MARL are preserved on
  *  load/save but not surfaced), and therefore the ones the edit report diffs. */
-export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV"];
+export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "_MSTAT"];
+
+/** Event tags that carry a direct text value on the tag line
+ *  (e.g. `1 OCCU Farmer`, `1 _MSTAT Partners`) — shown/edited as an inline
+ *  value field and compared as a `.value` row. */
+export const VALUE_EVENT_TAGS: Set<string> = new Set([
+  "OCCU", "EDUC", "RETI",
+  "TITL", "DSCR", "RELI", "NATI", "NCHI", "REFN",
+  "_MILT", "_MILI", "_MEDC",
+  "_MSTAT",
+]);

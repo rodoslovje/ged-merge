@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { INDI_EVENT_TAG_ORDER } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, VALUE_EVENT_TAGS } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -53,6 +53,7 @@ const EVENT_LABELS: Record<string, string> = {
   ENGA: "Engagement",
   SEPA: "Separation",
   DIV: "Divorce",
+  _MSTAT: "Status",
 };
 
 /** Translate internal matching keys to friendly field labels. */
@@ -284,12 +285,15 @@ function buildFamilyRows(
       pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
     }
 
-    for (const etag of ["MARR", "ENGA", "SEPA", "DIV"] as const) {
+    for (const etag of EDITABLE_FAM_EVENT_TAGS) {
       const mEv = mFam?.events.find((e) => e.tag === etag);
       const cEv = cFam?.events.find((e) => e.tag === etag);
       if (!mEv && !cEv) continue;
       const etagRows: FieldRow[] = [];
       pushRow(etagRows, `${famKey}.${etag}.type`, t("event.colType"), mEv?.type, cEv?.type);
+      if (VALUE_EVENT_TAGS.has(etag)) {
+        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"), mEv?.value, cEv?.value);
+      }
       pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);

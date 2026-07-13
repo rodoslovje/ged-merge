@@ -323,6 +323,27 @@ describe("familyMergeKeyBases", () => {
     const bases = familyMergeKeyBases(m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
     expect(bases.get("@F9@")).toBe("fam.@F2@");
   });
+
+  it("surfaces a family _MSTAT status as a value row", () => {
+    const statusGed = (famId: string, status: string) => `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS ${famId}
+0 @SP@ INDI
+1 NAME Tone /Horvat/
+1 SEX M
+0 ${famId} FAM
+1 HUSB @SP@
+1 WIFE @C@
+1 _MSTAT ${status}
+0 TRLR
+`;
+    const m = dataset(statusGed("@F1@", "Partners"));
+    const c = dataset(statusGed("@F2@", "Partners"));
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    expect(byKey(rows, "fam.@F2@._MSTAT.value")).toMatchObject({ main: "Partners", incoming: "Partners", state: "agree" });
+  });
 });
 
 describe("fieldDiffCounts", () => {

@@ -70,6 +70,7 @@ export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", pla
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
+  value: "event.colValue",
   type: "event.colType",
   date: "event.colDate",
   place: "event.colPlace",
