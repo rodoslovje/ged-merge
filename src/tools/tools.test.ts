@@ -11,6 +11,7 @@ import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
+import { bulkNormalize } from "./bulkNormalize";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -1340,5 +1341,59 @@ describe("collectLocalMediaFiles", () => {
     expect(files).toHaveLength(1);
     expect(files[0].file).toBe("orphan.jpg");
     expect(files[0].usedBy).toEqual([]);
+  });
+});
+
+describe("bulkNormalize vendor-tag dialect", () => {
+  const person = (headSour: string) => `0 HEAD
+1 CHAR UTF-8${headSour ? `\n1 SOUR ${headSour}` : ""}
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 MISE Gefreiter, k.k. Landsturm
+2 DATE 1915
+0 TRLR`;
+
+  it("keeps MacFamilyTree's native MISE when the file is MacFamilyTree's own", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(person("SyniumFamilyTree")));
+    const raw = out.individuals.get("@I1@")!.raw;
+    expect(raw.children.some((c) => c.tag === "MISE")).toBe(true);
+    expect(raw.children.some((c) => c.tag === "_MILT")).toBe(false);
+    expect(report.vendorTagsRenamed).toBe(0);
+  });
+
+  it("still canonicalizes MISE in a file from any other producer", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(person("Gramps")));
+    const raw = out.individuals.get("@I1@")!.raw;
+    expect(raw.children.some((c) => c.tag === "_MILT")).toBe(true);
+    expect(report.vendorTagsRenamed).toBe(1);
+
+    const noHeader = bulkNormalize(dataset(person("")));
+    expect(noHeader.report.vendorTagsRenamed).toBe(1);
+  });
+
+  it("still renames _MILI in a Brother's Keeper file — _MILT is BK's own spelling too", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 _MILI Landsturm
+0 TRLR`));
+    const raw = out.individuals.get("@I1@")!.raw;
+    expect(raw.children.some((c) => c.tag === "_MILT")).toBe(true);
+    expect(report.vendorTagsRenamed).toBe(1);
+  });
+
+  it("keeps _SEPR in a Brother's Keeper file — SEPA is foreign to BK's dialect", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+0 @F1@ FAM
+1 _SEPR
+2 DATE 5 JAN 1930
+0 TRLR`));
+    const raw = out.families.get("@F1@")!.raw;
+    expect(raw.children.some((c) => c.tag === "_SEPR")).toBe(true);
+    expect(report.vendorTagsRenamed).toBe(0);
   });
 });

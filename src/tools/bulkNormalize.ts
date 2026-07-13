@@ -1,5 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
+import { childValue } from "../gedcom/node";
+import { nativeAliasTags } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 
@@ -24,7 +26,15 @@ export function bulkNormalize(
 ): { dataset: Dataset; report: NormalizationReport } {
   const profile = inferMainProfile(ds);
   const { dateValues } = collectLayoutValues(ds);
-  return normalizeDataset(ds, profile, dateValues, options ?? {
-    dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true,
+  // Vendor-tag aliases canonicalize toward the spelling *this app* supports —
+  // right for an incoming compare file, wrong when the tag is the file's own
+  // producer's dialect (a MacFamilyTree file must keep `MISE`, or a re-import
+  // into MacFamilyTree loses the fact). Exempt the producer's native aliases,
+  // identified from the HEAD>SOUR system id.
+  const head = ds.records.find((r) => r.tag === "HEAD");
+  const preserveVendorTags = nativeAliasTags(head && childValue(head, "SOUR"));
+  return normalizeDataset(ds, profile, dateValues, {
+    ...(options ?? { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true }),
+    preserveVendorTags,
   });
 }
