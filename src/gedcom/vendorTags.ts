@@ -287,6 +287,40 @@ export const VENDOR_TAG_ALIASES: Record<string, string> = {
 };
 
 /**
+ * HEAD>SOUR system ids of the programs whose native tags appear in
+ * `VENDOR_TAG_ALIASES`, mapped to their registry software names. Only those
+ * programs need entries — the map exists solely to feed `nativeAliasTags`.
+ */
+const HEAD_SOUR_SOFTWARE: Record<string, string> = {
+  SYNIUMFAMILYTREE: MFT,
+  MACFAMILYTREE: MFT,
+  BROSKEEP: BK,
+};
+
+/**
+ * Alias source-tags that are the *native dialect* of the file's own producing
+ * software (per its HEAD>SOUR id) and whose canonical target is foreign to it.
+ * The bulk-normalize tool skips these renames when re-rendering the main file
+ * to its own house style: a MacFamilyTree file keeps its native `MISE`
+ * (rewriting it to `_MILT` would make a re-import into MacFamilyTree lose the
+ * military-service fact), while `_MILI` → `_MILT` still runs on a Brother's
+ * Keeper file because both spellings are BK's own. Compare-file normalization
+ * ignores this — there the goal is the app's canonical form, not round-trip
+ * fidelity with the compare file's producer.
+ */
+export function nativeAliasTags(headSour: string | undefined): Set<string> {
+  const keep = new Set<string>();
+  const software = headSour ? HEAD_SOUR_SOFTWARE[headSour.trim().toUpperCase()] : undefined;
+  if (!software) return keep;
+  for (const [src, dst] of Object.entries(VENDOR_TAG_ALIASES)) {
+    const srcNative = VENDOR_TAGS[src]?.software.includes(software) ?? false;
+    const dstNative = VENDOR_TAGS[dst]?.software.includes(software) ?? false;
+    if (srcNative && !dstNative) keep.add(src);
+  }
+  return keep;
+}
+
+/**
  * Classify a vendor-extension tag. Exact matches first, then the numbered /
  * prefixed families some programs emit (`__FLAG_3`, `_FA1`…`_FA13`,
  * `_COLOR2`, `_LIST6`, PAF `_SEN*` sentence templates).

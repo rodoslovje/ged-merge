@@ -102,11 +102,12 @@ export function normalizeDataset(
   // Brother's Keeper's two spellings of the military-service event) so the
   // rest of the app — event lift, review rows, merge — only ever sees the
   // supported spelling. Runs before the value walk: a pure tag rename, values
-  // and children travel unchanged.
+  // and children travel unchanged. `preserveVendorTags` exempts the file's own
+  // native dialect when the bulk-normalize tool re-renders a file to itself.
   if (options.vendorTags) {
     walkNodes(editable, (node) => {
       const canonical = VENDOR_TAG_ALIASES[node.tag];
-      if (canonical) {
+      if (canonical && !options.preserveVendorTags?.has(node.tag)) {
         record(report.vendorTagExamples, seenVendor, node.tag, canonical);
         report.vendorTagsRenamed++;
         node.tag = canonical;

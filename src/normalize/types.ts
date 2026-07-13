@@ -218,6 +218,11 @@ export interface NormalizeOptions {
   names: boolean;
   /** Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`). */
   vendorTags: boolean;
+  /** Alias source-tags the vendorTags pass must leave untouched. The
+   * bulk-normalize tool sets it to the file's own native dialect
+   * (`nativeAliasTags`), so e.g. a MacFamilyTree file keeps its `MISE` instead
+   * of gaining a foreign `_MILT`. Load-time compare normalization never sets it. */
+  preserveVendorTags?: ReadonlySet<string>;
   /** GEDCOM version migration (compare → main's version). Defaults to on;
    * it only ever fires when the two declared versions actually differ. */
   version?: boolean;
