@@ -165,6 +165,71 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
   });
 });
 
+describe("reformatPlace idempotence (re-normalizing its own output)", () => {
+  /** Apply reformatPlace to its own output; both passes must agree. */
+  const fixedPoint = (plac: string | undefined, addr: string | undefined, fmt: PlaceTargetFormat) => {
+    const r1 = reformatPlace(plac, addr, fmt);
+    const r2 = reformatPlace(r1.plac, r1.addr, fmt);
+    expect(r2.plac).toBe(r1.plac);
+    expect(r2.addr).toBe(r1.addr);
+    return r1;
+  };
+
+  it("keeps a bare house-number ADDR segment as the house number (Mauko '26 (Kapela)')", () => {
+    // "26" alone used to parse as a locality, so the second pass dropped it.
+    const r = fixedPoint("Hrašenski Vrh, Sv. Jurij ob Ščavnici", "26 (Kapela)", {
+      layout: "structured-addr",
+      separator: ", ",
+    });
+    expect(r.addr).toBe("Hrašenski Vrh 26 (Kapela)");
+  });
+
+  it("reads a bare number between PLAC segments as the house number", () => {
+    const r = fixedPoint("Hrašenski Vrh, 26, Kapela", undefined, {
+      layout: "structured-addr",
+      separator: ", ",
+    });
+    expect(r.plac).toBe("Hrašenski Vrh");
+    expect(r.addr).toBe("Hrašenski Vrh 26 (Kapela)");
+  });
+
+  it("parenthesizes a packed facility that would re-parse as a jurisdiction (Kovačič 'Šlapanov (Češka)')", () => {
+    // "Češka" is not in the country list, so it lands in facility; the old
+    // ", Češka" output read back as a jurisdiction level and was dropped.
+    const r = fixedPoint("Šlapanov (Češka), Bohemia", undefined, KOVACIC);
+    expect(r.plac).toBe("Šlapanov (Češka)");
+  });
+
+  it("still writes a facility-word detail in the packed ', facility' style", () => {
+    const r = fixedPoint("Kranj (Slovenija), porodnišnica", undefined, KOVACIC);
+    expect(r.plac).toBe("Kranj (Slovenija), porodnišnica");
+  });
+
+  it("keeps an ADDR with substance beyond its facility verbatim (Bandelj 'Hrastje 26 Mrva (Moravče)')", () => {
+    // The old `!a.facility` guard dropped everything but the facility.
+    const r = fixedPoint(
+      "Hrastje, Vojvodina Kranjska, Avstro-Ogrska",
+      "Hrastje 26 Mrva (Moravče)",
+      { layout: "structured-addr", separator: ", " },
+    );
+    expect(r.addr).toBe("Hrastje 26 Mrva (Moravče)");
+  });
+
+  it("emits a facility-only place without a leading space", () => {
+    const r = fixedPoint("(Kozjansko)", undefined, KOVACIC);
+    expect(r.plac).toBe("(Kozjansko)");
+  });
+
+  it("moves a parish-only ADDR into AGNC without keeping a duplicate ADDR", () => {
+    const r = fixedPoint("Trst, Avstrijsko primorje", "Župnija Sv. Antona", {
+      layout: "structured-addr",
+      separator: ", ",
+    });
+    expect(r.addr).toBeUndefined();
+    expect(r.agency).toBe("župnija Sv. Antona");
+  });
+});
+
 describe("reformatPlace → other layouts pass through", () => {
   it("does not reshape when the main layout is plain-structured", () => {
     const r = reformatPlace("Kranj (Slovenija), Kidričeva 38/a", undefined, {
