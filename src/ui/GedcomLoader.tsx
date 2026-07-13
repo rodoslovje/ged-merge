@@ -359,6 +359,17 @@ function renderSummary(
             <dl className="loader-meta">
               {(
                 [
+                  ...(report.versionMigration
+                    ? [[
+                        t("loader.versionMigrated", {
+                          count: report.versionMigration.changed,
+                          // An undeclared version migrates as legacy 5.5.x.
+                          from: report.versionMigration.from === "unknown" ? "5.5.x" : report.versionMigration.from,
+                          to: report.versionMigration.to === "unknown" ? "5.5.x" : report.versionMigration.to,
+                        }),
+                        examplesTooltip(report.versionMigration.examples),
+                      ] as [string, string | undefined]]
+                    : []),
                   [t("loader.names", { count: report.nameVariantsReshaped }), examplesTooltip(report.nameVariantExamples)],
                   ...(report.unknownNamesReshaped
                     ? [[t("loader.unknownNames", { count: report.unknownNamesReshaped }), examplesTooltip(report.unknownNameExamples)] as [string, string | undefined]]

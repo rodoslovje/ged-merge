@@ -354,6 +354,7 @@ export const en = {
   "loader.dates": "Dates: {{count}}",
   "loader.places": "Places: {{count}}",
   "loader.links": "Links: {{count}}",
+  "loader.versionMigrated": "GEDCOM {{from}} → {{to}}: {{count}}",
   "loader.names": "Name variants: {{count}}",
   "loader.unknownNames": "Placeholders: {{count}}",
   "loader.consolidated": "Merged duplicates: {{count}}",

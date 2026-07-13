@@ -86,6 +86,12 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li>When the incoming file uses a different GEDCOM version than your main file (5.5.1 vs 7.0), it is now migrated to the main file's version on load — shared notes (<strong>NOTE</strong> ⇄ <strong>SNOTE</strong>), date phrases and interpreted/dual-year dates, age keywords, association roles, legacy identifiers (AFN/RFN/RIN ⇄ EXID), transliterated names and media types are all rewritten to the main file's spec, so merged records stay valid. The load summary shows what was migrated, with examples on hover.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-12</h2>
             <ul>
               <li>The Tools scans (Health check, Find duplicates, Normalize, Sources) now run in the background — the app stays responsive while a large file is scanned, instead of freezing until the scan finishes. Finished results are kept while you switch tabs or modes, and a scan keeps running if you browse elsewhere in the meantime.</li>

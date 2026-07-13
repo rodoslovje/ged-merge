@@ -354,6 +354,7 @@ export const sl = {
   "loader.dates": "Datumi: {{count}}",
   "loader.places": "Kraji: {{count}}",
   "loader.links": "Povezave: {{count}}",
+  "loader.versionMigrated": "GEDCOM {{from}} → {{to}}: {{count}}",
   "loader.names": "Različice imen: {{count}}",
   "loader.unknownNames": "Označbe neznanih: {{count}}",
   "loader.consolidated": "Združeni dvojniki: {{count}}",
