@@ -4,7 +4,7 @@ import { cropOf, isPointer, looksLikeUrl, objeNodesFor, type CropRegion } from "
 import { useMediaFolder } from "./MediaFolderContext";
 import { useTranslation } from "react-i18next";
 import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
-import { collectMediaRefs, type MediaAddress, type MediaRef } from "../gedcom/media";
+import { collectMediaRefs, isPrimaryMedia, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
 
 /** Edit-mode controls for a record's media tray. When supplied, the tray always
@@ -36,15 +36,19 @@ interface Props {
  *  is skipped here). */
 export function collectFirstImage(raw: GedNode, records: GedNode[]): { file: string; crop?: CropRegion } | null {
   const objeNodes = objeNodesFor(records);
+  let first: { file: string; crop?: CropRegion } | null = null;
   for (const child of raw.children) {
     if (child.tag !== "OBJE") continue;
     const val = child.value?.trim();
     const objeNode = val && isPointer(val) ? objeNodes.get(val) : child;
     const file = objeNode?.children.find((c) => c.tag === "FILE")?.value?.trim();
-    // The crop lives on the link node (`child`), not the shared record.
-    if (file && !looksLikeUrl(file) && mediaKindOf(file) === "image") return { file, crop: cropOf(child) };
+    if (!file || looksLikeUrl(file) || mediaKindOf(file) !== "image") continue;
+    // The crop lives on the link node (`child`), not the shared record. A
+    // `_PRIM`/`_THUM`-marked primary photo wins over mere file order.
+    if (isPrimaryMedia(child, objeNode)) return { file, crop: cropOf(child) };
+    first ??= { file, crop: cropOf(child) };
   }
-  return null;
+  return first;
 }
 
 /** Returns the first local image path from a person's OBJE links, or null. */

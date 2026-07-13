@@ -149,6 +149,8 @@ export const en = {
   "tools.normalize.exNames": "Name-variant examples",
   "tools.normalize.vendorTags": "{{count}} vendor tags normalized",
   "tools.normalize.exVendorTags": "Vendor-tag examples",
+  "tools.normalize.stripInternal": "{{count}} software-internal tags removed",
+  "tools.normalize.exStripInternal": "Removed internal-tag examples",
   "tools.normalize.download": "Download normalized GEDCOM",
   "tools.tool.sources": "Sources",
   "tools.tool.sources.desc": "Browse repositories, sources and media",

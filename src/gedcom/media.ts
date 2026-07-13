@@ -12,7 +12,7 @@
  */
 
 import { cropOf, isPointer, objeInfoOf, objeNodesFor, type CropRegion } from "./source";
-import { childrenByTag, hasChild } from "./node";
+import { childrenByTag, firstChild, hasChild } from "./node";
 import type { GedNode } from "./types";
 
 export type MediaMode = "inline" | "shared";
@@ -39,6 +39,25 @@ export function detectMediaMode(records: GedNode[]): MediaMode {
 }
 
 // ── Media reference collection ──────────────────────────────────────────────
+
+/**
+ * Whether a media link is marked as the person's primary photo:
+ * MyHeritage/Legacy/RootsMagic write `_PRIM Y` on the link, webtrees `_THUM Y`
+ * on the shared record — check both the link node and its resolved record.
+ */
+export function isPrimaryMedia(linkNode: GedNode, objeNode?: GedNode): boolean {
+  const marked = (n: GedNode | undefined) =>
+    !!n && ["_PRIM", "_THUM"].some((tag) => firstChild(n, tag)?.value?.trim().toUpperCase() === "Y");
+  return marked(linkNode) || (objeNode !== linkNode && marked(objeNode));
+}
+
+/** Family Historian's `_SEQ` display order on a media link, or undefined. */
+function mediaSeqOf(linkNode: GedNode): number | undefined {
+  const raw = firstChild(linkNode, "_SEQ")?.value?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
 
 /**
  * Where a media link (`OBJE`) sits inside a record — enough to re-find its node
@@ -99,7 +118,10 @@ function objeMediaRef(objeNode: GedNode): Pick<MediaRef, "file" | "title" | "dat
  */
 export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
   const objeNodes = objeNodesFor(records);
-  const refs: MediaRef[] = [];
+  // Refs carry vendor ordering hints alongside their file-order position: a
+  // `_PRIM`/`_THUM` primary photo leads, then `_SEQ`-numbered links in
+  // sequence order, then everything else in file order.
+  const entries: Array<{ ref: MediaRef; primary: boolean; seq: number; pos: number }> = [];
 
   const collectFrom = (container: GedNode, at: Pick<MediaAddress, "eventTag" | "eventIndex">) => {
     let objeIndex = -1;
@@ -113,7 +135,14 @@ export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
       const ref = objeMediaRef(objeNode);
       // The crop region lives on the link node (`child`), not the shared OBJE
       // record — different people crop different parts of the same image.
-      if (ref) refs.push({ ...ref, xref, crop: cropOf(child), ...at, objeIndex });
+      if (ref) {
+        entries.push({
+          ref: { ...ref, xref, crop: cropOf(child), ...at, objeIndex },
+          primary: isPrimaryMedia(child, objeNode),
+          seq: mediaSeqOf(child) ?? Number.POSITIVE_INFINITY,
+          pos: entries.length,
+        });
+      }
     }
   };
 
@@ -125,7 +154,8 @@ export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
     if (child.tag === "OBJE" || child.tag === "SOUR" || child.children.length === 0) continue;
     collectFrom(child, { eventTag: child.tag, eventIndex });
   }
-  return refs;
+  entries.sort((a, b) => Number(b.primary) - Number(a.primary) || a.seq - b.seq || a.pos - b.pos);
+  return entries.map((e) => e.ref);
 }
 
 /** Resolve a media address to its container node — the record itself or the

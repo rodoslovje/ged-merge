@@ -13,6 +13,7 @@ import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
 import { VENDOR_TAG_ALIASES } from "../gedcom/vendorTags";
 import { normalizeFamilyStatus, normalizePedigree } from "./familyStatus";
+import { convertUpdToChan, stripInternalTags } from "./vendorInternal";
 
 const MAX_EXAMPLES = 12;
 
@@ -54,6 +55,8 @@ export function normalizeDataset(
     unknownNameExamples: [],
     vendorTagsRenamed: 0,
     vendorTagExamples: [],
+    internalStripped: 0,
+    internalExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
@@ -110,11 +113,23 @@ export function normalizeDataset(
       }
     });
     // Consolidate the vendor partnership-status encodings (MyHeritage REL_*
-    // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`, and
-    // agreeing _FREL/_MREL child relationships into standard FAMC PEDI.
-    for (const change of [...normalizeFamilyStatus(editable), ...normalizePedigree(records)]) {
+    // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`,
+    // agreeing _FREL/_MREL child relationships into standard FAMC PEDI, and
+    // `_UPD` last-updated stamps into the standard CHAN structure.
+    for (const change of [...normalizeFamilyStatus(editable), ...normalizePedigree(records), ...convertUpdToChan(editable)]) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
+    }
+  }
+
+  // Opt-in, deliberately lossy: drop software-internal bookkeeping tags
+  // (`_UPD`, `_RINS`, `_COLOR*`, `_FLGS`, …) from people and families. Never
+  // runs at load time — only when the bulk-normalize tool's checkbox asks.
+  if (options.stripInternal) {
+    const seenStrip = new Set<string>();
+    for (const change of stripInternalTags(editable)) {
+      report.internalStripped++;
+      record(report.internalExamples, seenStrip, change.before, change.after);
     }
   }
 

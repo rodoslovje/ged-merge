@@ -137,3 +137,73 @@ describe("collectMediaRefs", () => {
     expect(refs[1]).toMatchObject({ eventTag: "MARR", eventIndex: 0, objeIndex: 0 });
   });
 });
+
+describe("vendor media metadata", () => {
+  it("orders a _PRIM-marked photo first and _SEQ-numbered links in sequence", () => {
+    const recs = records([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 NAME Ana /Novak/",
+      "1 OBJE",
+      "2 FILE third.jpg",
+      "2 _SEQ 3",
+      "1 OBJE",
+      "2 FILE second.jpg",
+      "2 _SEQ 2",
+      "1 OBJE @O1@",
+      "2 _PRIM Y",
+      "0 @O1@ OBJE",
+      "1 FILE primary.jpg",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = recs.find((r) => r.xref === "@I1@")!;
+    expect(collectMediaRefs(indi, recs).map((r) => r.file)).toEqual(["primary.jpg", "second.jpg", "third.jpg"]);
+  });
+
+  it("honors webtrees _THUM on the shared record and reads MyHeritage _POSITION as a crop", () => {
+    const recs = records([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 NAME Ana /Novak/",
+      "1 OBJE",
+      "2 FILE group.jpg",
+      "2 _POSITION 185 5 643 616",
+      "1 OBJE @O1@",
+      "0 @O1@ OBJE",
+      "1 FILE thumb.jpg",
+      "1 _THUM Y",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = recs.find((r) => r.xref === "@I1@")!;
+    const refs = collectMediaRefs(indi, recs);
+    expect(refs.map((r) => r.file)).toEqual(["thumb.jpg", "group.jpg"]);
+    expect(refs[1].crop).toEqual({ left: 185, top: 5, width: 458, height: 611 });
+  });
+
+  it("keeps a GEDCOM 7 CROP authoritative over _POSITION and folds _KEYS into the description", () => {
+    const recs = records([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 OBJE",
+      "2 FILE pic.jpg",
+      "2 _POSITION 0 0 10 10",
+      "2 CROP",
+      "3 TOP 5",
+      "3 LEFT 6",
+      "3 WIDTH 100",
+      "3 HEIGHT 120",
+      "1 OBJE",
+      "2 FILE card.jpg",
+      "2 NOTE Razglednica",
+      "2 _KEYS Krško, Koprivnik",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = recs.find((r) => r.xref === "@I1@")!;
+    const refs = collectMediaRefs(indi, recs);
+    expect(refs[0].crop).toEqual({ top: 5, left: 6, width: 100, height: 120 });
+    expect(refs[1].description).toBe("Razglednica · Krško, Koprivnik");
+  });
+});

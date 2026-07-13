@@ -221,6 +221,10 @@ export interface NormalizeOptions {
   /** GEDCOM version migration (compare → main's version). Defaults to on;
    * it only ever fires when the two declared versions actually differ. */
   version?: boolean;
+  /** Remove software-internal vendor tags (`_UPD`, `_RINS`, `_COLOR*`, …) from
+   * INDI/FAM records. Deliberately lossy, so it's opt-in: off at load time,
+   * offered as a checkbox in the bulk-normalize tool. */
+  stripInternal?: boolean;
 }
 
 /**
@@ -251,6 +255,10 @@ export interface NormalizationReport {
   vendorTagsRenamed: number;
   /** A handful of illustrative vendor-tag renames for display. */
   vendorTagExamples: NormChange[];
+  /** Software-internal vendor tags removed by the opt-in strip pass. */
+  internalStripped: number;
+  /** A handful of illustrative stripped-tag examples for display. */
+  internalExamples: NormChange[];
   /** Incoming records merged away as same-person duplicates (detected because
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */

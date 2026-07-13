@@ -6,6 +6,7 @@ import type { Dataset } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
+import { vendorTagInfo } from "../gedcom/vendorTags";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
@@ -66,7 +67,7 @@ export function SaveDialog({
   dataset,
   integrityWarnings,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const modalRef = useModalKeyboard(true, onClose);
 
   const groups = useMemo(() => groupByRecord(report), [report]);
@@ -97,7 +98,13 @@ export function SaveDialog({
   // incoming file, grouped by tag name — unchecking one strips every instance
   // of it from the merged tree right before the file is downloaded.
   const customTagEntries = useMemo(() => Object.entries(report.customTags), [report.customTags]);
-  const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set());
+  // Software-internal bookkeeping tags (per the vendor registry: `_UPD`,
+  // `_COLOR*`, `_FLGS`, …) start unchecked — they carry no genealogical
+  // content, so the default merge output stays clean. Everything else stays in
+  // unless the user opts out.
+  const [excludedTags, setExcludedTags] = useState<Set<string>>(
+    () => new Set(Object.keys(report.customTags).filter((tag) => vendorTagInfo(tag)?.category === "internal")),
+  );
 
   function toggleCustomTag(tag: string) {
     setExcludedTags((prev) => {
@@ -268,18 +275,23 @@ export function SaveDialog({
               <h3>{t("preview.customTags")}</h3>
               <p className="preview-note">{t("preview.customTagsHint")}</p>
               <ul className="preview-custom-tags">
-                {customTagEntries.map(([tag, nodes]) => (
-                  <li key={tag}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!excludedTags.has(tag)}
-                        onChange={() => toggleCustomTag(tag)}
-                      />
-                      <code>{tag}</code> ({nodes.length})
-                    </label>
-                  </li>
-                ))}
+                {customTagEntries.map(([tag, nodes]) => {
+                  const info = vendorTagInfo(tag);
+                  const meaning = info && (i18n.language.startsWith("sl") ? info.meaning.sl : info.meaning.en);
+                  return (
+                    <li key={tag}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!excludedTags.has(tag)}
+                          onChange={() => toggleCustomTag(tag)}
+                        />
+                        <code>{tag}</code> ({nodes.length})
+                        {info && <span className="preview-tag-meaning"> — {info.software}: {meaning}</span>}
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
