@@ -100,6 +100,41 @@ describe("normalizeDataset", () => {
     expect(birth.place?.raw).toBe("zgornje bitnje 52, kranj");
   });
 
+  it("renames vendor-tag synonyms (_MILI → _MILT) and reports them", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 _MILI vojak JA
+2 DATE 5 JAN 1945
+0 TRLR
+`;
+    const { dataset: out, report } = normalizeDataset(dataset(compare), profile);
+    const milt = out.individuals.get("@I1@")!.events.find((e) => e.tag === "_MILT");
+    expect(milt?.value).toBe("vojak JA");
+    expect(milt?.date?.raw).toBeTruthy();
+    expect(out.individuals.get("@I1@")!.events.some((e) => e.tag === "_MILI")).toBe(false);
+    expect(report.vendorTagsRenamed).toBe(1);
+    expect(report.vendorTagExamples[0]).toEqual({ before: "_MILI", after: "_MILT" });
+  });
+
+  it("leaves vendor-tag synonyms alone when the pass is deselected", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 _MILI vojak JA
+0 TRLR
+`;
+    const { dataset: out, report } = normalizeDataset(dataset(compare), profile, undefined, {
+      dates: true, places: true, links: true, names: true, vendorTags: false,
+    });
+    expect(out.individuals.get("@I1@")!.events.some((e) => e.tag === "_MILI")).toBe(true);
+    expect(report.vendorTagsRenamed).toBe(0);
+  });
+
   it("does not mutate the input dataset", () => {
     const profile = inferMainProfile(dataset(MAIN));
     const input = dataset(COMPARE);

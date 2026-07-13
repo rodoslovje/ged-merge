@@ -213,6 +213,8 @@ export interface NormalizeOptions {
   places: boolean;
   links: boolean;
   names: boolean;
+  /** Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`). */
+  vendorTags: boolean;
 }
 
 /**
@@ -239,6 +241,10 @@ export interface NormalizationReport {
   unknownNamesReshaped: number;
   /** A handful of illustrative unknown-name changes for display. */
   unknownNameExamples: NormChange[];
+  /** Vendor-tag synonyms rewritten to their canonical tag (`_MILI` → `_MILT`). */
+  vendorTagsRenamed: number;
+  /** A handful of illustrative vendor-tag renames for display. */
+  vendorTagExamples: NormChange[];
   /** Incoming records merged away as same-person duplicates (detected because
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */

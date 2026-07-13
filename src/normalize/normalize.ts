@@ -10,11 +10,12 @@ import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, Pl
 import { reshapeNameVariants } from "./nameVariants";
 import { reshapeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
+import { VENDOR_TAG_ALIASES } from "../gedcom/vendorTags";
 
 const MAX_EXAMPLES = 12;
 
 /** Default: every normalization pass runs (load-time behavior). */
-const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true };
+const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true };
 
 /**
  * Normalize a compare dataset to the main's conventions.
@@ -49,6 +50,8 @@ export function normalizeDataset(
     nameVariantExamples: [],
     unknownNamesReshaped: 0,
     unknownNameExamples: [],
+    vendorTagsRenamed: 0,
+    vendorTagExamples: [],
   };
   // Track the kind of each recorded change so the examples illustrate distinct
   // transformations (padding, reordering, casing…) rather than repeating the
@@ -58,6 +61,7 @@ export function normalizeDataset(
   const seenLink = new Set<string>();
   const seenName = new Set<string>();
   const seenUnknown = new Set<string>();
+  const seenVendor = new Set<string>();
 
   // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
   // D/M or M/D?). Infer its own order so we parse its dates correctly before
@@ -69,6 +73,22 @@ export function normalizeDataset(
   // institutional addresses (e.g. an archive's "p.p. 114" P.O. box) and other
   // metadata are not rewritten. The skipped records still pass through to output.
   const editable = records.filter((r) => r.tag === "INDI" || r.tag === "FAM");
+
+  // Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`,
+  // Brother's Keeper's two spellings of the military-service event) so the
+  // rest of the app — event lift, review rows, merge — only ever sees the
+  // supported spelling. Runs before the value walk: a pure tag rename, values
+  // and children travel unchanged.
+  if (options.vendorTags) {
+    walkNodes(editable, (node) => {
+      const canonical = VENDOR_TAG_ALIASES[node.tag];
+      if (canonical) {
+        record(report.vendorTagExamples, seenVendor, node.tag, canonical);
+        report.vendorTagsRenamed++;
+        node.tag = canonical;
+      }
+    });
+  }
 
   walkNodes(editable, (node) => {
     if (node.value === undefined) return;

@@ -366,6 +366,9 @@ function renderSummary(
                   [t("loader.dates", { count: report.datesChanged }), examplesTooltip(report.dateExamples)],
                   [t("loader.places", { count: report.placesReshaped }), examplesTooltip(report.placeExamples)],
                   [t("loader.links", { count: report.linksConverted }), examplesTooltip(report.linkExamples)],
+                  ...(report.vendorTagsRenamed
+                    ? [[t("loader.vendorTags", { count: report.vendorTagsRenamed }), examplesTooltip(report.vendorTagExamples)] as [string, string | undefined]]
+                    : []),
                   ...(report.consolidatedDuplicates
                     ? [[t("loader.consolidated", { count: report.consolidatedDuplicates }), t("loader.consolidated.tooltip")] as [string, string | undefined]]
                     : []),

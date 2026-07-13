@@ -256,6 +256,19 @@ const PRIVACY_INFO: Record<string, VendorTagInfo> = {
 export const VENDOR_PRIVACY_TAGS: Set<string> = new Set(Object.keys(PRIVACY_INFO));
 
 /**
+ * Vendor tags that are pure synonyms of another (better-supported) tag: the
+ * normalization pass rewrites the key to the value so the rest of the app only
+ * ever sees the canonical form. `_MILI` is Brother's Keeper's older spelling of
+ * its `_MILT` military-service event. Deliberately conservative — only alias a
+ * tag when the two are the same fact in the same shape; anything needing value
+ * or structure translation belongs to a real normalization step instead.
+ * (Phase 3 of the custom-tag plan grows this: _SEPR→SEPA, _FREL/_MREL→PEDI, …)
+ */
+export const VENDOR_TAG_ALIASES: Record<string, string> = {
+  _MILI: "_MILT",
+};
+
+/**
  * Classify a vendor-extension tag. Exact matches first, then the numbered /
  * prefixed families some programs emit (`__FLAG_3`, `_FA1`…`_FA13`,
  * `_COLOR2`, `_LIST6`, PAF `_SEN*` sentence templates).
