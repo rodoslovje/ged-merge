@@ -98,13 +98,24 @@ Not yet committed — cull as needed.
 
 ## Performance backlog (as large-file usage grows)
 
-- **Memoize EditView subsections** (event rows, family grids) so a `tick` bump
-  doesn't rebuild the whole subtree — do *not* rewrite its in-place-mutation
-  model; the undo-patch machinery depends on it.
-- **O(N²) patterns in `gedcom/edit/`**: `pruneUnreferencedMedia` /
-  `pruneUnreferencedSource` DFS the whole dataset per removal; `nextXref`
-  rescans all records per allocation. Reference-count / cache a max-xref
-  counter.
+- ~~**Memoize EditView subsections** (event rows, family grids) so a `tick` bump
+  doesn't rebuild the whole subtree.~~ *(done 2026-07-13 — the in-place-mutation
+  model is untouched; memo keys off the object identity `rebuildIndividual`/
+  `rebuildFamily` already provide. `EventList` is memoized and the parent/family
+  bands are extracted into memoized `ParentFamilyGroup`/`FamilySection`
+  (`src/ui/edit/FamilySections.tsx`); EditView's handlers are identity-stable via
+  `useStableHandler`; a `relationsGen` counter refreshes kinship badges on
+  structural edits; media trays remount per owner rebuild + `mediaGen` instead of
+  every tick. Verified with render counters: a person-field commit no longer
+  re-renders family grids, and vice versa.)*
+- ~~**O(N²) patterns in `gedcom/edit/`**~~ *(done 2026-07-13 — `nextXref` keeps a
+  per-prefix max in a WeakMap (updated by `insertRecord` for bypassing
+  allocators; removals just leave gaps); the prune cascade collects references
+  in one pass via `referencedObjeXrefs` — which also fixed a latent bug where a
+  source's page image still attached to a person could be deleted, leaving a
+  dangling pointer. Full ref-counting was evaluated and rejected: undo restores
+  records from snapshots wholesale, so a count cache can silently go stale, and
+  a stale count risks deleting a still-referenced record.)*
 - **Virtualize the place/source trees** — the Tools tree panels render every
   visible node; virtualizing them means flattening the recursive `tools-tree`
   markup first. Worth it only if index-scale files make those panels hurt. (The

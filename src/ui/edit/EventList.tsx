@@ -9,6 +9,7 @@ import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, zoneSortKey } from "../../review/fields";
 import { useSettings } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
+import { memo } from "react";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
 import type { Commit, OpenEditSource, SourceDialogTarget } from "./types";
@@ -16,8 +17,14 @@ import type { Commit, OpenEditSource, SourceDialogTarget } from "./types";
 /** Events grid: BIRT always first (creates on commit), then all other events
  * in person.events order — multiple occurrences of the same tag are supported.
  * When mergeHighlight is set, merge-highlighted fields are shown and extra incoming-only
- * events are appended at the end. */
-export function EventList({
+ * events are appended at the end.
+ *
+ * Memoized: `person` is replaced by `rebuildIndividual` on each of their own
+ * edits, so its identity is the change signal — a family-side commit (same
+ * `tick` bump in EditView) leaves every prop identical and skips the whole
+ * grid rebuild + sort. Requires all function props to be identity-stable
+ * (EditView's `useStableHandler`). */
+export const EventList = memo(function EventList({
   person,
   t,
   commit,
@@ -292,4 +299,4 @@ export function EventList({
       )}
     </div>
   );
-}
+});

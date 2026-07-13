@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedNode, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { childrenByTag, firstChild } from "../gedcom/node";
@@ -17,7 +17,6 @@ import { decisionKey, decisionStatusByMainId, defaultChoice, type CandidateDecis
 import {
   addChild,
   addEventNode,
-  addFamilyEventNode,
   addObjeToSource,
   addParent,
   addPartner,
@@ -43,11 +42,8 @@ import {
   insertRecord,
   rebuildFamily,
   rebuildIndividual,
-  removeFamilyEvent,
   removeIndividual,
   removeSourceCitationAtIndex,
-  setFamilyLinks,
-  setFamilyNotes,
   setIndividualLinks,
   setName,
   setNotes,
@@ -58,22 +54,19 @@ import {
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, type CropRegion } from "../gedcom/source";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
-import { PersonCard } from "./PersonCard";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddMediaDialog } from "./AddMediaDialog";
 import { nodeId } from "./edit/nodeId";
+import { useStableHandler } from "./edit/useStableHandler";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
-import { INDIVIDUAL_EVENT_GROUPS, FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./edit/editConstants";
-import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
+import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
-import type { Commit, FamilyCommit, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
-import { RelativePickerCard } from "./edit/RelativePickerCard";
+import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
+import { FamilySection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
-import { FamilyEventRow } from "./edit/FamilyEventRow";
-import { AddEventSelect } from "./edit/AddEventSelect";
 import { NotesEditor } from "./edit/NotesEditor";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -141,6 +134,37 @@ interface Props {
    * so it doesn't fire while another mode is the one actually visible. */
   active: boolean;
 }
+
+/**
+ * The no-confirmed-match merge preview — one frozen instance, so the merge
+ * props handed to the memoized sections keep a stable identity across `tick`
+ * re-renders while no merge is active (the common case). A fresh object per
+ * render would bust their `React.memo` prop equality on every keystroke-commit.
+ */
+const EMPTY_MERGE_DATA = Object.freeze({
+  /** Field key → incoming value for all fields the merge will add/change. */
+  mergeHighlight: new Map<string, string>(),
+  /** Field key → incoming links the merge will add (record-level "links" row). */
+  mergeIncomingLinks: new Map<string, string[]>(),
+  /** Field key → incoming source citations the merge will add (per-event "<tag>.sources" rows). */
+  mergeIncomingSources: new Map<string, SourceCitation[]>(),
+  /** main person.events overall index → field key base aligned with orderedEventTags. */
+  mainMergeKeyBases: new Map<number, string>(),
+  /** main person.events overall index → the incoming event it's paired with, as
+   * `${tag}:${compareIdx}` — see `CandidateDecision.rejectedEvents`. Lets deleting a
+   * paired main event also reject its incoming counterpart, so it isn't silently
+   * re-added on save. */
+  mainMergeCompareKeys: new Map<number, string>(),
+  /** main person.events overall index → sort key from incoming date, when main has no date. */
+  mainMergeSortKeys: new Map<number, number>(),
+  /** Incoming-only events with no main counterpart (BIRT excluded — always shown). */
+  extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number; compareIdx: number }[],
+  /** main family id → the `fam.<id>` key base used for that family's rows
+   * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
+  familyMergeKeyBases: new Map<string, string>(),
+  /** Whether the current person still has a confirmed merge decision. */
+  hasMergeDecision: false,
+});
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -296,6 +320,25 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     onUpdateDecision(matchDecKey, { status: matchStatus === next ? "undecided" : next, fields: matchDecision?.fields ?? {} });
   }
 
+  // Identity-stable across renders (latest-ref wrappers), so the memoized
+  // sections and event list they're passed to can skip re-rendering on ticks
+  // that didn't change their data.
+  const navigate = useStableHandler((id: string) => {
+    if (!id || id === selectedId) return;
+    if (selectedId) setHistory((h) => [...h, selectedId]);
+    setNotesAdded(false);
+    setPickingSlot(null);
+    setSelectedId(id);
+  });
+
+  const goBack = useStableHandler(() => {
+    setHistory((h) => {
+      if (h.length === 0) return h;
+      setSelectedId(h[h.length - 1]);
+      return h.slice(0, -1);
+    });
+  });
+
   // V (tree) shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
@@ -364,14 +407,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return () => window.removeEventListener("keydown", onKey);
   }, [active]);
 
-  function navigate(id: string) {
-    if (!id || id === selectedId) return;
-    if (selectedId) setHistory((h) => [...h, selectedId]);
-    setNotesAdded(false);
-    setPickingSlot(null);
-    setSelectedId(id);
-  }
-
   useEffect(() => {
     if (navigateToId) {
       navigate(navigateToId);
@@ -384,14 +419,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     if (selectedId) onPersonChange?.(selectedId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
-
-  function goBack() {
-    setHistory((h) => {
-      if (h.length === 0) return h;
-      setSelectedId(h[h.length - 1]);
-      return h.slice(0, -1);
-    });
-  }
 
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -444,30 +471,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   /** Merge preview data for the currently selected person's confirmed match. */
   const mergeData = useMemo(() => {
-    const empty = {
-      mergeHighlight: new Map<string, string>(),
-      /** Field key → incoming links the merge will add (record-level "links" row). */
-      mergeIncomingLinks: new Map<string, string[]>(),
-      /** Field key → incoming source citations the merge will add (per-event "<tag>.sources" rows). */
-      mergeIncomingSources: new Map<string, SourceCitation[]>(),
-      /** main person.events overall index → field key base aligned with orderedEventTags. */
-      mainMergeKeyBases: new Map<number, string>(),
-      /** main person.events overall index → the incoming event it's paired with, as
-       * `${tag}:${compareIdx}` — see `CandidateDecision.rejectedEvents`. Lets deleting a
-       * paired main event also reject its incoming counterpart, so it isn't silently
-       * re-added on save. */
-      mainMergeCompareKeys: new Map<number, string>(),
-      /** main person.events overall index → sort key from incoming date, when main has no date. */
-      mainMergeSortKeys: new Map<number, number>(),
-      /** Incoming-only events with no main counterpart (BIRT excluded — always shown). */
-      extraMergeEvents: [] as { tag: string; keyBase: string; sortKey: number; compareIdx: number }[],
-      /** main family id → the `fam.<id>` key base used for that family's rows
-       * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
-      familyMergeKeyBases: new Map<string, string>(),
-      /** Whether the current person still has a confirmed merge decision. */
-      hasMergeDecision: false,
-    };
-    if (!decisions || !compareDataset || !person) return empty;
+    if (!decisions || !compareDataset || !person) return EMPTY_MERGE_DATA;
     for (const [key, dec] of decisions) {
       if (dec.status !== "confirmed") continue;
       const parts = key.split(":");
@@ -554,7 +558,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
       return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
-    return empty;
+    return EMPTY_MERGE_DATA;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, compareDataset, person, dataset, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
@@ -586,7 +590,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * the live preview here and the merge engine on Save — for the rest of the
    * session, regardless of how main/incoming pairing reshuffles afterward.
    */
-  function rejectIncomingEvent(tag: string, compareIdx: number) {
+  const rejectIncomingEvent = useStableHandler((tag: string, compareIdx: number) => {
     if (!decisions || !person || !onUpdateDecision || compareIdx < 0) return;
     const eventKey = `${tag}:${compareIdx}`;
     for (const [key, dec] of decisions) {
@@ -597,7 +601,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       onUpdateDecision(key, { ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
       break;
     }
-  }
+  });
 
   /**
    * Copy an "extra" incoming-only event's `SOUR` citations into `eventNode`
@@ -606,7 +610,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * sources are gone from comparison everywhere, including the merge engine
    * on Save. Returns undo patches for any `SOUR`/`REPO` records it imported.
    */
-  function materializeMergeEventSources(eventNode: GedNode, tag: string, compareIdx: number): RecordPatch[] {
+  const materializeMergeEventSources = useStableHandler((eventNode: GedNode, tag: string, compareIdx: number): RecordPatch[] => {
     if (!decisions || !person || !compareDataset || compareIdx < 0) return [];
     for (const [key, dec] of decisions) {
       const parts = key.split(":");
@@ -617,12 +621,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const incEvent = childrenByTag(incoming.raw, tag)[compareIdx];
       if (!incEvent) break;
       const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
-      return imported.map((r) => ({ type: "record", id: r.xref!, before: null, after: cloneRaw(r) }));
+      return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
     }
     return [];
-  }
+  });
 
-  function dismissExtraEvent(keyBase: string) {
+  const dismissExtraEvent = useStableHandler((keyBase: string) => {
     if (!decisions || !person || !onUpdateDecision) return;
     for (const [key, dec] of decisions) {
       const parts = key.split(":");
@@ -642,7 +646,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
-  }
+  });
 
   /**
    * Mark specific event sub-fields (e.g. "date", "value") as resolved to
@@ -661,7 +665,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * "extra" row is materialized into a real main event), which would
    * otherwise force the bold marker onto the wrong row.
    */
-  function resolveMergeFields(keyBase: string, forcedId: string, subs: string[]) {
+  const resolveMergeFields = useStableHandler((keyBase: string, forcedId: string, subs: string[]) => {
     if (!subs.length) return;
     // Only sub-fields that actually carry an incoming value become bold.
     const incomingSubs = subs.filter((sub) => mergeHighlight.has(`${keyBase}.${sub}`));
@@ -689,7 +693,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (changed) onUpdateDecision(key, { ...dec, fields: updatedFields });
       break;
     }
-  }
+  });
 
   /**
    * Flag a family event slot's type as session-dirty right after a
@@ -701,10 +705,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * tell a synthetic vs. genuine match, so it's tracked here instead, reusing
    * `resolvedSessionFields`'s existing per-person reset.
    */
-  function markFamilyTagRetagged(keyBase: string, newTag: string) {
+  const markFamilyTagRetagged = useStableHandler((keyBase: string, newTag: string) => {
     const key = `${keyBase}.${newTag}.tag`;
     setResolvedSessionFields((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
-  }
+  });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -714,7 +718,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
-  const commit: Commit = (mutate, extraPatches) => {
+  const commit: Commit = useStableHandler((mutate: (indi: Individual) => void, extraPatches?: RecordPatch[]) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
     mutate(person);
@@ -724,9 +728,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     onPushEdit([{ type: "individual", id: person.id, before, after }, ...(extraPatches ?? [])], selectedId);
     onDirty("individual", person.id);
     setTick((v) => v + 1);
-  };
+  });
 
-  const commitFamily: FamilyCommit = (fam, mutate, extraPatches) => {
+  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
     mutate(fam);
     const after = cloneRaw(fam.raw);
@@ -735,7 +739,24 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     onPushEdit([{ type: "family", id: fam.id, before, after }, ...(extraPatches ?? [])], selectedId);
     onDirty("family", fam.id);
     setTick((v) => v + 1);
-  };
+  });
+
+  /**
+   * Bumped on structural edits (relative added/connected/detached, person
+   * deleted) — the memoized parent/family sections fold it into their props so
+   * their kinship badges recompute even when their own family object didn't
+   * change (the kinship path to the start person can run anywhere in the
+   * graph). Undo/redo is covered by `undoVersion`.
+   */
+  const relationsGenRef = useRef(0);
+  /**
+   * Bumped when a shared top-level `SOUR`/`OBJE` record is edited or pruned in
+   * place — the media trays key on it (plus the owner's identity) so they
+   * remount and re-read shared-record metadata that changed via *another*
+   * owner's edit. Replaces keying every tray on the global `tick`, which
+   * remounted (and re-resolved blobs for) every tray on every keystroke-commit.
+   */
+  const mediaGenRef = useRef(0);
 
   // ── Media (OBJE) ──────────────────────────────────────────────────────────
 
@@ -743,11 +764,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   function infoDialog(message: string) {
     setPendingConfirm({ message, confirmLabel: t("confirm.ok"), danger: false, action: () => {} });
   }
-
-  /** A media edit target: the selected person's record, or one of their
-   *  families' — every media operation below routes through the owner's
-   *  commit/rebuild/dirty flow. */
-  type MediaOwner = { kind: "individual" } | { kind: "family"; fam: Family };
 
   const ownerRaw = (owner: MediaOwner): GedNode | undefined =>
     owner.kind === "individual" ? person?.raw : owner.fam.raw;
@@ -796,6 +812,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const after = cloneRaw(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
+      mediaGenRef.current += 1; // other owners' trays may show this shared record
       if (owner.kind === "individual") {
         if (person) rebuildIndividual(dataset, person);
       } else {
@@ -824,12 +841,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   }
 
   /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
-  const mediaCtxFor = (owner: MediaOwner): MediaRefContext => ({
+  const mediaCtxFor = useStableHandler((owner: MediaOwner): MediaRefContext => ({
     dataset,
     onNavigate: navigate,
     onEditMedia: (addr, fields) => editMediaOn(owner, addr, fields),
     onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
-  });
+  }));
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
 
   /** After adding a single photo, open it in the viewer so its metadata can be
@@ -851,7 +868,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    *  the picker (which lists the folder's images — works in every browser that
    *  can load a folder). Dragging files in from outside is the Chrome/Edge-only
    *  path handled separately. */
-  function handleAddMedia(owner: MediaOwner) {
+  const handleAddMedia = useStableHandler((owner: MediaOwner) => {
     if (!folderName) {
       setPendingConfirm({
         message: t("media.selectFolderPrompt"),
@@ -863,7 +880,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
     setMediaAddTarget(owner);
     setMediaPickerOpen(true);
-  }
+  });
 
   /** Remove the owner's media at `addr`. Mirrors `commitRemoveSource`:
    *  snapshots the shared OBJE first so undo can restore it if the delete
@@ -884,6 +901,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const extraPatches: RecordPatch[] = [];
     if (sharedXref && sharedBefore && !dataset.records.some((r) => r.xref === sharedXref)) {
       extraPatches.push({ type: "record", id: sharedXref, before: sharedBefore, after: null });
+      mediaGenRef.current += 1; // a shared record was pruned
     }
     if (owner.kind === "individual") {
       if (!person) return;
@@ -898,13 +916,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     setTick((v) => v + 1);
   }
 
-  function handleDeleteMedia(owner: MediaOwner, addr: MediaAddress) {
+  const handleDeleteMedia = useStableHandler((owner: MediaOwner, addr: MediaAddress) => {
     setPendingConfirm({
       message: t("media.deleteConfirm"),
       confirmLabel: t("confirm.delete"),
       action: () => deleteMediaOn(owner, addr),
     });
-  }
+  });
 
   /** Reference dropped image files that live inside the chosen media folder.
    *  DataTransferItems are invalidated after the first `await`, so every
@@ -1033,6 +1051,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       }
     }
 
+    if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records were pruned
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
       onPushEdit([{ type: "individual", id: owner.indi.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
@@ -1053,7 +1072,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * field). `objeXref` (when resolvable) is carried through so saving
    * retargets only this citation's page image, not a sibling page's.
    */
-  const openEditSource: OpenEditSource = (node, index, owner) => {
+  const openEditSource: OpenEditSource = useStableHandler((node: GedNode, index: number, owner: RemoveSourceOwner) => {
     const citation = childrenByTag(node, "SOUR")[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
@@ -1083,7 +1102,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         page,
       },
     });
-  };
+  });
 
   /** Commits an Edit Source dialog save: applies `updateSourceCitation`,
    * then diffs every top-level `SOUR`/`OBJE` record for undo-safe patches —
@@ -1105,6 +1124,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const aClone = a ? cloneRaw(a) : null;
       if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
     }
+    if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed
 
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
@@ -1156,7 +1176,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return undefined;
   }
 
-  function addRelative(kind: "father" | "mother" | "partner" | "child", fam?: Family) {
+  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family) => {
     if (!person) return;
     const beforePerson = cloneRaw(person.raw);
     const beforeFam = fam ? cloneRaw(fam.raw) : null;
@@ -1212,11 +1232,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
     onDirty("individual", person.id);
     onDirty("individual", added.id);
+    relationsGenRef.current += 1;
     focusNextName.current = true;
     navigate(added.id);
-  }
+  });
 
-  function connectRelative(kind: "father" | "mother" | "partner" | "child", existingId: string, fam?: Family) {
+  const connectRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", existingId: string, fam?: Family) => {
     if (!person) return;
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
@@ -1260,15 +1281,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     onDirty("individual", person.id);
     onDirty("individual", existingId);
     if (fam) onDirty("family", fam.id);
+    relationsGenRef.current += 1;
     setPickingSlot(null);
     setTick((v) => v + 1);
-  }
-
-  function personName(id: string | undefined): string {
-    if (!id) return "";
-    const indi = dataset.individuals.get(id);
-    return indi ? formatName(indi) : id;
-  }
+  });
 
   // Member ids of a family, for snapshotting before a detach/delete — pruning a
   // family that drops below two members also unlinks its sole surviving member.
@@ -1276,7 +1292,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
   }
 
-  function handleDetachSpouseRole(fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) {
+  const handleDetachSpouseRole = useStableHandler((fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) => {
     setPendingConfirm({
       message: confirmMsg,
       confirmLabel: t("confirm.remove"),
@@ -1287,12 +1303,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         if (patches.length === 0) return;
         onPushEdit(patches);
         for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        relationsGenRef.current += 1;
         setTick((v) => v + 1);
       },
     });
-  }
+  });
 
-  function handleDetachChild(fam: Family, childId: string, confirmMsg: string) {
+  const handleDetachChild = useStableHandler((fam: Family, childId: string, confirmMsg: string) => {
     setPendingConfirm({
       message: confirmMsg,
       confirmLabel: t("confirm.remove"),
@@ -1303,10 +1320,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         if (patches.length === 0) return;
         onPushEdit(patches);
         for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        relationsGenRef.current += 1;
         setTick((v) => v + 1);
       },
     });
-  }
+  });
 
   function handleDeletePerson() {
     if (!person) return;
@@ -1338,6 +1356,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         onPushEdit(patches, personId, nextId);
 
         for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        relationsGenRef.current += 1;
         setHistory((prev) => prev.filter((id) => id !== personId));
         setNotesAdded(false);
         setSelectedId(nextId);
@@ -1360,6 +1379,37 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   );
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
+  // Glyph-tagged parents' ages at this person's birth, for the BIRT row
+  // ("Show ages" setting). First parent family with each role wins. Memoized
+  // on the person's identity (replaced by rebuildIndividual on each of their
+  // own edits) so the memoized EventList's prop stays stable across unrelated
+  // ticks.
+  const birthParentAges = useMemo(() => {
+    if (!settings.showAge || !person) return undefined;
+    const birthDate = birthDateOf(person);
+    if (!birthDate) return undefined;
+    const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
+    const fatherId = famsOf.find((f) => f?.husband)?.husband;
+    const motherId = famsOf.find((f) => f?.wife)?.wife;
+    return coupleAgesDisplay(
+      fatherId ? dataset.individuals.get(fatherId) : undefined,
+      motherId ? dataset.individuals.get(motherId) : undefined,
+      birthDate,
+      { husband: t("event.age.father"), wife: t("event.age.mother") },
+      t,
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.showAge, person, dataset, t, tick]); // tick: parents' own dates can change without replacing `person`
+
+  // Shared card context for relative PersonCards — one stable object, not a
+  // per-card literal (which would defeat the memoized sections' prop equality).
+  const cardRefCtx = useMemo(() => ({ dataset, onNavigate: navigate }), [dataset, navigate]);
+
+  /** Trigger the "+ Add note" flow on a family's NotesEditor. */
+  const onAddFamNote = useStableHandler((famId: string) => {
+    setFamNoteAdd((prev) => ({ ...prev, [famId]: (prev[famId] ?? 0) + 1 }));
+  });
+
   if (!person) {
     return (
       <div className="section open edit-view">
@@ -1381,23 +1431,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   const lifespan = lifespanWithAge(person, settings.showAge);
 
-  // Glyph-tagged parents' ages at this person's birth, for the BIRT row
-  // ("Show ages" setting). First parent family with each role wins.
-  const birthParentAges = (() => {
-    if (!settings.showAge) return undefined;
-    const birthDate = birthDateOf(person);
-    if (!birthDate) return undefined;
-    const fatherId = parentFamilies.find((f) => f.husband)?.husband;
-    const motherId = parentFamilies.find((f) => f.wife)?.wife;
-    return coupleAgesDisplay(
-      fatherId ? dataset.individuals.get(fatherId) : undefined,
-      motherId ? dataset.individuals.get(motherId) : undefined,
-      birthDate,
-      { husband: t("event.age.father"), wife: t("event.age.mother") },
-      t,
-    );
-  })();
-
   const startInfo = settings.showKinship && startId ? kinshipInfo(dataset, startId, selectedId!, t) : undefined;
   const startPersonName = startId
     ? formatName(dataset.individuals.get(startId)!)
@@ -1408,136 +1441,33 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
 
-  function cardKinship(id: string | undefined): { kinship?: string; kinshipTooltip?: string; kinshipLineage?: string } {
-    if (!settings.showKinship || !startId || !id) return {};
-    const info = kinshipInfo(dataset, startId, id, t);
-    if (!info) return {};
-    return {
-      kinship: info.label,
-      kinshipLineage: lineageClass(info.lineage),
-      kinshipTooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
-    };
-  }
-
-  // Status chips for a relative card: its merge decision (C/D/R) and/or an "M"
-  // chip when its main record has unsaved edits — mirroring the tree nodes.
-  function cardDecision(id: string | undefined): { decisionStatus?: Exclude<MatchDecisionStatus, "undecided">; decisionLetter?: string; decisionTooltip?: string; modified?: boolean; modifiedLetter?: string; modifiedTooltip?: string } {
-    const modified = !!id && changedPersonIds.has(id);
-    const modifiedProps = modified ? { modified, modifiedLetter: t("edit.tree.modified").charAt(0), modifiedTooltip: t("edit.tree.modified") } : {};
-    const status = id ? decisionStatusById.get(id) : undefined;
-    if (!status) return modifiedProps;
-    const tooltip = t(`status.${status}`);
-    return { decisionStatus: status, decisionLetter: tooltip.charAt(0), decisionTooltip: tooltip, ...modifiedProps };
-  }
 
   return (
     <div className="section open edit-view">
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
-          {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => {
-            const fatherName = personName(fam?.husband);
-            const motherName = personName(fam?.wife);
-            const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
-            const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
-            // Read-only glimpse of the parents' couple events (marriage,
-            // divorce, …), shown on the connector between the two cards —
-            // editable on either parent's own page.
-            const coupleEvents = fam?.events.filter(
-              (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
-            ) ?? [];
-            return (
-              <div className="edit-parent-group" key={fam?.id ?? `empty-${i}`}>
-                {fatherPickerOpen && !fam?.husband ? (
-                  <RelativePickerCard
-                    roleLabel={t("field.father")}
-                    individuals={dataset.individuals}
-                    excludeId={person.id}
-                    onPickExisting={(id) => connectRelative("father", id, fam)}
-                    onAddNew={() => { setPickingSlot(null); addRelative("father", fam); }}
-                    onCancel={() => setPickingSlot(null)}
-                    t={t}
-                  />
-                ) : (
-                  <PersonCard
-                    individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
-                    roleLabel={t("field.father")}
-                    placeholder={t("edit.addFather")}
-                    onSelect={navigate}
-                    onAdd={() => setPickingSlot({ kind: "father", fam })}
-                    onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
-                    removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
-                    {...cardKinship(fam?.husband)}
-                    {...cardDecision(fam?.husband)}
-                    records={dataset.records}
-                    refCtx={{ dataset, onNavigate: navigate }}
-                  />
-                )}
-                <div className={`edit-connector-h ${coupleEvents.length ? "has-events" : ""}`}>
-                  {coupleEvents.length > 0 && (
-                    <div className="edit-parent-fam-events">
-                      {coupleEvents.map((ev, j) => {
-                        const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
-                        const coupleAges = settings.showAge && ev.date && fam
-                          ? coupleAgesDisplay(
-                              fam.husband ? dataset.individuals.get(fam.husband) : undefined,
-                              fam.wife ? dataset.individuals.get(fam.wife) : undefined,
-                              ev.date,
-                              { husband: t("event.age.husband"), wife: t("event.age.wife") },
-                              t,
-                            )
-                          : undefined;
-                        return (
-                          <span
-                            className="edit-parent-fam-event"
-                            key={`${ev.tag}-${j}`}
-                            title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
-                          >
-                            <span>
-                              {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
-                              {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
-                              {coupleAges && (
-                                <> <span className="gm-data edit-event-age">
-                                  {coupleAges.map((a, j2) => (
-                                    <span key={j2} title={a.title}>{a.text}</span>
-                                  ))}
-                                </span></>
-                              )}
-                            </span>
-                            {place && <span className="gm-data">{place}</span>}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                {motherPickerOpen && !fam?.wife ? (
-                  <RelativePickerCard
-                    roleLabel={t("field.mother")}
-                    individuals={dataset.individuals}
-                    excludeId={person.id}
-                    onPickExisting={(id) => connectRelative("mother", id, fam)}
-                    onAddNew={() => { setPickingSlot(null); addRelative("mother", fam); }}
-                    onCancel={() => setPickingSlot(null)}
-                    t={t}
-                  />
-                ) : (
-                  <PersonCard
-                    individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
-                    roleLabel={t("field.mother")}
-                    placeholder={t("edit.addMother")}
-                    onSelect={navigate}
-                    onAdd={() => setPickingSlot({ kind: "mother", fam })}
-                    onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
-                    removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
-                    {...cardKinship(fam?.wife)}
-                    {...cardDecision(fam?.wife)}
-                    records={dataset.records}
-                    refCtx={{ dataset, onNavigate: navigate }}
-                  />
-                )}
-              </div>
-            );
-          })}
+          {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => (
+            <ParentFamilyGroup
+              key={fam?.id ?? `empty-${i}`}
+              fam={fam}
+              personId={person.id}
+              dataset={dataset}
+              t={t}
+              navigate={navigate}
+              pickingSlot={pickingSlot}
+              setPickingSlot={setPickingSlot}
+              connectRelative={connectRelative}
+              addRelative={addRelative}
+              handleDetachSpouseRole={handleDetachSpouseRole}
+              cardRefCtx={cardRefCtx}
+              decisionStatusById={decisionStatusById}
+              changedPersonIds={changedPersonIds}
+              startId={startId}
+              startPersonName={startPersonName}
+              relationsGen={relationsGenRef.current}
+              undoVersion={undoVersion}
+            />
+          ))}
           <div className="edit-actions">
             <BackButton
               label={t("edit.back")}
@@ -1598,9 +1528,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             />
           </div>
           <PersonMedia
-            // person.raw is mutated in place, so remount on each edit/undo to
-            // re-read the OBJE children (resolved files are blob-cached).
-            key={`photos-${person.id}-${tick}-${undoVersion}`}
+            // person.raw is mutated in place, so remount whenever this person
+            // was rebuilt (fresh `Individual` identity → fresh nodeId) or a
+            // shared OBJE record changed via another owner's edit (mediaGen),
+            // to re-read the OBJE children (resolved files are blob-cached).
+            key={`photos-${person.id}-${nodeId(person)}-${mediaGenRef.current}-${undoVersion}`}
             raw={person.raw}
             records={dataset.records}
             refCtx={mediaRefCtx}
@@ -1703,225 +1635,51 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         </div>
 
         <div className="edit-families">
-          {(spouseFamilies.length ? spouseFamilies : [undefined]).map((fam, i) => {
-            const partnerId = fam && (fam.husband === person.id ? fam.wife : fam.husband);
-            const partnerRole = fam && (fam.husband === person.id ? "WIFE" : "HUSB");
-            const partnerName = personName(partnerId ?? undefined);
-            const famMergeKeyBase = fam ? familyKeyBaseById.get(fam.id) : undefined;
-            const shownFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
-              (tag) => fam?.events.some((e) => e.tag === tag) || familyEventHasMergeData(famMergeKeyBase, tag, mergeHighlight, mergeIncomingSources),
-            );
-            const emptyFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
-              (tag) => !shownFamilyTags.includes(tag),
-            );
-            const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
-            const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
-            return (
-              <div className="edit-family" key={fam?.id ?? `empty-${i}`}>
-                <div className="edit-family-header">
-                  <div className="person-card-role">{t("field.partners")}</div>
-                  <div className="edit-family-card-row">
-                    {partnerPickerOpen && !partnerId ? (
-                      <RelativePickerCard
-                        individuals={dataset.individuals}
-                        excludeId={person.id}
-                        onPickExisting={(id) => connectRelative("partner", id, fam)}
-                        onAddNew={() => { setPickingSlot(null); addRelative("partner", fam); }}
-                        onCancel={() => setPickingSlot(null)}
-                        t={t}
-                      />
-                    ) : (
-                      <PersonCard
-                        individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
-                        placeholder={t("edit.addPartner")}
-                        onSelect={navigate}
-                        onAdd={() => setPickingSlot({ kind: "partner", fam })}
-                        onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
-                        removeTooltip={fam && partnerId ? t("edit.detachPartnerTooltip", { name: partnerName }) : undefined}
-                        {...cardKinship(partnerId)}
-                        {...cardDecision(partnerId)}
-                        records={dataset.records}
-                        refCtx={{ dataset, onNavigate: navigate }}
-                      />
-                    )}
-                    {fam && (
-                      <AddEventSelect
-                        tags={emptyFamilyTags}
-                        label={t("edit.addFamilyEvent")}
-                        tooltip={t("edit.addFamilyEventTooltip")}
-                        t={t}
-                        onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
-                      />
-                    )}
-                    {fam && (
-                      <button
-                        type="button"
-                        className="edit-name-chip edit-name-chip-add"
-                        title={t("edit.addNoteTooltip")}
-                        onClick={() => setFamNoteAdd((prev) => ({ ...prev, [fam.id]: (prev[fam.id] ?? 0) + 1 }))}
-                      >
-                        + {t("edit.addNote")}
-                      </button>
-                    )}
-                    {fam && !(fam.links ?? []).length && !(fam.sources ?? []).length && (
-                      <button
-                        type="button"
-                        className="edit-name-chip edit-name-chip-add"
-                        title={t("edit.addLink")}
-                        onClick={() => setSourceDialogTarget({ kind: "family", fam })}
-                      >
-                        + {t("edit.addLink")}
-                      </button>
-                    )}
-                    {fam && collectMediaRefs(fam.raw, dataset.records).length === 0 && (
-                      <button
-                        type="button"
-                        className="edit-name-chip edit-name-chip-add"
-                        title={t("media.add")}
-                        onClick={() => handleAddMedia({ kind: "family", fam })}
-                      >
-                        + {t("media.add")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {fam && (
-                  <PersonMedia
-                    // fam.raw is mutated in place, so remount on each edit/undo to
-                    // re-read the OBJE children (resolved files are blob-cached).
-                    key={`fam-media-${fam.id}-${tick}-${undoVersion}`}
-                    raw={fam.raw}
-                    records={dataset.records}
-                    refCtx={mediaCtxFor({ kind: "family", fam })}
-                    editable={{
-                      onAdd: () => handleAddMedia({ kind: "family", fam }),
-                      onDelete: (addr) => handleDeleteMedia({ kind: "family", fam }, addr),
-                      onReorder: (from, to) => commitFamily(fam, (f) => reorderMedia(f.raw, from, to)),
-                    }}
-                  />
-                )}
-                {fam && (() => {
-                  const marrNode = firstChild(fam.raw, "MARR");
-                  return (
-                    <FamilyEventRow
-                      key={`${fam.id}-MARR-${marrNode ? nodeId(marrNode) : "empty"}-${undoVersion}-${mergeGenRef.current}`}
-                      fam={fam}
-                      tag="MARR"
-                      t={t}
-                      commit={commitFamily}
-                      openEditSource={openEditSource}
-                      onOpenSourceDialog={setSourceDialogTarget}
-                      onRemove={marrNode ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined}
-                      onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
-                      placeSuggestions={placeSuggestions}
-                      placeToAddrs={placeToAddrs}
-                      placeCanonical={placeCanonical}
-                      addrCanonical={addrCanonical}
-                      mergeHighlight={mergeHighlight}
-                      mergeIncomingSources={mergeIncomingSources}
-                      famMergeKeyBase={famMergeKeyBase}
-                      resolvedSessionFields={resolvedSessionFields}
-                      individuals={dataset.individuals}
-                    />
-                  );
-                })()}
-                {fam && shownFamilyTags.map((tag) => {
-                  const eventNode = firstChild(fam.raw, tag);
-                  const hasRealEvent = eventNode !== undefined;
-                  return (
-                    <FamilyEventRow
-                      // Re-keyed on the underlying node's identity (not just `undoVersion`)
-                      // so that retagging this event away (via the type-change dropdown)
-                      // unmounts this row instead of leaving its local field state (date,
-                      // place, …) stale once `ev` silently becomes undefined underneath it.
-                      key={`${fam.id}-${tag}-${eventNode ? nodeId(eventNode) : "empty"}-${undoVersion}-${mergeGenRef.current}`}
-                      fam={fam}
-                      tag={tag}
-                      t={t}
-                      commit={commitFamily}
-                      openEditSource={openEditSource}
-                      onOpenSourceDialog={setSourceDialogTarget}
-                      autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
-                      onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
-                      onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
-                      placeSuggestions={placeSuggestions}
-                      placeToAddrs={placeToAddrs}
-                      placeCanonical={placeCanonical}
-                      addrCanonical={addrCanonical}
-                      mergeHighlight={mergeHighlight}
-                      mergeIncomingSources={mergeIncomingSources}
-                      famMergeKeyBase={famMergeKeyBase}
-                      resolvedSessionFields={resolvedSessionFields}
-                      individuals={dataset.individuals}
-                    />
-                  );
-                })}
-                <div className="edit-children-wrap">
-                  <div className="person-card-role">{t("field.children")}</div>
-                  <div className="edit-children">
-                    {fam?.children.map((childId) => {
-                      const childName = personName(childId);
-                      return (
-                        <PersonCard
-                          key={childId}
-                          individual={dataset.individuals.get(childId)}
-                          placeholder={t("edit.unknown")}
-                          onSelect={navigate}
-                          onRemove={() => handleDetachChild(fam, childId, t("edit.detachChildConfirm", { name: childName }))}
-                          removeTooltip={t("edit.detachChildTooltip", { name: childName })}
-                          {...cardKinship(childId)}
-                          {...cardDecision(childId)}
-                          records={dataset.records}
-                          refCtx={{ dataset, onNavigate: navigate }}
-                        />
-                      );
-                    })}
-                    {childPickerOpen ? (
-                      <RelativePickerCard
-                        individuals={dataset.individuals}
-                        excludeId={person.id}
-                        onPickExisting={(id) => connectRelative("child", id, fam)}
-                        onAddNew={() => { setPickingSlot(null); addRelative("child", fam); }}
-                        onCancel={() => setPickingSlot(null)}
-                        t={t}
-                      />
-                    ) : (
-                      <PersonCard placeholder={t("edit.addChild")} onAdd={() => setPickingSlot({ kind: "child", fam })} />
-                    )}
-                  </div>
-                </div>
-                {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0) && (
-                  <div className="edit-record-section">
-                    <LinksEditor
-                      key={`flinks-${fam.id}-${undoVersion}`}
-                      links={fam.links ?? []}
-                      sources={fam.sources ?? []}
-                      sectionLabel={t("field.sources")}
-                      t={t}
-                      onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}
-                      onAddSource={() => setSourceDialogTarget({ kind: "family", fam })}
-                      onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
-                      onOpenSourceDialog={setSourceDialogTarget}
-                      onAttachSource={(sourceXref, page, extraPatches, links) =>
-                        commitFamily(fam, (f) => { attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER); setFamilyLinks(f, links); }, extraPatches)
-                      }
-                    />
-                  </div>
-                )}
-                {fam && (
-                  <div className="edit-record-section">
-                    <NotesEditor
-                      key={`fnotes-${fam.id}-${undoVersion}`}
-                      notes={fam.notes ?? []}
-                      addTrigger={famNoteAdd[fam.id]}
-                      t={t}
-                      onCommit={(notes) => commitFamily(fam, (f) => setFamilyNotes(f, notes))}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {(spouseFamilies.length ? spouseFamilies : [undefined]).map((fam, i) => (
+            <FamilySection
+              key={fam?.id ?? `empty-${i}`}
+              fam={fam}
+              personId={person.id}
+              dataset={dataset}
+              t={t}
+              navigate={navigate}
+              pickingSlot={pickingSlot}
+              setPickingSlot={setPickingSlot}
+              connectRelative={connectRelative}
+              addRelative={addRelative}
+              handleDetachSpouseRole={handleDetachSpouseRole}
+              handleDetachChild={handleDetachChild}
+              cardRefCtx={cardRefCtx}
+              decisionStatusById={decisionStatusById}
+              changedPersonIds={changedPersonIds}
+              startId={startId}
+              startPersonName={startPersonName}
+              relationsGen={relationsGenRef.current}
+              undoVersion={undoVersion}
+              commitFamily={commitFamily}
+              openEditSource={openEditSource}
+              onOpenSourceDialog={setSourceDialogTarget}
+              onAddFamNote={onAddFamNote}
+              handleAddMedia={handleAddMedia}
+              handleDeleteMedia={handleDeleteMedia}
+              mediaCtxFor={mediaCtxFor}
+              markFamilyTagRetagged={markFamilyTagRetagged}
+              dismissExtraEvent={dismissExtraEvent}
+              famMergeKeyBase={fam ? familyKeyBaseById.get(fam.id) : undefined}
+              mergeHighlight={mergeHighlight}
+              mergeIncomingSources={mergeIncomingSources}
+              resolvedSessionFields={resolvedSessionFields}
+              placeSuggestions={placeSuggestions}
+              placeToAddrs={placeToAddrs}
+              placeCanonical={placeCanonical}
+              addrCanonical={addrCanonical}
+              pendingFocusFamEventKey={pendingFocusFamEventKey}
+              setPendingFocusFamEventKey={setPendingFocusFamEventKey}
+              famNoteAddCount={fam ? famNoteAdd[fam.id] : undefined}
+              mergeGen={mergeGenRef.current}
+              mediaGen={mediaGenRef.current}
+            />
+          ))}
         </div>
       </div>
       <AddSourceDialog
