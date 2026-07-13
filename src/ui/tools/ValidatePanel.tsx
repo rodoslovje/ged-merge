@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { type ToolsScans } from "../useToolsScans";
+import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
@@ -167,6 +168,11 @@ export function ValidatePanel({
     return rows;
   }, [report, structure, filter, q]);
 
+  // A big file's health check can produce six-figure finding counts — only the
+  // rows near the viewport are mounted. The scroll container is the ancestor
+  // `.tools-view`, which the hook discovers on its own.
+  const virtual = useVirtualList({ count: shown.length, estimate: 34, itemsKey: shown });
+
   // How many "No sex" records can be resolved from family role (a subset of the
   // missingSex findings). Recomputed when the report changes (e.g. after a fix).
   const inferableSex = useMemo(
@@ -221,7 +227,7 @@ export function ValidatePanel({
             </p>
             <ul className="tools-issues">
               {mediaMissing.map((m, i) => (
-                <li key={`${m.file}-${i}`} className="tools-issue sev-warning">
+                <li key={`${m.file}-${i}`} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
                   <span className="tools-issue-msg" title={m.title ?? m.file}>{m.file}</span>
                   {m.usedBy.length > 0 && <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />}
                 </li>
@@ -295,16 +301,20 @@ export function ValidatePanel({
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
             <ul className="tools-issues">
-              {shown.map((row, i) =>
-                row.kind === "record" ? (
-                  <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}`}>
+              <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+              {shown.slice(virtual.start, virtual.end).map((row, j) => {
+                const i = virtual.start + j;
+                const zebra = i % 2 ? " zebra" : "";
+                return row.kind === "record" ? (
+                  <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`}>
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg">{t(row.issue.messageKey, row.issue.messageVars)}</span>
                   </li>
                 ) : (
-                  <StructRow key={`s-${row.issue.category}-${i}`} issue={row.issue} dataset={dataset} onNavigate={onNavigate} />
-                ),
-              )}
+                  <StructRow key={`s-${row.issue.category}-${i}`} issue={row.issue} zebra={!!zebra} dataset={dataset} onNavigate={onNavigate} />
+                );
+              })}
+              <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
             </ul>
           )}
         </>
@@ -366,16 +376,18 @@ function RecordRef({
 
 function StructRow({
   issue,
+  zebra,
   dataset,
   onNavigate,
 }: {
   issue: StructIssue;
+  zebra?: boolean;
   dataset: Dataset;
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   return (
-    <li className={`tools-issue sev-${issue.severity}`} title={issue.tooltip}>
+    <li className={`tools-issue sev-${issue.severity}${zebra ? " zebra" : ""}`} title={issue.tooltip}>
       {issue.recordTag ? (
         <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} />
       ) : issue.line != null ? (

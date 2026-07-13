@@ -13,7 +13,7 @@ import { initialWorkspace, workspaceReducer, type LoadedFile, type SlotState } f
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "./gedcom/types";
-import { cloneNode } from "./gedcom/node";
+import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
@@ -134,6 +134,20 @@ function AppContent() {
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
+  // Same for the live main dataset (stable identity per load, but needed from
+  // []-dep callbacks like setPairStatus).
+  const mainDatasetRef = useRef(mainDataset);
+  mainDatasetRef.current = mainDataset;
+
+  /** Stamp a decision being set to confirmed with the main person's current
+   *  record fingerprint, so the save preview can warn when Edit-mode changes
+   *  land on that person after the confirmation (the field choices were made
+   *  against values that may no longer exist). */
+  function stampMainFp(next: CandidateDecision, mainId: string): CandidateDecision {
+    if (next.status !== "confirmed") return next;
+    const raw = mainDatasetRef.current?.individuals.get(mainId)?.raw;
+    return raw ? { ...next, mainFp: nodeFingerprint(raw) } : next;
+  }
 
   // Opt-in "graft this whole incoming branch on save" selections, made from the
   // compare tree. Each entry is an `importKey(direction, incomingId)`. Kept
@@ -310,6 +324,10 @@ function AppContent() {
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
         void deleteFile(msg.role);
+        // A compare that fails to (re)load leaves no incoming file, but the
+        // hydrated undo history may still hold merge entries referencing it —
+        // undoing one would resurrect decisions with nothing to merge against.
+        if (msg.role === "compare") undoRedo.dropMergeEntries();
         // A failed restore won't reach `matched`/the main branch — unblock
         // persistence so later user-loaded files still get cached.
         persistence.hydratedRef.current = true;
@@ -528,6 +546,10 @@ function AppContent() {
       try {
         dirty.hydrate(es);
         undoRedo.hydrate(es.undo, es.redo);
+        // No cached compare coming → merge entries in the hydrated history
+        // reference an incoming file that won't exist. Drop them, or undoing
+        // one would resurrect decisions with nothing to merge against.
+        if (!persistence.expectCompareRef.current) undoRedo.dropMergeEntries();
         sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
         setEditVersion(1); // mark dataset as edited so further edits keep persisting
         hydrated = true;
@@ -689,6 +711,9 @@ function AppContent() {
       setPendingEditApply({ patches: entry.patches, direction: "undo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.before });
+    } else if (entry.mode === "rejectDup") {
+      setMode("tools");
+      dispatch({ type: "rejectedDuplicatesSet", pairs: entry.before });
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
@@ -708,6 +733,9 @@ function AppContent() {
       setPendingEditApply({ patches: entry.patches, direction: "redo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.after });
+    } else if (entry.mode === "rejectDup") {
+      setMode("tools");
+      dispatch({ type: "rejectedDuplicatesSet", pairs: entry.after });
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
@@ -847,7 +875,7 @@ function AppContent() {
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, next);
+    const after = new Map(decisions).set(key, stampMainFp(next, current.mainId));
     undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
     dispatch({ type: "decisionsSet", decisions: after });
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
@@ -862,7 +890,7 @@ function AppContent() {
   function updateDecisionForKey(key: string, next: CandidateDecision) {
     const [, mainId, compareId] = key.split(":");
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, next);
+    const after = new Map(decisions).set(key, stampMainFp(next, mainId));
     undoRedo.push({ mode: "merge", before, after, mainId, compareId });
     dispatch({ type: "decisionsSet", decisions: after });
   }
@@ -876,7 +904,7 @@ function AppContent() {
       const before = decisionsRef.current;
       const cur = before.get(key);
       const nextStatus = cur?.status === status ? "undecided" : status;
-      const after = new Map(before).set(key, { status: nextStatus, fields: cur?.fields ?? {} });
+      const after = new Map(before).set(key, stampMainFp({ status: nextStatus, fields: cur?.fields ?? {} }, mainId));
       undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
       dispatch({ type: "decisionsSet", decisions: after });
     },
@@ -1058,19 +1086,28 @@ function AppContent() {
     [mainDataset],
   );
 
+  // Confirmed decisions whose main person still exists — a person deleted in
+  // Edit mode after being confirmed can't be merged (mergeDecisions skips it),
+  // so it must not count toward the Save badge either. Depends on editVersion:
+  // deletions mutate the dataset in place.
   const confirmedCount = useMemo(() => {
     let n = 0;
-    for (const d of decisions.values()) if (d.status === "confirmed") n++;
+    for (const [key, d] of decisions) {
+      if (d.status === "confirmed" && mainDataset?.individuals.has(key.split(":")[1])) n++;
+    }
     return n;
-  }, [decisions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, mainDataset, editVersion]);
 
   const confirmedMainIds = useMemo(() => {
     const ids = new Set<string>();
     for (const [key, d] of decisions) {
-      if (d.status === "confirmed") ids.add(key.split(":")[1]);
+      const mainId = key.split(":")[1];
+      if (d.status === "confirmed" && mainDataset?.individuals.has(mainId)) ids.add(mainId);
     }
     return ids;
-  }, [decisions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, mainDataset, editVersion]);
 
   const importCount = importBranches.size;
 
@@ -1101,7 +1138,10 @@ function AppContent() {
     if (!mainDataset || main.status !== "loaded") return;
     const base = main.file.fileName.replace(/\.ged$/i, "");
     const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
-    const isMerge = confirmedCount > 0 || importCount > 0;
+    // Merge only with an incoming file actually loaded — a hydrated session can
+    // in principle carry decisions whose compare failed to restore.
+    const isMerge = (confirmedCount > 0 || importCount > 0) && !!compareDataset;
+    if (!isMerge && changedCount === 0) return;
 
     const editReport = changedCount > 0
       ? enrichEditReport(
@@ -1145,6 +1185,25 @@ function AppContent() {
       t("save.preview.dangling", { tag: d.tag, xref: d.xref, count: d.count }),
     );
     if (dangling.length > 8) integrityWarnings.push(t("save.preview.danglingMore", { count: dangling.length - 8 }));
+
+    // Confirmed matches that no longer apply cleanly: the main person was
+    // deleted after confirming (the merge skips them entirely), or edited after
+    // confirming (the field choices were made against values that have since
+    // changed). Capped like the dangling list so a bulk edit can't flood the dialog.
+    const decisionWarnings: string[] = [];
+    for (const [key, d] of decisions) {
+      if (d.status !== "confirmed") continue;
+      const [kind, mainId] = key.split(":");
+      if (kind !== "individual") continue;
+      const indi = mainDataset.individuals.get(mainId);
+      if (!indi) {
+        decisionWarnings.push(t("save.preview.orphanedDecision", { xref: xrefLabel(mainId) }));
+      } else if (isMerge && d.mainFp && d.mainFp !== nodeFingerprint(indi.raw)) {
+        decisionWarnings.push(t("save.preview.staleDecision", { name: nameOf(indi) }));
+      }
+    }
+    integrityWarnings.push(...decisionWarnings.slice(0, 8));
+    if (decisionWarnings.length > 8) integrityWarnings.push(t("save.preview.decisionWarningsMore", { count: decisionWarnings.length - 8 }));
 
     setPreview({
       records,
@@ -1275,8 +1334,9 @@ function AppContent() {
             if (fam) for (const m of [fam.husband, fam.wife, ...fam.children]) if (m && m !== id) memberIds.add(m);
           }
           const before = snapshotRecords(mainDataset, memberIds, affectedFamilyIds);
+          const recordIndex = mainDataset.records.findIndex((r) => r.xref === id);
           removeIndividual(mainDataset, indi);
-          patches.push({ type: "individual", id, before: beforeIndi, after: null });
+          patches.push({ type: "individual", id, before: beforeIndi, after: null, ...(recordIndex !== -1 && { index: recordIndex }) });
           patches.push(...patchesFromSnapshots(mainDataset, before));
         }
       }
@@ -1299,8 +1359,9 @@ function AppContent() {
             const indi = mainDataset.individuals.get(indiId);
             if (indi) memberBefores.set(indiId, cloneRaw(indi.raw));
           }
+          const recordIndex = mainDataset.records.findIndex((r) => r.xref === id);
           removeFamily(mainDataset, fam);
-          patches.push({ type: "family", id, before: beforeFam, after: null });
+          patches.push({ type: "family", id, before: beforeFam, after: null, ...(recordIndex !== -1 && { index: recordIndex }) });
           for (const [indiId, before] of memberBefores) {
             const indi = mainDataset.individuals.get(indiId);
             patches.push({ type: "individual", id: indiId, before, after: indi ? cloneRaw(indi.raw) : null });
@@ -1813,11 +1874,13 @@ function AppContent() {
               onRejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
                 next.add(duplicatePairKey(aId, bId));
+                undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
               onUnrejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
                 next.delete(duplicatePairKey(aId, bId));
+                undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
             />

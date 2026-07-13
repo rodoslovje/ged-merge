@@ -5,10 +5,19 @@ import { cloneRaw } from "../ui/historyTypes";
 import {
   computePatchApplyOps,
   computePushCaptureOps,
+  shouldCaptureFallbackSnapshot,
   type DirtyOp,
   type RecordKind,
+  type SnapshotKind,
   type SnapshotOp,
 } from "./dirty";
+
+/** First-dirty snapshot of a top-level shared record (SOUR/OBJE) edited via a
+ * `type: "record"` patch, plus the owner whose dirty flag surfaced that edit. */
+export interface SharedRecordSnapshot {
+  value: GedNode;
+  owner?: { kind: RecordKind; id: string };
+}
 
 export function useDirtyTracking() {
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
@@ -23,6 +32,8 @@ export function useDirtyTracking() {
   // has returned to its pre-edit state and to revert Remove from save.
   const personSnapshots = useRef<Map<string, GedNode>>(new Map());
   const familySnapshots = useRef<Map<string, GedNode>>(new Map());
+  // Same, for shared top-level records (SOUR/OBJE) edited through an owner card.
+  const recordSnapshots = useRef<Map<string, SharedRecordSnapshot>>(new Map());
 
   // ── kind-keyed helpers (collapse individual/family duplication) ───────────
 
@@ -30,14 +41,34 @@ export function useDirtyTracking() {
     return kind === "individual" ? personSnapshots : familySnapshots;
   }
 
+  function loadedIdsFor(kind: RecordKind) {
+    return kind === "individual" ? loadedPersonIds : loadedFamilyIds;
+  }
+
   function setChangedFor(kind: RecordKind) {
     return kind === "individual" ? setChangedPersonIds : setChangedFamilyIds;
   }
 
+  function getSnapshot(kind: SnapshotKind, id: string): GedNode | undefined {
+    if (kind === "record") return recordSnapshots.current.get(id)?.value;
+    return snapshotsFor(kind).current.get(id);
+  }
+
+  function hasSnapshot(kind: SnapshotKind, id: string): boolean {
+    if (kind === "record") return recordSnapshots.current.has(id);
+    return snapshotsFor(kind).current.has(id);
+  }
+
   function applyOps(dirtyOps: DirtyOp[], snapshotOps: SnapshotOp[]) {
     for (const op of snapshotOps) {
-      if (op.action === "set") snapshotsFor(op.kind).current.set(op.id, op.value);
-      else snapshotsFor(op.kind).current.delete(op.id);
+      if (op.kind === "record") {
+        if (op.action === "set") recordSnapshots.current.set(op.id, { value: op.value, owner: op.owner });
+        else recordSnapshots.current.delete(op.id);
+      } else if (op.action === "set") {
+        snapshotsFor(op.kind).current.set(op.id, op.value);
+      } else {
+        snapshotsFor(op.kind).current.delete(op.id);
+      }
     }
     for (const op of dirtyOps) {
       const setChanged = setChangedFor(op.kind);
@@ -56,11 +87,13 @@ export function useDirtyTracking() {
   // ── public API ────────────────────────────────────────────────────────────
 
   /** Mark a record dirty from a direct Edit-mode mutation (the `onDirty` path).
-   *  Captures the pre-edit snapshot the first time a record becomes dirty —
-   *  fallback only; `captureSnapshotsForPush` covers the normal patch path. */
+   *  Captures the pre-edit snapshot the first time a *pre-existing* record
+   *  becomes dirty — fallback only; `captureSnapshotsForPush` covers the normal
+   *  patch path. Session-created records stay snapshot-less (see
+   *  {@link shouldCaptureFallbackSnapshot}). */
   function markDirty(kind: RecordKind, id: string, dataset: Dataset) {
     const snaps = snapshotsFor(kind);
-    if (!snaps.current.has(id)) {
+    if (shouldCaptureFallbackSnapshot(snaps.current.has(id), loadedIdsFor(kind).current.has(id))) {
       const raw =
         kind === "individual"
           ? dataset.individuals.get(id)?.raw
@@ -74,10 +107,11 @@ export function useDirtyTracking() {
    *  stack. Uses `patch.before` (the true pre-edit state), which is correct
    *  even if `onDirty` was never called or fires after the mutation. */
   function captureSnapshotsForPush(patches: RecordPatch[]) {
-    const ops = computePushCaptureOps(patches, (kind, id) =>
-      snapshotsFor(kind).current.has(id),
-    );
-    for (const op of ops) snapshotsFor(op.kind).current.set(op.id, op.value);
+    const ops = computePushCaptureOps(patches, hasSnapshot);
+    for (const op of ops) {
+      if (op.kind === "record") recordSnapshots.current.set(op.id, { value: op.value, owner: op.owner });
+      else snapshotsFor(op.kind).current.set(op.id, op.value);
+    }
   }
 
   /** Update dirty/snapshot state after EditView applies undo/redo patches.
@@ -90,11 +124,20 @@ export function useDirtyTracking() {
     const { dirty, snapshots } = computePatchApplyOps(
       patches,
       direction,
-      (kind, id) => snapshotsFor(kind).current.get(id),
-      (kind, id) =>
-        kind === "individual"
+      getSnapshot,
+      (kind, id) => {
+        if (kind === "record") return dataset.records.find((r) => r.xref === id);
+        return kind === "individual"
           ? dataset.individuals.get(id)?.raw
-          : dataset.families.get(id)?.raw,
+          : dataset.families.get(id)?.raw;
+      },
+      (owner, excludeId) => {
+        for (const [id, snap] of recordSnapshots.current) {
+          if (id === excludeId) continue;
+          if (snap.owner && snap.owner.kind === owner.kind && snap.owner.id === owner.id) return true;
+        }
+        return false;
+      },
     );
     applyOps(dirty, snapshots);
   }
@@ -117,6 +160,7 @@ export function useDirtyTracking() {
     loadedFamilyIds.current = new Set();
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
+    recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
   }
@@ -127,6 +171,7 @@ export function useDirtyTracking() {
     loadedFamilyIds.current = new Set(dataset.families.keys());
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
+    recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
   }
@@ -141,11 +186,13 @@ export function useDirtyTracking() {
     changedFamilyIds: string[];
     personSnapshots: [string, GedNode][];
     familySnapshots: [string, GedNode][];
+    recordSnapshots?: [string, SharedRecordSnapshot][];
   }) {
     loadedPersonIds.current = new Set(state.loadedPersonIds);
     loadedFamilyIds.current = new Set(state.loadedFamilyIds);
     personSnapshots.current = new Map(state.personSnapshots);
     familySnapshots.current = new Map(state.familySnapshots);
+    recordSnapshots.current = new Map(state.recordSnapshots ?? []);
     setChangedPersonIds(new Set(state.changedPersonIds));
     setChangedFamilyIds(new Set(state.changedFamilyIds));
   }
@@ -159,6 +206,7 @@ export function useDirtyTracking() {
       changedFamilyIds: [...changedFamilyIds],
       personSnapshots: [...personSnapshots.current] as [string, GedNode][],
       familySnapshots: [...familySnapshots.current] as [string, GedNode][],
+      recordSnapshots: [...recordSnapshots.current] as [string, SharedRecordSnapshot][],
     };
   }
 
@@ -169,6 +217,7 @@ export function useDirtyTracking() {
     loadedFamilyIds.current = new Set(dataset.families.keys());
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
+    recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
   }

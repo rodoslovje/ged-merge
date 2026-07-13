@@ -11,6 +11,17 @@ export interface RecordPatch {
   before: GedNode | null;
   /** State after the action. null = this record was deleted by the action (undo restores it). */
   after: GedNode | null;
+  /** For deletion patches (`after: null`): the record's index in
+   * `dataset.records` when `before` was captured, so undo can restore it at
+   * its original position — keeping the serialized record order (and thus the
+   * minimal-diff-against-the-original guarantee) intact. */
+  index?: number;
+  /** For `type: "record"` patches whose edit is surfaced through an owning
+   * individual/family (e.g. a shared OBJE's metadata edited from a person's
+   * media list): the owner whose dirty flag tracks this change. The owner's own
+   * raw is untouched by such an edit, so undo/redo uses this to re-evaluate the
+   * owner's dirty state instead of leaving it stuck. */
+  owner?: { kind: "individual" | "family"; id: string };
 }
 
 export function cloneRaw(raw: GedNode): GedNode {
@@ -20,6 +31,8 @@ export function cloneRaw(raw: GedNode): GedNode {
 export interface RecordSnapshots {
   individuals: Map<string, GedNode>;
   families: Map<string, GedNode>;
+  /** Position of each snapshotted record in `dataset.records` at snapshot time. */
+  indices: Map<string, number>;
 }
 
 /**
@@ -45,7 +58,11 @@ export function snapshotRecords(
     const fam = dataset.families.get(id);
     if (fam) families.set(id, cloneRaw(fam.raw));
   }
-  return { individuals, families };
+  const indices = new Map<string, number>();
+  dataset.records.forEach((r, i) => {
+    if (r.xref && (individuals.has(r.xref) || families.has(r.xref))) indices.set(r.xref, i);
+  });
+  return { individuals, families, indices };
 }
 
 /**
@@ -58,7 +75,12 @@ export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots):
   const diff = (type: "individual" | "family", id: string, beforeRaw: GedNode, currentRaw: GedNode | undefined) => {
     const after = currentRaw ? cloneRaw(currentRaw) : null;
     if (after && JSON.stringify(after) === JSON.stringify(beforeRaw)) return;
-    patches.push({ type, id, before: beforeRaw, after });
+    const patch: RecordPatch = { type, id, before: beforeRaw, after };
+    if (after === null) {
+      const index = before.indices.get(id);
+      if (index !== undefined) patch.index = index;
+    }
+    patches.push(patch);
   };
   for (const [id, raw] of before.individuals) diff("individual", id, raw, dataset.individuals.get(id)?.raw);
   for (const [id, raw] of before.families) diff("family", id, raw, dataset.families.get(id)?.raw);

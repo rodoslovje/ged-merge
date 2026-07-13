@@ -115,6 +115,11 @@ export interface CandidateDecision {
   status: MatchDecisionStatus;
   /** Per-field overrides; absent keys fall back to the row's default choice. */
   fields: Record<string, FieldChoice>;
+  /** Fingerprint of the main person's raw record when the decision was (last)
+   * set to confirmed. The save preview compares it against the live record and
+   * warns when Edit-mode changes landed after the confirmation — the field
+   * choices were made against values that no longer exist. */
+  mainFp?: string;
   /**
    * Incoming events the user has fully rejected — by editing them into a new
    * main event, or by deleting/dismissing an event that was already paired

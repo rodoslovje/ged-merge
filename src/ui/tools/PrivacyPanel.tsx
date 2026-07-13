@@ -237,8 +237,8 @@ export function PrivacyPanel({
           </button>
           {showList && (
             <ul className="tools-issues">
-              {flagged.map((f) => (
-                <li key={f.id} className="tools-issue">
+              {flagged.map((f, i) => (
+                <li key={f.id} className={`tools-issue${i % 2 ? " zebra" : ""}`}>
                   <PersonLink dataset={dataset} id={f.id} fallback={f.subject} onNavigate={onNavigate} />
                   <span className="tools-issue-msg" title={t(`tools.privacy.reasonHint.${f.reason}`)}>
                     {t(`tools.privacy.reason.${f.reason}`)}
