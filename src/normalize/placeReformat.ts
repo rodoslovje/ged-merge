@@ -1,4 +1,4 @@
-import { addressStreetName, decomposePlace, stripHouseNumber } from "../gedcom/place";
+import { addressStreetName, decomposePlace, looksLikeFacility, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
@@ -90,12 +90,19 @@ export function reformatPlace(
     const fromAddr = !!a?.houseNumber;
     const prefix = (fromAddr && a?.locality && a.locality !== locality) ? a.locality : locality;
     address = prefix ? `${prefix} ${houseNumber}` : houseNumber;
-  } else if (a && fmt.layout === "structured-addr" && !a.facility) {
+  } else if (
+    a &&
+    fmt.layout === "structured-addr" &&
+    // Keep an opaque ADDR verbatim only when it carries substance beyond a
+    // facility/parish — those two are re-emitted below (facility parenthetical,
+    // parish → AGNC), so a purely-facility or purely-parish ADDR kept raw would
+    // duplicate the text; but an ADDR like "Hrastje 26 Mrva (Moravče)" must be
+    // kept whole or the non-facility part is silently dropped.
+    (a.locality || a.jurisdiction.length > 0 || a.street || a.houseNumber || a.houseName)
+  ) {
     address = a.raw; // keep an opaque ADDR verbatim — it already holds any house name
     opaqueAddr = true;
   }
-  // (skip when the ADDR is purely a facility — `a.raw` already holds it and the
-  //  facility branch below re-emits it, which would otherwise duplicate the text)
   if (address && houseName && !opaqueAddr) address += ` (pd ${houseName})`;
 
   if (fmt.layout === "packed-plac") {
@@ -104,7 +111,11 @@ export function reformatPlace(
     if (country) plac += ` (${country})`;
     if (address) plac += `, ${address}`;
     if (parish) plac += ` - župnija ${parish}`;
-    if (facility) plac += address || parish ? ` (${facility})` : `, ${facility}`;
+    // The ", facility" form only survives a re-parse when the text contains a
+    // facility word; anything else ("Češka" mis-binned from an unknown-country
+    // parenthetical) would read back as a jurisdiction level and be dropped by
+    // the next reshape — parenthesize those instead.
+    if (facility) plac += address || parish || !looksLikeFacility(facility) ? ` (${facility})` : `, ${facility}`;
     return { plac: plac || undefined };
   }
 
@@ -115,7 +126,11 @@ export function reformatPlace(
     out.plac = normJurisdiction.join(fmt.separator);
   }
   let addrOut = address;
-  if (facility) addrOut = addrOut ? `${addrOut} (${facility})` : facility;
+  // An opaque ADDR kept verbatim already contains its own facility text —
+  // re-appending it ("Hrastje 26 Mrva (Moravče) (Moravče)") would duplicate.
+  if (facility && !(opaqueAddr && facility === a?.facility)) {
+    addrOut = addrOut ? `${addrOut} (${facility})` : facility;
+  }
   out.addr = addrOut;
   if (parish) out.agency = `župnija ${parish}`;
   return out;

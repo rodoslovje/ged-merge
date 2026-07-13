@@ -60,6 +60,20 @@ describe("decomposePlace", () => {
     expect(p.parish).toBe("Šmarje pri Jelšah");
   });
 
+  it("reads a number-only segment as the house number, wherever it appears", () => {
+    // Leading (ADDR "26 (Kapela)") — used to become locality "26".
+    const lead = decomposePlace("26 (Kapela)");
+    expect(lead.houseNumber).toBe("26");
+    expect(lead.locality).toBeUndefined();
+    expect(lead.facility).toBe("Kapela");
+
+    // Middle ("Hrašenski Vrh, 26, Kapela") — used to become street "26".
+    const mid = decomposePlace("Hrašenski Vrh, 26, Kapela");
+    expect(mid.locality).toBe("Hrašenski Vrh");
+    expect(mid.houseNumber).toBe("26");
+    expect(mid.street).toBeUndefined();
+  });
+
   it("routes a bare facility segment to facility, not jurisdiction", () => {
     const p = decomposePlace("Jesenice (Slovenija), porodnišnica");
     expect(p.facility).toBe("porodnišnica");

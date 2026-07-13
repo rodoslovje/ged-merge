@@ -140,6 +140,12 @@ const PARISH_RE = new RegExp(`\\s*[-,]?\\s*${PARISH_WORD}\\s+(.+?)\\s*$`, "i");
  */
 const HOUSE_TAIL = /\s+(\d[\d/a-zA-Z]*(?:\s*\/\s*\d[\d/a-zA-Z]*)*)$/;
 
+/** A segment that is *only* a house-number token ("26", "38/a", "21a / 53") —
+ * the number belongs to the locality named by the neighboring segments
+ * ("Hrašenski Vrh, 26, Kapela"), so it must not be read as a locality or
+ * street name of its own. */
+const BARE_HOUSE_NUMBER = /^\d[\d/a-zA-Z]*(?:\s*\/\s*\d[\d/a-zA-Z]*)*$/;
+
 /** Strip a trailing house number from a street/locality segment, leaving the name alone. */
 export function stripHouseNumber(segment: string): string {
   return segment.replace(HOUSE_TAIL, "").trim();
@@ -164,6 +170,14 @@ const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;
+
+/** Whether a detail string would re-parse as a facility (used by the packed
+ * place writer to pick a syntax that survives a round-trip through
+ * decomposePlace — a bare ", detail" without a facility word reads back as a
+ * jurisdiction level and would be dropped by the next reshape). */
+export function looksLikeFacility(s: string): boolean {
+  return FACILITY_WORDS.test(s);
+}
 
 const tidy = (s: string): string => s.replace(/\s+/g, " ").trim();
 /**
@@ -212,6 +226,14 @@ export function decomposePlace(raw: string): PlaceComponents {
   const segments = s.split(",").map(tidy).filter(Boolean);
   segments.forEach((seg, i) => {
     const hm = seg.match(HOUSE_TAIL);
+    // A number-only segment is the house number for the surrounding place,
+    // wherever it appears; treating it as a locality ("26 (Kapela)") or street
+    // ("Hrašenski Vrh, 26, Kapela") would misfile — or, on a re-normalize,
+    // silently drop — the number.
+    if (BARE_HOUSE_NUMBER.test(seg)) {
+      out.houseNumber = normNum(seg);
+      return;
+    }
     if (i === 0) {
       // A leading segment that names a facility ("Mestno pokopališče Kranj",
       // "Splošna bolnišnica Maribor") is itself the address detail, not a

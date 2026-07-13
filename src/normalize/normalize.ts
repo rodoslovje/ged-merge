@@ -218,7 +218,11 @@ function reshapePlaceNode(
   }
   if (r.agency) {
     if (existingAgency) {
-      existingAgency.value = existingAgency.value ? `${existingAgency.value}; ${r.agency}` : r.agency;
+      // Skip when the AGNC already names this parish — re-normalizing (e.g. a
+      // previously saved file) must not append the same parish again.
+      if (!existingAgency.value?.toLowerCase().includes(r.agency.toLowerCase())) {
+        existingAgency.value = existingAgency.value ? `${existingAgency.value}; ${r.agency}` : r.agency;
+      }
     } else node.children.push(plainNode("AGNC", r.agency));
   }
 
