@@ -359,6 +359,9 @@ const CandidateRow = memo(function CandidateRow({
             {candidate.relationshipLinked && (
               <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
             )}
+            {candidate.uidMatched && (
+              <span className="rel-tree-badge" title={t("list.uidMatched")}>🔑</span>
+            )}
             {kinship && (
               <span className={`candidate-kinship ${kinship.lineageClass}`} title={kinship.tooltip}>
                 {kinship.label}

@@ -658,6 +658,7 @@ export const en = {
   "tree.import.ancestors.active": "✓ Ancestors will be added",
   "tree.import.ancestors.title": "On save, merge this person's whole ancestral line from the incoming file into the main file",
   "list.relationshipLinked": "Linked by shared family — the same children and/or spouse identify these as one person, so the name or birth year may differ. Worth a check.",
+  "list.uidMatched": "Matched by record identifier — both files carry the same unique id (_UID) for this person, so they are the same record with certainty.",
   "tree.importCounts.tooltip": "Incoming-only people you can import from here: {{anc}} ancestors, {{desc}} descendants",
   "tree.import.descendants": "+ Bring descendants",
   "tree.import.descendants.active": "✓ Descendants will be added",

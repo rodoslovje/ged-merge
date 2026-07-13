@@ -45,8 +45,18 @@ function matchIndividuals(
     individualBlockKeys(i, soundex, mainDs),
   );
 
-  const scored: IndividualCandidate[] = [];
+  // Identity pre-pass: two records carrying the same `_UID`/`UID` are the same
+  // person by construction (both exports came from the same software lineage),
+  // regardless of what names/dates say. These pairs bypass blocking and gates,
+  // score a flat 100, and are placed first so the greedy 1:1 assignment always
+  // keeps them.
+  const uidPairs = matchByUid(mainDs, compareDs, config);
+  const uidMain = new Set(uidPairs.map((p) => p.mainId));
+  const uidCompare = new Set(uidPairs.map((p) => p.compareId));
+
+  const scored: IndividualCandidate[] = [...uidPairs];
   for (const compare of compareDs.individuals.values()) {
+    if (uidCompare.has(compare.id)) continue; // identity already established
     const mainIds = collectCandidates(index, individualBlockKeys(compare, soundex, compareDs));
     for (const mid of mainIds) {
       const main = mainDs.individuals.get(mid)!;
@@ -58,10 +68,75 @@ function matchIndividuals(
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
   }
-  const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config);
+  const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config, uidMain, uidCompare);
   const individuals = boostByMatchedRelatives(linked, mainDs, compareDs, config);
   const incomingDuplicates = findIncomingDuplicateClusters(scored, individuals, compareDs, config);
   return incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals };
+}
+
+/**
+ * Canonical form of a `_UID`/`UID` value for equality: brace/dash/space
+ * variants of the same GUID compare equal ("{D15EB48F-…}" ↔ "d15eb48f…").
+ * Values too short to plausibly be unique identifiers are rejected — a junk
+ * value like "1" on many records must not weld them together.
+ */
+function canonicalUid(value: string): string | undefined {
+  const v = value.replace(/[{}\s-]/g, "").toUpperCase();
+  return v.length >= 12 ? v : undefined;
+}
+
+/** uid → record id for every *unambiguous* uid in the dataset (a uid carried
+ *  by two records in one file identifies nothing and is skipped). */
+function uidIndex(ds: Dataset): Map<string, string> {
+  const byUid = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  for (const indi of ds.individuals.values()) {
+    for (const raw of indi.uids ?? []) {
+      const uid = canonicalUid(raw);
+      if (!uid || ambiguous.has(uid)) continue;
+      const seen = byUid.get(uid);
+      if (seen !== undefined && seen !== indi.id) {
+        byUid.delete(uid);
+        ambiguous.add(uid);
+      } else {
+        byUid.set(uid, indi.id);
+      }
+    }
+  }
+  return byUid;
+}
+
+/** The certain pre-matches: pairs sharing an unambiguous record identifier. */
+function matchByUid(
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig,
+): IndividualCandidate[] {
+  const mainByUid = uidIndex(mainDs);
+  if (mainByUid.size === 0) return [];
+  const compareByUid = uidIndex(compareDs);
+  if (compareByUid.size === 0) return [];
+
+  const pairs: IndividualCandidate[] = [];
+  const usedMain = new Set<string>();
+  const usedCompare = new Set<string>();
+  for (const [uid, mainId] of mainByUid) {
+    const compareId = compareByUid.get(uid);
+    if (!compareId || usedMain.has(mainId) || usedCompare.has(compareId)) continue;
+    const main = mainDs.individuals.get(mainId);
+    const compare = compareDs.individuals.get(compareId);
+    if (!main || !compare) continue;
+    usedMain.add(mainId);
+    usedCompare.add(compareId);
+    // Score the pair normally so the UI still gets the field-by-field
+    // breakdown, then override the verdict: identity is not a probability.
+    const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config);
+    cand.score = 100;
+    cand.category = categorize(1, config);
+    cand.uidMatched = true;
+    pairs.push(cand);
+  }
+  return pairs;
 }
 
 /**
@@ -301,6 +376,10 @@ function linkByRelationships(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  /** Records pre-matched by a shared `_UID` — certain identity a relationship
+   *  link must never displace. */
+  uidMain: Set<string> = new Set(),
+  uidCompare: Set<string> = new Set(),
 ): IndividualCandidate[] {
   const mainToCompare = new Map<string, string>();
   const compareToMain = new Map<string, string>();
@@ -360,6 +439,8 @@ function linkByRelationships(
   for (const { main, compare } of strongestFirst) {
     if (mainToCompare.get(main.id) === compare.id) continue; // already linked
     if (usedMain.has(main.id) || usedCompare.has(compare.id)) continue;
+    // Never displace an identity established by a shared record uid.
+    if (uidMain.has(main.id) || uidCompare.has(compare.id)) continue;
     const linkCorrob = corrob(main, compare);
     const oldCompareId = mainToCompare.get(main.id);
     const oldMainId = compareToMain.get(compare.id);

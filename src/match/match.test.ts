@@ -799,3 +799,109 @@ describe("relationship pass: ignores weak relative matches (no false link from c
     if (marija) expect(marija.score).toBeLessThan(85);
   });
 });
+
+describe("uid identity pre-match", () => {
+  it("matches two records sharing a _UID at 100, bypassing name/date gates", () => {
+    // Names, birth years and places all disagree — every gate would veto this
+    // pair — but the shared record identifier establishes identity.
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Stanislava Marija /Kožuh/
+1 SEX F
+1 BIRT
+2 DATE 1901
+1 _UID 5ACCCDFF135203F4A0023545B742CFC4
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME Slavka /Novak/
+1 SEX F
+1 BIRT
+2 DATE 1907
+1 _UID 5ACCCDFF135203F4A0023545B742CFC4
+0 TRLR
+`);
+    const r = matchDatasets(m, c);
+    expect(r.individuals).toHaveLength(1);
+    expect(r.individuals[0]).toMatchObject({ mainId: "@I1@", compareId: "@P1@", score: 100, uidMatched: true, category: "strong" });
+  });
+
+  it("treats brace/dash GUID spellings as the same identifier", () => {
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Ana /Zupan/
+1 SEX F
+1 _UID {D15EB48F-E924-434A-9EDC-40ED99DCC34E}
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME Ann /Supan/
+1 SEX F
+1 UID d15eb48fe924434a9edc40ed99dcc34e
+0 TRLR
+`);
+    const r = matchDatasets(m, c);
+    expect(r.individuals[0]).toMatchObject({ mainId: "@I1@", compareId: "@P1@", uidMatched: true });
+  });
+
+  it("ignores ambiguous uids (carried by two records in one file) and junk values", () => {
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 _UID AAAAAAAAAAAAAAAA
+1 _UID 1
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME France /Kovač/
+1 SEX M
+1 _UID AAAAAAAAAAAAAAAA
+0 @P2@ INDI
+1 NAME Tone /Zajec/
+1 SEX M
+1 _UID AAAAAAAAAAAAAAAA
+1 _UID 1
+0 TRLR
+`);
+    // The uid appears on two compare records → identifies nothing; the junk
+    // "1" is too short to count. No pair passes the ordinary gates either.
+    const r = matchDatasets(m, c);
+    expect(r.individuals.filter((i) => i.uidMatched)).toHaveLength(0);
+  });
+
+  it("uid identity wins the 1:1 assignment over a same-name score match", () => {
+    // Compare has two similar records; the uid ties main to the *worse*-named
+    // one, and the assignment must respect it.
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 5 JAN 1900
+1 _UID BBBBBBBBBBBBBBBB
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 5 JAN 1900
+0 @P2@ INDI
+1 NAME Ivan /Novak/
+1 SEX M
+1 BIRT
+2 DATE 1901
+1 _UID BBBBBBBBBBBBBBBB
+0 TRLR
+`);
+    const r = matchDatasets(m, c);
+    const forI1 = r.individuals.filter((i) => i.mainId === "@I1@");
+    expect(forI1).toHaveLength(1);
+    expect(forI1[0]).toMatchObject({ compareId: "@P2@", uidMatched: true, score: 100 });
+  });
+});

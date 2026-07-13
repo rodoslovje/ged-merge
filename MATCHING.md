@@ -37,6 +37,7 @@ There are three entry points, all built from the same primitives:
 
 ```
 parse → normalize (compare reshaped to main's conventions, see src/normalize/)
+  → ½ uid pre-match     shared _UID/UID = certain identity, score 100
   → 1 blocking          only plausible pairs are ever scored
   → 2 hard gates        sex / name / era vetoes
   → 3 scoring           weighted components + penalties + ceiling
@@ -63,6 +64,22 @@ judgement only.
 
 A record whose entire name is placeholders gets no blocking key at all — it
 cannot be matched by name, though relationship linking can still connect it.
+
+### ½. UID identity pre-match (`matchByUid`, `src/match/engine.ts`)
+
+Most programs stamp every person with a persistent unique id (vendor `_UID`,
+GEDCOM 7 `UID`) that survives export/import within the same software lineage.
+Two records carrying the same id **are** the same person by construction, so
+such pairs are matched before anything else: they bypass blocking and every
+gate (the whole point — the copies may have diverged in name or dates), score
+a flat 100 (identity is not a probability; the UI marks them 🔑), are placed
+first so the greedy 1:1 assignment always keeps them, and the relationship
+pass is forbidden from displacing them. Safeties: values are canonicalized
+(braces/dashes/case) before comparison, anything under 12 canonical chars is
+ignored as junk, and an id carried by two records in *one* file identifies
+nothing and is skipped. On merge, the incoming record's ids are carried onto
+the merged main record (`carryUids`, `src/merge/merge.ts`) so the *next*
+import of that lineage auto-matches by identity.
 
 ### 1. Blocking (`individualBlockKeys`, `src/match/scoreIndividual.ts`)
 

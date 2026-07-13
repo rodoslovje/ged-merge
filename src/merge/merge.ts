@@ -215,7 +215,13 @@ export function mergeDecisions(
     // Canonical event order, but only when this decision actually wrote
     // something — a confirmed match that took no fields must leave the record
     // byte-identical (the minimal-diff guarantee), not silently reorder it.
-    if (touched.has(mainId)) sortEventsByDate(target);
+    if (touched.has(mainId)) {
+      // Carry the incoming record's unique ids (`_UID`/`UID`) onto the merged
+      // main record: the next import of the same compare lineage then
+      // auto-matches this person by identity instead of by name/date score.
+      carryUids(target, incoming.raw);
+      sortEventsByDate(target);
+    }
   }
 
   // Graft any whole subtrees the user asked for from the compare tree, now that
@@ -254,6 +260,28 @@ export function mergeDecisions(
 
   report.recordsChanged = touched.size;
   return { records, report };
+}
+
+/** Unique-id tags carried across on merge (vendor `_UID` + GEDCOM 7 `UID`). */
+const UID_TAGS = new Set(["_UID", "UID"]);
+
+/**
+ * Copy the incoming record's unique ids onto the merged main record (appended,
+ * skipping values the main already carries in any brace/dash spelling). A
+ * record may legitimately hold several — GEDCOM 7 explicitly allows multiple
+ * UIDs, one per lineage the record has lived in.
+ */
+function carryUids(target: GedNode, incoming: GedNode): void {
+  const canon = (v: string) => v.replace(/[{}\s-]/g, "").toUpperCase();
+  const existing = new Set(
+    target.children.filter((c) => UID_TAGS.has(c.tag) && c.value?.trim()).map((c) => canon(c.value!)),
+  );
+  for (const child of incoming.children) {
+    if (!UID_TAGS.has(child.tag) || !child.value?.trim()) continue;
+    if (existing.has(canon(child.value))) continue;
+    existing.add(canon(child.value));
+    target.children.push({ level: 0, tag: child.tag, value: child.value.trim(), children: [] });
+  }
 }
 
 /** Human-readable change report (plain text) to download alongside the merge. */

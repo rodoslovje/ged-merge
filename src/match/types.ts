@@ -62,6 +62,12 @@ export interface IndividualCandidate {
    * name (maiden vs married) or birth year.
    */
   relationshipLinked?: boolean;
+  /**
+   * Set when this pair was pre-matched by a shared record identifier
+   * (`_UID` / GEDCOM 7 `UID`) — certain identity from the same software
+   * lineage: scored 100, bypasses gates, never displaced by other passes.
+   */
+  uidMatched?: boolean;
 }
 
 /**

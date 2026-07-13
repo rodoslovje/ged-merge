@@ -246,6 +246,10 @@ export interface Individual {
   notesWithLinks?: string[];
   /** Source citations (`SOUR`) attached directly to the individual (not to a specific event). */
   sources?: SourceCitation[];
+  /** Record-level unique identifiers (`_UID` vendor tag / GEDCOM 7 `UID`),
+   *  verbatim. Two records carrying the same identifier are the same person
+   *  (same software lineage), which matching uses as a certain pre-match. */
+  uids?: string[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }

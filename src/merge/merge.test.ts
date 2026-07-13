@@ -58,6 +58,32 @@ describe("mergeDecisions", () => {
     expect(out).toContain("1 NAME Jan;ez /Novak/");
   });
 
+  it("carries the incoming _UID onto a merged record (skipping ones already present)", () => {
+    const mainUid = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _UID {AAAABBBBCCCCDDDD}\n1 BIRT\n2 DATE 1850\n",
+    ));
+    const compareUid = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _UID AAAABBBBCCCCDDDD\n1 _UID 1111222233334444\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    ));
+    const { records } = mergeDecisions(mainUid, compareUid, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The new lineage id is carried; the brace-spelled duplicate is not re-added.
+    expect(out).toContain("1 _UID 1111222233334444");
+    expect(out).toContain("1 _UID {AAAABBBBCCCCDDDD}");
+    expect(out).not.toContain("1 _UID AAAABBBBCCCCDDDD\n");
+  });
+
+  it("does not touch _UID on a confirmed match that took no fields (minimal diff)", () => {
+    const mainUid = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    ));
+    const compareUid = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _UID 1111222233334444\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    ));
+    const { records } = mergeDecisions(mainUid, compareUid, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).not.toContain("_UID");
+  });
+
   it("changes only the merged record (minimal diff)", () => {
     const before = serializeGedcom(main.records);
     const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
