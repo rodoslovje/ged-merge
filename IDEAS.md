@@ -1,79 +1,131 @@
 # Project Ideas & TODO
 
-A running list of ideas, features, and todos for ged-merge.
+A running list of ideas, features, and todos for ged-merge. Done items are removed
+on each cleanup (last: 2026-07-13) — history lives in the changelog and git log.
+
+## Priority queue
+
+The items most worth doing next, in rough order of payoff for real usage
+(index-scale files, everyday editing).
+
+1. **Cluster-grouped duplicate review** — for index-scale files the duplicate
+   finder produces pair counts no flat list can serve (Hawlina: 493k people →
+   136k pairs, which union-find collapses to ~19.6k connected clusters, ~11k of
+   them clean two-person pairs). Present duplicates grouped by cluster: review a
+   pair normally; dismiss or bulk-handle a giant same-name blob wholesale. Also
+   expose the existing `minScore` knob in the Tools UI (default 0.70;
+   index-scale files want 0.85+). *(The worker offload half of the original item
+   shipped 2026-07-13: scans run in `tools.worker.ts` with progress + cancel,
+   and the results list is virtualized with no top-200 cap.)*
+2. **Frequency-aware name evidence** — the last big scoring lever. A "Svitoslav
+   Peruzzi" full-name match is near-conclusive; a "Janez Novak" one is barely
+   evidence, yet the scorer weighs them identically — ubiquitous full names
+   anchor tens of thousands of `Janez Novak (~1900)` × `Janez Novak (~1905)`
+   pairs in big files. Compute per-file name frequencies at match time (one
+   cheap pass) and require corroboration (dates/parents) before a ubiquitous
+   full name counts as an anchor, and/or scale the name components by rarity.
+   Needs the same corpus benchmarking discipline as the 2026-07 changes
+   (Renko↔Renko-Rakar must lose nothing; see MATCHING.md "Verifying changes").
+3. **Living persons privacy (global setting)** — one Settings toggle that hides
+   data of living persons throughout the app and in matching. *(The building
+   blocks exist: a Tools-tab privacy action that strips living persons
+   (`tools/privacy.ts`) and a per-chart/report "hide living people" display
+   toggle; this folds them into one global setting that also reaches matching.)*
+4. **Merge mode: media/photo field** — the deferred Phase C of the media
+   feature: compare and merge each person's media links (OBJE) like other
+   fields. `review/fields.ts` currently produces no media rows at all, so
+   compare-file photos can only arrive via whole-person import.
 
 ## Features
 
-### Settings
-The general Settings panel exists (language, theme, name display, kinship, link-fetch, workspace persistence). Remaining candidate settings:
-- **Living persons privacy** — option to hide data of living persons throughout the app and in matching. *(A Tools-tab privacy action that strips living persons, and a per-chart/report "hide living people" display toggle, already exist; this would fold them into one global setting that also reaches matching.)*
-- **Local media photos in SVG** — choose how to save people's local media photos when exporting SVG: embedded in the SVG, or as links to a URL prefix.
+### Tools tab
+- **Source reshape** — when the main file uses a source+link format, reshape all
+  links into the sources format. Create a source entry from a URL's metadata, or
+  attach the link to an already-existing source. Biggest payoff for **Matricula
+  Online** links, but also **Geneanet Cemeteries**. *(A base exists:
+  `normalize/urlMetadata.ts` already fetches a page title through the CORS relay
+  for the Add Source dialog.)*
+- **Matricula Online metadata** — beyond the existing link normalization
+  (language code) and page-title lookup, extract metadata from the URL and by
+  querying the link (e.g. book name and similar details).
+- **Geneanet Cemeteries metadata** — same idea as the Matricula Online metadata
+  feature, for Geneanet Cemeteries links.
+- **Source coverage report** — which facts / persons have no citation at all
+  (extends the existing health check).
+- **Place gazetteer standardization** — validate & fix place spelling and
+  hierarchy against GeoNames / GOV, beyond the current reshape.
 
-### New Tools (Tools tab)
-- **Source reshape** — when the main file uses a source+link format, reshape all links into the sources format. Create a source entry from a URL's metadata, or attach the link to an already-existing source. Biggest payoff for **Matricula Online** links, but also **Geneanet Cemeteries**.
-- **Matricula Online metadata** — beyond the existing link normalization (language code), extract metadata from the URL and by querying the link (e.g. book name and similar details).
-- **Geneanet Cemeteries metadata** — same idea as the Matricula Online metadata feature, for Geneanet Cemeteries links.
-
-### Photos
-- ~~**Drag & drop** — improve adding new photos by supporting drag-and-drop.~~ *Done: dropping a file from outside the media folder (or "Import from disk…" in the Add-media picker) copies it into the folder — Chrome/Edge, readwrite upgrade with a per-session browser prompt; collisions get a `-1` suffix.*
-
-### Matching quality
-*(The 2026-07 overhaul is documented in [MATCHING.md](MATCHING.md); the dense-name-cluster false positives item shipped as part of it — parent-conflict penalties, placeholder-name handling, evidence ceiling.)*
-
-- **Cluster-grouped duplicate review + worker offload** — for index-scale files the duplicate finder produces pair counts no flat list can serve (Hawlina: 493k people → 136k pairs, which union-find collapses to ~19.6k connected clusters, ~11k of them clean two-person pairs). Present duplicates grouped by cluster (review a pair normally; dismiss or bulk-handle a giant same-name blob wholesale), move the scan off the main thread into the worker with a progress message (~3 min compute on a 500k-person file currently blocks the tab), and expose the existing `minScore` knob in the Tools UI (default 0.70; index-scale files want 0.85+).
-- **Frequency-aware name evidence** — the last big scoring lever. A "Svitoslav Peruzzi" full-name match is near-conclusive; a "Janez Novak" one is barely evidence, yet the scorer weighs them identically — ubiquitous full names anchor tens of thousands of `Janez Novak (~1900)` × `Janez Novak (~1905)` pairs in big files. Compute per-file name frequencies at match time (one cheap pass) and require corroboration (dates/parents) before a ubiquitous full name counts as an anchor, and/or scale the name components by rarity. Needs the same corpus benchmarking discipline as the 2026-07 changes (Renko↔Renko-Rakar must lose nothing; see MATCHING.md "Verifying changes").
-
-### GEDCOM custom tags support
-Build a system for custom/proprietary GEDCOM tags supported by GED Merge — allow them to be edited and merged, with simple reshaping rules to convert between different supported custom types (e.g. MacFamilyTree extensions). Goal: support all major software, including **Brother's Keeper**, **Family Historian**, **RootsMagic**, and **MacFamilyTree**.
-
-## Suggested (from feature-set analysis)
-
-Ideas surfaced by reviewing the current app. Not yet committed — cull as needed.
-
-### Data quality / health (extends the existing Tools)
-- **Source coverage report** — which facts / persons have no citation at all.
-- **Place gazetteer standardization** — validate & fix place spelling and hierarchy against GeoNames / GOV, beyond the current reshape.
-
-### Reports & analysis
-- ~~**Ahnentafel / narrative (register) report** — exportable ancestor/descendant report. Include a **register report in NGSQ (National Genealogical Society Quarterly) format** for a person's ascendants/descendants, exported as text / RTF (or similar).~~ *Done: the Report chart kind covers Ahnentafel + an NGSQ-format descendant register behind an A/D toggle, plus a List ↔ Pripoved narrative-text view (English + Slovenian). Exports as text; RTF export is still open.*
+### Reports & charts
+- **Report generation depth** — a max-generations setting for the Ahnentafel /
+  descendant register (both currently walk the whole tree).
 - **Research to-do / log** — per-person open questions, flags, research notes.
-
-### Visualization
 - **Map view** — plot birth/death/marriage places (geocoded) and migration paths.
-- ~~**Descendant & classic pedigree charts** — complement the existing fan, circle, grid and relationship charts.~~ *Done: the Tree and Grid chart kinds have an Ancestors ↔ Descendants direction toggle (keyboard A/D) with LR/TB alignment, covering both classic pedigree and descendant layouts.*
-- ~~**Timeline view** — per-person or per-family chronological timeline.~~ *Done: the Charts hub's Timeline kind (family lifespan bars + event/marriage markers).*
 
-### Editing / UX
-- ~~**Global search & filter** — find individuals across the whole file.~~ *Done: the header search (`GlobalSearchModal`/`globalSearch.ts`) matches every name form + lifespan text, with facets for sex, birth year, place and attachments (links/notes/sources).*
+### Settings
+- **Local media photos in SVG** — choose how to save people's local media photos
+  when exporting SVG: embedded in the SVG (current behavior), or as links to a
+  configurable URL prefix.
 
 ### Import / export
-- **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media bundles.
-- **Subset / format export** — ~~export part of the main file as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch~~ *(done — every chart's Export menu offers a branch-GEDCOM export: main dataset + that chart's people, ≥2-member-family rule, no dangling xrefs)*, or export to CSV / JSON *(still open)*.
+- **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media
+  bundles. *(Crop regions already use the GEDCOM 7 vocabulary.)*
+- **CSV / JSON export** — export the main file (or a filtered subset) as CSV or
+  JSON for spreadsheets and external tools.
+- **GEDCOM custom tags support** — a system for custom/proprietary GEDCOM tags:
+  allow them to be edited and merged, with simple reshaping rules to convert
+  between different supported custom types (e.g. MacFamilyTree extensions).
+  Goal: support all major software, including **Brother's Keeper**, **Family
+  Historian**, **RootsMagic**, and **MacFamilyTree**.
 
-## Refactoring backlog (from the 2026-07-12 whole-project review)
+## Suggested (from the 2026-07-13 review)
 
-Prioritized technical-debt items from the full code review. None changes behavior on its own; pay down opportunistically as features touch the same files.
+Not yet committed — cull as needed.
 
-### Correctness edges (small, do first when nearby)
-*All five fixed 2026-07-12: shadowed duplicate-xref records dropped from `records[]`; leading-`@` values escaped as `@@` on output (folded back on parse); `/` in name parts replaced with a space, and the trailing token after the surname kept (suffix — or given for surname-first `/Novak/ Janez` values); `onerror`/`onmessageerror` on both workers fail the waiting slots/scans instead of spinning; level-jump lines clamp to the deepest open node instead of reparenting to top level.*
+- **Configurable link-fetch relay** — `urlMetadata.ts` hardcodes the public
+  `api.allorigins.win` CORS relay; a single third-party point of failure for the
+  opt-in link-fetch feature. Allow a user-supplied relay URL (or document
+  self-hosting one).
+- **Keyboard-shortcut cheat sheet** — a `?` overlay listing the chart/edit/merge
+  shortcuts that already exist in `src/keyboard/`; today they're only
+  discoverable from the guide.
+- **File statistics panel** — a cheap Tools panel over data already computed:
+  person/family/source counts, date coverage, surname frequency, lifespan
+  distribution. (The name-frequency pass from priority #2 could feed it.)
+- **Edit diff gap: INDI-level `MARR`** — the Edit view shows an INDI-level MARR
+  (`INDI_EVENT_TAGS` includes it) but `editReport.ts` doesn't diff it, so such
+  an edit saves without appearing in the report. Small pre-existing
+  inconsistency, noted during the 2026-07-12 dedup pass.
 
-### Duplication that will drift (low effort, medium payoff)
-*All four resolved 2026-07-12: `src/gedcom/eventTags.ts` is now the single source of event-tag sets and life-cycle ordering (builder/chanCrea/editReport/edit child orders, review `EVENT_ORDER` and editConstants `EXTRA_EVENT_ORDER`/`FAMILY_EVENT_TAGS` all derive from it); `SAME_PERSON_GIVEN`, `differentGiven` and the parent-verdict predicates (`fatherGivenVerdict`/`motherGivenVerdict`/`parentsVerdict`) live once in `match/similarity.ts`, shared by the engine, the within-file duplicate finder and the pair scorer; `eventUpdateHasContent` extracted in `edit.ts`. The event-ordering item turned out to be already shared — `merge/applyFields.ts` imports `lifespanAnchors`/`zoneSortKey` from `review/fields.ts`; only intentionally-different tie-break glue remains at the two call sites. Noted while at it: an INDI-level `MARR` is shown by the Edit view (`INDI_EVENT_TAGS` includes MARR) but not diffed by `editReport.ts` — pre-existing, unchanged.*
+## Performance backlog (as large-file usage grows)
 
-### God-file decomposition (mechanical, high maintainability payoff)
-- ~~**`src/ui/ToolsView.tsx` (~2.5k lines)** → per-panel files under `src/ui/tools/`; panels are already self-contained, near-pure code motion.~~ *(done 2026-07-12 — seven panel files + `tools/shared.tsx`; ToolsView.tsx keeps the tab shell + scans cache)*
-- ~~**`src/gedcom/edit.ts` (~1.2k lines)** → split along its existing banner sections into `edit/{events,names,family,media,sources,cache}.ts`.~~ *(done 2026-07-12 — `src/gedcom/edit/` package: `shared` (child orders + node plumbing), `events`, `names`, `family`, `records` (notes/links), `media`, `sources`, `cache`, with an `index.ts` barrel preserving the exact public API so no importer changed)*
-- ~~**`src/App.tsx` (~2.4k lines)**: collapse the six near-identical tool-fix callbacks into one `applyToolPatches` helper; extract a `useWorkspacePersistence` hook (hydration + debounced writer + persist toggle, ~300 cohesive lines) and a `useAppHistory` hook (overlay/history state machine). Also finish the started workspace-reducer migration rather than restructuring around it.~~ *(done 2026-07-12 — App.tsx 2364→1871 lines: `applyToolPatches`, `src/ui/useAppHistory.ts` (overlays + popstate + leave guards), `src/persist/useWorkspacePersistence.ts` (hydration + debounced writer + toggle + verify). The reducer migration turned out to be already finished — UI-local state stays in useState by the store's own charter; the stale App comment saying otherwise is fixed.)*
-- ~~**`review/fields.ts` (~1.2k lines)**: split `individualFieldRows` (~190 lines) into `buildEventRows` / `buildParentRows` / `buildFamilyRows`; consider typing the stringly `row.key.split(".")` dispatch in `merge/applyFields.ts`.~~ *(done 2026-07-12 — the three builders extracted (the byte-identical MARR block folded into the ENGA/SEPA/DIV family-event loop while at it), and `applyFields.ts` now parses row keys once via `parseEventRowKey` into a typed `{ tag, sub: EventSubField, eventKey }`)*
+- **Memoize EditView subsections** (event rows, family grids) so a `tick` bump
+  doesn't rebuild the whole subtree — do *not* rewrite its in-place-mutation
+  model; the undo-patch machinery depends on it.
+- **O(N²) patterns in `gedcom/edit/`**: `pruneUnreferencedMedia` /
+  `pruneUnreferencedSource` DFS the whole dataset per removal; `nextXref`
+  rescans all records per allocation. Reference-count / cache a max-xref
+  counter.
+- **Virtualize the place/source trees** — the Tools tree panels render every
+  visible node; virtualizing them means flattening the recursive `tools-tree`
+  markup first. Worth it only if index-scale files make those panels hurt. (The
+  flat lists — match results, health check, duplicates — are already virtualized
+  via `useVirtualList`.)
+- **Explicitly not worth it**: SharedArrayBuffer for the dataset (needs a
+  columnar rewrite + COOP/COEP headers that break subpath hosting); wholesale
+  EditView immutability rewrite; touching `src/chart/` (cleanest layer in the
+  app).
 
-### Scale / performance (as large-file usage grows)
-- **Virtualize the long lists** — match results, health-check issues, place/source trees all render every row (the duplicates list now caps at the top 200 as a stopgap, 2026-07-12).
-- **Memoize EditView subsections** (event rows, family grids) so a `tick` bump doesn't rebuild the whole subtree — do *not* rewrite its in-place-mutation model; the undo-patch machinery depends on it.
-- **O(N²) patterns in `edit.ts`**: `pruneUnreferencedMedia`/`pruneUnreferencedSource` DFS the whole dataset per removal; `nextXref` rescans all records per allocation. Reference-count / cache a max-xref counter.
-- **Explicitly not worth it**: SharedArrayBuffer for the dataset (needs a columnar rewrite + COOP/COEP headers that break subpath hosting); wholesale EditView immutability rewrite; touching `src/chart/` (cleanest layer in the app).
+## Test / CI hardening
 
-### Test / CI hardening
-- ~~**Four e2e specs depend on gitignored `test-data/Senen.ged`** (`edit`, `export-pdf`, `global-search`, `add-relative` specs) — broken in any fresh checkout/CI; commit an anonymized e2e fixture (the corpus anonymizer already exists) or add skip guards.~~ *(done 2026-07-12 — the four specs load the already-committed anonymized Senen slice `src/__fixtures__/corpus/reunion-5.5.1-utf8.ged` (377 people, pseudonymized names, dates intact); global-search assertions retargeted to the pseudonyms ("Marta3 Karel2 Moharič" b. 1934). Full e2e passes with no `test-data/` present.)*
-- **e2e tests the dev server, not the build**: point Playwright's `webServer` at `npm run preview` in CI and add a PWA/service-worker smoke spec (currently zero automated coverage of the offline/update flow).
-- Dedicated unit tests for the highest-value untested modules: `tools/validate.ts`, `match/scoreIndividual.ts`, `merge/applyRelations.ts`, `normalize/date.ts`/`place.ts`; property-based round-trip fuzzing of the parser (fast-check); a `vitest bench` perf floor for `matchDatasets`.
-
+- **e2e tests the dev server, not the build** — point Playwright's `webServer`
+  at `npm run preview` in CI and add a PWA/service-worker smoke spec (currently
+  zero automated coverage of the offline/update flow).
+- **Parser fuzzing** — property-based round-trip fuzzing of the parser
+  (fast-check).
+- **Perf floor** — a `vitest bench` benchmark for `matchDatasets` so scoring
+  changes can't silently regress large-file match time.
+- **Direct unit tests for `match/scoreIndividual.ts`** — currently exercised
+  only through the engine-level `match.test.ts` / `similarity.test.ts`.
+  *(The rest of the original "untested modules" list is covered now:
+  `tools/validate.ts` via `tools.test.ts`, `merge/applyRelations.ts` via the
+  merge golden tests, `normalize/date.ts`/`place.ts` via `normalize.test.ts`.)*
