@@ -215,6 +215,11 @@ describe("reformatPlace idempotence (re-normalizing its own output)", () => {
     expect(r.addr).toBe("Hrastje 26 Mrva (Moravče)");
   });
 
+  it("emits a facility-only place without a leading space", () => {
+    const r = fixedPoint("(Kozjansko)", undefined, KOVACIC);
+    expect(r.plac).toBe("(Kozjansko)");
+  });
+
   it("moves a parish-only ADDR into AGNC without keeping a duplicate ADDR", () => {
     const r = fixedPoint("Trst, Avstrijsko primorje", "Župnija Sv. Antona", {
       layout: "structured-addr",

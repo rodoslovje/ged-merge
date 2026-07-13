@@ -116,7 +116,9 @@ export function reformatPlace(
     // parenthetical) would read back as a jurisdiction level and be dropped by
     // the next reshape — parenthesize those instead.
     if (facility) plac += address || parish || !looksLikeFacility(facility) ? ` (${facility})` : `, ${facility}`;
-    return { plac: plac || undefined };
+    // An empty locality leaves a leading space ("" + " (Kozjansko)") — trim so
+    // the output is already in its re-parse-stable form.
+    return { plac: plac.trim() || undefined };
   }
 
   // structured-addr

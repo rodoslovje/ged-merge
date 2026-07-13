@@ -86,6 +86,13 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li>Place normalization no longer loses details when a file is normalized again (for example a file saved by the app and later loaded as the incoming file): a bare house number ("26") is now kept with its village instead of being dropped, an address with extra text next to its landmark ("Hrastje 26 Mrva (Moravče)") is kept whole, and a detail that only <em>looks</em> like a landmark ("Šlapanov (Češka)") is written back in a form that reads the same way next time. A parish-only address now moves cleanly into the Agency field without leaving a duplicate behind.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
             <h2>2026-07-12</h2>
             <ul>
               <li>The Tools scans (Health check, Find duplicates, Normalize, Sources) now run in the background — the app stays responsive while a large file is scanned, instead of freezing until the scan finishes. Finished results are kept while you switch tabs or modes, and a scan keeps running if you browse elsewhere in the meantime.</li>

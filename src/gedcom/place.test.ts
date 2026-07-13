@@ -74,6 +74,20 @@ describe("decomposePlace", () => {
     expect(mid.street).toBeUndefined();
   });
 
+  it("does not read a renumbering chain ending in a word as a house number", () => {
+    // "99/145/Vrata" ends in a hamlet name — the whole locality must survive.
+    const p = decomposePlace("Čepovan 99/145/Vrata (Slovenija), Čepovan 99/145/Vrata 51");
+    expect(p.locality).toBe("Čepovan 99/145/Vrata");
+    expect(p.houseNumber).toBe("51");
+  });
+
+  it("keeps a facility named '<X> Parish (country)' whole instead of reading a parish", () => {
+    const p = decomposePlace("Holy Wisdom Parish (USA)");
+    expect(p.parish).toBeUndefined();
+    expect(p.locality).toBe("Holy Wisdom Parish");
+    expect(p.country).toBe("USA");
+  });
+
   it("routes a bare facility segment to facility, not jurisdiction", () => {
     const p = decomposePlace("Jesenice (Slovenija), porodnišnica");
     expect(p.facility).toBe("porodnišnica");
