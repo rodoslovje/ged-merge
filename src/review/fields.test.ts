@@ -135,9 +135,9 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 1910\n${body}\n0 TRLR\n`)
       .individuals.get(id);
 
-  it("surfaces REFN and attribute tags (TITL/RELI/DSCR/NOBI/LATR) as value rows", () => {
+  it("surfaces REFN and attribute tags (TITL/RELI/DSCR/NOBI/LATR/DEED/ILL) as value rows", () => {
     const rows = individualFieldRows(tr,
-      person("1 REFN 1234\n1 TITL Earl of Richmond\n1 RELI rimokatoliška\n1 DSCR tall\n1 NOBI Velika plaketa Občine Preddvor\n2 DATE 2025\n1 LATR Pogodba o vzdrževanju\n2 DATE 7 May 1928"),
+      person("1 REFN 1234\n1 TITL Earl of Richmond\n1 RELI rimokatoliška\n1 DSCR tall\n1 NOBI Velika plaketa Občine Preddvor\n2 DATE 2025\n1 LATR Pogodba o vzdrževanju\n2 DATE 7 May 1928\n1 DEED Kmetijsko društvo\n2 DATE 23 JUN 1910\n1 ILL prometna nesreča\n2 DATE 22 JUN 1966"),
       undefined,
     );
     expect(byKey(rows, "REFN.value")?.main).toBe("1234");
@@ -148,6 +148,10 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     expect(byKey(rows, "NOBI.date")?.main).toBe("2025");
     expect(byKey(rows, "LATR.value")?.main).toBe("Pogodba o vzdrževanju");
     expect(byKey(rows, "LATR.date")?.main).toBe("7 May 1928");
+    expect(byKey(rows, "DEED.value")?.main).toBe("Kmetijsko društvo");
+    expect(byKey(rows, "DEED.date")?.main).toBe("23 JUN 1910");
+    expect(byKey(rows, "ILL.value")?.main).toBe("prometna nesreča");
+    expect(byKey(rows, "ILL.date")?.main).toBe("22 JUN 1966");
   });
 
   it("lifts Brother's Keeper _INTE/_FNRL/_MILT as events with date and place", () => {

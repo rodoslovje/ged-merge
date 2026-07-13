@@ -240,6 +240,8 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },
   PRIV: { software: MFT, category: "internal", meaning: { en: "private-note flag", sl: "oznaka zasebne opombe" } },
   LATR: { software: MFT, category: "event", meaning: { en: "legal transaction", sl: "pravni posel" } },
+  DEED: { software: MFT, category: "event", meaning: { en: "deed / property record", sl: "listina / lastninski zapis" } },
+  ILL: { software: MFT, category: "event", meaning: { en: "illness", sl: "bolezen" } },
 };
 
 /** MacFamilyTree source/place template machinery — one shared classification. */

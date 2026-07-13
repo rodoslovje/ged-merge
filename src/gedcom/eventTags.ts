@@ -15,7 +15,7 @@
 export const INDI_EVENT_TAG_ORDER = [
   "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "_MEDC",
+  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
   "EVEN", "FACT", "REFN",
@@ -46,7 +46,7 @@ export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "_MSTAT"]
  *  value field and compared as a `.value` row. */
 export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "OCCU", "EDUC", "RETI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "REFN",
+  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "ILL", "REFN",
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",
 ]);

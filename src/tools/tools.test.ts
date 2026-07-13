@@ -296,6 +296,28 @@ describe("validateStructure", () => {
     expect(generic?.messageKey).toBe("tools.validate.struct.issue.customTag");
   });
 
+  it("classifies bare tags declared by the file's own _STF source-template fields", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @TF35@ _STF
+1 _NKY SourceTemplate_KeyName_MicrofilmRollNumber
+1 _TAG ROLN
+0 @S1@ SOUR
+1 TITL Census 1910
+1 ROLN 12345
+1 BOGUS x
+0 TRLR`);
+    const report = validateStructure(ds);
+    const roln = report.issues.find((i) => i.messageVars?.tag === "ROLN");
+    expect(roln?.category).toBe("customTag");
+    expect(roln?.messageKey).toBe("tools.validate.struct.issue.customTagKnown");
+    expect(roln?.messageVars).toMatchObject({ software: "MacFamilyTree" });
+    expect(roln?.messageVars?.meaningEn).toBe("source-template field (microfilm roll number)");
+    // An undeclared bare tag is still unknown.
+    const bogus = report.issues.find((i) => i.messageVars?.tag === "BOGUS");
+    expect(bogus?.category).toBe("unknownTag");
+  });
+
   it("folds a MacFamilyTree SECG second given name into the parsed given when it's extra", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
