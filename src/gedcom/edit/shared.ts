@@ -100,14 +100,49 @@ export function setOrRemoveValue(node: GedNode, tag: string, value: string, orde
   });
 }
 
+/**
+ * Highest allocated `@<prefix><n>@` number per prefix, so `nextXref` doesn't
+ * rescan every record per allocation (O(N) each on an index-scale file). The
+ * cache only ever *over*estimates: removals (deletes, undo of a create) leave
+ * gaps, which is safe — a fresh number is still unused. Insertions are covered
+ * because they all funnel through `nextXref` itself or `insertRecord` (which
+ * records the inserted xref below).
+ */
+const maxXrefCache = new WeakMap<GedNode[], Map<string, number>>();
+
+function xrefCacheFor(records: GedNode[]): Map<string, number> {
+  let maxes = maxXrefCache.get(records);
+  if (!maxes) {
+    maxes = new Map();
+    maxXrefCache.set(records, maxes);
+  }
+  return maxes;
+}
+
+/** Keep the cached max in step with an xref inserted without `nextXref`
+ *  (merge's gap-filling allocator, undo restoring a deleted record). */
+function noteInsertedXref(records: GedNode[], xref: string | undefined): void {
+  const m = xref?.match(/^@([A-Za-z]+)(\d+)@$/);
+  if (!m) return;
+  const maxes = maxXrefCache.get(records);
+  if (!maxes) return; // no cache yet — the first nextXref scan will see it
+  const cur = maxes.get(m[1]);
+  if (cur !== undefined && parseInt(m[2], 10) > cur) maxes.set(m[1], parseInt(m[2], 10));
+}
+
 /** Find the next unused `@<prefix><n>@` xref among the top-level records. */
 export function nextXref(records: GedNode[], prefix: string): string {
-  const re = new RegExp(`^@${prefix}(\\d+)@$`);
-  let max = 0;
-  for (const r of records) {
-    const m = r.xref?.match(re);
-    if (m) max = Math.max(max, parseInt(m[1], 10));
+  const maxes = xrefCacheFor(records);
+  let max = maxes.get(prefix);
+  if (max === undefined) {
+    const re = new RegExp(`^@${prefix}(\\d+)@$`);
+    max = 0;
+    for (const r of records) {
+      const m = r.xref?.match(re);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
   }
+  maxes.set(prefix, max + 1);
   return `@${prefix}${max + 1}@`;
 }
 
@@ -116,6 +151,7 @@ export function nextXref(records: GedNode[], prefix: string): string {
  * than scattering at the file's end), or just before `TRLR` (or at the very
  * end, if there's none) when no record of that tag exists yet. */
 export function insertRecord(records: GedNode[], record: GedNode): void {
+  noteInsertedXref(records, record.xref);
   let lastSameTag = -1;
   for (let i = records.length - 1; i >= 0; i--) {
     if (records[i].tag === record.tag) { lastSameTag = i; break; }
