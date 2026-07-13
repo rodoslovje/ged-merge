@@ -128,3 +128,16 @@ export function insertRecord(records: GedNode[], record: GedNode): void {
   if (trlrIndex === -1) records.push(record);
   else records.splice(trlrIndex, 0, record);
 }
+
+/** Re-insert a record at the position it held before a deletion (undo of a
+ * delete), keeping the file's record order — and thus the minimal diff against
+ * the original — intact. Falls back to {@link insertRecord}'s grouping when no
+ * index is known, and never inserts past `TRLR`. */
+export function insertRecordAt(records: GedNode[], record: GedNode, index: number | undefined): void {
+  if (index === undefined || index > records.length) {
+    insertRecord(records, record);
+    return;
+  }
+  const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
+  records.splice(trlrIndex === -1 ? index : Math.min(index, trlrIndex), 0, record);
+}

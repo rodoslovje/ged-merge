@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computePatchApplyOps, computePushCaptureOps, nodesEqual } from "./dirty";
+import { computePatchApplyOps, computePushCaptureOps, nodesEqual, shouldCaptureFallbackSnapshot } from "./dirty";
 import type { GedNode } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 
@@ -210,11 +210,89 @@ describe("computePatchApplyOps", () => {
     ]);
   });
 
-  it("skips patches with type=record", () => {
-    const patch: RecordPatch = { type: "record", id: "@S1@", before: null, after: node("SOUR") };
+  it("record patch without owner emits no dirty ops", () => {
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: node("SOUR"), after: node("SOUR", "v2") };
     const ops = computePatchApplyOps([patch], "undo", noSnapshot, noRecord);
     expect(ops.dirty).toHaveLength(0);
     expect(ops.snapshots).toHaveLength(0);
+  });
+
+  it("record patch going away (undo of creation) drops its snapshot, no dirty ops", () => {
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: null, after: node("SOUR") };
+    const ops = computePatchApplyOps([patch], "undo", noSnapshot, noRecord);
+    expect(ops.dirty).toHaveLength(0);
+    expect(ops.snapshots).toEqual([{ action: "delete", kind: "record", id: "@S1@" }]);
+  });
+
+  // Shared-record patches with an owner (regression: undoing a shared OBJE
+  // metadata edit used to leave the owner phantom-dirty forever) ────────────
+
+  describe("record patches with owner", () => {
+    const owner = { kind: "individual" as const, id: "@I1@" };
+    const objeOrig = node("OBJE", "orig-title");
+    const objeEdited = node("OBJE", "new-title");
+    const ownerRaw = node("INDI", "owner");
+
+    function recPatch(before: GedNode | null, after: GedNode | null): RecordPatch {
+      return { type: "record", id: "@O1@", before, after, owner };
+    }
+
+    it("undo back to the record snapshot clears the clean owner", () => {
+      const ops = computePatchApplyOps(
+        [recPatch(objeOrig, objeEdited)],
+        "undo",
+        (kind, id) => (kind === "record" ? objeOrig : id === "@I1@" ? ownerRaw : undefined),
+        (kind) => (kind === "record" ? objeOrig : ownerRaw),
+      );
+      expect(ops.dirty).toEqual([{ action: "remove", kind: "individual", id: "@I1@" }]);
+      expect(ops.snapshots).toEqual([{ action: "delete", kind: "record", id: "@O1@" }]);
+    });
+
+    it("undo back to the record snapshot keeps an owner with direct edits dirty", () => {
+      const ownerEdited = node("INDI", "owner-edited");
+      const ops = computePatchApplyOps(
+        [recPatch(objeOrig, objeEdited)],
+        "undo",
+        (kind) => (kind === "record" ? objeOrig : ownerRaw), // owner snapshot = original
+        (kind) => (kind === "record" ? objeOrig : ownerEdited), // but current differs
+      );
+      expect(ops.dirty).toHaveLength(0);
+      expect(ops.snapshots).toEqual([{ action: "delete", kind: "record", id: "@O1@" }]);
+    });
+
+    it("undo back to the record snapshot keeps a session-created owner (no snapshot) dirty", () => {
+      const ops = computePatchApplyOps(
+        [recPatch(objeOrig, objeEdited)],
+        "undo",
+        (kind) => (kind === "record" ? objeOrig : undefined), // owner has no snapshot
+        (kind) => (kind === "record" ? objeOrig : ownerRaw),
+      );
+      expect(ops.dirty).toHaveLength(0);
+    });
+
+    it("undo back to the record snapshot keeps the owner dirty while another owned record is edited", () => {
+      const ops = computePatchApplyOps(
+        [recPatch(objeOrig, objeEdited)],
+        "undo",
+        (kind) => (kind === "record" ? objeOrig : ownerRaw),
+        (kind) => (kind === "record" ? objeOrig : ownerRaw),
+        () => true, // a second shared record owned by @I1@ is still modified
+      );
+      expect(ops.dirty).toHaveLength(0);
+    });
+
+    it("redo of the record edit re-dirties the owner and restores a missing record snapshot", () => {
+      const ops = computePatchApplyOps(
+        [recPatch(objeOrig, objeEdited)],
+        "redo",
+        () => undefined, // record snapshot was cleared by the prior undo
+        (kind) => (kind === "record" ? objeEdited : ownerRaw),
+      );
+      expect(ops.dirty).toEqual([{ action: "add", kind: "individual", id: "@I1@" }]);
+      expect(ops.snapshots).toHaveLength(1);
+      expect(ops.snapshots[0]).toMatchObject({ action: "set", kind: "record", id: "@O1@", owner });
+      expect((ops.snapshots[0] as { value: GedNode }).value).toEqual(objeOrig);
+    });
   });
 });
 
@@ -245,8 +323,16 @@ describe("computePushCaptureOps", () => {
     expect(ops).toHaveLength(0);
   });
 
-  it("skips record-type patches", () => {
-    const patch: RecordPatch = { type: "record", id: "@S1@", before: node("SOUR"), after: node("SOUR", "v2") };
+  it("captures record-type patches under the record kind, carrying the owner", () => {
+    const owner = { kind: "individual" as const, id: "@I9@" };
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: node("SOUR"), after: node("SOUR", "v2"), owner };
+    const ops = computePushCaptureOps([patch], () => false);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ kind: "record", id: "@S1@", owner });
+  });
+
+  it("skips record-type creation patches (before === null)", () => {
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: null, after: node("SOUR") };
     const ops = computePushCaptureOps([patch], () => false);
     expect(ops).toHaveLength(0);
   });
@@ -285,5 +371,26 @@ describe("computePushCaptureOps", () => {
     const [captured] = computePushCaptureOps([patch], () => false);
     captured.value.value = "mutated";
     expect(original.value).toBe("original");
+  });
+});
+
+// ── shouldCaptureFallbackSnapshot ───────────────────────────────────────────
+// Regression: markDirty used to snapshot session-created records too, so
+// undoing a later edit on a new person restored their creation state, matched
+// the snapshot ("fully reverted", case C) and wrongly dropped the still-unsaved
+// new record from the dirty set.
+
+describe("shouldCaptureFallbackSnapshot", () => {
+  it("captures for a pre-existing record with no snapshot yet", () => {
+    expect(shouldCaptureFallbackSnapshot(false, true)).toBe(true);
+  });
+
+  it("never captures for a session-created record", () => {
+    expect(shouldCaptureFallbackSnapshot(false, false)).toBe(false);
+  });
+
+  it("never overwrites an existing snapshot", () => {
+    expect(shouldCaptureFallbackSnapshot(true, true)).toBe(false);
+    expect(shouldCaptureFallbackSnapshot(true, false)).toBe(false);
   });
 });

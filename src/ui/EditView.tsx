@@ -41,6 +41,7 @@ import {
   getMediaAndSourceCtx,
   INDI_CHILD_ORDER,
   insertRecord,
+  insertRecordAt,
   rebuildFamily,
   rebuildIndividual,
   removeFamilyEvent,
@@ -224,8 +225,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       bumpSourceCacheVersion(dataset.records);
       clearObjeNodeCache(dataset.records);
     }
-    // Third pass: restore individual/family records and rebuild them.
-    for (const patch of patches) {
+    // Third pass: restore individual/family records and rebuild them. Sorted by
+    // original position so re-added records (undo of a deletion) land back at
+    // their original indices — inserting ascending keeps every later index valid.
+    const byPosition = [...patches].sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
+    for (const patch of byPosition) {
       const target = patch[pick];
       if (target === null) continue;
       const restored = cloneRaw(target);
@@ -236,7 +240,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           existing.raw.children = restored.children;
           rebuildIndividual(dataset, existing);
         } else {
-          insertRecord(dataset.records, restored);
+          insertRecordAt(dataset.records, restored, patch.index);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rebuildIndividual(dataset, { raw: restored } as any);
         }
@@ -247,7 +251,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           existing.raw.children = restored.children;
           rebuildFamily(dataset, existing);
         } else {
-          insertRecord(dataset.records, restored);
+          insertRecordAt(dataset.records, restored, patch.index);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rebuildFamily(dataset, { raw: restored } as any);
         }
@@ -270,13 +274,26 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const patches = pendingApply.patches;
     const direction = pendingApply.direction;
     onApplied();
-    const raf = requestAnimationFrame(() => {
+    // Apply exactly once: normally on the next frame (so the navigation above
+    // paints first), but synchronously from the cleanup when the effect re-runs
+    // before that frame fires — the entry is already popped off the undo stack,
+    // so skipping the apply would silently desync the dataset from the history.
+    // (applyEditPatches and onPatchApplied are idempotent, so StrictMode's
+    // setup/cleanup/setup double-run applying twice is harmless.)
+    let applied = false;
+    const apply = () => {
+      if (applied) return;
+      applied = true;
       applyEditPatches(patches, direction);
       setTick((v) => v + 1);
       setUndoVersion((v) => v + 1);
       onPatchApplied?.(patches, direction);
-    });
-    return () => cancelAnimationFrame(raf);
+    };
+    const raf = requestAnimationFrame(apply);
+    return () => {
+      cancelAnimationFrame(raf);
+      apply();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApply]);
   // ─────────────────────────────────────────────────────────────────────────
@@ -801,7 +818,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       } else {
         rebuildFamily(dataset, owner.fam);
       }
-      onPushEdit([{ type: "record", id: sharedXref, before, after }], selectedId);
+      // The owner's own raw is untouched here — tag the patch with the owner so
+      // undo/redo can re-evaluate the owner's dirty flag from the shared record.
+      const patchOwner = owner.kind === "individual"
+        ? (person ? { kind: "individual" as const, id: person.id } : undefined)
+        : { kind: "family" as const, id: owner.fam.id };
+      onPushEdit([{ type: "record", id: sharedXref, before, after, owner: patchOwner }], selectedId);
       if (owner.kind === "individual") { if (person) onDirty("individual", person.id); }
       else onDirty("family", owner.fam.id);
       setTick((v) => v + 1);
@@ -1210,8 +1232,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
     onPushEdit(patches, selectedId, added.id);
 
-    onDirty("individual", person.id);
-    onDirty("individual", added.id);
+    // Mark everything the add touched — including the modified or newly created
+    // family — so the save report lists it and CHAN stamping covers it.
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     focusNextName.current = true;
     navigate(added.id);
   }
@@ -1257,9 +1280,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
 
     onPushEdit(patches, selectedId);
-    onDirty("individual", person.id);
-    onDirty("individual", existingId);
-    if (fam) onDirty("family", fam.id);
+    // Mark everything the connect touched — both persons plus the modified or
+    // newly created family — so the save report lists it all.
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     setPickingSlot(null);
     setTick((v) => v + 1);
   }

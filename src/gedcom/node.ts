@@ -100,3 +100,13 @@ export function cloneNode(n: GedNode): GedNode {
   if (n.auditStamp !== undefined) c.auditStamp = n.auditStamp;
   return c;
 }
+
+/** Small stable fingerprint of a node tree (djb2 over its serialized form) —
+ * cheap change detection (e.g. "was this record edited since?"), not
+ * cryptographic. Two structurally equal trees always fingerprint the same. */
+export function nodeFingerprint(n: GedNode): string {
+  const s = JSON.stringify(n, ["level", "tag", "xref", "value", "children"]);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}

@@ -86,6 +86,15 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li>More reliable undo bookkeeping: undoing an edit on a newly added person, or on a shared media record's details, no longer confuses the pending-changes count; adding a relative now also lists the affected family in the save preview; and undoing a deleted person restores them at their original position in the file.</li>
+              <li>Marking a pair as <strong>Not a duplicate</strong> in Tools can now be undone with the regular Undo/Redo.</li>
+              <li>The save preview now warns when a confirmed match no longer applies cleanly — the person was deleted, or edited after the match was confirmed — so stale field choices don't overwrite newer edits unnoticed.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
             <h2>2026-07-12</h2>
             <ul>
               <li>The Tools scans (Health check, Find duplicates, Normalize, Sources) now run in the background — the app stays responsive while a large file is scanned, instead of freezing until the scan finishes. Finished results are kept while you switch tabs or modes, and a scan keeps running if you browse elsewhere in the meantime.</li>
