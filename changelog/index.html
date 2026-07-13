@@ -138,6 +138,16 @@
           </section>
 
           <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li>Long lists stay fast on very large files: match results, Health check findings and duplicate pairs now render only the rows on screen while scrolling through the full list.</li>
+              <li>The duplicate finder no longer stops at the 200 highest-scoring pairs — every found pair can be scrolled to and reviewed.</li>
+              <li>Editing stays snappy on complex persons and very large files: committing a field no longer re-renders the whole person layout, and adding people or sources no longer rescans every record.</li>
+              <li>Fixed: removing a source's last citation could delete its page image even when that photo was still attached to a person, leaving a broken reference.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
             <h2>2026-07-07</h2>
             <ul>
               <li>More reliable "living person" detection: when someone has no birth date of their own, GED Merge now also looks at dated relatives before assuming they're living.</li>

@@ -17,7 +17,9 @@ import {
   attachSourceCitation,
   createMediaRecord,
   findSharedMediaByFile,
+  nextXref,
   pruneUnreferencedMedia,
+  pruneUnreferencedSource,
   removeMediaAt,
   reorderMedia,
   setCropRegion,
@@ -1554,5 +1556,75 @@ describe("setCropRegion", () => {
     const link = attachInlineMedia(indi.raw, "group.jpg");
     setCropRegion(link, { top: 0, left: 0, width: 0, height: 10 });
     expect(link.children.some((c) => c.tag === "CROP")).toBe(false);
+  });
+});
+
+// ─── nextXref allocation cache ────────────────────────────────────────────────
+
+describe("nextXref", () => {
+  it("allocates sequential unused xrefs per prefix", () => {
+    const ds = buildFromText(FAM_BASE); // @I1@..@I3@, @F1@
+    expect(nextXref(ds.records, "I")).toBe("@I4@");
+    expect(nextXref(ds.records, "F")).toBe("@F2@");
+    expect(nextXref(ds.records, "S")).toBe("@S1@");
+  });
+
+  it("consecutive allocations never repeat, even before the record is inserted", () => {
+    const ds = buildFromText(FAM_BASE);
+    const a = nextXref(ds.records, "I");
+    const b = nextXref(ds.records, "I");
+    expect(a).not.toBe(b);
+    expect(b).toBe("@I5@");
+  });
+
+  it("stays ahead of records inserted with a bypassing allocator (merge, undo)", () => {
+    const ds = buildFromText(FAM_BASE);
+    expect(nextXref(ds.records, "I")).toBe("@I4@"); // warms the cache
+    // Merge's gap-filling allocator / undo restoring a delete insert directly.
+    insertRecord(ds.records, { level: 0, xref: "@I40@", tag: "INDI", children: [] });
+    expect(nextXref(ds.records, "I")).toBe("@I41@");
+  });
+
+  it("removals leave gaps rather than reusing freed numbers", () => {
+    const ds = buildFromText(FAM_BASE);
+    expect(nextXref(ds.records, "I")).toBe("@I4@");
+    const ri = ds.records.findIndex((r) => r.xref === "@I3@");
+    ds.records.splice(ri, 1);
+    expect(nextXref(ds.records, "I")).toBe("@I5@"); // @I3@ not reused — safe overestimate
+  });
+});
+
+// ─── pruneUnreferencedSource OBJE cascade ─────────────────────────────────────
+
+describe("pruneUnreferencedSource cascade", () => {
+  it("keeps a source page image that a person still references directly", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    // A source with a page image, plus the same OBJE attached to the person.
+    const source = createSourceRecord(ds.records, { title: "Book", url: "http://x" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    attachMediaPointer(indi.raw, objeXref);
+    // Nothing cites the source → the SOUR record goes, but the shared photo stays.
+    pruneUnreferencedSource(ds, source.xref!);
+    expect(ds.records.some((r) => r.tag === "SOUR" && r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === objeXref)).toBe(true);
+  });
+
+  it("prunes a page image nothing else references", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "Book", url: "http://x" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    pruneUnreferencedSource(ds, source.xref!);
+    expect(ds.records.some((r) => r.tag === "SOUR" && r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === objeXref)).toBe(false);
+  });
+
+  it("is a no-op while a citation remains", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Book", url: "http://x" });
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    pruneUnreferencedSource(ds, source.xref!);
+    expect(ds.records.some((r) => r.tag === "SOUR" && r.xref === source.xref)).toBe(true);
   });
 });

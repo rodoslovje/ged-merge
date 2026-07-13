@@ -119,7 +119,6 @@ export const en = {
   "tools.duplicates.running": "Finding duplicates…",
   "tools.duplicates.none": "No likely duplicates found.",
   "tools.duplicates.found": "{{count}} possible duplicate pairs",
-  "tools.duplicates.showingTop": "Showing the {{shown}} highest-scoring pairs of {{total}} — narrow the list with the search box.",
   "tools.duplicates.showCompare": "Show side-by-side comparison",
   "tools.duplicates.hideCompare": "Hide comparison",
   "tools.duplicates.merge": "Merge",

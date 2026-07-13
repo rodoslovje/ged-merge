@@ -12,11 +12,8 @@ import { SourceRefs } from "../SourceRef";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
+import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
-
-/** How many duplicate pairs the list renders at once (highest scores first) —
- *  see the `visible` memo in {@link DuplicatesPanel}. */
-const VISIBLE_PAIRS = 200;
 
 export function DuplicatesPanel({
   dataset,
@@ -55,6 +52,10 @@ export function DuplicatesPanel({
   // every open/close) can read the live value.
   const expandedRef = useRef<string | null>(null);
   expandedRef.current = expanded;
+  // Field choices of expanded comparisons, keyed "aId-bId". Kept up here so
+  // they survive the row scrolling out of the virtual window, which unmounts
+  // its DuplicateCompare.
+  const fieldsCache = useRef(new Map<string, Record<string, FieldChoice>>());
 
   // Apply a merge, then drop from the list the merged pair and any other pair
   // that referenced the now-removed record (it no longer exists). Jumps to
@@ -62,8 +63,8 @@ export function DuplicatesPanel({
   // same auto-advance as rejecting a pair — so the panel doesn't just go blank.
   function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
     if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    const idx = visible.findIndex((p) => p.aId === survivorId && p.bId === removedId);
-    const remaining = visible.filter((p) => p.aId !== removedId && p.bId !== removedId);
+    const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
+    const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
     scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
     if (remaining.length === 0) {
       setExpanded(null);
@@ -83,9 +84,9 @@ export function DuplicatesPanel({
   // same auto-advance behavior as rejecting a match in Merge — so the panel
   // doesn't just go blank.
   function handleReject(aId: string, bId: string) {
-    const idx = visible.findIndex((p) => p.aId === aId && p.bId === bId);
+    const idx = shown.findIndex((p) => p.aId === aId && p.bId === bId);
     onRejectDuplicate(aId, bId);
-    const remaining = visible.filter((p) => !(p.aId === aId && p.bId === bId));
+    const remaining = shown.filter((p) => !(p.aId === aId && p.bId === bId));
     if (remaining.length === 0) {
       setExpanded(null);
       return;
@@ -115,11 +116,11 @@ export function DuplicatesPanel({
       return;
     }
     setQuery("");
-    const idx = visible.indexOf(pair);
+    const idx = shown.indexOf(pair);
     if (idx >= 0) {
       setSelected(idx);
     } else {
-      // Below the rendered window (or filtered out) — move it to the front so
+      // Filtered out by the (just-cleared) search — move it to the front so
       // the opened comparison is actually on screen.
       scans.updateDuplicates((pairs) => [pair, ...pairs.filter((p) => p !== pair)]);
       setSelected(0);
@@ -132,6 +133,7 @@ export function DuplicatesPanel({
     setQuery("");
     setSelected(0);
     setShowRejected(false);
+    fieldsCache.current.clear();
   }, [dataset]);
 
   // Start the (potentially minutes-long) scan the first time the tab is shown.
@@ -152,30 +154,30 @@ export function DuplicatesPanel({
     const base = pairs.filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected);
     return q ? base.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : base;
   }, [pairs, q, rejectedDuplicates, showRejected]);
-  // Only the highest-scoring window is rendered: an index-scale file produces
-  // six-figure pair counts, and an unvirtualized list that long makes every
-  // interaction (expanding a pair, moving the highlight) re-draw for seconds.
-  // The list is score-sorted, so the cutoff keeps the pairs worth reviewing
-  // first; the search box reaches the tail.
-  const visible = useMemo(() => shown.slice(0, VISIBLE_PAIRS), [shown]);
+
+  // An index-scale file produces six-figure pair counts — only the rows near
+  // the viewport are mounted, so the whole score-sorted list stays browsable.
+  // The scroll container is the ancestor `.tools-view`.
+  const virtual = useVirtualList({ count: shown.length, estimate: 34, itemsKey: shown });
 
   // Keep the highlight inside the (re)filtered list: a new filter starts at the
   // top; merging out a pair clamps to the last remaining one.
   useEffect(() => { setSelected(0); }, [q]);
   useEffect(() => {
-    setSelected((i) => (visible.length === 0 ? 0 : Math.min(i, visible.length - 1)));
-  }, [visible.length]);
+    setSelected((i) => (shown.length === 0 ? 0 : Math.min(i, shown.length - 1)));
+  }, [shown.length]);
 
   // Bring the keyboard-highlighted pair into view as it moves.
+  const { scrollToIndex } = virtual;
   useEffect(() => {
-    (listRef.current?.children[selected] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+    scrollToIndex(selected);
+  }, [selected, scrollToIndex]);
 
   // Left/Right step the highlight between candidate pairs; Up/Down scroll the
   // surrounding list (when it overflows) so a long list can be read without
   // moving the selection. Mirrors the Merge view's compare-panel shortcuts.
   useEffect(() => {
-    if (!active || visible.length === 0) return;
+    if (!active || shown.length === 0) return;
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -185,16 +187,16 @@ export function DuplicatesPanel({
         e.preventDefault();
         const next = e.key === "ArrowLeft"
           ? Math.max(0, selectedRef.current - 1)
-          : Math.min(visible.length - 1, selectedRef.current + 1);
+          : Math.min(shown.length - 1, selectedRef.current + 1);
         setSelected(next);
         if (expandedRef.current !== null) {
-          const p = visible[next];
+          const p = shown[next];
           if (p) setExpanded(`${p.aId}-${p.bId}`);
         }
         return;
       }
       if (e.key === "Enter") {
-        const p = visible[selectedRef.current];
+        const p = shown[selectedRef.current];
         if (!p) return;
         e.preventDefault();
         const key = `${p.aId}-${p.bId}`;
@@ -210,7 +212,7 @@ export function DuplicatesPanel({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, visible]);
+  }, [active, shown]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -254,11 +256,6 @@ export function DuplicatesPanel({
                 : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
             </p>
           </div>
-          {shown.length > VISIBLE_PAIRS && (
-            <p className="tools-intro">
-              {t("tools.duplicates.showingTop", { shown: VISIBLE_PAIRS, total: shown.length })}
-            </p>
-          )}
           {shown.length === 0 ? (
             <p className="tools-clean">
               {q
@@ -269,11 +266,13 @@ export function DuplicatesPanel({
             </p>
           ) : (
             <ul className="tools-pairs" ref={listRef}>
-              {visible.map((p, i) => {
+              <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+              {shown.slice(virtual.start, virtual.end).map((p, j) => {
+                const i = virtual.start + j;
                 const key = `${p.aId}-${p.bId}`;
                 const open = !showRejected && expanded === key;
                 return (
-                  <li key={key} className={`tools-pair ${i === selected ? "selected" : ""}`}>
+                  <li key={key} className={`tools-pair ${i === selected ? "selected" : ""}${i % 2 ? " zebra" : ""}`}>
                     <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                       {showRejected ? (
                         <span className="tools-pair-toggle-spacer" aria-hidden="true" />
@@ -304,6 +303,7 @@ export function DuplicatesPanel({
                       <DuplicateCompare
                         dataset={dataset}
                         pair={p}
+                        fieldsCache={fieldsCache.current}
                         onNavigate={onNavigate}
                         onMerge={handleMerge}
                         onReject={handleReject}
@@ -313,6 +313,7 @@ export function DuplicatesPanel({
                   </li>
                 );
               })}
+              <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
             </ul>
           )}
         </>
@@ -334,6 +335,7 @@ const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 function DuplicateCompare({
   dataset,
   pair,
+  fieldsCache,
   onNavigate,
   onMerge,
   onReject,
@@ -341,6 +343,7 @@ function DuplicateCompare({
 }: {
   dataset: Dataset;
   pair: DuplicatePair;
+  fieldsCache: Map<string, Record<string, FieldChoice>>;
   onNavigate: (id: string) => void;
   onMerge: (survivorId: string, removedId: string, decision: CandidateDecision) => void;
   onReject: (aId: string, bId: string) => void;
@@ -356,10 +359,27 @@ function DuplicateCompare({
   // Relatives (spouses/parents) that are a separate record on each side: until
   // they're merged too, this merge can't fold their shared families/children.
   const related = useMemo(() => relatedSeparateRecords(rows), [rows]);
-  const [fields, setFields] = useState<Record<string, FieldChoice>>(() => duplicateDefaults(rows));
+  // Choices live in the panel-level cache too, so they survive this component
+  // unmounting when its row leaves the virtual window.
+  const cacheKey = `${pair.aId}-${pair.bId}`;
+  const [fields, setFieldsState] = useState<Record<string, FieldChoice>>(
+    () => fieldsCache.get(cacheKey) ?? duplicateDefaults(rows),
+  );
+  const setFields = (next: Record<string, FieldChoice>) => {
+    fieldsCache.set(cacheKey, next);
+    setFieldsState(next);
+  };
   const [confirming, setConfirming] = useState(false);
-  // Re-seed defaults if the underlying rows change (e.g. dataset edited elsewhere).
-  useEffect(() => { setFields(duplicateDefaults(rows)); }, [rows]);
+  // Re-seed defaults if the underlying rows change (e.g. dataset edited
+  // elsewhere) — but not on mount, or remounting would drop cached choices.
+  const seededRows = useRef(rows);
+  useEffect(() => {
+    if (seededRows.current === rows) return;
+    seededRows.current = rows;
+    const seeded = duplicateDefaults(rows);
+    fieldsCache.set(cacheKey, seeded);
+    setFieldsState(seeded);
+  }, [rows, cacheKey, fieldsCache]);
 
   // C/R mirror the Merge view's confirm/reject shortcuts: C opens the merge
   // confirmation (same as clicking Merge), R rejects immediately (same as
@@ -380,7 +400,7 @@ function DuplicateCompare({
     linkable: (id) => dataset.individuals.has(id),
     onNavigate,
   };
-  const setChoice = (key: string, c: FieldChoice) => setFields((f) => ({ ...f, [key]: c }));
+  const setChoice = (key: string, c: FieldChoice) => setFields({ ...fields, [key]: c });
 
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (row.state === "conflict" || row.state === "incoming-only") {

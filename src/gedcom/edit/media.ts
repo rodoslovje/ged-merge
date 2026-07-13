@@ -172,16 +172,34 @@ export function setCropRegion(linkNode: GedNode, crop: CropRegion | null): void 
  * or still attached to another person, is left intact.
  */
 export function pruneUnreferencedMedia(dataset: Dataset, objeXref: string): void {
-  const stack: GedNode[] = [...dataset.records];
-  while (stack.length) {
-    const node = stack.pop()!;
-    // A pointer (value set) referencing this media — its own definition record
-    // has no value, so it never counts as a reference to itself.
-    if (node.tag === "OBJE" && node.value?.trim() === objeXref) return; // still referenced
-    for (const child of node.children) stack.push(child);
-  }
+  if (referencedObjeXrefs(dataset.records, new Set([objeXref])).size > 0) return; // still referenced
   const i = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
   if (i !== -1) dataset.records.splice(i, 1);
   bumpSourceCacheVersion(dataset.records);
   clearObjeNodeCache(dataset.records);
+}
+
+/**
+ * The subset of `candidates` still referenced by an `OBJE` pointer anywhere in
+ * the dataset (on an `INDI`, `FAM`, or `SOUR`, at any depth), found in one
+ * pass — so pruning several candidates at once doesn't rescan the whole tree
+ * per xref. A definition record (xref set, no value) never counts as a
+ * reference to itself. Stops early once every candidate has been seen.
+ */
+export function referencedObjeXrefs(records: GedNode[], candidates: ReadonlySet<string>): Set<string> {
+  const found = new Set<string>();
+  if (candidates.size === 0) return found;
+  const stack: GedNode[] = [...records];
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node.tag === "OBJE") {
+      const ptr = node.value?.trim();
+      if (ptr && candidates.has(ptr)) {
+        found.add(ptr);
+        if (found.size === candidates.size) return found;
+      }
+    }
+    for (const child of node.children) stack.push(child);
+  }
+  return found;
 }
