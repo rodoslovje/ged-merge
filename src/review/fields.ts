@@ -33,6 +33,7 @@ const EVENT_LABELS: Record<string, string> = {
   DSCR: "Physical description",
   RELI: "Religion",
   NATI: "Nationality",
+  RACE: "Race / ethnicity",
   NCHI: "Number of children",
   _MEDC: "Medical",
   FACT: "Fact",

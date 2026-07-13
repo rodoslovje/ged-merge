@@ -846,6 +846,7 @@ export const sl = {
   "event.DSCR": "Telesni opis",
   "event.RELI": "Veroizpoved",
   "event.NATI": "Narodnost",
+  "event.RACE": "Etnična pripadnost",
   "event.NCHI": "Število otrok",
   "event._MILT": "Vojaška služba",
   "event._MILI": "Vojaška služba",

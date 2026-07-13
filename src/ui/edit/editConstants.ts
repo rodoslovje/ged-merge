@@ -10,7 +10,7 @@ export { VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
 export const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "CONF", "ADOP", "FCOM"] },
   { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
-  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "RELI", "NATI", "NCHI", "_MEDC", "REFN"] },
+  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "_MEDC", "REFN"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
   { labelKey: "eventGroup.estate",     tags: ["WILL", "PROB", "EVEN", "FACT"] },
   { labelKey: "eventGroup.death",      tags: ["DEAT", "_FNRL", "BURI", "_INTE", "CREM"] },

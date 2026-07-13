@@ -63,6 +63,12 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   given = given ?? subTags.get("GIVN");
   surname = surname ?? subTags.get("SURN");
 
+  // MacFamilyTree's SECG carries the second given name. It usually restates
+  // part of the NAME value; fold it in only when it's genuinely extra
+  // ("Sonja //" + `SECG Lidija`), so no given name is lost to matching/edit.
+  const secg = subTags.get("SECG");
+  if (secg && !(given ?? "").includes(secg)) given = given ? `${given} ${secg}` : secg;
+
   const full = raw.replace(/\//g, "").replace(/\s+/g, " ").trim() ||
     [prefix, given, surname, suffix].filter(Boolean).join(" ");
 

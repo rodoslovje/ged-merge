@@ -751,6 +751,7 @@ export const en = {
   "event.DSCR": "Physical description",
   "event.RELI": "Religion",
   "event.NATI": "Nationality",
+  "event.RACE": "Race / ethnicity",
   "event.NCHI": "Number of children",
   "event._MILT": "Military service",
   "event._MILI": "Military service",

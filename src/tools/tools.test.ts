@@ -296,6 +296,24 @@ describe("validateStructure", () => {
     expect(generic?.messageKey).toBe("tools.validate.struct.issue.customTag");
   });
 
+  it("folds a MacFamilyTree SECG second given name into the parsed given when it's extra", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Sonja //
+2 GIVN Sonja
+2 SECG Lidija
+0 @I2@ INDI
+1 NAME Milan Ivan /Miklič/
+2 GIVN Milan
+2 SECG Ivan
+0 TRLR
+`);
+    // Extra second given is folded in; a restated one isn't duplicated.
+    expect(ds.individuals.get("@I1@")!.names[0].given).toBe("Sonja Lidija");
+    expect(ds.individuals.get("@I2@")!.names[0].given).toBe("Milan Ivan");
+  });
+
   it("classifies MacFamilyTree's bare vendor tags as custom info, not unknown warnings", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
