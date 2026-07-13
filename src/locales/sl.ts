@@ -854,6 +854,8 @@ export const sl = {
   "event.RACE": "Etnična pripadnost",
   "event.NOBI": "Priznanje / naziv",
   "event.LATR": "Pravni posel",
+  "event.DEED": "Listina",
+  "event.ILL": "Bolezen",
   "event.NCHI": "Število otrok",
   "event._MILT": "Vojaška služba",
   "event._MILI": "Vojaška služba",

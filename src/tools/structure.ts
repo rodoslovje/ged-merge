@@ -200,6 +200,36 @@ export function findDanglingXrefs(records: GedNode[]): DanglingXref[] {
   return [...missing.values()];
 }
 
+/**
+ * Bare field tags declared by the file's own MacFamilyTree source-template
+ * field records:
+ *
+ *     0 @TF7@ _STF
+ *     1 _NKY SourceTemplate_KeyName_Cemetery
+ *     1 _TAG CEME
+ *
+ * A source built from such a template writes the field value as a bare
+ * level-1 tag (`1 CEME Pokopališče Zgornje Bitnje`), so the declared tags are
+ * part of the file's own vocabulary — classify them from the declaration
+ * instead of flagging them as unknown. Returns tag → readable field name
+ * derived from the `_NKY` key ("MicrofilmRollNumber" → "microfilm roll
+ * number"). Place-template fields (`_PTF`) are skipped: their `_TAG` values
+ * are localized place-part labels ("Gemeinde"), never emitted as GEDCOM tags.
+ */
+function templateFieldTags(records: GedNode[]): Map<string, string> {
+  const fields = new Map<string, string>();
+  for (const rec of records) {
+    if (rec.tag !== "_STF") continue;
+    const tag = rec.children.find((c) => c.tag === "_TAG")?.value?.trim();
+    // Only tag-shaped declarations, and never shadow a standard tag.
+    if (!tag || !/^[A-Z][A-Z0-9_]{2,14}$/.test(tag) || KNOWN_TAGS.has(tag)) continue;
+    const key = rec.children.find((c) => c.tag === "_NKY")?.value?.trim();
+    const name = key?.split("_").pop()?.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+    fields.set(tag, name || tag);
+  }
+  return fields;
+}
+
 export function validateStructure(ds: Dataset): StructureReport {
   const issues: StructIssue[] = [];
   const counts: Record<StructCategory, number> = { ...EMPTY_COUNTS };
@@ -230,6 +260,10 @@ export function validateStructure(ds: Dataset): StructureReport {
   // than the validator silently ignoring them.
   const custom = new Map<string, TagTally>();
 
+  // Field tags the file's own MacFamilyTree source templates declare — the
+  // file's vocabulary, so classified custom rather than unknown.
+  const templateFields = templateFieldTags(ds.records);
+
   const tally = (map: Map<string, TagTally>, tag: string, node: GedNode, recordId?: string, recordTag?: string) => {
     const seen = map.get(tag);
     if (seen) seen.count++;
@@ -250,10 +284,11 @@ export function validateStructure(ds: Dataset): StructureReport {
     }
     if (!KNOWN_TAGS.has(tag)) {
       // A bare (non-`_`) tag the vendor registry knows (MacFamilyTree's RACE/
-      // SECG/MISE/…) is that program's own data, not a spec violation — report
-      // it as a classified custom tag, info-severity, like its `_` siblings.
+      // SECG/MISE/…) or the file's own source templates declare is that
+      // program's own data, not a spec violation — report it as a classified
+      // custom tag, info-severity, like its `_` siblings.
       // Its subtree still validates normally (unlike `_` subtrees).
-      if (vendorTagInfo(tag)) tally(custom, tag, node, recordId, recordTag);
+      if (vendorTagInfo(tag) || templateFields.has(tag)) tally(custom, tag, node, recordId, recordTag);
       else tally(unknown, tag, node, recordId, recordTag);
     }
 
@@ -316,7 +351,14 @@ export function validateStructure(ds: Dataset): StructureReport {
     // ("MyHeritage — last-updated timestamp") instead of the opaque inventory
     // line. Both language variants of the meaning travel as interpolation vars
     // so this stays a pure, i18n-free pass.
-    const info = vendorTagInfo(tag);
+    const field = templateFields.get(tag);
+    const info = vendorTagInfo(tag) ?? (field !== undefined
+      ? {
+          software: "MacFamilyTree",
+          category: "citation" as const,
+          meaning: { en: `source-template field (${field})`, sl: `polje predloge vira (${field})` },
+        }
+      : undefined);
     push({
       category: "customTag",
       severity: "info",
