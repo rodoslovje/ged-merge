@@ -13,7 +13,10 @@ import { normalizeDataset } from "../normalize/normalize";
  * Matricula link) are brought in line. The returned dataset is a clone — the
  * live main is untouched until the caller chooses to save/apply.
  *
- * `options` selects which passes to run; by default all do.
+ * `options` selects which passes to run; by default all do — including the
+ * opt-in internal-tag strip, so the preview report can show what it *would*
+ * remove (the panel's checkbox then decides whether the download includes it;
+ * load-time normalization never runs it).
  */
 export function bulkNormalize(
   ds: Dataset,
@@ -21,5 +24,7 @@ export function bulkNormalize(
 ): { dataset: Dataset; report: NormalizationReport } {
   const profile = inferMainProfile(ds);
   const { dateValues } = collectLayoutValues(ds);
-  return normalizeDataset(ds, profile, dateValues, options);
+  return normalizeDataset(ds, profile, dateValues, options ?? {
+    dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true,
+  });
 }

@@ -153,13 +153,18 @@ export function objeInfoOf(node: GedNode): ObjeInfo {
   const file = fileNode?.value?.trim();
   const url = file && looksLikeUrl(file) ? file : undefined;
   const title = childText(fileNode ?? node, "TITL") ?? childText(node, "TITL");
+  // Family Historian's `_KEYS` keywords ride along with the free-text
+  // description so they stay visible in the viewer.
+  const description = [childText(node, "_DSCR") ?? childText(node, "NOTE"), childText(node, "_KEYS")]
+    .filter(Boolean)
+    .join(" · ") || undefined;
   return {
     url,
     file,
     title,
     date: childText(node, "DATE"),
     place: childText(node, "PLAC"),
-    description: childText(node, "_DSCR") ?? childText(node, "NOTE"),
+    description,
   };
 }
 
@@ -178,20 +183,32 @@ export interface CropRegion {
 }
 
 /** Read the `CROP` region from an `OBJE` link node, or undefined when there's no
- *  crop or it lacks usable width/height. Integer subtags per the GEDCOM 7 spec. */
+ *  crop or it lacks usable width/height. Integer subtags per the GEDCOM 7 spec.
+ *  Falls back to MyHeritage's `_POSITION x1 y1 x2 y2` (two corner points in
+ *  source-image pixels), the same region in that program's vocabulary. */
 export function cropOf(linkNode: GedNode): CropRegion | undefined {
   const crop = firstChild(linkNode, "CROP");
-  if (!crop) return undefined;
-  const num = (tag: string): number | undefined => {
-    const raw = childValue(crop, tag)?.trim();
-    if (!raw) return undefined;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : undefined;
-  };
-  const width = num("WIDTH");
-  const height = num("HEIGHT");
-  if (!width || !height || width <= 0 || height <= 0) return undefined;
-  return { top: num("TOP") ?? 0, left: num("LEFT") ?? 0, width, height };
+  if (crop) {
+    const num = (tag: string): number | undefined => {
+      const raw = childValue(crop, tag)?.trim();
+      if (!raw) return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
+    };
+    const width = num("WIDTH");
+    const height = num("HEIGHT");
+    if (!width || !height || width <= 0 || height <= 0) return undefined;
+    return { top: num("TOP") ?? 0, left: num("LEFT") ?? 0, width, height };
+  }
+  const pos = childValue(linkNode, "_POSITION")?.trim();
+  if (pos) {
+    const nums = pos.split(/\s+/).map(Number);
+    if (nums.length === 4 && nums.every(Number.isFinite)) {
+      const [x1, y1, x2, y2] = nums;
+      if (x2 > x1 && y2 > y1) return { top: y1, left: x1, width: x2 - x1, height: y2 - y1 };
+    }
+  }
+  return undefined;
 }
 
 export function buildObjeIndex(records: GedNode[]): ObjeIndex {

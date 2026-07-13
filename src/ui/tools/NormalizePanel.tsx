@@ -13,12 +13,13 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
   const state = scans.normalize;
   // Which passes the user wants applied on download; the preview report above
   // always reflects all three so the counts show what each would change.
-  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true, vendorTags: true });
+  // stripInternal starts unchecked: it is the one deliberately lossy pass.
+  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: false });
   // True while the worker serializes the selected passes for download.
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    setSelected({ dates: true, places: true, links: true, names: true, vendorTags: true });
+    setSelected({ dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: false });
     setDownloading(false);
   }, [dataset]);
 
@@ -51,7 +52,7 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
     <>
       {state.status === "done" && (() => {
         const report = state.result;
-        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed;
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed + report.internalStripped;
         if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
@@ -60,6 +61,7 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
           // The "names" pass also cleans unknown-name placeholders (NN, ____).
           names: report.nameVariantsReshaped + report.unknownNamesReshaped,
           vendorTags: report.vendorTagsRenamed,
+          stripInternal: report.internalStripped,
         };
         const toggle = (key: keyof NormalizeOptions) =>
           setSelected((s) => ({ ...s, [key]: !s[key] }));
@@ -70,7 +72,8 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
           (selected.places ? counts.places : 0) +
           (selected.links ? counts.links : 0) +
           (selected.names ? counts.names : 0) +
-          (selected.vendorTags ? counts.vendorTags : 0);
+          (selected.vendorTags ? counts.vendorTags : 0) +
+          (selected.stripInternal ? counts.stripInternal : 0);
         return (
           <>
             <p className="tools-intro">{t("tools.normalize.intro")}</p>
@@ -85,12 +88,15 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
                 checked={selected.names} count={counts.names} onChange={() => toggle("names")} />
               <NormCheck label={t("tools.normalize.vendorTags", { count: counts.vendorTags })}
                 checked={selected.vendorTags} count={counts.vendorTags} onChange={() => toggle("vendorTags")} />
+              <NormCheck label={t("tools.normalize.stripInternal", { count: counts.stripInternal })}
+                checked={!!selected.stripInternal} count={counts.stripInternal} onChange={() => toggle("stripInternal")} />
             </ul>
             {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
             {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
             {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
             {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={[...report.nameVariantExamples, ...report.unknownNameExamples]} />}
             {selected.vendorTags && <NormExamples title={t("tools.normalize.exVendorTags")} examples={report.vendorTagExamples} />}
+            {selected.stripInternal && <NormExamples title={t("tools.normalize.exStripInternal")} examples={report.internalExamples} />}
             <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0 || downloading}>
               {t("tools.normalize.download")}
             </button>

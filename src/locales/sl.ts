@@ -149,6 +149,8 @@ export const sl = {
   "tools.normalize.exNames": "Primeri različic imen",
   "tools.normalize.vendorTags": "{{count}} poenotenih oznak po meri",
   "tools.normalize.exVendorTags": "Primeri oznak po meri",
+  "tools.normalize.stripInternal": "{{count}} odstranjenih internih oznak programov",
+  "tools.normalize.exStripInternal": "Primeri odstranjenih internih oznak",
   "tools.normalize.download": "Prenesi poenoteni GEDCOM",
   "tools.tool.sources": "Viri",
   "tools.tool.sources.desc": "Pregled hramb, virov in medijev",

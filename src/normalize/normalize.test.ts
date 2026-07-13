@@ -135,6 +135,64 @@ describe("normalizeDataset", () => {
     expect(report.vendorTagsRenamed).toBe(0);
   });
 
+  it("converts a _UPD stamp into a standard CHAN when the record has none", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 _UPD 23 JUL 2011 14:39:50 GMT+1
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 _UPD 9 MAY 2022 04:35:16 GMT -0500
+1 CHAN
+2 DATE 1 JAN 2023
+0 TRLR
+`;
+    const { dataset: out, report } = normalizeDataset(dataset(compare), profile);
+    const i1 = out.individuals.get("@I1@")!.raw;
+    const chan = i1.children.find((c) => c.tag === "CHAN")!;
+    expect(i1.children.some((c) => c.tag === "_UPD")).toBe(false);
+    // The new CHAN date then goes through the date pass like any other DATE,
+    // so it comes out in the main's house style (lowercase full months here).
+    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "23 july 2011" });
+    expect(chan.children[0].children[0]).toMatchObject({ tag: "TIME", value: "14:39:50" });
+    // A record that already has CHAN keeps its _UPD untouched.
+    const i2 = out.individuals.get("@I2@")!.raw;
+    expect(i2.children.some((c) => c.tag === "_UPD")).toBe(true);
+    expect(report.vendorTagExamples.some((e) => e.after.startsWith("CHAN"))).toBe(true);
+  });
+
+  it("strips software-internal tags only when the opt-in pass is selected", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 _COLOR 3
+1 _FLGS
+2 __FLAG_2 Y
+1 _UID AAAABBBBCCCCDDDD
+1 BIRT
+2 DATE 1900
+2 _EVN 2
+0 TRLR
+`;
+    // Default (load-time): nothing stripped.
+    const loaded = normalizeDataset(dataset(compare), profile);
+    expect(loaded.report.internalStripped).toBe(0);
+    expect(loaded.dataset.individuals.get("@I1@")!.raw.children.some((c) => c.tag === "_COLOR")).toBe(true);
+    // Opt-in: internal tags go, identity/media tags stay.
+    const stripped = normalizeDataset(dataset(compare), profile, undefined, {
+      dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true,
+    });
+    const raw = stripped.dataset.individuals.get("@I1@")!.raw;
+    expect(raw.children.some((c) => c.tag === "_COLOR" || c.tag === "_FLGS")).toBe(false);
+    expect(raw.children.find((c) => c.tag === "BIRT")!.children.some((c) => c.tag === "_EVN")).toBe(false);
+    expect(raw.children.some((c) => c.tag === "_UID")).toBe(true);
+    expect(stripped.report.internalStripped).toBe(3);
+  });
+
   it("renames MacFamilyTree's bare MISE fact to the _MILT military event", () => {
     const profile = inferMainProfile(dataset(MAIN));
     const compare = `0 HEAD
