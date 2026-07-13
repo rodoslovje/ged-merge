@@ -135,6 +135,21 @@ describe("normalizeDataset", () => {
     expect(report.vendorTagsRenamed).toBe(0);
   });
 
+  it("renames MacFamilyTree's bare MISE fact to the _MILT military event", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 MISE Gefreiter, k.k. Landsturm
+2 DATE 1915
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const milt = out.individuals.get("@I1@")!.events.find((e) => e.tag === "_MILT");
+    expect(milt?.value).toBe("Gefreiter, k.k. Landsturm");
+  });
+
   it("renames _SEPR to the standard SEPA family event", () => {
     const profile = inferMainProfile(dataset(MAIN));
     const compare = `0 HEAD

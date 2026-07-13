@@ -296,6 +296,25 @@ describe("validateStructure", () => {
     expect(generic?.messageKey).toBe("tools.validate.struct.issue.customTag");
   });
 
+  it("classifies MacFamilyTree's bare vendor tags as custom info, not unknown warnings", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+2 SECG Teresa
+1 RACE White
+1 MISE WWII
+0 @S1@ SOUR
+1 PERI Kranjski zvon, Dec 1934
+0 TRLR
+`);
+    const report = validateStructure(ds);
+    expect(report.issues.filter((i) => i.category === "unknownTag")).toHaveLength(0);
+    const custom = report.issues.filter((i) => i.category === "customTag");
+    expect(custom.map((i) => i.sample).sort()).toEqual(["MISE", "RACE", "SECG"]);
+    expect(custom.every((i) => i.severity === "info" && i.messageKey === "tools.validate.struct.issue.customTagKnown")).toBe(true);
+  });
+
   it("recognizes CORP (7.0) and EDTN (5.5.1 source edition)", () => {
     const ds = dataset(`0 HEAD
 1 SOUR App

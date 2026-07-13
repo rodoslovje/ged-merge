@@ -250,6 +250,9 @@ export interface Individual {
    *  verbatim. Two records carrying the same identifier are the same person
    *  (same software lineage), which matching uses as a certain pre-match. */
   uids?: string[];
+  /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic),
+   *  verbatim — a second identity namespace for the same pre-match. */
+  fsids?: string[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }

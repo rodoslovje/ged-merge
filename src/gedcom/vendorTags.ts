@@ -229,6 +229,17 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   _SIF: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti" } },
   _SMC: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti" } },
   _WT_OBJE_SORT: { software: WT, category: "internal", meaning: { en: "media sort order", sl: "vrstni red predstavnosti" } },
+
+  // ── MacFamilyTree non-underscore vendor tags ──────────────────────────────
+  // MacFamilyTree exports several custom facts as bare (non-`_`) tags borrowed
+  // from GEDCOM 5.5-EL or invented; without these entries the health check
+  // would flag a MacFamilyTree file's own data as "unknown tags".
+  RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
+  SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
+  MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
+  NOBI: { software: MFT, category: "attribute", meaning: { en: "nobility title / award (5.5-EL)", sl: "plemiški naziv / priznanje (5.5-EL)" } },
+  PRIV: { software: MFT, category: "internal", meaning: { en: "private-note flag", sl: "oznaka zasebne opombe" } },
+  LATR: { software: MFT, category: "attribute", meaning: { en: "custom fact", sl: "dejstvo po meri" } },
 };
 
 /** MacFamilyTree source/place template machinery — one shared classification. */
@@ -269,6 +280,8 @@ export const VENDOR_PRIVACY_TAGS: Set<string> = new Set(Object.keys(PRIVACY_INFO
 export const VENDOR_TAG_ALIASES: Record<string, string> = {
   _MILI: "_MILT",
   _SEPR: "SEPA",
+  // MacFamilyTree's bare military-service fact — same value-event shape.
+  MISE: "_MILT",
 };
 
 /**

@@ -85,25 +85,48 @@ function canonicalUid(value: string): string | undefined {
   return v.length >= 12 ? v : undefined;
 }
 
-/** uid → record id for every *unambiguous* uid in the dataset (a uid carried
- *  by two records in one file identifies nothing and is skipped). */
-function uidIndex(ds: Dataset): Map<string, string> {
-  const byUid = new Map<string, string>();
+/** FamilySearch person id ("GJMK-JZG"), the second identity namespace —
+ *  written as `_FID` by MacFamilyTree and `_FSFTID` by RootsMagic, so two
+ *  files synced to the same FamilySearch person cross-match even across
+ *  programs. Anything not shaped like an FS id is ignored. */
+function canonicalFsid(value: string): string | undefined {
+  const v = value.trim().toUpperCase();
+  return /^[A-Z0-9]{3,8}-[A-Z0-9]{2,4}$/.test(v) ? v : undefined;
+}
+
+/** Every identity key a record carries, namespaced so the two id systems
+ *  can never collide with each other. */
+function identityKeys(indi: Individual): string[] {
+  const keys: string[] = [];
+  for (const raw of indi.uids ?? []) {
+    const uid = canonicalUid(raw);
+    if (uid) keys.push(`U:${uid}`);
+  }
+  for (const raw of indi.fsids ?? []) {
+    const fsid = canonicalFsid(raw);
+    if (fsid) keys.push(`F:${fsid}`);
+  }
+  return keys;
+}
+
+/** identity key → record id for every *unambiguous* key in the dataset (a key
+ *  carried by two records in one file identifies nothing and is skipped). */
+function identityIndex(ds: Dataset): Map<string, string> {
+  const byKey = new Map<string, string>();
   const ambiguous = new Set<string>();
   for (const indi of ds.individuals.values()) {
-    for (const raw of indi.uids ?? []) {
-      const uid = canonicalUid(raw);
-      if (!uid || ambiguous.has(uid)) continue;
-      const seen = byUid.get(uid);
+    for (const key of identityKeys(indi)) {
+      if (ambiguous.has(key)) continue;
+      const seen = byKey.get(key);
       if (seen !== undefined && seen !== indi.id) {
-        byUid.delete(uid);
-        ambiguous.add(uid);
+        byKey.delete(key);
+        ambiguous.add(key);
       } else {
-        byUid.set(uid, indi.id);
+        byKey.set(key, indi.id);
       }
     }
   }
-  return byUid;
+  return byKey;
 }
 
 /** The certain pre-matches: pairs sharing an unambiguous record identifier. */
@@ -112,9 +135,9 @@ function matchByUid(
   compareDs: Dataset,
   config: MatchConfig,
 ): IndividualCandidate[] {
-  const mainByUid = uidIndex(mainDs);
+  const mainByUid = identityIndex(mainDs);
   if (mainByUid.size === 0) return [];
-  const compareByUid = uidIndex(compareDs);
+  const compareByUid = identityIndex(compareDs);
   if (compareByUid.size === 0) return [];
 
   const pairs: IndividualCandidate[] = [];

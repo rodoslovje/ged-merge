@@ -131,6 +131,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const notesFull: string[] = [];
   const sources: SourceCitation[] = [];
   const uids: string[] = [];
+  const fsids: string[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -138,6 +139,10 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "_UID":
       case "UID":
         if (child.value?.trim()) uids.push(child.value.trim());
+        break;
+      case "_FID":
+      case "_FSFTID":
+        if (child.value?.trim()) fsids.push(child.value.trim());
         break;
       case "NAME":
         names.push(parseName(child.value, subTagMap(child)));
@@ -170,6 +175,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
 
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (uids.length) indi.uids = dedupe(uids);
+  if (fsids.length) indi.fsids = dedupe(fsids);
   if (links.length) indi.links = dedupe(links);
   if (notes.length) indi.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;

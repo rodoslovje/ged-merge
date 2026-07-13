@@ -905,3 +905,43 @@ describe("uid identity pre-match", () => {
     expect(forI1[0]).toMatchObject({ compareId: "@P2@", uidMatched: true, score: 100 });
   });
 });
+
+describe("FamilySearch id identity pre-match (_FID/_FSFTID)", () => {
+  it("matches records sharing a FamilySearch id, even across programs", () => {
+    // MacFamilyTree writes _FID, RootsMagic _FSFTID — same FS person namespace.
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Lovrenc /Renko/
+1 SEX M
+1 _FID GJMK-JZG
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME Lovro /Renco/
+1 SEX M
+1 _FSFTID gjmk-jzg
+0 TRLR
+`);
+    const r = matchDatasets(m, c);
+    expect(r.individuals[0]).toMatchObject({ mainId: "@I1@", compareId: "@P1@", score: 100, uidMatched: true });
+  });
+
+  it("ignores values not shaped like a FamilySearch id", () => {
+    const m = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 _FID something else entirely
+0 TRLR
+`);
+    const c = dataset(`0 HEAD
+0 @P1@ INDI
+1 NAME France /Kovač/
+1 SEX M
+1 _FID something else entirely
+0 TRLR
+`);
+    expect(matchDatasets(m, c).individuals.filter((i) => i.uidMatched)).toHaveLength(0);
+  });
+});

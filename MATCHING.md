@@ -69,6 +69,11 @@ cannot be matched by name, though relationship linking can still connect it.
 
 Most programs stamp every person with a persistent unique id (vendor `_UID`,
 GEDCOM 7 `UID`) that survives export/import within the same software lineage.
+FamilySearch person ids are a second identity namespace with the same
+property — MacFamilyTree writes them as `_FID`, RootsMagic as `_FSFTID`, so
+two files synced to the same FamilySearch person cross-match even across
+programs (this is what pre-matches ~5.1k pairs between the two Renko
+benchmark files, which carry no `_UID` at all).
 Two records carrying the same id **are** the same person by construction, so
 such pairs are matched before anything else: they bypass blocking and every
 gate (the whole point — the copies may have diverged in name or dates), score
