@@ -278,6 +278,24 @@ describe("validateStructure", () => {
     expect(report.issues.filter((i) => i.category === "unknownTag")).toHaveLength(0);
   });
 
+  it("classifies vendor tags the registry knows, keeping unknown ones generic", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 _UID ABC-123
+1 _TOTALLY_MADE_UP x
+0 TRLR`);
+    const custom = validateStructure(ds).issues.filter((i) => i.category === "customTag");
+    const known = custom.find((i) => i.messageVars?.tag === "_UID");
+    const generic = custom.find((i) => i.messageVars?.tag === "_TOTALLY_MADE_UP");
+    expect(known?.messageKey).toBe("tools.validate.struct.issue.customTagKnown");
+    expect(known?.messageVars).toMatchObject({ software: "multiple programs" });
+    expect(known?.messageVars?.meaningEn).toBeTruthy();
+    expect(known?.messageVars?.meaningSl).toBeTruthy();
+    expect(generic?.messageKey).toBe("tools.validate.struct.issue.customTag");
+  });
+
   it("recognizes CORP (7.0) and EDTN (5.5.1 source edition)", () => {
     const ds = dataset(`0 HEAD
 1 SOUR App

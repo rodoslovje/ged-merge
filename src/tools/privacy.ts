@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
 import { cloneNode, hasChild } from "../gedcom/node";
+import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
 import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
 
 /**
@@ -44,7 +45,10 @@ export interface PrivacyOptions {
   strip: Record<StripCategory, boolean>;
   resn: ResnMode;
   file: {
-    /** Drop the SUBM (submitter) record — your own name/address/email. */
+    /** Drop the SUBM (submitter) record — your own name/address/email — plus
+     *  vendor account traces: MyHeritage `_PUBLISH`/`_USERNAME` (site config
+     *  with the account e-mail), Ancestry `_USER`/`_ENCR` tokens, webtrees
+     *  `_WT_USER` editor names. */
     stripSubmitter: boolean;
     /** Drop external sync ids (_UID/_FID/AFN/RIN) that can re-link a tree. */
     stripExternalIds: boolean;
@@ -109,7 +113,7 @@ const CONTACT_TAGS = new Set(["ADDR", "EMAIL", "EMAI", "PHON", "FAX", "WWW", "RE
 const ADDRESS_TAGS = new Set(["ADDR", "RESI"]);
 const EMAIL_TAGS = new Set(["EMAIL", "EMAI"]);
 const PHONE_TAGS = new Set(["PHON", "FAX"]);
-const EXTERNAL_ID_TAGS = new Set(["_UID", "_FID", "AFN", "RIN"]);
+const EXTERNAL_ID_TAGS = new Set(["_UID", "_FID", "AFN", "RIN", "_FSFTID", "_APID", "_AMTID", "_FGRAVE"]);
 
 /** The detail bucket a non-structural child falls into, for the strip toggles. */
 function detailCategory(tag: string): StripCategory {
@@ -260,12 +264,19 @@ function familyIsEmpty(rec: GedNode): boolean {
   return !rec.children.some((c) => FAM_POINTERS.has(c.tag));
 }
 
-/** Recursively remove external-id / contact children, counting removals. */
+/** Recursively remove external-id / contact / account-trace children, counting removals. */
 function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number; contact: number }): GedNode {
   const children: GedNode[] = [];
   for (const child of node.children) {
     if (opts.file.stripExternalIds && EXTERNAL_ID_TAGS.has(child.tag)) {
       counts.ids++;
+      continue;
+    }
+    // Vendor account traces (Ancestry _USER/_ENCR tokens, webtrees _WT_USER,
+    // MyHeritage _USERNAME) travel with the submitter toggle: they identify the
+    // file's owner/editors, not the people in the tree.
+    if (opts.file.stripSubmitter && VENDOR_PRIVACY_TAGS.has(child.tag)) {
+      counts.contact++;
       continue;
     }
     if (
@@ -343,6 +354,12 @@ export function privatizeDataset(
       report.submitterRemoved = true;
       continue;
     }
+    // MyHeritage `0 _PUBLISH` records hold the publish configuration — site
+    // name/address and the account e-mail (`_USERNAME`) — pure owner traces.
+    if (rec.tag === "_PUBLISH" && options.file.stripSubmitter) {
+      report.submitterRemoved = true;
+      continue;
+    }
     if (rec.tag === "HEAD" && options.file.stripSubmitter) {
       interim.push({ ...cloneNode(rec), children: cloneNode(rec).children.filter((c) => c.tag !== "SUBM") });
       continue;
@@ -394,7 +411,8 @@ export function privatizeDataset(
   // Phase 2 — file-level scrubs across every surviving record.
   const counts = { ids: 0, contact: 0 };
   const needsScrub =
-    options.file.stripExternalIds || options.file.scrubAddress || options.file.scrubEmail || options.file.scrubPhone;
+    options.file.stripExternalIds || options.file.stripSubmitter ||
+    options.file.scrubAddress || options.file.scrubEmail || options.file.scrubPhone;
   const records = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts)) : interim;
   report.externalIdsStripped = counts.ids;
   report.contactScrubbed = counts.contact;

@@ -24,7 +24,7 @@ The general Settings panel exists (language, theme, name display, kinship, link-
 - **Frequency-aware name evidence** — the last big scoring lever. A "Svitoslav Peruzzi" full-name match is near-conclusive; a "Janez Novak" one is barely evidence, yet the scorer weighs them identically — ubiquitous full names anchor tens of thousands of `Janez Novak (~1900)` × `Janez Novak (~1905)` pairs in big files. Compute per-file name frequencies at match time (one cheap pass) and require corroboration (dates/parents) before a ubiquitous full name counts as an anchor, and/or scale the name components by rarity. Needs the same corpus benchmarking discipline as the 2026-07 changes (Renko↔Renko-Rakar must lose nothing; see MATCHING.md "Verifying changes").
 
 ### GEDCOM custom tags support
-Build a system for custom/proprietary GEDCOM tags supported by GED Merge — allow them to be edited and merged, with simple reshaping rules to convert between different supported custom types (e.g. MacFamilyTree extensions). Goal: support all major software, including **Brother's Keeper**, **Family Historian**, **RootsMagic**, and **MacFamilyTree**.
+Build a system for custom/proprietary GEDCOM tags supported by GED Merge — allow them to be edited and merged, with simple reshaping rules to convert between different supported custom types (e.g. MacFamilyTree extensions). Goal: support all major software, including **Brother's Keeper**, **Family Historian**, **RootsMagic**, and **MacFamilyTree**. *The concrete, corpus-driven plan lives in [Custom-tag support plan](#custom-tag-support-plan-2026-07-13-corpus-analysis) below.*
 
 ## Suggested (from feature-set analysis)
 
@@ -49,6 +49,34 @@ Ideas surfaced by reviewing the current app. Not yet committed — cull as neede
 ### Import / export
 - **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media bundles.
 - **Subset / format export** — ~~export part of the main file as its own GEDCOM (e.g. all ancestors or all descendants of a chosen person) to share with a friend; also export a selected branch~~ *(done — every chart's Export menu offers a branch-GEDCOM export: main dataset + that chart's people, ≥2-member-family rule, no dangling xrefs)*, or export to CSV / JSON *(still open)*.
+
+## Custom-tag support plan (2026-07-13 corpus analysis)
+
+Prioritized plan for premium support of the major genealogy programs' GEDCOM output, derived from scanning all 271 files (586 MB, ~2.46 M individuals) in `~/rodoslovje/srd-data/index/input`.
+
+### Corpus facts that shape the plan
+- **Producers by share of individuals:** Brother's Keeper 211 files / 1.96 M INDI (**80%**); Family Historian 13 / 180k; MyHeritage FTB 17 / 135k; Gramps 3 / 43k; GeneWeb 6 / 38k; Family Tree Maker 5 / 36k; Legacy 5 / 23k; the rest (RootsMagic, PAF, MacFamilyTree, webtrees, Ancestry, Geni, …) ≤ 10k each.
+- **The 175 BK 5.2 files contain no custom tags at all.** Their needs are encoding (ANSI→windows-1250 — already handled in `decode.ts`) and *standard* tags the app ignores, above all **`REFN` (163,662 instances in 107 files)**, `INDI.DSCR` (3.8k), `INDI.TITL` (1.3k), `FAM.RESI` (1k).
+- Custom-tag volume is concentrated in **BK 6/7, Family Historian, MyHeritage** (~95% of instances).
+- Already covered: lossless round-trip of any unknown tag; charset sniffing (ANSI→1250/1252, ANSEL); name variants `_MARNM`/`_AKA`/`_AKAN`/`_BIRN` (72k `_MARNM` + 25k `_AKAN`); `_URL`/`_LINK`/`_WEBTAG`; `_DSCR`; GEDCOM 7 `CROP`; health-check custom-tag inventory; SaveDialog drop-custom-tags option.
+
+### Gap themes (with corpus counts)
+- **Identity:** `_UID` — 625,382 instances in 42 files (MyHeritage, FH, Legacy, Gramps, RootsMagic, PAF; GEDCOM 7 `UID`). Same UID ⇒ same person: a free near-perfect match signal, currently only privacy-scrubbed.
+- **Family status / pedigree:** `_FREL`/`_MREL` (28k each; FTM, Ancestry, BK — per-parent adopted/foster ≈ standard `PEDI`); BK's `_NMR` + `_MSTAT Partners` + `_MARRIED N` trio (~4k FAMs = unmarried partners, GEDCOM 7 `NO MARR`); `_SEPR`→`SEPA`; MyHeritage `EVEN TYPE MYHERITAGE:REL_PARTNERS`.
+- **Events/attributes with real data:** BK `_INTE` (interment), `_FNRL` (funeral), `_MILT`/`_MILI` (military), `_MEDC` (medical) — all with DATE/PLAC children; ignored standard attributes `REFN`, `DSCR`, `TITL`, `RELI` (817), `NATI`, `GRAD` (3.5k FH), `FAM.NCHI`/`FAM.RESI`, Gramps `FACT`+`TYPE` (8k); `EVEN`'s `TYPE` mislabeled in review rows.
+- **Media metadata:** MyHeritage `_PRIM` (primary photo, 6.5k), `_POSITION`/`_CUTOUT` (3.4k — crop rect, mappable onto existing `CROP` support), `_PHOTO_RIN`/`_FILESIZE` (23k of diff noise), `ALBUM` records; FH `_SEQ` (order), `_KEYS` (keywords), `_ASID`/`_AREA` (face regions); Legacy/RootsMagic `_TYPE`/`_PRIM`/`_SCBK`; Ancestry `_CROP`/`_WDTH`/`_HGHT`.
+- **Name-variant long tail:** `_FORMERNAME` (619), `_OTHN`, `_FARN` (farm/vulgo name — BK, meaningful in Slovenian genealogy), `_SHON`, `_MARN`, `_CURN`, `_RNAME`, `_INDG`, `_ADPN`, `_RUFNAME`/`_CALL` — one-line additions to `nameVariants`.
+- **Software-internal noise:** `_UPD` (160k last-updated stamps ≈ `CHAN`), `_PROJECT_GUID`, `_RINS`, `_RTLSAVE`, `_COLOR*`, `_FLGS`/`__FLAG_n`, `_WT_USER`, MacFamilyTree template machinery (`_STE`/`_PTE`/`_FOM`/…). **Privacy leaks the scrubber misses:** MyHeritage `_PUBLISH._USERNAME` (e-mail addresses), Ancestry `_USER`/`_ENCR` (auth tokens).
+- **Preserve-only (don't build):** RootsMagic/MacFamilyTree source templates, PAF `_EVENT_DEFN`, FH root `_PLAC` place dictionaries (46.5k), `_SHAN`/`_SHAR` witnesses — already round-trip losslessly; ~1–2 files each.
+
+### Phases (priority order)
+1. **Vendor-tag dictionary + health-check classification** *(small; foundation)* — a registry (`src/gedcom/vendorTags.ts`): tag → software, meaning, category (`identity | family-status | event | attribute | name | media | citation | internal | privacy-sensitive`). Health check shows classified labels ("MyHeritage internal", "Brother's Keeper: funeral event") instead of a bare inventory; privacy scrub gains `_USERNAME`, `_USER`/`_ENCR`, `_WT_USER`.
+2. **Standard-attribute lift + BK events** *(serves 80% of the corpus)* — surface `REFN` as a compare/edit field; generic attribute rows for `TITL`/`DSCR`/`RELI`/`NATI`/`GRAD`/`NCHI`/`FACT`+`TYPE`; correct `EVEN`+`TYPE` labeling; add `_INTE`/`_FNRL`/`_MILT`/`_MEDC` to the event registry as displayable, mergeable events (en+sl labels).
+3. **Family status & pedigree normalization** — normalize `_FREL`/`_MREL`→`PEDI`, `_SEPR`→`SEPA`, and the BK/MyHeritage/FTM unmarried-partner encodings into one internal family-status field; report in `NormalizationReport`, show on the family panel, compare in review rows.
+4. **`_UID` identity matching** — parse `_UID`/`UID` at INDI level; equal UIDs auto-suggest a certain match (pre-gate, before scoring); preserve/unify UIDs on merge. Verify per MATCHING.md protocol.
+5. **Media metadata + noise suppression** — `_PRIM`→primary-photo ordering; `_POSITION`/`_CUTOUT`→crop model; `_SEQ`→order; `_KEYS`→keywords; suppress `internal`-category tags from review diffs; "strip software-internal tags" option in bulk normalize; `_UPD`→`CHAN` mapping.
+
+*(Scan tooling: `scan_gedcom.py` / `aggregate.py` / `per_software.py` from the 2026-07-13 session scratchpad; rerun against the index input dir for updated counts.)*
 
 ## Refactoring backlog (from the 2026-07-12 whole-project review)
 

@@ -213,6 +213,60 @@ describe("privatizeDataset — file-level scrubs", () => {
     expect(report.externalIdsStripped).toBe(1);
   });
 
+  it("submitter strip also drops _PUBLISH records and vendor account traces", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 _PUBLISH
+1 _USERNAME owner@example.com
+1 _SITENAME My Site
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 BIRT
+2 DATE 1900
+1 DEAT
+2 DATE 1970
+1 CHAN
+2 _WT_USER bojan
+0 @M1@ OBJE
+1 FILE photo.jpg
+1 _USER 0yhhNDnxToken
+2 _ENCR 1
+0 TRLR`);
+    const o = opts({ file: { stripSubmitter: true, stripExternalIds: false, scrubAddress: false, scrubEmail: false, scrubPhone: false } });
+    const { records, report } = privatizeDataset(ds, o, NOW);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("_PUBLISH");
+    expect(out).not.toContain("owner@example.com");
+    expect(out).not.toContain("_WT_USER");
+    expect(out).not.toContain("_USER 0yhhNDnxToken");
+    expect(out).not.toContain("_ENCR");
+    expect(report.submitterRemoved).toBe(true);
+    expect(report.contactScrubbed).toBe(2); // _WT_USER + _USER (with its _ENCR child)
+  });
+
+  it("strips the newer external sync ids (_APID, _FSFTID) too", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 BIRT
+2 DATE 1900
+1 DEAT
+2 DATE 1970
+1 _FSFTID GW82-GKR
+1 SOUR @S1@
+2 _APID 1,1732::245246796
+0 @S1@ SOUR
+1 TITL Matice
+0 TRLR`);
+    const o = opts({ file: { stripSubmitter: false, stripExternalIds: true, scrubAddress: false, scrubEmail: false, scrubPhone: false } });
+    const { records, report } = privatizeDataset(ds, o, NOW);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("_FSFTID");
+    expect(out).not.toContain("_APID");
+    expect(report.externalIdsStripped).toBe(2);
+  });
+
   it("global contact scrub removes emails everywhere", () => {
     const ds = dataset(SAMPLE);
     const o = opts({ file: { stripSubmitter: false, stripExternalIds: false, scrubAddress: false, scrubEmail: true, scrubPhone: false } });

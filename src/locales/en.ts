@@ -102,6 +102,7 @@ export const en = {
   "tools.validate.struct.issue.parse": "{{detail}}",
   "tools.validate.struct.issue.unknownTag": "Unknown tag {{tag}} ({{count}}×)",
   "tools.validate.struct.issue.customTag": "Custom tag {{tag}} ({{count}}×)",
+  "tools.validate.struct.issue.customTagKnown": "Custom tag {{tag}} ({{count}}×) — {{software}}: {{meaningEn}}",
   "tools.validate.struct.issue.badDate": "Unparseable date: {{sample}}",
   "tools.validate.struct.issue.danglingXref": "{{tag}} points at {{xref}}, which does not exist ({{count}}×)",
   "tools.validate.struct.fixable": "→ {{value}}",

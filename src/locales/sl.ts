@@ -102,6 +102,7 @@ export const sl = {
   "tools.validate.struct.issue.parse": "{{detail}}",
   "tools.validate.struct.issue.unknownTag": "Neznana oznaka {{tag}} ({{count}}×)",
   "tools.validate.struct.issue.customTag": "Oznaka po meri {{tag}} ({{count}}×)",
+  "tools.validate.struct.issue.customTagKnown": "Oznaka po meri {{tag}} ({{count}}×) — {{software}}: {{meaningSl}}",
   "tools.validate.struct.issue.badDate": "Neberljiv datum: {{sample}}",
   "tools.validate.struct.issue.danglingXref": "{{tag}} kaže na {{xref}}, ki ne obstaja ({{count}}×)",
   "tools.validate.struct.fixable": "→ {{value}}",

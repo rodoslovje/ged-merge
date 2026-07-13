@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, ParseWarning } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
+import { vendorTagInfo } from "../gedcom/vendorTags";
 import { dateFixContext, proposeDateFix } from "./fixDates";
 
 /**
@@ -306,6 +307,11 @@ export function validateStructure(ds: Dataset): StructureReport {
   }
 
   for (const [tag, { count, recordId, recordTag, tooltip }] of custom) {
+    // A tag the vendor-extension registry knows gets a classified message
+    // ("MyHeritage — last-updated timestamp") instead of the opaque inventory
+    // line. Both language variants of the meaning travel as interpolation vars
+    // so this stays a pure, i18n-free pass.
+    const info = vendorTagInfo(tag);
     push({
       category: "customTag",
       severity: "info",
@@ -313,8 +319,10 @@ export function validateStructure(ds: Dataset): StructureReport {
       recordTag,
       sample: tag,
       tooltip,
-      messageKey: "tools.validate.struct.issue.customTag",
-      messageVars: { tag, count },
+      messageKey: info ? "tools.validate.struct.issue.customTagKnown" : "tools.validate.struct.issue.customTag",
+      messageVars: info
+        ? { tag, count, software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl }
+        : { tag, count },
     });
   }
 
