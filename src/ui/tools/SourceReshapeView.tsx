@@ -11,6 +11,7 @@ import {
   type ReshapeSite,
 } from "../../tools/sourceReshape";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
+import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { downloadText } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -148,6 +149,32 @@ export function SourceReshapeView({
 
   const groupTitle = (g: ReshapeGroup) => enrichment.get(g.id)?.title ?? g.proposed.title;
 
+  // Full field-per-row tooltip for the new/existing badge — same "TAG: value"
+  // style as the Sources tree's record tooltips.
+  const sourNodes = useMemo(() => {
+    const map = new Map<string, (typeof dataset.records)[number]>();
+    for (const r of dataset.records) if (r.tag === "SOUR" && r.xref) map.set(r.xref, r);
+    return map;
+  }, [dataset]);
+
+  const badgeTooltip = (g: ReshapeGroup): string => {
+    if (g.existingSourceXref) {
+      const node = sourNodes.get(g.existingSourceXref);
+      const fields = node ? sourceTooltip(node) : g.existingSourceTitle ?? "";
+      return [g.existingSourceXref, fields].filter(Boolean).join("\n");
+    }
+    const meta = enrichment.get(g.id);
+    return [
+      `TITL: ${meta?.title ?? g.proposed.title}`,
+      (meta?.agency ?? g.proposed.agency) && `AGNC: ${meta?.agency ?? g.proposed.agency}`,
+      (meta?.place ?? g.proposed.place) && `PLAC: ${meta?.place ?? g.proposed.place}`,
+      g.proposed.filingNumber && `FILN: ${g.proposed.filingNumber}`,
+      meta?.dateRange && `DATE: ${meta.dateRange}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
+
   return (
     <>
       <div className="tools-filter-row">
@@ -187,6 +214,7 @@ export function SourceReshapeView({
             key={g.id}
             group={g}
             title={groupTitle(g)}
+            badgeTooltip={badgeTooltip(g)}
             checked={!excluded.has(g.id)}
             open={expanded.has(g.id)}
             relocate={relocate}
@@ -223,6 +251,7 @@ export function SourceReshapeView({
 function ReshapeGroupRow({
   group,
   title,
+  badgeTooltip,
   checked,
   open,
   relocate,
@@ -233,6 +262,8 @@ function ReshapeGroupRow({
 }: {
   group: ReshapeGroup;
   title: string;
+  /** Field-per-row summary of the source the group creates or reuses. */
+  badgeTooltip: string;
   checked: boolean;
   open: boolean;
   relocate: boolean;
@@ -259,14 +290,11 @@ function ReshapeGroupRow({
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
         )}
         {group.existingSourceXref ? (
-          <span
-            className="tools-reshape-badge reuse"
-            title={`${group.existingSourceTitle ?? ""} ${group.existingSourceXref}`.trim()}
-          >
+          <span className="tools-reshape-badge reuse" title={badgeTooltip}>
             {t("tools.sources.reshapeReuses")}
           </span>
         ) : (
-          <span className="tools-reshape-badge new" title={title}>
+          <span className="tools-reshape-badge new" title={badgeTooltip}>
             {t("tools.sources.reshapeNew")}
           </span>
         )}
