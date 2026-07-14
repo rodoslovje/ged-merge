@@ -171,7 +171,24 @@ export function SourceCleanupView({
     setFetching(null);
   }
 
-  const groupTitle = (g: ReshapeGroup) => enrichment.get(g.id)?.title ?? g.proposed.title;
+  // When link-fetching is allowed, enrich automatically — the user opted in,
+  // and it's one cached request per book. Re-runs when newly selected site
+  // categories bring in more new-source groups; already-fetched books are
+  // served from the session cache.
+  const newIdsKey = newSourceGroups.map((g) => g.id).sort().join("|");
+  useEffect(() => {
+    if (!settings.allowLinkFetch || !newIdsKey || fetching) return;
+    if (newSourceGroups.every((g) => enrichment.has(g.id))) return;
+    void fetchDetails();
+    // Deliberately keyed on the group set only — enrichment/fetching updates
+    // must not re-trigger the fetch loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newIdsKey, settings.allowLinkFetch]);
+
+  // Fetched title → the existing source's own title (correct diacritics, no
+  // fetch needed) → the offline URL-derived guess.
+  const groupTitle = (g: ReshapeGroup) =>
+    enrichment.get(g.id)?.title ?? (g.existingSourceXref ? g.existingSourceTitle : undefined) ?? g.proposed.title;
 
   // Full field-per-row tooltip for the new/existing badge — same "TAG: value"
   // style as the Sources tree's record tooltips.
