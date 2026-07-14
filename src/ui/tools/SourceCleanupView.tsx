@@ -371,7 +371,12 @@ export function SourceCleanupView({
           {t("tools.sources.cleanupDownload")}
         </button>
         {settings.allowLinkFetch && newSourceGroups.length > 0 && (
-          <button className="nav-btn tools-run" onClick={fetchDetails} disabled={fetching !== null}>
+          <button
+            className="nav-btn tools-run"
+            onClick={fetchDetails}
+            disabled={fetching !== null}
+            title={t("tools.sources.reshapeFetchHint")}
+          >
             {fetching
               ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
               : t("tools.sources.reshapeFetch")}
