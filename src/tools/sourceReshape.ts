@@ -10,6 +10,7 @@ import {
   sourceTitle,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
+import { detectPlaceLayout } from "../normalize/profile";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
@@ -144,6 +145,9 @@ export interface ReshapeMeta {
   title?: string;
   agency?: string;
   place?: string;
+  /** Sub-place detail (the cemetery name + plot) — becomes the BURI event's
+   *  ADDR in files whose place format keeps addresses separate. */
+  address?: string;
   dateRange?: string;
   bookType?: BookType;
 }
@@ -972,12 +976,20 @@ function placeSegmentKey(segment: string): string {
  * diacritic-less slug guess "Sentjur Pri Celju", becomes the file's own
  * "Žabnica,Kranj,Slovenia" in its established place format.
  */
-function buildPlaceResolver(records: GedNode[]): (place: string | undefined) => string | undefined {
+function buildPlaceResolver(records: GedNode[]): {
+  resolve: (place: string | undefined) => string | undefined;
+  /** The file keeps address detail in separate `ADDR` lines beside `PLAC`. */
+  structuredAddr: boolean;
+} {
   const bySegment = new Map<string, Map<string, number>>();
+  const placeValues: string[] = [];
+  let addrCount = 0;
   const walk = (n: GedNode): void => {
     for (const c of n.children) {
+      if (c.tag === "ADDR") addrCount++;
       const full = c.tag === "PLAC" ? c.value?.trim() : undefined;
       if (full) {
+        placeValues.push(full);
         const key = placeSegmentKey(full.split(",")[0]);
         if (key) {
           let values = bySegment.get(key);
@@ -1001,9 +1013,12 @@ function buildPlaceResolver(records: GedNode[]): (place: string | undefined) => 
     }
     if (top) best.set(key, top);
   }
-  return (place) => {
-    if (!place) return place;
-    return best.get(placeSegmentKey(place.split(",")[0])) ?? place;
+  return {
+    resolve: (place) => {
+      if (!place) return place;
+      return best.get(placeSegmentKey(place.split(",")[0])) ?? place;
+    },
+    structuredAddr: detectPlaceLayout(placeValues, addrCount) === "structured-addr",
   };
 }
 
@@ -1105,7 +1120,7 @@ export function reshapeSources(
   const createdObjeUrls = new Map<string, string>();
   const urlOfObje = (xref: string): string | undefined =>
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
-  const resolvePlace = buildPlaceResolver(clone);
+  const { resolve: resolvePlace, structuredAddr } = buildPlaceResolver(clone);
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -1250,13 +1265,21 @@ export function reshapeSources(
       const order = container === hit.container ? childOrderFor(container, hit.rec) : EVENT_CHILD_ORDER;
 
       // A grave record tells us where the burial is: fill the BURI event's
-      // missing place from the source's location (never overwrite one).
+      // missing place from the source's location (never overwrite one). In a
+      // place+address file, the cemetery name goes into the event's ADDR.
       if (bookType === "burial" && container.tag === "BURI" && fields.place && !firstChild(container, "PLAC")) {
         insertOrdered(
           container,
           { level: container.level + 1, tag: "PLAC", value: fields.place, children: [] },
           EVENT_CHILD_ORDER,
         );
+        if (structuredAddr && extra?.address && !firstChild(container, "ADDR")) {
+          insertOrdered(
+            container,
+            { level: container.level + 1, tag: "ADDR", value: extra.address, children: [] },
+            EVENT_CHILD_ORDER,
+          );
+        }
       }
 
       if (hit.shape === "inline" || hit.shape === "pageUrl") {
@@ -1462,6 +1485,8 @@ export async function fetchReshapeMeta(
                 // PLAC is the *place* (town, country); the cemetery itself
                 // names the source and stays in the title.
                 place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
+                // The cemetery (and plot) is address-level detail for the BURI event.
+                address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
                 // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
                 title:
                   page.cemetery && viewId

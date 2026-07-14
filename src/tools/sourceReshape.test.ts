@@ -524,6 +524,32 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 PLAC Šentjur pri Celju,Slovenija");
   });
 
+  it("puts the cemetery into the BURI ADDR in a place+address file", () => {
+    // Several PLAC+ADDR pairs make the file read as structured-addr layout.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/555
+1 BIRT
+2 PLAC Žabnica,Kranj,Slovenia
+2 ADDR Žabnica 12
+0 @I2@ INDI
+1 BIRT
+2 PLAC Strahinj,Naklo,Slovenia
+2 ADDR Strahinj 36
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Cesta 1
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje, P02" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje, P02\n2 SOUR/);
+  });
+
   it("never overwrites an existing BURI place", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -891,6 +917,7 @@ GPS Coordinates : 46.2181,14.3463`;
     const enrichment = await fetchReshapeMeta(report.groups, async () => GRAVE_MD);
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
+      address: "Pokopališče Zgornje Bitnje, P02", // cemetery + plot → BURI ADDR
       title: "Pokopališče Zgornje Bitnje, Žabnica - 10085092 - Geneanet Cemeteries",
     });
   });
