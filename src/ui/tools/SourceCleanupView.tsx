@@ -96,6 +96,8 @@ export function SourceCleanupView({
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
+  /** Books the last fetch run could not retrieve (relay down / blocked). */
+  const [fetchFailed, setFetchFailed] = useState(0);
   // Duplicates: excluded groups + survivor overrides keyed by group id.
   const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
@@ -164,10 +166,14 @@ export function SourceCleanupView({
 
   async function fetchDetails() {
     setFetching({ done: 0, total: newSourceGroups.length });
+    setFetchFailed(0);
     const fetched = await fetchReshapeMeta(newSourceGroups, fetchPageHtml, (done, total) =>
       setFetching({ done, total }),
     );
     setEnrichment((prev) => new Map([...prev, ...fetched]));
+    // FamilySearch is never fetched (login wall) — only count real misses.
+    const attempted = newSourceGroups.filter((g) => g.site !== "familysearch" && g.site !== "other");
+    setFetchFailed(attempted.filter((g) => !fetched.has(g.id)).length);
     setFetching(null);
   }
 
@@ -381,6 +387,9 @@ export function SourceCleanupView({
               ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
               : t("tools.sources.reshapeFetch")}
           </button>
+        )}
+        {fetchFailed > 0 && !fetching && (
+          <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
         )}
         {!nothingSelected && (
           <span className="tools-fix-hint">

@@ -226,6 +226,8 @@ export const en = {
   "tools.sources.reshapeFetchHint":
     "Looks up each new source's page on the archive site (one request per book) and fills in the real register title, archive, parish and year range for the created source records. Existing sources are never changed.",
   "tools.sources.reshapeFetching": "Fetching {{done}}/{{total}}…",
+  "tools.sources.reshapeFetchFailed_one": "{{count}} book could not be fetched — the relay may be down; try again later.",
+  "tools.sources.reshapeFetchFailed_other": "{{count}} books could not be fetched — the relay may be down; try again later.",
   "tools.sources.reshapeDownloadCount": "convert {{groups}} link groups · {{citations}} citations",
   "tools.places.summary": "{{countries}} countries · {{distinct}} places · {{uses}} mentions",
   "tools.places.none": "No places found.",

@@ -228,6 +228,10 @@ export const sl = {
   "tools.sources.reshapeFetchHint":
     "Za vsak nov vir poišče stran knjige na arhivskem spletišču (ena poizvedba na knjigo) in ustvarjenim virom izpolni pravi naslov matične knjige, arhiv, župnijo in razpon let. Obstoječi viri se nikoli ne spreminjajo.",
   "tools.sources.reshapeFetching": "Pridobivam {{done}}/{{total}}…",
+  "tools.sources.reshapeFetchFailed_one": "Za {{count}} knjigo podatkov ni bilo mogoče pridobiti — posredniški strežnik je morda nedosegljiv; poskusite pozneje.",
+  "tools.sources.reshapeFetchFailed_two": "Za {{count}} knjigi podatkov ni bilo mogoče pridobiti — posredniški strežnik je morda nedosegljiv; poskusite pozneje.",
+  "tools.sources.reshapeFetchFailed_few": "Za {{count}} knjige podatkov ni bilo mogoče pridobiti — posredniški strežnik je morda nedosegljiv; poskusite pozneje.",
+  "tools.sources.reshapeFetchFailed_other": "Za {{count}} knjig podatkov ni bilo mogoče pridobiti — posredniški strežnik je morda nedosegljiv; poskusite pozneje.",
   "tools.sources.reshapeDownloadCount": "pretvori {{groups}} skupin povezav · {{citations}} citatov",
   "tools.places.summary": "{{countries}} držav · {{distinct}} krajev · {{uses}} omemb",
   "tools.places.none": "Ni najdenih krajev.",

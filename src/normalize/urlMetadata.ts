@@ -7,7 +7,13 @@
  * non-200) is swallowed — the dialog just falls back to no title.
  */
 
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
+/** Public CORS-bypass relays, tried in order — any one being down (observed
+ *  regularly for each of them) must not take the feature out. */
+const PROXY_URLS = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 const TIMEOUT_MS = 6000;
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -24,19 +30,29 @@ export function decodeHtmlEntities(s: string): string {
   });
 }
 
-/** Fetch `url`'s raw HTML through the CORS-bypass relay, or undefined on any failure. */
-export async function fetchPageHtml(url: string): Promise<string | undefined> {
+async function fetchViaProxy(proxied: string): Promise<string | undefined> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`${PROXY_URL}${encodeURIComponent(url)}`, { signal: controller.signal });
+    const res = await fetch(proxied, { signal: controller.signal });
     if (!res.ok) return undefined;
-    return await res.text();
+    const text = await res.text();
+    return text || undefined;
   } catch {
     return undefined;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Fetch `url`'s raw HTML through a CORS-bypass relay (first responsive one
+ *  wins), or undefined when they all fail. */
+export async function fetchPageHtml(url: string): Promise<string | undefined> {
+  for (const proxy of PROXY_URLS) {
+    const html = await fetchViaProxy(proxy(url));
+    if (html) return html;
+  }
+  return undefined;
 }
 
 /** Fetch `url`'s HTML through a CORS-bypass relay and return its `<title>`, or undefined on any failure. */
