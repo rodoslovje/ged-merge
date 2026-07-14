@@ -1288,6 +1288,8 @@ export async function fetchReshapeMeta(
   groups: ReshapeGroup[],
   fetchHtml: (url: string) => Promise<string | undefined>,
   onProgress?: (done: number, total: number) => void,
+  /** Called the moment one book resolves, so the UI can update incrementally. */
+  onMeta?: (groupId: string, meta: ReshapeMeta) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
   // FamilySearch sits behind a login and generic links have no parser — the
@@ -1357,7 +1359,10 @@ export async function fetchReshapeMeta(
           if (meta) bookMetaCache.set(cacheKey, meta);
         }
       }
-      if (meta) enrichment.set(g.id, meta);
+      if (meta) {
+        enrichment.set(g.id, meta);
+        onMeta?.(g.id, meta);
+      }
       onProgress?.(++done, targets.length);
     }
   };

@@ -181,8 +181,14 @@ export function SourceCleanupView({
     const targets = fetchableGroups;
     setFetching({ done: 0, total: targets.length });
     setFetchFailed(0);
-    const fetched = await fetchReshapeMeta(targets, fetchPageHtml, (done, total) => setFetching({ done, total }));
-    setEnrichment((prev) => new Map([...prev, ...fetched]));
+    const fetched = await fetchReshapeMeta(
+      targets,
+      fetchPageHtml,
+      (done, total) => setFetching({ done, total }),
+      // Stream each resolved book into the list immediately — titles improve
+      // one by one instead of all at once at the end.
+      (id, meta) => setEnrichment((prev) => new Map(prev).set(id, meta)),
+    );
     setFetchFailed(targets.filter((g) => !fetched.has(g.id)).length);
     setFetching(null);
   }
