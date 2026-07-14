@@ -291,6 +291,26 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain(`1 FILE ${BOOK}/?pg=200`);
   });
 
+  it("keeps a reused source's new page OBJE grouped with the existing ones, ahead of REPO/CHAN", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=200
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869
+1 OBJE @O1@
+1 REPO @R1@
+1 CHAN
+2 DATE 01 JAN 2026
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 @R1@ REPO
+1 NAME Arhiv
+0 TRLR`);
+    expect(text).toMatch(/1 OBJE @O1@\n1 OBJE @O\d+@\n1 REPO @R1@\n1 CHAN/);
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

@@ -69,6 +69,26 @@ export function insertOrdered(parent: GedNode, child: GedNode, order: string[]):
   else parent.children.splice(insertAt, 0, child);
 }
 
+/**
+ * Insert `child` right after the last same-tag sibling — keeping e.g. a new
+ * page `OBJE` grouped with the existing ones — else before the first child
+ * whose tag is in `beforeTags` (the record's trailing block: REPO, CHAN/CREA
+ * bookkeeping), else at the end. Unlike `insertOrdered` this is safe on
+ * records with vendor tags in arbitrary positions: it never reorders what's
+ * already there.
+ */
+export function insertGrouped(parent: GedNode, child: GedNode, beforeTags: readonly string[]): void {
+  for (let i = parent.children.length - 1; i >= 0; i--) {
+    if (parent.children[i].tag === child.tag) {
+      parent.children.splice(i + 1, 0, child);
+      return;
+    }
+  }
+  const before = parent.children.findIndex((c) => beforeTags.includes(c.tag));
+  if (before === -1) parent.children.push(child);
+  else parent.children.splice(before, 0, child);
+}
+
 export function getOrCreateChild(node: GedNode, tag: string, order: string[]): GedNode {
   let child = firstChild(node, tag);
   if (!child) {

@@ -16,10 +16,15 @@ import {
   EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
+  insertGrouped,
   insertOrdered,
   insertRecord,
   nextXref,
 } from "../gedcom/edit/shared";
+
+/** Trailing block of a `SOUR` record that new links/fields must stay ahead of. */
+const SOUR_TRAILING = ["REPO", "CHAN", "CREA"] as const;
+const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { label } from "../match/relatives";
 import { familySpouses } from "./sources";
@@ -773,10 +778,11 @@ function relevel(node: GedNode, level: number): void {
 }
 
 /** Set a single-valued field only when the record doesn't already carry one —
- *  reshape enriches, it never overwrites user data. */
+ *  reshape enriches, it never overwrites user data. Inserted ahead of the
+ *  record's media links and bookkeeping trailer, not appended after them. */
 function fillField(rec: GedNode, tag: string, value: string | undefined): void {
   if (!value || childText(rec, tag)) return;
-  rec.children.push({ level: rec.level + 1, tag, value, children: [] });
+  insertGrouped(rec, { level: rec.level + 1, tag, value, children: [] }, SOUR_FIELD_TRAILING);
 }
 
 /** Existing REPO for Matricula (preferring the group's archive), or undefined. */
@@ -850,9 +856,7 @@ export function reshapeSources(
       counts.sourcesCreated++;
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
-      if (extra?.dateRange) {
-        sourceNode.children.push({ level: 1, tag: "DATE", value: extra.dateRange, children: [] });
-      }
+      if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
       if (g.site === "matricula") {
         const mat = parseMatriculaUrl(state.hits[0].url);
         let repoXref = findMatriculaRepo(clone, mat?.archiveSlug);
@@ -902,8 +906,9 @@ export function reshapeSources(
       const page = hit.recognized.page;
       const objeTitle = page ? `#${page} - ${fields.title}` : fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
-        // Re-link the already-existing top-level OBJE under the source.
-        sourceNode.children.push({ level: 1, tag: "OBJE", value: hit.objeXref, children: [] });
+        // Re-link the already-existing top-level OBJE under the source,
+        // grouped with its other page media (not after CHAN/CREA).
+        insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
         addObjeToSource(clone, sourceXref, hit.url, objeTitle);
         counts.mediaCreated++;
