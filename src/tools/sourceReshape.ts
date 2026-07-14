@@ -55,7 +55,14 @@ import { familySpouses } from "./sources";
  * placement audit for pre-existing pointer citations.
  */
 
-export type ReshapeSite = "matricula" | "geneanet" | "findagrave" | "familysearch" | "other";
+export type ReshapeSite =
+  | "matricula"
+  | "geneanet"
+  | "findagrave"
+  | "legacy"
+  | "sistory"
+  | "familysearch"
+  | "other";
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
 
@@ -146,7 +153,14 @@ export interface ReshapeCounts {
   eventsCreated: number;
 }
 
-const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(["matricula", "geneanet", "findagrave", "familysearch"]);
+const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set([
+  "matricula",
+  "geneanet",
+  "findagrave",
+  "legacy",
+  "sistory",
+  "familysearch",
+]);
 
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
@@ -234,6 +248,15 @@ const GENEANET_VIEW_RE = /\/cemetery\/view\/([^/?#]+)/;
  *  other Find a Grave pages are not grave records and fall through to "other". */
 const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\/(\d+)(?:\/([^/?#]+))?/i;
 
+/** A Legacy.com obituary URL — several vintages share the host, an
+ *  "obituaries" path, a `{name}-obituary` slug and an `id`/`pid` param:
+ *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
+const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
+
+/** A SIstory.si war-victims record: /ww1/{guid} or /ww2/{guid} — the Slovene
+ *  WW1/WW2 casualty databases; one record per person, evidencing the death. */
+const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]{8,})/i;
+
 export interface FamilySearchUrlParts {
   kind: "image" | "record" | "tree";
   ark?: string;
@@ -318,6 +341,40 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
       proposed: { title: who ? `${grave[1]} - ${who} - Find a Grave` : `${grave[1]} - Find a Grave` },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  if (LEGACY_OBIT_RE.test(url.trim())) {
+    if (!sites.has("legacy")) return undefined;
+    const id = /[?&]p?id=(\d+)/i.exec(url)?.[1];
+    const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1];
+    const who = slug ? prettySlug(slug) : undefined;
+    return {
+      site: "legacy",
+      groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
+      bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
+      proposed: {
+        title: [id, who, "Legacy.com"].filter(Boolean).join(" - "),
+      },
+      titleRank: who ? 1 : 0,
+    };
+  }
+
+  const sistory = SISTORY_WW_RE.exec(url.trim());
+  if (sistory) {
+    if (!sites.has("sistory")) return undefined;
+    const war = sistory[1].toUpperCase();
+    const guid = sistory[2].toUpperCase();
+    // The GUID means nothing to a reader — prefer the person's name, which the
+    // SIstory citation text carries in »…« quotes.
+    const who = quotedCollection(contextText);
+    return {
+      site: "sistory",
+      groupKey: `s:${guid.toLowerCase()}`,
+      bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${guid}`,
+      proposed: { title: who ? `${who} - SIstory.si ${war}` : `SIstory.si ${war} - ${guid}` },
+      titleRank: who ? 1 : 0,
+      typeHint: contextText,
     };
   }
 
@@ -610,10 +667,24 @@ function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): S
 // ---------------------------------------------------------------------------
 // Grouping + report
 
-const SITE_ORDER: Record<ReshapeSite, number> = { matricula: 0, geneanet: 1, findagrave: 2, familysearch: 3, other: 4 };
+const SITE_ORDER: Record<ReshapeSite, number> = {
+  matricula: 0,
+  geneanet: 1,
+  findagrave: 2,
+  legacy: 3,
+  sistory: 4,
+  familysearch: 5,
+  other: 6,
+};
 
-/** Grave-record sites: always burial books, placed on the BURI event. */
-const BURIAL_SITES: ReadonlySet<ReshapeSite> = new Set(["geneanet", "findagrave"]);
+/** Sites whose record kind is inherent: graves → burial, obituaries and
+ *  war-casualty records → death. */
+const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
+  geneanet: "burial",
+  findagrave: "burial",
+  legacy: "death",
+  sistory: "death",
+};
 
 interface GroupState {
   group: ReshapeGroup;
@@ -681,14 +752,13 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
     }
     state.group.pages.sort((a, b) => collator.compare(a, b));
     state.group.bookType =
-      BURIAL_SITES.has(state.group.site)
-        ? "burial"
-        : classifyBookType([
-            state.group.existingSourceTitle,
-            state.group.proposed.title,
-            ...state.hits.map((h) => h.typeText),
-            ...state.hits.map((h) => h.prefix),
-          ]);
+      SITE_BOOK_TYPE[state.group.site] ??
+      classifyBookType([
+        state.group.existingSourceTitle,
+        state.group.proposed.title,
+        ...state.hits.map((h) => h.typeText),
+        ...state.hits.map((h) => h.prefix),
+      ]);
   }
   return groups;
 }
@@ -755,7 +825,15 @@ export function findReshapableLinks(
 
   const out: ReshapeGroup[] = [];
   let total = 0;
-  const bySite: Record<ReshapeSite, number> = { matricula: 0, geneanet: 0, findagrave: 0, familysearch: 0, other: 0 };
+  const bySite: Record<ReshapeSite, number> = {
+    matricula: 0,
+    geneanet: 0,
+    findagrave: 0,
+    legacy: 0,
+    sistory: 0,
+    familysearch: 0,
+    other: 0,
+  };
   for (const state of groups.values()) {
     const g = state.group;
     g.members = state.hits.map((hit) => {
@@ -1186,7 +1264,9 @@ export async function fetchReshapeMeta(
   onProgress?: (done: number, total: number) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
-  const targets = groups.filter((g) => g.site === "matricula" || BURIAL_SITES.has(g.site));
+  // FamilySearch sits behind a login and generic links have no parser — the
+  // named archive/grave/obituary sites are all fetchable.
+  const targets = groups.filter((g) => g.site !== "familysearch" && g.site !== "other");
   let done = 0;
   onProgress?.(0, targets.length);
 
@@ -1232,6 +1312,14 @@ export async function fetchReshapeMeta(
             if (name) {
               meta = { title: memorialId ? `${memorialId} - ${name} - Find a Grave` : `${name} - Find a Grave` };
             }
+          } else if (g.site === "legacy") {
+            const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
+            const obitId = /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
+            if (name) meta = { title: [obitId, name, "Legacy.com"].filter(Boolean).join(" - ") };
+          } else if (g.site === "sistory") {
+            const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+            const war = /\/(ww[12])\//i.exec(g.bookUrl)?.[1].toUpperCase();
+            if (name) meta = { title: `${name} - SIstory.si${war ? ` ${war}` : ""}` };
           } else {
             const title = pageTitleOf(html);
             if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };

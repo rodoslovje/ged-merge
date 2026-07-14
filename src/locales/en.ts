@@ -192,6 +192,8 @@ export const en = {
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
+  "tools.sources.reshapeSite.legacy": "Legacy.com obituaries",
+  "tools.sources.reshapeSite.sistory": "SIstory.si war victims",
   "tools.sources.reshapeSite.familysearch": "FamilySearch",
   "tools.sources.reshapeSite.other": "Other links",
   "tools.sources.reshapePlace": "Place citations on matching events",

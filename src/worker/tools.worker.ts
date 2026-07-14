@@ -55,7 +55,10 @@ function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap
     case "sourceReshape":
       // Scan every category (incl. "other"); the panel filters by selection.
       return {
-        report: findReshapableLinks(dataset, new Set(["matricula", "geneanet", "findagrave", "familysearch", "other"])),
+        report: findReshapableLinks(
+          dataset,
+          new Set(["matricula", "geneanet", "findagrave", "legacy", "sistory", "familysearch", "other"]),
+        ),
       };
     case "normalizePreview":
       return { report: bulkNormalize(dataset).report };

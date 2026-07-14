@@ -639,6 +639,32 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
 
+  it("treats Legacy.com obituaries as death evidence: DEAT placement, id+name title", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://www.legacy.com/us/obituaries/theherald-news/name/peter-ancel-obituary?id=26608778
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "legacy")!;
+    expect(g.bookType).toBe("death");
+    expect(g.proposed.title).toBe("26608778 - Peter Ancel - Legacy.com");
+    expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // record-level note moved to a created DEAT
+    expect(text).toContain("1 TITL 26608778 - Peter Ancel - Legacy.com");
+  });
+
+  it("treats SIstory.si WW records as death evidence with the quoted person name", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR INZ, »Fani Grudnik«, Smrtne žrtve druge svetovne vojne, https://www.sistory.si/ww2/F01EDD85-E7BB-4D18-9599-1428852BAA1F
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "sistory")!;
+    expect(g.bookType).toBe("death");
+    expect(g.proposed.title).toBe("Fani Grudnik - SIstory.si WW2");
+    expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
+    expect(text).toContain("1 TITL Fani Grudnik - SIstory.si WW2");
+  });
+
   it("leaves acceptable placements alone (death book on BURI)", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8

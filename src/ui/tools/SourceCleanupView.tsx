@@ -21,11 +21,13 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
-const SITES: ReshapeSite[] = ["matricula", "geneanet", "findagrave", "familysearch", "other"];
+const SITES: ReshapeSite[] = ["matricula", "geneanet", "findagrave", "legacy", "sistory", "familysearch", "other"];
 const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
   findagrave: "🕊️",
+  legacy: "📰",
+  sistory: "🎖️",
   familysearch: "🌳",
   other: "🔗",
 };
@@ -156,10 +158,7 @@ export function SourceCleanupView({
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
   const fetchableGroups = selectedGroups.filter(
-    (g) =>
-      !g.existingSourceXref &&
-      !enrichment.has(g.id) &&
-      (g.site === "matricula" || g.site === "geneanet" || g.site === "findagrave"),
+    (g) => !g.existingSourceXref && !enrichment.has(g.id) && g.site !== "familysearch" && g.site !== "other",
   );
 
   const selectedDupGroups = dupReport.groups
