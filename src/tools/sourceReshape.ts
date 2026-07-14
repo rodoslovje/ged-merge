@@ -296,11 +296,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
+    // Title format: `{id} - {what}, {where} - Geneanet Cemeteries` — the view
+    // id stays identifiable, the site name trails.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: who ? `Geneanet Cemeteries – ${who}` : `Geneanet Cemeteries – ${gene[1]}` },
+      proposed: { title: who ? `${gene[1]} - ${who} - Geneanet Cemeteries` : `${gene[1]} - Geneanet Cemeteries` },
       titleRank: who ? 1 : 0,
     };
   }
@@ -1209,15 +1211,15 @@ export async function fetchReshapeMeta(
           } else if (g.site === "geneanet") {
             const page = parseGeneanetCemeteryPage(html);
             if (page) {
+              const viewId = /\/view\/([^/?#]+)/.exec(g.bookUrl)?.[1];
               meta = {
                 // The grave's whereabouts: cemetery, plot, town, country.
                 place:
                   [page.cemetery, page.plot, page.town, page.country].filter(Boolean).join(", ") || undefined,
-                // Only replace an id-based fallback title; a person-named one
-                // ("Geneanet Cemeteries – GRUDNIK Anton") is more specific.
+                // `{id} - {cemetery}, {town} - Geneanet Cemeteries`.
                 title:
-                  /–\s*\d+$/.test(g.proposed.title) && (page.cemetery || page.title)
-                    ? `Geneanet Cemeteries – ${page.cemetery ?? page.title}${page.town ? `, ${page.town}` : ""}`
+                  page.cemetery && viewId
+                    ? `${viewId} - ${page.cemetery}${page.town ? `, ${page.town}` : ""} - Geneanet Cemeteries`
                     : undefined,
               };
             }
