@@ -6,6 +6,7 @@ import {
   findExistingSource,
   inferSourceFormat,
   isPointer,
+  looksLikeUrl,
   pageParamOf,
   sourceTitle,
 } from "../gedcom/source";
@@ -422,6 +423,9 @@ interface ScanHit {
   eventIndex?: number;
   /** See {@link ReshapeOccurrence.foldedInto}. */
   foldedInto?: string;
+  /** Event tag carrying the same URL, in a file that *doubles* links — the
+   *  record-level citation is kept (house style) and just not relocated. */
+  twinEvent?: string;
 }
 
 /** Extract recognized URLs from a text value (may contain several). */
@@ -523,6 +527,44 @@ function scanContainer(
   }
 }
 
+/**
+ * The file's own habit for a link attached to both a person and one of their
+ * events: MacFamilyTree-style files systematically double every event photo
+ * onto the record, others keep a link in exactly one place. Counted over every
+ * link/media URL on events: does the same URL also sit at record level of the
+ * same person more often than not? Ties (and files without event links) read
+ * as "folded" — a single citation at the more precise spot.
+ */
+export function prefersDoubledLinks(records: GedNode[]): boolean {
+  const objeIndex = buildObjeIndex(records);
+  let doubled = 0;
+  let eventOnly = 0;
+  const collect = (container: GedNode, into: Set<string>): void => {
+    for (const c of container.children) {
+      if (LINK_TAGS.has(c.tag) && c.value) {
+        for (const m of c.value.matchAll(URL_RE)) into.add(linkKey(cleanUrl(m[0])));
+      } else if (c.tag === "OBJE") {
+        const v = c.value?.trim();
+        const url = v && isPointer(v) ? objeIndex.get(v)?.url : childText(c, "FILE");
+        if (url && looksLikeUrl(url)) into.add(linkKey(url));
+      }
+    }
+  };
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    const recordKeys = new Set<string>();
+    const eventKeys = new Set<string>();
+    collect(rec, recordKeys);
+    for (const child of rec.children) if (eventTags.has(child.tag)) collect(child, eventKeys);
+    for (const k of eventKeys) {
+      if (recordKeys.has(k)) doubled++;
+      else eventOnly++;
+    }
+  }
+  return doubled > eventOnly;
+}
+
 function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): ScanHit[] {
   const objeIndex = buildObjeIndex(records);
   const objeUrls = new Map<string, string>();
@@ -573,7 +615,7 @@ interface GroupState {
   titleRank: number;
 }
 
-function buildGroups(records: GedNode[], hits: ScanHit[]): Map<string, GroupState> {
+function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolean): Map<string, GroupState> {
   const groups = new Map<string, GroupState>();
   for (const hit of hits) {
     const { recognized } = hit;
@@ -619,13 +661,17 @@ function buildGroups(records: GedNode[], hits: ScanHit[]): Map<string, GroupStat
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   for (const state of groups.values()) {
     // A record-level attachment duplicated by an event-level one on the same
-    // person folds into the event — one citation, at the more precise spot.
+    // person: in a file that keeps links in one place it folds into the event
+    // (one citation, at the more precise spot); in a file that doubles links
+    // (MacFamilyTree style) both citations are kept, matching the house style.
     for (const hit of state.hits) {
       if (hit.eventTag || hit.shape === "sourTitle") continue;
       const eventTwin = state.hits.find(
         (h) => h !== hit && h.rec === hit.rec && h.eventTag && linkKey(h.url) === linkKey(hit.url),
       );
-      if (eventTwin) hit.foldedInto = eventTwin.eventTag;
+      if (!eventTwin) continue;
+      if (foldDuplicates) hit.foldedInto = eventTwin.eventTag;
+      else hit.twinEvent = eventTwin.eventTag;
     }
     state.group.pages.sort((a, b) => collator.compare(a, b));
     state.group.bookType =
@@ -686,7 +732,7 @@ export function findReshapableLinks(
 ): ReshapeReport {
   const relocate = opts.relocate !== false;
   const hits = scanOccurrences(dataset.records, sites);
-  const groups = buildGroups(dataset.records, hits);
+  const groups = buildGroups(dataset.records, hits, !prefersDoubledLinks(dataset.records));
   const baptismTag = baptismTargetTag(dataset.records);
 
   const recordLabel = (rec: GedNode): string => {
@@ -707,7 +753,8 @@ export function findReshapableLinks(
   for (const state of groups.values()) {
     const g = state.group;
     g.members = state.hits.map((hit) => {
-      const move = relocate && !hit.foldedInto ? relocationTarget(hit, g.bookType, baptismTag) : undefined;
+      const move =
+        relocate && !hit.foldedInto && !hit.twinEvent ? relocationTarget(hit, g.bookType, baptismTag) : undefined;
       return {
         recordXref: hit.rec.xref ?? "?",
         recordLabel: recordLabel(hit.rec),
@@ -846,7 +893,7 @@ export function reshapeSources(
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
   const hits = scanOccurrences(clone, sites).filter((h) => selectedById.has(h.recognized.groupKey));
-  const groups = buildGroups(clone, hits);
+  const groups = buildGroups(clone, hits, !prefersDoubledLinks(clone));
   const baptismTag = baptismTargetTag(clone);
   const layout = inferSourceFormat(clone).layout;
 
@@ -951,7 +998,7 @@ export function reshapeSources(
       }
 
       const page = hit.recognized.page;
-      const move = relocate ? relocationTarget(hit, bookType, baptismTag) : undefined;
+      const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag) : undefined;
       let container = hit.container;
       if (move) {
         const host = move.onFam ? byXref.get(soleFamsXref(hit.rec) ?? "") : hit.rec;
