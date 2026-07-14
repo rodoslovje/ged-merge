@@ -3,7 +3,6 @@ import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node"
 import {
   bookKeyOf,
   buildObjeIndex,
-  findExistingSource,
   inferSourceFormat,
   isPointer,
   looksLikeUrl,
@@ -55,14 +54,27 @@ import { familySpouses } from "./sources";
  * placement audit for pre-existing pointer citations.
  */
 
-export type ReshapeSite =
-  | "matricula"
-  | "geneanet"
-  | "findagrave"
-  | "legacy"
-  | "sistory"
-  | "familysearch"
-  | "other";
+/** Every site category, in display/sort order — the single list every other
+ *  per-site structure (defaults, ordering, counters, worker scan, view) is
+ *  derived from. Add a new site here first. */
+export const ALL_SITES = [
+  "matricula",
+  "geneanet",
+  "findagrave",
+  "legacy",
+  "sistory",
+  "familysearch",
+  "other",
+] as const;
+
+export type ReshapeSite = (typeof ALL_SITES)[number];
+
+/** Sites the enrichment fetch can usefully contact — FamilySearch sits behind
+ *  a login and generic links have no parser. Shared by the fetcher and the
+ *  panel's button/progress so they can't disagree. */
+export function isFetchableSite(site: ReshapeSite): boolean {
+  return site !== "familysearch" && site !== "other";
+}
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
 
@@ -156,14 +168,7 @@ export interface ReshapeCounts {
   eventsCreated: number;
 }
 
-const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set([
-  "matricula",
-  "geneanet",
-  "findagrave",
-  "legacy",
-  "sistory",
-  "familysearch",
-]);
+const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
 
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
@@ -184,6 +189,12 @@ interface Recognized {
   /** Specificity of `proposed.title` — a later member with a better title
    *  (e.g. a Geneanet URL naming the person) upgrades the group's. */
   titleRank?: number;
+}
+
+/** The `{name} - {id} - {site}` title layout every grave/obituary/victim site
+ *  uses, offline and enriched alike — absent parts are dropped. */
+function siteTitle(name: string | undefined, id: string | undefined, siteLabel: string): string {
+  return [name, id, siteLabel].filter(Boolean).join(" - ");
 }
 
 /** Strip punctuation a URL picked up from surrounding prose. */
@@ -333,7 +344,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: who ? `${who} - ${gene[1]} - Geneanet Cemeteries` : `${gene[1]} - Geneanet Cemeteries` },
+      proposed: { title: siteTitle(who, gene[1], "Geneanet Cemeteries") },
       titleRank: who ? 1 : 0,
     };
   }
@@ -347,7 +358,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "findagrave",
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
-      proposed: { title: who ? `${who} - ${grave[1]} - Find a Grave` : `${grave[1]} - Find a Grave` },
+      proposed: { title: siteTitle(who, grave[1], "Find a Grave") },
       titleRank: who ? 1 : 0,
     };
   }
@@ -361,9 +372,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "legacy",
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
-      proposed: {
-        title: [who, id, "Legacy.com"].filter(Boolean).join(" - "),
-      },
+      proposed: { title: siteTitle(who, id, "Legacy.com") },
       titleRank: who ? 1 : 0,
     };
   }
@@ -380,7 +389,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: who ? `${who} - ${id} - SIstory.si ${war}` : `${id} - SIstory.si ${war}` },
+      proposed: { title: siteTitle(who, id, `SIstory.si ${war}`) },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -400,7 +409,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: who ? `${who}${year ? ` (${year})` : ""} - ${numId} - SIstory.si WW1` : `${numId} - SIstory.si WW1`,
+        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, numId, "SIstory.si WW1"),
       },
       titleRank: who ? 2 : 0,
       typeHint: contextText,
@@ -696,15 +705,7 @@ function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): S
 // ---------------------------------------------------------------------------
 // Grouping + report
 
-const SITE_ORDER: Record<ReshapeSite, number> = {
-  matricula: 0,
-  geneanet: 1,
-  findagrave: 2,
-  legacy: 3,
-  sistory: 4,
-  familysearch: 5,
-  other: 6,
-};
+const SITE_ORDER = new Map<ReshapeSite, number>(ALL_SITES.map((s, i) => [s, i]));
 
 /** Sites whose record kind is inherent: graves → burial, obituaries and
  *  war-casualty records → death. */
@@ -722,23 +723,38 @@ interface GroupState {
 }
 
 function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolean): Map<string, GroupState> {
+  // Existing-source lookup built in ONE pass over the SOUR records (same
+  // exact-URL-first / same-book-second precedence as findExistingSource) —
+  // calling findExistingSource per group would rescan the whole forest each time.
+  const objeIndex = buildObjeIndex(records);
+  const exactSource = new Map<string, GedNode>();
+  const bookSource = new Map<string, GedNode>();
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const child of rec.children) {
+      if (child.tag !== "OBJE" || !child.value) continue;
+      const url = objeIndex.get(child.value.trim())?.url;
+      if (!url) continue;
+      const exactKey = linkKey(url);
+      if (!exactSource.has(exactKey)) exactSource.set(exactKey, rec);
+      const bookKey = bookKeyOf(url);
+      if (!bookSource.has(bookKey)) bookSource.set(bookKey, rec);
+    }
+  }
+
   const groups = new Map<string, GroupState>();
   for (const hit of hits) {
     const { recognized } = hit;
     let state = groups.get(recognized.groupKey);
     if (!state) {
-      const existing = findExistingSource(records, hit.url);
       // A URL-titled SOUR record in the group becomes its target: badge as reuse.
-      const existingXref = existing?.sourceXref;
-      const existingNode = existingXref
-        ? records.find((r) => r.tag === "SOUR" && r.xref === existingXref)
-        : undefined;
+      const existingNode = exactSource.get(linkKey(hit.url)) ?? bookSource.get(bookKeyOf(hit.url));
       state = {
         group: {
           id: recognized.groupKey,
           site: recognized.site,
           bookType: "unknown",
-          existingSourceXref: existingXref,
+          existingSourceXref: existingNode?.xref,
           existingSourceTitle: existingNode ? sourceTitle(existingNode) : undefined,
           proposed: recognized.proposed,
           bookUrl: recognized.bookUrl,
@@ -771,14 +787,19 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
     // person: in a file that keeps links in one place it folds into the event
     // (one citation, at the more precise spot); in a file that doubles links
     // (MacFamilyTree style) both citations are kept, matching the house style.
+    // Event twins are indexed in one pass — groups can have hundreds of members.
+    const eventTwins = new Map<string, string>();
+    for (const h of state.hits) {
+      if (!h.eventTag) continue;
+      const twinKey = `${h.rec.xref}|${linkKey(h.url)}`;
+      if (!eventTwins.has(twinKey)) eventTwins.set(twinKey, h.eventTag);
+    }
     for (const hit of state.hits) {
       if (hit.eventTag || hit.shape === "sourTitle") continue;
-      const eventTwin = state.hits.find(
-        (h) => h !== hit && h.rec === hit.rec && h.eventTag && linkKey(h.url) === linkKey(hit.url),
-      );
-      if (!eventTwin) continue;
-      if (foldDuplicates) hit.foldedInto = eventTwin.eventTag;
-      else hit.twinEvent = eventTwin.eventTag;
+      const twin = eventTwins.get(`${hit.rec.xref}|${linkKey(hit.url)}`);
+      if (!twin) continue;
+      if (foldDuplicates) hit.foldedInto = twin;
+      else hit.twinEvent = twin;
     }
     state.group.pages.sort((a, b) => collator.compare(a, b));
     state.group.bookType =
@@ -855,15 +876,7 @@ export function findReshapableLinks(
 
   const out: ReshapeGroup[] = [];
   let total = 0;
-  const bySite: Record<ReshapeSite, number> = {
-    matricula: 0,
-    geneanet: 0,
-    findagrave: 0,
-    legacy: 0,
-    sistory: 0,
-    familysearch: 0,
-    other: 0,
-  };
+  const bySite = Object.fromEntries(ALL_SITES.map((s) => [s, 0])) as Record<ReshapeSite, number>;
   for (const state of groups.values()) {
     const g = state.group;
     g.members = state.hits.map((hit) => {
@@ -891,7 +904,7 @@ export function findReshapableLinks(
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   out.sort(
-    (a, b) => SITE_ORDER[a.site] - SITE_ORDER[b.site] || collator.compare(a.proposed.title, b.proposed.title),
+    (a, b) => SITE_ORDER.get(a.site)! - SITE_ORDER.get(b.site)! || collator.compare(a.proposed.title, b.proposed.title),
   );
   return { groups: out, totalOccurrences: total, bySite };
 }
@@ -1034,6 +1047,12 @@ export function reshapeSources(
   const groups = buildGroups(clone, hits, !prefersDoubledLinks(clone));
   const baptismTag = baptismTargetTag(clone);
   const layout = inferSourceFormat(clone).layout;
+  // Media index built ONCE for the whole apply (a per-group rebuild is a full
+  // forest scan each time); OBJEs this run creates are tracked alongside.
+  const cloneObjeIndex = buildObjeIndex(clone);
+  const createdObjeUrls = new Map<string, string>();
+  const urlOfObje = (xref: string): string | undefined =>
+    cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -1094,11 +1113,10 @@ export function reshapeSources(
     }
 
     // --- Ensure one OBJE per distinct page URL under the target SOUR.
-    const objeIndex = buildObjeIndex(clone);
     const linkedKeys = new Set<string>();
     for (const c of childrenByTag(sourceNode, "OBJE")) {
       const v = c.value?.trim();
-      const url = v && objeIndex.get(v)?.url;
+      const url = v && urlOfObje(v);
       if (url) linkedKeys.add(linkKey(url));
     }
     const seenUrls = new Set<string>();
@@ -1117,7 +1135,8 @@ export function reshapeSources(
         // grouped with its other page media (not after CHAN/CREA).
         insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
-        addObjeToSource(clone, sourceXref, hit.url, objeTitle);
+        const obje = addObjeToSource(clone, sourceXref, hit.url, objeTitle);
+        if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
         counts.mediaCreated++;
       }
       linkedKeys.add(urlKey);
@@ -1344,9 +1363,7 @@ export async function fetchReshapeMeta(
   onMeta?: (groupId: string, meta: ReshapeMeta) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
-  // FamilySearch sits behind a login and generic links have no parser — the
-  // named archive/grave/obituary sites are all fetchable.
-  const targets = groups.filter((g) => g.site !== "familysearch" && g.site !== "other");
+  const targets = groups.filter((g) => isFetchableSite(g.site));
   let done = 0;
   onProgress?.(0, targets.length);
 
@@ -1383,7 +1400,7 @@ export async function fetchReshapeMeta(
                 // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
                 title:
                   page.cemetery && viewId
-                    ? `${page.cemetery}${page.town ? `, ${page.town}` : ""} - ${viewId} - Geneanet Cemeteries`
+                    ? siteTitle(`${page.cemetery}${page.town ? `, ${page.town}` : ""}`, viewId, "Geneanet Cemeteries")
                     : undefined,
               };
             }
@@ -1393,19 +1410,17 @@ export async function fetchReshapeMeta(
             const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
             const memorialId = /\/memorial\/(\d+)/.exec(g.bookUrl)?.[1];
             if (name) {
-              meta = { title: memorialId ? `${name} - ${memorialId} - Find a Grave` : `${name} - Find a Grave` };
+              meta = { title: siteTitle(name, memorialId, "Find a Grave") };
             }
           } else if (g.site === "legacy") {
             const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
             const obitId = /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: [name, obitId, "Legacy.com"].filter(Boolean).join(" - ") };
+            if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
           } else if (g.site === "sistory") {
             const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
             const war = /\/(ww[12])\//i.exec(g.bookUrl)?.[1].toUpperCase();
             const recId = /\/ww[12]\/([^/?#]+)/i.exec(g.bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) {
-              meta = { title: [name, recId, `SIstory.si${war ? ` ${war}` : ""}`].filter(Boolean).join(" - ") };
-            }
+            if (name) meta = { title: siteTitle(name, recId, `SIstory.si${war ? ` ${war}` : ""}`) };
           } else {
             const title = pageTitleOf(html);
             if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };

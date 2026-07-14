@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
+  ALL_SITES,
   fetchReshapeMeta,
+  isFetchableSite,
   reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
@@ -21,7 +23,7 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
-const SITES: ReshapeSite[] = ["matricula", "geneanet", "findagrave", "legacy", "sistory", "familysearch", "other"];
+const SITES: readonly ReshapeSite[] = ALL_SITES;
 const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
@@ -174,11 +176,7 @@ export function SourceCleanupView({
   // URL-titled sources are "existing" but get rewritten — they want enrichment
   // as much as brand-new ones do.
   const fetchableGroups = selectedGroups.filter(
-    (g) =>
-      (!g.existingSourceXref || g.urlTitled) &&
-      !enrichment.has(g.id) &&
-      g.site !== "familysearch" &&
-      g.site !== "other",
+    (g) => (!g.existingSourceXref || g.urlTitled) && !enrichment.has(g.id) && isFetchableSite(g.site),
   );
 
   const selectedDupGroups = dupReport.groups

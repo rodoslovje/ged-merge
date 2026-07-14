@@ -4,7 +4,7 @@ import { findDuplicates } from "../tools/duplicates";
 import { validateDataset } from "../tools/validate";
 import { validateStructure } from "../tools/structure";
 import { findSourceDuplicates } from "../tools/sourceDuplicates";
-import { findReshapableLinks } from "../tools/sourceReshape";
+import { ALL_SITES, findReshapableLinks } from "../tools/sourceReshape";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "./toolsMessages";
@@ -54,12 +54,7 @@ function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap
       return { report: findSourceDuplicates(dataset) };
     case "sourceReshape":
       // Scan every category (incl. "other"); the panel filters by selection.
-      return {
-        report: findReshapableLinks(
-          dataset,
-          new Set(["matricula", "geneanet", "findagrave", "legacy", "sistory", "familysearch", "other"]),
-        ),
-      };
+      return { report: findReshapableLinks(dataset, new Set(ALL_SITES)) };
     case "normalizePreview":
       return { report: bulkNormalize(dataset).report };
     case "normalizeText": {
