@@ -258,11 +258,16 @@ function ReshapeGroupRow({
         {group.pages.length > 0 && (
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
         )}
-        <span className="tools-tree-meta">
-          {group.existingSourceXref
-            ? t("tools.sources.reshapeReuses", { title: group.existingSourceTitle ?? group.existingSourceXref })
-            : t("tools.sources.reshapeNew")}
-        </span>
+        {group.existingSourceXref ? (
+          <span
+            className="tools-reshape-badge reuse"
+            title={group.existingSourceTitle ?? group.existingSourceXref}
+          >
+            {t("tools.sources.reshapeReuses", { title: group.existingSourceTitle ?? group.existingSourceXref })}
+          </span>
+        ) : (
+          <span className="tools-reshape-badge new">{t("tools.sources.reshapeNew")}</span>
+        )}
         <span className="tools-chip-count">{group.members.length}</span>
       </div>
       {open && (

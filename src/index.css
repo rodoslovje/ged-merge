@@ -5859,6 +5859,15 @@ kbd {
 .tools-dup-actions .tools-run { margin: 0; }
 
 /* Source reshape */
+/* Group badge: will a new SOUR record be created, or an existing one reused? */
+.tools-reshape-badge {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  border: 1px solid; border-radius: 4px; padding: 0 4px;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 1 auto;
+}
+.tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
+.tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
 .tools-reshape-options {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
   margin: 0 0 12px; font-size: 0.9rem; color: var(--text);
