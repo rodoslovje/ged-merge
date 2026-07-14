@@ -1,12 +1,25 @@
-import { childrenByTag, removeChildren } from "../node";
+import { childrenByTag } from "../node";
 import type { GedNode, Individual, Sex } from "../types";
 import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, removeChild, setOrRemoveValue } from "./shared";
 
 /**
- * Write `given`/`surname` into a NAME node's slash-form value and drop any
- * `GIVN`/`SURN` sub-tags. The slash value is the single source of truth (it's
- * what `parseName` reads first), so leaving the structured sub-tags behind would
- * let them go stale and contradict the edited name — always remove them.
+ * Keep a NAME node's `GIVN`/`SURN` sub-tag in sync with the edited name *only
+ * when the file already carries it* (MacFamilyTree and similar write these
+ * structured parts alongside the slash value). Updating in place stops them
+ * going stale and contradicting the edited name, while not adding a sub-tag to
+ * files that never had one keeps the output in the source's house style — and
+ * avoids sprinkling GIVN/SURN onto slash-form-only files. An emptied part is
+ * removed (a bare `GIVN`/`SURN` is meaningless).
+ */
+function syncNamePart(node: GedNode, tag: "GIVN" | "SURN", value: string): void {
+  if (!node.children.some((c) => c.tag === tag)) return;
+  setOrRemoveValue(node, tag, value, NAME_CHILD_ORDER);
+}
+
+/**
+ * Write `given`/`surname` into a NAME node's slash-form value. The slash value
+ * is the source of truth (it's what `parseName` reads first); any existing
+ * `GIVN`/`SURN` sub-tags are updated to match so they can't drift out of sync.
  */
 function writeNameValue(node: GedNode, given: string, surname: string): void {
   // `/` is the slash-form's surname delimiter and has no escape in GEDCOM —
@@ -15,7 +28,8 @@ function writeNameValue(node: GedNode, given: string, surname: string): void {
   const g = given.replace(/\s*\/\s*/g, " ").trim();
   const s = surname.replace(/\s*\/\s*/g, " ").trim();
   node.value = s ? `${g} /${s}/`.trim() : g;
-  removeChildren(node, ["GIVN", "SURN"]);
+  syncNamePart(node, "GIVN", g);
+  syncNamePart(node, "SURN", s);
 }
 
 /** Set (or clear) the individual's primary `NAME` line. */
