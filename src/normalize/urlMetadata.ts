@@ -52,19 +52,22 @@ async function fetchViaProxy(proxied: string, timeoutMs: number): Promise<string
   }
 }
 
-/** Bot-challenge interstitials (Cloudflare & co.) arrive with HTTP 200 through
- *  a plain relay — they are a *failure*, not page content. */
-const CHALLENGE_TITLE_RE = /^(just a moment|attention required|access denied|please wait|verifying you are human)/i;
+/** Bot-challenge interstitials and relay error pages arrive with HTTP 200
+ *  through a plain relay — they are a *failure*, not page content. */
+const JUNK_TITLE_RE =
+  /^(just a moment|attention required|access denied|please wait|verifying you are human|error\b|forbidden|not found|bad gateway|service unavailable|too many requests|rate limit)/i;
 
 /** Fetch `url`'s content through a CORS-bypass relay (first responsive one
  *  wins) — HTML, or markdown from the rendering relay — or undefined when
- *  they all fail. Challenge pages don't count; the next relay is tried. */
+ *  they all fail. A body with no page title at all (relay JSON error
+ *  envelopes) or with a challenge/error title doesn't count as content; the
+ *  next relay is tried instead of short-circuiting the chain. */
 export async function fetchPageHtml(url: string): Promise<string | undefined> {
   for (const proxy of PROXY_URLS) {
     const text = await fetchViaProxy(proxy.proxied(url), proxy.timeoutMs);
     if (!text) continue;
     const title = pageTitleOf(text);
-    if (title && CHALLENGE_TITLE_RE.test(title)) continue;
+    if (!title || JUNK_TITLE_RE.test(title)) continue;
     return text;
   }
   return undefined;

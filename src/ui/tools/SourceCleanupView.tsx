@@ -72,15 +72,16 @@ function QuaySelect({ value, onChange }: { value: string; onChange: (value: stri
  * serializes a single `.gedmerge.ged` — the live dataset is never touched.
  */
 export function SourceCleanupView({
-  reshapeReport,
-  dupReport,
+  reshapeReport: reshapeReportProp,
+  dupReport: dupReportProp,
   dataset,
   fileName,
   onNavigate,
   onBack,
 }: {
-  reshapeReport: ReshapeReport;
-  dupReport: DuplicateReport;
+  /** Null when that scan failed — the other tool keeps working. */
+  reshapeReport: ReshapeReport | null;
+  dupReport: DuplicateReport | null;
   dataset: Dataset;
   fileName: string;
   onNavigate: (id: string) => void;
@@ -88,6 +89,19 @@ export function SourceCleanupView({
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
+  const reshapeReport = useMemo<ReshapeReport>(
+    () =>
+      reshapeReportProp ?? {
+        groups: [],
+        totalOccurrences: 0,
+        bySite: { matricula: 0, geneanet: 0, findagrave: 0, legacy: 0, sistory: 0, familysearch: 0, other: 0 },
+      },
+    [reshapeReportProp],
+  );
+  const dupReport = useMemo<DuplicateReport>(
+    () => dupReportProp ?? { groups: [], byKind: { media: 0, source: 0, repo: 0 } },
+    [dupReportProp],
+  );
   // Only the first site category with hits is pre-checked — converting one
   // site at a time keeps the change reviewable; the other categories (and
   // especially generic "other" links) are a click away.
@@ -157,8 +171,14 @@ export function SourceCleanupView({
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
+  // URL-titled sources are "existing" but get rewritten — they want enrichment
+  // as much as brand-new ones do.
   const fetchableGroups = selectedGroups.filter(
-    (g) => !g.existingSourceXref && !enrichment.has(g.id) && g.site !== "familysearch" && g.site !== "other",
+    (g) =>
+      (!g.existingSourceXref || g.urlTitled) &&
+      !enrichment.has(g.id) &&
+      g.site !== "familysearch" &&
+      g.site !== "other",
   );
 
   const selectedDupGroups = dupReport.groups

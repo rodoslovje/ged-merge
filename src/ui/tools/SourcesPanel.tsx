@@ -277,9 +277,11 @@ export function SourcesPanel({
   }, [active, tree, dataset]);
 
   useEffect(() => {
+    // Fresh, not just ensured: the cleanup view applies against the live
+    // records, so a report cached before in-place edits must not drive it.
     if (active) {
-      scans.ensure("sourceDuplicates");
-      scans.ensure("sourceReshape");
+      scans.ensureFresh("sourceDuplicates");
+      scans.ensureFresh("sourceReshape");
     }
   }, [active, scans]);
 
@@ -330,7 +332,7 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (view === "cleanup" && dupReport && reshapeReport)
+  if (view === "cleanup" && (dupReport || reshapeReport))
     return (
       <SourceCleanupView
         reshapeReport={reshapeReport}
@@ -464,10 +466,13 @@ export function SourcesPanel({
 
 type ScanStatus = "idle" | "running" | "cancelled" | "error" | "done";
 
-/** The cleanup chip waits for both of its scans; a failure of either hides it. */
+/** The cleanup chip: spinner while either scan is still coming, usable as soon
+ *  as at least one scan delivered (a failure of one must not take out the
+ *  other's tool), hidden only when neither produced a report. */
 function combinedScanStatus(a: ScanStatus, b: ScanStatus): ScanStatus {
-  if (a === "error" || b === "error" || a === "cancelled" || b === "cancelled") return "error";
-  return a === "done" && b === "done" ? "done" : "running";
+  if (a === "done" && b === "done") return "done";
+  if (a === "running" || a === "idle" || b === "running" || b === "idle") return "running";
+  return a === "done" || b === "done" ? "done" : "error";
 }
 
 /** Sub-tool chip in the Sources header: a spinner while its whole-file scan is

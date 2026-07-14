@@ -47,6 +47,10 @@ const REQUEST_TYPE = {
 export interface ToolsScans extends ScanStates {
   /** Start a scan unless it already ran (or is running) for this file. */
   ensure: (kind: ScanKind) => void;
+  /** Like `ensure`, but also re-runs when the dataset content changed since
+   *  the cached result (in-place edits bump `editVersionRef`). For scans cheap
+   *  enough to re-run automatically — a stale result must not drive an apply. */
+  ensureFresh: (kind: ScanKind) => void;
   /** Re-run a scan against the current (possibly just-edited) dataset. */
   refresh: (kind: ScanKind) => void;
   /** Stop the running duplicate scan. Terminates the worker — the only way to
@@ -183,8 +187,12 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     [editVersionRef, terminate],
   );
 
+  /** Content version each scan's latest result was computed against. */
+  const scanKeysRef = useRef(new Map<ScanKind, string>());
+
   const start = useCallback(
     (kind: ScanKind) => {
+      scanKeysRef.current.set(kind, `${datasetSeqRef.current}:${editVersionRef.current}`);
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
       // Defer the post one macrotask so React paints the spinner first: when
@@ -230,7 +238,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         );
       }, 0);
     },
-    [post, setScan],
+    [post, setScan, editVersionRef],
   );
 
   const ensure = useCallback(
@@ -239,6 +247,17 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
       start(kind);
     },
     [start],
+  );
+
+  const ensureFresh = useCallback(
+    (kind: ScanKind) => {
+      const status = statesRef.current[kind].status;
+      if (status === "running") return;
+      const key = `${datasetSeqRef.current}:${editVersionRef.current}`;
+      if (status !== "idle" && scanKeysRef.current.get(kind) === key) return;
+      start(kind);
+    },
+    [start, editVersionRef],
   );
 
   const refresh = useCallback((kind: ScanKind) => start(kind), [start]);
@@ -292,7 +311,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   );
 
   return useMemo(
-    () => ({ ...states, ensure, refresh, cancelDuplicates, updateDuplicates, runNormalizeText }),
-    [states, ensure, refresh, cancelDuplicates, updateDuplicates, runNormalizeText],
+    () => ({ ...states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText }),
+    [states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText],
   );
 }

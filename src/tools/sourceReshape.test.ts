@@ -440,6 +440,78 @@ describe("reshapeSources — apply", () => {
     expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
   });
 
+  it("re-links an existing OBJE even when a bare link with the same URL comes first in the file", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @I2@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`);
+    expect(counts.mediaCreated).toBe(0); // @O1@ re-linked, no duplicate minted
+    expect(text.match(/0 @O\d+@ OBJE/g)).toHaveLength(1);
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 .*\n)*1 OBJE @O1@/);
+  });
+
+  it("preserves prose around the URL in a pageUrl PAGE value", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR @S1@
+3 PAGE fol. 23, ${BOOK}/?pg=5
+1 BIRT
+2 SOUR @S1@
+3 PAGE list 12, ${BOOK2}/
+0 @S1@ SOUR
+1 TITL Matična knjiga
+0 TRLR`);
+    expect(text).toContain("3 PAGE fol. 23, 5"); // URL swapped for its page number
+    expect(text).toContain("3 PAGE list 12"); // no page number: URL removed, prose kept
+  });
+
+  it("matches per-reference QUAY by occurrence key, tolerating member-list drift", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=10
+0 @I2@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=11
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const g = report.groups[0];
+    // Simulate a stale report: only the pg=11 member survives, with an override.
+    const members = g.members.filter((m) => m.page === "11").map((m) => ({ ...m, quay: "1" }));
+    const { records } = reshapeSources(ds.records, [{ ...g, quay: "3", members }]);
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/3 PAGE 10\n3 QUAY 3/); // default, not the drifted override
+    expect(text).toMatch(/3 PAGE 11\n3 QUAY 1/); // override found by key, not position
+  });
+
+  it("creates a Geneanet Cemeteries REPO in a repository-layout file", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://de.geneanet.org/friedhof/view/123
+1 BIRT
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL Some archive
+1 REPO @R9@
+0 @R9@ REPO
+1 NAME Local archive
+1 WWW https://example.org/
+0 TRLR`);
+    expect(text).toContain("1 NAME Geneanet Cemeteries");
+    expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
+    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+  });
+
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -457,7 +529,7 @@ describe("reshapeSources — apply", () => {
   });
 
   it("rewrites URL-titled SOUR records in place with parsed fields and a page OBJE", () => {
-    const { text, counts } = applyAll(`0 HEAD
+    const { text, counts, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -465,6 +537,7 @@ describe("reshapeSources — apply", () => {
 0 @S1@ SOUR
 1 TITL ${BOOK2}/?pg=6
 0 TRLR`);
+    expect(report.groups[0].urlTitled).toBe(true); // stays enrichable in the panel
     expect(counts.sourcesCreated).toBe(0);
     expect(text).toContain("1 TITL Matricula 04406 | Vodice");
     expect(text).toContain("1 FILN 04406");
@@ -774,7 +847,7 @@ GPS Coordinates : 46.2181,14.3463`;
     const report = findReshapableLinks(ds);
     const enrichment = await fetchReshapeMeta(report.groups, async () => GRAVE_MD);
     expect(enrichment.get(report.groups[0].id)).toEqual({
-      place: "Pokopališče Zgornje Bitnje, P02, Žabnica, Slovenia",
+      place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
       title: "Pokopališče Zgornje Bitnje, Žabnica - 10085092 - Geneanet Cemeteries",
     });
   });
@@ -811,6 +884,27 @@ GPS Coordinates : 46.2181,14.3463`;
       dateFrom: "Jan. 1, 1891",
       dateTo: "Dec. 31, 1920",
     });
+  });
+
+  it("does not let a fetched 'unknown' type clobber the offline classification", async () => {
+    // Distinct book URL: the module-level enrichment cache persists across tests.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR KK https://data.matricula-online.eu/sl/slovenia/ljubljana/skofja-loka/09901/?pg=3
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    expect(report.groups[0].bookType).toBe("baptism"); // from the KK prefix
+    // A page with a title but no recognizable Type row → classify = "unknown".
+    const enrichment = await fetchReshapeMeta(
+      report.groups,
+      async () =>
+        `<html><head><title>Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online</title></head><body></body></html>`,
+    );
+    expect(enrichment.get(report.groups[0].id)?.bookType).toBeUndefined();
+    // Apply still relocates to BIRT using the offline type.
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    expect(serializeGedcom(records)).toMatch(/1 BIRT\n2 SOUR @S1@/);
   });
 
   it("fetches once per book (the /en/ variant) and swallows failures", async () => {

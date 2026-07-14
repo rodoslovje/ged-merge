@@ -106,6 +106,9 @@ export interface ReshapeGroup {
   /** Existing `SOUR` record new citations will reuse; undefined = create one. */
   existingSourceXref?: string;
   existingSourceTitle?: string;
+  /** The reused record is a URL-titled SOUR the apply rewrites in place — it
+   *  still wants enrichment, unlike a source with a real title. */
+  urlTitled?: boolean;
   /** Offline-derived source fields; enrichment overrides them on apply. */
   proposed: { title: string; agency?: string; place?: string; filingNumber?: string };
   /** Canonical page-independent URL — display + enrichment fetch target. */
@@ -754,6 +757,7 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
     if (!state.group.existingSourceXref && hit.shape === "sourTitle" && hit.rec.xref) {
       state.group.existingSourceXref = hit.rec.xref;
       state.group.existingSourceTitle = undefined; // it's the URL — will be rewritten
+      state.group.urlTitled = true;
     }
     if (hit.recognized.page && !state.group.pages.includes(hit.recognized.page)) {
       state.group.pages.push(hit.recognized.page);
@@ -938,6 +942,18 @@ function attachCitation(
   return true;
 }
 
+/** Stable identity of one occurrence, for matching a report member to its
+ *  re-scanned apply-time hit (per-citation QUAY overrides). */
+function occurrenceQuayKey(
+  recordXref: string,
+  shape: ReshapeShape,
+  eventTag: string | undefined,
+  eventIndex: number | undefined,
+  url: string,
+): string {
+  return [recordXref, shape, eventTag ?? "", eventIndex ?? "", url].join("|");
+}
+
 /** Citation child order for a container: record-level vs event-level. */
 function childOrderFor(container: GedNode, rec: GedNode): string[] {
   if (container !== rec) return EVENT_CHILD_ORDER;
@@ -958,14 +974,26 @@ function fillField(rec: GedNode, tag: string, value: string | undefined): void {
   insertGrouped(rec, { level: rec.level + 1, tag, value, children: [] }, SOUR_FIELD_TRAILING);
 }
 
-/** Existing REPO for Matricula (preferring the group's archive), or undefined. */
-function findMatriculaRepo(records: GedNode[], archiveSlug: string | undefined): string | undefined {
+/** Repository identity per site: how to spot an existing `REPO` (by its WWW
+ *  host) and what to create when the file's convention hangs sources off
+ *  repositories. Matricula derives name/WWW per archive instead. */
+const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www: string }>> = {
+  matricula: { hostRe: /data\.matricula-online\.eu/i, name: "Matricula Online", www: "https://data.matricula-online.eu/" },
+  geneanet: { hostRe: /geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
+  findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
+  legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
+  sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
+};
+
+/** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
+ *  e.g. the Matricula archive), or undefined. */
+function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | undefined): string | undefined {
   let anyMatch: string | undefined;
   for (const rec of records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
     const www = childText(rec, "WWW") ?? "";
-    if (!/data\.matricula-online\.eu/i.test(www)) continue;
-    if (archiveSlug && www.toLowerCase().includes(`/${archiveSlug.toLowerCase()}`)) return rec.xref;
+    if (!hostRe.test(www)) continue;
+    if (preferSlug && www.toLowerCase().includes(`/${preferSlug.toLowerCase()}`)) return rec.xref;
     anyMatch ??= rec.xref;
   }
   return anyMatch;
@@ -1030,18 +1058,20 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
-      if (g.site === "matricula") {
-        const mat = parseMatriculaUrl(state.hits[0].url);
-        let repoXref = findMatriculaRepo(clone, mat?.archiveSlug);
-        if (!repoXref && layout === "repository" && mat) {
+      const repoDef = SITE_REPO[g.site];
+      if (repoDef) {
+        const mat = g.site === "matricula" ? parseMatriculaUrl(state.hits[0].url) : undefined;
+        let repoXref = findSiteRepo(clone, repoDef.hostRe, mat?.archiveSlug);
+        if (!repoXref && layout === "repository") {
+          // Matricula repositories are the holding archive; the other sites
+          // are their own repository.
+          const name = (g.site === "matricula" && fields.agency) || repoDef.name;
+          const www = mat
+            ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
+            : repoDef.www;
           const repo: GedNode = { level: 0, xref: nextXref(clone, "R"), tag: "REPO", children: [] };
-          if (fields.agency) repo.children.push({ level: 1, tag: "NAME", value: fields.agency, children: [] });
-          repo.children.push({
-            level: 1,
-            tag: "WWW",
-            value: `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`,
-            children: [],
-          });
+          repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
+          repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
           insertRecord(clone, repo);
           byXref.set(repo.xref!, repo);
           repoXref = repo.xref;
@@ -1072,7 +1102,11 @@ export function reshapeSources(
       if (url) linkedKeys.add(linkKey(url));
     }
     const seenUrls = new Set<string>();
-    for (const hit of state.hits) {
+    // Hits that point at an existing top-level OBJE record go first, so a
+    // same-URL bare link elsewhere in the file can't win the race and mint a
+    // duplicate media record while orphaning the existing one.
+    const ensureOrder = [...state.hits].sort((a, b) => Number(!!b.objeXref) - Number(!!a.objeXref));
+    for (const hit of ensureOrder) {
       const urlKey = linkKey(hit.url);
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
@@ -1089,12 +1123,23 @@ export function reshapeSources(
       linkedKeys.add(urlKey);
     }
 
-    // --- Rewrite each occurrence into a citation. The re-scanned hits align
-    // index-for-index with the report's members (same deterministic scan and
-    // grouping), so a member's per-citation QUAY override maps by position.
-    for (let hitIndex = 0; hitIndex < state.hits.length; hitIndex++) {
-      const hit = state.hits[hitIndex];
-      const quayFor = selection.members[hitIndex]?.quay ?? selection.quay;
+    // --- Rewrite each occurrence into a citation. Per-citation QUAY overrides
+    // from the report's members are matched by a stable occurrence key (not by
+    // position), so an edit between scan and apply can't shift an override
+    // onto the wrong citation.
+    const quayByKey = new Map<string, string[]>();
+    for (const m of selection.members) {
+      if (!m.quay) continue;
+      const key = occurrenceQuayKey(m.recordXref, m.shape, m.eventTag, m.eventIndex, m.url);
+      const queue = quayByKey.get(key);
+      if (queue) queue.push(m.quay);
+      else quayByKey.set(key, [m.quay]);
+    }
+    for (const hit of state.hits) {
+      const quayFor =
+        quayByKey
+          .get(occurrenceQuayKey(hit.rec.xref ?? "?", hit.shape, hit.eventTag, hit.eventIndex, hit.url))
+          ?.shift() ?? selection.quay;
       if (hit.shape === "sourTitle") continue;
 
       // Superseded by an identical event-level attachment: clean up only.
@@ -1135,11 +1180,18 @@ export function reshapeSources(
         const citation = hit.node;
         citation.value = sourceXref;
         const pageChild = firstChild(citation, "PAGE");
-        if (page) {
+        if (hit.shape === "pageUrl" && pageChild?.value) {
+          // Swap the URL for its page number in place, keeping surrounding
+          // prose ("fol. 23, <url>" → "fol. 23, 5"); drop PAGE only when
+          // nothing meaningful remains.
+          const replaced = page
+            ? pageChild.value.replace(hit.url, page).replace(/[ \t]{2,}/g, " ").trim()
+            : removeUrlFromText(pageChild.value, hit.url);
+          if (hasContent(replaced)) pageChild.value = replaced;
+          else spliceChild(citation, pageChild);
+        } else if (page) {
           if (pageChild) pageChild.value = page;
           else citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
-        } else if (pageChild && hit.shape === "pageUrl") {
-          spliceChild(citation, pageChild);
         }
         if (hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
           citation.children.push({ level: citation.level + 1, tag: "NOTE", value: hit.prefix, children: [] });
@@ -1309,12 +1361,15 @@ export async function fetchReshapeMeta(
           if (g.site === "matricula") {
             const page = parseMatriculaBookPage(html);
             if (page) {
+              // "unknown" must not clobber a correct offline classification
+              // (e.g. baptism inferred from a "KK" citation prefix).
+              const fetchedType = classifyBookType([page.type]);
               meta = {
                 title: page.title,
                 agency: page.agency,
                 place: page.place,
                 dateRange: yearRange(page.dateFrom, page.dateTo),
-                bookType: classifyBookType([page.type]),
+                bookType: fetchedType === "unknown" ? undefined : fetchedType,
               };
             }
           } else if (g.site === "geneanet") {
@@ -1322,9 +1377,9 @@ export async function fetchReshapeMeta(
             if (page) {
               const viewId = /\/view\/([^/?#]+)/.exec(g.bookUrl)?.[1];
               meta = {
-                // The grave's whereabouts: cemetery, plot, town, country.
-                place:
-                  [page.cemetery, page.plot, page.town, page.country].filter(Boolean).join(", ") || undefined,
+                // PLAC is the *place* (town, country); the cemetery itself
+                // names the source and stays in the title.
+                place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
                 // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
                 title:
                   page.cemetery && viewId
