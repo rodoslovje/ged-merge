@@ -1,0 +1,620 @@
+import { describe, expect, it } from "vitest";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { serializeGedcom } from "../gedcom/serialize";
+import type { ReshapeSite } from "./sourceReshape";
+import {
+  classifyBookType,
+  fetchReshapeMeta,
+  findReshapableLinks,
+  parseFamilySearchUrl,
+  parseMatriculaBookPage,
+  parseMatriculaTitle,
+  parseMatriculaUrl,
+  reshapeSources,
+} from "./sourceReshape";
+
+function dataset(text: string) {
+  return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+}
+
+const BOOK = "https://data.matricula-online.eu/sl/slovenia/maribor/sentjur-pri-celju/03869";
+const BOOK2 = "https://data.matricula-online.eu/sl/slovenia/ljubljana/vodice/04406";
+
+/** Scan with defaults; `sites` may widen/narrow the categories. */
+function scan(text: string, sites?: ReshapeSite[]) {
+  return findReshapableLinks(dataset(text), sites ? new Set(sites) : undefined);
+}
+
+/** Run the full pipeline (all groups selected) and return the serialized output. */
+function applyAll(text: string, opts?: { relocate?: boolean; quay?: string }) {
+  const ds = dataset(text);
+  const report = findReshapableLinks(ds, undefined, opts);
+  const groups = report.groups.map((g) => (opts?.quay ? { ...g, quay: opts.quay } : g));
+  const { records, counts } = reshapeSources(ds.records, groups, undefined, opts);
+  return { text: serializeGedcom(records), records, counts, report };
+}
+
+describe("URL parsers", () => {
+  it("parses a Matricula book URL with page", () => {
+    expect(parseMatriculaUrl(`${BOOK}/?pg=215`)).toEqual({
+      lang: "sl",
+      country: "slovenia",
+      archiveSlug: "maribor",
+      parishSlug: "sentjur-pri-celju",
+      bookId: "03869",
+      page: "215",
+    });
+  });
+
+  it("decodes double-percent-encoded Koper signatures", () => {
+    const url = "https://data.matricula-online.eu/sl/slovenia/koper/Kubed/%25C5%25A0AK+%25C5%25BD+Kub+MKK+6/?pg=19";
+    expect(parseMatriculaUrl(url)?.bookId).toBe("ŠAK Ž Kub MKK 6");
+  });
+
+  it("rejects archive-index URLs (not a 5-segment book path)", () => {
+    expect(parseMatriculaUrl("https://data.matricula-online.eu/en/slovenia/ljubljana/")).toBeUndefined();
+  });
+
+  it("parses FamilySearch image, record and tree URLs", () => {
+    expect(
+      parseFamilySearchUrl("https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?cat=406380&i=137&lang=en"),
+    ).toEqual({ kind: "image", ark: "3:1:3Q9M-CS2T-N985-8", cat: "406380", image: "137" });
+    expect(parseFamilySearchUrl("https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ")).toEqual({
+      kind: "record",
+      ark: "1:1:XNJ8-FPJ",
+    });
+    expect(parseFamilySearchUrl("https://www.familysearch.org/en/tree/person/details/GPZG-CXL")?.kind).toBe("tree");
+    expect(parseFamilySearchUrl("https://example.org/x")).toBeUndefined();
+  });
+});
+
+describe("classifyBookType", () => {
+  it("recognizes Slovenian/German/Latin register names and abbreviations", () => {
+    expect(classifyBookType(["Krstna knjiga / Taufbuch"])).toBe("baptism");
+    expect(classifyBookType(["Krstni index"])).toBe("baptism");
+    expect(classifyBookType(["Poročna knjiga / Trauungsbuch"])).toBe("marriage");
+    expect(classifyBookType(["Liber matrimoniorum"])).toBe("marriage");
+    expect(classifyBookType(["Matična knjiga umrlih"])).toBe("death");
+    expect(classifyBookType(["Sterbebuch"])).toBe("death");
+    expect(classifyBookType(["KK"])).toBe("baptism");
+    expect(classifyBookType(["PK"])).toBe("marriage");
+  });
+
+  it("returns unknown for no signal or conflicting signals", () => {
+    expect(classifyBookType([undefined, ""])).toBe("unknown");
+    expect(classifyBookType(["Matična knjiga"])).toBe("unknown");
+    expect(classifyBookType(["Krstna in mrliška knjiga"])).toBe("unknown");
+  });
+});
+
+describe("findReshapableLinks — scan", () => {
+  it("finds an event-level WWW link with its page and groups by book", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 BIRT
+2 DATE 1889
+2 WWW ${BOOK}/?pg=94
+0 TRLR`);
+    expect(report.groups).toHaveLength(1);
+    const g = report.groups[0];
+    expect(g.site).toBe("matricula");
+    expect(g.proposed.filingNumber).toBe("03869");
+    expect(g.proposed.place).toBe("Sentjur Pri Celju");
+    expect(g.pages).toEqual(["94"]);
+    expect(g.members[0]).toMatchObject({ shape: "link", eventTag: "BIRT", page: "94", recordTag: "INDI" });
+    expect(g.members[0].recordLabel).toContain("Ana");
+  });
+
+  it("collects two pages of one book into one group, different books apart", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR ${BOOK}/?pg=94
+1 DEAT
+2 SOUR ${BOOK}/?pg=215
+0 @I2@ INDI
+1 BIRT
+2 SOUR ${BOOK2}/?pg=3
+0 TRLR`);
+    expect(report.groups).toHaveLength(2);
+    const big = report.groups.find((g) => g.pages.length === 2)!;
+    expect(big.pages).toEqual(["94", "215"]);
+    expect(big.members).toHaveLength(2);
+    expect(report.totalOccurrences).toBe(3);
+  });
+
+  it("folds language variants of the same book/grave into one group", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://de.geneanet.org/friedhof/view/123
+1 BIRT
+2 SOUR https://data.matricula-online.eu/de/slovenia/maribor/sentjur-pri-celju/03869/?pg=94
+2 SOUR ${BOOK}/?pg=94
+0 @I2@ INDI
+1 NOTE Grob: https://en.geneanet.org/cemetery/view/123/persons/?individu_filter=GRUDNIK%2BAnton
+0 TRLR`);
+    expect(report.groups).toHaveLength(2);
+    const gene = report.groups.find((g) => g.site === "geneanet")!;
+    expect(gene.members).toHaveLength(2);
+    expect(gene.bookType).toBe("burial");
+    expect(gene.proposed.title).toContain("GRUDNIK Anton");
+    expect(report.bySite.matricula).toBe(2);
+  });
+
+  it("recognizes _WEBTAG, inline SOUR with prefix, and NOTE-embedded URLs", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 _WEBTAG
+2 NAME Krstna knjiga
+2 URL ${BOOK}/?pg=94
+1 BIRT
+2 SOUR KK ${BOOK}/?pg=95
+2 NOTE See the register at ${BOOK}/?pg=96 for details.
+0 TRLR`);
+    const g = report.groups[0];
+    expect(g.members.map((m) => m.shape).sort()).toEqual(["inline", "note", "webtag"].sort());
+    const inline = g.members.find((m) => m.shape === "inline")!;
+    expect(inline.prefix).toBe("KK");
+    expect(g.bookType).toBe("baptism");
+  });
+
+  it("reuses an existing paginated SOUR for the same book", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=200
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869 | Šentjur
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`);
+    expect(report.groups[0].existingSourceXref).toBe("@S1@");
+    expect(report.groups[0].existingSourceTitle).toContain("Krstna knjiga");
+    expect(report.groups[0].bookType).toBe("baptism");
+  });
+
+  it("skips OBJE page media already owned by a SOUR, converts free person-level OBJE pointers", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+1 OBJE @O2@
+0 @S1@ SOUR
+1 TITL Book
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 @O2@ OBJE
+1 FILE ${BOOK2}/?pg=5
+0 TRLR`);
+    expect(report.totalOccurrences).toBe(1);
+    expect(report.groups[0].members[0]).toMatchObject({ shape: "obje", url: `${BOOK2}/?pg=5` });
+  });
+
+  it("finds pageUrl citations and URL-titled SOUR records", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR @S1@
+3 PAGE ${BOOK}/?pg=19
+0 @S1@ SOUR
+1 TITL Matična knjiga umrlih
+0 @S2@ SOUR
+1 TITL ${BOOK2}/?pg=6
+0 TRLR`);
+    expect(report.groups).toHaveLength(2);
+    const pageUrl = report.groups.find((g) => g.members[0].shape === "pageUrl")!;
+    expect(pageUrl.bookType).toBe("death");
+    const sourTitle = report.groups.find((g) => g.members[0].shape === "sourTitle")!;
+    expect(sourTitle.existingSourceXref).toBe("@S2@");
+  });
+
+  it("groups FamilySearch images by cat and records by quoted collection", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 NOTE "Croatia, Church Books, 1516-1994," database with images, FamilySearch (https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ : 2020).
+1 DEAT
+2 SOUR https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?cat=406380&i=137
+2 SOUR https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N9DM-D?cat=406380&i=113
+0 TRLR`);
+    const fs = report.groups.filter((g) => g.site === "familysearch");
+    expect(fs).toHaveLength(2);
+    const film = fs.find((g) => g.proposed.filingNumber === "406380")!;
+    expect(film.pages).toEqual(["113", "137"]);
+    const coll = fs.find((g) => g.proposed.title.startsWith("Croatia"))!;
+    expect(coll.members[0].shape).toBe("note");
+  });
+
+  it("ignores other hosts unless the 'other' category is enabled", () => {
+    const text = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR https://www.sistory.si/ww2/ABC
+0 TRLR`;
+    expect(scan(text).groups).toHaveLength(0);
+    const withOther = scan(text, ["matricula", "geneanet", "familysearch", "other"]);
+    expect(withOther.groups).toHaveLength(1);
+    expect(withOther.groups[0].site).toBe("other");
+  });
+});
+
+describe("reshapeSources — apply", () => {
+  it("creates a paginated SOUR + page OBJE and rewrites the link into a citation", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 1889
+2 WWW ${BOOK}/?pg=94
+0 TRLR`);
+    expect(text).toContain("0 @S1@ SOUR");
+    expect(text).toContain("1 TITL Matricula 03869 | Sentjur Pri Celju");
+    expect(text).toContain("1 FILN 03869");
+    expect(text).toContain("1 PLAC Sentjur Pri Celju");
+    expect(text).toContain(`1 FILE ${BOOK}/?pg=94`);
+    expect(text).toContain("TITL #94 - Matricula 03869 | Sentjur Pri Celju");
+    expect(text).toContain("2 SOUR @S1@\n3 PAGE 94");
+    expect(text).not.toContain("WWW");
+    expect(counts).toMatchObject({ sourcesCreated: 1, mediaCreated: 1, citationsAdded: 1, linksRemoved: 1 });
+  });
+
+  it("reuses an existing book SOUR: new page adds an OBJE, known page does not", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+1 DEAT
+2 WWW ${BOOK}/?pg=200
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`);
+    expect(counts.sourcesCreated).toBe(0);
+    expect(counts.sourcesReused).toBe(1);
+    expect(counts.mediaCreated).toBe(1); // only pg=200
+    expect(text).toContain("2 SOUR @S1@\n3 PAGE 94");
+    expect(text).toContain(`1 FILE ${BOOK}/?pg=200`);
+  });
+
+  it("preserves note prose around a removed URL, drops URL-only notes", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 NOTE Baptism entry: ${BOOK}/?pg=94 (second column)
+1 DEAT
+2 NOTE ${BOOK}/?pg=95
+0 TRLR`);
+    expect(text).toContain("2 NOTE Baptism entry: (second column)");
+    expect(text).not.toContain("NOTE http");
+    expect(counts.notesRewritten).toBe(1);
+    expect(counts.linksRemoved).toBe(1);
+  });
+
+  it("converts inline citations in place, preserving prefix and children", () => {
+    const { text, counts } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR KK ${BOOK}/?pg=95
+3 QUAY 2
+0 TRLR`,
+      { quay: "3" },
+    );
+    expect(text).toContain("2 SOUR @S1@");
+    expect(text).toContain("3 PAGE 95");
+    expect(text).toContain("3 NOTE KK");
+    expect(text).toContain("3 QUAY 2"); // existing QUAY preserved, not overwritten
+    expect(text).not.toContain("QUAY 3");
+    expect(counts.citationsRewritten).toBe(1);
+  });
+
+  it("stamps the selected QUAY on written citations", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 TRLR`,
+      { quay: "3" },
+    );
+    expect(text).toContain("3 QUAY 3");
+  });
+
+  it("dedupes the same URL cited twice on one event", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 WWW ${BOOK}/?pg=94
+2 WWW ${BOOK}/?pg=94
+0 TRLR`);
+    expect(counts.citationsAdded).toBe(1);
+    expect(counts.linksRemoved).toBe(2);
+    expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
+  });
+
+  it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR @S1@
+3 PAGE ${BOOK}/?pg=19
+0 @S1@ SOUR
+1 TITL Matična knjiga umrlih
+0 TRLR`);
+    expect(text).toContain("2 SOUR @S2@\n3 PAGE 19");
+    expect(text).toContain("0 @S2@ SOUR");
+    // The generic record survives for the duplicates tool to handle.
+    expect(text).toContain("1 TITL Matična knjiga umrlih");
+  });
+
+  it("rewrites URL-titled SOUR records in place with parsed fields and a page OBJE", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL ${BOOK2}/?pg=6
+0 TRLR`);
+    expect(counts.sourcesCreated).toBe(0);
+    expect(text).toContain("1 TITL Matricula 04406 | Vodice");
+    expect(text).toContain("1 FILN 04406");
+    expect(text).toContain(`1 FILE ${BOOK2}/?pg=6`);
+    expect(text).toContain("2 SOUR @S1@"); // citation untouched
+  });
+
+  it("re-links a person-level OBJE record under the SOUR instead of duplicating it", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`);
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 \w+.*\n)*1 OBJE @O1@/); // OBJE now hangs off the SOUR
+    expect(text).not.toMatch(/0 @I1@ INDI\n1 OBJE/); // person pointer replaced by the citation
+    expect(text.match(/0 @O\d+@ OBJE/g)).toHaveLength(1); // no duplicate media record
+    expect(counts.mediaCreated).toBe(0);
+  });
+
+  it("attaches an existing Matricula REPO to new sources", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Maribor
+1 WWW https://data.matricula-online.eu/sl/slovenia/maribor/
+0 TRLR`);
+    expect(text).toContain("1 REPO @R1@");
+  });
+
+  it("never mutates the input records", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+2 NOTE Entry at ${BOOK}/?pg=95 here
+0 TRLR`);
+    const before = serializeGedcom(ds.records);
+    const report = findReshapableLinks(ds);
+    reshapeSources(ds.records, report.groups);
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("is idempotent: rescanning the output finds nothing", () => {
+    const { records } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR KK ${BOOK}/?pg=95
+1 NOTE https://de.geneanet.org/friedhof/view/123
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK2}/?pg=5
+0 TRLR`);
+    const again = findReshapableLinks(
+      buildDataset(parseGedcom(new TextEncoder().encode(serializeGedcom(records)).buffer)),
+    );
+    expect(again.groups).toHaveLength(0);
+  });
+
+  it("applies enrichment overrides including the DATE range", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK2}/?pg=3
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [
+        report.groups[0].id,
+        { title: "Krstna knjiga / Taufbuch - 04406 | Vodice", agency: "Nadškofijski arhiv Ljubljana", place: "Vodice", dateRange: "1891-1920" },
+      ],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    expect(text).toContain("1 TITL Krstna knjiga / Taufbuch - 04406 | Vodice");
+    expect(text).toContain("1 AGNC Nadškofijski arhiv Ljubljana");
+    expect(text).toContain("1 PLAC Vodice");
+    expect(text).toContain("1 DATE 1891-1920");
+  });
+
+  it("returns the input unchanged for an empty selection", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 TRLR`);
+    const { records, counts } = reshapeSources(ds.records, []);
+    expect(records).toBe(ds.records);
+    expect(counts.citationsAdded).toBe(0);
+  });
+});
+
+describe("reshapeSources — citation placement", () => {
+  it("moves a record-level baptism citation onto BIRT, creating the event", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SOUR KK ${BOOK}/?pg=95
+0 TRLR`);
+    expect(text).toContain("1 BIRT\n2 SOUR @S1@\n3 PAGE 95");
+    expect(counts.eventsCreated).toBe(1);
+  });
+
+  it("follows the file's BAPM habit for baptism books", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BAPM
+2 DATE 1890
+2 SOUR @S9@
+1 SOUR KK ${BOOK}/?pg=95
+0 @I2@ INDI
+1 BAPM
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL X
+0 TRLR`);
+    expect(text).toMatch(/1 BAPM\n2 DATE 1890\n2 SOUR @S9@\n2 SOUR @S10@\n3 PAGE 95/);
+  });
+
+  it("moves a marriage citation to the sole family's MARR, stays put when ambiguous", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR PK ${BOOK}/?pg=10
+1 FAMS @F1@
+0 @I2@ INDI
+1 SOUR PK ${BOOK}/?pg=11
+1 FAMS @F1@
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+0 @F2@ FAM
+0 TRLR`);
+    expect(text).toMatch(/0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 SOUR @S1@\n3 PAGE 10/);
+    expect(text).toMatch(/0 @I2@ INDI\n1 SOUR @S1@\n2 PAGE 11/); // ambiguous: converted in place
+  });
+
+  it("places cemetery citations on a created BURI event", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://de.geneanet.org/friedhof/view/123
+0 TRLR`);
+    expect(text).toMatch(/1 BURI\n2 SOUR @S1@/);
+    expect(text).not.toContain("NOTE http");
+  });
+
+  it("leaves acceptable placements alone (death book on BURI)", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BURI
+2 SOUR MK ${BOOK}/?pg=40
+0 TRLR`);
+    expect(text).toMatch(/1 BURI\n2 SOUR @S1@\n3 PAGE 40/);
+    expect(text).not.toContain("1 DEAT");
+  });
+
+  it("keeps original placement with relocate off or unknown book type", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR KK ${BOOK}/?pg=95
+1 WWW ${BOOK2}/?pg=3
+0 TRLR`,
+      { relocate: false },
+    );
+    expect(text).toMatch(/0 @I1@ INDI\n1 SOUR @S1@\n2 PAGE 95/);
+    expect(text).not.toContain("1 BIRT");
+    // The bare WWW link (unknown type) also stays at record level.
+    expect(text).toMatch(/1 SOUR @S2@\n2 PAGE 3/);
+  });
+});
+
+describe("enrichment parsing & fetching", () => {
+  const PAGE_HTML = `<html><head><title>Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online</title></head>
+<body><table class="table table-register-data">
+<tr><th>Parish/place</th><td><a href="/en/slovenia/ljubljana/vodice/">Vodice</a></td>
+<tr><th>ID</th><td>04406</td>
+<tr><th>Type</th><td>Krstna knjiga / Taufbuch</td>
+<tr><th>Date from</th><td>Jan. 1, 1891</td>
+<tr><th>Date to</th><td>Dec. 31, 1920</td>
+</table></body></html>`;
+
+  it("parses the Matricula page title", () => {
+    expect(
+      parseMatriculaTitle("Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online"),
+    ).toEqual({ title: "Krstna knjiga / Taufbuch - 04406 | Vodice", place: "Vodice", agency: "Nadškofijski arhiv Ljubljana" });
+    expect(parseMatriculaTitle("Something else")).toBeUndefined();
+  });
+
+  it("parses the book page's metadata table", () => {
+    expect(parseMatriculaBookPage(PAGE_HTML)).toMatchObject({
+      title: "Krstna knjiga / Taufbuch - 04406 | Vodice",
+      type: "Krstna knjiga / Taufbuch",
+      place: "Vodice",
+      agency: "Nadškofijski arhiv Ljubljana",
+      dateFrom: "Jan. 1, 1891",
+      dateTo: "Dec. 31, 1920",
+    });
+  });
+
+  it("fetches once per book (the /en/ variant) and swallows failures", async () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK2}/?pg=3
+1 DEAT
+2 WWW ${BOOK2}/?pg=9
+1 NOTE https://de.geneanet.org/friedhof/view/99
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const fetched: string[] = [];
+    const enrichment = await fetchReshapeMeta(report.groups, async (url) => {
+      fetched.push(url);
+      return url.includes("matricula") ? PAGE_HTML : undefined;
+    });
+    expect(fetched.filter((u) => u.includes("matricula"))).toEqual([
+      "https://data.matricula-online.eu/en/slovenia/ljubljana/vodice/04406/",
+    ]);
+    const matGroup = report.groups.find((g) => g.site === "matricula")!;
+    expect(enrichment.get(matGroup.id)).toMatchObject({
+      title: "Krstna knjiga / Taufbuch - 04406 | Vodice",
+      dateRange: "1891-1920",
+      bookType: "baptism",
+    });
+    const geneGroup = report.groups.find((g) => g.site === "geneanet")!;
+    expect(enrichment.has(geneGroup.id)).toBe(false); // fetch failed → offline fallback stays
+  });
+});
