@@ -82,16 +82,14 @@ export function SourceCleanupView({
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  // Reshape: "other" is opt-in — generic links usually aren't archive sources.
-  const [sites, setSites] = useState<Set<ReshapeSite>>(
-    new Set(["matricula", "geneanet", "findagrave", "familysearch"]),
-  );
-  // Only the first group is pre-selected: converting one book first keeps the
-  // change reviewable; "Select all" is one click away.
-  const [excluded, setExcluded] = useState<Set<string>>(() => {
-    const firstVisible = reshapeReport.groups.find((g) => g.site !== "other")?.id;
-    return new Set(reshapeReport.groups.filter((g) => g.id !== firstVisible).map((g) => g.id));
+  // Only the first site category with hits is pre-checked — converting one
+  // site at a time keeps the change reviewable; the other categories (and
+  // especially generic "other" links) are a click away.
+  const [sites, setSites] = useState<Set<ReshapeSite>>(() => {
+    const first = SITES.find((s) => s !== "other" && reshapeReport.bySite[s] > 0);
+    return new Set<ReshapeSite>(first ? [first] : []);
   });
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
   const [quay, setQuay] = useState("");
