@@ -633,8 +633,8 @@ describe("reshapeSources — citation placement", () => {
     const grave = report.groups.find((g) => g.site === "findagrave")!;
     expect(grave.members).toHaveLength(2); // slug and slugless variants share the memorial group
     expect(grave.bookType).toBe("burial");
-    expect(grave.proposed.title).toBe("Find a Grave – Anton Grudnik");
-    expect(text).toContain("1 TITL Find a Grave – Anton Grudnik");
+    expect(grave.proposed.title).toBe("12345 - Anton Grudnik - Find a Grave");
+    expect(text).toContain("1 TITL 12345 - Anton Grudnik - Find a Grave");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
@@ -736,6 +736,22 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Pokopališče Zgornje Bitnje, P02, Žabnica, Slovenia",
       title: "10085092 - Pokopališče Zgornje Bitnje, Žabnica - Geneanet Cemeteries",
+    });
+  });
+
+  it("enriches a Find a Grave group with the memorial's name, id kept", async () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://www.findagrave.com/memorial/60350966
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = await fetchReshapeMeta(
+      report.groups,
+      async () => `<html><head><title>Frank Gorishek (1881-1968) - Find a Grave Memorial</title></head></html>`,
+    );
+    expect(enrichment.get(report.groups[0].id)).toEqual({
+      title: "60350966 - Frank Gorishek (1881-1968) - Find a Grave",
     });
   });
 

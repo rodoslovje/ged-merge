@@ -311,11 +311,12 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (grave) {
     if (!sites.has("findagrave")) return undefined;
     const who = grave[2] ? prettySlug(grave[2]) : undefined;
+    // Same shape as Geneanet: `{memorial id} - {person} - Find a Grave`.
     return {
       site: "findagrave",
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
-      proposed: { title: who ? `Find a Grave – ${who}` : `Find a Grave – ${grave[1]}` },
+      proposed: { title: who ? `${grave[1]} - ${who} - Find a Grave` : `${grave[1]} - Find a Grave` },
       titleRank: who ? 1 : 0,
     };
   }
@@ -1223,11 +1224,17 @@ export async function fetchReshapeMeta(
                     : undefined,
               };
             }
+          } else if (g.site === "findagrave") {
+            // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
+            // the suffix may arrive ellipsized ("- Find a…"), match loosely.
+            const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
+            const memorialId = /\/memorial\/(\d+)/.exec(g.bookUrl)?.[1];
+            if (name) {
+              meta = { title: memorialId ? `${memorialId} - ${name} - Find a Grave` : `${name} - Find a Grave` };
+            }
           } else {
             const title = pageTitleOf(html);
-            if (title) {
-              meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "").replace(/\s*-\s*Find a Grave.*$/i, "") };
-            }
+            if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
           }
           if (meta && !Object.values(meta).some(Boolean)) meta = undefined; // nothing usable parsed
           if (meta) bookMetaCache.set(cacheKey, meta);
