@@ -546,8 +546,9 @@ function MemberRow({
           title={t("tools.sources.reshapeQuayHint")}
         >
           <option value="">
-            {t("tools.sources.reshapeQuay")}:{" "}
-            {defaultQuay ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}` : t("tools.sources.reshapeQuay.none")}
+            {defaultQuay
+              ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}`
+              : t("tools.sources.reshapeQuay.none")}
           </option>
           {["3", "2", "1", "0"].map((q) => (
             <option key={q} value={q}>
