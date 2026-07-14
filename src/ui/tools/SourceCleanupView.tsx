@@ -149,8 +149,13 @@ export function SourceCleanupView({
     [visibleGroups, excluded, quayOverrides, quay],
   );
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
-  const newSourceGroups = selectedGroups.filter(
-    (g) => !g.existingSourceXref && (g.site === "matricula" || g.site === "geneanet" || g.site === "findagrave"),
+  // Books the fetch button will actually check: only *selected* new-source
+  // groups on fetchable sites, and only those not already fetched.
+  const fetchableGroups = selectedGroups.filter(
+    (g) =>
+      !g.existingSourceXref &&
+      !enrichment.has(g.id) &&
+      (g.site === "matricula" || g.site === "geneanet" || g.site === "findagrave"),
   );
 
   const selectedDupGroups = dupReport.groups
@@ -170,15 +175,12 @@ export function SourceCleanupView({
   }
 
   async function fetchDetails() {
-    setFetching({ done: 0, total: newSourceGroups.length });
+    const targets = fetchableGroups;
+    setFetching({ done: 0, total: targets.length });
     setFetchFailed(0);
-    const fetched = await fetchReshapeMeta(newSourceGroups, fetchPageHtml, (done, total) =>
-      setFetching({ done, total }),
-    );
+    const fetched = await fetchReshapeMeta(targets, fetchPageHtml, (done, total) => setFetching({ done, total }));
     setEnrichment((prev) => new Map([...prev, ...fetched]));
-    // FamilySearch is never fetched (login wall) — only count real misses.
-    const attempted = newSourceGroups.filter((g) => g.site !== "familysearch" && g.site !== "other");
-    setFetchFailed(attempted.filter((g) => !fetched.has(g.id)).length);
+    setFetchFailed(targets.filter((g) => !fetched.has(g.id)).length);
     setFetching(null);
   }
 
@@ -371,7 +373,7 @@ export function SourceCleanupView({
         <button className="nav-btn primary tools-run" onClick={download} disabled={nothingSelected}>
           {t("tools.sources.cleanupDownload")}
         </button>
-        {settings.allowLinkFetch && newSourceGroups.length > 0 && (
+        {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
           <button
             className="nav-btn tools-run"
             onClick={fetchDetails}
@@ -380,7 +382,7 @@ export function SourceCleanupView({
           >
             {fetching
               ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
-              : t("tools.sources.reshapeFetch")}
+              : `${t("tools.sources.reshapeFetch")} (${fetchableGroups.length})`}
           </button>
         )}
         {fetchFailed > 0 && !fetching && (
