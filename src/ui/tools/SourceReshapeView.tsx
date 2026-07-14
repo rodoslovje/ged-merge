@@ -19,7 +19,24 @@ import { useSettings } from "../SettingsContext";
 
 const SITES: ReshapeSite[] = ["matricula", "geneanet", "familysearch", "other"];
 const SITE_ICON: Record<ReshapeSite, string> = { matricula: "⛪", geneanet: "🪦", familysearch: "🌳", other: "🔗" };
-const QUAY_CHOICES = ["", "0", "1", "2", "3"];
+const QUAY_CHOICES = ["", "3", "2", "1", "0"];
+
+/** Labeled selector for the GEDCOM citation data-quality value (QUAY 0–3). */
+function QuaySelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
+  return (
+    <label className="tools-reshape-site" title={t("tools.sources.reshapeQuayHint")}>
+      {t("tools.sources.reshapeQuay")}
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {QUAY_CHOICES.map((q) => (
+          <option key={q} value={q}>
+            {q === "" ? t("tools.sources.reshapeQuay.none") : `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 /**
  * "Source reshape": turns bare Matricula / Geneanet Cemeteries / FamilySearch
@@ -151,16 +168,7 @@ export function SourceReshapeView({
           <input type="checkbox" checked={relocate} onChange={() => setRelocate((v) => !v)} />
           {t("tools.sources.reshapePlace")}
         </label>
-        <label className="tools-reshape-site" title={t("tools.sources.reshapeQuayHint")}>
-          {t("tools.sources.reshapeQuay")}
-          <select value={quay} onChange={(e) => setQuay(e.target.value)}>
-            {QUAY_CHOICES.map((q) => (
-              <option key={q} value={q}>
-                {q === "" ? "–" : q}
-              </option>
-            ))}
-          </select>
-        </label>
+        <QuaySelect value={quay} onChange={setQuay} />
       </div>
 
       <ul className="tools-tree">
@@ -249,16 +257,7 @@ function ReshapeGroupRow({
       </div>
       {open && (
         <div className="tools-tree-children">
-          <label className="tools-reshape-site" title={t("tools.sources.reshapeQuayHint")}>
-            {t("tools.sources.reshapeQuay")}
-            <select value={quay} onChange={(e) => onQuay(e.target.value)}>
-              {QUAY_CHOICES.map((q) => (
-                <option key={q} value={q}>
-                  {q === "" ? "–" : q}
-                </option>
-              ))}
-            </select>
-          </label>
+          <QuaySelect value={quay} onChange={onQuay} />
           <ul className="tools-dup-members">
             {group.members.map((m, i) => (
               <MemberRow key={`${m.recordXref}:${i}`} member={m} relocate={relocate} />
