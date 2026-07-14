@@ -562,7 +562,7 @@ describe("setName", () => {
     expect(serializeGedcom(ds.records)).toContain("1 NAME Janez Karel /Novak/");
   });
 
-  it("drops stale GIVN/SURN sub-tags so they can't contradict the edited name", () => {
+  it("keeps existing GIVN/SURN sub-tags (MacFamilyTree style) in sync with the edit", () => {
     const ds = buildFromText([
       "0 HEAD",
       "1 GEDC",
@@ -575,13 +575,45 @@ describe("setName", () => {
       "",
     ].join("\n"));
     const indi = ds.individuals.get("@I1@")!;
+    setName(indi, { given: "Janez Karel", surname: "Kovač" });
+
+    const text = serializeGedcom(ds.records);
+    expect(text).toContain("1 NAME Janez Karel /Kovač/");
+    expect(text).toContain("2 GIVN Janez Karel");
+    expect(text).toContain("2 SURN Kovač");
+    expect(rebuildIndividual(ds, indi).names[0].surname).toBe("Kovač");
+  });
+
+  it("does not add GIVN/SURN sub-tags to a slash-form-only name", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
     setName(indi, { given: "Janez", surname: "Kovač" });
 
     const text = serializeGedcom(ds.records);
     expect(text).toContain("1 NAME Janez /Kovač/");
-    expect(text).not.toContain("SURN");
     expect(text).not.toContain("GIVN");
-    expect(rebuildIndividual(ds, indi).names[0].surname).toBe("Kovač");
+    expect(text).not.toContain("SURN");
+  });
+
+  it("removes an emptied GIVN/SURN sub-tag when a name part is cleared", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "2 GIVN Janez",
+      "2 SURN Novak",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    setName(indi, { given: "Janez" });
+
+    const text = serializeGedcom(ds.records);
+    expect(text).toContain("1 NAME Janez");
+    expect(text).toContain("2 GIVN Janez");
+    expect(text).not.toContain("SURN");
   });
 
   it("replaces a / typed into a name part with a space (slash-form delimiter)", () => {
