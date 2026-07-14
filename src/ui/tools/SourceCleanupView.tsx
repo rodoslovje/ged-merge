@@ -86,7 +86,12 @@ export function SourceCleanupView({
   const [sites, setSites] = useState<Set<ReshapeSite>>(
     new Set(["matricula", "geneanet", "findagrave", "familysearch"]),
   );
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  // Only the first group is pre-selected: converting one book first keeps the
+  // change reviewable; "Select all" is one click away.
+  const [excluded, setExcluded] = useState<Set<string>>(() => {
+    const firstVisible = reshapeReport.groups.find((g) => g.site !== "other")?.id;
+    return new Set(reshapeReport.groups.filter((g) => g.id !== firstVisible).map((g) => g.id));
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
   const [quay, setQuay] = useState("");
