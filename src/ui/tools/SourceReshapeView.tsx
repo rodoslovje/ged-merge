@@ -17,8 +17,14 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
-const SITES: ReshapeSite[] = ["matricula", "geneanet", "familysearch", "other"];
-const SITE_ICON: Record<ReshapeSite, string> = { matricula: "⛪", geneanet: "🪦", familysearch: "🌳", other: "🔗" };
+const SITES: ReshapeSite[] = ["matricula", "geneanet", "findagrave", "familysearch", "other"];
+const SITE_ICON: Record<ReshapeSite, string> = {
+  matricula: "⛪",
+  geneanet: "🪦",
+  findagrave: "🕊️",
+  familysearch: "🌳",
+  other: "🔗",
+};
 const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 /** Labeled selector for the GEDCOM citation data-quality value (QUAY 0–3). */
@@ -61,7 +67,9 @@ export function SourceReshapeView({
   const { t } = useTranslation();
   const { settings } = useSettings();
   // "other" is opt-in: generic links usually aren't archive sources.
-  const [sites, setSites] = useState<Set<ReshapeSite>>(new Set(["matricula", "geneanet", "familysearch"]));
+  const [sites, setSites] = useState<Set<ReshapeSite>>(
+    new Set(["matricula", "geneanet", "findagrave", "familysearch"]),
+  );
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
@@ -118,7 +126,7 @@ export function SourceReshapeView({
   );
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   const newSourceGroups = selectedGroups.filter(
-    (g) => !g.existingSourceXref && (g.site === "matricula" || g.site === "geneanet"),
+    (g) => !g.existingSourceXref && (g.site === "matricula" || g.site === "geneanet" || g.site === "findagrave"),
   );
 
   function download() {

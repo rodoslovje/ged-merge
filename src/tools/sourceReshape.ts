@@ -49,7 +49,7 @@ import { familySpouses } from "./sources";
  * placement audit for pre-existing pointer citations.
  */
 
-export type ReshapeSite = "matricula" | "geneanet" | "familysearch" | "other";
+export type ReshapeSite = "matricula" | "geneanet" | "findagrave" | "familysearch" | "other";
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
 
@@ -133,7 +133,7 @@ export interface ReshapeCounts {
   eventsCreated: number;
 }
 
-const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(["matricula", "geneanet", "familysearch"]);
+const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(["matricula", "geneanet", "findagrave", "familysearch"]);
 
 const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
@@ -217,6 +217,10 @@ export function parseMatriculaUrl(url: string): MatriculaUrlParts | undefined {
 
 const GENEANET_VIEW_RE = /\/cemetery\/view\/([^/?#]+)/;
 
+/** A Find a Grave memorial URL: /memorial/{id}(/{name-slug}). Cemetery and
+ *  other Find a Grave pages are not grave records and fall through to "other". */
+const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\/(\d+)(?:\/([^/?#]+))?/i;
+
 export interface FamilySearchUrlParts {
   kind: "image" | "record" | "tree";
   ark?: string;
@@ -284,6 +288,19 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
       proposed: { title: who ? `Geneanet Cemeteries – ${who}` : `Geneanet Cemeteries – ${gene[1]}` },
+      titleRank: who ? 1 : 0,
+    };
+  }
+
+  const grave = FINDAGRAVE_MEMORIAL_RE.exec(url.trim());
+  if (grave) {
+    if (!sites.has("findagrave")) return undefined;
+    const who = grave[2] ? prettySlug(grave[2]) : undefined;
+    return {
+      site: "findagrave",
+      groupKey: `fg:${grave[1]}`,
+      bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
+      proposed: { title: who ? `Find a Grave – ${who}` : `Find a Grave – ${grave[1]}` },
       titleRank: who ? 1 : 0,
     };
   }
@@ -534,7 +551,10 @@ function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): S
 // ---------------------------------------------------------------------------
 // Grouping + report
 
-const SITE_ORDER: Record<ReshapeSite, number> = { matricula: 0, geneanet: 1, familysearch: 2, other: 3 };
+const SITE_ORDER: Record<ReshapeSite, number> = { matricula: 0, geneanet: 1, findagrave: 2, familysearch: 3, other: 4 };
+
+/** Grave-record sites: always burial books, placed on the BURI event. */
+const BURIAL_SITES: ReadonlySet<ReshapeSite> = new Set(["geneanet", "findagrave"]);
 
 interface GroupState {
   group: ReshapeGroup;
@@ -589,7 +609,7 @@ function buildGroups(records: GedNode[], hits: ScanHit[]): Map<string, GroupStat
   for (const state of groups.values()) {
     state.group.pages.sort((a, b) => collator.compare(a, b));
     state.group.bookType =
-      state.group.site === "geneanet"
+      BURIAL_SITES.has(state.group.site)
         ? "burial"
         : classifyBookType([
             state.group.existingSourceTitle,
@@ -663,7 +683,7 @@ export function findReshapableLinks(
 
   const out: ReshapeGroup[] = [];
   let total = 0;
-  const bySite: Record<ReshapeSite, number> = { matricula: 0, geneanet: 0, familysearch: 0, other: 0 };
+  const bySite: Record<ReshapeSite, number> = { matricula: 0, geneanet: 0, findagrave: 0, familysearch: 0, other: 0 };
   for (const state of groups.values()) {
     const g = state.group;
     g.members = state.hits.map((hit) => {
@@ -1035,7 +1055,7 @@ export async function fetchReshapeMeta(
   onProgress?: (done: number, total: number) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
-  const targets = groups.filter((g) => g.site === "matricula" || g.site === "geneanet");
+  const targets = groups.filter((g) => g.site === "matricula" || BURIAL_SITES.has(g.site));
   let done = 0;
   onProgress?.(0, targets.length);
 
@@ -1061,7 +1081,11 @@ export async function fetchReshapeMeta(
           } else {
             const raw = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
             const title = raw ? decodeHtmlEntities(raw).replace(/\s+/g, " ").trim() : undefined;
-            if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
+            if (title) {
+              meta = {
+                title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "").replace(/\s*-\s*Find a Grave.*$/i, ""),
+              };
+            }
           }
           if (meta) bookMetaCache.set(cacheKey, meta);
         }

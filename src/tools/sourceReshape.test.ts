@@ -533,6 +533,23 @@ describe("reshapeSources — citation placement", () => {
     expect(text).not.toContain("NOTE http");
   });
 
+  it("treats Find a Grave memorials like graves: person-named source, BURI placement", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://www.findagrave.com/memorial/12345/anton-grudnik
+1 DEAT
+2 WWW https://www.findagrave.com/memorial/12345
+0 TRLR`);
+    const grave = report.groups.find((g) => g.site === "findagrave")!;
+    expect(grave.members).toHaveLength(2); // slug and slugless variants share the memorial group
+    expect(grave.bookType).toBe("burial");
+    expect(grave.proposed.title).toBe("Find a Grave – Anton Grudnik");
+    expect(text).toContain("1 TITL Find a Grave – Anton Grudnik");
+    expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
+    expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
+  });
+
   it("leaves acceptable placements alone (death book on BURI)", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
