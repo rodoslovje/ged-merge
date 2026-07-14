@@ -228,7 +228,17 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-row-label">{t("settings.links.fetch")}</span>
                 <span className="settings-hint">{t("settings.links.fetch.hint")}</span>
                 <span className="settings-hint">
-                  {t("settings.links.fetch.relays", { list: PROXY_HOSTS.join(", ") })}
+                  {t("settings.links.fetch.relays")}{" "}
+                  {PROXY_HOSTS.map((host, i) => (
+                    <span key={host}>
+                      {i > 0 && ", "}
+                      <a href={`https://${host}/`} target="_blank" rel="noreferrer">
+                        {host}
+                      </a>
+                    </span>
+                  ))}
+                  {". "}
+                  {t("settings.links.fetch.relaysNote")}
                 </span>
               </span>
             </label>
