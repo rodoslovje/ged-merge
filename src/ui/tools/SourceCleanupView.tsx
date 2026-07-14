@@ -182,19 +182,8 @@ export function SourceCleanupView({
     setFetching(null);
   }
 
-  // When link-fetching is allowed, enrich automatically — the user opted in,
-  // and it's one cached request per book. Re-runs when newly selected site
-  // categories bring in more new-source groups; already-fetched books are
-  // served from the session cache.
-  const newIdsKey = newSourceGroups.map((g) => g.id).sort().join("|");
-  useEffect(() => {
-    if (!settings.allowLinkFetch || !newIdsKey || fetching) return;
-    if (newSourceGroups.every((g) => enrichment.has(g.id))) return;
-    void fetchDetails();
-    // Deliberately keyed on the group set only — enrichment/fetching updates
-    // must not re-trigger the fetch loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newIdsKey, settings.allowLinkFetch]);
+  // No automatic fetching: the Settings toggle only *permits* the proxy; each
+  // run of it is an explicit click on the "Fetch book details" button.
 
   // Fetched title → the existing source's own title (correct diacritics, no
   // fetch needed) → the offline URL-derived guess.
