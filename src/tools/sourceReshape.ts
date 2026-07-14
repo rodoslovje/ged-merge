@@ -253,9 +253,14 @@ const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
 const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
-/** A SIstory.si war-victims record: /ww1/{guid} or /ww2/{guid} — the Slovene
- *  WW1/WW2 casualty databases; one record per person, evidencing the death. */
-const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]{8,})/i;
+/** A SIstory.si war-victims record — the Slovene WW1/WW2 casualty databases;
+ *  one record per person, evidencing the death. WW2 ids are GUIDs, WW1 ids are
+ *  short numbers: /ww2/{guid}, /ww1/{id}. */
+const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]{4,})/i;
+
+/** The WW1 victims portal variant: zv1.sistory.si/zrtev?id={n}-{Surname}-{Given}-{birthyear}
+ *  — the same record as /ww1/{n}, with the person's name encoded in the id. */
+const SISTORY_ZV1_RE = /^https?:\/\/zv1\.sistory\.si\/zrtev\?id=([^&#\s]+)/i;
 
 export interface FamilySearchUrlParts {
   kind: "image" | "record" | "tree";
@@ -364,16 +369,37 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (sistory) {
     if (!sites.has("sistory")) return undefined;
     const war = sistory[1].toUpperCase();
-    const guid = sistory[2].toUpperCase();
-    // The GUID means nothing to a reader — prefer the person's name, which the
+    const id = sistory[2].toUpperCase();
+    // The id means nothing to a reader — prefer the person's name, which the
     // SIstory citation text carries in »…« quotes.
     const who = quotedCollection(contextText);
     return {
       site: "sistory",
-      groupKey: `s:${guid.toLowerCase()}`,
-      bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${guid}`,
-      proposed: { title: who ? `${who} - SIstory.si ${war}` : `SIstory.si ${war} - ${guid}` },
+      groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
+      bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
+      proposed: { title: who ? `${who} - SIstory.si ${war}` : `SIstory.si ${war} - ${id}` },
       titleRank: who ? 1 : 0,
+      typeHint: contextText,
+    };
+  }
+
+  const zv1 = SISTORY_ZV1_RE.exec(url.trim());
+  if (zv1) {
+    if (!sites.has("sistory")) return undefined;
+    // "15691-Čehun-Matija-1877" → id + surname + given + birth year. Same
+    // record as /ww1/{id}, so both variants share the group.
+    const parts = decodeSegment(zv1[1]).split("-");
+    const numId = parts[0];
+    const who = parts.length >= 3 ? `${parts.slice(2, -1).join(" ")} ${parts[1]}`.trim() : undefined;
+    const year = parts.length >= 4 ? parts[parts.length - 1] : undefined;
+    return {
+      site: "sistory",
+      groupKey: `s:ww1:${numId.toLowerCase()}`,
+      bookUrl: cleanUrl(url),
+      proposed: {
+        title: who ? `${who}${year ? ` (${year})` : ""} - SIstory.si WW1` : `SIstory.si WW1 - ${numId}`,
+      },
+      titleRank: who ? 2 : 0,
       typeHint: contextText,
     };
   }

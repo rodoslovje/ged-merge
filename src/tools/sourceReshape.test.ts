@@ -665,6 +665,20 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 TITL Fani Grudnik - SIstory.si WW2");
   });
 
+  it("recognizes both SIstory WW1 shapes and groups the same victim across them", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR https://www.sistory.si/ww1/15691
+1 NOTE https://zv1.sistory.si/zrtev?id=15691-%C4%8Cehun-Matija-1877
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "sistory")!;
+    expect(g.members).toHaveLength(2); // path and zv1 variants share the record
+    expect(g.bookType).toBe("death");
+    expect(g.proposed.title).toBe("Matija Čehun (1877) - SIstory.si WW1"); // name from the zv1 id
+    expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/);
+  });
+
   it("leaves acceptable placements alone (death book on BURI)", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
