@@ -19,6 +19,10 @@ const PROXY_URLS: { proxied: (url: string) => string; timeoutMs: number }[] = [
   { proxied: (url) => `https://r.jina.ai/${url}`, timeoutMs: 20000 },
 ];
 
+/** The relay hosts, in the order they are tried — shown in Settings so it's
+ *  transparent where a permitted lookup actually sends the URL. */
+export const PROXY_HOSTS: string[] = PROXY_URLS.map((p) => new URL(p.proxied("https://example.org/")).host);
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
 };

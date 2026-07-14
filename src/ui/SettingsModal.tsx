@@ -5,6 +5,7 @@ import { useSettings, useNameOf } from "./SettingsContext";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { sexClass } from "./sex";
 
 export type ThemeMode = "auto" | "light" | "dark";
@@ -226,6 +227,9 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.links.fetch")}</span>
                 <span className="settings-hint">{t("settings.links.fetch.hint")}</span>
+                <span className="settings-hint">
+                  {t("settings.links.fetch.relays", { list: PROXY_HOSTS.join(", ") })}
+                </span>
               </span>
             </label>
           </section>

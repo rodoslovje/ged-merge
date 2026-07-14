@@ -11,6 +11,8 @@ import {
   type ReshapeSite,
 } from "../../tools/sourceReshape";
 import { dedupeSources, type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
+import { familySpouses } from "../../tools/sources";
+import { PersonLink } from "../PersonLink";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
@@ -72,12 +74,14 @@ export function SourceCleanupView({
   dupReport,
   dataset,
   fileName,
+  onNavigate,
   onBack,
 }: {
   reshapeReport: ReshapeReport;
   dupReport: DuplicateReport;
   dataset: Dataset;
   fileName: string;
+  onNavigate: (id: string) => void;
   onBack: () => void;
 }) {
   const { t } = useTranslation();
@@ -301,6 +305,8 @@ export function SourceCleanupView({
                 defaultQuay={quay}
                 quayOf={(i) => quayOverrides.get(`${g.id}:${i}`) ?? ""}
                 onQuay={(i, v) => setQuayOverrides((m) => new Map(m).set(`${g.id}:${i}`, v))}
+                dataset={dataset}
+                onNavigate={onNavigate}
                 onToggleCheck={() => toggleGroup(g.id)}
                 onToggleOpen={() => toggleExpand(g.id)}
               />
@@ -416,6 +422,8 @@ function ReshapeGroupRow({
   defaultQuay,
   quayOf,
   onQuay,
+  dataset,
+  onNavigate,
   onToggleCheck,
   onToggleOpen,
 }: {
@@ -430,6 +438,8 @@ function ReshapeGroupRow({
   defaultQuay: string;
   quayOf: (memberIndex: number) => string;
   onQuay: (memberIndex: number, value: string) => void;
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
   onToggleCheck: () => void;
   onToggleOpen: () => void;
 }) {
@@ -472,6 +482,8 @@ function ReshapeGroupRow({
                 defaultQuay={defaultQuay}
                 quay={quayOf(i)}
                 onQuay={(v) => onQuay(i, v)}
+                dataset={dataset}
+                onNavigate={onNavigate}
               />
             ))}
           </ul>
@@ -487,20 +499,39 @@ function MemberRow({
   defaultQuay,
   quay,
   onQuay,
+  dataset,
+  onNavigate,
 }: {
   member: ReshapeOccurrence;
   relocate: boolean;
   defaultQuay: string;
   quay: string;
   onQuay: (value: string) => void;
+  dataset: Dataset;
+  onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const at = m.eventTag ?? t("tools.sources.reshapeRecordLevel");
+  // Family occurrences link through the spouses (Edit navigates to persons).
+  const famSpouses = m.recordTag === "FAM" ? familySpouses(dataset, m.recordXref) : [];
   return (
     <li className="tools-dup-member">
-      <span className="tools-dup-title" title={m.url}>
-        {m.recordLabel}
-      </span>
+      {m.recordTag === "INDI" ? (
+        <PersonLink dataset={dataset} id={m.recordXref} fallback={m.recordLabel} onNavigate={onNavigate} />
+      ) : famSpouses.length > 0 ? (
+        <span>
+          {famSpouses.map((p, j) => (
+            <span key={p.id}>
+              {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+              <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="tools-dup-title" title={m.url}>
+          {m.recordLabel}
+        </span>
+      )}
       <span className="tools-tree-meta">
         {at}
         {relocate && m.targetEvent && ` → ${m.targetEvent}`}

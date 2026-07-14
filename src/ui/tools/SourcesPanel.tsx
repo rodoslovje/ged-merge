@@ -337,6 +337,7 @@ export function SourcesPanel({
         dupReport={dupReport}
         dataset={dataset}
         fileName={fileName}
+        onNavigate={onNavigate}
         onBack={() => setView("tree")}
       />
     );
