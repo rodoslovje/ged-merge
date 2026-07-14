@@ -14,7 +14,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
 };
 
-function decodeHtmlEntities(s: string): string {
+export function decodeHtmlEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, body: string) => {
     if (body[0] === "#") {
       const code = body[1].toLowerCase() === "x" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
@@ -24,21 +24,27 @@ function decodeHtmlEntities(s: string): string {
   });
 }
 
-/** Fetch `url`'s HTML through a CORS-bypass relay and return its `<title>`, or undefined on any failure. */
-export async function fetchPageTitle(url: string): Promise<string | undefined> {
+/** Fetch `url`'s raw HTML through the CORS-bypass relay, or undefined on any failure. */
+export async function fetchPageHtml(url: string): Promise<string | undefined> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(`${PROXY_URL}${encodeURIComponent(url)}`, { signal: controller.signal });
     if (!res.ok) return undefined;
-    const html = await res.text();
-    const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
-    if (!match) return undefined;
-    const title = decodeHtmlEntities(match[1]).replace(/\s+/g, " ").trim();
-    return title || undefined;
+    return await res.text();
   } catch {
     return undefined;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Fetch `url`'s HTML through a CORS-bypass relay and return its `<title>`, or undefined on any failure. */
+export async function fetchPageTitle(url: string): Promise<string | undefined> {
+  const html = await fetchPageHtml(url);
+  if (!html) return undefined;
+  const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
+  if (!match) return undefined;
+  const title = decodeHtmlEntities(match[1]).replace(/\s+/g, " ").trim();
+  return title || undefined;
 }

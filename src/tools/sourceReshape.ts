@@ -10,6 +10,7 @@ import {
   sourceTitle,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
+import { decodeHtmlEntities } from "../normalize/urlMetadata";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
@@ -984,10 +985,11 @@ export function parseMatriculaBookPage(
 ): { title?: string; type?: string; place?: string; agency?: string; dateFrom?: string; dateTo?: string } | undefined {
   const row = (label: string): string | undefined => {
     const m = new RegExp(`<th[^>]*>\\s*${label}\\s*</th>\\s*<td[^>]*>(.*?)</td>`, "is").exec(html);
-    return m ? m[1].replace(/<[^>]+>/g, "").trim() || undefined : undefined;
+    return m ? decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).trim() || undefined : undefined;
   };
-  const titleTag = /<title>([^<]*)<\/title>/i.exec(html)?.[1].trim();
-  const fromTitle = titleTag ? parseMatriculaTitle(titleTag) : undefined;
+  const titleTag = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
+  const titleText = titleTag ? decodeHtmlEntities(titleTag).replace(/\s+/g, " ").trim() : undefined;
+  const fromTitle = titleText ? parseMatriculaTitle(titleText) : undefined;
   const type = row("Type");
   const place = row("Parish/place") ?? fromTitle?.place;
   const id = row("ID");
@@ -1057,7 +1059,8 @@ export async function fetchReshapeMeta(
               };
             }
           } else {
-            const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1].trim();
+            const raw = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
+            const title = raw ? decodeHtmlEntities(raw).replace(/\s+/g, " ").trim() : undefined;
             if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
           }
           if (meta) bookMetaCache.set(cacheKey, meta);

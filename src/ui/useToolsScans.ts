@@ -5,6 +5,7 @@ import type { DuplicatePair } from "../tools/duplicates";
 import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
+import type { ReshapeReport } from "../tools/sourceReshape";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
 
 /** Lifecycle of one whole-file scan. */
@@ -16,13 +17,14 @@ export type AsyncState<T> =
   | { status: "done"; result: T };
 
 /** The scans that cache their result here (all but the download serializer). */
-type ScanKind = "validate" | "duplicates" | "normalize" | "sourceDuplicates";
+type ScanKind = "validate" | "duplicates" | "normalize" | "sourceDuplicates" | "sourceReshape";
 
 interface ScanStates {
   validate: AsyncState<{ report: ValidationReport; structure: StructureReport }>;
   duplicates: AsyncState<DuplicatePair[]>;
   normalize: AsyncState<NormalizationReport>;
   sourceDuplicates: AsyncState<DuplicateReport>;
+  sourceReshape: AsyncState<ReshapeReport>;
 }
 
 const ALL_IDLE: ScanStates = {
@@ -30,6 +32,7 @@ const ALL_IDLE: ScanStates = {
   duplicates: { status: "idle" },
   normalize: { status: "idle" },
   sourceDuplicates: { status: "idle" },
+  sourceReshape: { status: "idle" },
 };
 
 /** Worker request type for each scan kind. */
@@ -38,6 +41,7 @@ const REQUEST_TYPE = {
   duplicates: "findDuplicates",
   normalize: "normalizePreview",
   sourceDuplicates: "sourceDuplicates",
+  sourceReshape: "sourceReshape",
 } as const;
 
 export interface ToolsScans extends ScanStates {
@@ -206,6 +210,8 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
                 setScan("duplicates", { status: "done", result: (data as ToolsResultMap["findDuplicates"]).pairs });
               } else if (kind === "normalize") {
                 setScan("normalize", { status: "done", result: (data as ToolsResultMap["normalizePreview"]).report });
+              } else if (kind === "sourceReshape") {
+                setScan("sourceReshape", { status: "done", result: (data as ToolsResultMap["sourceReshape"]).report });
               } else {
                 setScan("sourceDuplicates", { status: "done", result: (data as ToolsResultMap["sourceDuplicates"]).report });
               }
@@ -249,6 +255,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         duplicates: { status: "cancelled" },
         normalize: back(s.normalize),
         sourceDuplicates: back(s.sourceDuplicates),
+        sourceReshape: back(s.sourceReshape),
       };
       statesRef.current = next;
       return next;

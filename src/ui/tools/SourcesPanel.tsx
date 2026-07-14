@@ -7,6 +7,7 @@ import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceDuplicatesView } from "./SourceDuplicatesView";
+import { SourceReshapeView } from "./SourceReshapeView";
 
 /** Lightbox side panel for a media object: the person/family records that
  *  reference the image (the descriptive caption rows are supplied separately as
@@ -254,17 +255,18 @@ export function SourcesPanel({
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the duplicate finder.
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  // Scanned automatically (in the tools worker) so the toggle can show the
-  // count; cached at the ToolsView level so revisits don't re-scan.
+  // Switches the panel body between the containment tree and the sub-tools.
+  const [view, setView] = useState<"tree" | "duplicates" | "reshape">("tree");
+  // Scanned automatically (in the tools worker) so the toggles can show their
+  // counts; cached at the ToolsView level so revisits don't re-scan.
   const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
+  const reshapeReport = scans.sourceReshape.status === "done" ? scans.sourceReshape.result : null;
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
     setQuery("");
-    setShowDuplicates(false);
+    setView("tree");
   }, [dataset]);
 
   useEffect(() => {
@@ -276,10 +278,14 @@ export function SourcesPanel({
   }, [active, tree, dataset]);
 
   useEffect(() => {
-    if (active) scans.ensure("sourceDuplicates");
+    if (active) {
+      scans.ensure("sourceDuplicates");
+      scans.ensure("sourceReshape");
+    }
   }, [active, scans]);
 
   const dupCount = dupReport?.groups.length ?? 0;
+  const reshapeCount = reshapeReport?.groups.length ?? 0;
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -325,8 +331,11 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (showDuplicates && dupReport)
-    return <SourceDuplicatesView report={dupReport} dataset={dataset} fileName={fileName} onBack={() => setShowDuplicates(false)} />;
+  if (view === "duplicates" && dupReport)
+    return <SourceDuplicatesView report={dupReport} dataset={dataset} fileName={fileName} onBack={() => setView("tree")} />;
+
+  if (view === "reshape" && reshapeReport)
+    return <SourceReshapeView report={reshapeReport} dataset={dataset} fileName={fileName} onBack={() => setView("tree")} />;
 
   if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
 
@@ -365,8 +374,13 @@ export function SourcesPanel({
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         {dupCount > 0 && (
-          <button className="tools-chip tools-dup-toggle" onClick={() => setShowDuplicates(true)}>
+          <button className="tools-chip tools-dup-toggle" onClick={() => setView("duplicates")}>
             {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
+          </button>
+        )}
+        {reshapeCount > 0 && (
+          <button className="tools-chip tools-dup-toggle" onClick={() => setView("reshape")}>
+            {t("tools.sources.reshapeToggle")} <span className="tools-chip-count">{reshapeCount}</span>
           </button>
         )}
         <p className="tools-summary">

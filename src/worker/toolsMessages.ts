@@ -4,6 +4,7 @@ import type { DuplicatePair } from "../tools/duplicates";
 import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
+import type { ReshapeReport } from "../tools/sourceReshape";
 
 /**
  * Requests for the tools worker (whole-file Tools-tab scans).
@@ -20,6 +21,7 @@ export type ToolsRequest =
   | { type: "findDuplicates"; requestId: number }
   | { type: "validate"; requestId: number }
   | { type: "sourceDuplicates"; requestId: number }
+  | { type: "sourceReshape"; requestId: number }
   | { type: "normalizePreview"; requestId: number }
   | { type: "normalizeText"; requestId: number; options: NormalizeOptions };
 
@@ -28,6 +30,7 @@ export interface ToolsResultMap {
   findDuplicates: { pairs: DuplicatePair[] };
   validate: { report: ValidationReport; structure: StructureReport };
   sourceDuplicates: { report: DuplicateReport };
+  sourceReshape: { report: ReshapeReport };
   normalizePreview: { report: NormalizationReport };
   /** The normalized file already serialized, so only a string crosses back. */
   normalizeText: { text: string };
