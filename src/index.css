@@ -5858,7 +5858,9 @@ kbd {
 .tools-dup-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
 .tools-dup-actions .tools-run { margin: 0; }
 
-/* Source reshape */
+/* Source cleanup (reshape + duplicates) */
+.tools-cleanup-section { margin: 0 0 26px; }
+.tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }
 /* Group badge: will a new SOUR record be created, or an existing one reused? */
 .tools-reshape-badge {
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;

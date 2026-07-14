@@ -6,8 +6,7 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
-import { SourceDuplicatesView } from "./SourceDuplicatesView";
-import { SourceReshapeView } from "./SourceReshapeView";
+import { SourceCleanupView } from "./SourceCleanupView";
 
 /** Lightbox side panel for a media object: the person/family records that
  *  reference the image (the descriptive caption rows are supplied separately as
@@ -255,8 +254,8 @@ export function SourcesPanel({
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the sub-tools.
-  const [view, setView] = useState<"tree" | "duplicates" | "reshape">("tree");
+  // Switches the panel body between the containment tree and the cleanup tool.
+  const [view, setView] = useState<"tree" | "cleanup">("tree");
   // Scanned automatically (in the tools worker) so the toggles can show their
   // counts; cached at the ToolsView level so revisits don't re-scan.
   const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
@@ -331,11 +330,16 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (view === "duplicates" && dupReport)
-    return <SourceDuplicatesView report={dupReport} dataset={dataset} fileName={fileName} onBack={() => setView("tree")} />;
-
-  if (view === "reshape" && reshapeReport)
-    return <SourceReshapeView report={reshapeReport} dataset={dataset} fileName={fileName} onBack={() => setView("tree")} />;
+  if (view === "cleanup" && dupReport && reshapeReport)
+    return (
+      <SourceCleanupView
+        reshapeReport={reshapeReport}
+        dupReport={dupReport}
+        dataset={dataset}
+        fileName={fileName}
+        onBack={() => setView("tree")}
+      />
+    );
 
   if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
 
@@ -375,16 +379,10 @@ export function SourcesPanel({
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
           <ScanChip
-            label={t("tools.sources.dupToggle")}
-            status={scans.sourceDuplicates.status}
-            count={dupCount}
-            onOpen={() => setView("duplicates")}
-          />
-          <ScanChip
-            label={t("tools.sources.reshapeToggle")}
-            status={scans.sourceReshape.status}
-            count={reshapeCount}
-            onOpen={() => setView("reshape")}
+            label={t("tools.sources.cleanupToggle")}
+            status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
+            count={dupCount + reshapeCount}
+            onOpen={() => setView("cleanup")}
           />
         </div>
         <p className="tools-summary">
@@ -461,6 +459,14 @@ export function SourcesPanel({
       )}
     </>
   );
+}
+
+type ScanStatus = "idle" | "running" | "cancelled" | "error" | "done";
+
+/** The cleanup chip waits for both of its scans; a failure of either hides it. */
+function combinedScanStatus(a: ScanStatus, b: ScanStatus): ScanStatus {
+  if (a === "error" || b === "error" || a === "cancelled" || b === "cancelled") return "error";
+  return a === "done" && b === "done" ? "done" : "running";
 }
 
 /** Sub-tool chip in the Sources header: a spinner while its whole-file scan is
