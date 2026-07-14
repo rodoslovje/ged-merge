@@ -81,6 +81,10 @@ export interface ReshapeOccurrence {
   targetEvent?: string;
   /** FAM xref the citation moves to (marriage books cited on a person). */
   targetFam?: string;
+  /** Event tag whose identical citation supersedes this record-level one —
+   *  the same URL is also attached to that event, so only the (more precise)
+   *  event citation is written and this occurrence is just cleaned up. */
+  foldedInto?: string;
 }
 
 /** All occurrences of one archive book / cemetery grave / FS film or collection. */
@@ -416,6 +420,8 @@ interface ScanHit {
   typeText?: string;
   eventTag?: string;
   eventIndex?: number;
+  /** See {@link ReshapeOccurrence.foldedInto}. */
+  foldedInto?: string;
 }
 
 /** Extract recognized URLs from a text value (may contain several). */
@@ -612,6 +618,15 @@ function buildGroups(records: GedNode[], hits: ScanHit[]): Map<string, GroupStat
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   for (const state of groups.values()) {
+    // A record-level attachment duplicated by an event-level one on the same
+    // person folds into the event — one citation, at the more precise spot.
+    for (const hit of state.hits) {
+      if (hit.eventTag || hit.shape === "sourTitle") continue;
+      const eventTwin = state.hits.find(
+        (h) => h !== hit && h.rec === hit.rec && h.eventTag && linkKey(h.url) === linkKey(hit.url),
+      );
+      if (eventTwin) hit.foldedInto = eventTwin.eventTag;
+    }
     state.group.pages.sort((a, b) => collator.compare(a, b));
     state.group.bookType =
       BURIAL_SITES.has(state.group.site)
@@ -692,7 +707,7 @@ export function findReshapableLinks(
   for (const state of groups.values()) {
     const g = state.group;
     g.members = state.hits.map((hit) => {
-      const move = relocate ? relocationTarget(hit, g.bookType, baptismTag) : undefined;
+      const move = relocate && !hit.foldedInto ? relocationTarget(hit, g.bookType, baptismTag) : undefined;
       return {
         recordXref: hit.rec.xref ?? "?",
         recordLabel: recordLabel(hit.rec),
@@ -705,6 +720,7 @@ export function findReshapableLinks(
         prefix: hit.prefix,
         targetEvent: move?.eventTag,
         targetFam: move?.onFam ? soleFamsXref(hit.rec) : undefined,
+        foldedInto: hit.foldedInto,
       };
     });
     total += g.members.length;
@@ -919,6 +935,21 @@ export function reshapeSources(
     // --- Rewrite each occurrence into a citation.
     for (const hit of state.hits) {
       if (hit.shape === "sourTitle") continue;
+
+      // Superseded by an identical event-level attachment: clean up only.
+      if (hit.foldedInto) {
+        if (hit.shape === "note" && hit.node.value !== undefined) {
+          const remaining = removeUrlFromText(hit.node.value, hit.url);
+          if (hasContent(remaining)) {
+            hit.node.value = remaining;
+            counts.notesRewritten++;
+            continue;
+          }
+        }
+        if (spliceChild(hit.container, hit.node)) counts.linksRemoved++;
+        continue;
+      }
+
       const page = hit.recognized.page;
       const move = relocate ? relocationTarget(hit, bookType, baptismTag) : undefined;
       let container = hit.container;

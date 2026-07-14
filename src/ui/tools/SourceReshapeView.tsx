@@ -324,7 +324,9 @@ function MemberRow({ member: m, relocate }: { member: ReshapeOccurrence; relocat
       </span>
       <span className="tools-tree-meta">
         {at}
-        {relocate && m.targetEvent && ` → ${m.targetEvent}`} · {t(`tools.sources.reshapeShape.${m.shape}`)}
+        {relocate && m.targetEvent && ` → ${m.targetEvent}`}
+        {m.foldedInto && ` → ${m.foldedInto} (${t("tools.sources.reshapeFolded")})`} ·{" "}
+        {t(`tools.sources.reshapeShape.${m.shape}`)}
         {m.page && ` · ${t("tools.sources.reshapePage", { page: m.page })}`}
       </span>
       <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer">

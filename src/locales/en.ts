@@ -212,6 +212,7 @@ export const en = {
   "tools.sources.reshapeReuses": "existing source",
   "tools.sources.reshapeNew": "new source",
   "tools.sources.reshapeRecordLevel": "record",
+  "tools.sources.reshapeFolded": "same link there — merged",
   "tools.sources.reshapePage": "p. {{page}}",
   "tools.sources.reshapeShape.link": "link field",
   "tools.sources.reshapeShape.webtag": "web tag",

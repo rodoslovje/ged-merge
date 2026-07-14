@@ -358,6 +358,27 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("3 QUAY 3");
   });
 
+  it("folds a record-level attachment into the identical event-level one", () => {
+    const { text, report, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 10 NOV 1889
+2 OBJE @O1@
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=20
+0 TRLR`);
+    const members = report.groups[0].members;
+    expect(members.find((m) => !m.eventTag)?.foldedInto).toBe("BIRT");
+    expect(text.match(/SOUR @S1@/g)).toHaveLength(1); // one citation, on BIRT
+    expect(text).toMatch(/1 BIRT\n2 DATE 10 NOV 1889\n2 SOUR @S1@\n3 PAGE 20/);
+    expect(text).not.toMatch(/0 @I1@ INDI\n1 SOUR/);
+    const indiBlock = text.split(/^0 /m).find((b) => b.startsWith("@I1@"))!;
+    expect(indiBlock).not.toContain("OBJE"); // both person-side pointers gone
+    expect(counts.citationsAdded).toBe(1);
+  });
+
   it("dedupes the same URL cited twice on one event", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
