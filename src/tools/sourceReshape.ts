@@ -11,7 +11,7 @@ import {
   sourceTitle,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
-import { decodeHtmlEntities } from "../normalize/urlMetadata";
+import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
@@ -1078,27 +1078,38 @@ export function reshapeSources(
 // ---------------------------------------------------------------------------
 // Enrichment (optional, online; main thread only)
 
-/** Parse a Matricula page `<title>` — `Krstna knjiga / Taufbuch - 04406 |
- *  Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online`. */
+/** Parse a Matricula page title — `Krstna knjiga / Taufbuch - 04406 | Vodice |
+ *  Nadškofijski arhiv Ljubljana | Slovenia` with an optional trailing
+ *  `| Matricula Online` (present in the raw `<title>`, absent in the rendering
+ *  relay's version). */
 export function parseMatriculaTitle(
   title: string,
 ): { title: string; agency?: string; place?: string } | undefined {
   const parts = title.split("|").map((p) => p.trim());
-  if (parts.length < 4 || !/matricula/i.test(parts[parts.length - 1])) return undefined;
+  if (/matricula\s*online/i.test(parts[parts.length - 1] ?? "")) parts.pop();
+  if (parts.length < 4) return undefined;
   return { title: `${parts[0]} | ${parts[1]}`, place: parts[1], agency: parts[2] };
 }
 
+/** Strip markdown link syntax, keeping the link text: `[Naklo](url)` → `Naklo`. */
+function stripMdLinks(s: string): string {
+  return s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+}
+
 /** Parse the metadata table of a Matricula book page (fetched via the `/en/`
- *  URL so the row labels are stable English). */
+ *  URL so the row labels are stable English). Accepts both the raw HTML
+ *  `table-register-data` rows and the rendering relay's markdown table
+ *  (`| Date from | Jan. 1, 1891 |`). */
 export function parseMatriculaBookPage(
   html: string,
 ): { title?: string; type?: string; place?: string; agency?: string; dateFrom?: string; dateTo?: string } | undefined {
   const row = (label: string): string | undefined => {
-    const m = new RegExp(`<th[^>]*>\\s*${label}\\s*</th>\\s*<td[^>]*>(.*?)</td>`, "is").exec(html);
-    return m ? decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).trim() || undefined : undefined;
+    const h = new RegExp(`<th[^>]*>\\s*${label}\\s*</th>\\s*<td[^>]*>(.*?)</td>`, "is").exec(html);
+    if (h) return decodeHtmlEntities(h[1].replace(/<[^>]+>/g, "")).trim() || undefined;
+    const md = new RegExp(`^\\|\\s*${label}\\s*\\|\\s*([^|\\n]+?)\\s*\\|`, "im").exec(html);
+    return md ? decodeHtmlEntities(stripMdLinks(md[1])).trim() || undefined : undefined;
   };
-  const titleTag = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
-  const titleText = titleTag ? decodeHtmlEntities(titleTag).replace(/\s+/g, " ").trim() : undefined;
+  const titleText = pageTitleOf(html);
   const fromTitle = titleText ? parseMatriculaTitle(titleText) : undefined;
   const type = row("Type");
   const place = row("Parish/place") ?? fromTitle?.place;
@@ -1112,6 +1123,33 @@ export function parseMatriculaBookPage(
     dateTo: row("Date to"),
   };
   return result.title || result.type || result.dateFrom ? result : undefined;
+}
+
+/**
+ * Parse a Geneanet cemetery ("Save our Graves") view page. Geneanet's bot
+ * protection 403s the plain relays, so in practice this sees the rendering
+ * relay's markdown, whose "Localisation" block reads:
+ *
+ *     **Localisation**
+ *     [Pokopališče Zgornje Bitnje](…/cemetery/collection/…) - P02
+ *     [Žabnica](…/cemetery/search/…) (Slovenia)
+ */
+export function parseGeneanetCemeteryPage(
+  text: string,
+): { title?: string; cemetery?: string; plot?: string; town?: string; country?: string } | undefined {
+  const title = pageTitleOf(text)?.replace(/\s*[-|]\s*Geneanet\s*$/i, "");
+  const loc =
+    /\*\*Localisation\*\*\s*\n+\[([^\]]+)\]\([^)]*\)[ \t]*(?:-[ \t]*([^\n]*?))?[ \t]*\n+\[([^\]]+)\]\([^)]*\)[ \t]*(?:\(([^)]+)\))?/.exec(
+      text,
+    );
+  const result = {
+    title,
+    cemetery: loc?.[1]?.trim() || undefined,
+    plot: loc?.[2]?.trim() || undefined,
+    town: loc?.[3]?.trim() || undefined,
+    country: loc?.[4]?.trim() || undefined,
+  };
+  return result.title || result.cemetery ? result : undefined;
 }
 
 /** Year-range (`1891-1920`) from the page's "Date from"/"Date to" values. */
@@ -1168,15 +1206,28 @@ export async function fetchReshapeMeta(
                 bookType: classifyBookType([page.type]),
               };
             }
-          } else {
-            const raw = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
-            const title = raw ? decodeHtmlEntities(raw).replace(/\s+/g, " ").trim() : undefined;
-            if (title) {
+          } else if (g.site === "geneanet") {
+            const page = parseGeneanetCemeteryPage(html);
+            if (page) {
               meta = {
-                title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "").replace(/\s*-\s*Find a Grave.*$/i, ""),
+                // The grave's whereabouts: cemetery, plot, town, country.
+                place:
+                  [page.cemetery, page.plot, page.town, page.country].filter(Boolean).join(", ") || undefined,
+                // Only replace an id-based fallback title; a person-named one
+                // ("Geneanet Cemeteries – GRUDNIK Anton") is more specific.
+                title:
+                  /–\s*\d+$/.test(g.proposed.title) && (page.cemetery || page.title)
+                    ? `Geneanet Cemeteries – ${page.cemetery ?? page.title}${page.town ? `, ${page.town}` : ""}`
+                    : undefined,
               };
             }
+          } else {
+            const title = pageTitleOf(html);
+            if (title) {
+              meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "").replace(/\s*-\s*Find a Grave.*$/i, "") };
+            }
           }
+          if (meta && !Object.values(meta).some(Boolean)) meta = undefined; // nothing usable parsed
           if (meta) bookMetaCache.set(cacheKey, meta);
         }
       }

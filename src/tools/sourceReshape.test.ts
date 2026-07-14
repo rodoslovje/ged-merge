@@ -8,6 +8,7 @@ import {
   fetchReshapeMeta,
   findReshapableLinks,
   parseFamilySearchUrl,
+  parseGeneanetCemeteryPage,
   parseMatriculaBookPage,
   parseMatriculaTitle,
   parseMatriculaUrl,
@@ -675,6 +676,68 @@ describe("enrichment parsing & fetching", () => {
 <tr><th>Date from</th><td>Jan. 1, 1891</td>
 <tr><th>Date to</th><td>Dec. 31, 1920</td>
 </table></body></html>`;
+
+  // Captured from r.jina.ai (the rendering relay): markdown, no "Matricula
+  // Online" title suffix, metadata as a pipe table.
+  const PAGE_MD = `Title: Krstni index / Taufindex - 01556 | Naklo | Nadškofijski arhiv Ljubljana | Slovenia
+
+URL Source: https://data.matricula-online.eu/en/slovenia/ljubljana/naklo/01556/
+
+Markdown Content:
+| Parish/place | [Naklo](https://data.matricula-online.eu/en/slovenia/ljubljana/naklo/) |
+| --- |
+| ID | 01556 |
+| Type | Krstni index / Taufindex |
+| Date from | Jan. 1, 1843 |
+| Date to | Dec. 31, 1909 |`;
+
+  const GRAVE_MD = `Title: Žabnica - Cemetery - #10085092
+
+URL Source: https://en.geneanet.org/cemetery/view/10085092
+
+**Localisation**
+
+[Pokopališče Zgornje Bitnje](https://en.geneanet.org/cemetery/collection/214223-pokopalisce-zgornje-bitnje) - P02
+
+[Žabnica](https://en.geneanet.org/cemetery/search/?country%5B0%5D=SVN) (Slovenia)
+
+GPS Coordinates : 46.2181,14.3463`;
+
+  it("parses the rendering relay's markdown book page", () => {
+    expect(parseMatriculaBookPage(PAGE_MD)).toMatchObject({
+      title: "Krstni index / Taufindex - 01556 | Naklo",
+      type: "Krstni index / Taufindex",
+      place: "Naklo",
+      agency: "Nadškofijski arhiv Ljubljana",
+      dateFrom: "Jan. 1, 1843",
+      dateTo: "Dec. 31, 1909",
+    });
+  });
+
+  it("parses the Geneanet cemetery page's Localisation block", () => {
+    expect(parseGeneanetCemeteryPage(GRAVE_MD)).toEqual({
+      title: "Žabnica - Cemetery - #10085092",
+      cemetery: "Pokopališče Zgornje Bitnje",
+      plot: "P02",
+      town: "Žabnica",
+      country: "Slovenia",
+    });
+    expect(parseGeneanetCemeteryPage("nothing here")).toBeUndefined();
+  });
+
+  it("enriches a Geneanet group with the grave's place", async () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/10085092
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = await fetchReshapeMeta(report.groups, async () => GRAVE_MD);
+    expect(enrichment.get(report.groups[0].id)).toEqual({
+      place: "Pokopališče Zgornje Bitnje, P02, Žabnica, Slovenia",
+      title: "Geneanet Cemeteries – Pokopališče Zgornje Bitnje, Žabnica",
+    });
+  });
 
   it("parses the Matricula page title", () => {
     expect(

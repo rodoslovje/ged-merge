@@ -8,13 +8,16 @@
  */
 
 /** Public CORS-bypass relays, tried in order — any one being down (observed
- *  regularly for each of them) must not take the feature out. */
-const PROXY_URLS = [
-  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+ *  regularly for each of them) must not take the feature out. The last entry,
+ *  r.jina.ai, renders the page in a real browser — it gets past the bot checks
+ *  that 403 the plain relays (Geneanet) but returns **markdown**, not HTML, so
+ *  page parsers must accept both shapes. It also needs a longer timeout. */
+const PROXY_URLS: { proxied: (url: string) => string; timeoutMs: number }[] = [
+  { proxied: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://r.jina.ai/${url}`, timeoutMs: 20000 },
 ];
-const TIMEOUT_MS = 6000;
 
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
@@ -30,9 +33,9 @@ export function decodeHtmlEntities(s: string): string {
   });
 }
 
-async function fetchViaProxy(proxied: string): Promise<string | undefined> {
+async function fetchViaProxy(proxied: string, timeoutMs: number): Promise<string | undefined> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(proxied, { signal: controller.signal });
     if (!res.ok) return undefined;
@@ -45,22 +48,28 @@ async function fetchViaProxy(proxied: string): Promise<string | undefined> {
   }
 }
 
-/** Fetch `url`'s raw HTML through a CORS-bypass relay (first responsive one
- *  wins), or undefined when they all fail. */
+/** Fetch `url`'s content through a CORS-bypass relay (first responsive one
+ *  wins) — HTML, or markdown from the rendering relay — or undefined when
+ *  they all fail. */
 export async function fetchPageHtml(url: string): Promise<string | undefined> {
   for (const proxy of PROXY_URLS) {
-    const html = await fetchViaProxy(proxy(url));
-    if (html) return html;
+    const text = await fetchViaProxy(proxy.proxied(url), proxy.timeoutMs);
+    if (text) return text;
   }
   return undefined;
 }
 
-/** Fetch `url`'s HTML through a CORS-bypass relay and return its `<title>`, or undefined on any failure. */
+/** The page's title from relayed content: `<title>` (HTML) or the rendering
+ *  relay's `Title:` header line (markdown). */
+export function pageTitleOf(text: string): string | undefined {
+  const html = /<title[^>]*>([^<]*)<\/title>/i.exec(text)?.[1];
+  const raw = html ?? /^Title:[ \t]*(.+)$/m.exec(text)?.[1];
+  if (!raw) return undefined;
+  return decodeHtmlEntities(raw).replace(/\s+/g, " ").trim() || undefined;
+}
+
+/** Fetch `url` through a CORS-bypass relay and return its page title, or undefined on any failure. */
 export async function fetchPageTitle(url: string): Promise<string | undefined> {
-  const html = await fetchPageHtml(url);
-  if (!html) return undefined;
-  const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
-  if (!match) return undefined;
-  const title = decodeHtmlEntities(match[1]).replace(/\s+/g, " ").trim();
-  return title || undefined;
+  const text = await fetchPageHtml(url);
+  return text ? pageTitleOf(text) : undefined;
 }
