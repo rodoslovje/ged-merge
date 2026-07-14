@@ -5564,7 +5564,7 @@ kbd {
   overflow-y: auto;
   padding: 24px;
   width: 100%;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 .tools-head { margin-bottom: 18px; }
@@ -5621,17 +5621,13 @@ kbd {
 .tools-filter-row .tools-search { flex: 1 1 200px; margin: 0; }
 .tools-filter-row .tools-chips { margin: 0; margin-left: auto; }
 .tools-filter-row .tools-summary { margin: 0; margin-left: auto; }
-/* Sources tree row (search + centered "Duplicates" toggle + summary): a
-   3-column grid keeps the toggle truly centered regardless of side widths. */
-.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+/* Sources tree row: search on the left, the sub-tool chips loosely centered,
+   summary on the right. Auto margins split the free space, and flex-wrap drops
+   the chips (then the summary) to their own row when the three don't fit. */
+.tools-chip-group { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.tools-filter-row:has(.tools-search):has(.tools-chip-group) .tools-search {
+  flex: 0 1 340px;
 }
-.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-search {
-  justify-self: start; width: 100%; max-width: 360px;
-}
-.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-dup-toggle { justify-self: center; }
-.tools-filter-row:has(.tools-search):has(.tools-dup-toggle) .tools-summary { justify-self: end; margin: 0; }
 .tools-search-input {
   width: 100%;
   box-sizing: border-box;
@@ -5861,3 +5857,28 @@ kbd {
 }
 .tools-dup-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
 .tools-dup-actions .tools-run { margin: 0; }
+
+/* Source cleanup (reshape + duplicates) */
+.tools-cleanup-section { margin: 0 0 26px; }
+.tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }
+/* Group badge: will a new SOUR record be created, or an existing one reused? */
+.tools-reshape-badge {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  border: 1px solid; border-radius: 4px; padding: 0 4px;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 1 auto;
+}
+.tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
+.tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
+/* Per-reference QUAY override on a member row — compact when closed. */
+.tools-quay-mini { font-size: 0.78rem; max-width: 200px; cursor: pointer; }
+/* Chip-sized spinner while a sub-tool's whole-file scan is still running. */
+.tools-chip .spinner { display: inline-block; width: 11px; height: 11px; vertical-align: -2px; }
+.tools-chip:disabled { cursor: default; opacity: 0.7; }
+.tools-reshape-options {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
+  margin: 0 0 12px; font-size: 0.9rem; color: var(--text);
+}
+.tools-reshape-site { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tools-reshape-site input[type="checkbox"] { cursor: pointer; }
+.tools-reshape-site select { cursor: pointer; }

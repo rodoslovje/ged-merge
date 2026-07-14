@@ -1,7 +1,10 @@
 import { isPointer } from "../source";
 import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
-import { insertOrdered, insertRecord, nextXref } from "./shared";
+import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
+
+/** Trailing block of a `SOUR` record a new `OBJE` link must stay ahead of. */
+const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion } from "./cache";
 import { createMediaRecord, referencedObjeXrefs } from "./media";
 
@@ -45,12 +48,18 @@ export function createSourceRecord(records: GedNode[], fields: NewSourceFields):
   return raw;
 }
 
-/** Add a new `OBJE` (linking `url`) to an already-existing `SOUR` record —
- * a new page of a paginated source that's already cited elsewhere. */
-export function addObjeToSource(records: GedNode[], sourceXref: string, url: string): GedNode {
-  const obje = createMediaRecord(records, url);
+/** Add a new `OBJE` (linking `url`, optionally titled) to an already-existing
+ * `SOUR` record — a new page of a paginated source that's already cited elsewhere. */
+export function addObjeToSource(records: GedNode[], sourceXref: string, url: string, title?: string): GedNode {
+  const obje = createMediaRecord(records, url, title);
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
-  if (sourceNode) sourceNode.children.push({ level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] });
+  if (sourceNode) {
+    insertGrouped(
+      sourceNode,
+      { level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] },
+      SOUR_TRAILING_TAGS,
+    );
+  }
   return obje;
 }
 
@@ -138,7 +147,11 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
     }
   } else if (url) {
     const obje = createMediaRecord(records, url);
-    sourceNode.children.push({ level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] });
+    insertGrouped(
+      sourceNode,
+      { level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] },
+      SOUR_TRAILING_TAGS,
+    );
   }
 }
 

@@ -7,14 +7,27 @@
  * non-200) is swallowed — the dialog just falls back to no title.
  */
 
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
-const TIMEOUT_MS = 6000;
+/** Public CORS-bypass relays, tried in order — any one being down (observed
+ *  regularly for each of them) must not take the feature out. The last entry,
+ *  r.jina.ai, renders the page in a real browser — it gets past the bot checks
+ *  that 403 the plain relays (Geneanet) but returns **markdown**, not HTML, so
+ *  page parsers must accept both shapes. It also needs a longer timeout. */
+const PROXY_URLS: { proxied: (url: string) => string; timeoutMs: number }[] = [
+  { proxied: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, timeoutMs: 6000 },
+  { proxied: (url) => `https://r.jina.ai/${url}`, timeoutMs: 20000 },
+];
+
+/** The relay hosts, in the order they are tried — shown in Settings so it's
+ *  transparent where a permitted lookup actually sends the URL. */
+export const PROXY_HOSTS: string[] = PROXY_URLS.map((p) => new URL(p.proxied("https://example.org/")).host);
 
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
 };
 
-function decodeHtmlEntities(s: string): string {
+export function decodeHtmlEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, body: string) => {
     if (body[0] === "#") {
       const code = body[1].toLowerCase() === "x" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
@@ -24,21 +37,53 @@ function decodeHtmlEntities(s: string): string {
   });
 }
 
-/** Fetch `url`'s HTML through a CORS-bypass relay and return its `<title>`, or undefined on any failure. */
-export async function fetchPageTitle(url: string): Promise<string | undefined> {
+async function fetchViaProxy(proxied: string, timeoutMs: number): Promise<string | undefined> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${PROXY_URL}${encodeURIComponent(url)}`, { signal: controller.signal });
+    const res = await fetch(proxied, { signal: controller.signal });
     if (!res.ok) return undefined;
-    const html = await res.text();
-    const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
-    if (!match) return undefined;
-    const title = decodeHtmlEntities(match[1]).replace(/\s+/g, " ").trim();
-    return title || undefined;
+    const text = await res.text();
+    return text || undefined;
   } catch {
     return undefined;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Bot-challenge interstitials and relay error pages arrive with HTTP 200
+ *  through a plain relay — they are a *failure*, not page content. */
+const JUNK_TITLE_RE =
+  /^(just a moment|attention required|access denied|please wait|verifying you are human|error\b|forbidden|not found|bad gateway|service unavailable|too many requests|rate limit)/i;
+
+/** Fetch `url`'s content through a CORS-bypass relay (first responsive one
+ *  wins) — HTML, or markdown from the rendering relay — or undefined when
+ *  they all fail. A body with no page title at all (relay JSON error
+ *  envelopes) or with a challenge/error title doesn't count as content; the
+ *  next relay is tried instead of short-circuiting the chain. */
+export async function fetchPageHtml(url: string): Promise<string | undefined> {
+  for (const proxy of PROXY_URLS) {
+    const text = await fetchViaProxy(proxy.proxied(url), proxy.timeoutMs);
+    if (!text) continue;
+    const title = pageTitleOf(text);
+    if (!title || JUNK_TITLE_RE.test(title)) continue;
+    return text;
+  }
+  return undefined;
+}
+
+/** The page's title from relayed content: `<title>` (HTML) or the rendering
+ *  relay's `Title:` header line (markdown). */
+export function pageTitleOf(text: string): string | undefined {
+  const html = /<title[^>]*>([^<]*)<\/title>/i.exec(text)?.[1];
+  const raw = html ?? /^Title:[ \t]*(.+)$/m.exec(text)?.[1];
+  if (!raw) return undefined;
+  return decodeHtmlEntities(raw).replace(/\s+/g, " ").trim() || undefined;
+}
+
+/** Fetch `url` through a CORS-bypass relay and return its page title, or undefined on any failure. */
+export async function fetchPageTitle(url: string): Promise<string | undefined> {
+  const text = await fetchPageHtml(url);
+  return text ? pageTitleOf(text) : undefined;
 }

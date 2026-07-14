@@ -371,7 +371,7 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
 
 /** `linkKey`, but with any `pg=` page-number query param stripped first, so two
  * URLs that cite different pages of the same paginated archive book compare equal. */
-function bookKeyOf(url: string): string {
+export function bookKeyOf(url: string): string {
   const [base, query] = url.split("?");
   if (!query) return linkKey(url);
   const params = query.split("&").filter((p) => !/^pg=/i.test(p));
@@ -379,7 +379,7 @@ function bookKeyOf(url: string): string {
 }
 
 /** The `pg=` query param of a URL, if any (Matricula-style page number). */
-function pageParamOf(url: string): string | undefined {
+export function pageParamOf(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
 }
 

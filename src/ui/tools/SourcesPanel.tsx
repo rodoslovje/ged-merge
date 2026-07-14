@@ -6,7 +6,7 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
-import { SourceDuplicatesView } from "./SourceDuplicatesView";
+import { SourceCleanupView } from "./SourceCleanupView";
 
 /** Lightbox side panel for a media object: the person/family records that
  *  reference the image (the descriptive caption rows are supplied separately as
@@ -254,17 +254,18 @@ export function SourcesPanel({
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the duplicate finder.
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  // Scanned automatically (in the tools worker) so the toggle can show the
-  // count; cached at the ToolsView level so revisits don't re-scan.
+  // Switches the panel body between the containment tree and the cleanup tool.
+  const [view, setView] = useState<"tree" | "cleanup">("tree");
+  // Scanned automatically (in the tools worker) so the toggles can show their
+  // counts; cached at the ToolsView level so revisits don't re-scan.
   const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
+  const reshapeReport = scans.sourceReshape.status === "done" ? scans.sourceReshape.result : null;
 
   useEffect(() => {
     setTree(null);
     setOpen(new Set());
     setQuery("");
-    setShowDuplicates(false);
+    setView("tree");
   }, [dataset]);
 
   useEffect(() => {
@@ -276,10 +277,16 @@ export function SourcesPanel({
   }, [active, tree, dataset]);
 
   useEffect(() => {
-    if (active) scans.ensure("sourceDuplicates");
+    // Fresh, not just ensured: the cleanup view applies against the live
+    // records, so a report cached before in-place edits must not drive it.
+    if (active) {
+      scans.ensureFresh("sourceDuplicates");
+      scans.ensureFresh("sourceReshape");
+    }
   }, [active, scans]);
 
   const dupCount = dupReport?.groups.length ?? 0;
+  const reshapeCount = reshapeReport?.groups.length ?? 0;
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -325,8 +332,17 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (showDuplicates && dupReport)
-    return <SourceDuplicatesView report={dupReport} dataset={dataset} fileName={fileName} onBack={() => setShowDuplicates(false)} />;
+  if (view === "cleanup" && (dupReport || reshapeReport))
+    return (
+      <SourceCleanupView
+        reshapeReport={reshapeReport}
+        dupReport={dupReport}
+        dataset={dataset}
+        fileName={fileName}
+        onNavigate={onNavigate}
+        onBack={() => setView("tree")}
+      />
+    );
 
   if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
 
@@ -364,11 +380,14 @@ export function SourcesPanel({
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
-        {dupCount > 0 && (
-          <button className="tools-chip tools-dup-toggle" onClick={() => setShowDuplicates(true)}>
-            {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
-          </button>
-        )}
+        <div className="tools-chip-group">
+          <ScanChip
+            label={t("tools.sources.cleanupToggle")}
+            status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
+            count={dupCount + reshapeCount}
+            onOpen={() => setView("cleanup")}
+          />
+        </div>
         <p className="tools-summary">
           {t("tools.sources.summary", {
             repos: tree.repoCount,
@@ -442,5 +461,47 @@ export function SourcesPanel({
         </ul>
       )}
     </>
+  );
+}
+
+type ScanStatus = "idle" | "running" | "cancelled" | "error" | "done";
+
+/** The cleanup chip: spinner while either scan is still coming, usable as soon
+ *  as at least one scan delivered (a failure of one must not take out the
+ *  other's tool), hidden only when neither produced a report. */
+function combinedScanStatus(a: ScanStatus, b: ScanStatus): ScanStatus {
+  if (a === "done" && b === "done") return "done";
+  if (a === "running" || a === "idle" || b === "running" || b === "idle") return "running";
+  return a === "done" || b === "done" ? "done" : "error";
+}
+
+/** Sub-tool chip in the Sources header: a spinner while its whole-file scan is
+ *  still running (so the button's spot is visible immediately), the count once
+ *  done, nothing when the scan found no work (or failed). */
+function ScanChip({
+  label,
+  status,
+  count,
+  onOpen,
+}: {
+  label: string;
+  status: "idle" | "running" | "cancelled" | "error" | "done";
+  count: number;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  if (status === "done" && count === 0) return null;
+  if (status === "error" || status === "cancelled") return null;
+  const pending = status !== "done";
+  return (
+    <button
+      className="tools-chip tools-dup-toggle"
+      onClick={onOpen}
+      disabled={pending}
+      title={pending ? t("tools.running") : undefined}
+    >
+      {label}{" "}
+      {pending ? <span className="spinner" aria-hidden="true" /> : <span className="tools-chip-count">{count}</span>}
+    </button>
   );
 }

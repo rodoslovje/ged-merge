@@ -88,10 +88,13 @@
           <section class="changelog-entry">
             <h2>2026-07-14</h2>
             <ul>
+              <li>New Tools → Sources → <strong>Clean up sources</strong>: archive links scattered around the file — <strong>Matricula Online</strong>, <strong>Geneanet Cemeteries</strong>, <strong>Find a Grave</strong>, <strong>Legacy.com</strong> obituaries, <strong>SIstory.si</strong> war-victim records and <strong>FamilySearch</strong> URLs in link fields, notes or inline citations — are grouped by register book, grave, obituary or film and converted into proper source records cited with page numbers, reusing the sources and repositories the file already has. The duplicate finder lives in the same view, so one download applies both the conversion and the deduplication.</li>
+              <li>Citations land on the matching event — baptism book → birth/baptism (following the file's own habit), marriage book → the family's marriage, death record → death, grave → burial — creating the event when missing; a link attached to both the person and an event collapses to one citation when the file keeps links in one place; and a <strong>QUAY</strong> data-quality value can be set globally with per-citation overrides. Every person in the preview links straight to Edit mode.</li>
+              <li>With link-fetching enabled in Settings, <strong>Fetch book details</strong> fills in the real Matricula register title, archive, parish and year range, and the grave's cemetery and location from Geneanet — one lookup per selected book, through public relays with fallbacks (the relays are now listed in Settings), with titles updating live as each book resolves.</li>
+              <li>Places the tool writes follow the file's own place format — "Žabnica" from a grave page becomes your "Žabnica,Kranj,Slovenia" — and a grave source fills a missing burial place, adding the cemetery as the address in place+address files.</li>
               <li>Editing a name in a file that stores its parts as separate <strong>GIVN</strong>/<strong>SURN</strong> lines (MacFamilyTree and similar) now updates those lines to match instead of dropping them, so the structured given/surname stay in your file's house style. Files that don't use those lines are unchanged — none are added.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-13</h2>
             <ul>

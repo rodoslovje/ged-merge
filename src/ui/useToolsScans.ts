@@ -5,6 +5,7 @@ import type { DuplicatePair } from "../tools/duplicates";
 import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
+import type { ReshapeReport } from "../tools/sourceReshape";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
 
 /** Lifecycle of one whole-file scan. */
@@ -16,13 +17,14 @@ export type AsyncState<T> =
   | { status: "done"; result: T };
 
 /** The scans that cache their result here (all but the download serializer). */
-type ScanKind = "validate" | "duplicates" | "normalize" | "sourceDuplicates";
+type ScanKind = "validate" | "duplicates" | "normalize" | "sourceDuplicates" | "sourceReshape";
 
 interface ScanStates {
   validate: AsyncState<{ report: ValidationReport; structure: StructureReport }>;
   duplicates: AsyncState<DuplicatePair[]>;
   normalize: AsyncState<NormalizationReport>;
   sourceDuplicates: AsyncState<DuplicateReport>;
+  sourceReshape: AsyncState<ReshapeReport>;
 }
 
 const ALL_IDLE: ScanStates = {
@@ -30,6 +32,7 @@ const ALL_IDLE: ScanStates = {
   duplicates: { status: "idle" },
   normalize: { status: "idle" },
   sourceDuplicates: { status: "idle" },
+  sourceReshape: { status: "idle" },
 };
 
 /** Worker request type for each scan kind. */
@@ -38,11 +41,16 @@ const REQUEST_TYPE = {
   duplicates: "findDuplicates",
   normalize: "normalizePreview",
   sourceDuplicates: "sourceDuplicates",
+  sourceReshape: "sourceReshape",
 } as const;
 
 export interface ToolsScans extends ScanStates {
   /** Start a scan unless it already ran (or is running) for this file. */
   ensure: (kind: ScanKind) => void;
+  /** Like `ensure`, but also re-runs when the dataset content changed since
+   *  the cached result (in-place edits bump `editVersionRef`). For scans cheap
+   *  enough to re-run automatically — a stale result must not drive an apply. */
+  ensureFresh: (kind: ScanKind) => void;
   /** Re-run a scan against the current (possibly just-edited) dataset. */
   refresh: (kind: ScanKind) => void;
   /** Stop the running duplicate scan. Terminates the worker — the only way to
@@ -179,8 +187,12 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     [editVersionRef, terminate],
   );
 
+  /** Content version each scan's latest result was computed against. */
+  const scanKeysRef = useRef(new Map<ScanKind, string>());
+
   const start = useCallback(
     (kind: ScanKind) => {
+      scanKeysRef.current.set(kind, `${datasetSeqRef.current}:${editVersionRef.current}`);
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
       // Defer the post one macrotask so React paints the spinner first: when
@@ -206,6 +218,8 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
                 setScan("duplicates", { status: "done", result: (data as ToolsResultMap["findDuplicates"]).pairs });
               } else if (kind === "normalize") {
                 setScan("normalize", { status: "done", result: (data as ToolsResultMap["normalizePreview"]).report });
+              } else if (kind === "sourceReshape") {
+                setScan("sourceReshape", { status: "done", result: (data as ToolsResultMap["sourceReshape"]).report });
               } else {
                 setScan("sourceDuplicates", { status: "done", result: (data as ToolsResultMap["sourceDuplicates"]).report });
               }
@@ -224,7 +238,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         );
       }, 0);
     },
-    [post, setScan],
+    [post, setScan, editVersionRef],
   );
 
   const ensure = useCallback(
@@ -233,6 +247,17 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
       start(kind);
     },
     [start],
+  );
+
+  const ensureFresh = useCallback(
+    (kind: ScanKind) => {
+      const status = statesRef.current[kind].status;
+      if (status === "running") return;
+      const key = `${datasetSeqRef.current}:${editVersionRef.current}`;
+      if (status !== "idle" && scanKeysRef.current.get(kind) === key) return;
+      start(kind);
+    },
+    [start, editVersionRef],
   );
 
   const refresh = useCallback((kind: ScanKind) => start(kind), [start]);
@@ -249,6 +274,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         duplicates: { status: "cancelled" },
         normalize: back(s.normalize),
         sourceDuplicates: back(s.sourceDuplicates),
+        sourceReshape: back(s.sourceReshape),
       };
       statesRef.current = next;
       return next;
@@ -285,7 +311,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   );
 
   return useMemo(
-    () => ({ ...states, ensure, refresh, cancelDuplicates, updateDuplicates, runNormalizeText }),
-    [states, ensure, refresh, cancelDuplicates, updateDuplicates, runNormalizeText],
+    () => ({ ...states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText }),
+    [states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText],
   );
 }
