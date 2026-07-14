@@ -324,13 +324,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
-    // Title format: `{id} - {what}, {where} - Geneanet Cemeteries` — the view
-    // id stays identifiable, the site name trails.
+    // Title layout: `{name} - {id} - {site}` — who/what first, the view id
+    // stays identifiable, the site name trails.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: who ? `${gene[1]} - ${who} - Geneanet Cemeteries` : `${gene[1]} - Geneanet Cemeteries` },
+      proposed: { title: who ? `${who} - ${gene[1]} - Geneanet Cemeteries` : `${gene[1]} - Geneanet Cemeteries` },
       titleRank: who ? 1 : 0,
     };
   }
@@ -339,12 +339,12 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (grave) {
     if (!sites.has("findagrave")) return undefined;
     const who = grave[2] ? prettySlug(grave[2]) : undefined;
-    // Same shape as Geneanet: `{memorial id} - {person} - Find a Grave`.
+    // Same layout as Geneanet: `{person} - {memorial id} - Find a Grave`.
     return {
       site: "findagrave",
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
-      proposed: { title: who ? `${grave[1]} - ${who} - Find a Grave` : `${grave[1]} - Find a Grave` },
+      proposed: { title: who ? `${who} - ${grave[1]} - Find a Grave` : `${grave[1]} - Find a Grave` },
       titleRank: who ? 1 : 0,
     };
   }
@@ -359,7 +359,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
       proposed: {
-        title: [id, who, "Legacy.com"].filter(Boolean).join(" - "),
+        title: [who, id, "Legacy.com"].filter(Boolean).join(" - "),
       },
       titleRank: who ? 1 : 0,
     };
@@ -377,7 +377,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: who ? `${who} - SIstory.si ${war}` : `SIstory.si ${war} - ${id}` },
+      proposed: { title: who ? `${who} - ${id} - SIstory.si ${war}` : `${id} - SIstory.si ${war}` },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -397,7 +397,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: who ? `${who}${year ? ` (${year})` : ""} - SIstory.si WW1` : `SIstory.si WW1 - ${numId}`,
+        title: who ? `${who}${year ? ` (${year})` : ""} - ${numId} - SIstory.si WW1` : `${numId} - SIstory.si WW1`,
       },
       titleRank: who ? 2 : 0,
       typeHint: contextText,
@@ -1323,10 +1323,10 @@ export async function fetchReshapeMeta(
                 // The grave's whereabouts: cemetery, plot, town, country.
                 place:
                   [page.cemetery, page.plot, page.town, page.country].filter(Boolean).join(", ") || undefined,
-                // `{id} - {cemetery}, {town} - Geneanet Cemeteries`.
+                // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
                 title:
                   page.cemetery && viewId
-                    ? `${viewId} - ${page.cemetery}${page.town ? `, ${page.town}` : ""} - Geneanet Cemeteries`
+                    ? `${page.cemetery}${page.town ? `, ${page.town}` : ""} - ${viewId} - Geneanet Cemeteries`
                     : undefined,
               };
             }
@@ -1336,16 +1336,19 @@ export async function fetchReshapeMeta(
             const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
             const memorialId = /\/memorial\/(\d+)/.exec(g.bookUrl)?.[1];
             if (name) {
-              meta = { title: memorialId ? `${memorialId} - ${name} - Find a Grave` : `${name} - Find a Grave` };
+              meta = { title: memorialId ? `${name} - ${memorialId} - Find a Grave` : `${name} - Find a Grave` };
             }
           } else if (g.site === "legacy") {
             const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
             const obitId = /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: [obitId, name, "Legacy.com"].filter(Boolean).join(" - ") };
+            if (name) meta = { title: [name, obitId, "Legacy.com"].filter(Boolean).join(" - ") };
           } else if (g.site === "sistory") {
             const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
             const war = /\/(ww[12])\//i.exec(g.bookUrl)?.[1].toUpperCase();
-            if (name) meta = { title: `${name} - SIstory.si${war ? ` ${war}` : ""}` };
+            const recId = /\/ww[12]\/([^/?#]+)/i.exec(g.bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
+            if (name) {
+              meta = { title: [name, recId, `SIstory.si${war ? ` ${war}` : ""}`].filter(Boolean).join(" - ") };
+            }
           } else {
             const title = pageTitleOf(html);
             if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };

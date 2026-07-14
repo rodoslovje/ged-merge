@@ -633,8 +633,8 @@ describe("reshapeSources — citation placement", () => {
     const grave = report.groups.find((g) => g.site === "findagrave")!;
     expect(grave.members).toHaveLength(2); // slug and slugless variants share the memorial group
     expect(grave.bookType).toBe("burial");
-    expect(grave.proposed.title).toBe("12345 - Anton Grudnik - Find a Grave");
-    expect(text).toContain("1 TITL 12345 - Anton Grudnik - Find a Grave");
+    expect(grave.proposed.title).toBe("Anton Grudnik - 12345 - Find a Grave");
+    expect(text).toContain("1 TITL Anton Grudnik - 12345 - Find a Grave");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
@@ -647,9 +647,9 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "legacy")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("26608778 - Peter Ancel - Legacy.com");
+    expect(g.proposed.title).toBe("Peter Ancel - 26608778 - Legacy.com");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // record-level note moved to a created DEAT
-    expect(text).toContain("1 TITL 26608778 - Peter Ancel - Legacy.com");
+    expect(text).toContain("1 TITL Peter Ancel - 26608778 - Legacy.com");
   });
 
   it("treats SIstory.si WW records as death evidence with the quoted person name", () => {
@@ -660,9 +660,9 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Fani Grudnik - SIstory.si WW2");
+    expect(g.proposed.title).toBe("Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
-    expect(text).toContain("1 TITL Fani Grudnik - SIstory.si WW2");
+    expect(text).toContain("1 TITL Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
   });
 
   it("recognizes both SIstory WW1 shapes and groups the same victim across them", () => {
@@ -675,7 +675,7 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.members).toHaveLength(2); // path and zv1 variants share the record
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Matija Čehun (1877) - SIstory.si WW1"); // name from the zv1 id
+    expect(g.proposed.title).toBe("Matija Čehun (1877) - 15691 - SIstory.si WW1"); // name from the zv1 id
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/);
   });
 
@@ -775,7 +775,7 @@ GPS Coordinates : 46.2181,14.3463`;
     const enrichment = await fetchReshapeMeta(report.groups, async () => GRAVE_MD);
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Pokopališče Zgornje Bitnje, P02, Žabnica, Slovenia",
-      title: "10085092 - Pokopališče Zgornje Bitnje, Žabnica - Geneanet Cemeteries",
+      title: "Pokopališče Zgornje Bitnje, Žabnica - 10085092 - Geneanet Cemeteries",
     });
   });
 
@@ -791,7 +791,7 @@ GPS Coordinates : 46.2181,14.3463`;
       async () => `<html><head><title>Frank Gorishek (1881-1968) - Find a Grave Memorial</title></head></html>`,
     );
     expect(enrichment.get(report.groups[0].id)).toEqual({
-      title: "60350966 - Frank Gorishek (1881-1968) - Find a Grave",
+      title: "Frank Gorishek (1881-1968) - 60350966 - Find a Grave",
     });
   });
 
