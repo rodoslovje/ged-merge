@@ -232,6 +232,22 @@ export function SourceCleanupView({
               >
                 {t("tools.sources.dupSelectNone")}
               </button>
+              <button
+                className="tools-issue-link"
+                onClick={() =>
+                  setExpanded((s) => new Set([...s, ...visibleGroups.map((g) => g.id)]))
+                }
+              >
+                {t("tools.sources.expandAll")}
+              </button>
+              <button
+                className="tools-issue-link"
+                onClick={() =>
+                  setExpanded((s) => new Set([...s].filter((id) => !visibleGroups.some((g) => g.id === id))))
+                }
+              >
+                {t("tools.sources.collapseAll")}
+              </button>
             </div>
           </div>
           <p className="tools-intro">{t("tools.sources.reshapeIntro")}</p>
@@ -287,6 +303,20 @@ export function SourceCleanupView({
                 onClick={() => setDupExcluded(new Set(dupReport.groups.map((g) => g.id)))}
               >
                 {t("tools.sources.dupSelectNone")}
+              </button>
+              <button
+                className="tools-issue-link"
+                onClick={() => setExpanded((s) => new Set([...s, ...dupReport.groups.map((g) => g.id)]))}
+              >
+                {t("tools.sources.expandAll")}
+              </button>
+              <button
+                className="tools-issue-link"
+                onClick={() =>
+                  setExpanded((s) => new Set([...s].filter((id) => !dupReport.groups.some((g) => g.id === id))))
+                }
+              >
+                {t("tools.sources.collapseAll")}
               </button>
             </div>
           </div>

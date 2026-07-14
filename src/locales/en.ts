@@ -182,6 +182,8 @@ export const en = {
   "tools.sources.dupKeepThis": "Keep this record",
   "tools.sources.dupBack": "Back to Sources",
   "tools.sources.cleanupToggle": "Clean up sources",
+  "tools.sources.expandAll": "Expand all",
+  "tools.sources.collapseAll": "Collapse all",
   "tools.sources.cleanupDownload": "Download cleaned GEDCOM",
   "tools.sources.reshapeHeading": "Archive links → sources",
   "tools.sources.reshapeIntro":

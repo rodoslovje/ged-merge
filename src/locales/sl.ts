@@ -182,6 +182,8 @@ export const sl = {
   "tools.sources.dupKeepThis": "Obdrži ta zapis",
   "tools.sources.dupBack": "Nazaj na vire",
   "tools.sources.cleanupToggle": "Očisti vire",
+  "tools.sources.expandAll": "Razširi vse",
+  "tools.sources.collapseAll": "Strni vse",
   "tools.sources.cleanupDownload": "Prenesi očiščeni GEDCOM",
   "tools.sources.reshapeHeading": "Arhivske povezave → viri",
   "tools.sources.reshapeIntro":
