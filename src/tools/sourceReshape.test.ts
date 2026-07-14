@@ -407,6 +407,25 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/0 @I1@ INDI\n1 BIRT\n2 SOUR @S1@\n3 PAGE 20\n1 SOUR @S1@\n2 PAGE 20/); // record one kept
   });
 
+  it("per-reference QUAY override beats the group default", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=10
+0 @I2@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=11
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const g = report.groups[0];
+    const members = g.members.map((m) => (m.page === "11" ? { ...m, quay: "1" } : m));
+    const { records } = reshapeSources(ds.records, [{ ...g, quay: "3", members }]);
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/3 PAGE 10\n3 QUAY 3/);
+    expect(text).toMatch(/3 PAGE 11\n3 QUAY 1/);
+  });
+
   it("dedupes the same URL cited twice on one event", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

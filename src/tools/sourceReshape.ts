@@ -86,6 +86,8 @@ export interface ReshapeOccurrence {
    *  the same URL is also attached to that event, so only the (more precise)
    *  event citation is written and this occurrence is just cleaned up. */
   foldedInto?: string;
+  /** Per-citation QUAY override (set by the panel); falls back to the group's. */
+  quay?: string;
 }
 
 /** All occurrences of one archive book / cemetery grave / FS film or collection. */
@@ -104,7 +106,8 @@ export interface ReshapeGroup {
   /** Distinct page numbers cited, numerically sorted. */
   pages: string[];
   members: ReshapeOccurrence[];
-  /** QUAY to stamp on this group's written citations (set by the panel). */
+  /** Default QUAY for this group's written citations (set by the panel);
+   *  each member may carry its own override. */
   quay?: string;
 }
 
@@ -979,8 +982,12 @@ export function reshapeSources(
       linkedKeys.add(urlKey);
     }
 
-    // --- Rewrite each occurrence into a citation.
-    for (const hit of state.hits) {
+    // --- Rewrite each occurrence into a citation. The re-scanned hits align
+    // index-for-index with the report's members (same deterministic scan and
+    // grouping), so a member's per-citation QUAY override maps by position.
+    for (let hitIndex = 0; hitIndex < state.hits.length; hitIndex++) {
+      const hit = state.hits[hitIndex];
+      const quayFor = selection.members[hitIndex]?.quay ?? selection.quay;
       if (hit.shape === "sourTitle") continue;
 
       // Superseded by an identical event-level attachment: clean up only.
@@ -1030,8 +1037,8 @@ export function reshapeSources(
         if (hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
           citation.children.push({ level: citation.level + 1, tag: "NOTE", value: hit.prefix, children: [] });
         }
-        if (selection.quay && !firstChild(citation, "QUAY")) {
-          citation.children.push({ level: citation.level + 1, tag: "QUAY", value: selection.quay, children: [] });
+        if (quayFor && !firstChild(citation, "QUAY")) {
+          citation.children.push({ level: citation.level + 1, tag: "QUAY", value: quayFor, children: [] });
         }
         if (container !== hit.container) {
           const duplicate = childrenByTag(container, "SOUR").some(
@@ -1047,7 +1054,7 @@ export function reshapeSources(
         continue;
       }
 
-      if (attachCitation(container, sourceXref, page, selection.quay, order)) counts.citationsAdded++;
+      if (attachCitation(container, sourceXref, page, quayFor, order)) counts.citationsAdded++;
 
       if (hit.shape === "note") {
         if (hit.node.value !== undefined) {

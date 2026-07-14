@@ -93,6 +93,7 @@ export function SourceCleanupView({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
   const [quay, setQuay] = useState("");
+  /** Per-reference QUAY overrides, keyed `${groupId}:${memberIndex}`. */
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
@@ -137,10 +138,14 @@ export function SourceCleanupView({
     () =>
       visibleGroups
         .filter((g) => !excluded.has(g.id))
-        .map((g) => {
-          const groupQuay = quayOverrides.get(g.id) ?? quay;
-          return groupQuay ? { ...g, quay: groupQuay } : g;
-        }),
+        .map((g) => ({
+          ...g,
+          quay: quay || undefined,
+          members: g.members.map((m, i) => {
+            const override = quayOverrides.get(`${g.id}:${i}`);
+            return override ? { ...m, quay: override } : m;
+          }),
+        })),
     [visibleGroups, excluded, quayOverrides, quay],
   );
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
@@ -302,8 +307,9 @@ export function SourceCleanupView({
                 checked={!excluded.has(g.id)}
                 open={expanded.has(g.id)}
                 relocate={relocate}
-                quay={quayOverrides.get(g.id) ?? quay}
-                onQuay={(v) => setQuayOverrides((m) => new Map(m).set(g.id, v))}
+                defaultQuay={quay}
+                quayOf={(i) => quayOverrides.get(`${g.id}:${i}`) ?? ""}
+                onQuay={(i, v) => setQuayOverrides((m) => new Map(m).set(`${g.id}:${i}`, v))}
                 onToggleCheck={() => toggleGroup(g.id)}
                 onToggleOpen={() => toggleExpand(g.id)}
               />
@@ -416,7 +422,8 @@ function ReshapeGroupRow({
   checked,
   open,
   relocate,
-  quay,
+  defaultQuay,
+  quayOf,
   onQuay,
   onToggleCheck,
   onToggleOpen,
@@ -428,8 +435,10 @@ function ReshapeGroupRow({
   checked: boolean;
   open: boolean;
   relocate: boolean;
-  quay: string;
-  onQuay: (value: string) => void;
+  /** The global QUAY, shown as each reference's placeholder value. */
+  defaultQuay: string;
+  quayOf: (memberIndex: number) => string;
+  onQuay: (memberIndex: number, value: string) => void;
   onToggleCheck: () => void;
   onToggleOpen: () => void;
 }) {
@@ -463,10 +472,16 @@ function ReshapeGroupRow({
       </div>
       {open && (
         <div className="tools-tree-children">
-          <QuaySelect value={quay} onChange={onQuay} />
           <ul className="tools-dup-members">
             {group.members.map((m, i) => (
-              <MemberRow key={`${m.recordXref}:${i}`} member={m} relocate={relocate} />
+              <MemberRow
+                key={`${m.recordXref}:${i}`}
+                member={m}
+                relocate={relocate}
+                defaultQuay={defaultQuay}
+                quay={quayOf(i)}
+                onQuay={(v) => onQuay(i, v)}
+              />
             ))}
           </ul>
         </div>
@@ -475,7 +490,19 @@ function ReshapeGroupRow({
   );
 }
 
-function MemberRow({ member: m, relocate }: { member: ReshapeOccurrence; relocate: boolean }) {
+function MemberRow({
+  member: m,
+  relocate,
+  defaultQuay,
+  quay,
+  onQuay,
+}: {
+  member: ReshapeOccurrence;
+  relocate: boolean;
+  defaultQuay: string;
+  quay: string;
+  onQuay: (value: string) => void;
+}) {
   const { t } = useTranslation();
   const at = m.eventTag ?? t("tools.sources.reshapeRecordLevel");
   return (
@@ -490,6 +517,24 @@ function MemberRow({ member: m, relocate }: { member: ReshapeOccurrence; relocat
         {t(`tools.sources.reshapeShape.${m.shape}`)}
         {m.page && ` · ${t("tools.sources.reshapePage", { page: m.page })}`}
       </span>
+      {!m.foldedInto && (
+        <select
+          className="tools-quay-mini"
+          value={quay}
+          onChange={(e) => onQuay(e.target.value)}
+          title={t("tools.sources.reshapeQuayHint")}
+        >
+          <option value="">
+            {t("tools.sources.reshapeQuay")}:{" "}
+            {defaultQuay ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}` : t("tools.sources.reshapeQuay.none")}
+          </option>
+          {["3", "2", "1", "0"].map((q) => (
+            <option key={q} value={q}>
+              {q} – {t(`tools.sources.reshapeQuay.${q}`)}
+            </option>
+          ))}
+        </select>
+      )}
       <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer">
         ↗
       </a>
