@@ -164,6 +164,8 @@ export function SourceReshapeView({
             <span className="tools-chip-count">{report.bySite[site]}</span>
           </label>
         ))}
+      </div>
+      <div className="tools-reshape-options">
         <label className="tools-reshape-site" title={t("tools.sources.reshapePlaceHint")}>
           <input type="checkbox" checked={relocate} onChange={() => setRelocate((v) => !v)} />
           {t("tools.sources.reshapePlace")}
