@@ -25,7 +25,7 @@ const SITES: ReshapeSite[] = ["matricula", "geneanet", "findagrave", "legacy", "
 const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
-  findagrave: "🕊️",
+  findagrave: "🪦",
   legacy: "📰",
   sistory: "🎖️",
   familysearch: "🌳",
