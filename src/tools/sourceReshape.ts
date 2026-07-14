@@ -955,6 +955,58 @@ function attachCitation(
   return true;
 }
 
+/** Diacritic- and case-insensitive comparison key for a place segment. */
+function placeSegmentKey(segment: string): string {
+  return segment
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Resolve a fetched or URL-derived place against the places the file already
+ * uses: the input's first segment is matched (diacritic-insensitively) against
+ * the first segment of every existing `PLAC` value, and the file's most
+ * frequent full value wins — so "Žabnica, Slovenia" from a grave page, or the
+ * diacritic-less slug guess "Sentjur Pri Celju", becomes the file's own
+ * "Žabnica,Kranj,Slovenia" in its established place format.
+ */
+function buildPlaceResolver(records: GedNode[]): (place: string | undefined) => string | undefined {
+  const bySegment = new Map<string, Map<string, number>>();
+  const walk = (n: GedNode): void => {
+    for (const c of n.children) {
+      const full = c.tag === "PLAC" ? c.value?.trim() : undefined;
+      if (full) {
+        const key = placeSegmentKey(full.split(",")[0]);
+        if (key) {
+          let values = bySegment.get(key);
+          if (!values) bySegment.set(key, (values = new Map()));
+          values.set(full, (values.get(full) ?? 0) + 1);
+        }
+      }
+      walk(c);
+    }
+  };
+  for (const r of records) walk(r);
+  const best = new Map<string, string>();
+  for (const [key, values] of bySegment) {
+    let top: string | undefined;
+    let topCount = 0;
+    for (const [value, count] of values) {
+      if (count > topCount) {
+        top = value;
+        topCount = count;
+      }
+    }
+    if (top) best.set(key, top);
+  }
+  return (place) => {
+    if (!place) return place;
+    return best.get(placeSegmentKey(place.split(",")[0])) ?? place;
+  };
+}
+
 /** Stable identity of one occurrence, for matching a report member to its
  *  re-scanned apply-time hit (per-citation QUAY overrides). */
 function occurrenceQuayKey(
@@ -1053,6 +1105,7 @@ export function reshapeSources(
   const createdObjeUrls = new Map<string, string>();
   const urlOfObje = (xref: string): string | undefined =>
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
+  const resolvePlace = buildPlaceResolver(clone);
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -1063,7 +1116,9 @@ export function reshapeSources(
     const fields = {
       title: extra?.title ?? g.proposed.title,
       agency: extra?.agency ?? g.proposed.agency,
-      place: extra?.place ?? g.proposed.place,
+      // Matched against the file's own places, so "Žabnica, Slovenia" (or a
+      // diacritic-less slug guess) lands in the established place format.
+      place: resolvePlace(extra?.place ?? g.proposed.place),
       filingNumber: g.proposed.filingNumber,
     };
 
@@ -1193,6 +1248,16 @@ export function reshapeSources(
       // A relocation target is always an event node; otherwise the original
       // container decides (record-level vs event-level order).
       const order = container === hit.container ? childOrderFor(container, hit.rec) : EVENT_CHILD_ORDER;
+
+      // A grave record tells us where the burial is: fill the BURI event's
+      // missing place from the source's location (never overwrite one).
+      if (bookType === "burial" && container.tag === "BURI" && fields.place && !firstChild(container, "PLAC")) {
+        insertOrdered(
+          container,
+          { level: container.level + 1, tag: "PLAC", value: fields.place, children: [] },
+          EVENT_CHILD_ORDER,
+        );
+      }
 
       if (hit.shape === "inline" || hit.shape === "pageUrl") {
         // Convert the citation node itself, preserving its other children.

@@ -493,6 +493,49 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/3 PAGE 11\n3 QUAY 1/); // override found by key, not position
   });
 
+  it("resolves places against the file's own place format and fills the BURI place", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/10085092
+0 @I2@ INDI
+1 BIRT
+2 PLAC Žabnica,Kranj,Slovenia
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { place: "Žabnica, Slovenia" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    expect(text).toContain("1 PLAC Žabnica,Kranj,Slovenia"); // SOUR place in the file's format
+    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
+  });
+
+  it("matches a diacritic-less slug place to the file's real place", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @I2@ INDI
+1 RESI
+2 PLAC Šentjur pri Celju,Slovenija
+0 TRLR`);
+    // Offline guess "Sentjur Pri Celju" resolves to the existing place value.
+    expect(text).toContain("1 PLAC Šentjur pri Celju,Slovenija");
+  });
+
+  it("never overwrites an existing BURI place", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BURI
+2 PLAC Ljubljana - Žale
+2 NOTE https://en.geneanet.org/cemetery/view/777
+0 TRLR`);
+    expect(text).toContain("2 PLAC Ljubljana - Žale");
+    expect(text.match(/PLAC/g)).toHaveLength(1);
+  });
+
   it("creates a Geneanet Cemeteries REPO in a repository-layout file", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
