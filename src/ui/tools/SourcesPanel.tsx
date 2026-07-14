@@ -373,15 +373,19 @@ export function SourcesPanel({
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
-        {dupCount > 0 && (
-          <button className="tools-chip tools-dup-toggle" onClick={() => setView("duplicates")}>
-            {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
-          </button>
-        )}
-        {reshapeCount > 0 && (
-          <button className="tools-chip tools-dup-toggle" onClick={() => setView("reshape")}>
-            {t("tools.sources.reshapeToggle")} <span className="tools-chip-count">{reshapeCount}</span>
-          </button>
+        {(dupCount > 0 || reshapeCount > 0) && (
+          <div className="tools-chip-group">
+            {dupCount > 0 && (
+              <button className="tools-chip tools-dup-toggle" onClick={() => setView("duplicates")}>
+                {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
+              </button>
+            )}
+            {reshapeCount > 0 && (
+              <button className="tools-chip tools-dup-toggle" onClick={() => setView("reshape")}>
+                {t("tools.sources.reshapeToggle")} <span className="tools-chip-count">{reshapeCount}</span>
+              </button>
+            )}
+          </div>
         )}
         <p className="tools-summary">
           {t("tools.sources.summary", {
