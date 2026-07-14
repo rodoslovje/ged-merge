@@ -373,20 +373,20 @@ export function SourcesPanel({
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
-        {(dupCount > 0 || reshapeCount > 0) && (
-          <div className="tools-chip-group">
-            {dupCount > 0 && (
-              <button className="tools-chip tools-dup-toggle" onClick={() => setView("duplicates")}>
-                {t("tools.sources.dupToggle")} <span className="tools-chip-count">{dupCount}</span>
-              </button>
-            )}
-            {reshapeCount > 0 && (
-              <button className="tools-chip tools-dup-toggle" onClick={() => setView("reshape")}>
-                {t("tools.sources.reshapeToggle")} <span className="tools-chip-count">{reshapeCount}</span>
-              </button>
-            )}
-          </div>
-        )}
+        <div className="tools-chip-group">
+          <ScanChip
+            label={t("tools.sources.dupToggle")}
+            status={scans.sourceDuplicates.status}
+            count={dupCount}
+            onOpen={() => setView("duplicates")}
+          />
+          <ScanChip
+            label={t("tools.sources.reshapeToggle")}
+            status={scans.sourceReshape.status}
+            count={reshapeCount}
+            onOpen={() => setView("reshape")}
+          />
+        </div>
         <p className="tools-summary">
           {t("tools.sources.summary", {
             repos: tree.repoCount,
@@ -460,5 +460,36 @@ export function SourcesPanel({
         </ul>
       )}
     </>
+  );
+}
+
+/** Sub-tool chip in the Sources header: a spinner while its whole-file scan is
+ *  still running (so the button's spot is visible immediately), the count once
+ *  done, nothing when the scan found no work (or failed). */
+function ScanChip({
+  label,
+  status,
+  count,
+  onOpen,
+}: {
+  label: string;
+  status: "idle" | "running" | "cancelled" | "error" | "done";
+  count: number;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  if (status === "done" && count === 0) return null;
+  if (status === "error" || status === "cancelled") return null;
+  const pending = status !== "done";
+  return (
+    <button
+      className="tools-chip tools-dup-toggle"
+      onClick={onOpen}
+      disabled={pending}
+      title={pending ? t("tools.running") : undefined}
+    >
+      {label}{" "}
+      {pending ? <span className="spinner" aria-hidden="true" /> : <span className="tools-chip-count">{count}</span>}
+    </button>
   );
 }

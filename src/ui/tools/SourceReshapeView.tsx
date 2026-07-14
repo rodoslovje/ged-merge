@@ -261,12 +261,14 @@ function ReshapeGroupRow({
         {group.existingSourceXref ? (
           <span
             className="tools-reshape-badge reuse"
-            title={group.existingSourceTitle ?? group.existingSourceXref}
+            title={`${group.existingSourceTitle ?? ""} ${group.existingSourceXref}`.trim()}
           >
-            {t("tools.sources.reshapeReuses", { title: group.existingSourceTitle ?? group.existingSourceXref })}
+            {t("tools.sources.reshapeReuses")}
           </span>
         ) : (
-          <span className="tools-reshape-badge new">{t("tools.sources.reshapeNew")}</span>
+          <span className="tools-reshape-badge new" title={title}>
+            {t("tools.sources.reshapeNew")}
+          </span>
         )}
         <span className="tools-chip-count">{group.members.length}</span>
       </div>

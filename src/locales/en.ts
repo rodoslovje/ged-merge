@@ -209,7 +209,7 @@ export const en = {
   "tools.sources.reshapeType.burial": "burial",
   "tools.sources.reshapePages_one": "{{count}} page",
   "tools.sources.reshapePages_other": "{{count}} pages",
-  "tools.sources.reshapeReuses": "reuses {{title}}",
+  "tools.sources.reshapeReuses": "existing source",
   "tools.sources.reshapeNew": "new source",
   "tools.sources.reshapeRecordLevel": "record",
   "tools.sources.reshapePage": "p. {{page}}",

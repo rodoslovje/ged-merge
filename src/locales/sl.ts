@@ -211,7 +211,7 @@ export const sl = {
   "tools.sources.reshapePages_two": "{{count}} strani",
   "tools.sources.reshapePages_few": "{{count}} strani",
   "tools.sources.reshapePages_other": "{{count}} strani",
-  "tools.sources.reshapeReuses": "uporabi {{title}}",
+  "tools.sources.reshapeReuses": "obstoječ vir",
   "tools.sources.reshapeNew": "nov vir",
   "tools.sources.reshapeRecordLevel": "zapis",
   "tools.sources.reshapePage": "str. {{page}}",

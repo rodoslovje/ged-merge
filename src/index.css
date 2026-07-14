@@ -5868,6 +5868,9 @@ kbd {
 }
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
+/* Chip-sized spinner while a sub-tool's whole-file scan is still running. */
+.tools-chip .spinner { display: inline-block; width: 11px; height: 11px; vertical-align: -2px; }
+.tools-chip:disabled { cursor: default; opacity: 0.7; }
 .tools-reshape-options {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
   margin: 0 0 12px; font-size: 0.9rem; color: var(--text);
