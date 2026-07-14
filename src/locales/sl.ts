@@ -1043,7 +1043,7 @@ export const sl = {
   "settings.links.fetch": "Poišči podatke o povezavi na spletu",
   "settings.links.fetch.hint": "Pri dodajanju vira iz golega URL-ja pridobi naslov strani prek javnega posrednika. To je edina funkcija, ki pošlje povezavo z vaše naprave; privzeto izklopljeno.",
   "settings.links.fetch.relays": "Uporabljeni javni posredniki, v tem vrstnem redu:",
-  "settings.links.fetch.relaysNote": "Pošlje se samo iskani naslov — nikoli vaša datoteka.",
+  "settings.links.fetch.relaysNote": "Pošlje se samo iskani naslov — nikoli vaše datoteke.",
   "settings.data.title": "Predpomnjeni podatki",
   "settings.data.persist": "Zapomni si moje delo v tem brskalniku",
   "settings.data.persist.hint": "Naložene datoteke in napredek pregledovanja/urejanja shrani v ta brskalnik, da se ob osvežitvi delo obnovi. Privzeto izklopljeno; ob vklopu lahko brskalnik vpraša za dovoljenje za shranjevanje podatkov. Nič ne zapusti vaše naprave.",
