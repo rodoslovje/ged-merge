@@ -80,7 +80,7 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
 const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, string>>> = {
   datePlaceholder: { none: "JUN 1879", _: "__.06.1879", "?": "??.06.1879" },
   place: {
-    "structured-addr": "Kranj,Slovenija + ADDR Cesta 1",
+    "structured-addr": "Kranj,Slovenija › ADDR Cesta 1",
     "packed-plac": "Cesta 1, Kranj (Slovenija)",
     "plain-structured": "Kranj,Slovenija",
     "address-only": "Cesta 1",
