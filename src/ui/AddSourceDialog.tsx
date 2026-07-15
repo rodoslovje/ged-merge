@@ -6,9 +6,8 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, recognizeSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, recognizeSourceUrl, SITE_ICON, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { useSettings } from "./SettingsContext";
-import { SITE_ICON } from "./tools/SourceCleanupView";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 

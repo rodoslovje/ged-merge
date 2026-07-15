@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
+import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
 
 /** A person a value line can link to: its id plus a click handler. */
@@ -65,7 +66,7 @@ export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: str
           className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
           title={url}
         >
-          🔗
+          {siteIconForUrl(url) ?? "🔗"}
         </a>
       ))}
     </span>

@@ -617,6 +617,36 @@ export function recognizeSourceUrl(url: string, contextText?: string): Recognize
   return recognize(cleanUrl(url.trim()), contextText, DEFAULT_SITES);
 }
 
+/** Site glyphs — the Organize sources chips, the Add Source recognized-link
+ *  chip, and the source/link icons across Edit, Compare and chart panels. */
+export const SITE_ICON: Record<ReshapeSite, string> = {
+  matricula: "⛪",
+  geneanet: "🪦",
+  findagrave: "🪦",
+  billiongraves: "🪦",
+  legacy: "📰",
+  sistory: "🎖️",
+  dlib: "📚",
+  googlebooks: "📖",
+  youtube: "🎬",
+  familysearch: "🌳",
+  other: "🔗",
+};
+
+const siteIconCache = new Map<string, string | undefined>();
+
+/** The recognized site's glyph for a source/link URL, or undefined for URLs
+ *  of unknown sites (the caller keeps its generic icon). Cached per URL —
+ *  Edit/Compare rows re-render often over the same citations. */
+export function siteIconForUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (siteIconCache.has(url)) return siteIconCache.get(url);
+  const site = recognizeSourceUrl(url)?.site;
+  const icon = site ? SITE_ICON[site] : undefined;
+  siteIconCache.set(url, icon);
+  return icon;
+}
+
 // ---------------------------------------------------------------------------
 // Register-type classification (drives event placement)
 

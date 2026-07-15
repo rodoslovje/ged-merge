@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
   ALL_SITES,
+  SITE_ICON,
   fetchReshapeMeta,
   isFetchableSite,
   reshapeSources,
@@ -25,20 +26,6 @@ import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
-/** Site glyphs — shared with the Add Source dialog's recognized-link chip. */
-export const SITE_ICON: Record<ReshapeSite, string> = {
-  matricula: "⛪",
-  geneanet: "🪦",
-  findagrave: "🪦",
-  billiongraves: "🪦",
-  legacy: "📰",
-  sistory: "🎖️",
-  dlib: "📚",
-  googlebooks: "📖",
-  youtube: "🎬",
-  familysearch: "🌳",
-  other: "🔗",
-};
 const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
