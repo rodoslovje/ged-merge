@@ -63,6 +63,11 @@ platform API with OAuth2 solves both, and unlocks person-level linking.
   compare slot for a field-by-field merge like a compare file, and write the
   FSID back onto matched persons that lack one.
 
+### Sources
+- **Show source images in the Add/edit source dialog** — some sources carry a
+  photo/image (OBJE); display it (at least a thumbnail) when adding/editing a
+  source so the record page is visible while filling in the fields.
+
 ### Tools tab
 - **Source coverage report** — which facts / persons have no citation at all
   (extends the existing health check).
