@@ -804,6 +804,30 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN 26608778");
   });
 
+  it("gives 'other' links slug titles and classifies obituary/funeral URLs as death evidence", () => {
+    const report = scan(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://www.tezakfuneralhome.com/obituaries/ann-vidmar
+0 @I2@ INDI
+1 WWW https://www.komunala-kranj.si/pogreb-angela-zupancic-v-druzinskem-krogu
+0 @I3@ INDI
+1 WWW https://www.youtube.com/watch?v=lD5eGiGwlZs
+0 TRLR`,
+      ["other"],
+    );
+    const obit = report.groups.find((g) => g.bookUrl.includes("tezak"))!;
+    expect(obit.proposed.title).toBe("Ann Vidmar - tezakfuneralhome.com");
+    expect(obit.bookType).toBe("death"); // "/obituaries/" in the URL
+    const pogreb = report.groups.find((g) => g.bookUrl.includes("komunala"))!;
+    expect(pogreb.proposed.title).toBe("Pogreb Angela Zupancic V Druzinskem Krogu - komunala-kranj.si");
+    expect(pogreb.bookType).toBe("death");
+    const yt = report.groups.find((g) => g.bookUrl.includes("youtube"))!;
+    expect(yt.proposed.title).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs"); // no name-like slug
+    expect(yt.bookType).toBe("unknown");
+  });
+
   it("treats BillionGraves graves like Find a Grave: BURI placement, id as filing number", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8

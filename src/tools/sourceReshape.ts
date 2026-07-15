@@ -512,16 +512,47 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   }
 
   if (!sites.has("other")) return undefined;
+  // Generic links still get a readable offline title where possible: the
+  // citation text around the link (minus the URL itself), else a name-like
+  // path slug plus the host ("Ann Vidmar - tezakfuneralhome.com").
+  const contextTitle = contextText ? firstLine(contextText.replace(URL_RE, " ")) : "";
+  const slugTitle = slugTitleFromUrl(cleanUrl(url));
   return {
     site: "other",
     groupKey: `o:${linkKey(url)}`,
     bookUrl: cleanUrl(url),
-    proposed: { title: contextText?.trim() ? firstLine(contextText) : cleanUrl(url) },
+    proposed: { title: contextTitle || slugTitle || cleanUrl(url) },
+    titleRank: contextTitle ? 2 : slugTitle ? 1 : 0,
   };
 }
 
 function firstLine(text: string): string {
   return text.split("\n")[0].trim().slice(0, 120) || text.trim().slice(0, 120);
+}
+
+/**
+ * A readable title for a generic link, when its path carries a name-like slug:
+ * the last path segment made of two or more words ("ann-vidmar",
+ * "pogreb-angela-zupancic") becomes "Ann Vidmar - tezakfuneralhome.com".
+ * Id-like segments (digits, single tokens, hashes) yield nothing — the URL
+ * stays the title.
+ */
+function slugTitleFromUrl(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean).map(decodeSegment);
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i].replace(/\.(html?|php|aspx?|pdf|jpe?g|png|gif)$/i, "");
+    if (!/^\p{L}/u.test(seg)) continue;
+    const words = seg.split(/[-_ ]+/).filter(Boolean);
+    if (words.length < 2 || words.filter((w) => /^\p{L}+$/u.test(w)).length < 2) continue;
+    return `${prettySlug(seg)} - ${parsed.hostname.replace(/^www\./i, "")}`;
+  }
+  return undefined;
 }
 
 /** The parts of a recognized site URL the Add Source dialog needs: the
@@ -547,7 +578,10 @@ export function recognizeSourceUrl(url: string, contextText?: string): Recognize
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
   baptism: /krst|tauf|baptiz|baptism|rojstn|\bkk\b/i,
   marriage: /poro[čc]|trauung|matrimon|copulat|marriage|\bpk\b/i,
-  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b/i,
+  // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
+  // funeral-announcement pages by their URLs/titles — funeral homes,
+  // komunala pogreb notices, navcek.si.
+  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
 };
 
 /** Classify a register's type from whatever text is available (source titles,
@@ -895,6 +929,9 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
         state.group.proposed.title,
         ...state.hits.map((h) => h.typeText),
         ...state.hits.map((h) => h.prefix),
+        // Generic links often say what they are in the URL itself
+        // ("…/obituaries/ann-vidmar", "…/pogreb-angela-zupancic").
+        ...(state.group.site === "other" ? state.hits.map((h) => h.url) : []),
       ]);
   }
   return groups;
