@@ -188,7 +188,8 @@ export const en = {
   "tools.sources.reshapeHeading": "Archive links → sources",
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert, then download a GEDCOM where each becomes a proper source record cited with page numbers.",
-  "tools.sources.reshapeFound": "{{count}} link groups found",
+  "tools.sources.reshapeFound": "links: {{links}} · source groups: {{groups}}",
+  "tools.sources.cleanupChipHint": "{{links}} archive links in {{groups}} source groups · {{dups}} duplicate groups",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.geneanettree": "Geneanet Trees",

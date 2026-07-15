@@ -385,6 +385,11 @@ export function SourcesPanel({
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
             count={dupCount + reshapeCount}
+            hint={t("tools.sources.cleanupChipHint", {
+              links: reshapeReport?.totalOccurrences ?? 0,
+              groups: reshapeCount,
+              dups: dupCount,
+            })}
             onOpen={() => setView("cleanup")}
           />
         </div>
@@ -482,11 +487,14 @@ function ScanChip({
   label,
   status,
   count,
+  hint,
   onOpen,
 }: {
   label: string;
   status: "idle" | "running" | "cancelled" | "error" | "done";
   count: number;
+  /** Breakdown of what the count is made of, shown as the chip's tooltip. */
+  hint?: string;
   onOpen: () => void;
 }) {
   const { t } = useTranslation();
@@ -498,7 +506,7 @@ function ScanChip({
       className="tools-chip tools-dup-toggle"
       onClick={onOpen}
       disabled={pending}
-      title={pending ? t("tools.running") : undefined}
+      title={pending ? t("tools.running") : hint}
     >
       {label}{" "}
       {pending ? <span className="spinner" aria-hidden="true" /> : <span className="tools-chip-count">{count}</span>}

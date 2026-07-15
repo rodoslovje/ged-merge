@@ -292,7 +292,11 @@ export function SourceCleanupView({
         <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />
         <p className="tools-summary">
           {[
-            hasReshape && t("tools.sources.reshapeFound", { count: visibleGroups.length }),
+            hasReshape &&
+              t("tools.sources.reshapeFound", {
+                links: visibleGroups.reduce((n, g) => n + g.members.length, 0),
+                groups: visibleGroups.length,
+              }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
           ]
             .filter(Boolean)

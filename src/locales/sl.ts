@@ -188,7 +188,8 @@ export const sl = {
   "tools.sources.reshapeHeading": "Arhivske povezave → viri",
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), najdene kot gole povezave, opombe ali besedilne navedbe, združene po matični knjigi ali grobu. Izberite skupine za pretvorbo in prenesite GEDCOM, v katerem vsaka postane pravi vir s citati po straneh.",
-  "tools.sources.reshapeFound": "{{count}} skupin povezav",
+  "tools.sources.reshapeFound": "povezave: {{links}} · skupine virov: {{groups}}",
+  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",
