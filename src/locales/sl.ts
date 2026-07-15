@@ -865,6 +865,7 @@ export const sl = {
   "addSource.field.periodical": "Periodika / zbirka",
   "addSource.field.publisher": "Založnik",
   "addSource.field.agency": "Ustanova",
+  "addSource.field.place": "Kraj",
   "addSource.field.filingNumber": "Arhivska številka",
   "addSource.field.page": "Stran",
   "addSource.field.url": "URL",

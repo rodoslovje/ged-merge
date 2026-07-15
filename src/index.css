@@ -4960,7 +4960,7 @@ kbd {
   background: var(--danger-soft);
 }
 
-.add-source-dialog { width: 520px; max-width: 90vw; }
+.add-source-dialog { width: 520px; max-width: 90vw; height: auto; max-height: 88vh; }
 .add-source-textarea {
   width: 100%;
   resize: vertical;

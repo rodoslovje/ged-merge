@@ -76,9 +76,11 @@ function sourceCitationNodes(record: GedNode): GedNode[] {
 }
 
 /** Fields editable on an existing citation — `NewSourceFields` plus the
- * citation-local `page` and (when known) the specific `OBJE` its resolved
- * `url` came from, so a `url` edit retargets only that page's file. */
-export type EditSourceFields = NewSourceFields & { page?: string; objeXref?: string };
+ * source's `PLAC` (not part of `NewSourceFields`; a new source gets it via
+ * the site extras), the citation-local `page` and (when known) the specific
+ * `OBJE` its resolved `url` came from, so a `url` edit retargets only that
+ * page's file. */
+export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string };
 
 /**
  * Update the `index`th `SOUR` citation on `node` (an event node, or a
@@ -119,6 +121,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
   setChild("PERI", fields.periodical);
   setChild("PUBL", fields.publisher);
   setChild("AGNC", fields.agency);
+  setChild("PLAC", fields.place);
   setChild("FILN", fields.filingNumber);
   setChild("NOTE", fields.note);
 

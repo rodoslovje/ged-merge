@@ -45,6 +45,7 @@ interface FormState {
   periodical: string;
   publisher: string;
   agency: string;
+  place: string;
   filingNumber: string;
   page: string;
   url: string;
@@ -52,7 +53,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  title: "", author: "", periodical: "", publisher: "", agency: "", filingNumber: "", page: "", url: "", note: "",
+  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", url: "", note: "",
 };
 
 function extractPage(url: string): string | undefined {
@@ -109,6 +110,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       periodical: match ? "" : parsed.periodical ?? "",
       publisher: match ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
+      place: match ? "" : recognized?.proposed.place ?? "",
       filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
@@ -125,6 +127,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       periodical: editing.fields.periodical ?? "",
       publisher: editing.fields.publisher ?? "",
       agency: editing.fields.agency ?? "",
+      place: editing.fields.place ?? "",
       filingNumber: editing.fields.filingNumber ?? "",
       page: editing.fields.page ?? "",
       url: editing.fields.url ?? "",
@@ -159,7 +162,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
         value && (!current.trim() || current === proposed) ? value : current;
       setFields((f) =>
         f.url === normalizedUrl
-          ? { ...f, title: upgrade(f.title, proposal?.title, meta.title), agency: upgrade(f.agency, proposal?.agency, meta.agency) }
+          ? {
+              ...f,
+              title: upgrade(f.title, proposal?.title, meta.title),
+              agency: upgrade(f.agency, proposal?.agency, meta.agency),
+              place: upgrade(f.place, proposal?.place, meta.place),
+            }
           : f,
       );
     });
@@ -213,6 +221,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       periodical: trim(fields.periodical),
       publisher: trim(fields.publisher),
       agency: trim(fields.agency),
+      place: trim(fields.place),
       filingNumber: trim(fields.filingNumber),
       page: trim(fields.page),
       url: trim(fields.url),
@@ -224,7 +233,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     onAdd({
       ...trimmedFields(fields),
       site: recognized?.site,
-      place: fetched?.place ?? recognized?.proposed.place,
       dateRange: fetched?.dateRange,
     });
     reset();
@@ -293,6 +301,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               {field("periodical", "addSource.field.periodical")}
               {field("publisher", "addSource.field.publisher")}
               {field("agency", "addSource.field.agency")}
+              {field("place", "addSource.field.place")}
               {field("filingNumber", "addSource.field.filingNumber")}
               {field("note", "addSource.field.note")}
             </>

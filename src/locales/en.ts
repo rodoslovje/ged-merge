@@ -766,6 +766,7 @@ export const en = {
   "addSource.field.periodical": "Periodical / series",
   "addSource.field.publisher": "Publisher",
   "addSource.field.agency": "Agency",
+  "addSource.field.place": "Place",
   "addSource.field.filingNumber": "Filing number",
   "addSource.field.page": "Page",
   "addSource.field.url": "URL",
