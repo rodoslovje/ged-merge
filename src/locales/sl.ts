@@ -219,7 +219,7 @@ export const sl = {
   "tools.sources.reshapeReuses": "obstoječ vir",
   "tools.sources.reshapeNew": "nov vir",
   "tools.sources.reshapeRecordLevel": "zapis",
-  "tools.sources.reshapeFolded": "ista povezava tam — združeno",
+  "tools.sources.reshapeFolded": "ista povezava — združeno",
   "tools.sources.reshapePage": "str. {{page}}",
   "tools.sources.reshapeShape.link": "povezava",
   "tools.sources.reshapeShape.webtag": "spletna oznaka",
