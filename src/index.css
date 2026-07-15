@@ -5991,6 +5991,10 @@ kbd {
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
 .tools-reshape-badge.remove { color: var(--danger); border-color: var(--danger); }
+/* Format tab: label+hint on the left, the override select on the right. */
+.settings-format-row { display: flex; align-items: center; gap: 12px; }
+.settings-format-row .settings-row-text { flex: 1; }
+.settings-format-row select { flex-shrink: 0; max-width: 200px; }
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */

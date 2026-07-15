@@ -7,6 +7,7 @@ import {
   type NameDisplayOptions,
   type NameOrder,
 } from "../gedcom/nameDisplay";
+import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 
 // App-wide user preferences, persisted to localStorage so they stick across
 // sessions. Follows the same shape as ChartSettingsContext: one provider near
@@ -27,11 +28,10 @@ export interface AppSettings extends NameDisplayOptions {
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
-  /** Where tools reference a paginated source's page images besides the
-   *  source record: "event" links each cited page's OBJE on the event beside
-   *  its citation (webtrees shows it inline); "source" keeps them on the
-   *  source record only; "auto" matches what the file already does. */
-  sourcePageMedia: "auto" | "event" | "source";
+  /** User overrides for the detected file-format conventions (dates, places,
+   *  names, sources, links…). Absent fields mean "Detected" — the tools
+   *  follow the file's own habit. See {@link FormatOverrides}. */
+  formatOverrides: FormatOverrides;
   /** Cache the loaded files + progress to IndexedDB so a reload restores the
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
@@ -44,7 +44,7 @@ const DEFAULTS: AppSettings = {
   showKinship: true,
   showAge: false,
   allowLinkFetch: false,
-  sourcePageMedia: "auto",
+  formatOverrides: {},
   persistWorkspace: false,
 };
 
@@ -75,8 +75,14 @@ function load(): AppSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
-      sourcePageMedia:
-        parsed.sourcePageMedia === "event" || parsed.sourcePageMedia === "source" ? parsed.sourcePageMedia : "auto",
+      formatOverrides: {
+        // Legacy key from the first page-media release, folded into overrides.
+        ...((parsed as { sourcePageMedia?: string }).sourcePageMedia === "event" ||
+        (parsed as { sourcePageMedia?: string }).sourcePageMedia === "source"
+          ? { pageMedia: (parsed as { sourcePageMedia?: "event" | "source" }).sourcePageMedia }
+          : {}),
+        ...sanitizeFormatOverrides(parsed.formatOverrides),
+      },
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
     };
   } catch {

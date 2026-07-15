@@ -6,6 +6,7 @@ import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
+import { DATE_PATTERN_CHOICES, type FormatOverrides } from "../normalize/formatOverrides";
 import { sexClass } from "./sex";
 
 export type ThemeMode = "auto" | "light" | "dark";
@@ -19,8 +20,33 @@ interface Props {
   onClearCache: () => void;
 }
 
-type SettingsTab = "general" | "advanced";
-const SETTINGS_TABS: SettingsTab[] = ["general", "advanced"];
+type SettingsTab = "general" | "format" | "advanced";
+const SETTINGS_TABS: SettingsTab[] = ["general", "format", "advanced"];
+
+/** One format dimension: a select whose first option is "Detected" (= no
+ *  override) and whose value patches a single {@link FormatOverrides} key. */
+interface FormatDimension {
+  key: keyof FormatOverrides;
+  /** Choice values; option labels come from `settings.format.{key}.{value}`
+   *  unless the value is `verbatim` (shown as-is, e.g. date patterns). */
+  choices: readonly string[];
+  verbatim?: boolean;
+}
+
+const FORMAT_DIMENSIONS: FormatDimension[] = [
+  { key: "date", choices: DATE_PATTERN_CHOICES, verbatim: true },
+  { key: "datePlaceholder", choices: ["none", "_", "?"] },
+  { key: "place", choices: ["structured-addr", "packed-plac", "plain-structured", "address-only"] },
+  { key: "names", choices: ["records", "tags"] },
+  { key: "unknownName", choices: ["blank", "NN", "N.N."] },
+  { key: "sourceLayout", choices: ["paginated", "repository", "literature", "inline"] },
+  { key: "citations", choices: ["event", "record"] },
+  { key: "pageMedia", choices: ["event", "source"] },
+  { key: "baptism", choices: ["BIRT", "BAPM"] },
+  { key: "doubledLinks", choices: ["fold", "keep"] },
+  { key: "matriculaLang", choices: ["sl", "de", "en"], verbatim: true },
+  { key: "geneanetLang", choices: ["en", "de", "fr", "es", "it"], verbatim: true },
+];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
@@ -214,6 +240,38 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           </>
           )}
 
+          {tab === "format" && (
+          <section className="settings-section">
+            <h3>{t("settings.format.title")}</h3>
+            <span className="settings-hint">{t("settings.format.hint")}</span>
+            {FORMAT_DIMENSIONS.map(({ key, choices, verbatim }) => (
+              <label key={key} className="settings-row settings-format-row">
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
+                  <span className="settings-hint">{t(`settings.format.${key}.hint`)}</span>
+                </span>
+                <select
+                  value={(settings.formatOverrides[key] as string | undefined) ?? ""}
+                  onChange={(e) => {
+                    const next = { ...settings.formatOverrides };
+                    if (e.target.value) next[key] = e.target.value as never;
+                    else delete next[key];
+                    set({ formatOverrides: next });
+                  }}
+                >
+                  <option value="">{t("settings.format.detected")}</option>
+                  {choices.map((c) => (
+                    <option key={c} value={c}>
+                      {verbatim ? c : t(`settings.format.${key}.${c}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <span className="settings-hint">{t("settings.format.reloadNote")}</span>
+          </section>
+          )}
+
           {tab === "advanced" && (
           <>
           <section className="settings-section">
@@ -242,28 +300,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </span>
               </span>
             </label>
-          </section>
-
-          <section className="settings-section">
-            <h3>{t("settings.sources.title")}</h3>
-            <fieldset className="settings-radio-group">
-              <legend className="settings-row-label">{t("settings.sources.pageMedia")}</legend>
-              <span className="settings-hint">{t("settings.sources.pageMedia.hint")}</span>
-              <div className="settings-radio-row">
-                {(["auto", "event", "source"] as const).map((mode) => (
-                  <label key={mode} className="settings-radio">
-                    <input
-                      type="radio"
-                      name="settings-source-page-media"
-                      value={mode}
-                      checked={settings.sourcePageMedia === mode}
-                      onChange={() => set({ sourcePageMedia: mode })}
-                    />
-                    <span className="settings-row-label">{t(`settings.sources.pageMedia.${mode}`)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
           </section>
 
           <section className="settings-section">

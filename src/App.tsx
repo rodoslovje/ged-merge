@@ -447,7 +447,7 @@ function AppContent() {
     const buffer = await file.arrayBuffer();
     const newMsg: WorkerRequest = isCsv
       ? { type: "parseCsv", fileName, buffer }
-      : { type: "parse", role, fileName, buffer };
+      : { type: "parse", role, fileName, buffer, formatOverrides: settings.formatOverrides };
 
     // A new file supersedes any match still being computed. The worker can't
     // interrupt its own synchronous scoring pass, so when one is in flight we
@@ -473,7 +473,7 @@ function AppContent() {
         });
         const mainBuf = await new Blob([text]).arrayBuffer();
         post(
-          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true },
+          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
           [mainBuf],
         );
         if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking

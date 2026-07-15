@@ -1,5 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
@@ -10,6 +11,11 @@ export interface ParseRequest {
   role: DatasetRole;
   fileName: string;
   buffer: ArrayBuffer;
+  /** User format overrides (Settings → Format) applied over the inferred main
+   *  profile when this is the main file — the compare normalizer then reshapes
+   *  to the overridden conventions. Snapshot at load time; changing the
+   *  setting takes effect on the next load. */
+  formatOverrides?: FormatOverrides;
   /** Rebuild the worker's internal dataset/profile without emitting `parsed`.
    *  Used to re-feed a kept slot into a freshly-recreated worker (after a
    *  hard-abort) so a match can run again, while leaving the main thread's

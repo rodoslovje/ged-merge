@@ -11,6 +11,7 @@ import {
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
+import type { SourceLayout } from "../normalize/types";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
@@ -188,6 +189,13 @@ export interface ReshapeOptions {
   relocate?: boolean;
   /** Page-image placement; "auto" (default) detects the file's own habit. */
   pageMedia?: PageMediaStyle | "auto";
+  /** Source layout override (drives repository creation); "auto" = detect. */
+  sourceLayout?: SourceLayout | "auto";
+  /** Baptism-citation target override; "auto" = the file's BIRT/BAPM habit. */
+  baptism?: "BIRT" | "BAPM" | "auto";
+  /** Person+event doubled links: "fold" collapses to one, "keep" keeps both;
+   *  "auto" = the file's own habit. */
+  doubledLinks?: "fold" | "keep" | "auto";
 }
 
 export interface ReshapeCounts {
@@ -1285,6 +1293,18 @@ function soleFamsXref(rec: GedNode): string | undefined {
   return fams.length === 1 ? fams[0] : undefined;
 }
 
+
+/** Resolve the "auto" members of {@link ReshapeOptions} against the records. */
+function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
+  const auto = <T,>(v: T | "auto" | undefined, detect: () => T): T => (v && v !== "auto" ? v : detect());
+  return {
+    fold: auto(opts.doubledLinks, () => (prefersDoubledLinks(records) ? "keep" : "fold")) === "fold",
+    pageMedia: auto(opts.pageMedia, () => detectPageMediaStyle(records)),
+    baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
+    layout: auto(opts.sourceLayout, () => inferSourceFormat(records).layout),
+  };
+}
+
 /**
  * Scan the whole main file for reshapeable site links, grouped by archive book
  * / cemetery grave / FS film. Pure and synchronous; safe to run in the tools
@@ -1296,12 +1316,9 @@ export function findReshapableLinks(
   opts: ReshapeOptions = {},
 ): ReshapeReport {
   const relocate = opts.relocate !== false;
-  const fold = !prefersDoubledLinks(dataset.records);
-  const pageMedia =
-    opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(dataset.records);
+  const { fold, pageMedia, baptismTag } = resolveFormatOptions(dataset.records, opts);
   const hits = scanOccurrences(dataset.records, sites, fold ? pageMedia : undefined);
   const groups = buildGroups(dataset.records, hits, fold);
-  const baptismTag = baptismTargetTag(dataset.records);
 
   const recordLabel = (rec: GedNode): string => {
     if (rec.tag === "INDI") {
@@ -1484,22 +1501,31 @@ export function smartCitationTarget(
   records: GedNode[],
   site: ReshapeSite,
   title: string | undefined,
+  opts: { citations?: "event" | "record" | "auto"; baptism?: "BIRT" | "BAPM" | "auto" } = {},
 ): { eventTag: string; onFam: boolean } | undefined {
-  let recordLevel = 0;
-  let eventLevel = 0;
-  for (const rec of records) {
-    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
-    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
-    for (const child of rec.children) {
-      if (child.tag === "SOUR" && child.value) recordLevel++;
-      else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
+  // Placement override: "record" pins citations to the record level; "event"
+  // skips the file-habit gate; "auto"/absent follows the file's majority.
+  if (opts.citations === "record") return undefined;
+  if (opts.citations !== "event") {
+    let recordLevel = 0;
+    let eventLevel = 0;
+    for (const rec of records) {
+      if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+      const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+      for (const child of rec.children) {
+        if (child.tag === "SOUR" && child.value) recordLevel++;
+        else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
+      }
     }
+    if (recordLevel > eventLevel) return undefined;
   }
-  if (recordLevel > eventLevel) return undefined;
 
   const bookType = SITE_BOOK_TYPE[site] ?? classifyBookType([title]);
   if (bookType === "unknown") return undefined;
-  if (bookType === "baptism") return { eventTag: baptismTargetTag(records), onFam: false };
+  if (bookType === "baptism") {
+    const tag = opts.baptism && opts.baptism !== "auto" ? opts.baptism : baptismTargetTag(records);
+    return { eventTag: tag, onFam: false };
+  }
   if (bookType === "marriage") return { eventTag: "MARR", onFam: true };
   if (bookType === "death") return { eventTag: "DEAT", onFam: false };
   return { eventTag: "BURI", onFam: false };
@@ -1616,17 +1642,14 @@ export function applySiteSourceExtras(
   site: ReshapeSite | undefined,
   url: string,
   meta: { place?: string; dateRange?: string },
+  opts: { sourceLayout?: SourceLayout | "auto" } = {},
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
   fillField(sourceNode, "DATE", meta.dateRange);
   if (!site || firstChild(sourceNode, "REPO")) return undefined;
-  const repo = ensureSiteRepo(
-    records,
-    site,
-    url,
-    childText(sourceNode, "AGNC"),
-    inferSourceFormat(records).layout === "repository",
-  );
+  const layout =
+    opts.sourceLayout && opts.sourceLayout !== "auto" ? opts.sourceLayout : inferSourceFormat(records).layout;
+  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), layout === "repository");
   if (!repo) return undefined;
   sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
   return repo.created;
@@ -1663,14 +1686,11 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const fold = !prefersDoubledLinks(clone);
-  const pageMedia = opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(clone);
+  const { fold, pageMedia, baptismTag, layout } = resolveFormatOptions(clone, opts);
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(h.recognized.groupKey),
   );
   const groups = buildGroups(clone, hits, fold);
-  const baptismTag = baptismTargetTag(clone);
-  const layout = inferSourceFormat(clone).layout;
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
   // forest scan each time); OBJEs this run creates are tracked alongside.
   const cloneObjeIndex = buildObjeIndex(clone);

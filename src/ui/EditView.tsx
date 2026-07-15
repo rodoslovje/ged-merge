@@ -1030,7 +1030,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       // A recognized site URL gets the same PLAC/DATE/REPO extras the
       // Organize sources tool writes, so it needs no cleanup pass later;
       // a hand-entered place still lands as PLAC in the file's place format.
-      const repo = applySiteSourceExtras(dataset.records, sourceNode, fields.site, fields.url ?? "", fields);
+      const repo = applySiteSourceExtras(dataset.records, sourceNode, fields.site, fields.url ?? "", fields, {
+        sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
+      });
       if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
     }
     extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
@@ -1077,14 +1079,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
     // In the "on events" page-media style the cited page's image is linked
     // beside the citation too (Settings; "auto" matches the file's habit).
-    const style = settings.sourcePageMedia !== "auto" ? settings.sourcePageMedia : detectPageMediaStyle(dataset.records);
+    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
     const pageObje = style === "event" ? pageObjeXref : undefined;
     if (sourceDialogTarget.kind === "individual") {
       // A recognized register/grave source added on the person lands on its
       // matching event (created if missing) when the file keeps citations on
       // events — baptism → BIRT/BAPM, marriage → the sole family's MARR,
       // death → DEAT, grave → BURI.
-      const smart = fields.site ? smartCitationTarget(dataset.records, fields.site, fields.title) : undefined;
+      const smart = fields.site
+        ? smartCitationTarget(dataset.records, fields.site, fields.title, {
+            citations: settings.formatOverrides.citations ?? "auto",
+            baptism: settings.formatOverrides.baptism ?? "auto",
+          })
+        : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
       if (smart && !smart.onFam) {
         commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER, pageObje), extraPatches);

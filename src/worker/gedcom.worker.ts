@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
+import { applyFormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, Individual } from "../gedcom/types";
 import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
 import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMainProfile, inferNameLayout } from "../normalize/profile";
@@ -91,7 +92,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
     if (req.role === "main") {
       mainDataset = dataset;
-      profile = inferMainProfile(dataset);
+      profile = applyFormatOverrides(inferMainProfile(dataset), req.formatOverrides);
       // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
       // the main thread keeps its existing main file + edit tracking.
       if (!req.silent) {
