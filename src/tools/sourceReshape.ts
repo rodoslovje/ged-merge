@@ -283,8 +283,8 @@ const DLIB_RE = /^https?:\/\/(?:www\.)?dlib\.si\/(?:details|stream)\/(urn:nbn:si
 
 /** A SIstory.si war-victims record — the Slovene WW1/WW2 casualty databases;
  *  one record per person, evidencing the death. WW2 ids are GUIDs, WW1 ids are
- *  short numbers: /ww2/{guid}, /ww1/{id}. */
-const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]{4,})/i;
+ *  short numbers — even 1-3 digits: /ww2/{guid}, /ww1/{id}. */
+const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]+)/i;
 
 /** The WW1 victims portal variant: zv1.sistory.si/zrtev?id={n}-{Surname}-{Given}-{birthyear}
  *  — the same record as /ww1/{n}, with the person's name encoded in the id. */

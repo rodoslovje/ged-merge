@@ -835,6 +835,13 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
   });
 
+  it("recognizes short numeric WW1 record ids", () => {
+    const rec = recognizeSourceUrl("https://www.sistory.si/ww1/168")!;
+    expect(rec.site).toBe("sistory");
+    expect(rec.bookUrl).toBe("https://www.sistory.si/ww1/168");
+    expect(rec.proposed.filingNumber).toBe("168");
+  });
+
   it("recognizes both SIstory WW1 shapes and groups the same victim across them", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
