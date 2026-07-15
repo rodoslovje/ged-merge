@@ -582,7 +582,7 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
-    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -929,7 +929,7 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
       address: "Pokopališče Zgornje Bitnje, P02", // cemetery + plot → BURI ADDR
-      title: "Pokopališče Zgornje Bitnje - 10085092 - Geneanet Cemeteries",
+      title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
     });
   });
 
@@ -1131,7 +1131,7 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
     expect(meta).toEqual({
       place: "Žabnica, Slovenia",
       address: "Pokopališče Zgornje Bitnje, P02",
-      title: "Pokopališče Zgornje Bitnje - 424242 - Geneanet Cemeteries",
+      title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
     });
     await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
     expect(calls).toBe(1); // second lookup of the same book served from cache
@@ -1155,7 +1155,7 @@ describe("Add Source parity (recognizeSourceUrl / applySiteSourceExtras)", () =>
     const rec = recognizeSourceUrl("https://en.geneanet.org/cemetery/view/321/persons/?individu_filter=GRUDNIK%2BAnton")!;
     expect(rec.site).toBe("geneanet");
     expect(rec.bookUrl).toBe("https://en.geneanet.org/cemetery/view/321");
-    expect(rec.proposed.title).toBe("GRUDNIK Anton - 321 - Geneanet Cemeteries");
+    expect(rec.proposed.title).toBe("GRUDNIK Anton - Geneanet Cemeteries");
   });
 
   it("returns undefined for unknown URLs", () => {

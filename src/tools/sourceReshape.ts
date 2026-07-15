@@ -346,13 +346,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
-    // Title layout: `{name} - {id} - {site}` — who/what first, the view id
-    // stays identifiable, the site name trails.
+    // `{name} - Geneanet Cemeteries` — the view id means nothing to a reader,
+    // it goes to the filing number; enrichment upgrades to the cemetery name.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: siteTitle(who, gene[1], "Geneanet Cemeteries") },
+      proposed: { title: siteTitle(who, undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -1557,19 +1557,15 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "geneanet") {
     const page = parseGeneanetCemeteryPage(html);
     if (page) {
-      const viewId = /\/view\/([^/?#]+)/.exec(bookUrl)?.[1];
       meta = {
         // PLAC is the *place* (town, country); the cemetery itself
         // names the source and stays in the title.
         place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
         // The cemetery (and plot) is address-level detail for the BURI event.
         address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
-        // `{cemetery} - {id} - Geneanet Cemeteries` — the town stays
-        // out of the title; PLAC already carries it.
-        title:
-          page.cemetery && viewId
-            ? siteTitle(page.cemetery, viewId, "Geneanet Cemeteries")
-            : undefined,
+        // `{cemetery} - Geneanet Cemeteries` — the town stays out of the
+        // title (PLAC carries it) and the view id is the filing number.
+        title: page.cemetery ? siteTitle(page.cemetery, undefined, "Geneanet Cemeteries") : undefined,
       };
     }
   } else if (site === "findagrave") {
