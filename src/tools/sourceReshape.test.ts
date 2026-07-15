@@ -788,7 +788,7 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
 
-  it("treats Legacy.com obituaries as death evidence: DEAT placement, id+name title", () => {
+  it("treats Legacy.com obituaries as death evidence: DEAT placement, name title, id as filing number", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -796,9 +796,11 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "legacy")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Peter Ancel - 26608778 - Legacy.com");
+    expect(g.proposed.title).toBe("Peter Ancel - Legacy.com");
+    expect(g.proposed.filingNumber).toBe("26608778");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // record-level note moved to a created DEAT
-    expect(text).toContain("1 TITL Peter Ancel - 26608778 - Legacy.com");
+    expect(text).toContain("1 TITL Peter Ancel - Legacy.com");
+    expect(text).toContain("1 FILN 26608778");
   });
 
   it("treats SIstory.si WW records as death evidence with the quoted person name", () => {

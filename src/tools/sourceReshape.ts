@@ -377,11 +377,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     const id = /[?&]p?id=(\d+)/i.exec(url)?.[1];
     const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1];
     const who = slug ? prettySlug(slug) : undefined;
+    // `{name} - Legacy.com` — the obituary id means nothing to a reader,
+    // it goes to the filing number.
     return {
       site: "legacy",
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
-      proposed: { title: siteTitle(who, id, "Legacy.com") },
+      proposed: { title: siteTitle(who, undefined, "Legacy.com"), filingNumber: id },
       titleRank: who ? 1 : 0,
     };
   }
@@ -1592,8 +1594,7 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     }
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
-    const obitId = /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
-    if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
+    if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
   } else if (site === "sistory") {
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
     // The record pages are client-rendered (Next.js): a plain relay sees an
