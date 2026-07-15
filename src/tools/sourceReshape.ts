@@ -696,10 +696,19 @@ interface ScanHit {
 /** Extract recognized URLs from a text value (may contain several). */
 function recognizedUrls(text: string, contextText: string | undefined, sites: ReadonlySet<ReshapeSite>): { url: string; recognized: Recognized }[] {
   const out: { url: string; recognized: Recognized }[] = [];
+  // One value can carry the same URL twice — an HTML note's
+  // `<a href="url">url</a>` — which must stay ONE occurrence, or the apply
+  // would write two identical citations.
+  const seen = new Set<string>();
   for (const m of text.matchAll(URL_RE)) {
     const url = cleanUrl(m[0]);
+    const key = linkKey(url);
+    if (seen.has(key)) continue;
     const recognized = recognize(url, contextText, sites);
-    if (recognized) out.push({ url, recognized });
+    if (recognized) {
+      seen.add(key);
+      out.push({ url, recognized });
+    }
   }
   return out;
 }

@@ -845,6 +845,19 @@ describe("reshapeSources — citation placement", () => {
     expect(recognizeSourceUrl("https://youtu.be/lD5eGiGwlZs")?.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
   });
 
+  it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {
+    // Košir-style files (MacFamilyTree HTML notes) repeat the URL as the
+    // anchor text — that must not become two citations.
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE <p style="text-align: left;" dir="ltr"><a href="${BOOK}/?pg=22">${BOOK}/?pg=22</a></p>
+0 TRLR`);
+    expect(report.groups).toHaveLength(1);
+    expect(report.groups[0].members).toHaveLength(1);
+    expect(report.totalOccurrences).toBe(1);
+  });
+
   it("titles generic document links by file name + host", () => {
     const report = scan(
       `0 HEAD
