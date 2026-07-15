@@ -779,8 +779,11 @@ describe("reshapeSources — citation placement", () => {
     const grave = report.groups.find((g) => g.site === "findagrave")!;
     expect(grave.members).toHaveLength(2); // slug and slugless variants share the memorial group
     expect(grave.bookType).toBe("burial");
-    expect(grave.proposed.title).toBe("Anton Grudnik - 12345 - Find a Grave");
-    expect(text).toContain("1 TITL Anton Grudnik - 12345 - Find a Grave");
+    // The memorial id is the filing number, not part of the title.
+    expect(grave.proposed.title).toBe("Anton Grudnik - Find a Grave");
+    expect(grave.proposed.filingNumber).toBe("12345");
+    expect(text).toContain("1 TITL Anton Grudnik - Find a Grave");
+    expect(text).toContain("1 FILN 12345");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
@@ -930,7 +933,7 @@ GPS Coordinates : 46.2181,14.3463`;
     });
   });
 
-  it("enriches a Find a Grave group with the memorial's name, id kept", async () => {
+  it("enriches a Find a Grave group with the memorial's name", async () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -942,7 +945,32 @@ GPS Coordinates : 46.2181,14.3463`;
       async () => `<html><head><title>Frank Gorishek (1881-1968) - Find a Grave Memorial</title></head></html>`,
     );
     expect(enrichment.get(report.groups[0].id)).toEqual({
-      title: "Frank Gorishek (1881-1968) - 60350966 - Find a Grave",
+      title: "Frank Gorishek (1881-1968) - Find a Grave",
+    });
+  });
+
+  it("parses the Find a Grave Burial block: cemetery into the title and address, location as place", async () => {
+    // Trimmed from the rendering relay's markdown for a real memorial
+    // (captured 2026-07-15) — FAG blocks the plain relays.
+    const GRAVE_FAG_MD = `Title: Adam Troha (1868-1952) - Find a Grave Memorial
+
+URL Source: https://www.findagrave.com/memorial/273320916/adam-troha
+
+Markdown Content:
+# Adam Troha
+
+Birth 1868 Death 1952 (aged 83–84)Burial
+
+[St. Theresa of Avila Catholic Church Cemetery](https://www.findagrave.com/cemetery/2622358/st.-theresa-of-avila-catholic-church-cemetery)
+
+Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia[_Add to Map_](https://www.findagrave.com/memorial/273320916/edit#gps-location)
+
+Memorial ID 273320916 273320916`;
+    const meta = await fetchBookMeta("findagrave", "https://www.findagrave.com/memorial/273320916", async () => GRAVE_FAG_MD);
+    expect(meta).toEqual({
+      title: "Adam Troha (1868-1952) - St. Theresa of Avila Catholic Church Cemetery - Find a Grave",
+      place: "Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia",
+      address: "St. Theresa of Avila Catholic Church Cemetery",
     });
   });
 

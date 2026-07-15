@@ -361,12 +361,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (grave) {
     if (!sites.has("findagrave")) return undefined;
     const who = grave[2] ? prettySlug(grave[2]) : undefined;
-    // Same layout as Geneanet: `{person} - {memorial id} - Find a Grave`.
+    // `{person} - Find a Grave` — the memorial id means nothing to a reader,
+    // it goes to the filing number; enrichment adds the cemetery.
     return {
       site: "findagrave",
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
-      proposed: { title: siteTitle(who, grave[1], "Find a Grave") },
+      proposed: { title: siteTitle(who, undefined, "Find a Grave"), filingNumber: grave[1] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -1574,10 +1575,24 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "findagrave") {
     // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
     // the suffix may arrive ellipsized ("- Find a…"), match loosely.
+    // Find a Grave blocks the plain relays, so in practice this sees the
+    // rendering relay's markdown, whose Burial block reads:
+    //
+    //     [St. Theresa of Avila Catholic Church Cemetery](…/cemetery/2622358/…)
+    //     Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia[_Add to Map_](…)
+    //
+    // The cemetery names the grave (`{person} - {cemetery} - Find a Grave`)
+    // and becomes the BURI address; the location line is the place.
     const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
-    const memorialId = /\/memorial\/(\d+)/.exec(bookUrl)?.[1];
+    const cem = /\[([^\]\n]+)\]\(https?:\/\/[^)]*findagrave\.com\/cemetery\/\d+\/(?!memorial-search)[^)]*\)\s*\n+([^\n[]+)/i.exec(html);
+    const cemetery = cem?.[1]?.trim();
+    const location = cem?.[2]?.trim().replace(/[,\s]+$/, "");
     if (name) {
-      meta = { title: siteTitle(name, memorialId, "Find a Grave") };
+      meta = {
+        title: siteTitle(name, cemetery, "Find a Grave"),
+        place: location || undefined,
+        address: cemetery,
+      };
     }
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
