@@ -5990,6 +5990,9 @@ kbd {
 }
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
+.tools-reshape-badge.remove { color: var(--danger); border-color: var(--danger); }
+/* A group marked "remove references": its links get stripped on apply. */
+.tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */
 .tools-quay-mini { font-size: 0.78rem; max-width: 200px; cursor: pointer; }
 /* Chip-sized spinner while a sub-tool's whole-file scan is still running. */

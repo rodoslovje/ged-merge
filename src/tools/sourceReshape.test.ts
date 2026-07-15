@@ -681,6 +681,32 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 AUTH hawlina"); // same author the offline proposal carries
   });
 
+  it("removeLinks strips a dead link everywhere without creating a source", () => {
+    const url = "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary-c-chudovan-yaklich&pid=161495515";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE Obituary at ${url} in the Gettysburg Times.
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+1 DEAT
+2 WWW ${url}
+0 @S1@ SOUR
+1 TITL U.S., Obituary Collection, 1930-Current
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const groups = report.groups.map((g) => (g.site === "legacy" ? { ...g, removeLinks: true } : g));
+    const { records, counts } = reshapeSources(ds.records, groups);
+    const text = serializeGedcom(records);
+    expect(text).not.toContain("legacy.com"); // the dead link is gone everywhere
+    expect(counts.sourcesCreated).toBe(0);
+    expect(text).toContain("1 NOTE Obituary at in the Gettysburg Times."); // note text survives
+    expect(text).toContain("2 PAGE Publication Date: 8/ Dec/ 2012"); // citation prose survives
+    expect(text).toContain("1 SOUR @S1@"); // the Ancestry citation itself stays
+    expect(text).not.toContain("2 WWW"); // the bare link field is dropped
+    expect(counts.linksRemoved).toBe(1);
+  });
+
   it("folds duplicated identical citations into one (Ancestry re-exports them verbatim)", () => {
     // Real shape from an Ancestry export: the same record-level citation —
     // same source, same PAGE with the obituary URL — appears twice on the

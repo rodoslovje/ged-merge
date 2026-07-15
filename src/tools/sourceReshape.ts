@@ -143,6 +143,10 @@ export interface ReshapeGroup {
   /** Default QUAY for this group's written citations (set by the panel);
    *  each member may carry its own override. */
   quay?: string;
+  /** Panel-set: the apply strips this group's link occurrences (dead or
+   *  obsolete URLs) instead of converting them — surrounding citation prose
+   *  and note text stay, no source is created or reused. */
+  removeLinks?: boolean;
 }
 
 export interface ReshapeReport {
@@ -1612,6 +1616,36 @@ export function reshapeSources(
     const selection = selectedById.get(key);
     if (!selection) continue;
     const g = state.group;
+
+    // Marked as a dead/obsolete link: strip every occurrence instead of
+    // converting — note text and citation prose around the URL survive, the
+    // bare link nodes go, and no source is created or reused.
+    if (selection.removeLinks) {
+      for (const hit of state.hits) {
+        if (hit.shape === "sourTitle") continue; // a record's title, not a reference
+        if (hit.shape === "pageUrl") {
+          const pageChild = firstChild(hit.node, "PAGE");
+          if (pageChild?.value) {
+            const remaining = removeUrlFromText(pageChild.value, hit.url);
+            if (hasContent(remaining)) pageChild.value = remaining;
+            else spliceChild(hit.node, pageChild);
+            counts.citationsRewritten++;
+          }
+          continue;
+        }
+        if ((hit.shape === "note" || hit.shape === "inline") && hit.node.value !== undefined) {
+          const remaining = removeUrlFromText(hit.node.value, hit.url);
+          if (hasContent(remaining)) {
+            hit.node.value = remaining;
+            counts.notesRewritten++;
+            continue;
+          }
+        }
+        if (spliceChild(hit.container, hit.node)) counts.linksRemoved++;
+      }
+      continue;
+    }
+
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {

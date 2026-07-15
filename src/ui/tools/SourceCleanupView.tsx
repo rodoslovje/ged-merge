@@ -115,6 +115,9 @@ export function SourceCleanupView({
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
   /** Group whose source fields are open in the manual editor. */
   const [editGroup, setEditGroup] = useState<ReshapeGroup | null>(null);
+  /** Groups marked "remove references" — the apply strips their links (dead
+   *  URLs) instead of converting them into sources. */
+  const [removeMarked, setRemoveMarked] = useState<Set<string>>(new Set());
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
   /** Books the last fetch run could not retrieve (relay down / blocked). */
   const [fetchFailed, setFetchFailed] = useState(0);
@@ -160,12 +163,13 @@ export function SourceCleanupView({
         .map((g) => ({
           ...g,
           quay: quay || undefined,
+          removeLinks: removeMarked.has(g.id) || undefined,
           members: g.members.map((m, i) => {
             const override = quayOverrides.get(`${g.id}:${i}`);
             return override ? { ...m, quay: override } : m;
           }),
         })),
-    [visibleGroups, excluded, quayOverrides, quay],
+    [visibleGroups, excluded, quayOverrides, quay, removeMarked],
   );
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   // Books the fetch button will actually check: only *selected* new-source
@@ -173,7 +177,8 @@ export function SourceCleanupView({
   // URL-titled sources are "existing" but get rewritten — they want enrichment
   // as much as brand-new ones do.
   const fetchableGroups = selectedGroups.filter(
-    (g) => (!g.existingSourceXref || g.urlTitled) && !enrichment.has(g.id) && isFetchableSite(g.site),
+    (g) =>
+      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site),
   );
 
   const selectedDupGroups = dupReport.groups
@@ -367,6 +372,8 @@ export function SourceCleanupView({
                 // Only groups whose source fields the apply writes are
                 // hand-editable — a reused real-titled source is left alone.
                 onEdit={!g.existingSourceXref || g.urlTitled ? () => setEditGroup(g) : undefined}
+                removeMarked={removeMarked.has(g.id)}
+                onToggleRemove={() => toggleIn(setRemoveMarked)(g.id)}
                 relocate={relocate}
                 defaultQuay={quay}
                 quayOf={(i) => quayOverrides.get(`${g.id}:${i}`) ?? ""}
@@ -585,6 +592,8 @@ function ReshapeGroupRow({
   checked,
   open,
   onEdit,
+  removeMarked,
+  onToggleRemove,
   relocate,
   defaultQuay,
   quayOf,
@@ -602,6 +611,9 @@ function ReshapeGroupRow({
   open: boolean;
   /** Opens the manual field editor; absent for reused real-titled sources. */
   onEdit?: () => void;
+  /** The group is marked "remove references" — apply strips its links. */
+  removeMarked: boolean;
+  onToggleRemove: () => void;
   relocate: boolean;
   /** The global QUAY, shown as each reference's placeholder value. */
   defaultQuay: string;
@@ -620,7 +632,11 @@ function ReshapeGroupRow({
         <button className={`tools-pair-toggle ${open ? "open" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
           ▶
         </button>
-        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.bookUrl}>
+        <span
+          className={`tools-tree-label clickable${removeMarked ? " tools-reshape-removed" : ""}`}
+          onClick={onToggleOpen}
+          title={group.bookUrl}
+        >
           {SITE_ICON[group.site]} {title}
         </span>
         <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
@@ -632,7 +648,11 @@ function ReshapeGroupRow({
         {group.pages.length > 0 && (
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
         )}
-        {group.existingSourceXref ? (
+        {removeMarked ? (
+          <span className="tools-reshape-badge remove" title={t("tools.sources.reshapeRemoveHint")}>
+            {t("tools.sources.reshapeRemoveBadge")}
+          </span>
+        ) : group.existingSourceXref ? (
           <span className="tools-reshape-badge reuse" title={badgeTooltip}>
             {t("tools.sources.reshapeReuses")}
           </span>
@@ -641,11 +661,19 @@ function ReshapeGroupRow({
             {t("tools.sources.reshapeNew")}
           </span>
         )}
-        {onEdit && (
+        {onEdit && !removeMarked && (
           <button className="tools-issue-link" onClick={onEdit} title={t("editSource.title")}>
             ✎
           </button>
         )}
+        <button
+          className="tools-issue-link"
+          onClick={onToggleRemove}
+          aria-pressed={removeMarked}
+          title={t(removeMarked ? "tools.sources.reshapeRemoveUndo" : "tools.sources.reshapeRemoveHint")}
+        >
+          {removeMarked ? "↩" : "🗑"}
+        </button>
         <span className="tools-chip-count">{group.members.length}</span>
       </div>
       {open && (
