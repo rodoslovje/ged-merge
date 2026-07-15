@@ -18,6 +18,7 @@ import { PersonLink } from "../PersonLink";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
+import { linkKey } from "../../normalize/links";
 import { downloadText } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
@@ -478,6 +479,9 @@ function ReshapeGroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.bookUrl}>
           {SITE_ICON[group.site]} {title}
         </span>
+        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
+          ↗
+        </a>
         {group.bookType !== "unknown" && (
           <span className="tools-tree-meta">{t(`tools.sources.reshapeType.${group.bookType}`)}</span>
         )}
@@ -502,6 +506,7 @@ function ReshapeGroupRow({
               <MemberRow
                 key={`${m.recordXref}:${i}`}
                 member={m}
+                groupUrlKey={linkKey(group.bookUrl)}
                 relocate={relocate}
                 defaultQuay={defaultQuay}
                 quay={quayOf(i)}
@@ -519,6 +524,7 @@ function ReshapeGroupRow({
 
 function MemberRow({
   member: m,
+  groupUrlKey,
   relocate,
   defaultQuay,
   quay,
@@ -527,6 +533,9 @@ function MemberRow({
   onNavigate,
 }: {
   member: ReshapeOccurrence;
+  /** The group's canonical link identity — a member whose URL matches it
+   *  (same page for everyone) doesn't repeat the header's ↗. */
+  groupUrlKey: string;
   relocate: boolean;
   defaultQuay: string;
   quay: string;
@@ -582,9 +591,11 @@ function MemberRow({
           ))}
         </select>
       )}
-      <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer">
-        ↗
-      </a>
+      {linkKey(m.url) !== groupUrlKey && (
+        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={m.url}>
+          ↗
+        </a>
+      )}
     </li>
   );
 }
