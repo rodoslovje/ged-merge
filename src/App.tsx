@@ -285,6 +285,7 @@ function AppContent() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
+        if (msg.pageMediaStyle) file.pageMediaStyle = msg.pageMediaStyle;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;

@@ -923,37 +923,44 @@ function sourReferencedObjeXrefs(records: GedNode[]): Map<string, string> {
   return map;
 }
 
+/** Whether any source in the file organizes page images at all — without
+ *  them the page-media style is moot (don't show/act on a trivial answer). */
+export function hasSourcePageMedia(records: GedNode[]): boolean {
+  return sourReferencedObjeXrefs(records).size > 0;
+}
+
 /**
- * The file's own habit for a cited page's image: "event" when events that cite
- * a paginated source typically also carry that source's page image beside the
- * citation (webtrees-style), else "source" (images only on the source record).
+ * The file's own habit for a cited page's image: "event" when records that
+ * cite a paginated source typically also carry that source's page image
+ * themselves — beside the citation on an event (webtrees-style) or anywhere
+ * on the record (MyHeritage attaches the register photo to the person) —
+ * else "source" (images only under the source record). Record-granular on
+ * purpose: a person-level attachment is still evidence the user wants the
+ * page visible on the person/fact, not only behind the source.
  */
 export function detectPageMediaStyle(records: GedNode[]): PageMediaStyle {
   const owners = sourReferencedObjeXrefs(records);
+  const paginated = new Set(owners.values());
   let paired = 0;
   let plain = 0;
   for (const rec of records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
     const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
-    for (const ev of rec.children) {
-      if (!eventTags.has(ev.tag)) continue;
-      const cited = new Set(
-        childrenByTag(ev, "SOUR")
-          .map((c) => c.value?.trim())
-          .filter((v): v is string => !!v && isPointer(v)),
-      );
-      if (cited.size === 0) continue;
-      // Only sources that actually organize page media can pair up.
-      const citesPaginated = [...owners.values()].some((sour) => cited.has(sour));
-      if (!citesPaginated) continue;
-      const hasPageImage = childrenByTag(ev, "OBJE").some((c) => {
+    const cited = new Set<string>();
+    let hasPageImage = false;
+    const collect = (container: GedNode): void => {
+      for (const c of container.children) {
         const v = c.value?.trim();
-        const owner = v && isPointer(v) ? owners.get(v) : undefined;
-        return !!owner && cited.has(owner);
-      });
-      if (hasPageImage) paired++;
-      else plain++;
-    }
+        if (!v || !isPointer(v)) continue;
+        if (c.tag === "SOUR" && paginated.has(v)) cited.add(v);
+        else if (c.tag === "OBJE" && owners.has(v)) hasPageImage = true;
+      }
+    };
+    collect(rec);
+    for (const child of rec.children) if (eventTags.has(child.tag)) collect(child);
+    if (cited.size === 0) continue;
+    if (hasPageImage) paired++;
+    else plain++;
   }
   return paired > plain ? "event" : "source";
 }

@@ -54,6 +54,9 @@ export interface ParseSuccess {
   datePlaceholder?: string;
   /** Detected source-citation convention of this file. */
   sourceLayout?: SourceLayout;
+  /** Where the file keeps cited page images, when it has any: on the person/
+   * event beside citations, or only under the source records. */
+  pageMediaStyle?: "event" | "source";
   /** Detected name-storage style of this file. */
   nameLayout?: NameLayout;
   /** Placeholder token this file uses for unknown names (e.g. "NN"); absent when
