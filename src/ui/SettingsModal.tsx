@@ -73,6 +73,31 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
   },
 ];
 
+/** Concrete, language-neutral samples of what each choice writes — shown
+ *  between the row's label and its dropdown (GEDCOM-shaped where that is the
+ *  clearest way to show structure). Dates and link languages are rendered
+ *  from the value instead. */
+const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, string>>> = {
+  datePlaceholder: { none: "JUN 1879", _: "__.06.1879", "?": "??.06.1879" },
+  place: {
+    "structured-addr": "Kranj,Slovenija + ADDR Cesta 1",
+    "packed-plac": "Cesta 1, Kranj (Slovenija)",
+    "plain-structured": "Kranj,Slovenija",
+    "address-only": "Cesta 1",
+  },
+  names: { records: "1 NAME › 2 TYPE married", tags: "2 _MARNM Kovač" },
+  sourceLayout: {
+    paginated: "0 SOUR › 1 OBJE ×N",
+    repository: "0 SOUR › 1 REPO",
+    literature: "1 AUTH, 1 PUBL",
+    inline: '2 SOUR "…"',
+  },
+  citations: { event: "1 BIRT › 2 SOUR", record: "1 SOUR" },
+  pageMedia: { event: "2 SOUR + 2 OBJE", source: "0 SOUR › 1 OBJE" },
+  baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
+  doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
+};
+
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
 
@@ -103,14 +128,16 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
   if (!isOpen) return null;
 
-  /** Example between label and dropdown: what the row's *effective* value
-   *  looks like — the override when set, else the detected habit. */
-  const formatExample = ({ key, verbatim }: FormatDimension): string | undefined => {
+  /** Concrete sample of the row's *effective* value (the override when set,
+   *  else the detected habit — the latter only while a main file is loaded). */
+  const formatExample = ({ key }: FormatDimension): string | undefined => {
     const effective = settings.formatOverrides[key] ?? detected?.[key];
     if (!effective) return undefined;
     if (key === "date") return sampleDateFor(effective);
-    if (key === "unknownName") return effective === "blank" ? t("settings.format.unknownName.blank") : effective;
-    return verbatim ? effective : t(`settings.format.${key}.${effective}`);
+    if (key === "unknownName") return effective === "blank" ? "/Kovač/" : `${effective} /Kovač/`;
+    if (key === "matriculaLang") return `…online.eu/${effective}/…`;
+    if (key === "geneanetLang") return `${effective}.geneanet.org`;
+    return FORMAT_SAMPLES[key]?.[effective];
   };
 
   return (
@@ -289,7 +316,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               {dims.map(({ key, choices, verbatim }) => (
                 <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
-                  <span className="settings-format-example">{formatExample({ key, choices, verbatim })}</span>
+                  <span className="settings-format-example gm-data">{formatExample({ key, choices, verbatim })}</span>
                   <select
                     value={(settings.formatOverrides[key] as string | undefined) ?? ""}
                     onChange={(e) => {
