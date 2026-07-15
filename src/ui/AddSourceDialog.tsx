@@ -245,7 +245,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     onAdd({
       ...trimmedFields(fields),
       site: recognized?.site,
-      dateRange: fetched?.dateRange,
+      // Fetched over offline-recognized — Newspapers.com carries the issue
+      // date right in the citation prose, with no fetchable page behind it.
+      dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
     });
     reset();
   }

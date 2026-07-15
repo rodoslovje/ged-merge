@@ -626,7 +626,7 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
-    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -972,6 +972,55 @@ describe("reshapeSources — citation placement", () => {
     expect(yt.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
     expect(yt.proposed.title).toBe("lD5eGiGwlZs - YouTube");
     expect(recognizeSourceUrl("https://youtu.be/lD5eGiGwlZs")?.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
+  });
+
+  it("recognizes Newspapers.com images with Ancestry citation prose", () => {
+    // Real Ancestry PAGE shape: paper; Publication Date; Publication Place; URL.
+    const rec = recognizeSourceUrl(
+      "https://www.newspapers.com/image/504323954/?article=c0efbc58-dd91-411f-9635-99cee122af5e&focus=0.04,0.60&xid=3355",
+      "The Windsor Star; Publication Date: 23 Jun 1998; Publication Place: Windsor, Ontario, Canada; URL: https://www.newspapers.com/image/504323954/",
+    )!;
+    expect(rec.site).toBe("newspapers");
+    expect(rec.bookUrl).toBe("https://www.newspapers.com/image/504323954/");
+    expect(rec.proposed.title).toBe("The Windsor Star, 23 Jun 1998 - Newspapers.com");
+    expect(rec.proposed.place).toBe("Windsor, Ontario, Canada");
+    expect(rec.proposed.filingNumber).toBe("504323954");
+    expect(rec.proposed.dateRange).toBe("23 Jun 1998");
+
+    // Ancestry's slashed date variant normalizes; a bare URL gets the id title.
+    const slashed = recognizeSourceUrl(
+      "https://www.newspapers.com/image/502046098/",
+      "The Windsor Star; Publication Date: 13/ Jul/ 1967; Publication Place: Windsor, Ontario, Canada",
+    )!;
+    expect(slashed.proposed.title).toBe("The Windsor Star, 13 Jul 1967 - Newspapers.com");
+    const bare = recognizeSourceUrl("https://www.newspapers.com/image/502046098/")!;
+    expect(bare.proposed.title).toBe("502046098 - Newspapers.com");
+  });
+
+  it("converts a Newspapers.com obituary citation into a dated source on DEAT", () => {
+    const url =
+      "https://www.newspapers.com/image/504323954/?article=c0efbc58-dd91-411f-9635-99cee122af5e&xid=3355";
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 DATE 23 JUN 1998
+1 SOUR @S1@
+2 PAGE The Windsor Star; Publication Date: 23 Jun 1998; Publication Place: Windsor, Ontario, Canada; URL: ${url}
+0 @I2@ INDI
+1 BIRT
+2 PLAC Windsor, Ontario, Canada
+0 @S1@ SOUR
+1 TITL Canada, Newspapers.com™ Obituary Index, 1800s-current
+0 TRLR`);
+    // The collection title classifies the group as death evidence.
+    expect(report.groups.find((g) => g.site === "newspapers")?.bookType).toBe("death");
+    expect(text).toContain("1 TITL The Windsor Star, 23 Jun 1998 - Newspapers.com");
+    expect(text).toContain("1 PLAC Windsor, Ontario, Canada");
+    expect(text).toContain("1 FILN 504323954");
+    expect(text).toContain("1 DATE 23 Jun 1998");
+    expect(text).toContain(`1 FILE ${url}`); // the clipping URL stays the media link
+    expect(text).toMatch(/1 DEAT\n2 DATE 23 JUN 1998\n2 SOUR @S2@/); // relocated onto the death
   });
 
   it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {

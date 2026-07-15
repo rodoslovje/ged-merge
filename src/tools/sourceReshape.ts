@@ -66,6 +66,7 @@ export const ALL_SITES = [
   "findagrave",
   "billiongraves",
   "legacy",
+  "newspapers",
   "sistory",
   "dlib",
   "googlebooks",
@@ -77,10 +78,11 @@ export const ALL_SITES = [
 export type ReshapeSite = (typeof ALL_SITES)[number];
 
 /** Sites the enrichment fetch can usefully contact — FamilySearch sits behind
- *  a login and generic links have no parser. Shared by the fetcher and the
- *  panel's button/progress so they can't disagree. */
+ *  a login, Newspapers.com behind a bot wall (verified: every relay gets the
+ *  challenge page), and generic links have no parser. Shared by the fetcher
+ *  and the panel's button/progress so they can't disagree. */
 export function isFetchableSite(site: ReshapeSite): boolean {
-  return site !== "familysearch" && site !== "other";
+  return site !== "familysearch" && site !== "newspapers" && site !== "other";
 }
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
@@ -129,7 +131,7 @@ export interface ReshapeGroup {
    *  still wants enrichment, unlike a source with a real title. */
   urlTitled?: boolean;
   /** Offline-derived source fields; enrichment overrides them on apply. */
-  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string };
+  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string; dateRange?: string };
   /** Canonical page-independent URL — display + enrichment fetch target. */
   bookUrl: string;
   /** Distinct page numbers cited, numerically sorted. */
@@ -300,6 +302,10 @@ const YOUTU_BE_RE = /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{6,})/i;
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
 const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
+/** A Newspapers.com page image or clipping: newspapers.com/image/{id}/… (an
+ *  `article=` uuid marks a clipping region on it) or newspapers.com/clip/{id}. */
+const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(?:image|clip)\/(\d+)/i;
+
 /** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
  *  periodicals. Both the details page and a direct stream (PDF/TXT) link
  *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
@@ -376,13 +382,14 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
-    // `{name} - Geneanet Cemeteries` — the view id means nothing to a reader,
-    // it goes to the filing number; enrichment upgrades to the cemetery name.
+    // `{name} - Geneanet Cemeteries`; without a name the view id stands in —
+    // offline it's the only thing telling one grave from another (it stays
+    // the filing number either way); enrichment upgrades to the cemetery name.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: siteTitle(who, undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
+      proposed: { title: siteTitle(who ?? gene[1], undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -478,16 +485,54 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (LEGACY_OBIT_RE.test(url.trim())) {
     if (!sites.has("legacy")) return undefined;
     const id = /[?&]p?id=(\d+)/i.exec(url)?.[1];
-    const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1];
-    const who = slug ? prettySlug(slug) : undefined;
-    // `{name} - Legacy.com` — the obituary id means nothing to a reader,
-    // it goes to the filing number.
+    // The person's name lives in the path slug ("/{name}-obituary") or, on
+    // the older obituary.aspx form, in the `n=` query parameter.
+    const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1] ?? /[?&]n=([^&#]+)/i.exec(url)?.[1];
+    const who = slug ? prettySlug(decodeSegment(slug)) : undefined;
+    // `{name} - Legacy.com`; without a name the obituary id stands in —
+    // offline it's the only thing telling one obituary from another (it
+    // stays the filing number either way).
     return {
       site: "legacy",
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
-      proposed: { title: siteTitle(who, undefined, "Legacy.com"), filingNumber: id },
+      proposed: { title: siteTitle(who ?? id, undefined, "Legacy.com"), filingNumber: id },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  const np = NEWSPAPERS_RE.exec(url.trim());
+  if (np) {
+    if (!sites.has("newspapers")) return undefined;
+    const imageId = np[1];
+    // Ancestry cites these as "The Windsor Star; Publication Date: 23 Jun
+    // 1998; Publication Place: Windsor, Ontario, Canada; URL: https://…" —
+    // the newspaper, issue date and place are already in the citation prose,
+    // and the site itself sits behind a bot wall no relay gets past, so the
+    // offline parse is the whole story. `{paper}, {date} - Newspapers.com`
+    // names the issue; the page-image id is the filing number. Citations to
+    // the same page image share one source; each clipping URL (its
+    // `article`/`focus` params mark the region) stays its own media link.
+    const ctx = contextText ?? "";
+    const paper = /(^|[;\n])\s*([^;\n]{2,80}?)\s*;\s*Publication Date/i.exec(ctx)?.[2];
+    const date = /Publication Date:\s*([^;\n]+)/i
+      .exec(ctx)?.[1]
+      .replace(/\//g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    const place = /Publication Place:\s*([^;\n]+)/i.exec(ctx)?.[1].trim();
+    return {
+      site: "newspapers",
+      groupKey: `np:${imageId}`,
+      bookUrl: `https://www.newspapers.com/image/${imageId}/`,
+      proposed: {
+        title: siteTitle(paper ? [paper, date].filter(Boolean).join(", ") : imageId, undefined, "Newspapers.com"),
+        place,
+        filingNumber: imageId,
+        dateRange: date,
+      },
+      titleRank: paper ? 2 : 0,
+      typeHint: contextText,
     };
   }
 
@@ -666,6 +711,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
+  newspapers: "🗞️",
   sistory: "🎖️",
   dlib: "📚",
   googlebooks: "📖",
@@ -847,7 +893,10 @@ function scanContainer(
         const pageChild = firstChild(child, "PAGE");
         const pageValue = pageChild?.value ?? "";
         const ownerTitle = sourTitles.get(pointer);
-        for (const { url, recognized } of recognizedUrls(pageValue, ownerTitle, sites)) {
+        // The PAGE prose is part of the context too — Ancestry-style
+        // citations carry the publication/collection details right there.
+        const context = [pageValue, ownerTitle].filter(Boolean).join("\n") || undefined;
+        for (const { url, recognized } of recognizedUrls(pageValue, context, sites)) {
           hits.push({ ...base, node: child, shape: "pageUrl", url, recognized, typeText: ownerTitle });
         }
       } else if (value) {
@@ -1354,6 +1403,7 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
   billiongraves: { hostRe: /billiongraves\.com/i, name: "BillionGraves", www: "https://billiongraves.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
+  newspapers: { hostRe: /newspapers\.com/i, name: "Newspapers.com", www: "https://www.newspapers.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
   dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
   googlebooks: { hostRe: /books\.google\./i, name: "Google Books", www: "https://books.google.com/" },
@@ -1494,6 +1544,7 @@ export function reshapeSources(
       // diacritic-less slug guess) lands in the established place format.
       place: resolvePlace(extra?.place ?? g.proposed.place),
       filingNumber: extra?.filingNumber ?? g.proposed.filingNumber,
+      dateRange: extra?.dateRange ?? g.proposed.dateRange,
     };
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.
@@ -1505,7 +1556,7 @@ export function reshapeSources(
       counts.sourcesCreated++;
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
-      if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
+      fillField(sourceNode, "DATE", fields.dateRange);
       const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, layout === "repository");
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
@@ -1523,7 +1574,7 @@ export function reshapeSources(
       fillField(hit.rec, "AGNC", fields.agency);
       fillField(hit.rec, "PLAC", fields.place);
       fillField(hit.rec, "FILN", fields.filingNumber);
-      if (extra?.dateRange) fillField(hit.rec, "DATE", extra.dateRange);
+      fillField(hit.rec, "DATE", fields.dateRange);
       counts.citationsRewritten++;
     }
 

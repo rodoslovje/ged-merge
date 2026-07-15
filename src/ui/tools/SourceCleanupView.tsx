@@ -91,7 +91,7 @@ export function SourceCleanupView({
       reshapeReportProp ?? {
         groups: [],
         totalOccurrences: 0,
-        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, familysearch: 0, other: 0 },
+        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, newspapers: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, familysearch: 0, other: 0 },
       },
     [reshapeReportProp],
   );
@@ -264,7 +264,7 @@ export function SourceCleanupView({
       place && `${fieldLabel("PLAC")}: ${place}`,
       (meta?.filingNumber ?? g.proposed.filingNumber) &&
         `${fieldLabel("FILN")}: ${meta?.filingNumber ?? g.proposed.filingNumber}`,
-      meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
+      (meta?.dateRange ?? g.proposed.dateRange) && `${fieldLabel("DATE")}: ${meta?.dateRange ?? g.proposed.dateRange}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -498,7 +498,7 @@ function GroupEditDialog({
     agency: meta?.agency ?? group.proposed.agency ?? "",
     place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
     filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
-    dateRange: meta?.dateRange ?? "",
+    dateRange: meta?.dateRange ?? group.proposed.dateRange ?? "",
   }));
 
   useEffect(() => {
