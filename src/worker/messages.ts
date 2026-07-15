@@ -1,6 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
-import type { FormatOverrides } from "../normalize/formatOverrides";
+import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
 import type { MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
@@ -58,6 +58,8 @@ export interface ParseSuccess {
   /** Marker this file uses for an unknown date component (e.g. "_"); absent when
    * it has no placeholder-date convention. */
   datePlaceholder?: string;
+  /** Every detected format dimension (Settings GEDCOM tab examples). */
+  detectedFormats?: DetectedFormats;
   /** Detected source-citation convention of this file. */
   sourceLayout?: SourceLayout;
   /** Where the file keeps cited page images, when it has any: on the person/

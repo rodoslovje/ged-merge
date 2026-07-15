@@ -262,7 +262,7 @@ function renderSummary(
   // "+ placeholder" when the file marks unknown given/surnames with a token. The
   // layout and the exact marker are spelled out in the tooltip.
   if (nameLayout && nameLayout !== "none") {
-    const parts = [t(`nameLayout.${nameLayout}`)];
+    const parts = [t(`settings.format.names.${nameLayout}`)];
     const tips = [t(`nameLayout.${nameLayout}.tip`)];
     if (unknownNameStyle) {
       parts.push(t("loader.placeholderSuffix"));
@@ -277,12 +277,12 @@ function renderSummary(
     });
   }
   if (placeLayout && placeLayout !== "unknown") {
-    info.push({ text: t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }), tooltip: t(`placeLayout.${placeLayout}.tip`) });
+    info.push({ text: t("loader.placeFormat", { format: t(`settings.format.place.${placeLayout}`) }), tooltip: t(`placeLayout.${placeLayout}.tip`) });
   }
   if (sourceLayout && sourceLayout !== "unknown") {
     // The page-media placement rides along when the file has page images at
     // all — "repository links · page images on events".
-    const format = [t(`sourceLayout.${sourceLayout}`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}`)]
+    const format = [t(`settings.format.sourceLayout.${sourceLayout}`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}`)]
       .filter(Boolean)
       .join(" · ");
     const tooltip = [t(`sourceLayout.${sourceLayout}.tip`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}.tip`)]

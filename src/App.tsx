@@ -285,6 +285,7 @@ function AppContent() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
+        if (msg.detectedFormats) file.detectedFormats = msg.detectedFormats;
         if (msg.pageMediaStyle) file.pageMediaStyle = msg.pageMediaStyle;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
@@ -1412,7 +1413,7 @@ function AppContent() {
         themeMode={themeMode}
         onThemeMode={changeThemeMode}
         onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
-        mainDataset={lastMainFile?.dataset}
+        detectedFormats={lastMainFile?.detectedFormats}
       />
       {confirmDialogElement}
     </>

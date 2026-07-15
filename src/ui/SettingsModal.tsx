@@ -1,4 +1,4 @@
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf } from "./SettingsContext";
@@ -6,9 +6,8 @@ import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
-import { DATE_PATTERN_CHOICES, type FormatOverrides } from "../normalize/formatOverrides";
-import { detectFormatDefaults, sampleDateFor } from "../normalize/formatDefaults";
-import type { Dataset } from "../gedcom/types";
+import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
+import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
 
 export type ThemeMode = "auto" | "light" | "dark";
@@ -20,8 +19,9 @@ interface Props {
   onThemeMode: (mode: ThemeMode) => void;
   /** Wipe the cached workspace (loaded files + merge session) from IndexedDB. */
   onClearCache: () => void;
-  /** The loaded main file, for the Format tab's "Auto (detected)" examples. */
-  mainDataset?: Dataset;
+  /** The main file's detected formats (computed at load, in the worker) —
+   *  the "Auto (detected)" examples on the GEDCOM tab. */
+  detectedFormats?: DetectedFormats;
 }
 
 type SettingsTab = "general" | "format" | "advanced";
@@ -113,23 +113,15 @@ const SAMPLE_AGE = 70;
  * opt-in for online link-metadata lookups. Preferences live in
  * {@link useSettings} and persist to localStorage.
  */
-export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, mainDataset }: Props) {
+export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, detectedFormats }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
-  // What "Auto (detected)" resolves to, shown as the per-row example.
-  // Cached per dataset (the walks take seconds on an index-scale file), so
-  // only the FIRST visit to the GEDCOM tab per loaded file pays for it.
-  const detectedCacheRef = useRef<{ ds: Dataset; value: Partial<Record<keyof FormatOverrides, string>> } | null>(null);
-  let detected: Partial<Record<keyof FormatOverrides, string>> | undefined;
-  if (isOpen && tab === "format" && mainDataset) {
-    if (detectedCacheRef.current?.ds !== mainDataset) {
-      detectedCacheRef.current = { ds: mainDataset, value: detectFormatDefaults(mainDataset) };
-    }
-    detected = detectedCacheRef.current.value;
-  }
+  // What "Auto (detected)" resolves to — computed at load in the worker and
+  // stored with the file, so showing it here costs nothing.
+  const detected = detectedFormats;
 
   // Dropdown changes echo locally at once; the global settings commit — which
   // re-renders the whole mounted app, seconds on an index-scale file — runs

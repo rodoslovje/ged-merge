@@ -19,7 +19,7 @@ import {
   detectUnknownNameToken,
   inferNameLayout,
 } from "./profile";
-import type { FormatOverrides } from "./formatOverrides";
+import type { DetectedFormats, FormatOverrides } from "./formatOverrides";
 
 /**
  * What "Auto (detected)" currently resolves to for each Format-tab dimension,
@@ -27,7 +27,7 @@ import type { FormatOverrides } from "./formatOverrides";
  * a main file is loaded. Undefined = the file gives no signal (no dates, no
  * alternate names, no page media, …), so there is nothing to show.
  */
-export function detectFormatDefaults(dataset: Dataset): Partial<Record<keyof FormatOverrides, string>> {
+export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
   const { dateValues, placeValues, addrCount } = collectLayoutValues(dataset);
   const links: string[] = [];
   walkNodes(dataset.records, (node) => {
@@ -37,7 +37,7 @@ export function detectFormatDefaults(dataset: Dataset): Partial<Record<keyof For
   const placeLayout = detectPlaceLayout(placeValues, addrCount);
   const nameLayout = inferNameLayout(dataset);
   const sourceLayout = inferSourceFormat(dataset.records).layout;
-  const out: Partial<Record<keyof FormatOverrides, string>> = {
+  const out: DetectedFormats = {
     date: dateLayoutFromValues(dateValues),
     datePlaceholder: dateValues.length ? (detectDatePlaceholder(dateValues) ?? "none") : undefined,
     place: placeLayout === "unknown" ? undefined : placeLayout,

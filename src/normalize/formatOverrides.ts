@@ -40,6 +40,10 @@ export interface FormatOverrides {
   geneanetLang?: string;
 }
 
+/** What "Auto (detected)" resolves to per dimension, as override-value
+ *  strings — computed at load (in the worker) and stored with the file. */
+export type DetectedFormats = Partial<Record<keyof FormatOverrides, string>>;
+
 /** Curated date patterns offered in Settings; {@link dateProfileFromPattern}
  *  parses anything of these shapes. */
 export const DATE_PATTERN_CHOICES = [

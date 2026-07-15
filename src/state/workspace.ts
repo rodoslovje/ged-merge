@@ -1,4 +1,5 @@
 import type { Dataset } from "../gedcom/types";
+import type { DetectedFormats } from "../normalize/formatOverrides";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { MatchResult } from "../match/types";
 import type { CandidateDecision } from "../review/types";
@@ -24,6 +25,8 @@ export interface LoadedFile {
   dateFormat?: string;
   datePlaceholder?: string;
   sourceLayout?: SourceLayout;
+  /** Every detected format dimension, for the Settings GEDCOM tab. */
+  detectedFormats?: DetectedFormats;
   /** Where the file keeps cited page images (when it has any). */
   pageMediaStyle?: "event" | "source";
   nameLayout?: NameLayout;
