@@ -1048,6 +1048,13 @@ function buildPlaceResolver(records: GedNode[]): {
   };
 }
 
+/** The file-format place resolver as a standalone function — the Add Source
+ *  dialog uses it so the Kraj field shows the same resolved value ("Ljubljana"
+ *  → "Ljubljana,Ljubljana,Slovenia") that commit/cleanup will write. */
+export function makePlaceResolver(records: GedNode[]): (place: string | undefined) => string | undefined {
+  return buildPlaceResolver(records).resolve;
+}
+
 /** Stable identity of one occurrence, for matching a report member to its
  *  re-scanned apply-time hit (per-citation QUAY overrides). */
 function occurrenceQuayKey(

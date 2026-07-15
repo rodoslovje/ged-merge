@@ -6,7 +6,7 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, recognizeSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, recognizeSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { useSettings } from "./SettingsContext";
 import { SITE_ICON } from "./tools/SourceCleanupView";
 import { linkHref } from "./FieldValue";
@@ -76,6 +76,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const wasOpenRef = useRef(false);
 
   const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
+  // Places shown in the dialog already match the file's own place format —
+  // the same resolution commit applies, so what you see is what gets saved.
+  const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
     () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
@@ -116,13 +119,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       // agency (SIstory), it doesn't repeat as the publisher.
       publisher: match || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
-      place: match ? "" : recognized?.proposed.place ?? parsed.place ?? "",
+      place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
       filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
       note: match ? "" : parsed.note ?? "",
     });
-  }, [editing, text, parsed, normalizedUrl, match, recognized]);
+  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -176,13 +179,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               periodical: upgrade(f.periodical, undefined, meta.periodical),
               publisher: upgrade(f.publisher, undefined, meta.publisher),
               agency: upgrade(f.agency, proposal?.agency, meta.agency),
-              place: upgrade(f.place, proposal?.place, meta.place),
+              place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
             }
           : f,
       );
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace]);
 
   useEffect(() => {
     if (!isOpen) return;
