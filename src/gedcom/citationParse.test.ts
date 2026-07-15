@@ -25,7 +25,8 @@ describe("parseSourceInput", () => {
       title: "Jožef Celar",
       author: "Marta Rendla",
       periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
-      publisher: "Ljubljana: Inštitut za novejšo zgodovino, 2026",
+      publisher: "Inštitut za novejšo zgodovino",
+      place: "Ljubljana",
       note: "pridobljeno 21. 6. 2026",
     });
   });

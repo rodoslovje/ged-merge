@@ -14,6 +14,8 @@ export interface ParsedCitation {
   author?: string;
   periodical?: string;
   publisher?: string;
+  /** Publication place from a "(Place: Publisher, Year)" parenthetical. */
+  place?: string;
   note?: string;
 }
 
@@ -49,7 +51,21 @@ export function parseSourceInput(text: string): ParsedCitation {
   const quote = QUOTE_RE.exec(rest);
   const title = quote ? (quote[1] ?? quote[2] ?? quote[3] ?? quote[4])?.trim() : undefined;
   const paren = PAREN_RE.exec(rest);
-  const publisher = paren ? paren[1].trim() : undefined;
+  // A Chicago-style "(Ljubljana: Inštitut za novejšo zgodovino, 2026)"
+  // splits into the publication place and the publisher; the year is just
+  // the citation's edition/retrieval year and stays out of both.
+  let publisher: string | undefined;
+  let place: string | undefined;
+  if (paren) {
+    const inner = paren[1].trim();
+    const split = /^([^:]{2,40}):\s*(.+?)(?:,\s*\d{4})?$/.exec(inner);
+    if (split) {
+      place = split[1].trim();
+      publisher = split[2].trim();
+    } else {
+      publisher = inner;
+    }
+  }
 
   let author: string | undefined;
   let periodical: string | undefined;
@@ -75,5 +91,5 @@ export function parseSourceInput(text: string): ParsedCitation {
   if (periodical) remainder = remainder.replace(periodical, "");
   const note = remainder.split(",").map((s) => s.trim()).filter(Boolean).join(", ") || undefined;
 
-  return { url, title, author, periodical, publisher, note };
+  return { url, title, author, periodical, publisher, place, note };
 }

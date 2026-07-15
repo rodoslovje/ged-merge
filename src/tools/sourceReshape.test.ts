@@ -1063,6 +1063,7 @@ GPS Coordinates : 46.2181,14.3463`;
       title: "Katarina Abdonec - WW2 - SIstory.si",
       author: "INZ, Tadeja Tominšek, Tamara Logar",
       periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
+      place: "Ljubljana",
       agency: "Inštitut za novejšo zgodovino",
     });
   });
@@ -1081,12 +1082,14 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
       async () => SISTORY_HTML,
     );
     // The Citiranje text parses exactly like a pasted citation — full author
-    // list, collection, publisher — and the record id stays out of the title.
+    // list, collection, place + institute — and the record id stays out of
+    // the title.
     expect(meta).toEqual({
       title: "Katarina Abdonec - WW2 - SIstory.si",
       author: "INZ, Tadeja Tominšek, Tamara Logar",
       periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
-      publisher: "Ljubljana: Inštitut za novejšo zgodovino, 2026",
+      place: "Ljubljana",
+      agency: "Inštitut za novejšo zgodovino",
     });
   });
 

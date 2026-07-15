@@ -392,13 +392,16 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     const id = sistory[2].toUpperCase();
     // The id means nothing to a reader — it goes to the filing number, and
     // the title prefers the person's name, which the SIstory citation text
-    // carries in »…« quotes.
+    // carries in »…« quotes. The citation's "(Ljubljana: Inštitut za novejšo
+    // zgodovino, 2026)" supplies the publication place and the institute
+    // (the source's agency, matching what a fetched record fills).
     const who = quotedCollection(contextText);
+    const cit = contextText ? parseSourceInput(contextText) : {};
     return {
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: siteTitle(who, war, "SIstory.si"), filingNumber: id },
+      proposed: { title: siteTitle(who, war, "SIstory.si"), filingNumber: id, agency: cit.publisher, place: cit.place },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -1603,8 +1606,10 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
       meta = {
         title: siteTitle(record.titles[0], war, "SIstory.si"),
         author: authors || undefined,
-        // The corpus title the page's own Citiranje section uses for WW2.
+        // The corpus title and publication place the page's own Citiranje
+        // section uses for the WW2 casualty database.
         periodical: war === "WW2" ? "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji" : undefined,
+        place: war === "WW2" ? "Ljubljana" : undefined,
         agency: record.contributorGroups?.[0]?.name,
       };
     } else {
@@ -1626,7 +1631,9 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
           title: siteTitle(name, war, "SIstory.si"),
           author: cit.author,
           periodical: cit.periodical,
-          publisher: cit.publisher,
+          // The citation's "(Ljubljana: Inštitut …)" — place + agency.
+          place: cit.place,
+          agency: cit.publisher,
         };
       }
     }

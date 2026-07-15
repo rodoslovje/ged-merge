@@ -112,9 +112,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       title: match ? "" : recognized?.proposed.title ?? parsed.title ?? "",
       author: match ? "" : parsed.author ?? "",
       periodical: match ? "" : parsed.periodical ?? "",
-      publisher: match ? "" : parsed.publisher ?? "",
+      // When the site proposal claims the parenthesized institute as the
+      // agency (SIstory), it doesn't repeat as the publisher.
+      publisher: match || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
-      place: match ? "" : recognized?.proposed.place ?? "",
+      place: match ? "" : recognized?.proposed.place ?? parsed.place ?? "",
       filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
