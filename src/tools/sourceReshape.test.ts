@@ -240,6 +240,21 @@ describe("findReshapableLinks — scan", () => {
     expect(film.pages).toEqual(["113", "137"]);
     const coll = fs.find((g) => g.proposed.title.startsWith("Croatia"))!;
     expect(coll.members[0].shape).toBe("note");
+    // A collection spans many records — no single ARK can be its filing number.
+    expect(coll.proposed.filingNumber).toBeUndefined();
+  });
+
+  it("extracts the ARK id as the filing number for lone FamilySearch links", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ
+1 DEAT
+2 SOUR https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?i=137
+0 TRLR`);
+    const fs = report.groups.filter((g) => g.site === "familysearch");
+    expect(fs.map((g) => g.proposed.filingNumber).sort()).toEqual(["1:1:XNJ8-FPJ", "3:1:3Q9M-CS2T-N985-8"]);
   });
 
   it("ignores other hosts unless the 'other' category is enabled", () => {
@@ -555,6 +570,34 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje, P02\n2 SOUR/);
   });
 
+  it("adds the cemetery ADDR even when the BURI already has a place", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BURI
+2 PLAC Žabnica,Kranj,Slovenia
+2 NOTE https://en.geneanet.org/cemetery/view/555
+0 @I2@ INDI
+1 BIRT
+2 PLAC Strahinj,Naklo,Slovenia
+2 ADDR Strahinj 36
+1 RESI
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR Cesta 1
+1 DEAT
+2 PLAC Žabnica,Kranj,Slovenia
+2 ADDR Žabnica 12
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje, P02" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    // The existing place is kept, the cemetery still lands in the ADDR.
+    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje, P02\n2 SOUR/);
+  });
+
   it("never overwrites an existing BURI place", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -617,6 +660,20 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 FILN 04406");
     expect(text).toContain(`1 FILE ${BOOK2}/?pg=6`);
     expect(text).toContain("2 SOUR @S1@"); // citation untouched
+  });
+
+  it("fills the tree owner as AUTH when rewriting a URL-titled Geneanet tree SOUR", () => {
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute
+0 TRLR`);
+    expect(counts.sourcesCreated).toBe(0);
+    expect(text).toContain("1 TITL Rajko Vute - hawlina - Geneanet Trees");
+    expect(text).toContain("1 AUTH hawlina"); // same author the offline proposal carries
   });
 
   it("re-links a person-level OBJE record under the SOUR instead of duplicating it", () => {

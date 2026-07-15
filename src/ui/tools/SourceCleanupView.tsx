@@ -6,6 +6,7 @@ import {
   SITE_ICON,
   fetchReshapeMeta,
   isFetchableSite,
+  makePlaceResolver,
   reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
@@ -207,6 +208,11 @@ export function SourceCleanupView({
   // No automatic fetching: the Settings toggle only *permits* the proxy; each
   // run of it is an explicit click on the "Fetch book details" button.
 
+  // The same file-format place matching the apply runs, so the tooltip shows
+  // the value that will actually be written ("Ravna Gora, Općina Ravna Gora,
+  // Primorsko-Goranska, Croatia" → the file's own "Ravna Gora,…" entry).
+  const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
+
   // Fetched title → the existing source's own title (correct diacritics, no
   // fetch needed) → the offline URL-derived guess.
   const groupTitle = (g: ReshapeGroup) =>
@@ -245,10 +251,14 @@ export function SourceCleanupView({
       return [g.existingSourceXref, fields].filter(Boolean).join("\n");
     }
     const meta = enrichment.get(g.id);
+    // The same field values the apply writes: fetched over offline-proposed,
+    // the place matched against the file's own place format.
+    const place = resolvePlace(meta?.place ?? g.proposed.place);
     return [
       `${fieldLabel("TITL")}: ${meta?.title ?? g.proposed.title}`,
+      (meta?.author ?? g.proposed.author) && `${fieldLabel("AUTH")}: ${meta?.author ?? g.proposed.author}`,
       (meta?.agency ?? g.proposed.agency) && `${fieldLabel("AGNC")}: ${meta?.agency ?? g.proposed.agency}`,
-      (meta?.place ?? g.proposed.place) && `${fieldLabel("PLAC")}: ${meta?.place ?? g.proposed.place}`,
+      place && `${fieldLabel("PLAC")}: ${place}`,
       g.proposed.filingNumber && `${fieldLabel("FILN")}: ${g.proposed.filingNumber}`,
       meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
     ]

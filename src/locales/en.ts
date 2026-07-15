@@ -193,7 +193,7 @@ export const en = {
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.geneanettree": "Geneanet Trees",
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
-  "tools.sources.reshapeSite.legacy": "Legacy.com obituaries",
+  "tools.sources.reshapeSite.legacy": "Legacy.com",
   "tools.sources.reshapeSite.sistory": "SIstory.si war victims",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",
