@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf } from "./SettingsContext";
@@ -119,19 +119,42 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
-  // What "Auto (detected)" resolves to, shown as the per-row example. Only
-  // worth computing with the modal open on the Format tab (a few tree walks).
-  const detected = useMemo(
-    () => (isOpen && tab === "format" && mainDataset ? detectFormatDefaults(mainDataset) : undefined),
-    [isOpen, tab, mainDataset],
-  );
+  // What "Auto (detected)" resolves to, shown as the per-row example.
+  // Cached per dataset (the walks take seconds on an index-scale file), so
+  // only the FIRST visit to the GEDCOM tab per loaded file pays for it.
+  const detectedCacheRef = useRef<{ ds: Dataset; value: Partial<Record<keyof FormatOverrides, string>> } | null>(null);
+  let detected: Partial<Record<keyof FormatOverrides, string>> | undefined;
+  if (isOpen && tab === "format" && mainDataset) {
+    if (detectedCacheRef.current?.ds !== mainDataset) {
+      detectedCacheRef.current = { ds: mainDataset, value: detectFormatDefaults(mainDataset) };
+    }
+    detected = detectedCacheRef.current.value;
+  }
+
+  // Dropdown changes echo locally at once; the global settings commit — which
+  // re-renders the whole mounted app, seconds on an index-scale file — runs
+  // in an interruptible transition, so rapid changes coalesce instead of
+  // each blocking the select.
+  const [, startTransition] = useTransition();
+  const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
+  const overrides = pendingOverrides ?? settings.formatOverrides;
+  const updateOverride = (key: keyof FormatOverrides, value: string) => {
+    const next = { ...overrides };
+    if (value) next[key] = value as never;
+    else delete next[key];
+    setPendingOverrides(next);
+    startTransition(() => {
+      set({ formatOverrides: next });
+      setPendingOverrides(null);
+    });
+  };
 
   if (!isOpen) return null;
 
   /** Concrete sample of the row's *effective* value (the override when set,
    *  else the detected habit — the latter only while a main file is loaded). */
   const formatExample = ({ key }: FormatDimension): string | undefined => {
-    const effective = settings.formatOverrides[key] ?? detected?.[key];
+    const effective = overrides[key] ?? detected?.[key];
     if (!effective) return undefined;
     if (key === "date") return sampleDateFor(effective);
     if (key === "unknownName") return effective === "blank" ? "/Kovač/" : `${effective} /Kovač/`;
@@ -318,13 +341,8 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
                   <span className="settings-format-example gm-data">{formatExample({ key, choices, verbatim })}</span>
                   <select
-                    value={(settings.formatOverrides[key] as string | undefined) ?? ""}
-                    onChange={(e) => {
-                      const next = { ...settings.formatOverrides };
-                      if (e.target.value) next[key] = e.target.value as never;
-                      else delete next[key];
-                      set({ formatOverrides: next });
-                    }}
+                    value={(overrides[key] as string | undefined) ?? ""}
+                    onChange={(e) => updateOverride(key, e.target.value)}
                   >
                     <option value="">{t("settings.format.detected")}</option>
                     {choices.map((c) => (
