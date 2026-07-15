@@ -839,7 +839,7 @@ describe("reshapeSources — citation placement", () => {
     const rec = recognizeSourceUrl("https://www.sistory.si/ww1/168")!;
     expect(rec.site).toBe("sistory");
     expect(rec.bookUrl).toBe("https://www.sistory.si/ww1/168");
-    expect(rec.proposed.title).toBe("168 - WW1 - SIstory.si"); // no name available offline
+    expect(rec.proposed.title).toBe("WW1 - 168 - SIstory.si"); // no name available offline
     expect(rec.proposed.filingNumber).toBe("168");
   });
 
