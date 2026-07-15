@@ -329,7 +329,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     <option value="">{t("settings.format.detected")}</option>
                     {choices.map((c) => (
                       <option key={c} value={c}>
-                        {verbatim ? c : t(`settings.format.${key}.${c}`)}
+                        {(verbatim ? c : t(`settings.format.${key}.${c}`)) +
+                          // The month-word layouts are the GEDCOM-standard date
+                          // form (spec day is 1–2 digits); numeric layouts are
+                          // vendor conventions. <option> can't be styled, so
+                          // the marker is part of the label.
+                          (key === "date" && (c === "D MMM YYYY" || c === "DD MMM YYYY")
+                            ? ` — ${t("settings.format.gedcomStandard")}`
+                            : "")}
                       </option>
                     ))}
                   </select>
