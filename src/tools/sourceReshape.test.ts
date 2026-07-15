@@ -1051,10 +1051,13 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
       "https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D",
       async () => SISTORY_HTML,
     );
-    // Person name from the »…« quotes, institute from the citation; no id in the title.
+    // The Citiranje text parses exactly like a pasted citation — full author
+    // list, collection, publisher — and the record id stays out of the title.
     expect(meta).toEqual({
       title: "Katarina Abdonec - WW2 - SIstory.si",
-      agency: "Inštitut za novejšo zgodovino",
+      author: "INZ, Tadeja Tominšek, Tamara Logar",
+      periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
+      publisher: "Ljubljana: Inštitut za novejšo zgodovino, 2026",
     });
   });
 

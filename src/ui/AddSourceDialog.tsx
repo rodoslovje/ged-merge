@@ -170,6 +170,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           ? {
               ...f,
               title: upgrade(f.title, proposal?.title, meta.title),
+              author: upgrade(f.author, undefined, meta.author),
+              periodical: upgrade(f.periodical, undefined, meta.periodical),
+              publisher: upgrade(f.publisher, undefined, meta.publisher),
               agency: upgrade(f.agency, proposal?.agency, meta.agency),
               place: upgrade(f.place, proposal?.place, meta.place),
             }

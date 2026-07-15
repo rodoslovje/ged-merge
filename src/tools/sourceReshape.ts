@@ -12,6 +12,7 @@ import {
 import { linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
+import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
@@ -143,6 +144,9 @@ export interface ReshapeReport {
 /** Fetched metadata for one book — overrides the group's `proposed` on apply. */
 export interface ReshapeMeta {
   title?: string;
+  author?: string;
+  periodical?: string;
+  publisher?: string;
   agency?: string;
   place?: string;
   /** Sub-place detail (the cemetery name + plot) — becomes the BURI event's
@@ -1210,6 +1214,9 @@ export function reshapeSources(
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
       title: extra?.title ?? g.proposed.title,
+      author: extra?.author,
+      periodical: extra?.periodical,
+      publisher: extra?.publisher,
       agency: extra?.agency ?? g.proposed.agency,
       // Matched against the file's own places, so "Žabnica, Slovenia" (or a
       // diacritic-less slug guess) lands in the established place format.
@@ -1569,21 +1576,27 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "sistory") {
     // The record page's "Citiranje" section carries a full citation —
     // `INZ, Tadeja Tominšek, …, »Katarina Abdonec«, Smrtne žrtve … (Ljubljana:
-    // Inštitut za novejšo zgodovino, 2026), …` — the person's name in »…«
-    // quotes and the publishing institute. The record id stays out of the
-    // title (it's the filing number); the page title is the name fallback.
+    // Inštitut za novejšo zgodovino, 2026), …`. Parse it with the same
+    // citation parser the paste box uses, so a fetched URL fills the same
+    // fields as pasting the Citiranje content by hand. The record id stays
+    // out of the title (it's the filing number); the page title is the name
+    // fallback.
     const citStart = html.search(/Citiranje/i);
-    const citation = citStart >= 0 ? html.slice(citStart, citStart + 800) : html;
-    const quoted = /[»„]([^«“”\n]{2,80})[«“]/.exec(citation)?.[1];
-    const name =
-      (quoted && decodeHtmlEntities(quoted).trim()) ||
-      pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
-    const agency = /\(\s*[^():\n]{2,60}:\s*([^,()\n]{3,80}),\s*\d{4}\s*\)/.exec(citation)?.[1];
+    const citText =
+      citStart >= 0
+        ? decodeHtmlEntities(stripMdLinks(html.slice(citStart + "Citiranje".length, citStart + 800)).replace(/<[^>]+>/g, " "))
+            .replace(/\s+/g, " ")
+            .trim()
+        : undefined;
+    const cit = citText ? parseSourceInput(citText) : {};
+    const name = cit.title ?? pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
     if (name) {
       meta = {
         title: siteTitle(name, war, "SIstory.si"),
-        agency: agency ? decodeHtmlEntities(agency).trim() : undefined,
+        author: cit.author,
+        periodical: cit.periodical,
+        publisher: cit.publisher,
       };
     }
   } else {
