@@ -676,6 +676,26 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 AUTH hawlina"); // same author the offline proposal carries
   });
 
+  it("applies panel-edited fields: filing-number override, cleared author writes nothing", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { title: "Hawlina family tree", author: "", filingNumber: "GT-7" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    expect(text).toContain("1 TITL Hawlina family tree");
+    expect(text).toContain("1 FILN GT-7");
+    expect(text).not.toContain("1 AUTH"); // cleared in the editor — omitted
+  });
+
   it("re-links a person-level OBJE record under the SOUR instead of duplicating it", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

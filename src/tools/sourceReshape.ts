@@ -159,6 +159,9 @@ export interface ReshapeMeta {
   address?: string;
   dateRange?: string;
   bookType?: BookType;
+  /** Set by the panel's manual field editor only — page parsers never
+   *  override the offline id. An empty string clears the proposed one. */
+  filingNumber?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
@@ -1485,7 +1488,7 @@ export function reshapeSources(
       // Matched against the file's own places, so "Žabnica, Slovenia" (or a
       // diacritic-less slug guess) lands in the established place format.
       place: resolvePlace(extra?.place ?? g.proposed.place),
-      filingNumber: g.proposed.filingNumber,
+      filingNumber: extra?.filingNumber ?? g.proposed.filingNumber,
     };
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.

@@ -10,6 +10,7 @@ import {
   reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
+  type ReshapeMeta,
   type ReshapeOccurrence,
   type ReshapeReport,
   type ReshapeSite,
@@ -112,6 +113,8 @@ export function SourceCleanupView({
   /** Per-reference QUAY overrides, keyed `${groupId}:${memberIndex}`. */
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
+  /** Group whose source fields are open in the manual editor. */
+  const [editGroup, setEditGroup] = useState<ReshapeGroup | null>(null);
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
   /** Books the last fetch run could not retrieve (relay down / blocked). */
   const [fetchFailed, setFetchFailed] = useState(0);
@@ -259,7 +262,8 @@ export function SourceCleanupView({
       (meta?.author ?? g.proposed.author) && `${fieldLabel("AUTH")}: ${meta?.author ?? g.proposed.author}`,
       (meta?.agency ?? g.proposed.agency) && `${fieldLabel("AGNC")}: ${meta?.agency ?? g.proposed.agency}`,
       place && `${fieldLabel("PLAC")}: ${place}`,
-      g.proposed.filingNumber && `${fieldLabel("FILN")}: ${g.proposed.filingNumber}`,
+      (meta?.filingNumber ?? g.proposed.filingNumber) &&
+        `${fieldLabel("FILN")}: ${meta?.filingNumber ?? g.proposed.filingNumber}`,
       meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
     ]
       .filter(Boolean)
@@ -360,6 +364,9 @@ export function SourceCleanupView({
                 badgeTooltip={badgeTooltip(g)}
                 checked={!excluded.has(g.id)}
                 open={expanded.has(g.id)}
+                // Only groups whose source fields the apply writes are
+                // hand-editable — a reused real-titled source is left alone.
+                onEdit={!g.existingSourceXref || g.urlTitled ? () => setEditGroup(g) : undefined}
                 relocate={relocate}
                 defaultQuay={quay}
                 quayOf={(i) => quayOverrides.get(`${g.id}:${i}`) ?? ""}
@@ -451,7 +458,122 @@ export function SourceCleanupView({
           </span>
         )}
       </div>
+
+      {editGroup && (
+        <GroupEditDialog
+          key={editGroup.id}
+          group={editGroup}
+          meta={enrichment.get(editGroup.id)}
+          resolvePlace={resolvePlace}
+          onSave={(meta) => setEnrichment((prev) => new Map(prev).set(editGroup.id, meta))}
+          onClose={() => setEditGroup(null)}
+        />
+      )}
     </>
+  );
+}
+
+/** Manual editor for one group's source fields. Saved values land in the same
+ *  per-group enrichment map fetched metadata uses, so the list title, badge
+ *  tooltip and apply all pick them up — and the fetch skips the group
+ *  afterwards (the user's edits win). Clearing a field writes nothing. */
+function GroupEditDialog({
+  group,
+  meta,
+  resolvePlace,
+  onSave,
+  onClose,
+}: {
+  group: ReshapeGroup;
+  /** The group's fetched/edited metadata so far — the editor's baseline. */
+  meta: ReshapeMeta | undefined;
+  resolvePlace: (place: string | undefined) => string | undefined;
+  onSave: (meta: ReshapeMeta) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [fields, setFields] = useState(() => ({
+    title: meta?.title ?? group.proposed.title,
+    author: meta?.author ?? group.proposed.author ?? "",
+    agency: meta?.agency ?? group.proposed.agency ?? "",
+    place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
+    filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
+    dateRange: meta?.dateRange ?? "",
+  }));
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
+    <label className="add-source-field">
+      <span>{t(labelKey)}</span>
+      <input
+        className="edit-input"
+        autoFocus={autoFocus}
+        value={fields[key]}
+        onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
+      />
+    </label>
+  );
+
+  function save() {
+    onSave({
+      ...meta,
+      // A blanked title falls back to the proposal — sources need one; the
+      // other fields keep the emptied value, which the apply then omits.
+      title: fields.title.trim() || group.proposed.title,
+      author: fields.author.trim(),
+      agency: fields.agency.trim(),
+      place: fields.place.trim(),
+      filingNumber: fields.filingNumber.trim(),
+      dateRange: fields.dateRange.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal add-source-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("editSource.title")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2>
+            <span className="add-source-badge" aria-hidden="true">{SITE_ICON[group.site]}</span>
+            {t("editSource.title")}
+          </h2>
+          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          {field("title", "addSource.field.title", true)}
+          <div className="add-source-details-grid">
+            {field("author", "addSource.field.author")}
+            {field("agency", "addSource.field.agency")}
+            {field("place", "addSource.field.place")}
+            {field("filingNumber", "addSource.field.filingNumber")}
+            {field("dateRange", "addSource.field.dateRange")}
+          </div>
+        </div>
+        <div className="add-source-actions">
+          <button className="nav-btn" onClick={onClose}>
+            {t("addSource.cancel")}
+          </button>
+          <button className="nav-btn primary" onClick={save}>
+            {t("editSource.save")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -462,6 +584,7 @@ function ReshapeGroupRow({
   badgeTooltip,
   checked,
   open,
+  onEdit,
   relocate,
   defaultQuay,
   quayOf,
@@ -477,6 +600,8 @@ function ReshapeGroupRow({
   badgeTooltip: string;
   checked: boolean;
   open: boolean;
+  /** Opens the manual field editor; absent for reused real-titled sources. */
+  onEdit?: () => void;
   relocate: boolean;
   /** The global QUAY, shown as each reference's placeholder value. */
   defaultQuay: string;
@@ -515,6 +640,11 @@ function ReshapeGroupRow({
           <span className="tools-reshape-badge new" title={badgeTooltip}>
             {t("tools.sources.reshapeNew")}
           </span>
+        )}
+        {onEdit && (
+          <button className="tools-issue-link" onClick={onEdit} title={t("editSource.title")}>
+            ✎
+          </button>
         )}
         <span className="tools-chip-count">{group.members.length}</span>
       </div>
