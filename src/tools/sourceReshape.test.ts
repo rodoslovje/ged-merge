@@ -187,7 +187,7 @@ describe("findReshapableLinks — scan", () => {
     expect(report.groups[0].bookType).toBe("baptism");
   });
 
-  it("skips OBJE page media already owned by a SOUR, converts free person-level OBJE pointers", () => {
+  it("converts person-level OBJE pointers — free ones and, in a links-on-events file, sour-owned page media too", () => {
     const report = scan(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -201,8 +201,13 @@ describe("findReshapableLinks — scan", () => {
 0 @O2@ OBJE
 1 FILE ${BOOK2}/?pg=5
 0 TRLR`);
-    expect(report.totalOccurrences).toBe(1);
-    expect(report.groups[0].members[0]).toMatchObject({ shape: "obje", url: `${BOOK2}/?pg=5` });
+    expect(report.totalOccurrences).toBe(2);
+    // The pointer to @S1@'s own page image resolves to that source (reuse);
+    // the free pointer mints a new one.
+    const owned = report.groups.find((g) => g.existingSourceXref === "@S1@")!;
+    expect(owned.members[0]).toMatchObject({ shape: "obje", url: `${BOOK}/?pg=94` });
+    const free = report.groups.find((g) => !g.existingSourceXref)!;
+    expect(free.members[0]).toMatchObject({ shape: "obje", url: `${BOOK2}/?pg=5` });
   });
 
   it("finds pageUrl citations and URL-titled SOUR records", () => {
@@ -718,6 +723,69 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 TITL Hawlina family tree");
     expect(text).toContain("1 FILN GT-7");
     expect(text).not.toContain("1 AUTH"); // cleared in the editor — omitted
+  });
+
+  it("drops a person-level pointer to a source's page image when the event already cites that page", () => {
+    // MyHeritage-style leftover: the person points at the register page image
+    // that already hangs off the book SOUR, while BIRT properly cites the
+    // book at that page. Links-on-events file → the pointer is redundant.
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 15 JUN 1879
+2 SOUR @S1@
+3 PAGE 111
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@"); // pointer gone
+    expect(text.match(/2 SOUR @S1@\n3 PAGE 111/g)).toHaveLength(1); // citation not duplicated
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 .*\n)*1 OBJE @M1@/); // page image stays on the book
+    expect(counts.linksRemoved).toBe(1);
+  });
+
+  it("converts a person-level page-image pointer into an event citation when none exists", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    // Baptism book → the citation lands on a created BIRT; the pointer goes.
+    expect(text).toMatch(/1 BIRT\n2 SOUR @S1@\n3 PAGE 111/);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@");
+  });
+
+  it("keeps the person-level page-image pointer in a doubled-links file", () => {
+    // Same-URL link on person AND event elsewhere = the file doubles links on
+    // purpose (MacFamilyTree style) — the pointer is house style, not noise.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://en.geneanet.org/cemetery/view/5
+1 BURI
+2 WWW https://en.geneanet.org/cemetery/view/5
+0 @I2@ INDI
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I2@"))!;
+    expect(indi).toContain("1 OBJE @M1@");
   });
 
   it("re-links a person-level OBJE record under the SOUR instead of duplicating it", () => {

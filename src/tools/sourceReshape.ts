@@ -1026,7 +1026,11 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
   return doubled > eventOnly;
 }
 
-function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): ScanHit[] {
+function scanOccurrences(
+  records: GedNode[],
+  sites: ReadonlySet<ReshapeSite>,
+  convertSourPageMedia = false,
+): ScanHit[] {
   const objeIndex = buildObjeIndex(records);
   const objeUrls = new Map<string, string>();
   for (const [xref, info] of objeIndex) if (info.url) objeUrls.set(xref, info.url);
@@ -1056,9 +1060,13 @@ function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): S
     }
   }
 
-  // Drop person-level OBJE occurrences whose record is already a source's page
-  // media *and* whose group would go nowhere new — those convert via the group
-  // that reuses the owning SOUR; a plain pointer next to it still converts.
+  // Person/event-level OBJE pointers to media that already hang off a SOUR as
+  // its page images: in a links-on-events file (`convertSourPageMedia`) they
+  // are redundant — the apply reuses the owning SOUR, attaches a proper page
+  // citation on the matching event (or dedupes against one already there) and
+  // drops the pointer. In a doubled-links file the pointer IS the house style
+  // and stays.
+  if (convertSourPageMedia) return hits;
   return hits.filter((h) => !(h.shape === "obje" && h.objeXref && sourReferenced.has(h.objeXref)));
 }
 
@@ -1222,8 +1230,9 @@ export function findReshapableLinks(
   opts: ReshapeOptions = {},
 ): ReshapeReport {
   const relocate = opts.relocate !== false;
-  const hits = scanOccurrences(dataset.records, sites);
-  const groups = buildGroups(dataset.records, hits, !prefersDoubledLinks(dataset.records));
+  const fold = !prefersDoubledLinks(dataset.records);
+  const hits = scanOccurrences(dataset.records, sites, fold);
+  const groups = buildGroups(dataset.records, hits, fold);
   const baptismTag = baptismTargetTag(dataset.records);
 
   const recordLabel = (rec: GedNode): string => {
@@ -1586,8 +1595,9 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const hits = scanOccurrences(clone, sites).filter((h) => selectedById.has(h.recognized.groupKey));
-  const groups = buildGroups(clone, hits, !prefersDoubledLinks(clone));
+  const fold = !prefersDoubledLinks(clone);
+  const hits = scanOccurrences(clone, sites, fold).filter((h) => selectedById.has(h.recognized.groupKey));
+  const groups = buildGroups(clone, hits, fold);
   const baptismTag = baptismTargetTag(clone);
   const layout = inferSourceFormat(clone).layout;
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
