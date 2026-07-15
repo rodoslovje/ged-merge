@@ -66,7 +66,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await birth.locator(".edit-event-addfield").selectOption("source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
-  await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
+  await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();
 
   await expect(saveBtn).toBeEnabled();
   await saveBtn.click();
@@ -129,7 +129,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await marriage.locator(".edit-event-addfield").selectOption("source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
-  await sourceDialog.getByRole("button", { name: "Add", exact: true }).click();
+  await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();
 
   const saveBtn = page.locator(".app-head-actions .export-btn");
   await expect(saveBtn).toBeEnabled();
@@ -162,7 +162,7 @@ test("edit mode: undoing a removed source citation restores its title, not just 
   await dialog.locator(".add-source-textarea").fill(
     "Marta Rendla, »Jožef Celar«, Smrtne žrtve (Ljubljana: INZ, 2026), https://www.sistory.si/ww2/TEST-CASE",
   );
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add source", exact: true }).click();
 
   await expect(page.locator(".source-ref").first()).toHaveClass(/source-ref--book/);
 
@@ -189,7 +189,7 @@ test("edit mode: clicking a source citation opens an editable dialog, prefilled,
   await addDialog.locator(".add-source-textarea").fill(
     "Marta Rendla, »Jožef Celar«, Smrtne žrtve (Ljubljana: INZ, 2026), https://www.sistory.si/ww2/ORIGINAL",
   );
-  await addDialog.getByRole("button", { name: "Add", exact: true }).click();
+  await addDialog.getByRole("button", { name: "Add source", exact: true }).click();
 
   // Clicking the icon opens an edit dialog instead of navigating away.
   await page.locator(".source-ref").first().click();

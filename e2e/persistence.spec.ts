@@ -135,7 +135,7 @@ test("clearing cached data drops the workspace, so a reload returns to the landi
   // Settings → Advanced tab → Clear cached data → confirm.
   await page.getByRole("button", { name: "Settings" }).first().click();
   await page.getByRole("tab", { name: "Advanced" }).click();
-  await page.getByRole("button", { name: "Clear cached data" }).click();
+  await page.getByRole("button", { name: "Clear locally stored data" }).click();
   await page.locator(".confirm-dialog-confirm").click();
 
   await page.reload();
