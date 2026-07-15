@@ -417,18 +417,19 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("sistory")) return undefined;
     const war = sistory[1].toUpperCase();
     const id = sistory[2].toUpperCase();
-    // The id means nothing to a reader — it goes to the filing number, and
-    // the title prefers the person's name, which the SIstory citation text
-    // carries in »…« quotes. The citation's "(Ljubljana: Inštitut za novejšo
-    // zgodovino, 2026)" supplies the publication place and the institute
-    // (the source's agency, matching what a fetched record fills).
+    // The title prefers the person's name, which the SIstory citation text
+    // carries in »…« quotes; without one the record id stands in (it's the
+    // only thing distinguishing records offline) besides the filing number.
+    // The citation's "(Ljubljana: Inštitut za novejšo zgodovino, 2026)"
+    // supplies the publication place and the institute (the source's agency,
+    // matching what a fetched record fills).
     const who = quotedCollection(contextText);
     const cit = contextText ? parseSourceInput(contextText) : {};
     return {
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: siteTitle(who, war, "SIstory.si"), filingNumber: id, agency: cit.publisher, place: cit.place },
+      proposed: { title: siteTitle(who ?? id, war, "SIstory.si"), filingNumber: id, agency: cit.publisher, place: cit.place },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -448,7 +449,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, "WW1", "SIstory.si"),
+        title: siteTitle(who ? `${who}${year ? ` (${year})` : ""}` : numId, "WW1", "SIstory.si"),
         filingNumber: numId,
       },
       titleRank: who ? 2 : 0,

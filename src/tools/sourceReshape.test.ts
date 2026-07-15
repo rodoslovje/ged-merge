@@ -835,10 +835,11 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
   });
 
-  it("recognizes short numeric WW1 record ids", () => {
+  it("recognizes short numeric WW1 record ids, keeping the id in the offline title", () => {
     const rec = recognizeSourceUrl("https://www.sistory.si/ww1/168")!;
     expect(rec.site).toBe("sistory");
     expect(rec.bookUrl).toBe("https://www.sistory.si/ww1/168");
+    expect(rec.proposed.title).toBe("168 - WW1 - SIstory.si"); // no name available offline
     expect(rec.proposed.filingNumber).toBe("168");
   });
 
