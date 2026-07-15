@@ -1897,16 +1897,35 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
       meta = { title: siteTitle(name, tree, "Geneanet Trees"), author: tree };
     }
   } else if (site === "googlebooks") {
-    // The reader page's title is the book/newspaper name with a localized
-    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The
-    // page carries no issue date/number, and one newspaper spans many
-    // volumes, so the volume id stays in the title to tell them apart. A
-    // relay sometimes titles a failed render with the URL itself — that's
-    // not a name; the offline title stands.
-    const name = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    // The reader page server-renders the volume heading, and for a newspaper
+    // it carries the issue's date: `<h1 class="gb-volume-title">The Windsor
+    // Star <span dir=ltr>May 23, 1969</span></h1>` (hl=en on the fetch pins
+    // the date language). The rendering relay flattens the same heading to a
+    // markdown `# The Windsor Star May 23, 1969` line, so the date is
+    // tail-matched there. A dated issue is unique — `{name}, {date} - Google
+    // Books` — and the date fills the source's DATE; undated volumes (books)
+    // keep the volume id in the title, since one newspaper spans many
+    // volumes and the page title alone can't tell them apart. A relay
+    // sometimes titles a failed render with the URL itself — that's not a
+    // name; the offline title stands.
+    const h1 = /<h1 class="gb-volume-title"[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1];
+    const heading = h1
+      ? decodeHtmlEntities(h1.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+      : /^#\s+(.+)$/m.exec(html)?.[1].trim();
+    const date = h1
+      ? /<span[^>]*>([^<]+)<\/span>/i.exec(h1)?.[1].trim()
+      : heading &&
+        /\s((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4})$/.exec(
+          heading,
+        )?.[1];
+    const name =
+      (date && heading?.replace(date, "").replace(/[\s,]+$/, "").trim()) ||
+      pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
     const volumeId = /[?&]id=([A-Za-z0-9_-]+)/.exec(bookUrl)?.[1];
     if (name && !/^https?:\/\//i.test(name)) {
-      meta = { title: siteTitle(name, volumeId, "Google Books") };
+      meta = date
+        ? { title: siteTitle(`${name}, ${date}`, undefined, "Google Books"), dateRange: date }
+        : { title: siteTitle(name, volumeId, "Google Books") };
     }
   } else if (site === "youtube") {
     // YouTube's public oEmbed endpoint returns JSON: the video's title and
@@ -2030,7 +2049,12 @@ export async function fetchBookMeta(
       ? matriculaEnUrl(bookUrl)
       : site === "youtube"
         ? `https://www.youtube.com/oembed?url=${encodeURIComponent(bookUrl)}&format=json`
-        : bookUrl;
+        : site === "googlebooks"
+          ? // The bare volume URL redirects to the About page, which carries no
+            // issue date — printsec=frontcover keeps the *reader* page, whose
+            // heading dates a newspaper issue; hl=en pins the date language.
+            `${bookUrl}&printsec=frontcover&hl=en`
+          : bookUrl;
   const html = await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
   if (meta) bookMetaCache.set(cacheKey, meta);

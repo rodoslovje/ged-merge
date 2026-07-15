@@ -1288,11 +1288,35 @@ Memorial ID 273320916 273320916`;
     const gb = await fetchBookMeta(
       "googlebooks",
       "https://books.google.com/books?id=90Q_TESTIBAJ",
-      async () => `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`,
+      async (url) => {
+        // The About page has no issue date — the fetch must stay on the reader.
+        expect(url).toContain("&printsec=frontcover");
+        expect(url).toContain("&hl=en");
+        return `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`;
+      },
     );
-    // Volume id stays in the title: one paper spans many volumes and the
-    // page carries no issue date to tell them apart.
+    // No dated volume heading (a book): the volume id stays in the title —
+    // one paper spans many volumes and nothing else tells them apart.
     expect(gb).toEqual({ title: "The Windsor Star - 90Q_TESTIBAJ - Google Books" });
+
+    // Newspaper reader heading captured 2026-07-15: the issue's date sits in
+    // the h1's span — it names the issue and fills the source DATE.
+    const news = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=92Q_TESTIBAJ",
+      async () =>
+        `<html><head><title>The Windsor Star - Google Books</title></head><body>` +
+        `<h1 class="gb-volume-title" dir=ltr>The Windsor Star <span dir=ltr>May 23, 1969</span></h1></body></html>`,
+    );
+    expect(news).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
+
+    // The rendering relay flattens the same heading to markdown.
+    const md = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=93Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star May 23, 1969\n`,
+    );
+    expect(md).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
 
     // A relay that fails to render titles the page with the URL — no name.
     const gbFail = await fetchBookMeta(
