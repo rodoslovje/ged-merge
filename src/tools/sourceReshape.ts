@@ -63,6 +63,7 @@ export const ALL_SITES = [
   "matricula",
   "geneanet",
   "findagrave",
+  "billiongraves",
   "legacy",
   "sistory",
   "dlib",
@@ -271,6 +272,9 @@ const GENEANET_VIEW_RE = /\/cemetery\/view\/([^/?#]+)/;
  *  other Find a Grave pages are not grave records and fall through to "other". */
 const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\/(\d+)(?:\/([^/?#]+))?/i;
 
+/** A BillionGraves grave page: /grave/{name-slug}/{id}. */
+const BILLIONGRAVES_RE = /^https?:\/\/(?:\w+\.)?billiongraves\.com\/grave\/([^/?#]+)\/(\d+)/i;
+
 /** A Legacy.com obituary URL — several vintages share the host, an
  *  "obituaries" path, a `{name}-obituary` slug and an `id`/`pid` param:
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
@@ -374,6 +378,21 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
       proposed: { title: siteTitle(who, undefined, "Find a Grave"), filingNumber: grave[1] },
+      titleRank: who ? 1 : 0,
+    };
+  }
+
+  const bg = BILLIONGRAVES_RE.exec(url.trim());
+  if (bg) {
+    if (!sites.has("billiongraves")) return undefined;
+    const who = prettySlug(bg[1]);
+    // `{person} - BillionGraves` — the grave id goes to the filing number;
+    // enrichment adds the cemetery from the page's schema.org data.
+    return {
+      site: "billiongraves",
+      groupKey: `bg:${bg[2]}`,
+      bookUrl: `https://billiongraves.com/grave/${bg[1]}/${bg[2]}`,
+      proposed: { title: siteTitle(who, undefined, "BillionGraves"), filingNumber: bg[2] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -778,6 +797,7 @@ const SITE_ORDER = new Map<ReshapeSite, number>(ALL_SITES.map((s, i) => [s, i]))
 const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
   geneanet: "burial",
   findagrave: "burial",
+  billiongraves: "burial",
   legacy: "death",
   sistory: "death",
 };
@@ -1130,6 +1150,7 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   matricula: { hostRe: /data\.matricula-online\.eu/i, name: "Matricula Online", www: "https://data.matricula-online.eu/" },
   geneanet: { hostRe: /geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
+  billiongraves: { hostRe: /billiongraves\.com/i, name: "BillionGraves", www: "https://billiongraves.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
   dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
@@ -1625,6 +1646,39 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         place: location || undefined,
         address: cemetery,
       };
+    }
+  } else if (site === "billiongraves") {
+    // The grave page is server-rendered with a schema.org Person JSON-LD:
+    // name, birth/death dates, and the cemetery (`deathPlace`) with its
+    // postal address. `{person} - {cemetery} - BillionGraves` names the
+    // grave; the cemetery is the BURI address, its town/country the place.
+    interface BgPlace {
+      name?: string;
+      address?: { addressLocality?: string; addressRegion?: string; addressCountry?: string };
+    }
+    interface BgPerson {
+      "@type"?: string;
+      name?: string;
+      deathPlace?: BgPlace;
+    }
+    let person: BgPerson | undefined;
+    for (const m of html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)) {
+      try {
+        const parsed = JSON.parse(m[1]) as BgPerson | BgPerson[];
+        person = (Array.isArray(parsed) ? parsed : [parsed]).find((x) => x?.["@type"] === "Person");
+        if (person) break;
+      } catch {
+        // not JSON — try the next block
+      }
+    }
+    const name = person?.name ?? pageTitleOf(html)?.replace(/\s*[-|]\s*BillionGraves.*$/i, "").trim();
+    if (name) {
+      const cemetery = person?.deathPlace?.name;
+      const addr = person?.deathPlace?.address;
+      const place =
+        [...new Set([addr?.addressLocality, addr?.addressRegion, addr?.addressCountry].filter(Boolean))].join(", ") ||
+        undefined;
+      meta = { title: siteTitle(name, cemetery, "BillionGraves"), place, address: cemetery };
     }
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();

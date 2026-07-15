@@ -30,6 +30,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
   findagrave: "🪦",
+  billiongraves: "🪦",
   legacy: "📰",
   sistory: "🎖️",
   dlib: "📚",
@@ -99,7 +100,7 @@ export function SourceCleanupView({
       reshapeReportProp ?? {
         groups: [],
         totalOccurrences: 0,
-        bySite: { matricula: 0, geneanet: 0, findagrave: 0, legacy: 0, sistory: 0, dlib: 0, familysearch: 0, other: 0 },
+        bySite: { matricula: 0, geneanet: 0, findagrave: 0, billiongraves: 0, legacy: 0, sistory: 0, dlib: 0, familysearch: 0, other: 0 },
       },
     [reshapeReportProp],
   );

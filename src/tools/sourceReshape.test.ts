@@ -803,6 +803,20 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN 26608778");
   });
 
+  it("treats BillionGraves graves like Find a Grave: BURI placement, id as filing number", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://billiongraves.com/grave/Polona-Renko/18374346
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "billiongraves")!;
+    expect(g.bookType).toBe("burial");
+    expect(g.proposed.title).toBe("Polona Renko - BillionGraves");
+    expect(g.proposed.filingNumber).toBe("18374346");
+    expect(text).toMatch(/1 BURI\n2 SOUR @S1@/);
+    expect(text).toContain("1 FILN 18374346");
+  });
+
   it("groups dLib.si details and stream links by URN, id as filing number", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -1090,6 +1104,31 @@ Memorial ID 273320916 273320916`;
     expect(meta?.agency).toBe("Nadškofijski arhiv Ljubljana"); // not the parish link, not "Ljubljana"
     expect(meta?.title).toBe("Krstna knjiga / Taufbuch - 01723 | Podzemelj");
     expect(meta?.dateRange).toBe("1675-1725");
+  });
+
+  it("parses the BillionGraves grave page's schema.org JSON-LD", async () => {
+    // Trimmed from the real grave page (captured 2026-07-15).
+    const BG_HTML = `<html><head><title>Polona Renko (1927 - 1963) | BillionGraves GPS Headstones</title>
+<script type="application/ld+json">${JSON.stringify([
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name: "Polona Renko",
+        birthDate: "1927-11-8",
+        deathDate: "1963-7-3",
+        deathPlace: {
+          "@type": "Place",
+          name: "Mirogoj",
+          address: { "@type": "PostalAddress", addressLocality: "Zagreb", addressRegion: "Zagreb", addressCountry: "Croatia" },
+        },
+      },
+    ])}</script></head><body></body></html>`;
+    const meta = await fetchBookMeta("billiongraves", "https://billiongraves.com/grave/Polona-Renko/18374346", async () => BG_HTML);
+    expect(meta).toEqual({
+      title: "Polona Renko - Mirogoj - BillionGraves",
+      place: "Zagreb, Croatia", // locality/region dedupe
+      address: "Mirogoj",
+    });
   });
 
   it("parses the dLib.si details page's metadata table", async () => {
