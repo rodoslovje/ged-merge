@@ -571,7 +571,9 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         page: fs.image,
         proposed: {
           title: collection ?? (fs.cat ? `FamilySearch film ${fs.cat}` : `FamilySearch ${fs.ark}`),
-          filingNumber: fs.cat,
+          // The film/catalog number identifies the source; a lone image link
+          // has only its ARK id.
+          filingNumber: fs.cat ?? fs.ark,
         },
         typeHint: collection,
       };
@@ -581,7 +583,9 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: collection ? `f:coll:${collection.toLowerCase()}` : `f:${linkKey(url)}`,
       bookUrl: cleanUrl(url),
       page: fs.ark,
-      proposed: { title: collection ?? `FamilySearch ${fs.ark}` },
+      // A collection-grouped source spans many records, so no single record's
+      // ARK can be its filing number — the id stays on each citation's PAGE.
+      proposed: { title: collection ?? `FamilySearch ${fs.ark}`, filingNumber: collection ? undefined : fs.ark },
       typeHint: collection,
     };
   }
@@ -1507,6 +1511,7 @@ export function reshapeSources(
     for (const hit of state.hits) {
       if (hit.shape !== "sourTitle") continue;
       hit.node.value = fields.title;
+      fillField(hit.rec, "AUTH", fields.author);
       fillField(hit.rec, "AGNC", fields.agency);
       fillField(hit.rec, "PLAC", fields.place);
       fillField(hit.rec, "FILN", fields.filingNumber);
@@ -1598,13 +1603,16 @@ export function reshapeSources(
 
       // A grave record tells us where the burial is: fill the BURI event's
       // missing place from the source's location (never overwrite one). In a
-      // place+address file, the cemetery name goes into the event's ADDR.
-      if (bookType === "burial" && container.tag === "BURI" && fields.place && !firstChild(container, "PLAC")) {
-        insertOrdered(
-          container,
-          { level: container.level + 1, tag: "PLAC", value: fields.place, children: [] },
-          EVENT_CHILD_ORDER,
-        );
+      // place+address file, the cemetery name goes into the event's ADDR —
+      // also when the event already carries a place of its own.
+      if (bookType === "burial" && container.tag === "BURI") {
+        if (fields.place && !firstChild(container, "PLAC")) {
+          insertOrdered(
+            container,
+            { level: container.level + 1, tag: "PLAC", value: fields.place, children: [] },
+            EVENT_CHILD_ORDER,
+          );
+        }
         if (structuredAddr && extra?.address && !firstChild(container, "ADDR")) {
           insertOrdered(
             container,

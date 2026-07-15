@@ -193,7 +193,7 @@ export const sl = {
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
-  "tools.sources.reshapeSite.legacy": "Legacy.com osmrtnice",
+  "tools.sources.reshapeSite.legacy": "Legacy.com",
   "tools.sources.reshapeSite.sistory": "SIstory.si žrtve vojn",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",
