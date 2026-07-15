@@ -245,6 +245,28 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           </section>
 
           <section className="settings-section">
+            <h3>{t("settings.sources.title")}</h3>
+            <fieldset className="settings-radio-group">
+              <legend className="settings-row-label">{t("settings.sources.pageMedia")}</legend>
+              <span className="settings-hint">{t("settings.sources.pageMedia.hint")}</span>
+              <div className="settings-radio-row">
+                {(["auto", "event", "source"] as const).map((mode) => (
+                  <label key={mode} className="settings-radio">
+                    <input
+                      type="radio"
+                      name="settings-source-page-media"
+                      value={mode}
+                      checked={settings.sourcePageMedia === mode}
+                      onChange={() => set({ sourcePageMedia: mode })}
+                    />
+                    <span className="settings-row-label">{t(`settings.sources.pageMedia.${mode}`)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </section>
+
+          <section className="settings-section">
             <h3>{t("settings.data.title")}</h3>
             <label className="settings-row settings-row-toggle">
               <input

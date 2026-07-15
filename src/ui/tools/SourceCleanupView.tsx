@@ -10,6 +10,7 @@ import {
   reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
+  type ReshapeMeta,
   type ReshapeOccurrence,
   type ReshapeReport,
   type ReshapeSite,
@@ -90,7 +91,7 @@ export function SourceCleanupView({
       reshapeReportProp ?? {
         groups: [],
         totalOccurrences: 0,
-        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, familysearch: 0, other: 0 },
+        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, newspapers: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, wikipedia: 0, biografija: 0, obrazi: 0, familysearch: 0, other: 0 },
       },
     [reshapeReportProp],
   );
@@ -112,6 +113,11 @@ export function SourceCleanupView({
   /** Per-reference QUAY overrides, keyed `${groupId}:${memberIndex}`. */
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
+  /** Group whose source fields are open in the manual editor. */
+  const [editGroup, setEditGroup] = useState<ReshapeGroup | null>(null);
+  /** Groups marked "remove references" — the apply strips their links (dead
+   *  URLs) instead of converting them into sources. */
+  const [removeMarked, setRemoveMarked] = useState<Set<string>>(new Set());
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
   /** Books the last fetch run could not retrieve (relay down / blocked). */
   const [fetchFailed, setFetchFailed] = useState(0);
@@ -157,12 +163,13 @@ export function SourceCleanupView({
         .map((g) => ({
           ...g,
           quay: quay || undefined,
+          removeLinks: removeMarked.has(g.id) || undefined,
           members: g.members.map((m, i) => {
             const override = quayOverrides.get(`${g.id}:${i}`);
             return override ? { ...m, quay: override } : m;
           }),
         })),
-    [visibleGroups, excluded, quayOverrides, quay],
+    [visibleGroups, excluded, quayOverrides, quay, removeMarked],
   );
   const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   // Books the fetch button will actually check: only *selected* new-source
@@ -170,7 +177,8 @@ export function SourceCleanupView({
   // URL-titled sources are "existing" but get rewritten — they want enrichment
   // as much as brand-new ones do.
   const fetchableGroups = selectedGroups.filter(
-    (g) => (!g.existingSourceXref || g.urlTitled) && !enrichment.has(g.id) && isFetchableSite(g.site),
+    (g) =>
+      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site),
   );
 
   const selectedDupGroups = dupReport.groups
@@ -181,7 +189,10 @@ export function SourceCleanupView({
   function download() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, { relocate });
+    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
+      relocate,
+      pageMedia: settings.sourcePageMedia,
+    });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
@@ -259,8 +270,9 @@ export function SourceCleanupView({
       (meta?.author ?? g.proposed.author) && `${fieldLabel("AUTH")}: ${meta?.author ?? g.proposed.author}`,
       (meta?.agency ?? g.proposed.agency) && `${fieldLabel("AGNC")}: ${meta?.agency ?? g.proposed.agency}`,
       place && `${fieldLabel("PLAC")}: ${place}`,
-      g.proposed.filingNumber && `${fieldLabel("FILN")}: ${g.proposed.filingNumber}`,
-      meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
+      (meta?.filingNumber ?? g.proposed.filingNumber) &&
+        `${fieldLabel("FILN")}: ${meta?.filingNumber ?? g.proposed.filingNumber}`,
+      (meta?.dateRange ?? g.proposed.dateRange) && `${fieldLabel("DATE")}: ${meta?.dateRange ?? g.proposed.dateRange}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -334,6 +346,21 @@ export function SourceCleanupView({
               {t("tools.sources.reshapePlace")}
             </label>
             <QuaySelect value={quay} onChange={setQuay} />
+            {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
+              <button
+                className="nav-btn tools-run"
+                onClick={fetchDetails}
+                disabled={fetching !== null}
+                title={t("tools.sources.reshapeFetchHint")}
+              >
+                {fetching
+                  ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
+                  : `${t("tools.sources.reshapeFetch")} (${fetchableGroups.length})`}
+              </button>
+            )}
+            {fetchFailed > 0 && !fetching && (
+              <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
+            )}
           </div>
 
           <ul className="tools-tree">
@@ -345,6 +372,11 @@ export function SourceCleanupView({
                 badgeTooltip={badgeTooltip(g)}
                 checked={!excluded.has(g.id)}
                 open={expanded.has(g.id)}
+                // Only groups whose source fields the apply writes are
+                // hand-editable — a reused real-titled source is left alone.
+                onEdit={!g.existingSourceXref || g.urlTitled ? () => setEditGroup(g) : undefined}
+                removeMarked={removeMarked.has(g.id)}
+                onToggleRemove={() => toggleIn(setRemoveMarked)(g.id)}
                 relocate={relocate}
                 defaultQuay={quay}
                 quayOf={(i) => quayOverrides.get(`${g.id}:${i}`) ?? ""}
@@ -423,21 +455,6 @@ export function SourceCleanupView({
         <button className="nav-btn primary tools-run" onClick={download} disabled={nothingSelected}>
           {t("tools.sources.cleanupDownload")}
         </button>
-        {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
-          <button
-            className="nav-btn tools-run"
-            onClick={fetchDetails}
-            disabled={fetching !== null}
-            title={t("tools.sources.reshapeFetchHint")}
-          >
-            {fetching
-              ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
-              : `${t("tools.sources.reshapeFetch")} (${fetchableGroups.length})`}
-          </button>
-        )}
-        {fetchFailed > 0 && !fetching && (
-          <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
-        )}
         {!nothingSelected && (
           <span className="tools-fix-hint">
             {[
@@ -451,7 +468,122 @@ export function SourceCleanupView({
           </span>
         )}
       </div>
+
+      {editGroup && (
+        <GroupEditDialog
+          key={editGroup.id}
+          group={editGroup}
+          meta={enrichment.get(editGroup.id)}
+          resolvePlace={resolvePlace}
+          onSave={(meta) => setEnrichment((prev) => new Map(prev).set(editGroup.id, meta))}
+          onClose={() => setEditGroup(null)}
+        />
+      )}
     </>
+  );
+}
+
+/** Manual editor for one group's source fields. Saved values land in the same
+ *  per-group enrichment map fetched metadata uses, so the list title, badge
+ *  tooltip and apply all pick them up — and the fetch skips the group
+ *  afterwards (the user's edits win). Clearing a field writes nothing. */
+function GroupEditDialog({
+  group,
+  meta,
+  resolvePlace,
+  onSave,
+  onClose,
+}: {
+  group: ReshapeGroup;
+  /** The group's fetched/edited metadata so far — the editor's baseline. */
+  meta: ReshapeMeta | undefined;
+  resolvePlace: (place: string | undefined) => string | undefined;
+  onSave: (meta: ReshapeMeta) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [fields, setFields] = useState(() => ({
+    title: meta?.title ?? group.proposed.title,
+    author: meta?.author ?? group.proposed.author ?? "",
+    agency: meta?.agency ?? group.proposed.agency ?? "",
+    place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
+    filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
+    dateRange: meta?.dateRange ?? group.proposed.dateRange ?? "",
+  }));
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
+    <label className="add-source-field">
+      <span>{t(labelKey)}</span>
+      <input
+        className="edit-input"
+        autoFocus={autoFocus}
+        value={fields[key]}
+        onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
+      />
+    </label>
+  );
+
+  function save() {
+    onSave({
+      ...meta,
+      // A blanked title falls back to the proposal — sources need one; the
+      // other fields keep the emptied value, which the apply then omits.
+      title: fields.title.trim() || group.proposed.title,
+      author: fields.author.trim(),
+      agency: fields.agency.trim(),
+      place: fields.place.trim(),
+      filingNumber: fields.filingNumber.trim(),
+      dateRange: fields.dateRange.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal add-source-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("editSource.title")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2>
+            <span className="add-source-badge" aria-hidden="true">{SITE_ICON[group.site]}</span>
+            {t("editSource.title")}
+          </h2>
+          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          {field("title", "addSource.field.title", true)}
+          <div className="add-source-details-grid">
+            {field("author", "addSource.field.author")}
+            {field("agency", "addSource.field.agency")}
+            {field("place", "addSource.field.place")}
+            {field("filingNumber", "addSource.field.filingNumber")}
+            {field("dateRange", "addSource.field.dateRange")}
+          </div>
+        </div>
+        <div className="add-source-actions">
+          <button className="nav-btn" onClick={onClose}>
+            {t("addSource.cancel")}
+          </button>
+          <button className="nav-btn primary" onClick={save}>
+            {t("editSource.save")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -462,6 +594,9 @@ function ReshapeGroupRow({
   badgeTooltip,
   checked,
   open,
+  onEdit,
+  removeMarked,
+  onToggleRemove,
   relocate,
   defaultQuay,
   quayOf,
@@ -477,6 +612,11 @@ function ReshapeGroupRow({
   badgeTooltip: string;
   checked: boolean;
   open: boolean;
+  /** Opens the manual field editor; absent for reused real-titled sources. */
+  onEdit?: () => void;
+  /** The group is marked "remove references" — apply strips its links. */
+  removeMarked: boolean;
+  onToggleRemove: () => void;
   relocate: boolean;
   /** The global QUAY, shown as each reference's placeholder value. */
   defaultQuay: string;
@@ -495,7 +635,11 @@ function ReshapeGroupRow({
         <button className={`tools-pair-toggle ${open ? "open" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
           ▶
         </button>
-        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.bookUrl}>
+        <span
+          className={`tools-tree-label clickable${removeMarked ? " tools-reshape-removed" : ""}`}
+          onClick={onToggleOpen}
+          title={group.bookUrl}
+        >
           {SITE_ICON[group.site]} {title}
         </span>
         <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
@@ -507,7 +651,11 @@ function ReshapeGroupRow({
         {group.pages.length > 0 && (
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
         )}
-        {group.existingSourceXref ? (
+        {removeMarked ? (
+          <span className="tools-reshape-badge remove" title={t("tools.sources.reshapeRemoveHint")}>
+            {t("tools.sources.reshapeRemoveBadge")}
+          </span>
+        ) : group.existingSourceXref ? (
           <span className="tools-reshape-badge reuse" title={badgeTooltip}>
             {t("tools.sources.reshapeReuses")}
           </span>
@@ -516,6 +664,19 @@ function ReshapeGroupRow({
             {t("tools.sources.reshapeNew")}
           </span>
         )}
+        {onEdit && !removeMarked && (
+          <button className="tools-issue-link" onClick={onEdit} title={t("editSource.title")}>
+            ✎
+          </button>
+        )}
+        <button
+          className="tools-issue-link"
+          onClick={onToggleRemove}
+          aria-pressed={removeMarked}
+          title={t(removeMarked ? "tools.sources.reshapeRemoveUndo" : "tools.sources.reshapeRemoveHint")}
+        >
+          {removeMarked ? "↩" : "🗑"}
+        </button>
         <span className="tools-chip-count">{group.members.length}</span>
       </div>
       {open && (

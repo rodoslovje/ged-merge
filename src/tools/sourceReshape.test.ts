@@ -6,6 +6,7 @@ import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
+  detectPageMediaStyle,
   classifyBookType,
   fetchBookMeta,
   fetchReshapeMeta,
@@ -33,7 +34,7 @@ function scan(text: string, sites?: ReshapeSite[]) {
 }
 
 /** Run the full pipeline (all groups selected) and return the serialized output. */
-function applyAll(text: string, opts?: { relocate?: boolean; quay?: string }) {
+function applyAll(text: string, opts?: { relocate?: boolean; quay?: string; pageMedia?: "auto" | "event" | "source" }) {
   const ds = dataset(text);
   const report = findReshapableLinks(ds, undefined, opts);
   const groups = report.groups.map((g) => (opts?.quay ? { ...g, quay: opts.quay } : g));
@@ -187,7 +188,7 @@ describe("findReshapableLinks — scan", () => {
     expect(report.groups[0].bookType).toBe("baptism");
   });
 
-  it("skips OBJE page media already owned by a SOUR, converts free person-level OBJE pointers", () => {
+  it("converts person-level OBJE pointers — free ones and, in a links-on-events file, sour-owned page media too", () => {
     const report = scan(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -201,8 +202,13 @@ describe("findReshapableLinks — scan", () => {
 0 @O2@ OBJE
 1 FILE ${BOOK2}/?pg=5
 0 TRLR`);
-    expect(report.totalOccurrences).toBe(1);
-    expect(report.groups[0].members[0]).toMatchObject({ shape: "obje", url: `${BOOK2}/?pg=5` });
+    expect(report.totalOccurrences).toBe(2);
+    // The pointer to @S1@'s own page image resolves to that source (reuse);
+    // the free pointer mints a new one.
+    const owned = report.groups.find((g) => g.existingSourceXref === "@S1@")!;
+    expect(owned.members[0]).toMatchObject({ shape: "obje", url: `${BOOK}/?pg=94` });
+    const free = report.groups.find((g) => !g.existingSourceXref)!;
+    expect(free.members[0]).toMatchObject({ shape: "obje", url: `${BOOK2}/?pg=5` });
   });
 
   it("finds pageUrl citations and URL-titled SOUR records", () => {
@@ -626,7 +632,7 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
-    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -674,6 +680,227 @@ describe("reshapeSources — apply", () => {
     expect(counts.sourcesCreated).toBe(0);
     expect(text).toContain("1 TITL Rajko Vute - hawlina - Geneanet Trees");
     expect(text).toContain("1 AUTH hawlina"); // same author the offline proposal carries
+  });
+
+  it("removeLinks strips a dead link everywhere without creating a source", () => {
+    const url = "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary-c-chudovan-yaklich&pid=161495515";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE Obituary at ${url} in the Gettysburg Times.
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+1 DEAT
+2 WWW ${url}
+0 @S1@ SOUR
+1 TITL U.S., Obituary Collection, 1930-Current
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const groups = report.groups.map((g) => (g.site === "legacy" ? { ...g, removeLinks: true } : g));
+    const { records, counts } = reshapeSources(ds.records, groups);
+    const text = serializeGedcom(records);
+    expect(text).not.toContain("legacy.com"); // the dead link is gone everywhere
+    expect(counts.sourcesCreated).toBe(0);
+    expect(text).toContain("1 NOTE Obituary at in the Gettysburg Times."); // note text survives
+    expect(text).toContain("2 PAGE Publication Date: 8/ Dec/ 2012"); // citation prose survives
+    expect(text).toContain("1 SOUR @S1@"); // the Ancestry citation itself stays
+    expect(text).not.toContain("2 WWW"); // the bare link field is dropped
+    expect(counts.linksRemoved).toBe(1);
+  });
+
+  it("folds duplicated identical citations into one (Ancestry re-exports them verbatim)", () => {
+    // Real shape from an Ancestry export: the same record-level citation —
+    // same source, same PAGE with the obituary URL — appears twice on the
+    // person. Both relocate to the death event and must become ONE citation.
+    const url =
+      "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary-c-chudovan-yaklich&pid=161495515";
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 DATE 17 OCT 1918
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+0 @S1@ SOUR
+1 TITL U.S., Obituary Collection, 1930-Current
+0 TRLR`);
+    const indi = text.slice(text.indexOf("0 @I1@"), text.indexOf("0 @S"));
+    expect(indi.match(/2 SOUR /g)).toHaveLength(1); // one citation, on DEAT
+    // The "; URL:" label doesn't dangle once its link is gone.
+    expect(indi).toContain("3 PAGE Publication Date: 8/ Dec/ 2012\n");
+  });
+
+  it("applies panel-edited fields: filing-number override, cleared author writes nothing", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { title: "Hawlina family tree", author: "", filingNumber: "GT-7" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    expect(text).toContain("1 TITL Hawlina family tree");
+    expect(text).toContain("1 FILN GT-7");
+    expect(text).not.toContain("1 AUTH"); // cleared in the editor — omitted
+  });
+
+  it("drops a person-level pointer to a source's page image when the event already cites that page", () => {
+    // MyHeritage-style leftover: the person points at the register page image
+    // that already hangs off the book SOUR, while BIRT properly cites the
+    // book at that page. Links-on-events file → the pointer is redundant.
+    const { text, counts } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 15 JUN 1879
+2 SOUR @S1@
+3 PAGE 111
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@"); // pointer gone
+    expect(text.match(/2 SOUR @S1@\n3 PAGE 111/g)).toHaveLength(1); // citation not duplicated
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 .*\n)*1 OBJE @M1@/); // page image stays on the book
+    expect(counts.linksRemoved).toBe(1);
+  });
+
+  it("converts a person-level page-image pointer into an event citation when none exists", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    // Baptism book → the citation lands on a created BIRT; the pointer goes.
+    expect(text).toMatch(/1 BIRT\n2 SOUR @S1@\n3 PAGE 111/);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@");
+  });
+
+  it("detects the file's page-media style", () => {
+    const eventStyle = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    expect(detectPageMediaStyle(eventStyle.records)).toBe("event");
+    const sourceStyle = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    expect(detectPageMediaStyle(sourceStyle.records)).toBe("source");
+  });
+
+  it("event page-media style: converted links get the page image beside the citation", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 TRLR`,
+      { pageMedia: "event" },
+    );
+    // Citation + the cited page's OBJE side by side on the event.
+    expect(text).toMatch(/1 BIRT\n2 OBJE @O\d+@\n2 SOUR @S\d+@\n3 PAGE 94/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n(1 .*\n)*1 OBJE @O\d+@/); // and on the source
+  });
+
+  it("event page-media style: a pointer already beside its citation stays untouched", () => {
+    const src = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`;
+    // Auto-detects "event" (the one cited event carries its page image).
+    const { text, report } = applyAll(src);
+    expect(report.totalOccurrences).toBe(0); // nothing to organize
+    expect(text.match(/2 OBJE @M1@/g)).toHaveLength(1);
+    expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
+  });
+
+  it("event page-media style: a person-level pointer moves beside the event citation", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`,
+      { pageMedia: "event" },
+    );
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@"); // person-level pointer gone
+    expect(indi).toMatch(/1 BIRT\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 111/); // now beside the citation
+  });
+
+  it("keeps the person-level page-image pointer in a doubled-links file", () => {
+    // Same-URL link on person AND event elsewhere = the file doubles links on
+    // purpose (MacFamilyTree style) — the pointer is house style, not noise.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://en.geneanet.org/cemetery/view/5
+1 BURI
+2 WWW https://en.geneanet.org/cemetery/view/5
+0 @I2@ INDI
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I2@"))!;
+    expect(indi).toContain("1 OBJE @M1@");
   });
 
   it("re-links a person-level OBJE record under the SOUR instead of duplicating it", () => {
@@ -928,6 +1155,84 @@ describe("reshapeSources — citation placement", () => {
     expect(yt.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
     expect(yt.proposed.title).toBe("lD5eGiGwlZs - YouTube");
     expect(recognizeSourceUrl("https://youtu.be/lD5eGiGwlZs")?.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
+  });
+
+  it("recognizes Newspapers.com images with Ancestry citation prose", () => {
+    // Real Ancestry PAGE shape: paper; Publication Date; Publication Place; URL.
+    const rec = recognizeSourceUrl(
+      "https://www.newspapers.com/image/504323954/?article=c0efbc58-dd91-411f-9635-99cee122af5e&focus=0.04,0.60&xid=3355",
+      "The Windsor Star; Publication Date: 23 Jun 1998; Publication Place: Windsor, Ontario, Canada; URL: https://www.newspapers.com/image/504323954/",
+    )!;
+    expect(rec.site).toBe("newspapers");
+    expect(rec.bookUrl).toBe("https://www.newspapers.com/image/504323954/");
+    expect(rec.proposed.title).toBe("The Windsor Star, 23 Jun 1998 - Newspapers.com");
+    expect(rec.proposed.place).toBe("Windsor, Ontario, Canada");
+    expect(rec.proposed.filingNumber).toBe("504323954");
+    expect(rec.proposed.dateRange).toBe("23 Jun 1998");
+
+    // Ancestry's slashed date variant normalizes; a bare URL gets the id title.
+    const slashed = recognizeSourceUrl(
+      "https://www.newspapers.com/image/502046098/",
+      "The Windsor Star; Publication Date: 13/ Jul/ 1967; Publication Place: Windsor, Ontario, Canada",
+    )!;
+    expect(slashed.proposed.title).toBe("The Windsor Star, 13 Jul 1967 - Newspapers.com");
+    const bare = recognizeSourceUrl("https://www.newspapers.com/image/502046098/")!;
+    expect(bare.proposed.title).toBe("502046098 - Newspapers.com");
+  });
+
+  it("converts a Newspapers.com obituary citation into a dated source on DEAT", () => {
+    const url =
+      "https://www.newspapers.com/image/504323954/?article=c0efbc58-dd91-411f-9635-99cee122af5e&xid=3355";
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 DATE 23 JUN 1998
+1 SOUR @S1@
+2 PAGE The Windsor Star; Publication Date: 23 Jun 1998; Publication Place: Windsor, Ontario, Canada; URL: ${url}
+0 @I2@ INDI
+1 BIRT
+2 PLAC Windsor, Ontario, Canada
+0 @S1@ SOUR
+1 TITL Canada, Newspapers.com™ Obituary Index, 1800s-current
+0 TRLR`);
+    // The collection title classifies the group as death evidence.
+    expect(report.groups.find((g) => g.site === "newspapers")?.bookType).toBe("death");
+    expect(text).toContain("1 TITL The Windsor Star, 23 Jun 1998 - Newspapers.com");
+    expect(text).toContain("1 PLAC Windsor, Ontario, Canada");
+    expect(text).toContain("1 FILN 504323954");
+    expect(text).toContain("1 DATE 23 Jun 1998");
+    expect(text).toContain(`1 FILE ${url}`); // the clipping URL stays the media link
+    expect(text).toMatch(/1 DEAT\n2 DATE 23 JUN 1998\n2 SOUR @S2@/); // relocated onto the death
+  });
+
+  it("recognizes Wikipedia articles across languages and URL forms", () => {
+    const en = recognizeSourceUrl("https://en.wikipedia.org/wiki/Primo%C5%BE_Trubar")!;
+    expect(en.site).toBe("wikipedia");
+    expect(en.bookUrl).toBe("https://en.wikipedia.org/wiki/Primo%C5%BE_Trubar");
+    expect(en.proposed.title).toBe("Primož Trubar - Wikipedia");
+
+    // Mobile + index.php form land in the same group as the plain article.
+    const mobile = recognizeSourceUrl("https://sl.m.wikipedia.org/wiki/Primo%C5%BE_Trubar")!;
+    expect(mobile.site).toBe("wikipedia");
+    const indexPhp = recognizeSourceUrl("https://sl.wikipedia.org/w/index.php?title=Primo%C5%BE_Trubar&oldid=5")!;
+    expect(indexPhp.proposed.title).toBe("Primož Trubar - Wikipedia");
+  });
+
+  it("recognizes Slovenska biografija entries by their sbi id", () => {
+    const rec = recognizeSourceUrl("https://www.slovenska-biografija.si/oseba/sbi729148/")!;
+    expect(rec.site).toBe("biografija");
+    expect(rec.bookUrl).toBe("https://www.slovenska-biografija.si/oseba/sbi729148/");
+    expect(rec.proposed.title).toBe("sbi729148 - Slovenska biografija");
+    expect(rec.proposed.filingNumber).toBe("sbi729148");
+    expect(recognizeSourceUrl("https://www.slovenska-biografija.si/rodbina/sbi546925/")?.site).toBe("biografija");
+  });
+
+  it("recognizes Obrazi slovenskih pokrajin person pages", () => {
+    const rec = recognizeSourceUrl("http://obrazislovenskihpokrajin.si/oseba/primoz-trubar")!;
+    expect(rec.site).toBe("obrazi");
+    expect(rec.bookUrl).toBe("https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/");
+    expect(rec.proposed.title).toBe("Primoz Trubar - Obrazi slovenskih pokrajin");
   });
 
   it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {
@@ -1288,11 +1593,56 @@ Memorial ID 273320916 273320916`;
     const gb = await fetchBookMeta(
       "googlebooks",
       "https://books.google.com/books?id=90Q_TESTIBAJ",
-      async () => `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`,
+      async (url) => {
+        // The About page has no issue date — the fetch must stay on the reader.
+        expect(url).toContain("&printsec=frontcover");
+        expect(url).toContain("&hl=en");
+        return `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`;
+      },
     );
-    // Volume id stays in the title: one paper spans many volumes and the
-    // page carries no issue date to tell them apart.
+    // No dated volume heading (a book): the volume id stays in the title —
+    // one paper spans many volumes and nothing else tells them apart.
     expect(gb).toEqual({ title: "The Windsor Star - 90Q_TESTIBAJ - Google Books" });
+
+    // Newspaper reader heading captured 2026-07-15: the issue's date sits in
+    // the h1's span — it names the issue and fills the source DATE.
+    const news = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=92Q_TESTIBAJ",
+      async () =>
+        `<html><head><title>The Windsor Star - Google Books</title></head><body>` +
+        `<h1 class="gb-volume-title" dir=ltr>The Windsor Star <span dir=ltr>May 23, 1969</span></h1></body></html>`,
+    );
+    expect(news).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
+
+    // The rendering relay flattens the same heading to markdown. The date
+    // format varies per volume (captured 2026-07-15: "May 23, 1969",
+    // "Dec 27, 1975", "13 Feb 1965") — whatever follows the known name counts.
+    const md = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=93Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star May 23, 1969\n`,
+    );
+    expect(md).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
+    const mdAbbrev = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=94Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star Dec 27, 1975\n`,
+    );
+    expect(mdAbbrev).toEqual({ title: "The Windsor Star, Dec 27, 1975 - Google Books", dateRange: "Dec 27, 1975" });
+    const mdDayFirst = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=95Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star 13 Feb 1965\n`,
+    );
+    expect(mdDayFirst).toEqual({ title: "The Windsor Star, 13 Feb 1965 - Google Books", dateRange: "13 Feb 1965" });
+    // A dateless heading (a plain book) keeps the volume-id title.
+    const mdBook = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=96Q_TESTIBAJ",
+      async () => `Title: Zgodovina Slovencev\n\nMarkdown Content:\n# Zgodovina Slovencev\n`,
+    );
+    expect(mdBook).toEqual({ title: "Zgodovina Slovencev - 96Q_TESTIBAJ - Google Books" });
 
     // A relay that fails to render titles the page with the URL — no name.
     const gbFail = await fetchBookMeta(
@@ -1312,6 +1662,40 @@ Memorial ID 273320916 273320916`;
       },
     );
     expect(yt).toEqual({ title: "Štefanovo na Kališču, 26.december 2010 - YouTube", author: "Marjan Rekar" });
+  });
+
+  it("parses Wikipedia and Slovenska biografija page titles", async () => {
+    // Page titles captured 2026-07-15 — localized Wikipedia suffix, and the
+    // biografija heading with life years.
+    const wiki = await fetchBookMeta(
+      "wikipedia",
+      "https://sl.wikipedia.org/wiki/Primo%C5%BE_Trubar",
+      async () => `<html><head><title>Primož Trubar - Wikipedija, prosta enciklopedija</title></head></html>`,
+    );
+    expect(wiki).toEqual({ title: "Primož Trubar - Wikipedia" });
+
+    const sb = await fetchBookMeta(
+      "biografija",
+      "https://www.slovenska-biografija.si/oseba/sbi729148/",
+      async () => `<html><head><title>Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija</title></head></html>`,
+    );
+    expect(sb).toEqual({ title: "Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija" });
+
+    // A missing entry's "page not found" title is not a person's name.
+    const gone = await fetchBookMeta(
+      "biografija",
+      "https://www.slovenska-biografija.si/oseba/sbi132200/",
+      async () => `<html><head><title>Stran ne obstaja - Slovenska biografija</title></head></html>`,
+    );
+    expect(gone).toBeUndefined();
+
+    // Page title captured 2026-07-15 — pipe-separated site suffix.
+    const obrazi = await fetchBookMeta(
+      "obrazi",
+      "https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/",
+      async () => `<html><head><title>Primož TRUBAR | Obrazi slovenskih pokrajin</title></head></html>`,
+    );
+    expect(obrazi).toEqual({ title: "Primož TRUBAR - Obrazi slovenskih pokrajin" });
   });
 
   it("parses the dLib.si details page's metadata table", async () => {

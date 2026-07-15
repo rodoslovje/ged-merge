@@ -24,6 +24,8 @@ export interface LoadedFile {
   dateFormat?: string;
   datePlaceholder?: string;
   sourceLayout?: SourceLayout;
+  /** Where the file keeps cited page images (when it has any). */
+  pageMediaStyle?: "event" | "source";
   nameLayout?: NameLayout;
   unknownNameStyle?: string;
   marriedNameTag?: boolean;

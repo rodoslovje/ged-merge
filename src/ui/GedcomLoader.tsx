@@ -244,7 +244,7 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, nameLayout, unknownNameStyle } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle } = state.file;
   // Each row is one "Label: value" line; format rows carry a tooltip explaining
   // the (deliberately short) format label in detail.
   const info: { text: string; tooltip?: string }[] = [
@@ -280,7 +280,15 @@ function renderSummary(
     info.push({ text: t("loader.placeFormat", { format: t(`placeLayout.${placeLayout}`) }), tooltip: t(`placeLayout.${placeLayout}.tip`) });
   }
   if (sourceLayout && sourceLayout !== "unknown") {
-    info.push({ text: t("loader.sourceFormat", { format: t(`sourceLayout.${sourceLayout}`) }), tooltip: t(`sourceLayout.${sourceLayout}.tip`) });
+    // The page-media placement rides along when the file has page images at
+    // all — "repository links · page images on events".
+    const format = [t(`sourceLayout.${sourceLayout}`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}`)]
+      .filter(Boolean)
+      .join(" · ");
+    const tooltip = [t(`sourceLayout.${sourceLayout}.tip`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}.tip`)]
+      .filter(Boolean)
+      .join("\n");
+    info.push({ text: t("loader.sourceFormat", { format }), tooltip });
   }
   info.push(
     { text: t("loader.individuals", { count: dataset.individuals.size }) },

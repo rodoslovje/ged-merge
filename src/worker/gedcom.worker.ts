@@ -2,6 +2,7 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
+import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
 import type { Dataset, Individual } from "../gedcom/types";
 import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
 import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMainProfile, inferNameLayout } from "../normalize/profile";
@@ -103,6 +104,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           dateFormat: inferDateLayout(dataset),
           datePlaceholder: inferDatePlaceholder(dataset),
           sourceLayout: inferSourceFormat(dataset.records).layout,
+          pageMediaStyle: hasSourcePageMedia(dataset.records) ? detectPageMediaStyle(dataset.records) : undefined,
           nameLayout: inferNameLayout(dataset),
           unknownNameStyle: detectUnknownNameToken(dataset),
           marriedNameTag: profile.nameVariants.married.form === "tag",
@@ -146,19 +148,20 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   const dateFormat = dateLayoutFromValues(dateValues);
   const datePlaceholder = detectDatePlaceholder(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
+  const pageMediaStyle = hasSourcePageMedia(rawDataset.records) ? detectPageMediaStyle(rawDataset.records) : undefined;
   const nameLayout = inferNameLayout(rawDataset);
   // Detected on the raw file, so the summary reports the placeholder the incoming
   // file actually used (before it's reshaped to the main's convention).
   const unknownNameStyle = detectUnknownNameToken(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, nameLayout, unknownNameStyle };
+    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle };
     post({ type: "parsed", role: "compare", dataset: rawDataset, ...lastCompareMeta });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, nameLayout, unknownNameStyle };
+  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle };
   post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
 }
 

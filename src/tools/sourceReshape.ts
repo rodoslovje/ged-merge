@@ -66,10 +66,14 @@ export const ALL_SITES = [
   "findagrave",
   "billiongraves",
   "legacy",
+  "newspapers",
   "sistory",
   "dlib",
   "googlebooks",
   "youtube",
+  "wikipedia",
+  "biografija",
+  "obrazi",
   "familysearch",
   "other",
 ] as const;
@@ -77,10 +81,11 @@ export const ALL_SITES = [
 export type ReshapeSite = (typeof ALL_SITES)[number];
 
 /** Sites the enrichment fetch can usefully contact — FamilySearch sits behind
- *  a login and generic links have no parser. Shared by the fetcher and the
- *  panel's button/progress so they can't disagree. */
+ *  a login, Newspapers.com behind a bot wall (verified: every relay gets the
+ *  challenge page), and generic links have no parser. Shared by the fetcher
+ *  and the panel's button/progress so they can't disagree. */
 export function isFetchableSite(site: ReshapeSite): boolean {
-  return site !== "familysearch" && site !== "other";
+  return site !== "familysearch" && site !== "newspapers" && site !== "other";
 }
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
@@ -129,7 +134,7 @@ export interface ReshapeGroup {
    *  still wants enrichment, unlike a source with a real title. */
   urlTitled?: boolean;
   /** Offline-derived source fields; enrichment overrides them on apply. */
-  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string };
+  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string; dateRange?: string };
   /** Canonical page-independent URL — display + enrichment fetch target. */
   bookUrl: string;
   /** Distinct page numbers cited, numerically sorted. */
@@ -138,6 +143,10 @@ export interface ReshapeGroup {
   /** Default QUAY for this group's written citations (set by the panel);
    *  each member may carry its own override. */
   quay?: string;
+  /** Panel-set: the apply strips this group's link occurrences (dead or
+   *  obsolete URLs) instead of converting them — surrounding citation prose
+   *  and note text stay, no source is created or reused. */
+  removeLinks?: boolean;
 }
 
 export interface ReshapeReport {
@@ -159,15 +168,26 @@ export interface ReshapeMeta {
   address?: string;
   dateRange?: string;
   bookType?: BookType;
+  /** Set by the panel's manual field editor only — page parsers never
+   *  override the offline id. An empty string clears the proposed one. */
+  filingNumber?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
 export type ReshapeEnrichment = Map<string, ReshapeMeta>;
 
+/** Where a paginated source's page images are referenced from, besides the
+ *  source record itself: "event" additionally links each cited page's OBJE on
+ *  the event beside its citation (webtrees shows it inline with the fact);
+ *  "source" keeps them on the source record only. */
+export type PageMediaStyle = "event" | "source";
+
 export interface ReshapeOptions {
   /** Move citations onto their matching event (baptism→BIRT/BAPM, marriage→MARR,
    *  death→DEAT, cemetery→BURI). Default true. */
   relocate?: boolean;
+  /** Page-image placement; "auto" (default) detects the file's own habit. */
+  pageMedia?: PageMediaStyle | "auto";
 }
 
 export interface ReshapeCounts {
@@ -297,6 +317,22 @@ const YOUTU_BE_RE = /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{6,})/i;
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
 const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
+/** A Newspapers.com page image or clipping: newspapers.com/image/{id}/… (an
+ *  `article=` uuid marks a clipping region on it) or newspapers.com/clip/{id}. */
+const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(?:image|clip)\/(\d+)/i;
+
+/** A Wikipedia article in any language, desktop or mobile: {lang}.wikipedia.org
+ *  /wiki/{slug} or the /w/index.php?title={slug} form. */
+const WIKIPEDIA_RE =
+  /^https?:\/\/([a-z][a-z0-9-]*)\.(?:m\.)?wikipedia\.org\/(?:wiki\/|w\/index\.php\?(?:[^#]*&)?title=)([^?#&]+)/i;
+
+/** A Slovenska biografija entry (ZRC SAZU): slovenska-biografija.si/{oseba|rodbina}/sbi{id}/. */
+const SLOVENSKA_BIOGRAFIJA_RE = /^https?:\/\/(?:www\.)?slovenska-biografija\.si\/(oseba|rodbina)\/(sbi[a-z0-9]+)/i;
+
+/** An Obrazi slovenskih pokrajin person page (regional libraries' biographical
+ *  lexicon): obrazislovenskihpokrajin.si/oseba/{name-slug}/. */
+const OBRAZI_RE = /^https?:\/\/(?:www\.)?obrazislovenskihpokrajin\.si\/oseba\/([^/?#]+)/i;
+
 /** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
  *  periodicals. Both the details page and a direct stream (PDF/TXT) link
  *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
@@ -373,13 +409,14 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
-    // `{name} - Geneanet Cemeteries` — the view id means nothing to a reader,
-    // it goes to the filing number; enrichment upgrades to the cemetery name.
+    // `{name} - Geneanet Cemeteries`; without a name the view id stands in —
+    // offline it's the only thing telling one grave from another (it stays
+    // the filing number either way); enrichment upgrades to the cemetery name.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: siteTitle(who, undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
+      proposed: { title: siteTitle(who ?? gene[1], undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -475,16 +512,103 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (LEGACY_OBIT_RE.test(url.trim())) {
     if (!sites.has("legacy")) return undefined;
     const id = /[?&]p?id=(\d+)/i.exec(url)?.[1];
-    const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1];
-    const who = slug ? prettySlug(slug) : undefined;
-    // `{name} - Legacy.com` — the obituary id means nothing to a reader,
-    // it goes to the filing number.
+    // The person's name lives in the path slug ("/{name}-obituary") or, on
+    // the older obituary.aspx form, in the `n=` query parameter.
+    const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1] ?? /[?&]n=([^&#]+)/i.exec(url)?.[1];
+    const who = slug ? prettySlug(decodeSegment(slug)) : undefined;
+    // `{name} - Legacy.com`; without a name the obituary id stands in —
+    // offline it's the only thing telling one obituary from another (it
+    // stays the filing number either way).
     return {
       site: "legacy",
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
-      proposed: { title: siteTitle(who, undefined, "Legacy.com"), filingNumber: id },
+      proposed: { title: siteTitle(who ?? id, undefined, "Legacy.com"), filingNumber: id },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  const np = NEWSPAPERS_RE.exec(url.trim());
+  if (np) {
+    if (!sites.has("newspapers")) return undefined;
+    const imageId = np[1];
+    // Ancestry cites these as "The Windsor Star; Publication Date: 23 Jun
+    // 1998; Publication Place: Windsor, Ontario, Canada; URL: https://…" —
+    // the newspaper, issue date and place are already in the citation prose,
+    // and the site itself sits behind a bot wall no relay gets past, so the
+    // offline parse is the whole story. `{paper}, {date} - Newspapers.com`
+    // names the issue; the page-image id is the filing number. Citations to
+    // the same page image share one source; each clipping URL (its
+    // `article`/`focus` params mark the region) stays its own media link.
+    const ctx = contextText ?? "";
+    const paper = /(^|[;\n])\s*([^;\n]{2,80}?)\s*;\s*Publication Date/i.exec(ctx)?.[2];
+    const date = /Publication Date:\s*([^;\n]+)/i
+      .exec(ctx)?.[1]
+      .replace(/\//g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    const place = /Publication Place:\s*([^;\n]+)/i.exec(ctx)?.[1].trim();
+    return {
+      site: "newspapers",
+      groupKey: `np:${imageId}`,
+      bookUrl: `https://www.newspapers.com/image/${imageId}/`,
+      proposed: {
+        title: siteTitle(paper ? [paper, date].filter(Boolean).join(", ") : imageId, undefined, "Newspapers.com"),
+        place,
+        filingNumber: imageId,
+        dateRange: date,
+      },
+      titleRank: paper ? 2 : 0,
+      typeHint: contextText,
+    };
+  }
+
+  const wiki = WIKIPEDIA_RE.exec(url.trim());
+  if (wiki) {
+    if (!sites.has("wikipedia")) return undefined;
+    const lang = wiki[1].toLowerCase() === "www" ? "en" : wiki[1].toLowerCase();
+    const slug = wiki[2].replace(/\/$/, "");
+    // The slug IS the article name (underscores for spaces, case preserved) —
+    // `{Article} - Wikipedia`; enrichment upgrades to the display title with
+    // proper diacritics. One source per article per language edition.
+    const article = decodeSegment(slug).replace(/_/g, " ").trim();
+    return {
+      site: "wikipedia",
+      groupKey: `w:${lang}:${decodeSegment(slug).toLowerCase()}`,
+      bookUrl: `https://${lang}.wikipedia.org/wiki/${slug}`,
+      proposed: { title: siteTitle(article || slug, undefined, "Wikipedia") },
+      titleRank: article ? 1 : 0,
+    };
+  }
+
+  const sb = SLOVENSKA_BIOGRAFIJA_RE.exec(url.trim());
+  if (sb) {
+    if (!sites.has("biografija")) return undefined;
+    const id = sb[2].toLowerCase();
+    // The URL carries only the sbi id — it stands in offline and stays the
+    // filing number; enrichment upgrades to the page's own heading
+    // ("Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija").
+    return {
+      site: "biografija",
+      groupKey: `sb:${id}`,
+      bookUrl: `https://www.slovenska-biografija.si/${sb[1].toLowerCase()}/${id}/`,
+      proposed: { title: siteTitle(id, undefined, "Slovenska biografija"), filingNumber: id },
+      titleRank: 0,
+    };
+  }
+
+  const obrazi = OBRAZI_RE.exec(url.trim());
+  if (obrazi) {
+    if (!sites.has("obrazi")) return undefined;
+    const slug = obrazi[1].toLowerCase();
+    // The slug is the person's name ("primoz-trubar") — enrichment upgrades
+    // it to the page's own diacritic form ("Primož TRUBAR").
+    return {
+      site: "obrazi",
+      groupKey: `os:${slug}`,
+      bookUrl: `https://www.obrazislovenskihpokrajin.si/oseba/${slug}/`,
+      proposed: { title: siteTitle(prettySlug(slug), undefined, "Obrazi slovenskih pokrajin") },
+      titleRank: 1,
     };
   }
 
@@ -663,10 +787,14 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
+  newspapers: "🗞️",
   sistory: "🎖️",
   dlib: "📚",
   googlebooks: "📖",
   youtube: "🎬",
+  wikipedia: "🌐",
+  biografija: "🪶",
+  obrazi: "👤",
   familysearch: "🌳",
   other: "🔗",
 };
@@ -781,19 +909,60 @@ function recognizedUrls(text: string, contextText: string | undefined, sites: Re
   return out;
 }
 
-/** Top-level OBJE xrefs referenced by any `SOUR` record — already organized as
- *  source page media, so a person-level pointer to them is left alone only if
- *  the pointer itself is *the* SOUR link; person-level pointers still convert. */
-function sourReferencedObjeXrefs(records: GedNode[]): Set<string> {
-  const set = new Set<string>();
+/** Top-level OBJE xrefs referenced by a `SOUR` record (its page images),
+ *  mapped to their owning source's xref (first owner wins). */
+function sourReferencedObjeXrefs(records: GedNode[]): Map<string, string> {
+  const map = new Map<string, string>();
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     for (const c of childrenByTag(rec, "OBJE")) {
       const v = c.value?.trim();
-      if (v && isPointer(v)) set.add(v);
+      if (v && isPointer(v) && !map.has(v)) map.set(v, rec.xref);
     }
   }
-  return set;
+  return map;
+}
+
+/** Whether any source in the file organizes page images at all — without
+ *  them the page-media style is moot (don't show/act on a trivial answer). */
+export function hasSourcePageMedia(records: GedNode[]): boolean {
+  return sourReferencedObjeXrefs(records).size > 0;
+}
+
+/**
+ * The file's own habit for a cited page's image: "event" when records that
+ * cite a paginated source typically also carry that source's page image
+ * themselves — beside the citation on an event (webtrees-style) or anywhere
+ * on the record (MyHeritage attaches the register photo to the person) —
+ * else "source" (images only under the source record). Record-granular on
+ * purpose: a person-level attachment is still evidence the user wants the
+ * page visible on the person/fact, not only behind the source.
+ */
+export function detectPageMediaStyle(records: GedNode[]): PageMediaStyle {
+  const owners = sourReferencedObjeXrefs(records);
+  const paginated = new Set(owners.values());
+  let paired = 0;
+  let plain = 0;
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    const cited = new Set<string>();
+    let hasPageImage = false;
+    const collect = (container: GedNode): void => {
+      for (const c of container.children) {
+        const v = c.value?.trim();
+        if (!v || !isPointer(v)) continue;
+        if (c.tag === "SOUR" && paginated.has(v)) cited.add(v);
+        else if (c.tag === "OBJE" && owners.has(v)) hasPageImage = true;
+      }
+    };
+    collect(rec);
+    for (const child of rec.children) if (eventTags.has(child.tag)) collect(child);
+    if (cited.size === 0) continue;
+    if (hasPageImage) paired++;
+    else plain++;
+  }
+  return paired > plain ? "event" : "source";
 }
 
 function scanContainer(
@@ -844,7 +1013,10 @@ function scanContainer(
         const pageChild = firstChild(child, "PAGE");
         const pageValue = pageChild?.value ?? "";
         const ownerTitle = sourTitles.get(pointer);
-        for (const { url, recognized } of recognizedUrls(pageValue, ownerTitle, sites)) {
+        // The PAGE prose is part of the context too — Ancestry-style
+        // citations carry the publication/collection details right there.
+        const context = [pageValue, ownerTitle].filter(Boolean).join("\n") || undefined;
+        for (const { url, recognized } of recognizedUrls(pageValue, context, sites)) {
           hits.push({ ...base, node: child, shape: "pageUrl", url, recognized, typeText: ownerTitle });
         }
       } else if (value) {
@@ -907,7 +1079,14 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
   return doubled > eventOnly;
 }
 
-function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): ScanHit[] {
+function scanOccurrences(
+  records: GedNode[],
+  sites: ReadonlySet<ReshapeSite>,
+  /** How pointers to a source's page media are treated: undefined (doubled-
+   *  links file) leaves them alone; "source" converts them all away; "event"
+   *  keeps the ones already sitting beside their citation on an event. */
+  pointerStyle?: PageMediaStyle,
+): ScanHit[] {
   const objeIndex = buildObjeIndex(records);
   const objeUrls = new Map<string, string>();
   for (const [xref, info] of objeIndex) if (info.url) objeUrls.set(xref, info.url);
@@ -937,10 +1116,24 @@ function scanOccurrences(records: GedNode[], sites: ReadonlySet<ReshapeSite>): S
     }
   }
 
-  // Drop person-level OBJE occurrences whose record is already a source's page
-  // media *and* whose group would go nowhere new — those convert via the group
-  // that reuses the owning SOUR; a plain pointer next to it still converts.
-  return hits.filter((h) => !(h.shape === "obje" && h.objeXref && sourReferenced.has(h.objeXref)));
+  // Person/event-level OBJE pointers to media that already hang off a SOUR as
+  // its page images: in a links-on-events file they are redundant — the apply
+  // reuses the owning SOUR, attaches a proper page citation on the matching
+  // event (or dedupes against one already there) and drops the pointer. In
+  // the "event" page-media style, a pointer already sitting beside its
+  // citation on an event IS the house shape and stays; elsewhere-placed
+  // pointers still convert (and re-materialize beside the citation). In a
+  // doubled-links file every such pointer is house style and stays.
+  return hits.filter((h) => {
+    if (h.shape !== "obje" || !h.objeXref) return true;
+    const owner = sourReferenced.get(h.objeXref);
+    if (!owner) return true;
+    if (!pointerStyle) return false;
+    if (pointerStyle === "source") return true;
+    const besideCitation =
+      h.eventTag !== undefined && childrenByTag(h.container, "SOUR").some((c) => c.value?.trim() === owner);
+    return !besideCitation;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1103,8 +1296,11 @@ export function findReshapableLinks(
   opts: ReshapeOptions = {},
 ): ReshapeReport {
   const relocate = opts.relocate !== false;
-  const hits = scanOccurrences(dataset.records, sites);
-  const groups = buildGroups(dataset.records, hits, !prefersDoubledLinks(dataset.records));
+  const fold = !prefersDoubledLinks(dataset.records);
+  const pageMedia =
+    opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(dataset.records);
+  const hits = scanOccurrences(dataset.records, sites, fold ? pageMedia : undefined);
+  const groups = buildGroups(dataset.records, hits, fold);
   const baptismTag = baptismTargetTag(dataset.records);
 
   const recordLabel = (rec: GedNode): string => {
@@ -1160,11 +1356,16 @@ export function findReshapableLinks(
 /** Remove one URL from free text, tidying leftover artifacts conservatively —
  *  never rewrapping or reformatting the user's remaining prose. */
 function removeUrlFromText(text: string, url: string): string {
-  return text
-    .replace(url, "")
-    .replace(/\(\s*\)/g, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "");
+  return (
+    text
+      .replace(url, "")
+      .replace(/\(\s*\)/g, "")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "")
+      // An Ancestry-style "…; URL: <link>" tail leaves its bare label
+      // dangling once the link is gone.
+      .replace(/[\s;,:]*\bURL$/i, "")
+  );
 }
 
 /** Whether leftover note text still says anything (letters or digits). */
@@ -1346,10 +1547,14 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
   billiongraves: { hostRe: /billiongraves\.com/i, name: "BillionGraves", www: "https://billiongraves.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
+  newspapers: { hostRe: /newspapers\.com/i, name: "Newspapers.com", www: "https://www.newspapers.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
   dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
   googlebooks: { hostRe: /books\.google\./i, name: "Google Books", www: "https://books.google.com/" },
   youtube: { hostRe: /youtube\.com|youtu\.be/i, name: "YouTube", www: "https://www.youtube.com/" },
+  wikipedia: { hostRe: /wikipedia\.org/i, name: "Wikipedia", www: "https://www.wikipedia.org/" },
+  biografija: { hostRe: /slovenska-biografija\.si/i, name: "Slovenska biografija", www: "https://www.slovenska-biografija.si/" },
+  obrazi: { hostRe: /obrazislovenskihpokrajin\.si/i, name: "Obrazi slovenskih pokrajin", www: "https://www.obrazislovenskihpokrajin.si/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -1458,8 +1663,12 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const hits = scanOccurrences(clone, sites).filter((h) => selectedById.has(h.recognized.groupKey));
-  const groups = buildGroups(clone, hits, !prefersDoubledLinks(clone));
+  const fold = !prefersDoubledLinks(clone);
+  const pageMedia = opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(clone);
+  const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
+    selectedById.has(h.recognized.groupKey),
+  );
+  const groups = buildGroups(clone, hits, fold);
   const baptismTag = baptismTargetTag(clone);
   const layout = inferSourceFormat(clone).layout;
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
@@ -1474,6 +1683,36 @@ export function reshapeSources(
     const selection = selectedById.get(key);
     if (!selection) continue;
     const g = state.group;
+
+    // Marked as a dead/obsolete link: strip every occurrence instead of
+    // converting — note text and citation prose around the URL survive, the
+    // bare link nodes go, and no source is created or reused.
+    if (selection.removeLinks) {
+      for (const hit of state.hits) {
+        if (hit.shape === "sourTitle") continue; // a record's title, not a reference
+        if (hit.shape === "pageUrl") {
+          const pageChild = firstChild(hit.node, "PAGE");
+          if (pageChild?.value) {
+            const remaining = removeUrlFromText(pageChild.value, hit.url);
+            if (hasContent(remaining)) pageChild.value = remaining;
+            else spliceChild(hit.node, pageChild);
+            counts.citationsRewritten++;
+          }
+          continue;
+        }
+        if ((hit.shape === "note" || hit.shape === "inline") && hit.node.value !== undefined) {
+          const remaining = removeUrlFromText(hit.node.value, hit.url);
+          if (hasContent(remaining)) {
+            hit.node.value = remaining;
+            counts.notesRewritten++;
+            continue;
+          }
+        }
+        if (spliceChild(hit.container, hit.node)) counts.linksRemoved++;
+      }
+      continue;
+    }
+
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
@@ -1485,7 +1724,8 @@ export function reshapeSources(
       // Matched against the file's own places, so "Žabnica, Slovenia" (or a
       // diacritic-less slug guess) lands in the established place format.
       place: resolvePlace(extra?.place ?? g.proposed.place),
-      filingNumber: g.proposed.filingNumber,
+      filingNumber: extra?.filingNumber ?? g.proposed.filingNumber,
+      dateRange: extra?.dateRange ?? g.proposed.dateRange,
     };
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.
@@ -1497,7 +1737,7 @@ export function reshapeSources(
       counts.sourcesCreated++;
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
-      if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
+      fillField(sourceNode, "DATE", fields.dateRange);
       const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, layout === "repository");
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
@@ -1515,7 +1755,7 @@ export function reshapeSources(
       fillField(hit.rec, "AGNC", fields.agency);
       fillField(hit.rec, "PLAC", fields.place);
       fillField(hit.rec, "FILN", fields.filingNumber);
-      if (extra?.dateRange) fillField(hit.rec, "DATE", extra.dateRange);
+      fillField(hit.rec, "DATE", fields.dateRange);
       counts.citationsRewritten++;
     }
 
@@ -1548,6 +1788,24 @@ export function reshapeSources(
       }
       linkedKeys.add(urlKey);
     }
+
+    // Where each cited page's image lives — in the "event" page-media style
+    // the citation's container gets that OBJE linked beside it, so the page
+    // shows inline with the fact (webtrees-style).
+    const objeByUrlKey = new Map<string, string>();
+    if (pageMedia === "event") {
+      for (const c of childrenByTag(sourceNode, "OBJE")) {
+        const v = c.value?.trim();
+        const url = v && urlOfObje(v);
+        if (v && url) objeByUrlKey.set(linkKey(url), v);
+      }
+    }
+    const ensurePageMedia = (target: GedNode, targetOrder: string[], url: string) => {
+      const xref = objeByUrlKey.get(linkKey(url));
+      if (!xref) return;
+      if (childrenByTag(target, "OBJE").some((c) => c.value?.trim() === xref)) return;
+      insertOrdered(target, { level: target.level + 1, tag: "OBJE", value: xref, children: [] }, targetOrder);
+    };
 
     // --- Rewrite each occurrence into a citation. Per-citation QUAY overrides
     // from the report's members are matched by a stable occurrence key (not by
@@ -1646,16 +1904,23 @@ export function reshapeSources(
         if (quayFor && !firstChild(citation, "QUAY")) {
           citation.children.push({ level: citation.level + 1, tag: "QUAY", value: quayFor, children: [] });
         }
+        // Compare by the citation's *final* PAGE text (not just the page id):
+        // Ancestry exports duplicate whole record-level citations verbatim,
+        // and the identical twin must fold into one citation, not two.
+        const pageText = childText(citation, "PAGE") ?? "";
+        const duplicate = childrenByTag(container, "SOUR").some(
+          (c) => c !== citation && c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === pageText,
+        );
         if (container !== hit.container) {
-          const duplicate = childrenByTag(container, "SOUR").some(
-            (c) => c !== citation && c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
-          );
           spliceChild(hit.container, citation);
           if (!duplicate) {
             relevel(citation, container.level + 1);
             insertOrdered(container, citation, order);
           }
+        } else if (duplicate) {
+          spliceChild(container, citation);
         }
+        ensurePageMedia(container, order, hit.url);
         counts.citationsRewritten++;
         continue;
       }
@@ -1675,6 +1940,9 @@ export function reshapeSources(
       } else if (spliceChild(hit.container, hit.node)) {
         counts.linksRemoved++;
       }
+      // After the original node is gone, so an in-place pointer re-checks
+      // cleanly: the citation's container gets the cited page's image.
+      ensurePageMedia(container, order, hit.url);
     }
   }
 
@@ -1897,16 +2165,42 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
       meta = { title: siteTitle(name, tree, "Geneanet Trees"), author: tree };
     }
   } else if (site === "googlebooks") {
-    // The reader page's title is the book/newspaper name with a localized
-    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The
-    // page carries no issue date/number, and one newspaper spans many
-    // volumes, so the volume id stays in the title to tell them apart. A
-    // relay sometimes titles a failed render with the URL itself — that's
-    // not a name; the offline title stands.
-    const name = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    // The reader page server-renders the volume heading, and for a newspaper
+    // it carries the issue's date: `<h1 class="gb-volume-title">The Windsor
+    // Star <span dir=ltr>May 23, 1969</span></h1>` (hl=en on the fetch pins
+    // the date language). The rendering relay flattens the same heading to a
+    // markdown `# The Windsor Star May 23, 1969` line, so the date is
+    // tail-matched there. A dated issue is unique — `{name}, {date} - Google
+    // Books` — and the date fills the source's DATE; undated volumes (books)
+    // keep the volume id in the title, since one newspaper spans many
+    // volumes and the page title alone can't tell them apart. A relay
+    // sometimes titles a failed render with the URL itself — that's not a
+    // name; the offline title stands.
+    const pageName = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    const h1 = /<h1 class="gb-volume-title"[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1];
+    let name: string | undefined;
+    let date: string | undefined;
+    if (h1) {
+      const heading = decodeHtmlEntities(h1.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+      date = /<span[^>]*>([^<]+)<\/span>/i.exec(h1)?.[1].trim();
+      name = (date ? heading.replace(date, "").replace(/[\s,]+$/, "") : heading).trim() || undefined;
+    } else {
+      // Markdown flattens the heading to `# {name} {date}`, with the date in
+      // whatever shape the page used ("May 23, 1969" / "Dec 27, 1975" /
+      // "13 Feb 1965") — the name is known from the page title, so the date
+      // is simply the year-bearing remainder after it.
+      const heading = /^#\s+(.+)$/m.exec(html)?.[1].trim();
+      if (heading && pageName && heading.startsWith(pageName)) {
+        const tail = heading.slice(pageName.length).replace(/^[\s,–—-]+/, "").trim();
+        if (/\d{4}/.test(tail) && tail.length >= 4 && tail.length <= 24) date = tail;
+      }
+    }
+    name = name ?? pageName;
     const volumeId = /[?&]id=([A-Za-z0-9_-]+)/.exec(bookUrl)?.[1];
     if (name && !/^https?:\/\//i.test(name)) {
-      meta = { title: siteTitle(name, volumeId, "Google Books") };
+      meta = date
+        ? { title: siteTitle(`${name}, ${date}`, undefined, "Google Books"), dateRange: date }
+        : { title: siteTitle(name, volumeId, "Google Books") };
     }
   } else if (site === "youtube") {
     // YouTube's public oEmbed endpoint returns JSON: the video's title and
@@ -1922,6 +2216,27 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
     if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
+  } else if (site === "wikipedia") {
+    // `Primož Trubar - Wikipedija, prosta enciklopedija` / `… - Wikipedia` —
+    // the display title (proper diacritics) replaces the URL-slug guess.
+    const name = pageTitleOf(html)?.replace(/\s*[-–—]\s*Wikipedi\p{L}*.*$/iu, "").trim();
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Wikipedia") };
+    }
+  } else if (site === "biografija") {
+    // `Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija` — the
+    // person's name with life years; a missing entry titles itself
+    // "Stran ne obstaja", which is not a name.
+    const name = pageTitleOf(html)?.replace(/\s*[-–—]\s*Slovenska biografija\s*$/i, "").trim();
+    if (name && !/^https?:\/\//i.test(name) && !/^stran ne obstaja$/i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Slovenska biografija") };
+    }
+  } else if (site === "obrazi") {
+    // `Primož TRUBAR | Obrazi slovenskih pokrajin` — the name before the pipe.
+    const name = pageTitleOf(html)?.replace(/\s*[|–—-]\s*Obrazi slovenskih pokrajin\s*$/i, "").trim();
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Obrazi slovenskih pokrajin") };
+    }
   } else if (site === "dlib") {
     // The dLib.si details page is server-rendered: a key/value metadata table
     // (Vir, Leto, Številčenje, Založnik, Izvor) plus a `dLib.si - {title}`
@@ -2030,10 +2345,18 @@ export async function fetchBookMeta(
       ? matriculaEnUrl(bookUrl)
       : site === "youtube"
         ? `https://www.youtube.com/oembed?url=${encodeURIComponent(bookUrl)}&format=json`
-        : bookUrl;
+        : site === "googlebooks"
+          ? // The bare volume URL redirects to the About page, which carries no
+            // issue date — printsec=frontcover keeps the *reader* page, whose
+            // heading dates a newspaper issue; hl=en pins the date language.
+            `${bookUrl}&printsec=frontcover&hl=en`
+          : bookUrl;
   const html = await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
-  if (meta) bookMetaCache.set(cacheKey, meta);
+  // A dateless Google Books result usually means a relay was served the About
+  // page instead of the reader — don't pin that for the session; a later run
+  // through a different relay may land the dated reader heading.
+  if (meta && !(site === "googlebooks" && !meta.dateRange)) bookMetaCache.set(cacheKey, meta);
   return meta;
 }
 

@@ -55,7 +55,7 @@ import {
   type NewSourceFields,
 } from "../gedcom/edit";
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
-import { applySiteSourceExtras, smartCitationTarget } from "../tools/sourceReshape";
+import { applySiteSourceExtras, detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
@@ -1002,7 +1002,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * create new ones. Returns the citation pointer to attach plus any extra
    * patches for the top-level records it touched, for the caller's `commit`.
    */
-  function resolveSourceFields(fields: AddSourceResult): { sourceXref: string; page?: string; extraPatches: RecordPatch[] } {
+  function resolveSourceFields(
+    fields: AddSourceResult,
+  ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
     // Page media titled the way the cleanup tool titles them (`#page - title`).
     const objeTitle = (title: string | undefined, page: string | undefined) =>
       fields.site && title ? (page ? `#${page} - ${title}` : title) : undefined;
@@ -1010,6 +1012,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     if (fields.url) {
       const match = findExistingSource(dataset.records, fields.url);
       if (match) {
+        let pageObjeXref = match.objeXref;
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneRaw(sourceNode);
@@ -1017,8 +1020,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, objeTitle(sourceTitle(sourceNode), page));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
+          pageObjeXref = obje.xref ?? undefined;
         }
-        return { sourceXref: match.sourceXref, page: fields.page ?? match.page, extraPatches };
+        return { sourceXref: match.sourceXref, page: fields.page ?? match.page, pageObjeXref, extraPatches };
       }
     }
     const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
@@ -1039,23 +1043,42 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
       }
     }
-    return { sourceXref: sourceNode.xref!, page: fields.page, extraPatches };
+    return { sourceXref: sourceNode.xref!, page: fields.page, pageObjeXref: objeChild?.value, extraPatches };
+  }
+
+  /** Link the cited page's image beside the citation ("on events" style). */
+  function linkPageMedia(node: GedNode, pageObjeXref: string | undefined, order: string[]) {
+    if (!pageObjeXref) return;
+    if (childrenByTag(node, "OBJE").some((c) => c.value?.trim() === pageObjeXref)) return;
+    insertOrdered(node, { level: node.level + 1, tag: "OBJE", value: pageObjeXref, children: [] }, order);
   }
 
   /** Attach the citation to `host`'s `eventTag` event, creating the event
    * when missing — the same placement the Organize sources tool uses. */
-  function attachToEvent(host: GedNode, eventTag: string, sourceXref: string, page: string | undefined, order: string[]) {
+  function attachToEvent(
+    host: GedNode,
+    eventTag: string,
+    sourceXref: string,
+    page: string | undefined,
+    order: string[],
+    pageObjeXref?: string,
+  ) {
     let event = firstChild(host, eventTag);
     if (!event) {
       event = { level: host.level + 1, tag: eventTag, children: [] };
       insertOrdered(host, event, order);
     }
     attachSourceCitation(event, sourceXref, page, EVENT_CHILD_ORDER);
+    linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
   }
 
   function handleAddSource(fields: AddSourceResult) {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
-    const { sourceXref, page, extraPatches } = resolveSourceFields(fields);
+    const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
+    // In the "on events" page-media style the cited page's image is linked
+    // beside the citation too (Settings; "auto" matches the file's habit).
+    const style = settings.sourcePageMedia !== "auto" ? settings.sourcePageMedia : detectPageMediaStyle(dataset.records);
+    const pageObje = style === "event" ? pageObjeXref : undefined;
     if (sourceDialogTarget.kind === "individual") {
       // A recognized register/grave source added on the person lands on its
       // matching event (created if missing) when the file keeps citations on
@@ -1064,16 +1087,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const smart = fields.site ? smartCitationTarget(dataset.records, fields.site, fields.title) : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
       if (smart && !smart.onFam) {
-        commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+        commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER, pageObje), extraPatches);
       } else if (smart && smart.onFam && soleFam) {
-        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, sourceXref, page, FAM_CHILD_ORDER), extraPatches);
+        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, sourceXref, page, FAM_CHILD_ORDER, pageObje), extraPatches);
       } else {
-        commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+        commit((indi) => {
+          attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER);
+          linkPageMedia(indi.raw, pageObje, INDI_CHILD_ORDER);
+        }, extraPatches);
       }
     } else if (sourceDialogTarget.kind === "family") {
-      commitFamily(sourceDialogTarget.fam, (f) => attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER), extraPatches);
+      commitFamily(sourceDialogTarget.fam, (f) => {
+        attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER);
+        linkPageMedia(f.raw, pageObje, FAM_CHILD_ORDER);
+      }, extraPatches);
     } else {
-      sourceDialogTarget.commitField({ addSource: { sourceXref, page } }, extraPatches);
+      sourceDialogTarget.commitField({ addSource: { sourceXref, page, pageObjeXref: pageObje } }, extraPatches);
     }
     setSourceDialogTarget(null);
   }

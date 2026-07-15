@@ -27,6 +27,11 @@ export interface AppSettings extends NameDisplayOptions {
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
+  /** Where tools reference a paginated source's page images besides the
+   *  source record: "event" links each cited page's OBJE on the event beside
+   *  its citation (webtrees shows it inline); "source" keeps them on the
+   *  source record only; "auto" matches what the file already does. */
+  sourcePageMedia: "auto" | "event" | "source";
   /** Cache the loaded files + progress to IndexedDB so a reload restores the
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
@@ -39,6 +44,7 @@ const DEFAULTS: AppSettings = {
   showKinship: true,
   showAge: false,
   allowLinkFetch: false,
+  sourcePageMedia: "auto",
   persistWorkspace: false,
 };
 
@@ -69,6 +75,8 @@ function load(): AppSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
+      sourcePageMedia:
+        parsed.sourcePageMedia === "event" || parsed.sourcePageMedia === "source" ? parsed.sourcePageMedia : "auto",
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
     };
   } catch {

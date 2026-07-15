@@ -27,8 +27,10 @@ export interface EventFieldUpdate {
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
   /** Attach a new `SOUR` citation pointer (with optional `PAGE`) — the `SOUR`
-   * (and `OBJE`) records themselves must already exist in the dataset. */
-  addSource?: { sourceXref: string; page?: string };
+   * (and `OBJE`) records themselves must already exist in the dataset.
+   * `pageObjeXref` additionally links the cited page's image on the event
+   * beside the citation (the "on events" page-media style). */
+  addSource?: { sourceXref: string; page?: string; pageObjeXref?: string };
 }
 
 function setLinks(event: GedNode, links: string[]): void {
@@ -55,7 +57,13 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
   if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
   if (update.links !== undefined) setLinks(eventNode, update.links);
-  if (update.addSource) attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
+  if (update.addSource) {
+    attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
+    const pageObje = update.addSource.pageObjeXref;
+    if (pageObje && !childrenByTag(eventNode, "OBJE").some((c) => c.value?.trim() === pageObje)) {
+      insertOrdered(eventNode, { level: eventNode.level + 1, tag: "OBJE", value: pageObje, children: [] }, EVENT_CHILD_ORDER);
+    }
+  }
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
     const i = record.children.indexOf(eventNode);
     if (i !== -1) record.children.splice(i, 1);
