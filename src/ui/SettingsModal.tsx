@@ -52,7 +52,7 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
     group: "names",
     dims: [
       { key: "names", choices: ["records", "tags"] },
-      { key: "unknownName", choices: ["blank", "NN", "N.N."] },
+      { key: "unknownName", choices: ["blank", "NN", "N.N.", "_____"] },
     ],
   },
   {

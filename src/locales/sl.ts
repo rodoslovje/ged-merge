@@ -1070,6 +1070,7 @@ export const sl = {
   "settings.format.unknownName.blank": "pusti prazno",
   "settings.format.unknownName.NN": "NN",
   "settings.format.unknownName.N.N.": "N.N.",
+  "settings.format.unknownName._____": "_____ (podčrtaji)",
   "settings.format.sourceLayout": "Zapisi",
   "settings.format.sourceLayout.hint": "Prevladujoča oblika virov — določa ustvarjanje hramb za nove vire.",
   "settings.format.sourceLayout.paginated": "knjiga + slike strani",

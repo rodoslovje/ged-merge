@@ -971,6 +971,7 @@ export const en = {
   "settings.format.unknownName.blank": "leave blank",
   "settings.format.unknownName.NN": "NN",
   "settings.format.unknownName.N.N.": "N.N.",
+  "settings.format.unknownName._____": "_____ (underscores)",
   "settings.format.sourceLayout": "Records",
   "settings.format.sourceLayout.hint": "Dominant source shape — drives repository creation for new sources.",
   "settings.format.sourceLayout.paginated": "book + page images",
