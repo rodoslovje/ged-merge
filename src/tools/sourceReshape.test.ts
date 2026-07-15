@@ -1354,13 +1354,34 @@ Memorial ID 273320916 273320916`;
     );
     expect(news).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
 
-    // The rendering relay flattens the same heading to markdown.
+    // The rendering relay flattens the same heading to markdown. The date
+    // format varies per volume (captured 2026-07-15: "May 23, 1969",
+    // "Dec 27, 1975", "13 Feb 1965") — whatever follows the known name counts.
     const md = await fetchBookMeta(
       "googlebooks",
       "https://books.google.com/books?id=93Q_TESTIBAJ",
       async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star May 23, 1969\n`,
     );
     expect(md).toEqual({ title: "The Windsor Star, May 23, 1969 - Google Books", dateRange: "May 23, 1969" });
+    const mdAbbrev = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=94Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star Dec 27, 1975\n`,
+    );
+    expect(mdAbbrev).toEqual({ title: "The Windsor Star, Dec 27, 1975 - Google Books", dateRange: "Dec 27, 1975" });
+    const mdDayFirst = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=95Q_TESTIBAJ",
+      async () => `Title: The Windsor Star\n\nMarkdown Content:\n# The Windsor Star 13 Feb 1965\n`,
+    );
+    expect(mdDayFirst).toEqual({ title: "The Windsor Star, 13 Feb 1965 - Google Books", dateRange: "13 Feb 1965" });
+    // A dateless heading (a plain book) keeps the volume-id title.
+    const mdBook = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=96Q_TESTIBAJ",
+      async () => `Title: Zgodovina Slovencev\n\nMarkdown Content:\n# Zgodovina Slovencev\n`,
+    );
+    expect(mdBook).toEqual({ title: "Zgodovina Slovencev - 96Q_TESTIBAJ - Google Books" });
 
     // A relay that fails to render titles the page with the URL — no name.
     const gbFail = await fetchBookMeta(

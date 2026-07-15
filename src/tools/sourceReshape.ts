@@ -1922,19 +1922,26 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     // volumes and the page title alone can't tell them apart. A relay
     // sometimes titles a failed render with the URL itself — that's not a
     // name; the offline title stands.
+    const pageName = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
     const h1 = /<h1 class="gb-volume-title"[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1];
-    const heading = h1
-      ? decodeHtmlEntities(h1.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
-      : /^#\s+(.+)$/m.exec(html)?.[1].trim();
-    const date = h1
-      ? /<span[^>]*>([^<]+)<\/span>/i.exec(h1)?.[1].trim()
-      : heading &&
-        /\s((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4})$/.exec(
-          heading,
-        )?.[1];
-    const name =
-      (date && heading?.replace(date, "").replace(/[\s,]+$/, "").trim()) ||
-      pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    let name: string | undefined;
+    let date: string | undefined;
+    if (h1) {
+      const heading = decodeHtmlEntities(h1.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+      date = /<span[^>]*>([^<]+)<\/span>/i.exec(h1)?.[1].trim();
+      name = (date ? heading.replace(date, "").replace(/[\s,]+$/, "") : heading).trim() || undefined;
+    } else {
+      // Markdown flattens the heading to `# {name} {date}`, with the date in
+      // whatever shape the page used ("May 23, 1969" / "Dec 27, 1975" /
+      // "13 Feb 1965") — the name is known from the page title, so the date
+      // is simply the year-bearing remainder after it.
+      const heading = /^#\s+(.+)$/m.exec(html)?.[1].trim();
+      if (heading && pageName && heading.startsWith(pageName)) {
+        const tail = heading.slice(pageName.length).replace(/^[\s,–—-]+/, "").trim();
+        if (/\d{4}/.test(tail) && tail.length >= 4 && tail.length <= 24) date = tail;
+      }
+    }
+    name = name ?? pageName;
     const volumeId = /[?&]id=([A-Za-z0-9_-]+)/.exec(bookUrl)?.[1];
     if (name && !/^https?:\/\//i.test(name)) {
       meta = date
@@ -2071,7 +2078,10 @@ export async function fetchBookMeta(
           : bookUrl;
   const html = await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
-  if (meta) bookMetaCache.set(cacheKey, meta);
+  // A dateless Google Books result usually means a relay was served the About
+  // page instead of the reader — don't pin that for the session; a later run
+  // through a different relay may land the dated reader heading.
+  if (meta && !(site === "googlebooks" && !meta.dateRange)) bookMetaCache.set(cacheKey, meta);
   return meta;
 }
 
