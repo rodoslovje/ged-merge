@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeSite } from "./sourceReshape";
 import {
+  applySiteSourceExtras,
   classifyBookType,
+  fetchBookMeta,
   fetchReshapeMeta,
   findReshapableLinks,
   parseFamilySearchUrl,
@@ -12,6 +15,7 @@ import {
   parseMatriculaBookPage,
   parseMatriculaTitle,
   parseMatriculaUrl,
+  recognizeSourceUrl,
   reshapeSources,
 } from "./sourceReshape";
 
@@ -1004,5 +1008,95 @@ GPS Coordinates : 46.2181,14.3463`;
     });
     const geneGroup = report.groups.find((g) => g.site === "geneanet")!;
     expect(enrichment.has(geneGroup.id)).toBe(false); // fetch failed → offline fallback stays
+  });
+
+  it("fetchBookMeta parses per-site and caches by book", async () => {
+    let calls = 0;
+    const fetchHtml = async () => {
+      calls++;
+      return GRAVE_MD;
+    };
+    const meta = await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
+    expect(meta).toEqual({
+      place: "Žabnica, Slovenia",
+      address: "Pokopališče Zgornje Bitnje, P02",
+      title: "Pokopališče Zgornje Bitnje - 424242 - Geneanet Cemeteries",
+    });
+    await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
+    expect(calls).toBe(1); // second lookup of the same book served from cache
+  });
+});
+
+describe("Add Source parity (recognizeSourceUrl / applySiteSourceExtras)", () => {
+  it("proposes the cleanup tool's fields for a Matricula page URL", () => {
+    const rec = recognizeSourceUrl(`${BOOK2}/?pg=05`)!;
+    expect(rec.site).toBe("matricula");
+    expect(rec.page).toBe("05");
+    expect(rec.proposed).toEqual({
+      title: "Matricula 04406 | Vodice",
+      place: "Vodice",
+      agency: "Ljubljana",
+      filingNumber: "04406",
+    });
+  });
+
+  it("titles a Geneanet grave URL by the person filter", () => {
+    const rec = recognizeSourceUrl("https://en.geneanet.org/cemetery/view/321/persons/?individu_filter=GRUDNIK%2BAnton")!;
+    expect(rec.site).toBe("geneanet");
+    expect(rec.bookUrl).toBe("https://en.geneanet.org/cemetery/view/321");
+    expect(rec.proposed.title).toBe("GRUDNIK Anton - 321 - Geneanet Cemeteries");
+  });
+
+  it("returns undefined for unknown URLs", () => {
+    expect(recognizeSourceUrl("https://example.org/whatever")).toBeUndefined();
+  });
+
+  it("fills PLAC/DATE and creates the site REPO in a repository-layout file", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Vodice,Ljubljana,Slovenia
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL Some archive book
+1 REPO @R9@
+0 @R9@ REPO
+1 NAME Local archive
+1 WWW https://example.org/
+0 TRLR`);
+    const source = createSourceRecord(ds.records, {
+      title: "Matricula 04406 | Vodice",
+      agency: "Nadškofijski arhiv Ljubljana",
+      filingNumber: "04406",
+      url: `${BOOK2}/?pg=05`,
+    });
+    const repo = applySiteSourceExtras(ds.records, source, "matricula", `${BOOK2}/?pg=05`, {
+      place: "Vodice",
+      dateRange: "1843-1909",
+    });
+    expect(repo?.xref).toBeDefined();
+    expect(source.children.some((c) => c.tag === "REPO" && c.value === repo!.xref)).toBe(true);
+    const text = serializeGedcom(ds.records);
+    // Place resolved against the file's own place format, not the bare proposal.
+    expect(text).toContain("1 PLAC Vodice,Ljubljana,Slovenia");
+    expect(text).toContain("1 DATE 1843-1909");
+    expect(text).toContain("1 NAME Nadškofijski arhiv Ljubljana");
+    expect(text).toContain("1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/");
+  });
+
+  it("links no REPO when the file's sources don't hang off repositories", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL Some book
+0 TRLR`);
+    const source = createSourceRecord(ds.records, { title: "Matricula 04406 | Vodice", url: `${BOOK2}/?pg=05` });
+    expect(applySiteSourceExtras(ds.records, source, "matricula", `${BOOK2}/?pg=05`, { place: "Vodice" })).toBeUndefined();
+    expect(source.children.some((c) => c.tag === "REPO")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "REPO")).toBe(false);
   });
 });

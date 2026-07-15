@@ -52,7 +52,8 @@ import {
   type EditSourceFields,
   type NewSourceFields,
 } from "../gedcom/edit";
-import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, type CropRegion } from "../gedcom/source";
+import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
+import { applySiteSourceExtras } from "../tools/sourceReshape";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
@@ -1000,6 +1001,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * patches for the top-level records it touched, for the caller's `commit`.
    */
   function resolveSourceFields(fields: AddSourceResult): { sourceXref: string; page?: string; extraPatches: RecordPatch[] } {
+    // Page media titled the way the cleanup tool titles them (`#page - title`).
+    const objeTitle = (title: string | undefined, page: string | undefined) =>
+      fields.site && title ? (page ? `#${page} - ${title}` : title) : undefined;
     const extraPatches: RecordPatch[] = [];
     if (fields.url) {
       const match = findExistingSource(dataset.records, fields.url);
@@ -1007,7 +1011,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneRaw(sourceNode);
-          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url);
+          const page = fields.page ?? match.page;
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, objeTitle(sourceTitle(sourceNode), page));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
         }
@@ -1015,11 +1020,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       }
     }
     const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
+    if (fields.site && fields.url) {
+      // A recognized site URL gets the same PLAC/DATE/REPO extras the
+      // Clean up sources tool writes, so it needs no cleanup pass later.
+      const repo = applySiteSourceExtras(dataset.records, sourceNode, fields.site, fields.url, fields);
+      if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+    }
     extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
     const objeChild = firstChild(sourceNode, "OBJE");
     if (objeChild?.value) {
       const objeNode = dataset.records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
-      if (objeNode) extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
+      if (objeNode) {
+        const title = objeTitle(fields.title, fields.page);
+        if (title) objeNode.children.push({ level: 1, tag: "TITL", value: title, children: [] });
+        extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
+      }
     }
     return { sourceXref: sourceNode.xref!, page: fields.page, extraPatches };
   }

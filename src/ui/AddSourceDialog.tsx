@@ -5,14 +5,23 @@ import { findExistingSource } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
-import { fetchPageTitle } from "../normalize/urlMetadata";
+import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
+import { fetchBookMeta, recognizeSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { useSettings } from "./SettingsContext";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
- * decide whether to reuse an existing `SOUR`/`OBJE` or create new ones. */
-export type AddSourceResult = NewSourceFields & { page?: string };
+ * decide whether to reuse an existing `SOUR`/`OBJE` or create new ones.
+ * `site`/`place`/`dateRange` are set when the URL matched one of the cleanup
+ * tool's known sites — the commit side then applies the same PLAC/DATE/REPO
+ * extras the Clean up sources tool writes. */
+export type AddSourceResult = NewSourceFields & {
+  page?: string;
+  site?: ReshapeSite;
+  place?: string;
+  dateRange?: string;
+};
 
 interface Props {
   isOpen: boolean;
@@ -59,6 +68,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
+  const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
   const { settings } = useSettings();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -68,6 +78,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const normalizedUrl = useMemo(
     () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
     [parsed.url, mainLinkLangs],
+  );
+  // The same site recognition the Clean up sources tool runs — a Matricula /
+  // Geneanet / Find a Grave / … URL proposes the identical source fields here,
+  // so a hand-added source leaves no work for a later cleanup pass.
+  const recognized = useMemo(
+    () => (normalizedUrl ? recognizeSourceUrl(normalizedUrl, text) : undefined),
+    [normalizedUrl, text],
   );
   const match = useMemo(
     () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),
@@ -85,18 +102,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   // Skipped while editing an existing citation (no textarea to parse).
   useEffect(() => {
     if (editing) return;
+    setFetched(undefined);
     setFields({
-      title: match ? "" : parsed.title ?? "",
+      title: match ? "" : parsed.title ?? recognized?.proposed.title ?? "",
       author: match ? "" : parsed.author ?? "",
       periodical: match ? "" : parsed.periodical ?? "",
       publisher: match ? "" : parsed.publisher ?? "",
-      agency: "",
-      filingNumber: "",
-      page: match?.page ?? extractPage(normalizedUrl ?? "") ?? "",
+      agency: match ? "" : recognized?.proposed.agency ?? "",
+      filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
+      page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
       note: match ? "" : parsed.note ?? "",
     });
-  }, [editing, text, parsed, normalizedUrl, match]);
+  }, [editing, text, parsed, normalizedUrl, match, recognized]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -117,6 +135,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
   // Gated behind the opt-in setting — this is the one path that sends a URL off
   // the user's machine (to the public CORS relay), so it's off by default.
+  // A recognized site URL goes through the cleanup tool's per-site parsers
+  // (curated title, agency, place, date range) instead of the raw page title.
   useEffect(() => {
     if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) {
       setFetching(false);
@@ -124,13 +144,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     }
     let cancelled = false;
     setFetching(true);
-    fetchPageTitle(normalizedUrl).then((title) => {
+    const proposal = recognized?.proposed;
+    const request: Promise<ReshapeMeta | undefined> = recognized
+      ? fetchBookMeta(recognized.site, recognized.bookUrl, fetchPageHtml)
+      : fetchPageTitle(normalizedUrl).then((title) => (title ? { title } : undefined));
+    request.then((meta) => {
       if (cancelled) return;
       setFetching(false);
-      if (title) setFields((f) => (f.url === normalizedUrl && !f.title ? { ...f, title } : f));
+      if (!meta) return;
+      setFetched(meta);
+      // Fetched metadata upgrades a field only while it still holds the
+      // offline proposal (or is empty) — the user's own edits always win.
+      const upgrade = (current: string, proposed: string | undefined, value: string | undefined) =>
+        value && (!current.trim() || current === proposed) ? value : current;
+      setFields((f) =>
+        f.url === normalizedUrl
+          ? { ...f, title: upgrade(f.title, proposal?.title, meta.title), agency: upgrade(f.agency, proposal?.agency, meta.agency) }
+          : f,
+      );
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -163,6 +197,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     setText("");
     setFields(EMPTY_FORM);
     setFetching(false);
+    setFetched(undefined);
   }
 
   function handleClose() {
@@ -186,7 +221,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   }
 
   function handleAdd() {
-    onAdd(trimmedFields(fields));
+    onAdd({
+      ...trimmedFields(fields),
+      site: recognized?.site,
+      place: fetched?.place ?? recognized?.proposed.place,
+      dateRange: fetched?.dateRange,
+    });
     reset();
   }
 
@@ -236,6 +276,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           {match && (
             <div className="add-source-hint">
               {matchTitle ? t("addSource.matchTitled", { title: matchTitle }) : t("addSource.match")}
+            </div>
+          )}
+          {!match && !editing && recognized && (
+            <div className="add-source-hint">
+              {t("addSource.recognized", { site: t(`tools.sources.reshapeSite.${recognized.site}`) })}
             </div>
           )}
           {!match && (

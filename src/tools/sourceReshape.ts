@@ -460,6 +460,23 @@ function firstLine(text: string): string {
   return text.split("\n")[0].trim().slice(0, 120) || text.trim().slice(0, 120);
 }
 
+/** The parts of a recognized site URL the Add Source dialog needs: the
+ *  canonical book/record URL to fetch, the cited page, and the
+ *  offline-proposed source fields. */
+export type RecognizedSourceUrl = Pick<Recognized, "site" | "bookUrl" | "page" | "proposed">;
+
+/**
+ * Recognize a single pasted URL against the same site rules the Clean up
+ * sources tool uses — so a source added by hand gets the identical
+ * title/place/agency/filing-number proposals and leaves no work for a later
+ * cleanup pass. `contextText` is the rest of the pasted citation (quoted
+ * collection titles, the person's name in SIstory quotes). URLs of unknown
+ * sites return undefined — the caller keeps its generic handling.
+ */
+export function recognizeSourceUrl(url: string, contextText?: string): RecognizedSourceUrl | undefined {
+  return recognize(cleanUrl(url.trim()), contextText, DEFAULT_SITES);
+}
+
 // ---------------------------------------------------------------------------
 // Register-type classification (drives event placement)
 
@@ -1079,6 +1096,65 @@ function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | u
   return anyMatch;
 }
 
+/** The site's REPO for a new source: an existing one matched by WWW host
+ *  (preferring the Matricula archive's), else — only when the file's
+ *  convention hangs sources off repositories — a newly created record. */
+function ensureSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  agency: string | undefined,
+  repositoryLayout: boolean,
+): { xref: string; created?: GedNode } | undefined {
+  const repoDef = SITE_REPO[site];
+  if (!repoDef) return undefined;
+  const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
+  const existing = findSiteRepo(records, repoDef.hostRe, mat?.archiveSlug);
+  if (existing) return { xref: existing };
+  if (!repositoryLayout) return undefined;
+  // Matricula repositories are the holding archive; the other sites
+  // are their own repository.
+  const name = (site === "matricula" && agency) || repoDef.name;
+  const www = mat
+    ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
+    : repoDef.www;
+  const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
+  repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
+  repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
+  insertRecord(records, repo);
+  return { xref: repo.xref!, created: repo };
+}
+
+/**
+ * Give a SOUR record newly created from a recognized site URL the same extras
+ * the Clean up sources tool writes on its own new sources: `PLAC` matched
+ * against the file's established place format, the register's `DATE` range,
+ * and a `REPO` link — reusing the site's existing repository, or creating one
+ * only when the file's convention hangs sources off repositories. Returns the
+ * newly created REPO record, if any, so the caller can patch/undo it.
+ */
+export function applySiteSourceExtras(
+  records: GedNode[],
+  sourceNode: GedNode,
+  site: ReshapeSite,
+  url: string,
+  meta: { place?: string; dateRange?: string },
+): GedNode | undefined {
+  fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
+  fillField(sourceNode, "DATE", meta.dateRange);
+  if (firstChild(sourceNode, "REPO")) return undefined;
+  const repo = ensureSiteRepo(
+    records,
+    site,
+    url,
+    childText(sourceNode, "AGNC"),
+    inferSourceFormat(records).layout === "repository",
+  );
+  if (!repo) return undefined;
+  sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
+  return repo.created;
+}
+
 /**
  * Apply the reshape for the selected groups on a fresh clone of `records` —
  * the input is never mutated. `enrichment` (from {@link fetchReshapeMeta})
@@ -1147,25 +1223,10 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
-      const repoDef = SITE_REPO[g.site];
-      if (repoDef) {
-        const mat = g.site === "matricula" ? parseMatriculaUrl(state.hits[0].url) : undefined;
-        let repoXref = findSiteRepo(clone, repoDef.hostRe, mat?.archiveSlug);
-        if (!repoXref && layout === "repository") {
-          // Matricula repositories are the holding archive; the other sites
-          // are their own repository.
-          const name = (g.site === "matricula" && fields.agency) || repoDef.name;
-          const www = mat
-            ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-            : repoDef.www;
-          const repo: GedNode = { level: 0, xref: nextXref(clone, "R"), tag: "REPO", children: [] };
-          repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
-          repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
-          insertRecord(clone, repo);
-          byXref.set(repo.xref!, repo);
-          repoXref = repo.xref;
-        }
-        if (repoXref) sourceNode.children.push({ level: 1, tag: "REPO", value: repoXref, children: [] });
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, layout === "repository");
+      if (repo) {
+        if (repo.created) byXref.set(repo.created.xref!, repo.created);
+        sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
       }
     }
     const sourceXref = sourceNode.xref!;
@@ -1436,6 +1497,87 @@ function matriculaEnUrl(bookUrl: string): string {
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
 
+/** Parse one fetched book/record page into source metadata — the per-site
+ *  rules shared by the cleanup tool's enrichment and the Add Source dialog. */
+function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): ReshapeMeta | undefined {
+  let meta: ReshapeMeta | undefined;
+  if (site === "matricula") {
+    const page = parseMatriculaBookPage(html);
+    if (page) {
+      // "unknown" must not clobber a correct offline classification
+      // (e.g. baptism inferred from a "KK" citation prefix).
+      const fetchedType = classifyBookType([page.type]);
+      meta = {
+        title: page.title,
+        agency: page.agency,
+        place: page.place,
+        dateRange: yearRange(page.dateFrom, page.dateTo),
+        bookType: fetchedType === "unknown" ? undefined : fetchedType,
+      };
+    }
+  } else if (site === "geneanet") {
+    const page = parseGeneanetCemeteryPage(html);
+    if (page) {
+      const viewId = /\/view\/([^/?#]+)/.exec(bookUrl)?.[1];
+      meta = {
+        // PLAC is the *place* (town, country); the cemetery itself
+        // names the source and stays in the title.
+        place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
+        // The cemetery (and plot) is address-level detail for the BURI event.
+        address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
+        // `{cemetery} - {id} - Geneanet Cemeteries` — the town stays
+        // out of the title; PLAC already carries it.
+        title:
+          page.cemetery && viewId
+            ? siteTitle(page.cemetery, viewId, "Geneanet Cemeteries")
+            : undefined,
+      };
+    }
+  } else if (site === "findagrave") {
+    // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
+    // the suffix may arrive ellipsized ("- Find a…"), match loosely.
+    const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
+    const memorialId = /\/memorial\/(\d+)/.exec(bookUrl)?.[1];
+    if (name) {
+      meta = { title: siteTitle(name, memorialId, "Find a Grave") };
+    }
+  } else if (site === "legacy") {
+    const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
+    const obitId = /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
+    if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
+  } else if (site === "sistory") {
+    const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+    const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
+    const recId = /\/ww[12]\/([^/?#]+)/i.exec(bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
+    if (name) meta = { title: siteTitle(name, recId, `SIstory.si${war ? ` ${war}` : ""}`) };
+  } else {
+    const title = pageTitleOf(html);
+    if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
+  }
+  if (meta && !Object.values(meta).some(Boolean)) return undefined; // nothing usable parsed
+  return meta;
+}
+
+/**
+ * Fetch and parse the metadata for one book/record URL — cached session-wide
+ * by book key, so the cleanup tool's enrichment and the Add Source dialog
+ * never refetch the same book. Undefined on any fetch/parse failure.
+ */
+export async function fetchBookMeta(
+  site: ReshapeSite,
+  bookUrl: string,
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<ReshapeMeta | undefined> {
+  const cacheKey = `${site}:${bookKeyOf(bookUrl)}`;
+  const cached = bookMetaCache.get(cacheKey);
+  if (cached) return cached;
+  const url = site === "matricula" ? matriculaEnUrl(bookUrl) : bookUrl;
+  const html = await fetchHtml(url).catch(() => undefined);
+  const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  if (meta) bookMetaCache.set(cacheKey, meta);
+  return meta;
+}
+
 /**
  * Fetch metadata for the given (new-source) groups — **one fetch per book**,
  * via the injected `fetchHtml` (the allorigins relay wrapper; injectable for
@@ -1457,69 +1599,7 @@ export async function fetchReshapeMeta(
 
   const worker = async (queue: ReshapeGroup[]): Promise<void> => {
     for (let g = queue.shift(); g; g = queue.shift()) {
-      const cacheKey = `${g.site}:${bookKeyOf(g.bookUrl)}`;
-      let meta = bookMetaCache.get(cacheKey);
-      if (!meta) {
-        const url = g.site === "matricula" ? matriculaEnUrl(g.bookUrl) : g.bookUrl;
-        const html = await fetchHtml(url).catch(() => undefined);
-        if (html) {
-          if (g.site === "matricula") {
-            const page = parseMatriculaBookPage(html);
-            if (page) {
-              // "unknown" must not clobber a correct offline classification
-              // (e.g. baptism inferred from a "KK" citation prefix).
-              const fetchedType = classifyBookType([page.type]);
-              meta = {
-                title: page.title,
-                agency: page.agency,
-                place: page.place,
-                dateRange: yearRange(page.dateFrom, page.dateTo),
-                bookType: fetchedType === "unknown" ? undefined : fetchedType,
-              };
-            }
-          } else if (g.site === "geneanet") {
-            const page = parseGeneanetCemeteryPage(html);
-            if (page) {
-              const viewId = /\/view\/([^/?#]+)/.exec(g.bookUrl)?.[1];
-              meta = {
-                // PLAC is the *place* (town, country); the cemetery itself
-                // names the source and stays in the title.
-                place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
-                // The cemetery (and plot) is address-level detail for the BURI event.
-                address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
-                // `{cemetery} - {id} - Geneanet Cemeteries` — the town stays
-                // out of the title; PLAC already carries it.
-                title:
-                  page.cemetery && viewId
-                    ? siteTitle(page.cemetery, viewId, "Geneanet Cemeteries")
-                    : undefined,
-              };
-            }
-          } else if (g.site === "findagrave") {
-            // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
-            // the suffix may arrive ellipsized ("- Find a…"), match loosely.
-            const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
-            const memorialId = /\/memorial\/(\d+)/.exec(g.bookUrl)?.[1];
-            if (name) {
-              meta = { title: siteTitle(name, memorialId, "Find a Grave") };
-            }
-          } else if (g.site === "legacy") {
-            const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
-            const obitId = /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
-          } else if (g.site === "sistory") {
-            const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
-            const war = /\/(ww[12])\//i.exec(g.bookUrl)?.[1].toUpperCase();
-            const recId = /\/ww[12]\/([^/?#]+)/i.exec(g.bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: siteTitle(name, recId, `SIstory.si${war ? ` ${war}` : ""}`) };
-          } else {
-            const title = pageTitleOf(html);
-            if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
-          }
-          if (meta && !Object.values(meta).some(Boolean)) meta = undefined; // nothing usable parsed
-          if (meta) bookMetaCache.set(cacheKey, meta);
-        }
-      }
+      const meta = await fetchBookMeta(g.site, g.bookUrl, fetchHtml);
       if (meta) {
         enrichment.set(g.id, meta);
         onMeta?.(g.id, meta);

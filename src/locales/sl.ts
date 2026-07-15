@@ -858,6 +858,7 @@ export const sl = {
   "addSource.fetching": "Pridobivanje naslova …",
   "addSource.match": "Ujema se z obstoječim virom — dodaja se ta stran.",
   "addSource.matchTitled": "Ujema se z obstoječim virom „{{title}}“ — dodaja se ta stran.",
+  "addSource.recognized": "Prepoznana povezava {{site}} — polja spodaj so izpolnjena enako, kot bi jih izpolnilo orodje Očisti vire.",
   "addSource.field.title": "Naslov",
   "addSource.field.author": "Avtor",
   "addSource.field.periodical": "Periodika / zbirka",
