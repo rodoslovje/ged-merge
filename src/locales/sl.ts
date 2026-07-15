@@ -859,6 +859,7 @@ export const sl = {
   "addSource.match": "Ujema se z obstoječim virom — dodaja se ta stran.",
   "addSource.matchTitled": "Ujema se z obstoječim virom „{{title}}“ — dodaja se ta stran.",
   "addSource.recognized": "Prepoznana povezava {{site}}.",
+  "addSource.recognizedFetchOff": "Za samodejno izpolnitev pravih podatkov knjige vklopite „{{setting}}“ v nastavitvah.",
   "addSource.field.title": "Naslov",
   "addSource.field.author": "Avtor",
   "addSource.field.periodical": "Periodika / zbirka",

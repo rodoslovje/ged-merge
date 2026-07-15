@@ -281,6 +281,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           {!match && !editing && recognized && (
             <div className="add-source-hint">
               {t("addSource.recognized", { site: t(`tools.sources.reshapeSite.${recognized.site}`) })}
+              {!settings.allowLinkFetch && (
+                <> {t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</>
+              )}
             </div>
           )}
           {!match && (
