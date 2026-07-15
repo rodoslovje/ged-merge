@@ -394,7 +394,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: siteTitle(who, undefined, `SIstory.si ${war}`), filingNumber: id },
+      proposed: { title: siteTitle(who, war, "SIstory.si"), filingNumber: id },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -414,7 +414,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, undefined, "SIstory.si WW1"),
+        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, "WW1", "SIstory.si"),
         filingNumber: numId,
       },
       titleRank: who ? 2 : 0,
@@ -1582,7 +1582,7 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
     if (name) {
       meta = {
-        title: siteTitle(name, undefined, `SIstory.si${war ? ` ${war}` : ""}`),
+        title: siteTitle(name, war, "SIstory.si"),
         agency: agency ? decodeHtmlEntities(agency).trim() : undefined,
       };
     }

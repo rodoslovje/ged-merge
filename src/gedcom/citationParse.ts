@@ -54,9 +54,11 @@ export function parseSourceInput(text: string): ParsedCitation {
   let author: string | undefined;
   let periodical: string | undefined;
   if (quote) {
-    const beforeQuote = rest.slice(0, quote.index);
-    const commaIdx = beforeQuote.indexOf(",");
-    if (commaIdx !== -1 && commaIdx < 60) author = beforeQuote.slice(0, commaIdx).trim() || undefined;
+    // Everything before the quoted title is the author list — citations open
+    // with one or more comma-separated names ("INZ, Tadeja Tominšek, Tamara
+    // Logar, »Katarina Abdonec«, …"), all of which belong in the author field.
+    const beforeQuote = rest.slice(0, quote.index).replace(/[,\s]+$/, "").trim();
+    if (beforeQuote && beforeQuote.length <= 120) author = beforeQuote;
 
     const afterQuote = quote.index + quote[0].length;
     if (paren && paren.index! > afterQuote) {

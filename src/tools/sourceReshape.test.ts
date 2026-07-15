@@ -807,10 +807,10 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.bookType).toBe("death");
     // The record id means nothing to a reader — filing number, not title.
-    expect(g.proposed.title).toBe("Fani Grudnik - SIstory.si WW2");
+    expect(g.proposed.title).toBe("Fani Grudnik - WW2 - SIstory.si");
     expect(g.proposed.filingNumber).toBe("F01EDD85-E7BB-4D18-9599-1428852BAA1F");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
-    expect(text).toContain("1 TITL Fani Grudnik - SIstory.si WW2");
+    expect(text).toContain("1 TITL Fani Grudnik - WW2 - SIstory.si");
     expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
   });
 
@@ -824,7 +824,7 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.members).toHaveLength(2); // path and zv1 variants share the record
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Matija Čehun (1877) - SIstory.si WW1"); // name from the zv1 id
+    expect(g.proposed.title).toBe("Matija Čehun (1877) - WW1 - SIstory.si"); // name from the zv1 id
     expect(g.proposed.filingNumber).toBe("15691");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/);
   });
@@ -1053,7 +1053,7 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
     );
     // Person name from the »…« quotes, institute from the citation; no id in the title.
     expect(meta).toEqual({
-      title: "Katarina Abdonec - SIstory.si WW2",
+      title: "Katarina Abdonec - WW2 - SIstory.si",
       agency: "Inštitut za novejšo zgodovino",
     });
   });

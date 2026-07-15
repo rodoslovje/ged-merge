@@ -24,7 +24,8 @@ import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
-const SITE_ICON: Record<ReshapeSite, string> = {
+/** Site glyphs — shared with the Add Source dialog's recognized-link chip. */
+export const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
   findagrave: "🪦",

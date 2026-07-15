@@ -8,6 +8,7 @@ import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, recognizeSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { useSettings } from "./SettingsContext";
+import { SITE_ICON } from "./tools/SourceCleanupView";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
@@ -105,7 +106,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     if (editing) return;
     setFetched(undefined);
     setFields({
-      title: match ? "" : parsed.title ?? recognized?.proposed.title ?? "",
+      // For a recognized site the composed proposal ("Katarina Abdonec - WW2 -
+      // SIstory.si") beats the generic parse's bare quoted name — same title
+      // the cleanup tool would write.
+      title: match ? "" : recognized?.proposed.title ?? parsed.title ?? "",
       author: match ? "" : parsed.author ?? "",
       periodical: match ? "" : parsed.periodical ?? "",
       publisher: match ? "" : parsed.publisher ?? "",
@@ -296,7 +300,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
             <div className="add-source-chip">
               <span className="add-source-chip-check" aria-hidden="true">✓</span>
               <span>{t("addSource.recognized")}</span>
-              <span className="add-source-chip-site">{t(`tools.sources.reshapeSite.${recognized.site}`)}</span>
+              <span className="add-source-chip-site">
+                {SITE_ICON[recognized.site]} {t(`tools.sources.reshapeSite.${recognized.site}`)}
+              </span>
             </div>
           )}
           {!match && !editing && recognized && !settings.allowLinkFetch && (
