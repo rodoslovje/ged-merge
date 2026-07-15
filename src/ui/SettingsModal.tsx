@@ -270,7 +270,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </select>
               </label>
             ))}
-            <span className="settings-hint">{t("settings.format.reloadNote")}</span>
           </section>
           )}
 
