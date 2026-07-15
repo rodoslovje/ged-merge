@@ -759,7 +759,7 @@ export const en = {
   "addSource.fetching": "Fetching title…",
   "addSource.match": "Matches an existing source — adding this page.",
   "addSource.matchTitled": "Matches existing source “{{title}}” — adding this page.",
-  "addSource.recognized": "{{site}} link recognized — the fields below are filled in like Clean up sources would.",
+  "addSource.recognized": "{{site}} link recognized.",
   "addSource.field.title": "Title",
   "addSource.field.author": "Author",
   "addSource.field.periodical": "Periodical / series",
