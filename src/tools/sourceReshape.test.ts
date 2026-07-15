@@ -1069,6 +1069,120 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toMatch(/0 @I2@ INDI\n1 SOUR @S1@\n2 PAGE 11/); // ambiguous: converted in place
   });
 
+  it("resolves a multi-family person's marriage link via the other spouse's copy of the page", () => {
+    // Pavel married twice; the register page image hangs on him AND on his
+    // first wife (single FAMS) — that shared page pins his citation to @F1@.
+    const { text, report } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Pavel /Križaj/
+1 OBJE @M1@
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Neža /Zavrl/
+1 OBJE @M1@
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I1@
+0 @S1@ SOUR
+1 TITL Poročna knjiga / Trauungsbuch - 00899
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=51
+0 TRLR`,
+      { pageMedia: "event" },
+    );
+    const pavel = report.groups[0].members.find((m) => m.recordLabel.includes("Pavel"))!;
+    expect(pavel).toMatchObject({ targetEvent: "MARR", targetFam: "@F1@" });
+    // One citation + page image on @F1@'s created MARR; both pointers gone.
+    expect(text).toMatch(/0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 51/);
+    expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
+    expect(text).not.toMatch(/0 @F2@ FAM\n1 MARR/);
+    expect(text).not.toContain("1 OBJE @M1@\n1 FAMS"); // no person-level pointers left
+    const again = findReshapableLinks(dataset(text), undefined, { pageMedia: "event" });
+    expect(again.groups).toHaveLength(0);
+  });
+
+  it("resolves the family whose MARR already cites the page and cleans the record-level leftovers", () => {
+    // The state an earlier run leaves behind: the family's MARR is properly
+    // cited (via the other spouse), but the two-marriage person still carries
+    // the pointer and a record-level citation. Both move/fold into @F1@.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Pavel /Križaj/
+1 OBJE @M1@
+1 SOUR @S1@
+2 PAGE 51
+2 QUAY 3
+1 FAMS @F1@
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+1 MARR
+2 DATE 30 JAN 1843
+2 OBJE @M1@
+2 SOUR @S1@
+3 PAGE 51
+3 QUAY 3
+0 @F2@ FAM
+1 HUSB @I1@
+1 MARR
+2 DATE 1850
+0 @S1@ SOUR
+1 TITL Poročna knjiga / Trauungsbuch - 00899
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=51
+0 TRLR`);
+    const pavel = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(pavel).not.toContain("OBJE @M1@");
+    expect(pavel).not.toContain("SOUR @S1@");
+    expect(text.match(/SOUR @S1@\n3 PAGE 51\n3 QUAY 3/g)).toHaveLength(1); // only on @F1@'s MARR
+    const again = findReshapableLinks(dataset(text));
+    expect(again.groups).toHaveLength(0);
+  });
+
+  it("an unresolvable multi-family marriage link settles at record level and stops being reported", () => {
+    // No evidence ties the page to either family. With the citation already
+    // beside the pointer (QUAY set), there is nothing left to organize.
+    const settled = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Pavel /Križaj/
+1 OBJE @M1@
+1 SOUR @S1@
+2 PAGE 51
+2 QUAY 3
+1 FAMS @F1@
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+0 @F2@ FAM
+1 HUSB @I1@
+0 @S1@ SOUR
+1 TITL Poročna knjiga / Trauungsbuch - 00899
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=51
+0 TRLR`;
+    expect(scan(settled).groups).toHaveLength(0);
+
+    // Missing QUAY = still work to do: the apply fills it (and keeps the
+    // pointer beside the citation), after which the rescan finds nothing.
+    const { text, report } = applyAll(settled.replace("\n2 QUAY 3", ""), { quay: "3" });
+    expect(report.totalOccurrences).toBe(1);
+    const pavel = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(pavel).toContain("1 OBJE @M1@");
+    expect(pavel).toContain("1 SOUR @S1@\n2 PAGE 51\n2 QUAY 3");
+    expect(findReshapableLinks(dataset(text)).groups).toHaveLength(0);
+  });
+
   it("places cemetery citations on a created BURI event", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
