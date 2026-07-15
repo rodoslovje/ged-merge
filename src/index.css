@@ -2463,8 +2463,12 @@ button:focus-visible {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+/* Reveal on hover or *keyboard-visible* focus in the row — plain
+   :focus-within would pin the control to the last-clicked row after the
+   pointer leaves (a clicked button keeps focus); inputs match :focus-visible
+   while being edited, so typing in the row still keeps it shown. */
 .edit-event:hover .edit-event-addfield,
-.edit-event:focus-within .edit-event-addfield,
+.edit-event:has(:focus-visible) .edit-event-addfield,
 .edit-event-addfield:focus {
   width: auto;
   opacity: 1;
@@ -2504,7 +2508,7 @@ button:focus-visible {
   display: none;
 }
 .edit-event:hover .edit-event-extra-label,
-.edit-event:focus-within .edit-event-extra-label { display: inline; }
+.edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
 /* The note is content-sized like the other fields (it wraps its text within
