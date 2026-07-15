@@ -1111,6 +1111,40 @@ export function makePlaceResolver(records: GedNode[]): (place: string | undefine
   return buildPlaceResolver(records).resolve;
 }
 
+/**
+ * Where a source added on the *person* should actually land when the file
+ * keeps its citations on events (more event-level `SOUR` citations than
+ * record-level ones — a citation-less file counts as event-preferring, the
+ * cleanup tool's own default): the event matching the source's register/record
+ * type — baptism book → BIRT/BAPM (the file's habit), marriage book → the
+ * sole family's MARR, death record → DEAT, grave → BURI. Undefined = keep the
+ * record-level placement.
+ */
+export function smartCitationTarget(
+  records: GedNode[],
+  site: ReshapeSite,
+  title: string | undefined,
+): { eventTag: string; onFam: boolean } | undefined {
+  let recordLevel = 0;
+  let eventLevel = 0;
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    for (const child of rec.children) {
+      if (child.tag === "SOUR" && child.value) recordLevel++;
+      else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
+    }
+  }
+  if (recordLevel > eventLevel) return undefined;
+
+  const bookType = SITE_BOOK_TYPE[site] ?? classifyBookType([title]);
+  if (bookType === "unknown") return undefined;
+  if (bookType === "baptism") return { eventTag: baptismTargetTag(records), onFam: false };
+  if (bookType === "marriage") return { eventTag: "MARR", onFam: true };
+  if (bookType === "death") return { eventTag: "DEAT", onFam: false };
+  return { eventTag: "BURI", onFam: false };
+}
+
 /** Stable identity of one occurrence, for matching a report member to its
  *  re-scanned apply-time hit (per-citation QUAY overrides). */
 function occurrenceQuayKey(

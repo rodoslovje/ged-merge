@@ -16,6 +16,7 @@ import {
   parseMatriculaTitle,
   parseMatriculaUrl,
   recognizeSourceUrl,
+  smartCitationTarget,
   reshapeSources,
 } from "./sourceReshape";
 
@@ -1228,6 +1229,57 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
     });
     await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
     expect(calls).toBe(1); // second lookup of the same book served from cache
+  });
+});
+
+describe("smartCitationTarget — event placement for Add Source", () => {
+  const EVENT_STYLE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+1 DEAT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Book
+0 TRLR`;
+  const RECORD_STYLE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR @S1@
+1 SOUR @S1@
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Book
+0 TRLR`;
+
+  it("routes by the source's register/record type in an event-style file", () => {
+    const ds = dataset(EVENT_STYLE);
+    expect(smartCitationTarget(ds.records, "geneanet", undefined)).toEqual({ eventTag: "BURI", onFam: false });
+    expect(smartCitationTarget(ds.records, "billiongraves", undefined)).toEqual({ eventTag: "BURI", onFam: false });
+    expect(smartCitationTarget(ds.records, "sistory", undefined)).toEqual({ eventTag: "DEAT", onFam: false });
+    expect(smartCitationTarget(ds.records, "matricula", "Krstna knjiga / Taufbuch - 04406 | Vodice")).toEqual({
+      eventTag: "BIRT", // the file's baptism habit (BIRT carries the citations)
+      onFam: false,
+    });
+    expect(smartCitationTarget(ds.records, "matricula", "Poročna knjiga - 04406 | Vodice")).toEqual({
+      eventTag: "MARR",
+      onFam: true,
+    });
+  });
+
+  it("stays record-level for unclassifiable sources or record-style files", () => {
+    const ds = dataset(EVENT_STYLE);
+    expect(smartCitationTarget(ds.records, "dlib", "Dolenjski list - dLib.si")).toBeUndefined();
+    expect(smartCitationTarget(ds.records, "matricula", undefined)).toBeUndefined(); // no type signal
+    const recordStyle = dataset(RECORD_STYLE);
+    expect(smartCitationTarget(recordStyle.records, "geneanet", undefined)).toBeUndefined();
+  });
+
+  it("prefers events in a citation-less file (the cleanup tool's own default)", () => {
+    const ds = dataset("0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n0 TRLR");
+    expect(smartCitationTarget(ds.records, "geneanet", undefined)).toEqual({ eventTag: "BURI", onFam: false });
   });
 });
 

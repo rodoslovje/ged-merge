@@ -38,7 +38,9 @@ import {
   detachSpouseRole,
   FAM_CHILD_ORDER,
   getMediaAndSourceCtx,
+  EVENT_CHILD_ORDER,
   INDI_CHILD_ORDER,
+  insertOrdered,
   insertRecord,
   insertRecordAt,
   rebuildFamily,
@@ -53,7 +55,7 @@ import {
   type NewSourceFields,
 } from "../gedcom/edit";
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
-import { applySiteSourceExtras } from "../tools/sourceReshape";
+import { applySiteSourceExtras, smartCitationTarget } from "../tools/sourceReshape";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
@@ -1040,11 +1042,34 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return { sourceXref: sourceNode.xref!, page: fields.page, extraPatches };
   }
 
+  /** Attach the citation to `host`'s `eventTag` event, creating the event
+   * when missing — the same placement the Organize sources tool uses. */
+  function attachToEvent(host: GedNode, eventTag: string, sourceXref: string, page: string | undefined, order: string[]) {
+    let event = firstChild(host, eventTag);
+    if (!event) {
+      event = { level: host.level + 1, tag: eventTag, children: [] };
+      insertOrdered(host, event, order);
+    }
+    attachSourceCitation(event, sourceXref, page, EVENT_CHILD_ORDER);
+  }
+
   function handleAddSource(fields: AddSourceResult) {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
     const { sourceXref, page, extraPatches } = resolveSourceFields(fields);
     if (sourceDialogTarget.kind === "individual") {
-      commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+      // A recognized register/grave source added on the person lands on its
+      // matching event (created if missing) when the file keeps citations on
+      // events — baptism → BIRT/BAPM, marriage → the sole family's MARR,
+      // death → DEAT, grave → BURI.
+      const smart = fields.site ? smartCitationTarget(dataset.records, fields.site, fields.title) : undefined;
+      const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
+      if (smart && !smart.onFam) {
+        commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+      } else if (smart && smart.onFam && soleFam) {
+        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, sourceXref, page, FAM_CHILD_ORDER), extraPatches);
+      } else {
+        commit((indi) => attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER), extraPatches);
+      }
     } else if (sourceDialogTarget.kind === "family") {
       commitFamily(sourceDialogTarget.fam, (f) => attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER), extraPatches);
     } else {
