@@ -4756,7 +4756,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .link-button:hover { color: var(--text); }
 
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
-.settings-modal { max-width: 520px; height: auto; max-height: 88vh; }
+.settings-modal { max-width: 624px; height: auto; max-height: 88vh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
