@@ -386,14 +386,15 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("sistory")) return undefined;
     const war = sistory[1].toUpperCase();
     const id = sistory[2].toUpperCase();
-    // The id means nothing to a reader — prefer the person's name, which the
-    // SIstory citation text carries in »…« quotes.
+    // The id means nothing to a reader — it goes to the filing number, and
+    // the title prefers the person's name, which the SIstory citation text
+    // carries in »…« quotes.
     const who = quotedCollection(contextText);
     return {
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: siteTitle(who, id, `SIstory.si ${war}`) },
+      proposed: { title: siteTitle(who, undefined, `SIstory.si ${war}`), filingNumber: id },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -413,7 +414,8 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, numId, "SIstory.si WW1"),
+        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, undefined, "SIstory.si WW1"),
+        filingNumber: numId,
       },
       titleRank: who ? 2 : 0,
       typeHint: contextText,
@@ -1565,10 +1567,25 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     const obitId = /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
     if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
   } else if (site === "sistory") {
-    const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+    // The record page's "Citiranje" section carries a full citation —
+    // `INZ, Tadeja Tominšek, …, »Katarina Abdonec«, Smrtne žrtve … (Ljubljana:
+    // Inštitut za novejšo zgodovino, 2026), …` — the person's name in »…«
+    // quotes and the publishing institute. The record id stays out of the
+    // title (it's the filing number); the page title is the name fallback.
+    const citStart = html.search(/Citiranje/i);
+    const citation = citStart >= 0 ? html.slice(citStart, citStart + 800) : html;
+    const quoted = /[»„]([^«“”\n]{2,80})[«“]/.exec(citation)?.[1];
+    const name =
+      (quoted && decodeHtmlEntities(quoted).trim()) ||
+      pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+    const agency = /\(\s*[^():\n]{2,60}:\s*([^,()\n]{3,80}),\s*\d{4}\s*\)/.exec(citation)?.[1];
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
-    const recId = /\/ww[12]\/([^/?#]+)/i.exec(bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
-    if (name) meta = { title: siteTitle(name, recId, `SIstory.si${war ? ` ${war}` : ""}`) };
+    if (name) {
+      meta = {
+        title: siteTitle(name, undefined, `SIstory.si${war ? ` ${war}` : ""}`),
+        agency: agency ? decodeHtmlEntities(agency).trim() : undefined,
+      };
+    }
   } else {
     const title = pageTitleOf(html);
     if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };

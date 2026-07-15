@@ -806,9 +806,12 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
+    // The record id means nothing to a reader — filing number, not title.
+    expect(g.proposed.title).toBe("Fani Grudnik - SIstory.si WW2");
+    expect(g.proposed.filingNumber).toBe("F01EDD85-E7BB-4D18-9599-1428852BAA1F");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
-    expect(text).toContain("1 TITL Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
+    expect(text).toContain("1 TITL Fani Grudnik - SIstory.si WW2");
+    expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
   });
 
   it("recognizes both SIstory WW1 shapes and groups the same victim across them", () => {
@@ -821,7 +824,8 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.members).toHaveLength(2); // path and zv1 variants share the record
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Matija Čehun (1877) - 15691 - SIstory.si WW1"); // name from the zv1 id
+    expect(g.proposed.title).toBe("Matija Čehun (1877) - SIstory.si WW1"); // name from the zv1 id
+    expect(g.proposed.filingNumber).toBe("15691");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/);
   });
 
@@ -1032,6 +1036,26 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(meta?.agency).toBe("Nadškofijski arhiv Ljubljana"); // not the parish link, not "Ljubljana"
     expect(meta?.title).toBe("Krstna knjiga / Taufbuch - 01723 | Podzemelj");
     expect(meta?.dateRange).toBe("1675-1725");
+  });
+
+  it("parses the SIstory record page's Citiranje section", async () => {
+    const SISTORY_HTML = `<html><head><title>SIstory | Žrtve II. sv. vojne</title></head>
+<body><h1>Katarina Abdonec</h1>
+<p>identifikator: CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p>
+<h2>Citiranje</h2>
+<p>INZ, Tadeja Tominšek, Tamara Logar, »Katarina Abdonec«, Smrtne žrtve druge svetovne vojne in
+zaradi nje v Sloveniji (Ljubljana: Inštitut za novejšo zgodovino, 2026), pridobljeno 15. 7. 2026,
+https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html>`;
+    const meta = await fetchBookMeta(
+      "sistory",
+      "https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D",
+      async () => SISTORY_HTML,
+    );
+    // Person name from the »…« quotes, institute from the citation; no id in the title.
+    expect(meta).toEqual({
+      title: "Katarina Abdonec - SIstory.si WW2",
+      agency: "Inštitut za novejšo zgodovino",
+    });
   });
 
   it("fetchBookMeta parses per-site and caches by book", async () => {
