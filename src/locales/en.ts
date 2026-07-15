@@ -760,7 +760,7 @@ export const en = {
   "addSource.match": "Matches an existing source — adding this page.",
   "addSource.matchTitled": "Matches existing source “{{title}}” — adding this page.",
   "addSource.recognized": "{{site}} link recognized.",
-  "addSource.recognizedFetchOff": "Turn on “{{setting}}” in Settings to fill in the real book details.",
+  "addSource.recognizedFetchOff": "Turn on “{{setting}}” in Settings to fill in the real link details.",
   "addSource.field.title": "Title",
   "addSource.field.author": "Author",
   "addSource.field.periodical": "Periodical / series",
