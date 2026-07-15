@@ -3276,6 +3276,10 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
   transition: max-width 0.12s, opacity 0.12s;
 }
 .source-ref-wrap:hover .source-ref-open,
+.edit-event:hover .source-ref-open,
+.edit-event:focus-within .source-ref-open,
+.edit-record-label-row:hover .source-ref-open,
+.edit-record-section:hover .source-ref-open,
 .source-ref-open:focus-visible {
   max-width: 1.2em;
   opacity: 1;
