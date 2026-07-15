@@ -1042,7 +1042,7 @@ export const sl = {
   "settings.tab.general": "Splošno",
   "settings.tab.advanced": "Napredno",
   "settings.tab.format": "Oblika",
-  "settings.format.detected": "Zaznano",
+  "settings.format.detected": "Samodejno (zaznano)",
   "settings.format.group.dates": "Datumi",
   "settings.format.group.names": "Imena",
   "settings.format.group.places": "Kraji",

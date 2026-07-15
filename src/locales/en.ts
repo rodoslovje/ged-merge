@@ -943,7 +943,7 @@ export const en = {
   "settings.tab.general": "General",
   "settings.tab.advanced": "Advanced",
   "settings.tab.format": "Format",
-  "settings.format.detected": "Detected",
+  "settings.format.detected": "Auto (detected)",
   "settings.format.group.dates": "Dates",
   "settings.format.group.names": "Names",
   "settings.format.group.places": "Places",
