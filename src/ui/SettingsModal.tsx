@@ -33,21 +33,40 @@ interface FormatDimension {
   verbatim?: boolean;
 }
 
-const FORMAT_DIMENSIONS: FormatDimension[] = [
-  { key: "date", choices: DATE_PATTERN_CHOICES, verbatim: true },
-  { key: "datePlaceholder", choices: ["none", "_", "?"] },
-  { key: "place", choices: ["structured-addr", "packed-plac", "plain-structured", "address-only"] },
-  { key: "names", choices: ["records", "tags"] },
-  { key: "unknownName", choices: ["blank", "NN", "N.N."] },
-  { key: "sourceLayout", choices: ["paginated", "repository", "literature", "inline"] },
-  { key: "citations", choices: ["event", "record"] },
-  { key: "pageMedia", choices: ["event", "source"] },
-  { key: "baptism", choices: ["BIRT", "BAPM"] },
-  { key: "doubledLinks", choices: ["fold", "keep"] },
-  // Matricula's own language form offers exactly these five; the Geneanet
-  // list mirrors GENEANET_CEMETERY_LOCALES (the locales the rewriter knows).
-  { key: "matriculaLang", choices: ["sl", "de", "en", "cs", "it"], verbatim: true },
-  { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
+/** The Format tab's dimensions, grouped for display. Matricula's own
+ *  language form offers exactly those five languages; the Geneanet list
+ *  mirrors GENEANET_CEMETERY_LOCALES (the locales the rewriter knows). */
+const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
+  {
+    group: "dates",
+    dims: [
+      { key: "date", choices: DATE_PATTERN_CHOICES, verbatim: true },
+      { key: "datePlaceholder", choices: ["none", "_", "?"] },
+    ],
+  },
+  {
+    group: "names",
+    dims: [
+      { key: "names", choices: ["records", "tags"] },
+      { key: "unknownName", choices: ["blank", "NN", "N.N."] },
+    ],
+  },
+  {
+    group: "places",
+    dims: [{ key: "place", choices: ["structured-addr", "packed-plac", "plain-structured", "address-only"] }],
+  },
+  {
+    group: "sources",
+    dims: [
+      { key: "sourceLayout", choices: ["paginated", "repository", "literature", "inline"] },
+      { key: "citations", choices: ["event", "record"] },
+      { key: "pageMedia", choices: ["event", "source"] },
+      { key: "baptism", choices: ["BIRT", "BAPM"] },
+      { key: "doubledLinks", choices: ["fold", "keep"] },
+      { key: "matriculaLang", choices: ["sl", "de", "en", "cs", "it"], verbatim: true },
+      { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
+    ],
+  },
 ];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
@@ -243,34 +262,34 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           )}
 
           {tab === "format" && (
-          <section className="settings-section">
-            <h3>{t("settings.format.title")}</h3>
-            <span className="settings-hint">{t("settings.format.hint")}</span>
-            {FORMAT_DIMENSIONS.map(({ key, choices, verbatim }) => (
-              <label key={key} className="settings-row settings-format-row">
-                <span className="settings-row-text">
+          <>
+          {FORMAT_GROUPS.map(({ group, dims }) => (
+            <section key={group} className="settings-section settings-format-group">
+              <h3>{t(`settings.format.group.${group}`)}</h3>
+              {dims.map(({ key, choices, verbatim }) => (
+                <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
-                  <span className="settings-hint">{t(`settings.format.${key}.hint`)}</span>
-                </span>
-                <select
-                  value={(settings.formatOverrides[key] as string | undefined) ?? ""}
-                  onChange={(e) => {
-                    const next = { ...settings.formatOverrides };
-                    if (e.target.value) next[key] = e.target.value as never;
-                    else delete next[key];
-                    set({ formatOverrides: next });
-                  }}
-                >
-                  <option value="">{t("settings.format.detected")}</option>
-                  {choices.map((c) => (
-                    <option key={c} value={c}>
-                      {verbatim ? c : t(`settings.format.${key}.${c}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </section>
+                  <select
+                    value={(settings.formatOverrides[key] as string | undefined) ?? ""}
+                    onChange={(e) => {
+                      const next = { ...settings.formatOverrides };
+                      if (e.target.value) next[key] = e.target.value as never;
+                      else delete next[key];
+                      set({ formatOverrides: next });
+                    }}
+                  >
+                    <option value="">{t("settings.format.detected")}</option>
+                    {choices.map((c) => (
+                      <option key={c} value={c}>
+                        {verbatim ? c : t(`settings.format.${key}.${c}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </section>
+          ))}
+          </>
           )}
 
           {tab === "advanced" && (
