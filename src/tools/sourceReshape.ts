@@ -176,10 +176,18 @@ export interface ReshapeMeta {
 /** Per-group fetched metadata (keys = group ids). */
 export type ReshapeEnrichment = Map<string, ReshapeMeta>;
 
+/** Where a paginated source's page images are referenced from, besides the
+ *  source record itself: "event" additionally links each cited page's OBJE on
+ *  the event beside its citation (webtrees shows it inline with the fact);
+ *  "source" keeps them on the source record only. */
+export type PageMediaStyle = "event" | "source";
+
 export interface ReshapeOptions {
   /** Move citations onto their matching event (baptism→BIRT/BAPM, marriage→MARR,
    *  death→DEAT, cemetery→BURI). Default true. */
   relocate?: boolean;
+  /** Page-image placement; "auto" (default) detects the file's own habit. */
+  pageMedia?: PageMediaStyle | "auto";
 }
 
 export interface ReshapeCounts {
@@ -901,19 +909,53 @@ function recognizedUrls(text: string, contextText: string | undefined, sites: Re
   return out;
 }
 
-/** Top-level OBJE xrefs referenced by any `SOUR` record — already organized as
- *  source page media, so a person-level pointer to them is left alone only if
- *  the pointer itself is *the* SOUR link; person-level pointers still convert. */
-function sourReferencedObjeXrefs(records: GedNode[]): Set<string> {
-  const set = new Set<string>();
+/** Top-level OBJE xrefs referenced by a `SOUR` record (its page images),
+ *  mapped to their owning source's xref (first owner wins). */
+function sourReferencedObjeXrefs(records: GedNode[]): Map<string, string> {
+  const map = new Map<string, string>();
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     for (const c of childrenByTag(rec, "OBJE")) {
       const v = c.value?.trim();
-      if (v && isPointer(v)) set.add(v);
+      if (v && isPointer(v) && !map.has(v)) map.set(v, rec.xref);
     }
   }
-  return set;
+  return map;
+}
+
+/**
+ * The file's own habit for a cited page's image: "event" when events that cite
+ * a paginated source typically also carry that source's page image beside the
+ * citation (webtrees-style), else "source" (images only on the source record).
+ */
+export function detectPageMediaStyle(records: GedNode[]): PageMediaStyle {
+  const owners = sourReferencedObjeXrefs(records);
+  let paired = 0;
+  let plain = 0;
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    for (const ev of rec.children) {
+      if (!eventTags.has(ev.tag)) continue;
+      const cited = new Set(
+        childrenByTag(ev, "SOUR")
+          .map((c) => c.value?.trim())
+          .filter((v): v is string => !!v && isPointer(v)),
+      );
+      if (cited.size === 0) continue;
+      // Only sources that actually organize page media can pair up.
+      const citesPaginated = [...owners.values()].some((sour) => cited.has(sour));
+      if (!citesPaginated) continue;
+      const hasPageImage = childrenByTag(ev, "OBJE").some((c) => {
+        const v = c.value?.trim();
+        const owner = v && isPointer(v) ? owners.get(v) : undefined;
+        return !!owner && cited.has(owner);
+      });
+      if (hasPageImage) paired++;
+      else plain++;
+    }
+  }
+  return paired > plain ? "event" : "source";
 }
 
 function scanContainer(
@@ -1033,7 +1075,10 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
 function scanOccurrences(
   records: GedNode[],
   sites: ReadonlySet<ReshapeSite>,
-  convertSourPageMedia = false,
+  /** How pointers to a source's page media are treated: undefined (doubled-
+   *  links file) leaves them alone; "source" converts them all away; "event"
+   *  keeps the ones already sitting beside their citation on an event. */
+  pointerStyle?: PageMediaStyle,
 ): ScanHit[] {
   const objeIndex = buildObjeIndex(records);
   const objeUrls = new Map<string, string>();
@@ -1065,13 +1110,23 @@ function scanOccurrences(
   }
 
   // Person/event-level OBJE pointers to media that already hang off a SOUR as
-  // its page images: in a links-on-events file (`convertSourPageMedia`) they
-  // are redundant — the apply reuses the owning SOUR, attaches a proper page
-  // citation on the matching event (or dedupes against one already there) and
-  // drops the pointer. In a doubled-links file the pointer IS the house style
-  // and stays.
-  if (convertSourPageMedia) return hits;
-  return hits.filter((h) => !(h.shape === "obje" && h.objeXref && sourReferenced.has(h.objeXref)));
+  // its page images: in a links-on-events file they are redundant — the apply
+  // reuses the owning SOUR, attaches a proper page citation on the matching
+  // event (or dedupes against one already there) and drops the pointer. In
+  // the "event" page-media style, a pointer already sitting beside its
+  // citation on an event IS the house shape and stays; elsewhere-placed
+  // pointers still convert (and re-materialize beside the citation). In a
+  // doubled-links file every such pointer is house style and stays.
+  return hits.filter((h) => {
+    if (h.shape !== "obje" || !h.objeXref) return true;
+    const owner = sourReferenced.get(h.objeXref);
+    if (!owner) return true;
+    if (!pointerStyle) return false;
+    if (pointerStyle === "source") return true;
+    const besideCitation =
+      h.eventTag !== undefined && childrenByTag(h.container, "SOUR").some((c) => c.value?.trim() === owner);
+    return !besideCitation;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1235,7 +1290,9 @@ export function findReshapableLinks(
 ): ReshapeReport {
   const relocate = opts.relocate !== false;
   const fold = !prefersDoubledLinks(dataset.records);
-  const hits = scanOccurrences(dataset.records, sites, fold);
+  const pageMedia =
+    opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(dataset.records);
+  const hits = scanOccurrences(dataset.records, sites, fold ? pageMedia : undefined);
   const groups = buildGroups(dataset.records, hits, fold);
   const baptismTag = baptismTargetTag(dataset.records);
 
@@ -1600,7 +1657,10 @@ export function reshapeSources(
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
   const fold = !prefersDoubledLinks(clone);
-  const hits = scanOccurrences(clone, sites, fold).filter((h) => selectedById.has(h.recognized.groupKey));
+  const pageMedia = opts.pageMedia && opts.pageMedia !== "auto" ? opts.pageMedia : detectPageMediaStyle(clone);
+  const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
+    selectedById.has(h.recognized.groupKey),
+  );
   const groups = buildGroups(clone, hits, fold);
   const baptismTag = baptismTargetTag(clone);
   const layout = inferSourceFormat(clone).layout;
@@ -1722,6 +1782,24 @@ export function reshapeSources(
       linkedKeys.add(urlKey);
     }
 
+    // Where each cited page's image lives — in the "event" page-media style
+    // the citation's container gets that OBJE linked beside it, so the page
+    // shows inline with the fact (webtrees-style).
+    const objeByUrlKey = new Map<string, string>();
+    if (pageMedia === "event") {
+      for (const c of childrenByTag(sourceNode, "OBJE")) {
+        const v = c.value?.trim();
+        const url = v && urlOfObje(v);
+        if (v && url) objeByUrlKey.set(linkKey(url), v);
+      }
+    }
+    const ensurePageMedia = (target: GedNode, targetOrder: string[], url: string) => {
+      const xref = objeByUrlKey.get(linkKey(url));
+      if (!xref) return;
+      if (childrenByTag(target, "OBJE").some((c) => c.value?.trim() === xref)) return;
+      insertOrdered(target, { level: target.level + 1, tag: "OBJE", value: xref, children: [] }, targetOrder);
+    };
+
     // --- Rewrite each occurrence into a citation. Per-citation QUAY overrides
     // from the report's members are matched by a stable occurrence key (not by
     // position), so an edit between scan and apply can't shift an override
@@ -1835,6 +1913,7 @@ export function reshapeSources(
         } else if (duplicate) {
           spliceChild(container, citation);
         }
+        ensurePageMedia(container, order, hit.url);
         counts.citationsRewritten++;
         continue;
       }
@@ -1854,6 +1933,9 @@ export function reshapeSources(
       } else if (spliceChild(hit.container, hit.node)) {
         counts.linksRemoved++;
       }
+      // After the original node is gone, so an in-place pointer re-checks
+      // cleanly: the citation's container gets the cited page's image.
+      ensurePageMedia(container, order, hit.url);
     }
   }
 

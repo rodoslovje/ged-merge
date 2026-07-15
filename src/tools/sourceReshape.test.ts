@@ -6,6 +6,7 @@ import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
+  detectPageMediaStyle,
   classifyBookType,
   fetchBookMeta,
   fetchReshapeMeta,
@@ -33,7 +34,7 @@ function scan(text: string, sites?: ReshapeSite[]) {
 }
 
 /** Run the full pipeline (all groups selected) and return the serialized output. */
-function applyAll(text: string, opts?: { relocate?: boolean; quay?: string }) {
+function applyAll(text: string, opts?: { relocate?: boolean; quay?: string; pageMedia?: "auto" | "event" | "source" }) {
   const ds = dataset(text);
   const report = findReshapableLinks(ds, undefined, opts);
   const groups = report.groups.map((g) => (opts?.quay ? { ...g, quay: opts.quay } : g));
@@ -791,6 +792,94 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BIRT\n2 SOUR @S1@\n3 PAGE 111/);
     const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
     expect(indi).not.toContain("1 OBJE @M1@");
+  });
+
+  it("detects the file's page-media style", () => {
+    const eventStyle = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    expect(detectPageMediaStyle(eventStyle.records)).toBe("event");
+    const sourceStyle = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`);
+    expect(detectPageMediaStyle(sourceStyle.records)).toBe("source");
+  });
+
+  it("event page-media style: converted links get the page image beside the citation", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 TRLR`,
+      { pageMedia: "event" },
+    );
+    // Citation + the cited page's OBJE side by side on the event.
+    expect(text).toMatch(/1 BIRT\n2 OBJE @O\d+@\n2 SOUR @S\d+@\n3 PAGE 94/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n(1 .*\n)*1 OBJE @O\d+@/); // and on the source
+  });
+
+  it("event page-media style: a pointer already beside its citation stays untouched", () => {
+    const src = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`;
+    // Auto-detects "event" (the one cited event carries its page image).
+    const { text, report } = applyAll(src);
+    expect(report.totalOccurrences).toBe(0); // nothing to organize
+    expect(text.match(/2 OBJE @M1@/g)).toHaveLength(1);
+    expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
+  });
+
+  it("event page-media style: a person-level pointer moves beside the event citation", () => {
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 111
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`,
+      { pageMedia: "event" },
+    );
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).not.toContain("1 OBJE @M1@"); // person-level pointer gone
+    expect(indi).toMatch(/1 BIRT\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 111/); // now beside the citation
   });
 
   it("keeps the person-level page-image pointer in a doubled-links file", () => {

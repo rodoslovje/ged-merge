@@ -1063,6 +1063,13 @@ export const sl = {
   "settings.links.fetch.hint": "Pri dodajanju vira iz golega URL-ja pridobi naslov strani prek javnega posrednika. To je edina funkcija, ki pošlje povezavo z vaše naprave; privzeto izklopljeno.",
   "settings.links.fetch.relays": "Uporabljeni javni posredniki, v tem vrstnem redu:",
   "settings.links.fetch.relaysNote": "Pošlje se samo iskani naslov — nikoli vaše datoteke.",
+  "settings.sources.title": "Viri",
+  "settings.sources.pageMedia": "Slike strani matičnih knjig",
+  "settings.sources.pageMedia.hint":
+    "Kam Uredi vire in Dodaj vir povežeta sliko navedene strani, poleg tega da ostane na zapisu vira. \"Na dogodkih\" jo poveže tudi ob navedbi na dogodku, kot jo webtrees prikaže ob dejstvu.",
+  "settings.sources.pageMedia.auto": "Po datoteki",
+  "settings.sources.pageMedia.event": "Na dogodkih",
+  "settings.sources.pageMedia.source": "Samo na viru",
   "settings.data.title": "Lokalno hranjeni podatki",
   "settings.data.persist": "Zapomni si moje delo v tem brskalniku",
   "settings.data.persist.hint": "Naložene datoteke in napredek pregledovanja/urejanja shrani v ta brskalnik, da se ob osvežitvi delo obnovi. Privzeto izklopljeno; ob vklopu lahko brskalnik vpraša za dovoljenje za shranjevanje podatkov. Nič ne zapusti vaše naprave.",

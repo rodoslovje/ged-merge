@@ -964,6 +964,13 @@ export const en = {
   "settings.links.fetch.hint": "When adding a source from a bare URL, fetch its page title through a public relay. This is the only feature that sends a link off your device; off by default.",
   "settings.links.fetch.relays": "Public relays used, tried in this order:",
   "settings.links.fetch.relaysNote": "Only the looked-up address is sent — never your file.",
+  "settings.sources.title": "Sources",
+  "settings.sources.pageMedia": "Register page images",
+  "settings.sources.pageMedia.hint":
+    "Where Organize sources and Add Source link a cited page's image, besides keeping it on the source record. \"On events\" also links it beside the citation on the event, the way webtrees shows it inline.",
+  "settings.sources.pageMedia.auto": "Match the file",
+  "settings.sources.pageMedia.event": "On events",
+  "settings.sources.pageMedia.source": "On the source only",
   "settings.data.title": "Locally stored data",
   "settings.data.persist": "Remember my work in this browser",
   "settings.data.persist.hint": "Store the loaded files and your review/edit progress in this browser so a reload restores your work. Off by default; enabling it may ask the browser for permission to keep the data. Nothing leaves your device.",

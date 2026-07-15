@@ -189,7 +189,10 @@ export function SourceCleanupView({
   function download() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, { relocate });
+    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
+      relocate,
+      pageMedia: settings.sourcePageMedia,
+    });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
