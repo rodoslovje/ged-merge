@@ -61,6 +61,50 @@ function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Tra
   return diffs;
 }
 
+/** One-line description of a `SOUR` citation node — the cited record's title
+ *  (or the inline citation text) plus the cited page. Pointers resolve through
+ *  the *current* records, mirroring the media resolver's caveat. */
+type SourceResolver = (node: GedNode) => string | undefined;
+
+function makeSourceResolver(records: GedNode[]): SourceResolver {
+  const titles = new Map<string, string>();
+  for (const r of records) {
+    if (r.tag !== "SOUR" || !r.xref) continue;
+    const title = r.children.find((c) => c.tag === "TITL")?.value?.trim();
+    if (title) titles.set(r.xref, title);
+  }
+  return (node) => {
+    const v = node.value?.trim();
+    if (!v) return undefined;
+    const base = isPointer(v) ? titles.get(v) ?? v : v;
+    const page = node.children.find((c) => c.tag === "PAGE")?.value?.trim();
+    return page ? `${base} (${page})` : base;
+  };
+}
+
+/** Diff a record's own `SOUR` citations, describing each added/removed one by
+ *  its source title + page rather than the raw pointer. Multiset semantics —
+ *  two citations of the same source/page are two entries. */
+function diffSourceCitations(id: string, before: GedNode, after: GedNode, fieldLabel: string, resolve: SourceResolver): FieldChange[] {
+  const lines = (node: GedNode) => childrenByTag(node, "SOUR").map(resolve).filter((s): s is string => !!s);
+  const beforeVals = lines(before);
+  const afterVals = lines(after);
+  const diffs: FieldChange[] = [];
+  const unmatchedAfter = [...afterVals];
+  for (const v of beforeVals) {
+    const i = unmatchedAfter.indexOf(v);
+    if (i !== -1) unmatchedAfter.splice(i, 1);
+    else diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming" });
+  }
+  const unmatchedBefore = [...beforeVals];
+  for (const v of afterVals) {
+    const i = unmatchedBefore.indexOf(v);
+    if (i !== -1) unmatchedBefore.splice(i, 1);
+    else diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both" });
+  }
+  return diffs;
+}
+
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 interface EventFields {
@@ -71,16 +115,19 @@ interface EventFields {
   addr: string;
   note: string;
   cause: string;
+  sources: string;
 }
 
-const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "addr", "note", "cause"];
+const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "addr", "note", "cause", "sources"];
 
-function eventFields(node: GedNode): EventFields {
+function eventFields(node: GedNode, resolveSource: SourceResolver): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
   // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
-  // the summary and the diff silently drops the change.
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS") };
+  // the summary and the diff silently drops the change. Citations are part of
+  // the summary for the same reason — adding a source to an event must show.
+  const sources = childrenByTag(node, "SOUR").map(resolveSource).filter(Boolean).join(", ");
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS"), sources };
 }
 
 function eventSummary(f: EventFields): string {
@@ -112,11 +159,12 @@ function diffEventSet(
   after: GedNode,
   tags: Set<string>,
   label: (tag: string) => string,
+  resolveSource: SourceResolver,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   for (const tag of tags) {
-    const beforeFields = before.children.filter((c) => c.tag === tag).map(eventFields);
-    const afterFields  = after.children.filter((c) => c.tag === tag).map(eventFields);
+    const beforeFields = before.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource));
+    const afterFields  = after.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource));
     const fieldLabel = label(tag);
     const usedB = new Set<number>();
     const usedA = new Set<number>();
@@ -259,7 +307,7 @@ function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: stri
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver): FieldChange[] {
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
@@ -277,9 +325,10 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
     ...before.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
     ...after.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
   ]);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`), resolveSource));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
+  diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
 
   return diffs;
@@ -324,6 +373,7 @@ function diffFamilyNodes(
   t: Translate,
   resolveName: (xref: string) => string,
   resolveMedia: MediaResolver,
+  resolveSource: SourceResolver,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
@@ -333,9 +383,10 @@ function diffFamilyNodes(
     ...before.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
     ...after.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
   ]);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`)));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`), resolveSource));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
+  diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
 
   return diffs;
@@ -402,6 +453,7 @@ export function enrichEditReport(
 ): ChangeReport {
   const extra: FieldChange[] = [];
   const resolveMedia = makeMediaResolver(dataset.records);
+  const resolveSource = makeSourceResolver(dataset.records);
 
   const resolveIndiName = (xref: string): string => {
     const indi = dataset.individuals.get(xref);
@@ -415,7 +467,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -463,7 +515,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource));
     }
   }
 

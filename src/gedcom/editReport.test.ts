@@ -24,6 +24,38 @@ function baseReport(id: string): ChangeReport {
   };
 }
 
+describe("enrichEditReport — source citations", () => {
+  it("shows an added record-level SOUR citation by its source title and page", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S1@\n2 PAGE 5\n0 @S1@ SOUR\n1 TITL Katarina Abdonec - WW2 - SIstory.si\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const sources = report.changes.filter((c) => c.field === "field.sources");
+    expect(sources).toHaveLength(1);
+    expect(sources[0].to).toBe("Katarina Abdonec - WW2 - SIstory.si (5)");
+    expect(sources[0].action).toBe("both");
+  });
+
+  it("shows a citation added to an event as that event's change", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1944\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1944\n2 SOUR @S1@\n0 @S1@ SOUR\n1 TITL Katarina Abdonec - WW2 - SIstory.si\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const deat = report.changes.filter((c) => c.group === "event.DEAT");
+    expect(deat).toHaveLength(1);
+    expect(deat[0].segments).toEqual([
+      { text: "1944", state: "same" },
+      { text: "Katarina Abdonec - WW2 - SIstory.si", state: "changed" },
+    ]);
+  });
+});
+
 describe("enrichEditReport — event diffing", () => {
   it("marks an edited event's changed sub-field, leaving the rest in their normal color, with no new-event icon", () => {
     const before = dataset(
