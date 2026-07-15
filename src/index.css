@@ -3262,6 +3262,25 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 .source-ref.source-ref--book { font-size: 1.15rem; }
 /* No resolvable link at all — not clickable. */
 .source-ref.source-ref--nolink { cursor: default; }
+/* Edit mode: the icon opens the edit dialog, so a hover-revealed ↗ beside it
+   opens the cited URL directly without a dialog round-trip. */
+.source-ref-wrap { display: inline-flex; align-items: center; }
+.source-ref-open {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+.source-ref-wrap:hover .source-ref-open,
+.source-ref-open:focus-visible {
+  max-width: 1.2em;
+  opacity: 1;
+  padding-right: 2px;
+}
 /* A fallback link (repository/source page) rather than the exact cited page. */
 a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* An incoming citation the main doesn't have yet. */

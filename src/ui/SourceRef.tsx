@@ -86,13 +86,26 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   const title = tooltip || t("source.untitled");
   // Edit mode: clicking opens the edit dialog (which has its own explicit
   // Open/Save/Remove actions) rather than navigating straight to the link —
-  // this also removes the old hover-revealed × badge that sat on the icon's
-  // corner and was too easy to hit by mistake while reaching for the link.
+  // a hover-revealed ↗ *beside* the icon (not on its corner, where the old ×
+  // badge was too easy to mis-hit) still opens the URL directly.
   if (onEdit) {
     return (
-      <button type="button" className={cls} title={title} onClick={onEdit}>
-        {icon}
-      </button>
+      <span className="source-ref-wrap">
+        <button type="button" className={cls} title={title} onClick={onEdit}>
+          {icon}
+        </button>
+        {citation.url && (
+          <a
+            className="source-ref-open"
+            href={linkHref(citation.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t("edit.openLink")}
+          >
+            ↗
+          </a>
+        )}
+      </span>
     );
   }
   return citation.url ? (
