@@ -1010,6 +1010,30 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(enrichment.has(geneGroup.id)).toBe(false); // fetch failed → offline fallback stays
   });
 
+  it("falls back to the breadcrumb archive link when the title carries no agency", async () => {
+    // Some page shapes title only `{type} | {id}` — the agency then comes from
+    // the breadcrumb's archive link (`Začetna / Slovenia / {archive} / {parish}`).
+    const PAGE_NO_AGENCY = `<html><head><title>Krstna knjiga / Taufbuch | 01723</title></head>
+<body><ol class="breadcrumb"><li><a href="/en/">Začetna</a></li><li><a href="/en/slovenia/">Slovenia</a></li>
+<li><a href="/en/slovenia/ljubljana/">Nadškofijski arhiv Ljubljana</a></li>
+<li><a href="/en/slovenia/ljubljana/podzemelj/">Podzemelj</a></li></ol>
+<table class="table table-register-data">
+<tr><th>Parish/place</th><td><a href="/en/slovenia/ljubljana/podzemelj/">Podzemelj</a></td>
+<tr><th>ID</th><td>01723</td>
+<tr><th>Type</th><td>Krstna knjiga / Taufbuch</td>
+<tr><th>Date from</th><td>Jan. 1, 1675</td>
+<tr><th>Date to</th><td>Dec. 31, 1725</td>
+</table></body></html>`;
+    const meta = await fetchBookMeta(
+      "matricula",
+      "https://data.matricula-online.eu/sl/slovenia/ljubljana/podzemelj/01723",
+      async () => PAGE_NO_AGENCY,
+    );
+    expect(meta?.agency).toBe("Nadškofijski arhiv Ljubljana"); // not the parish link, not "Ljubljana"
+    expect(meta?.title).toBe("Krstna knjiga / Taufbuch - 01723 | Podzemelj");
+    expect(meta?.dateRange).toBe("1675-1725");
+  });
+
   it("fetchBookMeta parses per-site and caches by book", async () => {
     let calls = 0;
     const fetchHtml = async () => {

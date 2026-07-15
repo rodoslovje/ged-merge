@@ -1132,17 +1132,19 @@ function ensureSiteRepo(
  * and a `REPO` link — reusing the site's existing repository, or creating one
  * only when the file's convention hangs sources off repositories. Returns the
  * newly created REPO record, if any, so the caller can patch/undo it.
+ * Without a `site` (a hand-entered place on an unrecognized URL) only the
+ * PLAC/DATE fills apply.
  */
 export function applySiteSourceExtras(
   records: GedNode[],
   sourceNode: GedNode,
-  site: ReshapeSite,
+  site: ReshapeSite | undefined,
   url: string,
   meta: { place?: string; dateRange?: string },
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
   fillField(sourceNode, "DATE", meta.dateRange);
-  if (firstChild(sourceNode, "REPO")) return undefined;
+  if (!site || firstChild(sourceNode, "REPO")) return undefined;
   const repo = ensureSiteRepo(
     records,
     site,
@@ -1423,6 +1425,21 @@ function stripMdLinks(s: string): string {
   return s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
 }
 
+/**
+ * The archive's full display name from the fetched Matricula page's
+ * breadcrumb — the link to the archive index (`…/{country}/{archive}/`),
+ * in HTML (`<a href>`) or the rendering relay's markdown. Fallback for pages
+ * whose title doesn't carry the agency, upgrading the offline slug guess
+ * ("Ljubljana" → "Nadškofijski arhiv Ljubljana").
+ */
+function matriculaArchiveName(text: string, mat: MatriculaUrlParts): string | undefined {
+  const path = `/${mat.country}/${mat.archiveSlug}/`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const html = new RegExp(`<a[^>]+href="[^"]*${path}"[^>]*>([^<]+)</a>`, "i").exec(text)?.[1];
+  const md = new RegExp(`\\[([^\\]]+)\\]\\([^)]*${path}\\)`, "i").exec(text)?.[1];
+  const name = html ?? md;
+  return name ? decodeHtmlEntities(name).replace(/\s+/g, " ").trim() || undefined : undefined;
+}
+
 /** Parse the metadata table of a Matricula book page (fetched via the `/en/`
  *  URL so the row labels are stable English). Accepts both the raw HTML
  *  `table-register-data` rows and the rendering relay's markdown table
@@ -1507,9 +1524,11 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
       // "unknown" must not clobber a correct offline classification
       // (e.g. baptism inferred from a "KK" citation prefix).
       const fetchedType = classifyBookType([page.type]);
+      const mat = parseMatriculaUrl(bookUrl);
       meta = {
         title: page.title,
-        agency: page.agency,
+        // Title-derived agency first; else the breadcrumb's archive link.
+        agency: page.agency ?? (mat && matriculaArchiveName(html, mat)),
         place: page.place,
         dateRange: yearRange(page.dateFrom, page.dateTo),
         bookType: fetchedType === "unknown" ? undefined : fetchedType,
