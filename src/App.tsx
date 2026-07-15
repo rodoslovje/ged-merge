@@ -1412,6 +1412,7 @@ function AppContent() {
         themeMode={themeMode}
         onThemeMode={changeThemeMode}
         onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
+        mainDataset={lastMainFile?.dataset}
       />
       {confirmDialogElement}
     </>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf } from "./SettingsContext";
@@ -7,6 +7,8 @@ import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type FormatOverrides } from "../normalize/formatOverrides";
+import { detectFormatDefaults, sampleDateFor } from "../normalize/formatDefaults";
+import type { Dataset } from "../gedcom/types";
 import { sexClass } from "./sex";
 
 export type ThemeMode = "auto" | "light" | "dark";
@@ -18,6 +20,8 @@ interface Props {
   onThemeMode: (mode: ThemeMode) => void;
   /** Wipe the cached workspace (loaded files + merge session) from IndexedDB. */
   onClearCache: () => void;
+  /** The loaded main file, for the Format tab's "Auto (detected)" examples. */
+  mainDataset?: Dataset;
 }
 
 type SettingsTab = "general" | "format" | "advanced";
@@ -84,14 +88,30 @@ const SAMPLE_AGE = 70;
  * opt-in for online link-metadata lookups. Preferences live in
  * {@link useSettings} and persist to localStorage.
  */
-export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache }: Props) {
+export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, mainDataset }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
+  // What "Auto (detected)" resolves to, shown as the per-row example. Only
+  // worth computing with the modal open on the Format tab (a few tree walks).
+  const detected = useMemo(
+    () => (isOpen && tab === "format" && mainDataset ? detectFormatDefaults(mainDataset) : undefined),
+    [isOpen, tab, mainDataset],
+  );
 
   if (!isOpen) return null;
+
+  /** Example between label and dropdown: what the row's *effective* value
+   *  looks like — the override when set, else the detected habit. */
+  const formatExample = ({ key, verbatim }: FormatDimension): string | undefined => {
+    const effective = settings.formatOverrides[key] ?? detected?.[key];
+    if (!effective) return undefined;
+    if (key === "date") return sampleDateFor(effective);
+    if (key === "unknownName") return effective === "blank" ? t("settings.format.unknownName.blank") : effective;
+    return verbatim ? effective : t(`settings.format.${key}.${effective}`);
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -269,6 +289,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               {dims.map(({ key, choices, verbatim }) => (
                 <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
+                  <span className="settings-format-example">{formatExample({ key, choices, verbatim })}</span>
                   <select
                     value={(settings.formatOverrides[key] as string | undefined) ?? ""}
                     onChange={(e) => {

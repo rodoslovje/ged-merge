@@ -1497,6 +1497,22 @@ export function makePlaceResolver(records: GedNode[]): (place: string | undefine
  * sole family's MARR, death record → DEAT, grave → BURI. Undefined = keep the
  * record-level placement.
  */
+/** The file's own citation-placement habit: whether existing citations sit
+ *  mostly on records or on events. */
+export function detectCitationPlacement(records: GedNode[]): "event" | "record" {
+  let recordLevel = 0;
+  let eventLevel = 0;
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    for (const child of rec.children) {
+      if (child.tag === "SOUR" && child.value) recordLevel++;
+      else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
+    }
+  }
+  return recordLevel > eventLevel ? "record" : "event";
+}
+
 export function smartCitationTarget(
   records: GedNode[],
   site: ReshapeSite,
@@ -1506,19 +1522,7 @@ export function smartCitationTarget(
   // Placement override: "record" pins citations to the record level; "event"
   // skips the file-habit gate; "auto"/absent follows the file's majority.
   if (opts.citations === "record") return undefined;
-  if (opts.citations !== "event") {
-    let recordLevel = 0;
-    let eventLevel = 0;
-    for (const rec of records) {
-      if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
-      const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
-      for (const child of rec.children) {
-        if (child.tag === "SOUR" && child.value) recordLevel++;
-        else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
-      }
-    }
-    if (recordLevel > eventLevel) return undefined;
-  }
+  if (opts.citations !== "event" && detectCitationPlacement(records) === "record") return undefined;
 
   const bookType = SITE_BOOK_TYPE[site] ?? classifyBookType([title]);
   if (bookType === "unknown") return undefined;
