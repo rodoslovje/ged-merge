@@ -676,6 +676,30 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 AUTH hawlina"); // same author the offline proposal carries
   });
 
+  it("folds duplicated identical citations into one (Ancestry re-exports them verbatim)", () => {
+    // Real shape from an Ancestry export: the same record-level citation —
+    // same source, same PAGE with the obituary URL — appears twice on the
+    // person. Both relocate to the death event and must become ONE citation.
+    const url =
+      "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary-c-chudovan-yaklich&pid=161495515";
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 DATE 17 OCT 1918
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+1 SOUR @S1@
+2 PAGE Publication Date: 8/ Dec/ 2012; URL: ${url}
+0 @S1@ SOUR
+1 TITL U.S., Obituary Collection, 1930-Current
+0 TRLR`);
+    const indi = text.slice(text.indexOf("0 @I1@"), text.indexOf("0 @S"));
+    expect(indi.match(/2 SOUR /g)).toHaveLength(1); // one citation, on DEAT
+    // The "; URL:" label doesn't dangle once its link is gone.
+    expect(indi).toContain("3 PAGE Publication Date: 8/ Dec/ 2012\n");
+  });
+
   it("applies panel-edited fields: filing-number override, cleared author writes nothing", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

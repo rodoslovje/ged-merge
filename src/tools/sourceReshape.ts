@@ -1163,11 +1163,16 @@ export function findReshapableLinks(
 /** Remove one URL from free text, tidying leftover artifacts conservatively —
  *  never rewrapping or reformatting the user's remaining prose. */
 function removeUrlFromText(text: string, url: string): string {
-  return text
-    .replace(url, "")
-    .replace(/\(\s*\)/g, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "");
+  return (
+    text
+      .replace(url, "")
+      .replace(/\(\s*\)/g, "")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "")
+      // An Ancestry-style "…; URL: <link>" tail leaves its bare label
+      // dangling once the link is gone.
+      .replace(/[\s;,:]*\bURL$/i, "")
+  );
 }
 
 /** Whether leftover note text still says anything (letters or digits). */
@@ -1649,15 +1654,21 @@ export function reshapeSources(
         if (quayFor && !firstChild(citation, "QUAY")) {
           citation.children.push({ level: citation.level + 1, tag: "QUAY", value: quayFor, children: [] });
         }
+        // Compare by the citation's *final* PAGE text (not just the page id):
+        // Ancestry exports duplicate whole record-level citations verbatim,
+        // and the identical twin must fold into one citation, not two.
+        const pageText = childText(citation, "PAGE") ?? "";
+        const duplicate = childrenByTag(container, "SOUR").some(
+          (c) => c !== citation && c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === pageText,
+        );
         if (container !== hit.container) {
-          const duplicate = childrenByTag(container, "SOUR").some(
-            (c) => c !== citation && c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
-          );
           spliceChild(hit.container, citation);
           if (!duplicate) {
             relevel(citation, container.level + 1);
             insertOrdered(container, citation, order);
           }
+        } else if (duplicate) {
+          spliceChild(container, citation);
         }
         counts.citationsRewritten++;
         continue;
