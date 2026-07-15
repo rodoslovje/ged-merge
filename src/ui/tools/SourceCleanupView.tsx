@@ -7,6 +7,7 @@ import {
   fetchReshapeMeta,
   isFetchableSite,
   makePlaceResolver,
+  reshapeOptionsFromOverrides,
   reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
@@ -189,13 +190,9 @@ export function SourceCleanupView({
   function download() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const fmt = settings.formatOverrides;
     const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
+      ...reshapeOptionsFromOverrides(settings.formatOverrides),
       relocate,
-      pageMedia: fmt.pageMedia ?? "auto",
-      sourceLayout: fmt.sourceLayout ?? "auto",
-      baptism: fmt.baptism ?? "auto",
-      doubledLinks: fmt.doubledLinks ?? "auto",
     });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     const base = fileName.replace(/\.ged$/i, "");

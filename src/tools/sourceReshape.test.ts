@@ -17,6 +17,7 @@ import {
   parseMatriculaTitle,
   parseMatriculaUrl,
   recognizeSourceUrl,
+  reshapeOptionsFromOverrides,
   smartCitationTarget,
   reshapeSources,
 } from "./sourceReshape";
@@ -1258,6 +1259,21 @@ describe("reshapeSources — citation placement", () => {
     expect(rec.site).toBe("obrazi");
     expect(rec.bookUrl).toBe("https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/");
     expect(rec.proposed.title).toBe("Primoz Trubar - Obrazi slovenskih pokrajin");
+  });
+
+  it("maps format overrides to reshape options, absent = auto", () => {
+    expect(reshapeOptionsFromOverrides(undefined)).toEqual({
+      pageMedia: "auto",
+      sourceLayout: "auto",
+      baptism: "auto",
+      doubledLinks: "auto",
+    });
+    expect(reshapeOptionsFromOverrides({ pageMedia: "event", baptism: "BAPM", date: "DD.MM.YYYY" })).toEqual({
+      pageMedia: "event",
+      sourceLayout: "auto",
+      baptism: "BAPM",
+      doubledLinks: "auto",
+    });
   });
 
   it("honors format overrides: baptism target, doubled links, source layout, citation placement", () => {
