@@ -181,10 +181,10 @@ export const sl = {
   "tools.sources.dupDownloadCount": "združi {{groups}} skupin dvojnikov · odstrani {{records}} zapisov",
   "tools.sources.dupKeepThis": "Obdrži ta zapis",
   "tools.sources.dupBack": "Nazaj na vire",
-  "tools.sources.cleanupToggle": "Očisti vire",
+  "tools.sources.cleanupToggle": "Uredi vire",
   "tools.sources.expandAll": "Razširi vse",
   "tools.sources.collapseAll": "Strni vse",
-  "tools.sources.cleanupDownload": "Prenesi očiščeni GEDCOM",
+  "tools.sources.cleanupDownload": "Prenesi urejeni GEDCOM",
   "tools.sources.reshapeHeading": "Arhivske povezave → viri",
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), najdene kot gole povezave, opombe ali besedilne navedbe, združene po matični knjigi ali grobu. Izberite skupine za pretvorbo in prenesite GEDCOM, v katerem vsaka postane pravi vir s citati po straneh.",

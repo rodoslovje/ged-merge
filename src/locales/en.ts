@@ -181,10 +181,10 @@ export const en = {
   "tools.sources.dupDownloadCount": "merge {{groups}} duplicate groups · remove {{records}} records",
   "tools.sources.dupKeepThis": "Keep this record",
   "tools.sources.dupBack": "Back to Sources",
-  "tools.sources.cleanupToggle": "Clean up sources",
+  "tools.sources.cleanupToggle": "Organize sources",
   "tools.sources.expandAll": "Expand all",
   "tools.sources.collapseAll": "Collapse all",
-  "tools.sources.cleanupDownload": "Download cleaned GEDCOM",
+  "tools.sources.cleanupDownload": "Download organized GEDCOM",
   "tools.sources.reshapeHeading": "Archive links → sources",
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert, then download a GEDCOM where each becomes a proper source record cited with page numbers.",

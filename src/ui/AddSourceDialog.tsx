@@ -16,7 +16,7 @@ import type { Translate } from "../locales/i18n";
  * decide whether to reuse an existing `SOUR`/`OBJE` or create new ones.
  * `site`/`place`/`dateRange` are set when the URL matched one of the cleanup
  * tool's known sites — the commit side then applies the same PLAC/DATE/REPO
- * extras the Clean up sources tool writes. */
+ * extras the Organize sources tool writes. */
 export type AddSourceResult = NewSourceFields & {
   page?: string;
   site?: ReshapeSite;
@@ -84,7 +84,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
     [parsed.url, mainLinkLangs],
   );
-  // The same site recognition the Clean up sources tool runs — a Matricula /
+  // The same site recognition the Organize sources tool runs — a Matricula /
   // Geneanet / Find a Grave / … URL proposes the identical source fields here,
   // so a hand-added source leaves no work for a later cleanup pass.
   const recognized = useMemo(

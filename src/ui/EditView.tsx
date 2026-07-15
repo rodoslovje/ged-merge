@@ -1022,7 +1022,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
     if (fields.site || fields.place || fields.dateRange) {
       // A recognized site URL gets the same PLAC/DATE/REPO extras the
-      // Clean up sources tool writes, so it needs no cleanup pass later;
+      // Organize sources tool writes, so it needs no cleanup pass later;
       // a hand-entered place still lands as PLAC in the file's place format.
       const repo = applySiteSourceExtras(dataset.records, sourceNode, fields.site, fields.url ?? "", fields);
       if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });

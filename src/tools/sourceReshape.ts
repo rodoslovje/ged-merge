@@ -476,7 +476,7 @@ function firstLine(text: string): string {
 export type RecognizedSourceUrl = Pick<Recognized, "site" | "bookUrl" | "page" | "proposed">;
 
 /**
- * Recognize a single pasted URL against the same site rules the Clean up
+ * Recognize a single pasted URL against the same site rules the Organize
  * sources tool uses — so a source added by hand gets the identical
  * title/place/agency/filing-number proposals and leaves no work for a later
  * cleanup pass. `contextText` is the rest of the pasted citation (quoted
@@ -1144,7 +1144,7 @@ function ensureSiteRepo(
 
 /**
  * Give a SOUR record newly created from a recognized site URL the same extras
- * the Clean up sources tool writes on its own new sources: `PLAC` matched
+ * the Organize sources tool writes on its own new sources: `PLAC` matched
  * against the file's established place format, the register's `DATE` range,
  * and a `REPO` link — reusing the site's existing repository, or creating one
  * only when the file's convention hangs sources off repositories. Returns the
