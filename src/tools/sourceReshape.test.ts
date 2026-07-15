@@ -882,6 +882,31 @@ describe("reshapeSources — apply", () => {
     expect(indi).toMatch(/1 BIRT\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 111/); // now beside the citation
   });
 
+  it("fills a missing QUAY on the existing citation an occurrence folds into", () => {
+    // Real shape: the person's page-media pointer converts, but the event
+    // already cites the book at that page — the pointer folds in, and the
+    // chosen quality must land on that existing citation.
+    const src = (quayLine: string) => `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 78${quayLine}
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 00001 | Adlešiči
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=78
+0 TRLR`;
+    const { text } = applyAll(src(""), { quay: "3", pageMedia: "event" });
+    expect(text).toMatch(/2 SOUR @S1@\n3 PAGE 78\n3 QUAY 3/);
+    // An already-set QUAY is the user's data — never overwritten.
+    const { text: kept } = applyAll(src("\n3 QUAY 1"), { quay: "3", pageMedia: "event" });
+    expect(kept).toContain("3 QUAY 1");
+    expect(kept).not.toContain("3 QUAY 3");
+  });
+
   it("keeps the person-level page-image pointer in a doubled-links file", () => {
     // Same-URL link on person AND event elsewhere = the file doubles links on
     // purpose (MacFamilyTree style) — the pointer is house style, not noise.

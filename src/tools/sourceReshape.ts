@@ -1414,10 +1414,18 @@ function attachCitation(
   quay: string | undefined,
   order: string[],
 ): boolean {
-  const exists = childrenByTag(container, "SOUR").some(
+  const existing = childrenByTag(container, "SOUR").find(
     (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
   );
-  if (exists) return false;
+  if (existing) {
+    // The occurrence folds into this citation — the chosen quality still
+    // applies to it. Filling a MISSING QUAY is an enrich; one already set is
+    // the user's data and stays.
+    if (quay && !firstChild(existing, "QUAY")) {
+      existing.children.push({ level: existing.level + 1, tag: "QUAY", value: quay, children: [] });
+    }
+    return false;
+  }
   const citation: GedNode = { level: container.level + 1, tag: "SOUR", value: sourceXref, children: [] };
   if (page) citation.children.push({ level: container.level + 2, tag: "PAGE", value: page, children: [] });
   if (quay) citation.children.push({ level: container.level + 2, tag: "QUAY", value: quay, children: [] });
@@ -1943,9 +1951,13 @@ export function reshapeSources(
         // Ancestry exports duplicate whole record-level citations verbatim,
         // and the identical twin must fold into one citation, not two.
         const pageText = childText(citation, "PAGE") ?? "";
-        const duplicate = childrenByTag(container, "SOUR").some(
+        const duplicate = childrenByTag(container, "SOUR").find(
           (c) => c !== citation && c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === pageText,
         );
+        // Folding into the surviving twin: fill its missing QUAY too.
+        if (duplicate && quayFor && !firstChild(duplicate, "QUAY")) {
+          duplicate.children.push({ level: duplicate.level + 1, tag: "QUAY", value: quayFor, children: [] });
+        }
         if (container !== hit.container) {
           spliceChild(hit.container, citation);
           if (!duplicate) {
