@@ -73,6 +73,7 @@ export const ALL_SITES = [
   "youtube",
   "wikipedia",
   "biografija",
+  "obrazi",
   "familysearch",
   "other",
 ] as const;
@@ -315,6 +316,10 @@ const WIKIPEDIA_RE =
 
 /** A Slovenska biografija entry (ZRC SAZU): slovenska-biografija.si/{oseba|rodbina}/sbi{id}/. */
 const SLOVENSKA_BIOGRAFIJA_RE = /^https?:\/\/(?:www\.)?slovenska-biografija\.si\/(oseba|rodbina)\/(sbi[a-z0-9]+)/i;
+
+/** An Obrazi slovenskih pokrajin person page (regional libraries' biographical
+ *  lexicon): obrazislovenskihpokrajin.si/oseba/{name-slug}/. */
+const OBRAZI_RE = /^https?:\/\/(?:www\.)?obrazislovenskihpokrajin\.si\/oseba\/([^/?#]+)/i;
 
 /** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
  *  periodicals. Both the details page and a direct stream (PDF/TXT) link
@@ -580,6 +585,21 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     };
   }
 
+  const obrazi = OBRAZI_RE.exec(url.trim());
+  if (obrazi) {
+    if (!sites.has("obrazi")) return undefined;
+    const slug = obrazi[1].toLowerCase();
+    // The slug is the person's name ("primoz-trubar") — enrichment upgrades
+    // it to the page's own diacritic form ("Primož TRUBAR").
+    return {
+      site: "obrazi",
+      groupKey: `os:${slug}`,
+      bookUrl: `https://www.obrazislovenskihpokrajin.si/oseba/${slug}/`,
+      proposed: { title: siteTitle(prettySlug(slug), undefined, "Obrazi slovenskih pokrajin") },
+      titleRank: 1,
+    };
+  }
+
   const dlib = DLIB_RE.exec(url.trim());
   if (dlib) {
     if (!sites.has("dlib")) return undefined;
@@ -762,6 +782,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   youtube: "🎬",
   wikipedia: "🌐",
   biografija: "🪶",
+  obrazi: "👤",
   familysearch: "🌳",
   other: "🔗",
 };
@@ -1456,6 +1477,7 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   youtube: { hostRe: /youtube\.com|youtu\.be/i, name: "YouTube", www: "https://www.youtube.com/" },
   wikipedia: { hostRe: /wikipedia\.org/i, name: "Wikipedia", www: "https://www.wikipedia.org/" },
   biografija: { hostRe: /slovenska-biografija\.si/i, name: "Slovenska biografija", www: "https://www.slovenska-biografija.si/" },
+  obrazi: { hostRe: /obrazislovenskihpokrajin\.si/i, name: "Obrazi slovenskih pokrajin", www: "https://www.obrazislovenskihpokrajin.si/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -2075,6 +2097,12 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     const name = pageTitleOf(html)?.replace(/\s*[-–—]\s*Slovenska biografija\s*$/i, "").trim();
     if (name && !/^https?:\/\//i.test(name) && !/^stran ne obstaja$/i.test(name)) {
       meta = { title: siteTitle(name, undefined, "Slovenska biografija") };
+    }
+  } else if (site === "obrazi") {
+    // `Primož TRUBAR | Obrazi slovenskih pokrajin` — the name before the pipe.
+    const name = pageTitleOf(html)?.replace(/\s*[|–—-]\s*Obrazi slovenskih pokrajin\s*$/i, "").trim();
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Obrazi slovenskih pokrajin") };
     }
   } else if (site === "dlib") {
     // The dLib.si details page is server-rendered: a key/value metadata table

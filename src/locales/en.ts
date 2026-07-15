@@ -197,6 +197,7 @@ export const en = {
   "tools.sources.reshapeSite.newspapers": "Newspapers.com",
   "tools.sources.reshapeSite.wikipedia": "Wikipedia",
   "tools.sources.reshapeSite.biografija": "Slovenska biografija",
+  "tools.sources.reshapeSite.obrazi": "Obrazi slovenskih pokrajin",
   "tools.sources.reshapeSite.sistory": "SIstory.si war victims",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",

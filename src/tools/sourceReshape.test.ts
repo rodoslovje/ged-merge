@@ -1045,6 +1045,13 @@ describe("reshapeSources — citation placement", () => {
     expect(recognizeSourceUrl("https://www.slovenska-biografija.si/rodbina/sbi546925/")?.site).toBe("biografija");
   });
 
+  it("recognizes Obrazi slovenskih pokrajin person pages", () => {
+    const rec = recognizeSourceUrl("http://obrazislovenskihpokrajin.si/oseba/primoz-trubar")!;
+    expect(rec.site).toBe("obrazi");
+    expect(rec.bookUrl).toBe("https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/");
+    expect(rec.proposed.title).toBe("Primoz Trubar - Obrazi slovenskih pokrajin");
+  });
+
   it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {
     // Košir-style files (MacFamilyTree HTML notes) repeat the URL as the
     // anchor text — that must not become two citations.
@@ -1498,6 +1505,14 @@ Memorial ID 273320916 273320916`;
       async () => `<html><head><title>Stran ne obstaja - Slovenska biografija</title></head></html>`,
     );
     expect(gone).toBeUndefined();
+
+    // Page title captured 2026-07-15 — pipe-separated site suffix.
+    const obrazi = await fetchBookMeta(
+      "obrazi",
+      "https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/",
+      async () => `<html><head><title>Primož TRUBAR | Obrazi slovenskih pokrajin</title></head></html>`,
+    );
+    expect(obrazi).toEqual({ title: "Primož TRUBAR - Obrazi slovenskih pokrajin" });
   });
 
   it("parses the dLib.si details page's metadata table", async () => {
