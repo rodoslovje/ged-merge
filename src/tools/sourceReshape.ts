@@ -65,6 +65,7 @@ export const ALL_SITES = [
   "findagrave",
   "legacy",
   "sistory",
+  "dlib",
   "familysearch",
   "other",
 ] as const;
@@ -275,6 +276,11 @@ const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
 const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
+/** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
+ *  periodicals. Both the details page and a direct stream (PDF/TXT) link
+ *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
+const DLIB_RE = /^https?:\/\/(?:www\.)?dlib\.si\/(?:details|stream)\/(urn:nbn:si:[a-z]+-[a-z0-9]+)/i;
+
 /** A SIstory.si war-victims record — the Slovene WW1/WW2 casualty databases;
  *  one record per person, evidencing the death. WW2 ids are GUIDs, WW1 ids are
  *  short numbers: /ww2/{guid}, /ww1/{id}. */
@@ -385,6 +391,24 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
       proposed: { title: siteTitle(who, undefined, "Legacy.com"), filingNumber: id },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  const dlib = DLIB_RE.exec(url.trim());
+  if (dlib) {
+    if (!sites.has("dlib")) return undefined;
+    const urn = dlib[1].toUpperCase();
+    // The URN means nothing to a reader — it goes to the filing number; the
+    // title comes from the citation's quoted text offline, and enrichment
+    // fills the publication, issue and date from the details page.
+    const who = quotedCollection(contextText);
+    return {
+      site: "dlib",
+      groupKey: `dl:${urn.toLowerCase()}`,
+      bookUrl: `https://dlib.si/details/${urn}`,
+      proposed: { title: siteTitle(who, undefined, "dLib.si"), filingNumber: urn },
+      titleRank: who ? 1 : 0,
+      typeHint: contextText,
     };
   }
 
@@ -1099,6 +1123,7 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
+  dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -1595,6 +1620,27 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
     if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
+  } else if (site === "dlib") {
+    // The dLib.si details page is server-rendered: a key/value metadata table
+    // (Vir, Leto, Številčenje, Založnik, Izvor) plus a `dLib.si - {title}`
+    // page title. `{publication}, {date}, {issue} - dLib.si` names the source;
+    // the holding library is the agency.
+    const row = (label: string): string | undefined => {
+      const m = new RegExp(`class="[^"]*key">\\s*${label}\\s*</div>\\s*<div[^>]*class="[^"]*value">(.*?)</div>`, "is").exec(html);
+      return m ? decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim() || undefined : undefined;
+    };
+    const publication = pageTitleOf(html)?.replace(/^\s*dLib\.si\s*[-–]\s*/i, "").trim() || row("Vir");
+    const date = row("Leto");
+    const numbering = row("Številčenje");
+    if (publication) {
+      meta = {
+        title: siteTitle([publication, date, numbering].filter(Boolean).join(", "), undefined, "dLib.si"),
+        periodical: row("Vir"),
+        publisher: row("Založnik"),
+        agency: row("Izvor"),
+        dateRange: date,
+      };
+    }
   } else if (site === "sistory") {
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
     // The record pages are client-rendered (Next.js): a plain relay sees an

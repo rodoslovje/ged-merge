@@ -803,6 +803,22 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN 26608778");
   });
 
+  it("groups dLib.si details and stream links by URN, id as filing number", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE Osmrtnica: https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU
+1 OBJE
+2 FILE https://www.dlib.si/stream/URN:NBN:SI:DOC-2CEAMMVU/51a3aa79-0f72-45c6-8746-f6ed95898f33/PDF
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "dlib")!;
+    expect(g.members).toHaveLength(2); // details page and PDF stream share the document
+    expect(g.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU");
+    expect(g.proposed.title).toBe("dLib.si");
+    expect(g.proposed.filingNumber).toBe("URN:NBN:SI:DOC-2CEAMMVU");
+    expect(text).toContain("1 FILN URN:NBN:SI:DOC-2CEAMMVU");
+  });
+
   it("treats SIstory.si WW records as death evidence with the quoted person name", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -1066,6 +1082,34 @@ Memorial ID 273320916 273320916`;
     expect(meta?.agency).toBe("Nadškofijski arhiv Ljubljana"); // not the parish link, not "Ljubljana"
     expect(meta?.title).toBe("Krstna knjiga / Taufbuch - 01723 | Podzemelj");
     expect(meta?.dateRange).toBe("1675-1725");
+  });
+
+  it("parses the dLib.si details page's metadata table", async () => {
+    // Trimmed from the real details page for URN:NBN:SI:DOC-2CEAMMVU
+    // (captured 2026-07-15) — server-rendered key/value rows.
+    const DLIB_HTML = `<html><head><title>	dLib.si - Dolenjski list</title></head><body>
+<div class="col-xs-12 col-sm-8 col-md-9 col-lg-8 metadata">
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Jezik</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">slovenski</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Vir</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/x"><a href="/results/y">Dolenjski list</a></a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Leto</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">08.06.1978</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Številčenje</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">letnik 29, <a href="/results/z">številka 23</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Založnik</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/p">Dolenjski list</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Izvor</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">Knjižnica Mirana Jarca Novo mesto</div></div>
+</div></body></html>`;
+    const meta = await fetchBookMeta("dlib", "https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU", async () => DLIB_HTML);
+    expect(meta).toEqual({
+      title: "Dolenjski list, 08.06.1978, letnik 29, številka 23 - dLib.si",
+      periodical: "Dolenjski list",
+      publisher: "Dolenjski list",
+      agency: "Knjižnica Mirana Jarca Novo mesto",
+      dateRange: "08.06.1978",
+    });
   });
 
   it("parses the SIstory record from the __NEXT_DATA__ JSON (client-rendered page)", async () => {
