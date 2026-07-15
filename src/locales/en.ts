@@ -196,6 +196,8 @@ export const en = {
   "tools.sources.reshapeSite.sistory": "SIstory.si war victims",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",
+  "tools.sources.reshapeSite.googlebooks": "Google Books",
+  "tools.sources.reshapeSite.youtube": "YouTube",
   "tools.sources.reshapeSite.familysearch": "FamilySearch",
   "tools.sources.reshapeSite.other": "Other links",
   "tools.sources.reshapePlace": "Place citations on matching events",

@@ -70,10 +70,24 @@ export async function fetchPageHtml(url: string): Promise<string | undefined> {
     if (!text) continue;
     const title = pageTitleOf(text);
     if (!title && text.includes("__NEXT_DATA__")) return text;
+    // A JSON body (through a raw relay) is the target's own response — API
+    // endpoints like YouTube's oEmbed have no page title to check.
+    if (!title && isJsonBody(text)) return text;
     if (!title || JUNK_TITLE_RE.test(title)) continue;
     return text;
   }
   return undefined;
+}
+
+function isJsonBody(text: string): boolean {
+  const t = text.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return false;
+  try {
+    JSON.parse(t);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The page's title from relayed content: `<title>` (HTML) or the rendering

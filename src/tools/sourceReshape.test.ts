@@ -813,7 +813,7 @@ describe("reshapeSources — citation placement", () => {
 0 @I2@ INDI
 1 WWW https://www.komunala-kranj.si/pogreb-angela-zupancic-v-druzinskem-krogu
 0 @I3@ INDI
-1 WWW https://www.youtube.com/watch?v=lD5eGiGwlZs
+1 WWW https://www.preddvor.si/objava/773942
 0 TRLR`,
       ["other"],
     );
@@ -823,9 +823,26 @@ describe("reshapeSources — citation placement", () => {
     const pogreb = report.groups.find((g) => g.bookUrl.includes("komunala"))!;
     expect(pogreb.proposed.title).toBe("Pogreb Angela Zupancic V Druzinskem Krogu - komunala-kranj.si");
     expect(pogreb.bookType).toBe("death");
-    const yt = report.groups.find((g) => g.bookUrl.includes("youtube"))!;
-    expect(yt.proposed.title).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs"); // no name-like slug
-    expect(yt.bookType).toBe("unknown");
+    const idPage = report.groups.find((g) => g.bookUrl.includes("preddvor"))!;
+    expect(idPage.proposed.title).toBe("https://www.preddvor.si/objava/773942"); // no name-like slug
+    expect(idPage.bookType).toBe("unknown");
+  });
+
+  it("groups Google Books by volume id and YouTube by video id", () => {
+    const gb = recognizeSourceUrl(
+      "https://books.google.si/books?id=90Q_AAAAIBAJ&pg=PA18&dq=joseph+matthew+yakopich&hl=en#v=onepage&q=joseph&f=false",
+    )!;
+    expect(gb.site).toBe("googlebooks");
+    expect(gb.bookUrl).toBe("https://books.google.com/books?id=90Q_AAAAIBAJ");
+    expect(gb.page).toBe("18"); // pg=PA18
+    expect(gb.proposed.title).toBe("90Q_AAAAIBAJ - Google Books");
+    expect(gb.proposed.filingNumber).toBe("90Q_AAAAIBAJ");
+
+    const yt = recognizeSourceUrl("https://www.youtube.com/watch?v=lD5eGiGwlZs")!;
+    expect(yt.site).toBe("youtube");
+    expect(yt.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
+    expect(yt.proposed.title).toBe("lD5eGiGwlZs - YouTube");
+    expect(recognizeSourceUrl("https://youtu.be/lD5eGiGwlZs")?.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
   });
 
   it("titles generic document links by file name + host", () => {
@@ -1166,6 +1183,27 @@ Memorial ID 273320916 273320916`;
       place: "Zagreb, Croatia", // locality/region dedupe
       address: "Mirogoj",
     });
+  });
+
+  it("parses Google Books page titles and YouTube oEmbed JSON", async () => {
+    // Reader page title captured 2026-07-15 — localized "Google Knjige" suffix.
+    const gb = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=90Q_TESTIBAJ",
+      async () => `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`,
+    );
+    expect(gb).toEqual({ title: "The Windsor Star - Google Books" });
+
+    // oEmbed response captured 2026-07-15.
+    const yt = await fetchBookMeta(
+      "youtube",
+      "https://www.youtube.com/watch?v=lD5eGiGwlZt",
+      async (url) => {
+        expect(url).toContain("youtube.com/oembed?url=");
+        return JSON.stringify({ title: "Štefanovo na Kališču, 26.december 2010", author_name: "Marjan Rekar" });
+      },
+    );
+    expect(yt).toEqual({ title: "Štefanovo na Kališču, 26.december 2010 - YouTube", author: "Marjan Rekar" });
   });
 
   it("parses the dLib.si details page's metadata table", async () => {

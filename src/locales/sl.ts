@@ -196,6 +196,8 @@ export const sl = {
   "tools.sources.reshapeSite.sistory": "SIstory.si žrtve vojn",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",
+  "tools.sources.reshapeSite.googlebooks": "Google Books",
+  "tools.sources.reshapeSite.youtube": "YouTube",
   "tools.sources.reshapeSite.familysearch": "FamilySearch",
   "tools.sources.reshapeSite.other": "Druge povezave",
   "tools.sources.reshapePlace": "Citate pripni na ustrezne dogodke",

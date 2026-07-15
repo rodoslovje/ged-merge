@@ -67,6 +67,8 @@ export const ALL_SITES = [
   "legacy",
   "sistory",
   "dlib",
+  "googlebooks",
+  "youtube",
   "familysearch",
   "other",
 ] as const;
@@ -275,6 +277,15 @@ const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\
 /** A BillionGraves grave page: /grave/{name-slug}/{id}. */
 const BILLIONGRAVES_RE = /^https?:\/\/(?:\w+\.)?billiongraves\.com\/grave\/([^/?#]+)\/(\d+)/i;
 
+/** A Google Books volume — the classic reader URL on any locale domain
+ *  (books.google.si/books?id=…&pg=PA18…) or the newer edition URL. */
+const GOOGLE_BOOKS_RE = /^https?:\/\/books\.google\.[a-z.]+\/books\?/i;
+const GOOGLE_BOOKS_EDITION_RE = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/books\/edition\/[^/?#]+\/([A-Za-z0-9_-]+)/i;
+
+/** A YouTube video: watch?v={id} on any subdomain, or the youtu.be short link. */
+const YOUTUBE_RE = /^https?:\/\/(?:\w+\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i;
+const YOUTU_BE_RE = /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{6,})/i;
+
 /** A Legacy.com obituary URL — several vintages share the host, an
  *  "obituaries" path, a `{name}-obituary` slug and an `id`/`pid` param:
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
@@ -379,6 +390,37 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
       proposed: { title: siteTitle(who, undefined, "Find a Grave"), filingNumber: grave[1] },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  const gbId = GOOGLE_BOOKS_RE.test(url.trim())
+    ? /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1]
+    : GOOGLE_BOOKS_EDITION_RE.exec(url.trim())?.[1];
+  if (gbId) {
+    if (!sites.has("googlebooks")) return undefined;
+    // Offline the volume id distinguishes books; enrichment replaces it with
+    // the real book/newspaper title from the reader page. `pg=PA18` is the
+    // cited page.
+    const pg = /[?&]pg=([^&#]+)/i.exec(url)?.[1];
+    return {
+      site: "googlebooks",
+      groupKey: `gb:${gbId}`,
+      bookUrl: `https://books.google.com/books?id=${gbId}`,
+      page: pg ? decodeSegment(pg).replace(/^PA(\d+)$/, "$1") : undefined,
+      proposed: { title: siteTitle(gbId, undefined, "Google Books"), filingNumber: gbId },
+    };
+  }
+
+  const yt = YOUTUBE_RE.exec(url.trim()) ?? YOUTU_BE_RE.exec(url.trim());
+  if (yt) {
+    if (!sites.has("youtube")) return undefined;
+    // Offline the video id distinguishes videos; enrichment fills the video's
+    // title and channel from YouTube's public oEmbed endpoint.
+    return {
+      site: "youtube",
+      groupKey: `yt:${yt[1]}`,
+      bookUrl: `https://www.youtube.com/watch?v=${yt[1]}`,
+      proposed: { title: siteTitle(yt[1], undefined, "YouTube"), filingNumber: yt[1] },
     };
   }
 
@@ -1228,6 +1270,8 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
   dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
+  googlebooks: { hostRe: /books\.google\./i, name: "Google Books", www: "https://books.google.com/" },
+  youtube: { hostRe: /youtube\.com|youtu\.be/i, name: "YouTube", www: "https://www.youtube.com/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -1754,6 +1798,22 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         undefined;
       meta = { title: siteTitle(name, cemetery, "BillionGraves"), place, address: cemetery };
     }
+  } else if (site === "googlebooks") {
+    // The reader page's title is the book/newspaper name with a localized
+    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`.
+    const name = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    if (name) meta = { title: siteTitle(name, undefined, "Google Books") };
+  } else if (site === "youtube") {
+    // YouTube's public oEmbed endpoint returns JSON: the video's title and
+    // channel. The watch page's title is the fallback.
+    let data: { title?: string; author_name?: string } | undefined;
+    try {
+      data = JSON.parse(html) as { title?: string; author_name?: string };
+    } catch {
+      data = undefined;
+    }
+    const name = data?.title ?? pageTitleOf(html)?.replace(/\s*-\s*YouTube\s*$/i, "").trim();
+    if (name) meta = { title: siteTitle(name, undefined, "YouTube"), author: data?.author_name };
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
     if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
@@ -1860,7 +1920,12 @@ export async function fetchBookMeta(
   const cacheKey = `${site}:${bookKeyOf(bookUrl)}`;
   const cached = bookMetaCache.get(cacheKey);
   if (cached) return cached;
-  const url = site === "matricula" ? matriculaEnUrl(bookUrl) : bookUrl;
+  const url =
+    site === "matricula"
+      ? matriculaEnUrl(bookUrl)
+      : site === "youtube"
+        ? `https://www.youtube.com/oembed?url=${encodeURIComponent(bookUrl)}&format=json`
+        : bookUrl;
   const html = await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
   if (meta) bookMetaCache.set(cacheKey, meta);
