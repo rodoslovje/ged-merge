@@ -1487,10 +1487,11 @@ export async function fetchReshapeMeta(
                 place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
                 // The cemetery (and plot) is address-level detail for the BURI event.
                 address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
-                // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
+                // `{cemetery} - {id} - Geneanet Cemeteries` — the town stays
+                // out of the title; PLAC already carries it.
                 title:
                   page.cemetery && viewId
-                    ? siteTitle(`${page.cemetery}${page.town ? `, ${page.town}` : ""}`, viewId, "Geneanet Cemeteries")
+                    ? siteTitle(page.cemetery, viewId, "Geneanet Cemeteries")
                     : undefined,
               };
             }

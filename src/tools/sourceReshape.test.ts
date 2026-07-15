@@ -918,7 +918,7 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
       address: "Pokopališče Zgornje Bitnje, P02", // cemetery + plot → BURI ADDR
-      title: "Pokopališče Zgornje Bitnje, Žabnica - 10085092 - Geneanet Cemeteries",
+      title: "Pokopališče Zgornje Bitnje - 10085092 - Geneanet Cemeteries",
     });
   });
 
