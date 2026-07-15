@@ -5036,30 +5036,14 @@ kbd {
   background: var(--bg);
 }
 .add-source-field input::placeholder { opacity: 0.5; }
-/* Optional fields sit behind a disclosure; chevron rotates when open. */
-.add-source-details-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 12px;
-  padding: 4px 0;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.add-source-details-toggle:hover { color: var(--accent); }
-.add-source-details-chevron { display: inline-block; transition: transform 0.15s; }
-.add-source-details-toggle[aria-expanded="true"] .add-source-details-chevron { transform: rotate(90deg); }
+/* The shorter bibliographic fields pair up in two columns. */
 .add-source-details-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px 14px;
   margin: 0 0 12px;
 }
 .add-source-details-grid .add-source-field { margin: 0; }
-.add-source-details-grid .add-source-field-wide { grid-column: span 2; }
 .add-source-url-row { display: flex; align-items: flex-end; gap: 6px; }
 .add-source-url-row .add-source-field { flex: 1; margin-bottom: 0; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */
@@ -5603,9 +5587,8 @@ kbd {
    * before the body wraps beneath. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
 
-  /* Not enough room for the source dialog's three detail columns. */
+  /* Not enough room for the source dialog's two detail columns. */
   .add-source-details-grid { grid-template-columns: 1fr; }
-  .add-source-details-grid .add-source-field-wide { grid-column: auto; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer

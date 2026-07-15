@@ -762,8 +762,6 @@ export const en = {
   "addSource.recognized": "Link recognized",
   "addSource.recognizedFetchOff": "Turn on “{{setting}}” in Settings to fill in the real link details.",
   "addSource.field.link": "Link or URL",
-  "addSource.moreDetails": "Additional details",
-  "addSource.optional": "optional",
   "addSource.field.title": "Title",
   "addSource.field.author": "Author",
   "addSource.field.periodical": "Periodical / series",

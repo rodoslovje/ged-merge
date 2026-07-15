@@ -70,9 +70,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
-  // The optional bibliographic fields sit behind a disclosure; auto-filled
-  // values still apply while collapsed.
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const { settings } = useSettings();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -121,8 +118,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     });
   }, [editing, text, parsed, normalizedUrl, match, recognized]);
 
-  // Editing an existing citation: seed directly from its current fields, and
-  // open the details disclosure when any optional field already has a value.
+  // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
     if (!editing) return;
     const f = editing.fields;
@@ -138,9 +134,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       url: f.url ?? "",
       note: f.note ?? "",
     });
-    setDetailsOpen(
-      Boolean(f.author || f.periodical || f.publisher || f.agency || f.place || f.filingNumber || f.page || f.note),
-    );
   }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -214,7 +207,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     setFields(EMPTY_FORM);
     setFetching(false);
     setFetched(undefined);
-    setDetailsOpen(false);
   }
 
   function handleClose() {
@@ -260,8 +252,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   }
 
   const canAdd = Boolean(fields.url.trim() || fields.title.trim());
-  const field = (key: keyof FormState, labelKey: string, wide = false) => (
-    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
+  const field = (key: keyof FormState, labelKey: string) => (
+    <label className="add-source-field">
       <span>{t(labelKey)}</span>
       <input
         className="edit-input"
@@ -314,27 +306,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           {!match && (
             <>
               {field("title", "addSource.field.title")}
-              <button
-                type="button"
-                className="add-source-details-toggle"
-                aria-expanded={detailsOpen}
-                onClick={() => setDetailsOpen((o) => !o)}
-              >
-                <span className="add-source-details-chevron" aria-hidden="true">▸</span>
-                {t("addSource.moreDetails")} · {t("addSource.optional")}
-              </button>
-              {detailsOpen && (
-                <div className="add-source-details-grid">
-                  {field("author", "addSource.field.author")}
-                  {field("periodical", "addSource.field.periodical")}
-                  {field("publisher", "addSource.field.publisher")}
-                  {field("agency", "addSource.field.agency")}
-                  {field("place", "addSource.field.place")}
-                  {field("filingNumber", "addSource.field.filingNumber")}
-                  {field("page", "addSource.field.page")}
-                  {field("note", "addSource.field.note", true)}
-                </div>
-              )}
+              <div className="add-source-details-grid">
+                {field("author", "addSource.field.author")}
+                {field("periodical", "addSource.field.periodical")}
+                {field("publisher", "addSource.field.publisher")}
+                {field("agency", "addSource.field.agency")}
+                {field("place", "addSource.field.place")}
+                {field("filingNumber", "addSource.field.filingNumber")}
+                {field("page", "addSource.field.page")}
+                {field("note", "addSource.field.note")}
+              </div>
             </>
           )}
           {match && field("page", "addSource.field.page")}

@@ -861,8 +861,6 @@ export const sl = {
   "addSource.recognized": "Prepoznana povezava",
   "addSource.recognizedFetchOff": "Za samodejno izpolnitev pravih podatkov povezave vklopite „{{setting}}“ v nastavitvah.",
   "addSource.field.link": "Povezava ali URL",
-  "addSource.moreDetails": "Dodatne podrobnosti",
-  "addSource.optional": "neobvezno",
   "addSource.field.title": "Naslov",
   "addSource.field.author": "Avtor",
   "addSource.field.periodical": "Periodika / zbirka",
