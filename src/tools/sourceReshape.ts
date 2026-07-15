@@ -12,6 +12,7 @@ import {
 import { linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
+import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
@@ -61,9 +62,14 @@ import { familySpouses } from "./sources";
 export const ALL_SITES = [
   "matricula",
   "geneanet",
+  "geneanettree",
   "findagrave",
+  "billiongraves",
   "legacy",
   "sistory",
+  "dlib",
+  "googlebooks",
+  "youtube",
   "familysearch",
   "other",
 ] as const;
@@ -123,7 +129,7 @@ export interface ReshapeGroup {
    *  still wants enrichment, unlike a source with a real title. */
   urlTitled?: boolean;
   /** Offline-derived source fields; enrichment overrides them on apply. */
-  proposed: { title: string; agency?: string; place?: string; filingNumber?: string };
+  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string };
   /** Canonical page-independent URL — display + enrichment fetch target. */
   bookUrl: string;
   /** Distinct page numbers cited, numerically sorted. */
@@ -143,6 +149,9 @@ export interface ReshapeReport {
 /** Fetched metadata for one book — overrides the group's `proposed` on apply. */
 export interface ReshapeMeta {
   title?: string;
+  author?: string;
+  periodical?: string;
+  publisher?: string;
   agency?: string;
   place?: string;
   /** Sub-place detail (the cemetery name + plot) — becomes the BURI event's
@@ -262,19 +271,41 @@ export function parseMatriculaUrl(url: string): MatriculaUrlParts | undefined {
 
 const GENEANET_VIEW_RE = /\/cemetery\/view\/([^/?#]+)/;
 
+/** A Geneanet member-tree person page (GeneWeb): gw.geneanet.org/{tree}?…
+ *  p={given}&n={surname}(&oc={n}) — parameters may be `;`-separated or
+ *  HTML-escaped (`&amp;`) in pasted text. */
+const GENEANET_TREE_RE = /^https?:\/\/gw\.geneanet\.org\/([a-z0-9_-]+)\?/i;
+
 /** A Find a Grave memorial URL: /memorial/{id}(/{name-slug}). Cemetery and
  *  other Find a Grave pages are not grave records and fall through to "other". */
 const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\/(\d+)(?:\/([^/?#]+))?/i;
+
+/** A BillionGraves grave page: /grave/{name-slug}/{id}. */
+const BILLIONGRAVES_RE = /^https?:\/\/(?:\w+\.)?billiongraves\.com\/grave\/([^/?#]+)\/(\d+)/i;
+
+/** A Google Books volume — the classic reader URL on any locale domain
+ *  (books.google.si/books?id=…&pg=PA18…) or the newer edition URL. */
+const GOOGLE_BOOKS_RE = /^https?:\/\/books\.google\.[a-z.]+\/books\?/i;
+const GOOGLE_BOOKS_EDITION_RE = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/books\/edition\/[^/?#]+\/([A-Za-z0-9_-]+)/i;
+
+/** A YouTube video: watch?v={id} on any subdomain, or the youtu.be short link. */
+const YOUTUBE_RE = /^https?:\/\/(?:\w+\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i;
+const YOUTU_BE_RE = /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{6,})/i;
 
 /** A Legacy.com obituary URL — several vintages share the host, an
  *  "obituaries" path, a `{name}-obituary` slug and an `id`/`pid` param:
  *  /us/obituaries/{affiliate}/name/{slug}-obituary?id=…, /obituaries/name/…?pid=… */
 const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
+/** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
+ *  periodicals. Both the details page and a direct stream (PDF/TXT) link
+ *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
+const DLIB_RE = /^https?:\/\/(?:www\.)?dlib\.si\/(?:details|stream)\/(urn:nbn:si:[a-z]+-[a-z0-9]+)/i;
+
 /** A SIstory.si war-victims record — the Slovene WW1/WW2 casualty databases;
  *  one record per person, evidencing the death. WW2 ids are GUIDs, WW1 ids are
- *  short numbers: /ww2/{guid}, /ww1/{id}. */
-const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]{4,})/i;
+ *  short numbers — even 1-3 digits: /ww2/{guid}, /ww1/{id}. */
+const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]+)/i;
 
 /** The WW1 victims portal variant: zv1.sistory.si/zrtev?id={n}-{Surname}-{Given}-{birthyear}
  *  — the same record as /ww1/{n}, with the person's name encoded in the id. */
@@ -342,13 +373,13 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("geneanet")) return undefined;
     const person = /[?&]individu_filter=([^&#]+)/i.exec(url)?.[1];
     const who = person ? decodeSegment(person) : undefined;
-    // Title layout: `{name} - {id} - {site}` — who/what first, the view id
-    // stays identifiable, the site name trails.
+    // `{name} - Geneanet Cemeteries` — the view id means nothing to a reader,
+    // it goes to the filing number; enrichment upgrades to the cemetery name.
     return {
       site: "geneanet",
       groupKey: `g:${gene[1]}`,
       bookUrl: `https://en.geneanet.org/cemetery/view/${gene[1]}`,
-      proposed: { title: siteTitle(who, gene[1], "Geneanet Cemeteries") },
+      proposed: { title: siteTitle(who, undefined, "Geneanet Cemeteries"), filingNumber: gene[1] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -357,12 +388,86 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (grave) {
     if (!sites.has("findagrave")) return undefined;
     const who = grave[2] ? prettySlug(grave[2]) : undefined;
-    // Same layout as Geneanet: `{person} - {memorial id} - Find a Grave`.
+    // `{person} - Find a Grave` — the memorial id means nothing to a reader,
+    // it goes to the filing number; enrichment adds the cemetery.
     return {
       site: "findagrave",
       groupKey: `fg:${grave[1]}`,
       bookUrl: `https://www.findagrave.com/memorial/${grave[1]}`,
-      proposed: { title: siteTitle(who, grave[1], "Find a Grave") },
+      proposed: { title: siteTitle(who, undefined, "Find a Grave"), filingNumber: grave[1] },
+      titleRank: who ? 1 : 0,
+    };
+  }
+
+  const gbId = GOOGLE_BOOKS_RE.test(url.trim())
+    ? /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1]
+    : GOOGLE_BOOKS_EDITION_RE.exec(url.trim())?.[1];
+  if (gbId) {
+    if (!sites.has("googlebooks")) return undefined;
+    // Offline the volume id distinguishes books; enrichment replaces it with
+    // the real book/newspaper title from the reader page. `pg=PA18` is the
+    // cited page.
+    const pg = /[?&]pg=([^&#]+)/i.exec(url)?.[1];
+    return {
+      site: "googlebooks",
+      groupKey: `gb:${gbId}`,
+      bookUrl: `https://books.google.com/books?id=${gbId}`,
+      page: pg ? decodeSegment(pg).replace(/^PA(\d+)$/, "$1") : undefined,
+      proposed: { title: siteTitle(gbId, undefined, "Google Books"), filingNumber: gbId },
+    };
+  }
+
+  const yt = YOUTUBE_RE.exec(url.trim()) ?? YOUTU_BE_RE.exec(url.trim());
+  if (yt) {
+    if (!sites.has("youtube")) return undefined;
+    // Offline the video id distinguishes videos; enrichment fills the video's
+    // title and channel from YouTube's public oEmbed endpoint.
+    return {
+      site: "youtube",
+      groupKey: `yt:${yt[1]}`,
+      bookUrl: `https://www.youtube.com/watch?v=${yt[1]}`,
+      proposed: { title: siteTitle(yt[1], undefined, "YouTube"), filingNumber: yt[1] },
+    };
+  }
+
+  const gwTree = GENEANET_TREE_RE.exec(url.trim());
+  if (gwTree) {
+    if (!sites.has("geneanettree")) return undefined;
+    // Normalize `;`-separated / HTML-escaped params, then read the person:
+    // p={given}, n={surname}, oc={disambiguating ordinal}.
+    const params = url.replace(/&amp;/gi, "&").replace(/;/g, "&");
+    const given = /[?&]p=([^&#]+)/i.exec(params)?.[1];
+    const surname = /[?&]n=([^&#]+)/i.exec(params)?.[1];
+    const oc = /[?&]oc=(\d+)/i.exec(params)?.[1];
+    if (given || surname) {
+      const who = prettySlug([given, surname].filter(Boolean).map((s) => decodeSegment(s!)).join(" "));
+      const canonical =
+        `https://gw.geneanet.org/${gwTree[1].toLowerCase()}?lang=en&p=${encodeURIComponent(decodeSegment(given ?? ""))}` +
+        `&n=${encodeURIComponent(decodeSegment(surname ?? ""))}${oc ? `&oc=${oc}` : ""}`;
+      const tree = gwTree[1].toLowerCase();
+      return {
+        site: "geneanettree",
+        groupKey: `gt:${tree}:${(surname ?? "").toLowerCase()}:${(given ?? "").toLowerCase()}:${oc ?? ""}`,
+        bookUrl: canonical,
+        // The member tree's owner is the source's author, shown in the title:
+        // `{person} - {tree owner} - Geneanet Trees`.
+        proposed: { title: siteTitle(who, tree, "Geneanet Trees"), author: tree },
+        titleRank: 1,
+      };
+    }
+  }
+
+  const bg = BILLIONGRAVES_RE.exec(url.trim());
+  if (bg) {
+    if (!sites.has("billiongraves")) return undefined;
+    const who = prettySlug(bg[1]);
+    // `{person} - BillionGraves` — the grave id goes to the filing number;
+    // enrichment adds the cemetery from the page's schema.org data.
+    return {
+      site: "billiongraves",
+      groupKey: `bg:${bg[2]}`,
+      bookUrl: `https://billiongraves.com/grave/${bg[1]}/${bg[2]}`,
+      proposed: { title: siteTitle(who, undefined, "BillionGraves"), filingNumber: bg[2] },
       titleRank: who ? 1 : 0,
     };
   }
@@ -372,12 +477,32 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     const id = /[?&]p?id=(\d+)/i.exec(url)?.[1];
     const slug = /\/([^/?#]+)-obituary(?:[/?#]|$)/i.exec(url)?.[1];
     const who = slug ? prettySlug(slug) : undefined;
+    // `{name} - Legacy.com` — the obituary id means nothing to a reader,
+    // it goes to the filing number.
     return {
       site: "legacy",
       groupKey: id ? `l:${id}` : `l:${linkKey(cleanUrl(url))}`,
       bookUrl: cleanUrl(url).replace(/([?&])p?id=(\d+).*$/i, "$1id=$2"),
-      proposed: { title: siteTitle(who, id, "Legacy.com") },
+      proposed: { title: siteTitle(who, undefined, "Legacy.com"), filingNumber: id },
       titleRank: who ? 1 : 0,
+    };
+  }
+
+  const dlib = DLIB_RE.exec(url.trim());
+  if (dlib) {
+    if (!sites.has("dlib")) return undefined;
+    const urn = dlib[1].toUpperCase();
+    // Offline the URN is the only thing distinguishing one document from
+    // another, so it stays in the title (`{urn} - dLib.si`) besides the
+    // filing number; enrichment replaces it with the publication/issue/date.
+    const who = quotedCollection(contextText);
+    return {
+      site: "dlib",
+      groupKey: `dl:${urn.toLowerCase()}`,
+      bookUrl: `https://dlib.si/details/${urn}`,
+      proposed: { title: siteTitle(who, urn, "dLib.si"), filingNumber: urn },
+      titleRank: who ? 1 : 0,
+      typeHint: contextText,
     };
   }
 
@@ -386,14 +511,25 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     if (!sites.has("sistory")) return undefined;
     const war = sistory[1].toUpperCase();
     const id = sistory[2].toUpperCase();
-    // The id means nothing to a reader — prefer the person's name, which the
-    // SIstory citation text carries in »…« quotes.
+    // The title prefers the person's name, which the SIstory citation text
+    // carries in »…« quotes (`{name} - WWx - SIstory.si`); without one the
+    // record id stands in after the war marker (`WWx - {id} - SIstory.si`) —
+    // it's the only thing distinguishing records offline. The citation's
+    // "(Ljubljana: Inštitut za novejšo zgodovino, 2026)" supplies the
+    // publication place and the institute (the source's agency, matching
+    // what a fetched record fills).
     const who = quotedCollection(contextText);
+    const cit = contextText ? parseSourceInput(contextText) : {};
     return {
       site: "sistory",
       groupKey: `s:${sistory[1].toLowerCase()}:${id.toLowerCase()}`,
       bookUrl: `https://www.sistory.si/${sistory[1].toLowerCase()}/${id}`,
-      proposed: { title: siteTitle(who, id, `SIstory.si ${war}`) },
+      proposed: {
+        title: who ? siteTitle(who, war, "SIstory.si") : siteTitle(war, id, "SIstory.si"),
+        filingNumber: id,
+        agency: cit.publisher,
+        place: cit.place,
+      },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };
@@ -413,7 +549,10 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       groupKey: `s:ww1:${numId.toLowerCase()}`,
       bookUrl: cleanUrl(url),
       proposed: {
-        title: siteTitle(who && `${who}${year ? ` (${year})` : ""}`, numId, "SIstory.si WW1"),
+        title: who
+          ? siteTitle(`${who}${year ? ` (${year})` : ""}`, "WW1", "SIstory.si")
+          : siteTitle("WW1", numId, "SIstory.si"),
+        filingNumber: numId,
       },
       titleRank: who ? 2 : 0,
       typeHint: contextText,
@@ -448,16 +587,98 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   }
 
   if (!sites.has("other")) return undefined;
+  // Generic links still get a readable offline title where possible: the
+  // citation text around the link (minus the URL itself), else a name-like
+  // path slug plus the host ("Ann Vidmar - tezakfuneralhome.com").
+  const contextTitle = contextText ? firstLine(contextText.replace(URL_RE, " ")) : "";
+  const slugTitle = slugTitleFromUrl(cleanUrl(url));
   return {
     site: "other",
     groupKey: `o:${linkKey(url)}`,
     bookUrl: cleanUrl(url),
-    proposed: { title: contextText?.trim() ? firstLine(contextText) : cleanUrl(url) },
+    proposed: { title: contextTitle || slugTitle || cleanUrl(url) },
+    titleRank: contextTitle ? 2 : slugTitle ? 1 : 0,
   };
 }
 
 function firstLine(text: string): string {
   return text.split("\n")[0].trim().slice(0, 120) || text.trim().slice(0, 120);
+}
+
+/**
+ * A readable title for a generic link. A name-like last path segment (two or
+ * more words: "ann-vidmar", "pogreb-angela-zupancic") becomes
+ * "Ann Vidmar - tezakfuneralhome.com"; a document/image file name becomes
+ * "16298754_1992_6_L.pdf - arhiv.gorenjskiglas.si". Id-like page segments
+ * (digits, single tokens, hashes) yield nothing — the URL stays the title.
+ */
+function slugTitleFromUrl(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const host = parsed.hostname.replace(/^www\./i, "");
+  const segments = parsed.pathname.split("/").filter(Boolean).map(decodeSegment);
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i].replace(/\.(html?|php|aspx?|pdf|jpe?g|png|gif)$/i, "");
+    if (!/^\p{L}/u.test(seg)) continue;
+    const words = seg.split(/[-_ ]+/).filter(Boolean);
+    if (words.length < 2 || words.filter((w) => /^\p{L}+$/u.test(w)).length < 2) continue;
+    return `${prettySlug(seg)} - ${host}`;
+  }
+  const file = segments[segments.length - 1];
+  if (file && /\.(pdf|jpe?g|png|gif|tiff?|webp|djvu?|docx?|txt)$/i.test(file)) return `${file} - ${host}`;
+  return undefined;
+}
+
+/** The parts of a recognized site URL the Add Source dialog needs: the
+ *  canonical book/record URL to fetch, the cited page, and the
+ *  offline-proposed source fields. */
+export type RecognizedSourceUrl = Pick<Recognized, "site" | "bookUrl" | "page" | "proposed">;
+
+/**
+ * Recognize a single pasted URL against the same site rules the Organize
+ * sources tool uses — so a source added by hand gets the identical
+ * title/place/agency/filing-number proposals and leaves no work for a later
+ * cleanup pass. `contextText` is the rest of the pasted citation (quoted
+ * collection titles, the person's name in SIstory quotes). URLs of unknown
+ * sites return undefined — the caller keeps its generic handling.
+ */
+export function recognizeSourceUrl(url: string, contextText?: string): RecognizedSourceUrl | undefined {
+  return recognize(cleanUrl(url.trim()), contextText, DEFAULT_SITES);
+}
+
+/** Site glyphs — the Organize sources chips, the Add Source recognized-link
+ *  chip, and the source/link icons across Edit, Compare and chart panels. */
+export const SITE_ICON: Record<ReshapeSite, string> = {
+  matricula: "⛪",
+  geneanet: "🪦",
+  geneanettree: "🌲",
+  findagrave: "🪦",
+  billiongraves: "🪦",
+  legacy: "📰",
+  sistory: "🎖️",
+  dlib: "📚",
+  googlebooks: "📖",
+  youtube: "🎬",
+  familysearch: "🌳",
+  other: "🔗",
+};
+
+const siteIconCache = new Map<string, string | undefined>();
+
+/** The recognized site's glyph for a source/link URL, or undefined for URLs
+ *  of unknown sites (the caller keeps its generic icon). Cached per URL —
+ *  Edit/Compare rows re-render often over the same citations. */
+export function siteIconForUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (siteIconCache.has(url)) return siteIconCache.get(url);
+  const site = recognizeSourceUrl(url)?.site;
+  const icon = site ? SITE_ICON[site] : undefined;
+  siteIconCache.set(url, icon);
+  return icon;
 }
 
 // ---------------------------------------------------------------------------
@@ -466,7 +687,10 @@ function firstLine(text: string): string {
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
   baptism: /krst|tauf|baptiz|baptism|rojstn|\bkk\b/i,
   marriage: /poro[čc]|trauung|matrimon|copulat|marriage|\bpk\b/i,
-  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b/i,
+  // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
+  // funeral-announcement pages by their URLs/titles — funeral homes,
+  // komunala pogreb notices, navcek.si.
+  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
 };
 
 /** Classify a register's type from whatever text is available (source titles,
@@ -536,10 +760,19 @@ interface ScanHit {
 /** Extract recognized URLs from a text value (may contain several). */
 function recognizedUrls(text: string, contextText: string | undefined, sites: ReadonlySet<ReshapeSite>): { url: string; recognized: Recognized }[] {
   const out: { url: string; recognized: Recognized }[] = [];
+  // One value can carry the same URL twice — an HTML note's
+  // `<a href="url">url</a>` — which must stay ONE occurrence, or the apply
+  // would write two identical citations.
+  const seen = new Set<string>();
   for (const m of text.matchAll(URL_RE)) {
     const url = cleanUrl(m[0]);
+    const key = linkKey(url);
+    if (seen.has(key)) continue;
     const recognized = recognize(url, contextText, sites);
-    if (recognized) out.push({ url, recognized });
+    if (recognized) {
+      seen.add(key);
+      out.push({ url, recognized });
+    }
   }
   return out;
 }
@@ -716,6 +949,7 @@ const SITE_ORDER = new Map<ReshapeSite, number>(ALL_SITES.map((s, i) => [s, i]))
 const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
   geneanet: "burial",
   findagrave: "burial",
+  billiongraves: "burial",
   legacy: "death",
   sistory: "death",
 };
@@ -813,6 +1047,9 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
         state.group.proposed.title,
         ...state.hits.map((h) => h.typeText),
         ...state.hits.map((h) => h.prefix),
+        // Generic links often say what they are in the URL itself
+        // ("…/obituaries/ann-vidmar", "…/pogreb-angela-zupancic").
+        ...(state.group.site === "other" ? state.hits.map((h) => h.url) : []),
       ]);
   }
   return groups;
@@ -1022,6 +1259,47 @@ function buildPlaceResolver(records: GedNode[]): {
   };
 }
 
+/** The file-format place resolver as a standalone function — the Add Source
+ *  dialog uses it so the Kraj field shows the same resolved value ("Ljubljana"
+ *  → "Ljubljana,Ljubljana,Slovenia") that commit/cleanup will write. */
+export function makePlaceResolver(records: GedNode[]): (place: string | undefined) => string | undefined {
+  return buildPlaceResolver(records).resolve;
+}
+
+/**
+ * Where a source added on the *person* should actually land when the file
+ * keeps its citations on events (more event-level `SOUR` citations than
+ * record-level ones — a citation-less file counts as event-preferring, the
+ * cleanup tool's own default): the event matching the source's register/record
+ * type — baptism book → BIRT/BAPM (the file's habit), marriage book → the
+ * sole family's MARR, death record → DEAT, grave → BURI. Undefined = keep the
+ * record-level placement.
+ */
+export function smartCitationTarget(
+  records: GedNode[],
+  site: ReshapeSite,
+  title: string | undefined,
+): { eventTag: string; onFam: boolean } | undefined {
+  let recordLevel = 0;
+  let eventLevel = 0;
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+    for (const child of rec.children) {
+      if (child.tag === "SOUR" && child.value) recordLevel++;
+      else if (eventTags.has(child.tag)) eventLevel += childrenByTag(child, "SOUR").length;
+    }
+  }
+  if (recordLevel > eventLevel) return undefined;
+
+  const bookType = SITE_BOOK_TYPE[site] ?? classifyBookType([title]);
+  if (bookType === "unknown") return undefined;
+  if (bookType === "baptism") return { eventTag: baptismTargetTag(records), onFam: false };
+  if (bookType === "marriage") return { eventTag: "MARR", onFam: true };
+  if (bookType === "death") return { eventTag: "DEAT", onFam: false };
+  return { eventTag: "BURI", onFam: false };
+}
+
 /** Stable identity of one occurrence, for matching a report member to its
  *  re-scanned apply-time hit (per-citation QUAY overrides). */
 function occurrenceQuayKey(
@@ -1059,10 +1337,15 @@ function fillField(rec: GedNode, tag: string, value: string | undefined): void {
  *  repositories. Matricula derives name/WWW per archive instead. */
 const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www: string }>> = {
   matricula: { hostRe: /data\.matricula-online\.eu/i, name: "Matricula Online", www: "https://data.matricula-online.eu/" },
-  geneanet: { hostRe: /geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
+  geneanet: { hostRe: /geneanet\.org\/cemetery|en\.geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
+  geneanettree: { hostRe: /gw\.geneanet\.org/i, name: "Geneanet", www: "https://gw.geneanet.org/" },
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
+  billiongraves: { hostRe: /billiongraves\.com/i, name: "BillionGraves", www: "https://billiongraves.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
   sistory: { hostRe: /sistory\.si/i, name: "SIstory.si", www: "https://www.sistory.si/" },
+  dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
+  googlebooks: { hostRe: /books\.google\./i, name: "Google Books", www: "https://books.google.com/" },
+  youtube: { hostRe: /youtube\.com|youtu\.be/i, name: "YouTube", www: "https://www.youtube.com/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -1077,6 +1360,67 @@ function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | u
     anyMatch ??= rec.xref;
   }
   return anyMatch;
+}
+
+/** The site's REPO for a new source: an existing one matched by WWW host
+ *  (preferring the Matricula archive's), else — only when the file's
+ *  convention hangs sources off repositories — a newly created record. */
+function ensureSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  agency: string | undefined,
+  repositoryLayout: boolean,
+): { xref: string; created?: GedNode } | undefined {
+  const repoDef = SITE_REPO[site];
+  if (!repoDef) return undefined;
+  const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
+  const existing = findSiteRepo(records, repoDef.hostRe, mat?.archiveSlug);
+  if (existing) return { xref: existing };
+  if (!repositoryLayout) return undefined;
+  // Matricula repositories are the holding archive; the other sites
+  // are their own repository.
+  const name = (site === "matricula" && agency) || repoDef.name;
+  const www = mat
+    ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
+    : repoDef.www;
+  const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
+  repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
+  repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
+  insertRecord(records, repo);
+  return { xref: repo.xref!, created: repo };
+}
+
+/**
+ * Give a SOUR record newly created from a recognized site URL the same extras
+ * the Organize sources tool writes on its own new sources: `PLAC` matched
+ * against the file's established place format, the register's `DATE` range,
+ * and a `REPO` link — reusing the site's existing repository, or creating one
+ * only when the file's convention hangs sources off repositories. Returns the
+ * newly created REPO record, if any, so the caller can patch/undo it.
+ * Without a `site` (a hand-entered place on an unrecognized URL) only the
+ * PLAC/DATE fills apply.
+ */
+export function applySiteSourceExtras(
+  records: GedNode[],
+  sourceNode: GedNode,
+  site: ReshapeSite | undefined,
+  url: string,
+  meta: { place?: string; dateRange?: string },
+): GedNode | undefined {
+  fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
+  fillField(sourceNode, "DATE", meta.dateRange);
+  if (!site || firstChild(sourceNode, "REPO")) return undefined;
+  const repo = ensureSiteRepo(
+    records,
+    site,
+    url,
+    childText(sourceNode, "AGNC"),
+    inferSourceFormat(records).layout === "repository",
+  );
+  if (!repo) return undefined;
+  sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
+  return repo.created;
 }
 
 /**
@@ -1130,6 +1474,9 @@ export function reshapeSources(
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
       title: extra?.title ?? g.proposed.title,
+      author: extra?.author ?? g.proposed.author,
+      periodical: extra?.periodical,
+      publisher: extra?.publisher,
       agency: extra?.agency ?? g.proposed.agency,
       // Matched against the file's own places, so "Žabnica, Slovenia" (or a
       // diacritic-less slug guess) lands in the established place format.
@@ -1147,25 +1494,10 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       if (extra?.dateRange) fillField(sourceNode, "DATE", extra.dateRange);
-      const repoDef = SITE_REPO[g.site];
-      if (repoDef) {
-        const mat = g.site === "matricula" ? parseMatriculaUrl(state.hits[0].url) : undefined;
-        let repoXref = findSiteRepo(clone, repoDef.hostRe, mat?.archiveSlug);
-        if (!repoXref && layout === "repository") {
-          // Matricula repositories are the holding archive; the other sites
-          // are their own repository.
-          const name = (g.site === "matricula" && fields.agency) || repoDef.name;
-          const www = mat
-            ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-            : repoDef.www;
-          const repo: GedNode = { level: 0, xref: nextXref(clone, "R"), tag: "REPO", children: [] };
-          repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
-          repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
-          insertRecord(clone, repo);
-          byXref.set(repo.xref!, repo);
-          repoXref = repo.xref;
-        }
-        if (repoXref) sourceNode.children.push({ level: 1, tag: "REPO", value: repoXref, children: [] });
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, layout === "repository");
+      if (repo) {
+        if (repo.created) byXref.set(repo.created.xref!, repo.created);
+        sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
       }
     }
     const sourceXref = sourceNode.xref!;
@@ -1362,6 +1694,21 @@ function stripMdLinks(s: string): string {
   return s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
 }
 
+/**
+ * The archive's full display name from the fetched Matricula page's
+ * breadcrumb — the link to the archive index (`…/{country}/{archive}/`),
+ * in HTML (`<a href>`) or the rendering relay's markdown. Fallback for pages
+ * whose title doesn't carry the agency, upgrading the offline slug guess
+ * ("Ljubljana" → "Nadškofijski arhiv Ljubljana").
+ */
+function matriculaArchiveName(text: string, mat: MatriculaUrlParts): string | undefined {
+  const path = `/${mat.country}/${mat.archiveSlug}/`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const html = new RegExp(`<a[^>]+href="[^"]*${path}"[^>]*>([^<]+)</a>`, "i").exec(text)?.[1];
+  const md = new RegExp(`\\[([^\\]]+)\\]\\([^)]*${path}\\)`, "i").exec(text)?.[1];
+  const name = html ?? md;
+  return name ? decodeHtmlEntities(name).replace(/\s+/g, " ").trim() || undefined : undefined;
+}
+
 /** Parse the metadata table of a Matricula book page (fetched via the `/en/`
  *  URL so the row labels are stable English). Accepts both the raw HTML
  *  `table-register-data` rows and the rendering relay's markdown table
@@ -1436,6 +1783,252 @@ function matriculaEnUrl(bookUrl: string): string {
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
 
+/** Parse one fetched book/record page into source metadata — the per-site
+ *  rules shared by the cleanup tool's enrichment and the Add Source dialog. */
+function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): ReshapeMeta | undefined {
+  let meta: ReshapeMeta | undefined;
+  if (site === "matricula") {
+    const page = parseMatriculaBookPage(html);
+    if (page) {
+      // "unknown" must not clobber a correct offline classification
+      // (e.g. baptism inferred from a "KK" citation prefix).
+      const fetchedType = classifyBookType([page.type]);
+      const mat = parseMatriculaUrl(bookUrl);
+      meta = {
+        title: page.title,
+        // Title-derived agency first; else the breadcrumb's archive link.
+        agency: page.agency ?? (mat && matriculaArchiveName(html, mat)),
+        place: page.place,
+        dateRange: yearRange(page.dateFrom, page.dateTo),
+        bookType: fetchedType === "unknown" ? undefined : fetchedType,
+      };
+    }
+  } else if (site === "geneanet") {
+    const page = parseGeneanetCemeteryPage(html);
+    if (page) {
+      meta = {
+        // PLAC is the *place* (town, country); the cemetery itself
+        // names the source and stays in the title.
+        place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
+        // The cemetery (and plot) is address-level detail for the BURI event.
+        address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
+        // `{cemetery} - Geneanet Cemeteries` — the town stays out of the
+        // title (PLAC carries it) and the view id is the filing number.
+        title: page.cemetery ? siteTitle(page.cemetery, undefined, "Geneanet Cemeteries") : undefined,
+      };
+    }
+  } else if (site === "findagrave") {
+    // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
+    // the suffix may arrive ellipsized ("- Find a…"), match loosely.
+    // Find a Grave blocks the plain relays, so in practice this sees the
+    // rendering relay's markdown, whose Burial block reads:
+    //
+    //     [St. Theresa of Avila Catholic Church Cemetery](…/cemetery/2622358/…)
+    //     Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia[_Add to Map_](…)
+    //
+    // The cemetery names the grave (`{person} - {cemetery} - Find a Grave`)
+    // and becomes the BURI address; the location line is the place.
+    const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
+    const cem = /\[([^\]\n]+)\]\(https?:\/\/[^)]*findagrave\.com\/cemetery\/\d+\/(?!memorial-search)[^)]*\)\s*\n+([^\n[]+)/i.exec(html);
+    const cemetery = cem?.[1]?.trim();
+    const location = cem?.[2]?.trim().replace(/[,\s]+$/, "");
+    if (name) {
+      meta = {
+        title: siteTitle(name, cemetery, "Find a Grave"),
+        place: location || undefined,
+        address: cemetery,
+      };
+    }
+  } else if (site === "billiongraves") {
+    // The grave page is server-rendered with a schema.org Person JSON-LD:
+    // name, birth/death dates, and the cemetery (`deathPlace`) with its
+    // postal address. `{person} - {cemetery} - BillionGraves` names the
+    // grave; the cemetery is the BURI address, its town/country the place.
+    interface BgPlace {
+      name?: string;
+      address?: { addressLocality?: string; addressRegion?: string; addressCountry?: string };
+    }
+    interface BgPerson {
+      "@type"?: string;
+      name?: string;
+      deathPlace?: BgPlace;
+    }
+    let person: BgPerson | undefined;
+    for (const m of html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)) {
+      try {
+        const parsed = JSON.parse(m[1]) as BgPerson | BgPerson[];
+        person = (Array.isArray(parsed) ? parsed : [parsed]).find((x) => x?.["@type"] === "Person");
+        if (person) break;
+      } catch {
+        // not JSON — try the next block
+      }
+    }
+    const name = person?.name ?? pageTitleOf(html)?.replace(/\s*[-|]\s*BillionGraves.*$/i, "").trim();
+    if (name) {
+      const cemetery = person?.deathPlace?.name;
+      const addr = person?.deathPlace?.address;
+      const place =
+        [...new Set([addr?.addressLocality, addr?.addressRegion, addr?.addressCountry].filter(Boolean))].join(", ") ||
+        undefined;
+      meta = { title: siteTitle(name, cemetery, "BillionGraves"), place, address: cemetery };
+    }
+  } else if (site === "geneanettree") {
+    // The rendered page (Geneanet blocks plain relays) titles itself
+    // `Family tree of Rajko Vute` — bookUrl carries lang=en for a stable
+    // prefix. A trailing `(26)` is GeneWeb's occurrence ordinal that tells
+    // same-named persons in the tree apart — technical, so it stays out of
+    // the title (the URL keeps it). The tree's owner is the author:
+    // `{person} - {owner} - Geneanet Trees`.
+    const tree = /gw\.geneanet\.org\/([a-z0-9_-]+)\?/i.exec(bookUrl)?.[1];
+    const name = pageTitleOf(html)
+      ?.replace(/^\s*Family tree of\s+/i, "")
+      .replace(/\s*[-|]\s*Geneanet\s*$/i, "")
+      .replace(/\s*\(\d+\)\s*$/, "")
+      .trim();
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, tree, "Geneanet Trees"), author: tree };
+    }
+  } else if (site === "googlebooks") {
+    // The reader page's title is the book/newspaper name with a localized
+    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The
+    // page carries no issue date/number, and one newspaper spans many
+    // volumes, so the volume id stays in the title to tell them apart. A
+    // relay sometimes titles a failed render with the URL itself — that's
+    // not a name; the offline title stands.
+    const name = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
+    const volumeId = /[?&]id=([A-Za-z0-9_-]+)/.exec(bookUrl)?.[1];
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, volumeId, "Google Books") };
+    }
+  } else if (site === "youtube") {
+    // YouTube's public oEmbed endpoint returns JSON: the video's title and
+    // channel. The watch page's title is the fallback.
+    let data: { title?: string; author_name?: string } | undefined;
+    try {
+      data = JSON.parse(html) as { title?: string; author_name?: string };
+    } catch {
+      data = undefined;
+    }
+    const name = data?.title ?? pageTitleOf(html)?.replace(/\s*-\s*YouTube\s*$/i, "").trim();
+    if (name) meta = { title: siteTitle(name, undefined, "YouTube"), author: data?.author_name };
+  } else if (site === "legacy") {
+    const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
+    if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
+  } else if (site === "dlib") {
+    // The dLib.si details page is server-rendered: a key/value metadata table
+    // (Vir, Leto, Številčenje, Založnik, Izvor) plus a `dLib.si - {title}`
+    // page title. `{publication}, {date}, {issue} - dLib.si` names the source;
+    // the holding library is the agency.
+    const row = (label: string): string | undefined => {
+      const m = new RegExp(`class="[^"]*key">\\s*${label}\\s*</div>\\s*<div[^>]*class="[^"]*value">(.*?)</div>`, "is").exec(html);
+      return m ? decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim() || undefined : undefined;
+    };
+    const publication = pageTitleOf(html)?.replace(/^\s*dLib\.si\s*[-–]\s*/i, "").trim() || row("Vir");
+    const date = row("Leto");
+    const numbering = row("Številčenje");
+    if (publication) {
+      meta = {
+        title: siteTitle([publication, date, numbering].filter(Boolean).join(", "), undefined, "dLib.si"),
+        periodical: row("Vir"),
+        publisher: row("Založnik"),
+        agency: row("Izvor"),
+        dateRange: date,
+      };
+    }
+  } else if (site === "sistory") {
+    const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
+    // The record pages are client-rendered (Next.js): a plain relay sees an
+    // empty <title> and no visible text, but the embedded __NEXT_DATA__ JSON
+    // carries the record — the person's name, the contributor (author) list
+    // and the publishing institute. The record id stays out of the title
+    // (it's the filing number).
+    const nextData = /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i.exec(html)?.[1];
+    let record:
+      | {
+          titles?: string[];
+          contributors?: { firstName?: string; lastName?: string }[];
+          contributorGroups?: { name?: string }[];
+        }
+      | undefined;
+    if (nextData) {
+      try {
+        record = (JSON.parse(nextData) as { props?: { pageProps?: { data?: typeof record } } }).props?.pageProps?.data;
+      } catch {
+        record = undefined;
+      }
+    }
+    if (record?.titles?.[0]) {
+      const authors = (record.contributors ?? [])
+        .map((c) => [c.firstName, c.lastName].filter(Boolean).join(" ").trim())
+        .filter(Boolean)
+        .join(", ");
+      meta = {
+        title: siteTitle(record.titles[0], war, "SIstory.si"),
+        author: authors || undefined,
+        // The corpus title and publication place the page's own Citiranje
+        // section uses for the WW2 casualty database.
+        periodical: war === "WW2" ? "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji" : undefined,
+        place: war === "WW2" ? "Ljubljana" : undefined,
+        agency: record.contributorGroups?.[0]?.name,
+      };
+    } else {
+      // The rendering relay returns the composed page instead — its
+      // "Citiranje" section is a full citation; parse it with the same
+      // citation parser the paste box uses, so a fetched URL fills the same
+      // fields as pasting the Citiranje content by hand.
+      const citStart = html.search(/Citiranje/i);
+      const citText =
+        citStart >= 0
+          ? decodeHtmlEntities(stripMdLinks(html.slice(citStart + "Citiranje".length, citStart + 800)).replace(/<[^>]+>/g, " "))
+              .replace(/\s+/g, " ")
+              .trim()
+          : undefined;
+      const cit = citText ? parseSourceInput(citText) : {};
+      const name = cit.title ?? pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+      if (name) {
+        meta = {
+          title: siteTitle(name, war, "SIstory.si"),
+          author: cit.author,
+          periodical: cit.periodical,
+          // The citation's "(Ljubljana: Inštitut …)" — place + agency.
+          place: cit.place,
+          agency: cit.publisher,
+        };
+      }
+    }
+  } else {
+    const title = pageTitleOf(html);
+    if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
+  }
+  if (meta && !Object.values(meta).some(Boolean)) return undefined; // nothing usable parsed
+  return meta;
+}
+
+/**
+ * Fetch and parse the metadata for one book/record URL — cached session-wide
+ * by book key, so the cleanup tool's enrichment and the Add Source dialog
+ * never refetch the same book. Undefined on any fetch/parse failure.
+ */
+export async function fetchBookMeta(
+  site: ReshapeSite,
+  bookUrl: string,
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<ReshapeMeta | undefined> {
+  const cacheKey = `${site}:${bookKeyOf(bookUrl)}`;
+  const cached = bookMetaCache.get(cacheKey);
+  if (cached) return cached;
+  const url =
+    site === "matricula"
+      ? matriculaEnUrl(bookUrl)
+      : site === "youtube"
+        ? `https://www.youtube.com/oembed?url=${encodeURIComponent(bookUrl)}&format=json`
+        : bookUrl;
+  const html = await fetchHtml(url).catch(() => undefined);
+  const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  if (meta) bookMetaCache.set(cacheKey, meta);
+  return meta;
+}
+
 /**
  * Fetch metadata for the given (new-source) groups — **one fetch per book**,
  * via the injected `fetchHtml` (the allorigins relay wrapper; injectable for
@@ -1457,68 +2050,7 @@ export async function fetchReshapeMeta(
 
   const worker = async (queue: ReshapeGroup[]): Promise<void> => {
     for (let g = queue.shift(); g; g = queue.shift()) {
-      const cacheKey = `${g.site}:${bookKeyOf(g.bookUrl)}`;
-      let meta = bookMetaCache.get(cacheKey);
-      if (!meta) {
-        const url = g.site === "matricula" ? matriculaEnUrl(g.bookUrl) : g.bookUrl;
-        const html = await fetchHtml(url).catch(() => undefined);
-        if (html) {
-          if (g.site === "matricula") {
-            const page = parseMatriculaBookPage(html);
-            if (page) {
-              // "unknown" must not clobber a correct offline classification
-              // (e.g. baptism inferred from a "KK" citation prefix).
-              const fetchedType = classifyBookType([page.type]);
-              meta = {
-                title: page.title,
-                agency: page.agency,
-                place: page.place,
-                dateRange: yearRange(page.dateFrom, page.dateTo),
-                bookType: fetchedType === "unknown" ? undefined : fetchedType,
-              };
-            }
-          } else if (g.site === "geneanet") {
-            const page = parseGeneanetCemeteryPage(html);
-            if (page) {
-              const viewId = /\/view\/([^/?#]+)/.exec(g.bookUrl)?.[1];
-              meta = {
-                // PLAC is the *place* (town, country); the cemetery itself
-                // names the source and stays in the title.
-                place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
-                // The cemetery (and plot) is address-level detail for the BURI event.
-                address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
-                // `{cemetery}, {town} - {id} - Geneanet Cemeteries`.
-                title:
-                  page.cemetery && viewId
-                    ? siteTitle(`${page.cemetery}${page.town ? `, ${page.town}` : ""}`, viewId, "Geneanet Cemeteries")
-                    : undefined,
-              };
-            }
-          } else if (g.site === "findagrave") {
-            // `Frank Gorishek (1881-1968) - Find a Grave Memorial` → the name;
-            // the suffix may arrive ellipsized ("- Find a…"), match loosely.
-            const name = pageTitleOf(html)?.replace(/\s*[-–]\s*Find a.*$/i, "").trim();
-            const memorialId = /\/memorial\/(\d+)/.exec(g.bookUrl)?.[1];
-            if (name) {
-              meta = { title: siteTitle(name, memorialId, "Find a Grave") };
-            }
-          } else if (g.site === "legacy") {
-            const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
-            const obitId = /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
-          } else if (g.site === "sistory") {
-            const name = pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
-            const war = /\/(ww[12])\//i.exec(g.bookUrl)?.[1].toUpperCase();
-            const recId = /\/ww[12]\/([^/?#]+)/i.exec(g.bookUrl)?.[1] ?? /[?&]id=(\d+)/i.exec(g.bookUrl)?.[1];
-            if (name) meta = { title: siteTitle(name, recId, `SIstory.si${war ? ` ${war}` : ""}`) };
-          } else {
-            const title = pageTitleOf(html);
-            if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
-          }
-          if (meta && !Object.values(meta).some(Boolean)) meta = undefined; // nothing usable parsed
-          if (meta) bookMetaCache.set(cacheKey, meta);
-        }
-      }
+      const meta = await fetchBookMeta(g.site, g.bookUrl, fetchHtml);
       if (meta) {
         enrichment.set(g.id, meta);
         onMeta?.(g.id, meta);

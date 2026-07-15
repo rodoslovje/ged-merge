@@ -4,6 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
+import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { useField } from "./useField";
@@ -537,7 +538,7 @@ export function EventFieldsRow({
               title={link}
               onClick={() => openEditLink(i)}
             >
-              🔗
+              {siteIconForUrl(link) ?? "🔗"}
             </button>
           ))}
         </span>

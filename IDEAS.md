@@ -38,18 +38,32 @@ The items most worth doing next, in rough order of payoff for real usage
 
 ## Features
 
+### FamilySearch API integration (major feature)
+
+FamilySearch is the one enrichment site that can never work through the public
+relays: it sits behind a login and its pages are client-rendered. The official
+platform API with OAuth2 solves both, and unlocks person-level linking.
+
+- **Prerequisite (process, not code):** register GED Merge as a FamilySearch
+  developer app (developer account + approval; the registered redirect URL is
+  the hosted app origin) to obtain a client key.
+- **Sign in with FamilySearch** in Settings — OAuth2 authorization-code + PKCE
+  entirely in the browser; the token stays on the device and calls go directly
+  browser → `api.familysearch.org` (CORS-enabled), no relay involved, so the
+  no-backend / nothing-leaves-your-device model holds.
+- **Source enrichment** — resolve ark record links (source descriptions,
+  collection titles, citations) and catalog/film metadata through the API,
+  feeding the same `ReshapeMeta` pipeline as Matricula/dLib (Organize sources
+  "Fetch details" + Add Source).
+- **FSID person linking** — individuals already carry FS Tree ids (`_FID`
+  MacFamilyTree, `_FSFTID` RootsMagic), used today as an identity pre-match.
+  With the API: resolve each FSID to the live Tree person, show a FamilySearch
+  chip in Edit view (open on FS; current Tree name/vitals), detect stale ids
+  (FS persons get merged/deleted), optionally pull the Tree person into the
+  compare slot for a field-by-field merge like a compare file, and write the
+  FSID back onto matched persons that lack one.
+
 ### Tools tab
-- **Source reshape** — when the main file uses a source+link format, reshape all
-  links into the sources format. Create a source entry from a URL's metadata, or
-  attach the link to an already-existing source. Biggest payoff for **Matricula
-  Online** links, but also **Geneanet Cemeteries**. *(A base exists:
-  `normalize/urlMetadata.ts` already fetches a page title through the CORS relay
-  for the Add Source dialog.)*
-- **Matricula Online metadata** — beyond the existing link normalization
-  (language code) and page-title lookup, extract metadata from the URL and by
-  querying the link (e.g. book name and similar details).
-- **Geneanet Cemeteries metadata** — same idea as the Matricula Online metadata
-  feature, for Geneanet Cemeteries links.
 - **Source coverage report** — which facts / persons have no citation at all
   (extends the existing health check).
 - **Place gazetteer standardization** — validate & fix place spelling and

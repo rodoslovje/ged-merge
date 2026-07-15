@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
   ALL_SITES,
+  SITE_ICON,
   fetchReshapeMeta,
   isFetchableSite,
   reshapeSources,
@@ -18,21 +19,13 @@ import { PersonLink } from "../PersonLink";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
+import { linkKey } from "../../normalize/links";
 import { downloadText } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
-const SITE_ICON: Record<ReshapeSite, string> = {
-  matricula: "⛪",
-  geneanet: "🪦",
-  findagrave: "🪦",
-  legacy: "📰",
-  sistory: "🎖️",
-  familysearch: "🌳",
-  other: "🔗",
-};
 const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
@@ -96,7 +89,7 @@ export function SourceCleanupView({
       reshapeReportProp ?? {
         groups: [],
         totalOccurrences: 0,
-        bySite: { matricula: 0, geneanet: 0, findagrave: 0, legacy: 0, sistory: 0, familysearch: 0, other: 0 },
+        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, familysearch: 0, other: 0 },
       },
     [reshapeReportProp],
   );
@@ -227,19 +220,37 @@ export function SourceCleanupView({
     return map;
   }, [dataset]);
 
+  // Localized labels for the SOUR fields the tooltips show — the same
+  // vocabulary as the Add Source dialog; unknown tags keep their raw name.
+  const FIELD_LABEL_KEYS: Record<string, string> = {
+    TITL: "addSource.field.title",
+    AUTH: "addSource.field.author",
+    PERI: "addSource.field.periodical",
+    PUBL: "addSource.field.publisher",
+    AGNC: "addSource.field.agency",
+    PLAC: "addSource.field.place",
+    FILN: "addSource.field.filingNumber",
+    NOTE: "addSource.field.note",
+    PAGE: "addSource.field.page",
+    DATE: "addSource.field.dateRange",
+  };
+  const fieldLabel = (tag: string) => (FIELD_LABEL_KEYS[tag] ? t(FIELD_LABEL_KEYS[tag]) : tag);
+  const localizeTooltip = (text: string) =>
+    text.replace(/^([A-Z_][A-Z0-9_]{2,}): /gm, (_, tag: string) => `${fieldLabel(tag)}: `);
+
   const badgeTooltip = (g: ReshapeGroup): string => {
     if (g.existingSourceXref) {
       const node = sourNodes.get(g.existingSourceXref);
-      const fields = node ? sourceTooltip(node) : g.existingSourceTitle ?? "";
+      const fields = node ? localizeTooltip(sourceTooltip(node)) : g.existingSourceTitle ?? "";
       return [g.existingSourceXref, fields].filter(Boolean).join("\n");
     }
     const meta = enrichment.get(g.id);
     return [
-      `TITL: ${meta?.title ?? g.proposed.title}`,
-      (meta?.agency ?? g.proposed.agency) && `AGNC: ${meta?.agency ?? g.proposed.agency}`,
-      (meta?.place ?? g.proposed.place) && `PLAC: ${meta?.place ?? g.proposed.place}`,
-      g.proposed.filingNumber && `FILN: ${g.proposed.filingNumber}`,
-      meta?.dateRange && `DATE: ${meta.dateRange}`,
+      `${fieldLabel("TITL")}: ${meta?.title ?? g.proposed.title}`,
+      (meta?.agency ?? g.proposed.agency) && `${fieldLabel("AGNC")}: ${meta?.agency ?? g.proposed.agency}`,
+      (meta?.place ?? g.proposed.place) && `${fieldLabel("PLAC")}: ${meta?.place ?? g.proposed.place}`,
+      g.proposed.filingNumber && `${fieldLabel("FILN")}: ${g.proposed.filingNumber}`,
+      meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -477,6 +488,9 @@ function ReshapeGroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.bookUrl}>
           {SITE_ICON[group.site]} {title}
         </span>
+        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
+          ↗
+        </a>
         {group.bookType !== "unknown" && (
           <span className="tools-tree-meta">{t(`tools.sources.reshapeType.${group.bookType}`)}</span>
         )}
@@ -501,6 +515,7 @@ function ReshapeGroupRow({
               <MemberRow
                 key={`${m.recordXref}:${i}`}
                 member={m}
+                groupUrlKey={linkKey(group.bookUrl)}
                 relocate={relocate}
                 defaultQuay={defaultQuay}
                 quay={quayOf(i)}
@@ -518,6 +533,7 @@ function ReshapeGroupRow({
 
 function MemberRow({
   member: m,
+  groupUrlKey,
   relocate,
   defaultQuay,
   quay,
@@ -526,6 +542,9 @@ function MemberRow({
   onNavigate,
 }: {
   member: ReshapeOccurrence;
+  /** The group's canonical link identity — a member whose URL matches it
+   *  (same page for everyone) doesn't repeat the header's ↗. */
+  groupUrlKey: string;
   relocate: boolean;
   defaultQuay: string;
   quay: string;
@@ -581,9 +600,11 @@ function MemberRow({
           ))}
         </select>
       )}
-      <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer">
-        ↗
-      </a>
+      {linkKey(m.url) !== groupUrlKey && (
+        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={m.url}>
+          ↗
+        </a>
+      )}
     </li>
   );
 }

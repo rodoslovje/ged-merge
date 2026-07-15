@@ -2463,8 +2463,12 @@ button:focus-visible {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+/* Reveal on hover or *keyboard-visible* focus in the row — plain
+   :focus-within would pin the control to the last-clicked row after the
+   pointer leaves (a clicked button keeps focus); inputs match :focus-visible
+   while being edited, so typing in the row still keeps it shown. */
 .edit-event:hover .edit-event-addfield,
-.edit-event:focus-within .edit-event-addfield,
+.edit-event:has(:focus-visible) .edit-event-addfield,
 .edit-event-addfield:focus {
   width: auto;
   opacity: 1;
@@ -2504,7 +2508,7 @@ button:focus-visible {
   display: none;
 }
 .edit-event:hover .edit-event-extra-label,
-.edit-event:focus-within .edit-event-extra-label { display: inline; }
+.edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
 /* The note is content-sized like the other fields (it wraps its text within
@@ -3262,6 +3266,31 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 .source-ref.source-ref--book { font-size: 1.15rem; }
 /* No resolvable link at all — not clickable. */
 .source-ref.source-ref--nolink { cursor: default; }
+/* Edit mode: the icon opens the edit dialog, so a hover-revealed ↗ beside it
+   opens the cited URL directly without a dialog round-trip. */
+.source-ref-wrap { display: inline-flex; align-items: center; }
+.source-ref-open {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+/* Hover-only on rows: a clicked control keeps focus after the pointer leaves,
+   so a :focus-within reveal would stick to the last-clicked row. Keyboard
+   users still get the ↗ via its own :focus-visible. */
+.source-ref-wrap:hover .source-ref-open,
+.edit-event:hover .source-ref-open,
+.edit-record-label-row:hover .source-ref-open,
+.edit-record-section:hover .source-ref-open,
+.source-ref-open:focus-visible {
+  max-width: 1.2em;
+  opacity: 1;
+  padding-right: 2px;
+}
 /* A fallback link (repository/source page) rather than the exact cited page. */
 a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* An incoming citation the main doesn't have yet. */
@@ -4960,16 +4989,75 @@ kbd {
   background: var(--danger-soft);
 }
 
-.add-source-dialog { width: 520px; max-width: 90vw; }
+/* Add/Edit Source dialog: a short, wide card that sizes to its content —
+   header and footer pinned, body scrolling only when needed. */
+.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94vh; }
+.modal-overlay:has(> .add-source-dialog) { background: rgba(28, 24, 18, 0.42); }
+.add-source-dialog .modal-header h2 {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.add-source-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 10px;
+  font-size: 15px;
+  background: color-mix(in oklch, var(--accent) 12%, var(--panel));
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
+  border-radius: var(--radius);
+}
+.add-source-dialog .modal-body { padding-top: 20px; }
+/* Prose fields read as prose: sans-serif; only the URL stays mono (it's a
+   link). Consistent bordered inputs with an accent focus ring. */
+.add-source-dialog .edit-input {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  border-color: var(--border);
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+}
+.add-source-dialog .edit-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 16%, transparent);
+}
+.add-source-url-row input.edit-input { font-family: var(--font-mono); }
 .add-source-textarea {
   width: 100%;
   resize: vertical;
-  font-family: inherit;
-  border-color: var(--border);
-  background: var(--bg);
+  font-family: var(--font-mono);
 }
 .add-source-textarea::placeholder { opacity: 0.5; }
 .add-source-hint { font-size: 0.9rem; color: var(--accent); margin: 8px 0; }
+/* Recognized-link state: an accent chip under the paste box, with the
+   provider as a mono tag pill on the right. */
+.add-source-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--panel));
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
+  border-radius: var(--radius);
+}
+.add-source-chip-site {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
 .add-source-field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;
@@ -4977,9 +5065,38 @@ kbd {
   background: var(--bg);
 }
 .add-source-field input::placeholder { opacity: 0.5; }
+/* The shorter bibliographic fields pair up in two columns. */
+.add-source-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 14px;
+  margin: 0 0 12px;
+}
+.add-source-details-grid .add-source-field { margin: 0; }
 .add-source-url-row { display: flex; align-items: flex-end; gap: 6px; }
-.add-source-url-row .add-source-field { flex: 1; }
-.add-source-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.add-source-url-row .add-source-field { flex: 1; margin-bottom: 0; }
+/* Pinned footer: filled-accent primary on the right, ghost cancel beside. */
+.add-source-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 32px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.add-source-submit {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius);
+  padding: 4px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.add-source-submit:hover:not(:disabled) { filter: brightness(1.08); }
+.add-source-submit:disabled { opacity: 0.5; cursor: default; }
 /* Edit Source dialog: Remove sits apart on the left so Cancel/Save (the
    common path) stay the rightmost, single-click-safe default actions. */
 .add-source-remove { margin-right: auto; }
@@ -5498,6 +5615,9 @@ kbd {
   /* Very narrow: let the date shrink so the label + date still share a line
    * before the body wraps beneath. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
+
+  /* Not enough room for the source dialog's two detail columns. */
+  .add-source-details-grid { grid-template-columns: 1fr; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer

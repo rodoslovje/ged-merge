@@ -86,13 +86,20 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-15</h2>
+            <ul>
+              <li><strong>Clean up sources</strong> is renamed to <strong>Organize sources</strong>.</li>
+              <li><strong>Add Source</strong> understands archive links like Organize sources does: a recognized URL prefills title, author, place, archive, filing number and page — the online lookup fetches the real book/grave/record details — and the created source gets the file-format place, year range and repository. The dialog is redesigned: two columns, a recognized-link chip, an editable Place field.</li>
+              <li>New link types <strong>BillionGraves</strong>, <strong>dLib.si</strong>, <strong>Google Books</strong> (book/newspaper title, page from pg=), <strong>YouTube</strong> (video title and channel via oEmbed) and <strong>Geneanet Trees</strong> (member-tree person pages, separate from Cemeteries); readable titles across all sites ("Katarina Abdonec - WW2 - SIstory.si", "Adam Troha - St. Theresa Cemetery - Find a Grave", "Dolenjski list, 08.06.1978 … - dLib.si") with record ids in the filing number; graves fill the burial place and cemetery address; generic obituary/funeral links count as death evidence and get name/file-based titles.</li>
+              <li>A source added on a person lands on its matching event (birth/marriage/death/burial, created if missing) when the file keeps citations on events; the Save preview now lists added and removed citations.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-14</h2>
             <ul>
-              <li>New Tools → Sources → <strong>Clean up sources</strong>: archive links scattered around the file — <strong>Matricula Online</strong>, <strong>Geneanet Cemeteries</strong>, <strong>Find a Grave</strong>, <strong>Legacy.com</strong> obituaries, <strong>SIstory.si</strong> war-victim records and <strong>FamilySearch</strong> URLs in link fields, notes or inline citations — are grouped by register book, grave, obituary or film and converted into proper source records cited with page numbers, reusing the sources and repositories the file already has. The duplicate finder lives in the same view, so one download applies both the conversion and the deduplication.</li>
-              <li>Citations land on the matching event — baptism book → birth/baptism (following the file's own habit), marriage book → the family's marriage, death record → death, grave → burial — creating the event when missing; a link attached to both the person and an event collapses to one citation when the file keeps links in one place; and a <strong>QUAY</strong> data-quality value can be set globally with per-citation overrides. Every person in the preview links straight to Edit mode.</li>
-              <li>With link-fetching enabled in Settings, <strong>Fetch book details</strong> fills in the real Matricula register title, archive, parish and year range, and the grave's cemetery and location from Geneanet — one lookup per selected book, through public relays with fallbacks (the relays are now listed in Settings), with titles updating live as each book resolves.</li>
-              <li>Places the tool writes follow the file's own place format — "Žabnica" from a grave page becomes your "Žabnica,Kranj,Slovenia" — and a grave source fills a missing burial place, adding the cemetery as the address in place+address files.</li>
-              <li>Editing a name in a file that stores its parts as separate <strong>GIVN</strong>/<strong>SURN</strong> lines (MacFamilyTree and similar) now updates those lines to match instead of dropping them, so the structured given/surname stay in your file's house style. Files that don't use those lines are unchanged — none are added.</li>
+              <li>New Tools → Sources → <strong>Organize sources</strong> (introduced as "Clean up sources"): archive links scattered around the file — Matricula Online, Geneanet Cemeteries, Find a Grave, Legacy.com, SIstory.si and FamilySearch URLs in link fields, notes or inline citations — are grouped by book, grave or record and converted into proper source records with page citations, reusing the file's existing sources and repositories. The duplicate finder shares the view; one download applies both.</li>
+              <li>Citations land on the matching event (created when missing), person+event duplicates collapse per the file's habit, and a <strong>QUAY</strong> quality value can be set globally with per-citation overrides. <strong>Fetch book details</strong> fills real register/grave metadata through public relays (listed in Settings); places follow the file's own place format, and graves fill a missing burial place and cemetery address.</li>
+              <li>Editing a name in a file with separate <strong>GIVN</strong>/<strong>SURN</strong> lines (MacFamilyTree and similar) updates those lines instead of dropping them.</li>
             </ul>
           </section>
           <section class="changelog-entry">

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeSite } from "./sourceReshape";
 import {
+  applySiteSourceExtras,
   classifyBookType,
+  fetchBookMeta,
   fetchReshapeMeta,
   findReshapableLinks,
   parseFamilySearchUrl,
@@ -12,6 +15,8 @@ import {
   parseMatriculaBookPage,
   parseMatriculaTitle,
   parseMatriculaUrl,
+  recognizeSourceUrl,
+  smartCitationTarget,
   reshapeSources,
 } from "./sourceReshape";
 
@@ -242,7 +247,7 @@ describe("findReshapableLinks — scan", () => {
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
-2 SOUR https://www.sistory.si/ww2/ABC
+2 SOUR https://example.org/records/ABC
 0 TRLR`;
     expect(scan(text).groups).toHaveLength(0);
     const withOther = scan(text, ["matricula", "geneanet", "familysearch", "other"]);
@@ -578,7 +583,7 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
-    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -775,13 +780,16 @@ describe("reshapeSources — citation placement", () => {
     const grave = report.groups.find((g) => g.site === "findagrave")!;
     expect(grave.members).toHaveLength(2); // slug and slugless variants share the memorial group
     expect(grave.bookType).toBe("burial");
-    expect(grave.proposed.title).toBe("Anton Grudnik - 12345 - Find a Grave");
-    expect(text).toContain("1 TITL Anton Grudnik - 12345 - Find a Grave");
+    // The memorial id is the filing number, not part of the title.
+    expect(grave.proposed.title).toBe("Anton Grudnik - Find a Grave");
+    expect(grave.proposed.filingNumber).toBe("12345");
+    expect(text).toContain("1 TITL Anton Grudnik - Find a Grave");
+    expect(text).toContain("1 FILN 12345");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
 
-  it("treats Legacy.com obituaries as death evidence: DEAT placement, id+name title", () => {
+  it("treats Legacy.com obituaries as death evidence: DEAT placement, name title, id as filing number", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -789,9 +797,135 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "legacy")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Peter Ancel - 26608778 - Legacy.com");
+    expect(g.proposed.title).toBe("Peter Ancel - Legacy.com");
+    expect(g.proposed.filingNumber).toBe("26608778");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // record-level note moved to a created DEAT
-    expect(text).toContain("1 TITL Peter Ancel - 26608778 - Legacy.com");
+    expect(text).toContain("1 TITL Peter Ancel - Legacy.com");
+    expect(text).toContain("1 FILN 26608778");
+  });
+
+  it("gives 'other' links slug titles and classifies obituary/funeral URLs as death evidence", () => {
+    const report = scan(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://www.tezakfuneralhome.com/obituaries/ann-vidmar
+0 @I2@ INDI
+1 WWW https://www.komunala-kranj.si/pogreb-angela-zupancic-v-druzinskem-krogu
+0 @I3@ INDI
+1 WWW https://www.preddvor.si/objava/773942
+0 TRLR`,
+      ["other"],
+    );
+    const obit = report.groups.find((g) => g.bookUrl.includes("tezak"))!;
+    expect(obit.proposed.title).toBe("Ann Vidmar - tezakfuneralhome.com");
+    expect(obit.bookType).toBe("death"); // "/obituaries/" in the URL
+    const pogreb = report.groups.find((g) => g.bookUrl.includes("komunala"))!;
+    expect(pogreb.proposed.title).toBe("Pogreb Angela Zupancic V Druzinskem Krogu - komunala-kranj.si");
+    expect(pogreb.bookType).toBe("death");
+    const idPage = report.groups.find((g) => g.bookUrl.includes("preddvor"))!;
+    expect(idPage.proposed.title).toBe("https://www.preddvor.si/objava/773942"); // no name-like slug
+    expect(idPage.bookType).toBe("unknown");
+  });
+
+  it("recognizes Geneanet member-tree person pages (own group, not cemeteries)", () => {
+    // Semicolon-separated GeneWeb params; pz/nz (the sosa root) must not match.
+    const rec = recognizeSourceUrl("http://gw.geneanet.org/hawlina?lang=de;pz=peter;nz=hawlina;ocz=0;p=rajko;n=vute")!;
+    expect(rec.site).toBe("geneanettree");
+    expect(rec.bookUrl).toBe("https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute");
+    // The tree's owner is the author, shown in the title.
+    expect(rec.proposed.title).toBe("Rajko Vute - hawlina - Geneanet Trees");
+    expect(rec.proposed.author).toBe("hawlina");
+
+    // HTML-escaped params and a stray trailing paren from prose.
+    const esc = recognizeSourceUrl("http://gw.geneanet.org/rfonda?lang=en&amp;p=jacobus&amp;n=magajna)")!;
+    expect(esc.proposed.title).toBe("Jacobus Magajna - rfonda - Geneanet Trees");
+
+    // Same person, oc disambiguator kept in the group identity.
+    const oc = recognizeSourceUrl("https://gw.geneanet.org/hawlina?lang=en&pz=peter&nz=hawlina&p=janez&n=plut&oc=26")!;
+    expect(oc.bookUrl).toBe("https://gw.geneanet.org/hawlina?lang=en&p=janez&n=plut&oc=26");
+  });
+
+  it("fetches the tree person's name from the rendered page title", async () => {
+    // A trailing "(26)" is GeneWeb's same-name occurrence ordinal — stripped.
+    const meta = await fetchBookMeta(
+      "geneanettree",
+      "https://gw.geneanet.org/hawlina?lang=en&p=janez&n=plut&oc=26",
+      async () => `Title: Family tree of Janez Plut (26)\n\nURL Source: https://gw.geneanet.org/hawlina\n\nMarkdown Content:`,
+    );
+    expect(meta).toEqual({ title: "Janez Plut - hawlina - Geneanet Trees", author: "hawlina" });
+  });
+
+  it("groups Google Books by volume id and YouTube by video id", () => {
+    const gb = recognizeSourceUrl(
+      "https://books.google.si/books?id=90Q_AAAAIBAJ&pg=PA18&dq=joseph+matthew+yakopich&hl=en#v=onepage&q=joseph&f=false",
+    )!;
+    expect(gb.site).toBe("googlebooks");
+    expect(gb.bookUrl).toBe("https://books.google.com/books?id=90Q_AAAAIBAJ");
+    expect(gb.page).toBe("18"); // pg=PA18
+    expect(gb.proposed.title).toBe("90Q_AAAAIBAJ - Google Books");
+    expect(gb.proposed.filingNumber).toBe("90Q_AAAAIBAJ");
+
+    const yt = recognizeSourceUrl("https://www.youtube.com/watch?v=lD5eGiGwlZs")!;
+    expect(yt.site).toBe("youtube");
+    expect(yt.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
+    expect(yt.proposed.title).toBe("lD5eGiGwlZs - YouTube");
+    expect(recognizeSourceUrl("https://youtu.be/lD5eGiGwlZs")?.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");
+  });
+
+  it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {
+    // Košir-style files (MacFamilyTree HTML notes) repeat the URL as the
+    // anchor text — that must not become two citations.
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE <p style="text-align: left;" dir="ltr"><a href="${BOOK}/?pg=22">${BOOK}/?pg=22</a></p>
+0 TRLR`);
+    expect(report.groups).toHaveLength(1);
+    expect(report.groups[0].members).toHaveLength(1);
+    expect(report.totalOccurrences).toBe(1);
+  });
+
+  it("titles generic document links by file name + host", () => {
+    const report = scan(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://arhiv.gorenjskiglas.si/digitar/16298754_1992_6_L.pdf
+0 TRLR`,
+      ["other"],
+    );
+    expect(report.groups[0].proposed.title).toBe("16298754_1992_6_L.pdf - arhiv.gorenjskiglas.si");
+  });
+
+  it("treats BillionGraves graves like Find a Grave: BURI placement, id as filing number", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://billiongraves.com/grave/Polona-Renko/18374346
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "billiongraves")!;
+    expect(g.bookType).toBe("burial");
+    expect(g.proposed.title).toBe("Polona Renko - BillionGraves");
+    expect(g.proposed.filingNumber).toBe("18374346");
+    expect(text).toMatch(/1 BURI\n2 SOUR @S1@/);
+    expect(text).toContain("1 FILN 18374346");
+  });
+
+  it("groups dLib.si details and stream links by URN, id as filing number", () => {
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE Osmrtnica: https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU
+1 OBJE
+2 FILE https://www.dlib.si/stream/URN:NBN:SI:DOC-2CEAMMVU/51a3aa79-0f72-45c6-8746-f6ed95898f33/PDF
+0 TRLR`);
+    const g = report.groups.find((x) => x.site === "dlib")!;
+    expect(g.members).toHaveLength(2); // details page and PDF stream share the document
+    expect(g.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU");
+    expect(g.proposed.title).toBe("URN:NBN:SI:DOC-2CEAMMVU - dLib.si"); // offline: URN distinguishes documents
+    expect(g.proposed.filingNumber).toBe("URN:NBN:SI:DOC-2CEAMMVU");
+    expect(text).toContain("1 FILN URN:NBN:SI:DOC-2CEAMMVU");
   });
 
   it("treats SIstory.si WW records as death evidence with the quoted person name", () => {
@@ -802,9 +936,20 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
+    // The record id means nothing to a reader — filing number, not title.
+    expect(g.proposed.title).toBe("Fani Grudnik - WW2 - SIstory.si");
+    expect(g.proposed.filingNumber).toBe("F01EDD85-E7BB-4D18-9599-1428852BAA1F");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
-    expect(text).toContain("1 TITL Fani Grudnik - F01EDD85-E7BB-4D18-9599-1428852BAA1F - SIstory.si WW2");
+    expect(text).toContain("1 TITL Fani Grudnik - WW2 - SIstory.si");
+    expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
+  });
+
+  it("recognizes short numeric WW1 record ids, keeping the id in the offline title", () => {
+    const rec = recognizeSourceUrl("https://www.sistory.si/ww1/168")!;
+    expect(rec.site).toBe("sistory");
+    expect(rec.bookUrl).toBe("https://www.sistory.si/ww1/168");
+    expect(rec.proposed.title).toBe("WW1 - 168 - SIstory.si"); // no name available offline
+    expect(rec.proposed.filingNumber).toBe("168");
   });
 
   it("recognizes both SIstory WW1 shapes and groups the same victim across them", () => {
@@ -817,7 +962,8 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "sistory")!;
     expect(g.members).toHaveLength(2); // path and zv1 variants share the record
     expect(g.bookType).toBe("death");
-    expect(g.proposed.title).toBe("Matija Čehun (1877) - 15691 - SIstory.si WW1"); // name from the zv1 id
+    expect(g.proposed.title).toBe("Matija Čehun (1877) - WW1 - SIstory.si"); // name from the zv1 id
+    expect(g.proposed.filingNumber).toBe("15691");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/);
   });
 
@@ -918,11 +1064,11 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
       address: "Pokopališče Zgornje Bitnje, P02", // cemetery + plot → BURI ADDR
-      title: "Pokopališče Zgornje Bitnje, Žabnica - 10085092 - Geneanet Cemeteries",
+      title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
     });
   });
 
-  it("enriches a Find a Grave group with the memorial's name, id kept", async () => {
+  it("enriches a Find a Grave group with the memorial's name", async () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -934,7 +1080,32 @@ GPS Coordinates : 46.2181,14.3463`;
       async () => `<html><head><title>Frank Gorishek (1881-1968) - Find a Grave Memorial</title></head></html>`,
     );
     expect(enrichment.get(report.groups[0].id)).toEqual({
-      title: "Frank Gorishek (1881-1968) - 60350966 - Find a Grave",
+      title: "Frank Gorishek (1881-1968) - Find a Grave",
+    });
+  });
+
+  it("parses the Find a Grave Burial block: cemetery into the title and address, location as place", async () => {
+    // Trimmed from the rendering relay's markdown for a real memorial
+    // (captured 2026-07-15) — FAG blocks the plain relays.
+    const GRAVE_FAG_MD = `Title: Adam Troha (1868-1952) - Find a Grave Memorial
+
+URL Source: https://www.findagrave.com/memorial/273320916/adam-troha
+
+Markdown Content:
+# Adam Troha
+
+Birth 1868 Death 1952 (aged 83–84)Burial
+
+[St. Theresa of Avila Catholic Church Cemetery](https://www.findagrave.com/cemetery/2622358/st.-theresa-of-avila-catholic-church-cemetery)
+
+Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia[_Add to Map_](https://www.findagrave.com/memorial/273320916/edit#gps-location)
+
+Memorial ID 273320916 273320916`;
+    const meta = await fetchBookMeta("findagrave", "https://www.findagrave.com/memorial/273320916", async () => GRAVE_FAG_MD);
+    expect(meta).toEqual({
+      title: "Adam Troha (1868-1952) - St. Theresa of Avila Catholic Church Cemetery - Find a Grave",
+      place: "Ravna Gora, Općina Ravna Gora, Primorsko-Goranska, Croatia",
+      address: "St. Theresa of Avila Catholic Church Cemetery",
     });
   });
 
@@ -1004,5 +1175,309 @@ GPS Coordinates : 46.2181,14.3463`;
     });
     const geneGroup = report.groups.find((g) => g.site === "geneanet")!;
     expect(enrichment.has(geneGroup.id)).toBe(false); // fetch failed → offline fallback stays
+  });
+
+  it("falls back to the breadcrumb archive link when the title carries no agency", async () => {
+    // Some page shapes title only `{type} | {id}` — the agency then comes from
+    // the breadcrumb's archive link (`Začetna / Slovenia / {archive} / {parish}`).
+    const PAGE_NO_AGENCY = `<html><head><title>Krstna knjiga / Taufbuch | 01723</title></head>
+<body><ol class="breadcrumb"><li><a href="/en/">Začetna</a></li><li><a href="/en/slovenia/">Slovenia</a></li>
+<li><a href="/en/slovenia/ljubljana/">Nadškofijski arhiv Ljubljana</a></li>
+<li><a href="/en/slovenia/ljubljana/podzemelj/">Podzemelj</a></li></ol>
+<table class="table table-register-data">
+<tr><th>Parish/place</th><td><a href="/en/slovenia/ljubljana/podzemelj/">Podzemelj</a></td>
+<tr><th>ID</th><td>01723</td>
+<tr><th>Type</th><td>Krstna knjiga / Taufbuch</td>
+<tr><th>Date from</th><td>Jan. 1, 1675</td>
+<tr><th>Date to</th><td>Dec. 31, 1725</td>
+</table></body></html>`;
+    const meta = await fetchBookMeta(
+      "matricula",
+      "https://data.matricula-online.eu/sl/slovenia/ljubljana/podzemelj/01723",
+      async () => PAGE_NO_AGENCY,
+    );
+    expect(meta?.agency).toBe("Nadškofijski arhiv Ljubljana"); // not the parish link, not "Ljubljana"
+    expect(meta?.title).toBe("Krstna knjiga / Taufbuch - 01723 | Podzemelj");
+    expect(meta?.dateRange).toBe("1675-1725");
+  });
+
+  it("parses the BillionGraves grave page's schema.org JSON-LD", async () => {
+    // Trimmed from the real grave page (captured 2026-07-15).
+    const BG_HTML = `<html><head><title>Polona Renko (1927 - 1963) | BillionGraves GPS Headstones</title>
+<script type="application/ld+json">${JSON.stringify([
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name: "Polona Renko",
+        birthDate: "1927-11-8",
+        deathDate: "1963-7-3",
+        deathPlace: {
+          "@type": "Place",
+          name: "Mirogoj",
+          address: { "@type": "PostalAddress", addressLocality: "Zagreb", addressRegion: "Zagreb", addressCountry: "Croatia" },
+        },
+      },
+    ])}</script></head><body></body></html>`;
+    const meta = await fetchBookMeta("billiongraves", "https://billiongraves.com/grave/Polona-Renko/18374346", async () => BG_HTML);
+    expect(meta).toEqual({
+      title: "Polona Renko - Mirogoj - BillionGraves",
+      place: "Zagreb, Croatia", // locality/region dedupe
+      address: "Mirogoj",
+    });
+  });
+
+  it("parses Google Books page titles and YouTube oEmbed JSON", async () => {
+    // Reader page title captured 2026-07-15 — localized "Google Knjige" suffix.
+    const gb = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=90Q_TESTIBAJ",
+      async () => `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`,
+    );
+    // Volume id stays in the title: one paper spans many volumes and the
+    // page carries no issue date to tell them apart.
+    expect(gb).toEqual({ title: "The Windsor Star - 90Q_TESTIBAJ - Google Books" });
+
+    // A relay that fails to render titles the page with the URL — no name.
+    const gbFail = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=91Q_TESTIBAJ",
+      async () => `Title: https://books.google.com/books?id=91Q_TESTIBAJ\n\nMarkdown Content:`,
+    );
+    expect(gbFail).toBeUndefined();
+
+    // oEmbed response captured 2026-07-15.
+    const yt = await fetchBookMeta(
+      "youtube",
+      "https://www.youtube.com/watch?v=lD5eGiGwlZt",
+      async (url) => {
+        expect(url).toContain("youtube.com/oembed?url=");
+        return JSON.stringify({ title: "Štefanovo na Kališču, 26.december 2010", author_name: "Marjan Rekar" });
+      },
+    );
+    expect(yt).toEqual({ title: "Štefanovo na Kališču, 26.december 2010 - YouTube", author: "Marjan Rekar" });
+  });
+
+  it("parses the dLib.si details page's metadata table", async () => {
+    // Trimmed from the real details page for URN:NBN:SI:DOC-2CEAMMVU
+    // (captured 2026-07-15) — server-rendered key/value rows.
+    const DLIB_HTML = `<html><head><title>	dLib.si - Dolenjski list</title></head><body>
+<div class="col-xs-12 col-sm-8 col-md-9 col-lg-8 metadata">
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Jezik</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">slovenski</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Vir</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/x"><a href="/results/y">Dolenjski list</a></a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Leto</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">08.06.1978</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Številčenje</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">letnik 29, <a href="/results/z">številka 23</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Založnik</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/p">Dolenjski list</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Izvor</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">Knjižnica Mirana Jarca Novo mesto</div></div>
+</div></body></html>`;
+    const meta = await fetchBookMeta("dlib", "https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU", async () => DLIB_HTML);
+    expect(meta).toEqual({
+      title: "Dolenjski list, 08.06.1978, letnik 29, številka 23 - dLib.si",
+      periodical: "Dolenjski list",
+      publisher: "Dolenjski list",
+      agency: "Knjižnica Mirana Jarca Novo mesto",
+      dateRange: "08.06.1978",
+    });
+  });
+
+  it("parses the SIstory record from the __NEXT_DATA__ JSON (client-rendered page)", async () => {
+    // The real record page ships an empty <title> and no visible content —
+    // everything sits in the Next.js data island (captured 2026-07-15).
+    const NEXT_HTML = `<!DOCTYPE html><html lang="slv"><head><title data-next-head=""></title></head>
+<body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          data: {
+            war: "ww2",
+            titles: ["Katarina Abdonec"],
+            contributorGroups: [{ key: "inz", name: "Inštitut za novejšo zgodovino", verified: true }],
+            contributors: [
+              { firstName: "INZ", lastName: "" },
+              { firstName: "Tadeja", lastName: "Tominšek" },
+              { firstName: "Tamara", lastName: "Logar" },
+            ],
+          },
+        },
+      },
+    })}</script></body></html>`;
+    const meta = await fetchBookMeta("sistory", "https://www.sistory.si/ww2/AA11BB22-0000-4948-AA8D-BA678EB4E05D", async () => NEXT_HTML);
+    expect(meta).toEqual({
+      title: "Katarina Abdonec - WW2 - SIstory.si",
+      author: "INZ, Tadeja Tominšek, Tamara Logar",
+      periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
+      place: "Ljubljana",
+      agency: "Inštitut za novejšo zgodovino",
+    });
+  });
+
+  it("parses the SIstory record page's Citiranje section", async () => {
+    const SISTORY_HTML = `<html><head><title>SIstory | Žrtve II. sv. vojne</title></head>
+<body><h1>Katarina Abdonec</h1>
+<p>identifikator: CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p>
+<h2>Citiranje</h2>
+<p>INZ, Tadeja Tominšek, Tamara Logar, »Katarina Abdonec«, Smrtne žrtve druge svetovne vojne in
+zaradi nje v Sloveniji (Ljubljana: Inštitut za novejšo zgodovino, 2026), pridobljeno 15. 7. 2026,
+https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html>`;
+    const meta = await fetchBookMeta(
+      "sistory",
+      "https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D",
+      async () => SISTORY_HTML,
+    );
+    // The Citiranje text parses exactly like a pasted citation — full author
+    // list, collection, place + institute — and the record id stays out of
+    // the title.
+    expect(meta).toEqual({
+      title: "Katarina Abdonec - WW2 - SIstory.si",
+      author: "INZ, Tadeja Tominšek, Tamara Logar",
+      periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
+      place: "Ljubljana",
+      agency: "Inštitut za novejšo zgodovino",
+    });
+  });
+
+  it("fetchBookMeta parses per-site and caches by book", async () => {
+    let calls = 0;
+    const fetchHtml = async () => {
+      calls++;
+      return GRAVE_MD;
+    };
+    const meta = await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
+    expect(meta).toEqual({
+      place: "Žabnica, Slovenia",
+      address: "Pokopališče Zgornje Bitnje, P02",
+      title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
+    });
+    await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
+    expect(calls).toBe(1); // second lookup of the same book served from cache
+  });
+});
+
+describe("smartCitationTarget — event placement for Add Source", () => {
+  const EVENT_STYLE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+1 DEAT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Book
+0 TRLR`;
+  const RECORD_STYLE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR @S1@
+1 SOUR @S1@
+1 BIRT
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Book
+0 TRLR`;
+
+  it("routes by the source's register/record type in an event-style file", () => {
+    const ds = dataset(EVENT_STYLE);
+    expect(smartCitationTarget(ds.records, "geneanet", undefined)).toEqual({ eventTag: "BURI", onFam: false });
+    expect(smartCitationTarget(ds.records, "billiongraves", undefined)).toEqual({ eventTag: "BURI", onFam: false });
+    expect(smartCitationTarget(ds.records, "sistory", undefined)).toEqual({ eventTag: "DEAT", onFam: false });
+    expect(smartCitationTarget(ds.records, "matricula", "Krstna knjiga / Taufbuch - 04406 | Vodice")).toEqual({
+      eventTag: "BIRT", // the file's baptism habit (BIRT carries the citations)
+      onFam: false,
+    });
+    expect(smartCitationTarget(ds.records, "matricula", "Poročna knjiga - 04406 | Vodice")).toEqual({
+      eventTag: "MARR",
+      onFam: true,
+    });
+  });
+
+  it("stays record-level for unclassifiable sources or record-style files", () => {
+    const ds = dataset(EVENT_STYLE);
+    expect(smartCitationTarget(ds.records, "dlib", "Dolenjski list - dLib.si")).toBeUndefined();
+    expect(smartCitationTarget(ds.records, "matricula", undefined)).toBeUndefined(); // no type signal
+    const recordStyle = dataset(RECORD_STYLE);
+    expect(smartCitationTarget(recordStyle.records, "geneanet", undefined)).toBeUndefined();
+  });
+
+  it("prefers events in a citation-less file (the cleanup tool's own default)", () => {
+    const ds = dataset("0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n0 TRLR");
+    expect(smartCitationTarget(ds.records, "geneanet", undefined)).toEqual({ eventTag: "BURI", onFam: false });
+  });
+});
+
+describe("Add Source parity (recognizeSourceUrl / applySiteSourceExtras)", () => {
+  it("proposes the cleanup tool's fields for a Matricula page URL", () => {
+    const rec = recognizeSourceUrl(`${BOOK2}/?pg=05`)!;
+    expect(rec.site).toBe("matricula");
+    expect(rec.page).toBe("05");
+    expect(rec.proposed).toEqual({
+      title: "Matricula 04406 | Vodice",
+      place: "Vodice",
+      agency: "Ljubljana",
+      filingNumber: "04406",
+    });
+  });
+
+  it("titles a Geneanet grave URL by the person filter", () => {
+    const rec = recognizeSourceUrl("https://en.geneanet.org/cemetery/view/321/persons/?individu_filter=GRUDNIK%2BAnton")!;
+    expect(rec.site).toBe("geneanet");
+    expect(rec.bookUrl).toBe("https://en.geneanet.org/cemetery/view/321");
+    expect(rec.proposed.title).toBe("GRUDNIK Anton - Geneanet Cemeteries");
+  });
+
+  it("returns undefined for unknown URLs", () => {
+    expect(recognizeSourceUrl("https://example.org/whatever")).toBeUndefined();
+  });
+
+  it("fills PLAC/DATE and creates the site REPO in a repository-layout file", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Vodice,Ljubljana,Slovenia
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL Some archive book
+1 REPO @R9@
+0 @R9@ REPO
+1 NAME Local archive
+1 WWW https://example.org/
+0 TRLR`);
+    const source = createSourceRecord(ds.records, {
+      title: "Matricula 04406 | Vodice",
+      agency: "Nadškofijski arhiv Ljubljana",
+      filingNumber: "04406",
+      url: `${BOOK2}/?pg=05`,
+    });
+    const repo = applySiteSourceExtras(ds.records, source, "matricula", `${BOOK2}/?pg=05`, {
+      place: "Vodice",
+      dateRange: "1843-1909",
+    });
+    expect(repo?.xref).toBeDefined();
+    expect(source.children.some((c) => c.tag === "REPO" && c.value === repo!.xref)).toBe(true);
+    const text = serializeGedcom(ds.records);
+    // Place resolved against the file's own place format, not the bare proposal.
+    expect(text).toContain("1 PLAC Vodice,Ljubljana,Slovenia");
+    expect(text).toContain("1 DATE 1843-1909");
+    expect(text).toContain("1 NAME Nadškofijski arhiv Ljubljana");
+    expect(text).toContain("1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/");
+  });
+
+  it("links no REPO when the file's sources don't hang off repositories", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S9@
+0 @S9@ SOUR
+1 TITL Some book
+0 TRLR`);
+    const source = createSourceRecord(ds.records, { title: "Matricula 04406 | Vodice", url: `${BOOK2}/?pg=05` });
+    expect(applySiteSourceExtras(ds.records, source, "matricula", `${BOOK2}/?pg=05`, { place: "Vodice" })).toBeUndefined();
+    expect(source.children.some((c) => c.tag === "REPO")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "REPO")).toBe(false);
   });
 });

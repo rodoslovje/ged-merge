@@ -1,5 +1,6 @@
 import type { SourceCitation } from "../gedcom/types";
 import { sourceCitationKey } from "../gedcom/source";
+import { siteIconForUrl } from "../tools/sourceReshape";
 import type { Translate } from "../locales/i18n";
 import { linkHref } from "./FieldValue";
 
@@ -66,15 +67,17 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
     .join("\n");
-  // A title means there's something worth describing; otherwise the citation
-  // is just a bare link, so the icon tells the two apart at a glance.
+  // A recognized site's own glyph (⛪ Matricula, 🪦 graves, …) tells the
+  // source kind at a glance; otherwise a title means there's something worth
+  // describing (📖) and a bare link stays a 🔗.
   const hasDescription = Boolean(citation.title);
-  const icon = hasDescription ? "📖" : "🔗";
+  const siteIcon = siteIconForUrl(citation.url);
+  const icon = siteIcon ?? (hasDescription ? "📖" : "🔗");
   const cls = [
     "source-ref",
-    // 📖 renders noticeably smaller than 🔗 at the same font-size, so it
-    // gets its own modifier to size up and match.
-    hasDescription ? "source-ref--book" : "",
+    // 📖 and the site glyphs render noticeably smaller than 🔗 at the same
+    // font-size, so they get their own modifier to size up and match.
+    icon !== "🔗" ? "source-ref--book" : "",
     citation.url ? (citation.exact ? "" : "source-ref--fallback") : "source-ref--nolink",
     isNew ? "source-ref--new" : "",
   ]
@@ -83,13 +86,26 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   const title = tooltip || t("source.untitled");
   // Edit mode: clicking opens the edit dialog (which has its own explicit
   // Open/Save/Remove actions) rather than navigating straight to the link —
-  // this also removes the old hover-revealed × badge that sat on the icon's
-  // corner and was too easy to hit by mistake while reaching for the link.
+  // a hover-revealed ↗ *beside* the icon (not on its corner, where the old ×
+  // badge was too easy to mis-hit) still opens the URL directly.
   if (onEdit) {
     return (
-      <button type="button" className={cls} title={title} onClick={onEdit}>
-        {icon}
-      </button>
+      <span className="source-ref-wrap">
+        <button type="button" className={cls} title={title} onClick={onEdit}>
+          {icon}
+        </button>
+        {citation.url && (
+          <a
+            className="source-ref-open"
+            href={linkHref(citation.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t("edit.openLink")}
+          >
+            ↗
+          </a>
+        )}
+      </span>
     );
   }
   return citation.url ? (

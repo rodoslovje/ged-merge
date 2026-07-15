@@ -4,6 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { SourceRefs } from "../SourceRef";
 import { linkHref } from "../FieldValue";
+import { siteIconForUrl } from "../../tools/sourceReshape";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
 
@@ -81,7 +82,7 @@ export function LinksEditor({
           title={link}
           onClick={() => openEditLink(i)}
         >
-          🔗
+          {siteIconForUrl(link) ?? "🔗"}
         </button>
       ))}
       {previewLinks.map((url, i) => (
@@ -93,7 +94,7 @@ export function LinksEditor({
           className="link-icon link-new"
           title={url}
         >
-          🔗
+          {siteIconForUrl(url) ?? "🔗"}
         </a>
       ))}
     </>
