@@ -3275,9 +3275,11 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
   line-height: 1;
   transition: max-width 0.12s, opacity 0.12s;
 }
+/* Hover-only on rows: a clicked control keeps focus after the pointer leaves,
+   so a :focus-within reveal would stick to the last-clicked row. Keyboard
+   users still get the ↗ via its own :focus-visible. */
 .source-ref-wrap:hover .source-ref-open,
 .edit-event:hover .source-ref-open,
-.edit-event:focus-within .source-ref-open,
 .edit-record-label-row:hover .source-ref-open,
 .edit-record-section:hover .source-ref-open,
 .source-ref-open:focus-visible {
