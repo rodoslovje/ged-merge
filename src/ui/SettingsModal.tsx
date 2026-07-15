@@ -57,7 +57,7 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
   },
   {
     group: "places",
-    dims: [{ key: "place", choices: ["structured-addr", "packed-plac", "plain-structured", "address-only"] }],
+    dims: [{ key: "place", choices: ["packed-plac", "structured-addr", "plain-structured", "address-only"] }],
   },
   {
     group: "sources",
