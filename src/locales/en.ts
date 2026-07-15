@@ -756,7 +756,7 @@ export const en = {
   "source.untitled": "Source",
   "addSource.title": "Add Source",
   "addSource.placeholder": "Paste a citation, or just a URL…",
-  "addSource.fetching": "Fetching title…",
+  "addSource.fetching": "Fetching details from the web page…",
   "addSource.match": "Matches an existing source — adding this page.",
   "addSource.matchTitled": "Matches existing source “{{title}}” — adding this page.",
   "addSource.recognized": "{{site}} link recognized.",

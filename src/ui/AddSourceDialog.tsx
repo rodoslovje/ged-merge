@@ -251,8 +251,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   }
 
   const canAdd = Boolean(fields.url.trim() || fields.title.trim());
-  const field = (key: keyof FormState, labelKey: string) => (
-    <label className="add-source-field">
+  const field = (key: keyof FormState, labelKey: string, wide = false) => (
+    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
       <span>{t(labelKey)}</span>
       <input
         className="edit-input"
@@ -280,7 +280,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               onChange={(e) => setText(e.target.value)}
             />
           )}
-          {fetching && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {match && (
             <div className="add-source-hint">
               {matchTitle ? t("addSource.matchTitled", { title: matchTitle }) : t("addSource.match")}
@@ -294,16 +293,17 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               )}
             </div>
           )}
+          {fetching && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
             <>
-              {field("title", "addSource.field.title")}
+              {field("title", "addSource.field.title", true)}
               {field("author", "addSource.field.author")}
               {field("periodical", "addSource.field.periodical")}
               {field("publisher", "addSource.field.publisher")}
               {field("agency", "addSource.field.agency")}
               {field("place", "addSource.field.place")}
               {field("filingNumber", "addSource.field.filingNumber")}
-              {field("note", "addSource.field.note")}
+              {field("note", "addSource.field.note", true)}
             </>
           )}
           {field("page", "addSource.field.page")}

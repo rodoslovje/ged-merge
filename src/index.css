@@ -4960,7 +4960,22 @@ kbd {
   background: var(--danger-soft);
 }
 
-.add-source-dialog { width: 520px; max-width: 90vw; height: auto; max-height: 88vh; }
+.add-source-dialog { width: 680px; max-width: 90vw; height: auto; max-height: 88vh; }
+/* Short bibliographic fields pair up in two columns to keep the dialog
+   compact; the paste box, hints, title, note, URL row and actions span both. */
+.add-source-dialog .modal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 16px;
+  align-items: start;
+}
+.add-source-dialog .add-source-textarea,
+.add-source-dialog .add-source-hint,
+.add-source-dialog .add-source-field-wide,
+.add-source-dialog .add-source-url-row,
+.add-source-dialog .add-source-actions {
+  grid-column: 1 / -1;
+}
 .add-source-textarea {
   width: 100%;
   resize: vertical;
@@ -5498,6 +5513,9 @@ kbd {
   /* Very narrow: let the date shrink so the label + date still share a line
    * before the body wraps beneath. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
+
+  /* Not enough room for the source dialog's two field columns. */
+  .add-source-dialog .modal-body { grid-template-columns: 1fr; }
 }
 
 /* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer

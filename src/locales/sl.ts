@@ -855,7 +855,7 @@ export const sl = {
   "source.untitled": "Vir",
   "addSource.title": "Dodaj vir",
   "addSource.placeholder": "Prilepi navedbo vira ali samo URL …",
-  "addSource.fetching": "Pridobivanje naslova …",
+  "addSource.fetching": "Pridobivanje podatkov iz spletne strani …",
   "addSource.match": "Ujema se z obstoječim virom — dodaja se ta stran.",
   "addSource.matchTitled": "Ujema se z obstoječim virom „{{title}}“ — dodaja se ta stran.",
   "addSource.recognized": "Prepoznana povezava {{site}}.",
