@@ -230,7 +230,7 @@ export const sl = {
   "tools.sources.reshapeShape.inline": "besedilna navedba",
   "tools.sources.reshapeShape.pageUrl": "povezava v strani",
   "tools.sources.reshapeShape.sourTitle": "naslov vira",
-  "tools.sources.reshapeFetch": "Pridobi podatke o knjigah",
+  "tools.sources.reshapeFetch": "Pridobi podatke o virih",
   "tools.sources.reshapeFetchHint":
     "Za vsak nov vir poišče stran knjige na arhivskem spletišču (ena poizvedba na knjigo) in ustvarjenim virom izpolni pravi naslov matične knjige, arhiv, župnijo in razpon let. Obstoječi viri se nikoli ne spreminjajo.",
   "tools.sources.reshapeFetching": "Pridobivam {{done}}/{{total}}…",

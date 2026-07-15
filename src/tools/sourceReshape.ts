@@ -1800,9 +1800,16 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     }
   } else if (site === "googlebooks") {
     // The reader page's title is the book/newspaper name with a localized
-    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`.
+    // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The
+    // page carries no issue date/number, and one newspaper spans many
+    // volumes, so the volume id stays in the title to tell them apart. A
+    // relay sometimes titles a failed render with the URL itself — that's
+    // not a name; the offline title stands.
     const name = pageTitleOf(html)?.replace(/\s*-\s*Google\s+\p{L}+\s*$/u, "").trim();
-    if (name) meta = { title: siteTitle(name, undefined, "Google Books") };
+    const volumeId = /[?&]id=([A-Za-z0-9_-]+)/.exec(bookUrl)?.[1];
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, volumeId, "Google Books") };
+    }
   } else if (site === "youtube") {
     // YouTube's public oEmbed endpoint returns JSON: the video's title and
     // channel. The watch page's title is the fallback.

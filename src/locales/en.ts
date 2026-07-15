@@ -228,7 +228,7 @@ export const en = {
   "tools.sources.reshapeShape.inline": "inline citation",
   "tools.sources.reshapeShape.pageUrl": "page link",
   "tools.sources.reshapeShape.sourTitle": "source title",
-  "tools.sources.reshapeFetch": "Fetch book details",
+  "tools.sources.reshapeFetch": "Fetch source details",
   "tools.sources.reshapeFetchHint":
     "Looks up each new source's page on the archive site (one request per book) and fills in the real register title, archive, parish and year range for the created source records. Existing sources are never changed.",
   "tools.sources.reshapeFetching": "Fetching {{done}}/{{total}}…",

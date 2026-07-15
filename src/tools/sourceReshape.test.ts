@@ -1192,7 +1192,17 @@ Memorial ID 273320916 273320916`;
       "https://books.google.com/books?id=90Q_TESTIBAJ",
       async () => `<html><head><title>The Windsor Star - Google Knjige</title></head></html>`,
     );
-    expect(gb).toEqual({ title: "The Windsor Star - Google Books" });
+    // Volume id stays in the title: one paper spans many volumes and the
+    // page carries no issue date to tell them apart.
+    expect(gb).toEqual({ title: "The Windsor Star - 90Q_TESTIBAJ - Google Books" });
+
+    // A relay that fails to render titles the page with the URL — no name.
+    const gbFail = await fetchBookMeta(
+      "googlebooks",
+      "https://books.google.com/books?id=91Q_TESTIBAJ",
+      async () => `Title: https://books.google.com/books?id=91Q_TESTIBAJ\n\nMarkdown Content:`,
+    );
+    expect(gbFail).toBeUndefined();
 
     // oEmbed response captured 2026-07-15.
     const yt = await fetchBookMeta(
