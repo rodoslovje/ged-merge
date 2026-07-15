@@ -809,7 +809,7 @@ export const en = {
   "event.RELI": "Religion",
   "event.NATI": "Nationality",
   "event.RACE": "Race / ethnicity",
-  "event.NOBI": "Award / title",
+  "event.NOBI": "Award",
   "event.LATR": "Legal transaction",
   "event.DEED": "Deed",
   "event.ILL": "Illness",

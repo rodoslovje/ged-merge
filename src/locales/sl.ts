@@ -908,7 +908,7 @@ export const sl = {
   "event.RELI": "Veroizpoved",
   "event.NATI": "Narodnost",
   "event.RACE": "Etnična pripadnost",
-  "event.NOBI": "Priznanje / naziv",
+  "event.NOBI": "Priznanje",
   "event.LATR": "Pravni posel",
   "event.DEED": "Listina",
   "event.ILL": "Bolezen",
