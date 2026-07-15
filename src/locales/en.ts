@@ -965,7 +965,7 @@ export const en = {
   "settings.format.sourceLayout": "Records",
   "settings.format.sourceLayout.hint": "Dominant source shape — drives repository creation for new sources.",
   "settings.format.sourceLayout.paginated": "source, page links",
-  "settings.format.sourceLayout.repository": "repository links",
+  "settings.format.sourceLayout.repository": "source, repository",
   "settings.format.sourceLayout.literature": "bibliographic",
   "settings.format.sourceLayout.inline": "inline text",
   "settings.format.citations": "Citations",

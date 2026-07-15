@@ -1064,7 +1064,7 @@ export const sl = {
   "settings.format.sourceLayout": "Zapisi",
   "settings.format.sourceLayout.hint": "Prevladujoča oblika virov — določa ustvarjanje hramb za nove vire.",
   "settings.format.sourceLayout.paginated": "vir, povezave strani",
-  "settings.format.sourceLayout.repository": "povezave na repozitorij",
+  "settings.format.sourceLayout.repository": "vir, repozitorij",
   "settings.format.sourceLayout.literature": "bibliografski",
   "settings.format.sourceLayout.inline": "besedilo v vrstici",
   "settings.format.citations": "Navedbe",
