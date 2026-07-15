@@ -298,8 +298,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           )}
           {!match && !editing && recognized && (
             <div className="add-source-chip">
-              <span className="add-source-chip-check" aria-hidden="true">✓</span>
-              <span>{t("addSource.recognized")}</span>
+              <span className="add-source-chip-check" aria-hidden="true">{fetching ? "⋯" : "✓"}</span>
+              <span>{t(fetching ? "addSource.fetching" : "addSource.recognized")}</span>
               <span className="add-source-chip-site">
                 {SITE_ICON[recognized.site]} {t(`tools.sources.reshapeSite.${recognized.site}`)}
               </span>
@@ -308,7 +308,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           {!match && !editing && recognized && !settings.allowLinkFetch && (
             <div className="add-source-hint">{t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</div>
           )}
-          {fetching && <div className="add-source-hint">{t("addSource.fetching")}</div>}
+          {fetching && !recognized && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
             <>
               {field("title", "addSource.field.title")}
