@@ -229,19 +229,37 @@ export function SourceCleanupView({
     return map;
   }, [dataset]);
 
+  // Localized labels for the SOUR fields the tooltips show — the same
+  // vocabulary as the Add Source dialog; unknown tags keep their raw name.
+  const FIELD_LABEL_KEYS: Record<string, string> = {
+    TITL: "addSource.field.title",
+    AUTH: "addSource.field.author",
+    PERI: "addSource.field.periodical",
+    PUBL: "addSource.field.publisher",
+    AGNC: "addSource.field.agency",
+    PLAC: "addSource.field.place",
+    FILN: "addSource.field.filingNumber",
+    NOTE: "addSource.field.note",
+    PAGE: "addSource.field.page",
+    DATE: "addSource.field.dateRange",
+  };
+  const fieldLabel = (tag: string) => (FIELD_LABEL_KEYS[tag] ? t(FIELD_LABEL_KEYS[tag]) : tag);
+  const localizeTooltip = (text: string) =>
+    text.replace(/^([A-Z_][A-Z0-9_]{2,}): /gm, (_, tag: string) => `${fieldLabel(tag)}: `);
+
   const badgeTooltip = (g: ReshapeGroup): string => {
     if (g.existingSourceXref) {
       const node = sourNodes.get(g.existingSourceXref);
-      const fields = node ? sourceTooltip(node) : g.existingSourceTitle ?? "";
+      const fields = node ? localizeTooltip(sourceTooltip(node)) : g.existingSourceTitle ?? "";
       return [g.existingSourceXref, fields].filter(Boolean).join("\n");
     }
     const meta = enrichment.get(g.id);
     return [
-      `TITL: ${meta?.title ?? g.proposed.title}`,
-      (meta?.agency ?? g.proposed.agency) && `AGNC: ${meta?.agency ?? g.proposed.agency}`,
-      (meta?.place ?? g.proposed.place) && `PLAC: ${meta?.place ?? g.proposed.place}`,
-      g.proposed.filingNumber && `FILN: ${g.proposed.filingNumber}`,
-      meta?.dateRange && `DATE: ${meta.dateRange}`,
+      `${fieldLabel("TITL")}: ${meta?.title ?? g.proposed.title}`,
+      (meta?.agency ?? g.proposed.agency) && `${fieldLabel("AGNC")}: ${meta?.agency ?? g.proposed.agency}`,
+      (meta?.place ?? g.proposed.place) && `${fieldLabel("PLAC")}: ${meta?.place ?? g.proposed.place}`,
+      g.proposed.filingNumber && `${fieldLabel("FILN")}: ${g.proposed.filingNumber}`,
+      meta?.dateRange && `${fieldLabel("DATE")}: ${meta.dateRange}`,
     ]
       .filter(Boolean)
       .join("\n");
