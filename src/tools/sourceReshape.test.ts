@@ -828,6 +828,32 @@ describe("reshapeSources — citation placement", () => {
     expect(idPage.bookType).toBe("unknown");
   });
 
+  it("recognizes Geneanet member-tree person pages (own group, not cemeteries)", () => {
+    // Semicolon-separated GeneWeb params; pz/nz (the sosa root) must not match.
+    const rec = recognizeSourceUrl("http://gw.geneanet.org/hawlina?lang=de;pz=peter;nz=hawlina;ocz=0;p=rajko;n=vute")!;
+    expect(rec.site).toBe("geneanettree");
+    expect(rec.bookUrl).toBe("https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute");
+    expect(rec.proposed.title).toBe("Rajko Vute - Geneanet Trees");
+    expect(rec.proposed.agency).toBe("hawlina");
+
+    // HTML-escaped params and a stray trailing paren from prose.
+    const esc = recognizeSourceUrl("http://gw.geneanet.org/rfonda?lang=en&amp;p=jacobus&amp;n=magajna)")!;
+    expect(esc.proposed.title).toBe("Jacobus Magajna - Geneanet Trees");
+
+    // Same person, oc disambiguator kept in the group identity.
+    const oc = recognizeSourceUrl("https://gw.geneanet.org/hawlina?lang=en&pz=peter&nz=hawlina&p=janez&n=plut&oc=26")!;
+    expect(oc.bookUrl).toBe("https://gw.geneanet.org/hawlina?lang=en&p=janez&n=plut&oc=26");
+  });
+
+  it("fetches the tree person's name from the rendered page title", async () => {
+    const meta = await fetchBookMeta(
+      "geneanettree",
+      "https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute",
+      async () => `Title: Family tree of Rajko Vute\n\nURL Source: https://gw.geneanet.org/hawlina\n\nMarkdown Content:`,
+    );
+    expect(meta).toEqual({ title: "Rajko Vute - Geneanet Trees" });
+  });
+
   it("groups Google Books by volume id and YouTube by video id", () => {
     const gb = recognizeSourceUrl(
       "https://books.google.si/books?id=90Q_AAAAIBAJ&pg=PA18&dq=joseph+matthew+yakopich&hl=en#v=onepage&q=joseph&f=false",

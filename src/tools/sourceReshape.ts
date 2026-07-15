@@ -62,6 +62,7 @@ import { familySpouses } from "./sources";
 export const ALL_SITES = [
   "matricula",
   "geneanet",
+  "geneanettree",
   "findagrave",
   "billiongraves",
   "legacy",
@@ -270,6 +271,11 @@ export function parseMatriculaUrl(url: string): MatriculaUrlParts | undefined {
 
 const GENEANET_VIEW_RE = /\/cemetery\/view\/([^/?#]+)/;
 
+/** A Geneanet member-tree person page (GeneWeb): gw.geneanet.org/{tree}?…
+ *  p={given}&n={surname}(&oc={n}) — parameters may be `;`-separated or
+ *  HTML-escaped (`&amp;`) in pasted text. */
+const GENEANET_TREE_RE = /^https?:\/\/gw\.geneanet\.org\/([a-z0-9_-]+)\?/i;
+
 /** A Find a Grave memorial URL: /memorial/{id}(/{name-slug}). Cemetery and
  *  other Find a Grave pages are not grave records and fall through to "other". */
 const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\/(\d+)(?:\/([^/?#]+))?/i;
@@ -422,6 +428,31 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       bookUrl: `https://www.youtube.com/watch?v=${yt[1]}`,
       proposed: { title: siteTitle(yt[1], undefined, "YouTube"), filingNumber: yt[1] },
     };
+  }
+
+  const gwTree = GENEANET_TREE_RE.exec(url.trim());
+  if (gwTree) {
+    if (!sites.has("geneanettree")) return undefined;
+    // Normalize `;`-separated / HTML-escaped params, then read the person:
+    // p={given}, n={surname}, oc={disambiguating ordinal}.
+    const params = url.replace(/&amp;/gi, "&").replace(/;/g, "&");
+    const given = /[?&]p=([^&#]+)/i.exec(params)?.[1];
+    const surname = /[?&]n=([^&#]+)/i.exec(params)?.[1];
+    const oc = /[?&]oc=(\d+)/i.exec(params)?.[1];
+    if (given || surname) {
+      const who = prettySlug([given, surname].filter(Boolean).map((s) => decodeSegment(s!)).join(" "));
+      const canonical =
+        `https://gw.geneanet.org/${gwTree[1].toLowerCase()}?lang=en&p=${encodeURIComponent(decodeSegment(given ?? ""))}` +
+        `&n=${encodeURIComponent(decodeSegment(surname ?? ""))}${oc ? `&oc=${oc}` : ""}`;
+      return {
+        site: "geneanettree",
+        groupKey: `gt:${gwTree[1].toLowerCase()}:${(surname ?? "").toLowerCase()}:${(given ?? "").toLowerCase()}:${oc ?? ""}`,
+        bookUrl: canonical,
+        // The member tree's name is the closest thing to an archive/agency.
+        proposed: { title: siteTitle(who, undefined, "Geneanet Trees"), agency: gwTree[1].toLowerCase() },
+        titleRank: 1,
+      };
+    }
   }
 
   const bg = BILLIONGRAVES_RE.exec(url.trim());
@@ -622,6 +653,7 @@ export function recognizeSourceUrl(url: string, contextText?: string): Recognize
 export const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
+  geneanettree: "🌲",
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
@@ -1303,7 +1335,8 @@ function fillField(rec: GedNode, tag: string, value: string | undefined): void {
  *  repositories. Matricula derives name/WWW per archive instead. */
 const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www: string }>> = {
   matricula: { hostRe: /data\.matricula-online\.eu/i, name: "Matricula Online", www: "https://data.matricula-online.eu/" },
-  geneanet: { hostRe: /geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
+  geneanet: { hostRe: /geneanet\.org\/cemetery|en\.geneanet\.org/i, name: "Geneanet Cemeteries", www: "https://en.geneanet.org/cemetery/" },
+  geneanettree: { hostRe: /gw\.geneanet\.org/i, name: "Geneanet", www: "https://gw.geneanet.org/" },
   findagrave: { hostRe: /findagrave\.com/i, name: "Find a Grave", www: "https://www.findagrave.com/" },
   billiongraves: { hostRe: /billiongraves\.com/i, name: "BillionGraves", www: "https://billiongraves.com/" },
   legacy: { hostRe: /legacy\.com/i, name: "Legacy.com", www: "https://www.legacy.com/" },
@@ -1837,6 +1870,14 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         undefined;
       meta = { title: siteTitle(name, cemetery, "BillionGraves"), place, address: cemetery };
     }
+  } else if (site === "geneanettree") {
+    // The rendered page (Geneanet blocks plain relays) titles itself
+    // `Family tree of Rajko Vute` — bookUrl carries lang=en for a stable prefix.
+    const name = pageTitleOf(html)
+      ?.replace(/^\s*Family tree of\s+/i, "")
+      .replace(/\s*[-|]\s*Geneanet\s*$/i, "")
+      .trim();
+    if (name && !/^https?:\/\//i.test(name)) meta = { title: siteTitle(name, undefined, "Geneanet Trees") };
   } else if (site === "googlebooks") {
     // The reader page's title is the book/newspaper name with a localized
     // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The
