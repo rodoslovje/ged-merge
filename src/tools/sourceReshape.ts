@@ -398,15 +398,15 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (dlib) {
     if (!sites.has("dlib")) return undefined;
     const urn = dlib[1].toUpperCase();
-    // The URN means nothing to a reader — it goes to the filing number; the
-    // title comes from the citation's quoted text offline, and enrichment
-    // fills the publication, issue and date from the details page.
+    // Offline the URN is the only thing distinguishing one document from
+    // another, so it stays in the title (`{urn} - dLib.si`) besides the
+    // filing number; enrichment replaces it with the publication/issue/date.
     const who = quotedCollection(contextText);
     return {
       site: "dlib",
       groupKey: `dl:${urn.toLowerCase()}`,
       bookUrl: `https://dlib.si/details/${urn}`,
-      proposed: { title: siteTitle(who, undefined, "dLib.si"), filingNumber: urn },
+      proposed: { title: siteTitle(who, urn, "dLib.si"), filingNumber: urn },
       titleRank: who ? 1 : 0,
       typeHint: contextText,
     };

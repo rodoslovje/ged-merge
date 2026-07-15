@@ -814,7 +814,7 @@ describe("reshapeSources — citation placement", () => {
     const g = report.groups.find((x) => x.site === "dlib")!;
     expect(g.members).toHaveLength(2); // details page and PDF stream share the document
     expect(g.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU");
-    expect(g.proposed.title).toBe("dLib.si");
+    expect(g.proposed.title).toBe("URN:NBN:SI:DOC-2CEAMMVU - dLib.si"); // offline: URN distinguishes documents
     expect(g.proposed.filingNumber).toBe("URN:NBN:SI:DOC-2CEAMMVU");
     expect(text).toContain("1 FILN URN:NBN:SI:DOC-2CEAMMVU");
   });
