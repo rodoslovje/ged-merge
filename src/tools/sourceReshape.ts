@@ -1574,30 +1574,61 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     const obitId = /[?&]id=(\d+)/i.exec(bookUrl)?.[1];
     if (name) meta = { title: siteTitle(name, obitId, "Legacy.com") };
   } else if (site === "sistory") {
-    // The record page's "Citiranje" section carries a full citation —
-    // `INZ, Tadeja Tominšek, …, »Katarina Abdonec«, Smrtne žrtve … (Ljubljana:
-    // Inštitut za novejšo zgodovino, 2026), …`. Parse it with the same
-    // citation parser the paste box uses, so a fetched URL fills the same
-    // fields as pasting the Citiranje content by hand. The record id stays
-    // out of the title (it's the filing number); the page title is the name
-    // fallback.
-    const citStart = html.search(/Citiranje/i);
-    const citText =
-      citStart >= 0
-        ? decodeHtmlEntities(stripMdLinks(html.slice(citStart + "Citiranje".length, citStart + 800)).replace(/<[^>]+>/g, " "))
-            .replace(/\s+/g, " ")
-            .trim()
-        : undefined;
-    const cit = citText ? parseSourceInput(citText) : {};
-    const name = cit.title ?? pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
     const war = /\/(ww[12])\//i.exec(bookUrl)?.[1].toUpperCase();
-    if (name) {
+    // The record pages are client-rendered (Next.js): a plain relay sees an
+    // empty <title> and no visible text, but the embedded __NEXT_DATA__ JSON
+    // carries the record — the person's name, the contributor (author) list
+    // and the publishing institute. The record id stays out of the title
+    // (it's the filing number).
+    const nextData = /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i.exec(html)?.[1];
+    let record:
+      | {
+          titles?: string[];
+          contributors?: { firstName?: string; lastName?: string }[];
+          contributorGroups?: { name?: string }[];
+        }
+      | undefined;
+    if (nextData) {
+      try {
+        record = (JSON.parse(nextData) as { props?: { pageProps?: { data?: typeof record } } }).props?.pageProps?.data;
+      } catch {
+        record = undefined;
+      }
+    }
+    if (record?.titles?.[0]) {
+      const authors = (record.contributors ?? [])
+        .map((c) => [c.firstName, c.lastName].filter(Boolean).join(" ").trim())
+        .filter(Boolean)
+        .join(", ");
       meta = {
-        title: siteTitle(name, war, "SIstory.si"),
-        author: cit.author,
-        periodical: cit.periodical,
-        publisher: cit.publisher,
+        title: siteTitle(record.titles[0], war, "SIstory.si"),
+        author: authors || undefined,
+        // The corpus title the page's own Citiranje section uses for WW2.
+        periodical: war === "WW2" ? "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji" : undefined,
+        agency: record.contributorGroups?.[0]?.name,
       };
+    } else {
+      // The rendering relay returns the composed page instead — its
+      // "Citiranje" section is a full citation; parse it with the same
+      // citation parser the paste box uses, so a fetched URL fills the same
+      // fields as pasting the Citiranje content by hand.
+      const citStart = html.search(/Citiranje/i);
+      const citText =
+        citStart >= 0
+          ? decodeHtmlEntities(stripMdLinks(html.slice(citStart + "Citiranje".length, citStart + 800)).replace(/<[^>]+>/g, " "))
+              .replace(/\s+/g, " ")
+              .trim()
+          : undefined;
+      const cit = citText ? parseSourceInput(citText) : {};
+      const name = cit.title ?? pageTitleOf(html)?.replace(/\s*[-|·]\s*S[Ii]story.*$/i, "").trim();
+      if (name) {
+        meta = {
+          title: siteTitle(name, war, "SIstory.si"),
+          author: cit.author,
+          periodical: cit.periodical,
+          publisher: cit.publisher,
+        };
+      }
     }
   } else {
     const title = pageTitleOf(html);

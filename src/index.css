@@ -4962,7 +4962,7 @@ kbd {
 
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
-.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: min(88vh, 720px); }
+.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94vh; }
 .modal-overlay:has(> .add-source-dialog) { background: rgba(28, 24, 18, 0.42); }
 .add-source-dialog .modal-header h2 {
   display: flex;

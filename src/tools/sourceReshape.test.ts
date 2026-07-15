@@ -1038,6 +1038,35 @@ GPS Coordinates : 46.2181,14.3463`;
     expect(meta?.dateRange).toBe("1675-1725");
   });
 
+  it("parses the SIstory record from the __NEXT_DATA__ JSON (client-rendered page)", async () => {
+    // The real record page ships an empty <title> and no visible content —
+    // everything sits in the Next.js data island (captured 2026-07-15).
+    const NEXT_HTML = `<!DOCTYPE html><html lang="slv"><head><title data-next-head=""></title></head>
+<body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          data: {
+            war: "ww2",
+            titles: ["Katarina Abdonec"],
+            contributorGroups: [{ key: "inz", name: "Inštitut za novejšo zgodovino", verified: true }],
+            contributors: [
+              { firstName: "INZ", lastName: "" },
+              { firstName: "Tadeja", lastName: "Tominšek" },
+              { firstName: "Tamara", lastName: "Logar" },
+            ],
+          },
+        },
+      },
+    })}</script></body></html>`;
+    const meta = await fetchBookMeta("sistory", "https://www.sistory.si/ww2/AA11BB22-0000-4948-AA8D-BA678EB4E05D", async () => NEXT_HTML);
+    expect(meta).toEqual({
+      title: "Katarina Abdonec - WW2 - SIstory.si",
+      author: "INZ, Tadeja Tominšek, Tamara Logar",
+      periodical: "Smrtne žrtve druge svetovne vojne in zaradi nje v Sloveniji",
+      agency: "Inštitut za novejšo zgodovino",
+    });
+  });
+
   it("parses the SIstory record page's Citiranje section", async () => {
     const SISTORY_HTML = `<html><head><title>SIstory | Žrtve II. sv. vojne</title></head>
 <body><h1>Katarina Abdonec</h1>

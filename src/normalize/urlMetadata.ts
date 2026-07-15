@@ -61,12 +61,15 @@ const JUNK_TITLE_RE =
  *  wins) — HTML, or markdown from the rendering relay — or undefined when
  *  they all fail. A body with no page title at all (relay JSON error
  *  envelopes) or with a challenge/error title doesn't count as content; the
- *  next relay is tried instead of short-circuiting the chain. */
+ *  next relay is tried instead of short-circuiting the chain. Exception: a
+ *  client-rendered Next.js page (SIstory) ships an *empty* `<title>` but
+ *  carries the record in its `__NEXT_DATA__` JSON — that is content. */
 export async function fetchPageHtml(url: string): Promise<string | undefined> {
   for (const proxy of PROXY_URLS) {
     const text = await fetchViaProxy(proxy.proxied(url), proxy.timeoutMs);
     if (!text) continue;
     const title = pageTitleOf(text);
+    if (!title && text.includes("__NEXT_DATA__")) return text;
     if (!title || JUNK_TITLE_RE.test(title)) continue;
     return text;
   }
