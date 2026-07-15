@@ -71,6 +71,8 @@ export const ALL_SITES = [
   "dlib",
   "googlebooks",
   "youtube",
+  "wikipedia",
+  "biografija",
   "familysearch",
   "other",
 ] as const;
@@ -306,6 +308,14 @@ const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
  *  `article=` uuid marks a clipping region on it) or newspapers.com/clip/{id}. */
 const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(?:image|clip)\/(\d+)/i;
 
+/** A Wikipedia article in any language, desktop or mobile: {lang}.wikipedia.org
+ *  /wiki/{slug} or the /w/index.php?title={slug} form. */
+const WIKIPEDIA_RE =
+  /^https?:\/\/([a-z][a-z0-9-]*)\.(?:m\.)?wikipedia\.org\/(?:wiki\/|w\/index\.php\?(?:[^#]*&)?title=)([^?#&]+)/i;
+
+/** A Slovenska biografija entry (ZRC SAZU): slovenska-biografija.si/{oseba|rodbina}/sbi{id}/. */
+const SLOVENSKA_BIOGRAFIJA_RE = /^https?:\/\/(?:www\.)?slovenska-biografija\.si\/(oseba|rodbina)\/(sbi[a-z0-9]+)/i;
+
 /** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
  *  periodicals. Both the details page and a direct stream (PDF/TXT) link
  *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
@@ -536,6 +546,40 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     };
   }
 
+  const wiki = WIKIPEDIA_RE.exec(url.trim());
+  if (wiki) {
+    if (!sites.has("wikipedia")) return undefined;
+    const lang = wiki[1].toLowerCase() === "www" ? "en" : wiki[1].toLowerCase();
+    const slug = wiki[2].replace(/\/$/, "");
+    // The slug IS the article name (underscores for spaces, case preserved) —
+    // `{Article} - Wikipedia`; enrichment upgrades to the display title with
+    // proper diacritics. One source per article per language edition.
+    const article = decodeSegment(slug).replace(/_/g, " ").trim();
+    return {
+      site: "wikipedia",
+      groupKey: `w:${lang}:${decodeSegment(slug).toLowerCase()}`,
+      bookUrl: `https://${lang}.wikipedia.org/wiki/${slug}`,
+      proposed: { title: siteTitle(article || slug, undefined, "Wikipedia") },
+      titleRank: article ? 1 : 0,
+    };
+  }
+
+  const sb = SLOVENSKA_BIOGRAFIJA_RE.exec(url.trim());
+  if (sb) {
+    if (!sites.has("biografija")) return undefined;
+    const id = sb[2].toLowerCase();
+    // The URL carries only the sbi id — it stands in offline and stays the
+    // filing number; enrichment upgrades to the page's own heading
+    // ("Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija").
+    return {
+      site: "biografija",
+      groupKey: `sb:${id}`,
+      bookUrl: `https://www.slovenska-biografija.si/${sb[1].toLowerCase()}/${id}/`,
+      proposed: { title: siteTitle(id, undefined, "Slovenska biografija"), filingNumber: id },
+      titleRank: 0,
+    };
+  }
+
   const dlib = DLIB_RE.exec(url.trim());
   if (dlib) {
     if (!sites.has("dlib")) return undefined;
@@ -716,6 +760,8 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   dlib: "📚",
   googlebooks: "📖",
   youtube: "🎬",
+  wikipedia: "🌐",
+  biografija: "🪶",
   familysearch: "🌳",
   other: "🔗",
 };
@@ -1408,6 +1454,8 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   dlib: { hostRe: /dlib\.si/i, name: "dLib.si — Digitalna knjižnica Slovenije", www: "https://www.dlib.si/" },
   googlebooks: { hostRe: /books\.google\./i, name: "Google Books", www: "https://books.google.com/" },
   youtube: { hostRe: /youtube\.com|youtu\.be/i, name: "YouTube", www: "https://www.youtube.com/" },
+  wikipedia: { hostRe: /wikipedia\.org/i, name: "Wikipedia", www: "https://www.wikipedia.org/" },
+  biografija: { hostRe: /slovenska-biografija\.si/i, name: "Slovenska biografija", www: "https://www.slovenska-biografija.si/" },
 };
 
 /** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
@@ -2013,6 +2061,21 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
   } else if (site === "legacy") {
     const name = pageTitleOf(html)?.replace(/\s*[-|]\s*Legacy\.com.*$/i, "").trim();
     if (name) meta = { title: siteTitle(name, undefined, "Legacy.com") };
+  } else if (site === "wikipedia") {
+    // `Primož Trubar - Wikipedija, prosta enciklopedija` / `… - Wikipedia` —
+    // the display title (proper diacritics) replaces the URL-slug guess.
+    const name = pageTitleOf(html)?.replace(/\s*[-–—]\s*Wikipedi\p{L}*.*$/iu, "").trim();
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Wikipedia") };
+    }
+  } else if (site === "biografija") {
+    // `Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija` — the
+    // person's name with life years; a missing entry titles itself
+    // "Stran ne obstaja", which is not a name.
+    const name = pageTitleOf(html)?.replace(/\s*[-–—]\s*Slovenska biografija\s*$/i, "").trim();
+    if (name && !/^https?:\/\//i.test(name) && !/^stran ne obstaja$/i.test(name)) {
+      meta = { title: siteTitle(name, undefined, "Slovenska biografija") };
+    }
   } else if (site === "dlib") {
     // The dLib.si details page is server-rendered: a key/value metadata table
     // (Vir, Leto, Številčenje, Založnik, Izvor) plus a `dLib.si - {title}`

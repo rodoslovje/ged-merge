@@ -1023,6 +1023,28 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toMatch(/1 DEAT\n2 DATE 23 JUN 1998\n2 SOUR @S2@/); // relocated onto the death
   });
 
+  it("recognizes Wikipedia articles across languages and URL forms", () => {
+    const en = recognizeSourceUrl("https://en.wikipedia.org/wiki/Primo%C5%BE_Trubar")!;
+    expect(en.site).toBe("wikipedia");
+    expect(en.bookUrl).toBe("https://en.wikipedia.org/wiki/Primo%C5%BE_Trubar");
+    expect(en.proposed.title).toBe("Primož Trubar - Wikipedia");
+
+    // Mobile + index.php form land in the same group as the plain article.
+    const mobile = recognizeSourceUrl("https://sl.m.wikipedia.org/wiki/Primo%C5%BE_Trubar")!;
+    expect(mobile.site).toBe("wikipedia");
+    const indexPhp = recognizeSourceUrl("https://sl.wikipedia.org/w/index.php?title=Primo%C5%BE_Trubar&oldid=5")!;
+    expect(indexPhp.proposed.title).toBe("Primož Trubar - Wikipedia");
+  });
+
+  it("recognizes Slovenska biografija entries by their sbi id", () => {
+    const rec = recognizeSourceUrl("https://www.slovenska-biografija.si/oseba/sbi729148/")!;
+    expect(rec.site).toBe("biografija");
+    expect(rec.bookUrl).toBe("https://www.slovenska-biografija.si/oseba/sbi729148/");
+    expect(rec.proposed.title).toBe("sbi729148 - Slovenska biografija");
+    expect(rec.proposed.filingNumber).toBe("sbi729148");
+    expect(recognizeSourceUrl("https://www.slovenska-biografija.si/rodbina/sbi546925/")?.site).toBe("biografija");
+  });
+
   it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {
     // Košir-style files (MacFamilyTree HTML notes) repeat the URL as the
     // anchor text — that must not become two citations.
@@ -1450,6 +1472,32 @@ Memorial ID 273320916 273320916`;
       },
     );
     expect(yt).toEqual({ title: "Štefanovo na Kališču, 26.december 2010 - YouTube", author: "Marjan Rekar" });
+  });
+
+  it("parses Wikipedia and Slovenska biografija page titles", async () => {
+    // Page titles captured 2026-07-15 — localized Wikipedia suffix, and the
+    // biografija heading with life years.
+    const wiki = await fetchBookMeta(
+      "wikipedia",
+      "https://sl.wikipedia.org/wiki/Primo%C5%BE_Trubar",
+      async () => `<html><head><title>Primož Trubar - Wikipedija, prosta enciklopedija</title></head></html>`,
+    );
+    expect(wiki).toEqual({ title: "Primož Trubar - Wikipedia" });
+
+    const sb = await fetchBookMeta(
+      "biografija",
+      "https://www.slovenska-biografija.si/oseba/sbi729148/",
+      async () => `<html><head><title>Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija</title></head></html>`,
+    );
+    expect(sb).toEqual({ title: "Trubar, Primož (med 1507 in 1509–1586) - Slovenska biografija" });
+
+    // A missing entry's "page not found" title is not a person's name.
+    const gone = await fetchBookMeta(
+      "biografija",
+      "https://www.slovenska-biografija.si/oseba/sbi132200/",
+      async () => `<html><head><title>Stran ne obstaja - Slovenska biografija</title></head></html>`,
+    );
+    expect(gone).toBeUndefined();
   });
 
   it("parses the dLib.si details page's metadata table", async () => {

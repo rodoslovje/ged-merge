@@ -195,6 +195,8 @@ export const sl = {
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
   "tools.sources.reshapeSite.legacy": "Legacy.com",
   "tools.sources.reshapeSite.newspapers": "Newspapers.com",
+  "tools.sources.reshapeSite.wikipedia": "Wikipedija",
+  "tools.sources.reshapeSite.biografija": "Slovenska biografija",
   "tools.sources.reshapeSite.sistory": "SIstory.si žrtve vojn",
   "tools.sources.reshapeSite.billiongraves": "BillionGraves",
   "tools.sources.reshapeSite.dlib": "dLib.si",

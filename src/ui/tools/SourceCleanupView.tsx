@@ -91,7 +91,7 @@ export function SourceCleanupView({
       reshapeReportProp ?? {
         groups: [],
         totalOccurrences: 0,
-        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, newspapers: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, familysearch: 0, other: 0 },
+        bySite: { matricula: 0, geneanet: 0, geneanettree: 0, findagrave: 0, billiongraves: 0, legacy: 0, newspapers: 0, sistory: 0, dlib: 0, googlebooks: 0, youtube: 0, wikipedia: 0, biografija: 0, familysearch: 0, other: 0 },
       },
     [reshapeReportProp],
   );
