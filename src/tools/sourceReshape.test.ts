@@ -34,7 +34,7 @@ function scan(text: string, sites?: ReshapeSite[]) {
 }
 
 /** Run the full pipeline (all groups selected) and return the serialized output. */
-function applyAll(text: string, opts?: { relocate?: boolean; quay?: string; pageMedia?: "auto" | "event" | "source" }) {
+function applyAll(text: string, opts?: import("./sourceReshape").ReshapeOptions & { quay?: string }) {
   const ds = dataset(text);
   const report = findReshapableLinks(ds, undefined, opts);
   const groups = report.groups.map((g) => (opts?.quay ? { ...g, quay: opts.quay } : g));
@@ -882,6 +882,31 @@ describe("reshapeSources — apply", () => {
     expect(indi).toMatch(/1 BIRT\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 111/); // now beside the citation
   });
 
+  it("fills a missing QUAY on the existing citation an occurrence folds into", () => {
+    // Real shape: the person's page-media pointer converts, but the event
+    // already cites the book at that page — the pointer folds in, and the
+    // chosen quality must land on that existing citation.
+    const src = (quayLine: string) => `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 78${quayLine}
+1 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 00001 | Adlešiči
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=78
+0 TRLR`;
+    const { text } = applyAll(src(""), { quay: "3", pageMedia: "event" });
+    expect(text).toMatch(/2 SOUR @S1@\n3 PAGE 78\n3 QUAY 3/);
+    // An already-set QUAY is the user's data — never overwritten.
+    const { text: kept } = applyAll(src("\n3 QUAY 1"), { quay: "3", pageMedia: "event" });
+    expect(kept).toContain("3 QUAY 1");
+    expect(kept).not.toContain("3 QUAY 3");
+  });
+
   it("keeps the person-level page-image pointer in a doubled-links file", () => {
     // Same-URL link on person AND event elsewhere = the file doubles links on
     // purpose (MacFamilyTree style) — the pointer is house style, not noise.
@@ -1233,6 +1258,65 @@ describe("reshapeSources — citation placement", () => {
     expect(rec.site).toBe("obrazi");
     expect(rec.bookUrl).toBe("https://www.obrazislovenskihpokrajin.si/oseba/primoz-trubar/");
     expect(rec.proposed.title).toBe("Primoz Trubar - Obrazi slovenskih pokrajin");
+  });
+
+  it("honors format overrides: baptism target, doubled links, source layout, citation placement", () => {
+    // Baptism override: the file habit would say BIRT (no BAPM citations),
+    // the override forces BAPM.
+    const { text: bapm } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE Krstna knjiga: ${BOOK}/?pg=94
+0 TRLR`,
+      { baptism: "BAPM" },
+    );
+    expect(bapm).toMatch(/1 BAPM\n2 SOUR @S\d+@/);
+
+    // Doubled-links override "keep": a record+event duplicated link keeps both
+    // citations even though the file itself has no doubling habit.
+    const doubled = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW ${BOOK}/?pg=94
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 TRLR`;
+    const { text: kept } = applyAll(doubled, { doubledLinks: "keep" });
+    expect(kept.match(/\d SOUR @S\d+@/g)?.length).toBe(2);
+    const { text: folded } = applyAll(doubled, { doubledLinks: "fold" });
+    expect(folded.match(/\d SOUR @S\d+@/g)?.length).toBe(1);
+
+    // Source-layout override "repository" creates the site REPO in a file
+    // whose own sources wouldn't classify as repository-style.
+    const { text: repo } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=94
+0 TRLR`,
+      { sourceLayout: "repository" },
+    );
+    expect(repo).toContain("0 @R1@ REPO");
+
+    // Citation-placement override on the Add Source helper.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL X
+0 TRLR`);
+    // The file habit is record-level (1 record citation, 0 event) → no target;
+    // the "event" override forces the smart event anyway.
+    expect(smartCitationTarget(ds.records, "geneanet", undefined)).toBeUndefined();
+    expect(smartCitationTarget(ds.records, "geneanet", undefined, { citations: "event" })).toEqual({
+      eventTag: "BURI",
+      onFam: false,
+    });
+    expect(
+      smartCitationTarget(ds.records, "matricula", "Krstna knjiga", { citations: "event", baptism: "BAPM" }),
+    ).toEqual({ eventTag: "BAPM", onFam: false });
   });
 
   it("counts an HTML note's <a href=url>url</a> as ONE occurrence", () => {

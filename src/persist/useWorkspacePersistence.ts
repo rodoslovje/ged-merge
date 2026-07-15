@@ -11,6 +11,7 @@ import {
   saveFile, saveSession, type StoredEditState, type StoredSession,
 } from "./idb";
 import { hashFile, hasPermApi } from "./fingerprint";
+import { useSettings } from "../ui/SettingsContext";
 
 export interface WorkspacePersistenceOptions {
   /** The opt-in workspace-caching setting (`settings.persistWorkspace`). */
@@ -52,6 +53,11 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // see it fresh.
   const persistEnabledRef = useRef(persistEnabled);
   persistEnabledRef.current = persistEnabled;
+  // Current format overrides for the restore-time parse posts (mount-only
+  // effect — read through a ref so it sees the loaded settings).
+  const { settings } = useSettings();
+  const formatOverridesRef = useRef(settings.formatOverrides);
+  formatOverridesRef.current = settings.formatOverrides;
 
   // A merge session read from IndexedDB on startup, applied once the first match
   // result arrives (the candidate list it keys into must exist first). Null when
@@ -146,7 +152,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
           post(
             sf.isCsv
               ? { type: "parseCsv", fileName: sf.fileName, buffer }
-              : { type: "parse", role, fileName: sf.fileName, buffer },
+              : { type: "parse", role, fileName: sf.fileName, buffer, formatOverrides: formatOverridesRef.current },
             [buffer],
           );
         });

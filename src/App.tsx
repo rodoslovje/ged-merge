@@ -285,6 +285,7 @@ function AppContent() {
         if (msg.dateFormat) file.dateFormat = msg.dateFormat;
         if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
         if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
+        if (msg.detectedFormats) file.detectedFormats = msg.detectedFormats;
         if (msg.pageMediaStyle) file.pageMediaStyle = msg.pageMediaStyle;
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
@@ -447,7 +448,7 @@ function AppContent() {
     const buffer = await file.arrayBuffer();
     const newMsg: WorkerRequest = isCsv
       ? { type: "parseCsv", fileName, buffer }
-      : { type: "parse", role, fileName, buffer };
+      : { type: "parse", role, fileName, buffer, formatOverrides: settings.formatOverrides };
 
     // A new file supersedes any match still being computed. The worker can't
     // interrupt its own synchronous scoring pass, so when one is in flight we
@@ -473,7 +474,7 @@ function AppContent() {
         });
         const mainBuf = await new Blob([text]).arrayBuffer();
         post(
-          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true },
+          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
           [mainBuf],
         );
         if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
@@ -1412,6 +1413,7 @@ function AppContent() {
         themeMode={themeMode}
         onThemeMode={changeThemeMode}
         onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
+        detectedFormats={lastMainFile?.detectedFormats}
       />
       {confirmDialogElement}
     </>

@@ -341,12 +341,15 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     total++;
-    // Only OBJE children with a real (resolvable) URL count as "page media" —
-    // a source whose only OBJE is a locally-cached filename isn't paginated.
+    // The vote weighs actual links (URLs), not source records: a register
+    // book carrying 24 page links counts 24, a single-page grave/article
+    // source counts its one (only OBJE with a real resolvable URL count — a
+    // locally-cached filename isn't a page link), and a repo-only source
+    // counts the one link it reaches through its repository's WWW.
     const objeCount = childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length;
     const hasRepo = hasChild(rec, "REPO");
     const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI"]);
-    if (objeCount >= 2) paginated++;
+    if (objeCount >= 1) paginated += objeCount;
     else if (hasRepo) repository++;
     else if (hasBiblio) literature++;
   }
@@ -367,6 +370,29 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
   else layout = "unknown";
 
   return { layout };
+}
+
+/**
+ * Whether the file's convention hangs sources off repository records —
+ * independent of the page-link shape (most files with page-link sources ALSO
+ * link each source to a REPO). Drives repository creation for new sources.
+ */
+export function prefersSourceRepos(records: GedNode[], exclude?: GedNode): boolean {
+  const objeIndex = buildObjeIndex(records);
+  let withRepo = 0;
+  let without = 0;
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref || rec === exclude) continue;
+    // Same link-weighted vote as inferSourceFormat: a book's many page links
+    // count individually; a linkless source still counts once.
+    const links = Math.max(
+      1,
+      childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length,
+    );
+    if (hasChild(rec, "REPO")) withRepo += links;
+    else without += links;
+  }
+  return withRepo > without;
 }
 
 /** `linkKey`, but with any `pg=` page-number query param stripped first, so two

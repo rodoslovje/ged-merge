@@ -189,9 +189,13 @@ export function SourceCleanupView({
   function download() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
+    const fmt = settings.formatOverrides;
     const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
       relocate,
-      pageMedia: settings.sourcePageMedia,
+      pageMedia: fmt.pageMedia ?? "auto",
+      sourceLayout: fmt.sourceLayout ?? "auto",
+      baptism: fmt.baptism ?? "auto",
+      doubledLinks: fmt.doubledLinks ?? "auto",
     });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     const base = fileName.replace(/\.ged$/i, "");
@@ -288,7 +292,11 @@ export function SourceCleanupView({
         <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />
         <p className="tools-summary">
           {[
-            hasReshape && t("tools.sources.reshapeFound", { count: visibleGroups.length }),
+            hasReshape &&
+              t("tools.sources.reshapeFound", {
+                links: visibleGroups.reduce((n, g) => n + g.members.length, 0),
+                groups: visibleGroups.length,
+              }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
           ]
             .filter(Boolean)

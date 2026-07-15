@@ -4756,7 +4756,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .link-button:hover { color: var(--text); }
 
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
-.settings-modal { max-width: 520px; height: auto; max-height: 88vh; }
+.settings-modal { max-width: 624px; height: auto; max-height: 88vh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -5991,6 +5991,20 @@ kbd {
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
 .tools-reshape-badge.remove { color: var(--danger); border-color: var(--danger); }
+/* Format tab: compact grouped rows — label left, override select right,
+   the explanation lives in the row's hover tooltip. */
+.settings-format-group { padding-bottom: 4px; }
+.settings-format-row { display: flex; align-items: center; gap: 12px; padding: 3px 0; cursor: default; }
+.settings-format-row .settings-row-label { flex: 1; }
+/* What the row's effective value looks like — the detected habit under Auto,
+   or the chosen override. */
+.settings-format-example {
+  color: var(--muted); font-size: 0.82rem; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%;
+}
+/* Fixed-width select column pinned to the right edge, so every dropdown's
+   left and right edges line up down the tab. */
+.settings-format-row select { flex-shrink: 0; width: 210px; margin-left: auto; }
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */

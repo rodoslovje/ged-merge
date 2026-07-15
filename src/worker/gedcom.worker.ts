@@ -2,10 +2,13 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
+import { applyFormatOverrides } from "../normalize/formatOverrides";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
+import { detectFormatDefaults } from "../normalize/formatDefaults";
+import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { Dataset, Individual } from "../gedcom/types";
 import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
-import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferDateLayout, inferDatePlaceholder, inferMainProfile, inferNameLayout } from "../normalize/profile";
+import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
@@ -91,22 +94,28 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
     if (req.role === "main") {
       mainDataset = dataset;
-      profile = inferMainProfile(dataset);
+      profile = applyFormatOverrides(inferMainProfile(dataset), req.formatOverrides);
       // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
       // the main thread keeps its existing main file + edit tracking.
       if (!req.silent) {
+        // Every detected format, computed once here (off the main thread) and
+        // stored with the file — the loader card and the Settings GEDCOM tab
+        // both read from it. The map reports what the file *itself* does;
+        // `profile` above additionally carries the user's overrides.
+        const detectedFormats = detectFormatDefaults(dataset);
         post({
           type: "parsed",
           role: "main",
           fileName: req.fileName,
           dataset,
-          placeLayout: profile.place.layout,
-          dateFormat: inferDateLayout(dataset),
-          datePlaceholder: inferDatePlaceholder(dataset),
-          sourceLayout: inferSourceFormat(dataset.records).layout,
-          pageMediaStyle: hasSourcePageMedia(dataset.records) ? detectPageMediaStyle(dataset.records) : undefined,
-          nameLayout: inferNameLayout(dataset),
-          unknownNameStyle: detectUnknownNameToken(dataset),
+          detectedFormats,
+          placeLayout: (detectedFormats.place as PlaceLayout | undefined) ?? "unknown",
+          dateFormat: detectedFormats.date,
+          datePlaceholder: detectedFormats.datePlaceholder === "none" ? undefined : detectedFormats.datePlaceholder,
+          sourceLayout: (detectedFormats.sourceLayout as SourceLayout | undefined) ?? "unknown",
+          pageMediaStyle: detectedFormats.pageMedia as "event" | "source" | undefined,
+          nameLayout: (detectedFormats.names as NameLayout | undefined) ?? "none",
+          unknownNameStyle: detectedFormats.unknownName === "blank" ? undefined : detectedFormats.unknownName,
           marriedNameTag: profile.nameVariants.married.form === "tag",
         });
       }

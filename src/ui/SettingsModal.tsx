@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf } from "./SettingsContext";
@@ -6,6 +6,8 @@ import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
+import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
+import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
 
 export type ThemeMode = "auto" | "light" | "dark";
@@ -17,10 +19,84 @@ interface Props {
   onThemeMode: (mode: ThemeMode) => void;
   /** Wipe the cached workspace (loaded files + merge session) from IndexedDB. */
   onClearCache: () => void;
+  /** The main file's detected formats (computed at load, in the worker) —
+   *  the "Auto (detected)" examples on the GEDCOM tab. */
+  detectedFormats?: DetectedFormats;
 }
 
-type SettingsTab = "general" | "advanced";
-const SETTINGS_TABS: SettingsTab[] = ["general", "advanced"];
+type SettingsTab = "general" | "format" | "advanced";
+const SETTINGS_TABS: SettingsTab[] = ["general", "format", "advanced"];
+
+/** One format dimension: a select whose first option is "Detected" (= no
+ *  override) and whose value patches a single {@link FormatOverrides} key. */
+interface FormatDimension {
+  key: keyof FormatOverrides;
+  /** Choice values; option labels come from `settings.format.{key}.{value}`
+   *  unless the value is `verbatim` (shown as-is, e.g. date patterns). */
+  choices: readonly string[];
+  verbatim?: boolean;
+}
+
+/** The Format tab's dimensions, grouped for display. Matricula's own
+ *  language form offers exactly those five languages; the Geneanet list
+ *  mirrors GENEANET_CEMETERY_LOCALES (the locales the rewriter knows). */
+const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
+  {
+    group: "dates",
+    dims: [
+      { key: "date", choices: DATE_PATTERN_CHOICES, verbatim: true },
+      { key: "datePlaceholder", choices: ["none", "_", "?"] },
+    ],
+  },
+  {
+    group: "names",
+    dims: [
+      { key: "names", choices: ["records", "tags"] },
+      { key: "unknownName", choices: ["blank", "NN", "N.N.", "_____"] },
+    ],
+  },
+  {
+    group: "places",
+    dims: [{ key: "place", choices: ["packed-plac", "structured-addr", "plain-structured", "address-only"] }],
+  },
+  {
+    group: "sources",
+    dims: [
+      { key: "sourceLayout", choices: ["paginated", "repository", "literature", "inline"] },
+      { key: "citations", choices: ["event", "record"] },
+      { key: "pageMedia", choices: ["event", "source"] },
+      { key: "baptism", choices: ["BIRT", "BAPM"] },
+      { key: "doubledLinks", choices: ["fold", "keep"] },
+      { key: "matriculaLang", choices: ["sl", "de", "en", "cs", "it"], verbatim: true },
+      { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
+    ],
+  },
+];
+
+/** Concrete, language-neutral samples of what each choice writes — shown
+ *  between the row's label and its dropdown (GEDCOM-shaped where that is the
+ *  clearest way to show structure). Dates and link languages are rendered
+ *  from the value instead. */
+const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, string>>> = {
+  datePlaceholder: { none: "JUN 1879", _: "__.06.1879", "?": "??.06.1879" },
+  place: {
+    "structured-addr": "Kranj,Slovenija › ADDR Cesta 1",
+    "packed-plac": "Cesta 1, Kranj (Slovenija)",
+    "plain-structured": "Kranj,Slovenija",
+    "address-only": "Cesta 1",
+  },
+  names: { records: "1 NAME › 2 TYPE married", tags: "2 _MARNM Kovač" },
+  sourceLayout: {
+    paginated: "0 SOUR › 1 OBJE ×N",
+    repository: "0 SOUR › 1 REPO",
+    literature: "1 AUTH, 1 PUBL",
+    inline: '2 SOUR "…"',
+  },
+  citations: { event: "1 BIRT › 2 SOUR", record: "1 SOUR" },
+  pageMedia: { event: "2 SOUR + 2 OBJE", source: "0 SOUR › 1 OBJE" },
+  baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
+  doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
+};
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
@@ -37,14 +113,47 @@ const SAMPLE_AGE = 70;
  * opt-in for online link-metadata lookups. Preferences live in
  * {@link useSettings} and persist to localStorage.
  */
-export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache }: Props) {
+export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, detectedFormats }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
+  // What "Auto (detected)" resolves to — computed at load in the worker and
+  // stored with the file, so showing it here costs nothing.
+  const detected = detectedFormats;
+
+  // Dropdown changes echo locally at once; the global settings commit — which
+  // re-renders the whole mounted app, seconds on an index-scale file — runs
+  // in an interruptible transition, so rapid changes coalesce instead of
+  // each blocking the select.
+  const [, startTransition] = useTransition();
+  const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
+  const overrides = pendingOverrides ?? settings.formatOverrides;
+  const updateOverride = (key: keyof FormatOverrides, value: string) => {
+    const next = { ...overrides };
+    if (value) next[key] = value as never;
+    else delete next[key];
+    setPendingOverrides(next);
+    startTransition(() => {
+      set({ formatOverrides: next });
+      setPendingOverrides(null);
+    });
+  };
 
   if (!isOpen) return null;
+
+  /** Concrete sample of the row's *effective* value (the override when set,
+   *  else the detected habit — the latter only while a main file is loaded). */
+  const formatExample = ({ key }: FormatDimension): string | undefined => {
+    const effective = overrides[key] ?? detected?.[key];
+    if (!effective) return undefined;
+    if (key === "date") return sampleDateFor(effective);
+    if (key === "unknownName") return effective === "blank" ? "/Kovač/" : `${effective} /Kovač/`;
+    if (key === "matriculaLang") return `…online.eu/${effective}/…`;
+    if (key === "geneanetLang") return `${effective}.geneanet.org`;
+    return FORMAT_SAMPLES[key]?.[effective];
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -214,6 +323,40 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           </>
           )}
 
+          {tab === "format" && (
+          <>
+          {FORMAT_GROUPS.map(({ group, dims }) => (
+            <section key={group} className="settings-section settings-format-group">
+              <h3>{t(`settings.format.group.${group}`)}</h3>
+              {dims.map(({ key, choices, verbatim }) => (
+                <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
+                  <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
+                  <span className="settings-format-example gm-data">{formatExample({ key, choices, verbatim })}</span>
+                  <select
+                    value={(overrides[key] as string | undefined) ?? ""}
+                    onChange={(e) => updateOverride(key, e.target.value)}
+                  >
+                    <option value="">{t("settings.format.detected")}</option>
+                    {choices.map((c) => (
+                      <option key={c} value={c}>
+                        {(verbatim ? c : t(`settings.format.${key}.${c}`)) +
+                          // The month-word layouts are the GEDCOM-standard date
+                          // form (spec day is 1–2 digits); numeric layouts are
+                          // vendor conventions. <option> can't be styled, so
+                          // the marker is part of the label.
+                          (key === "date" && (c === "D MMM YYYY" || c === "DD MMM YYYY")
+                            ? ` — ${t("settings.format.gedcomStandard")}`
+                            : "")}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </section>
+          ))}
+          </>
+          )}
+
           {tab === "advanced" && (
           <>
           <section className="settings-section">
@@ -242,28 +385,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </span>
               </span>
             </label>
-          </section>
-
-          <section className="settings-section">
-            <h3>{t("settings.sources.title")}</h3>
-            <fieldset className="settings-radio-group">
-              <legend className="settings-row-label">{t("settings.sources.pageMedia")}</legend>
-              <span className="settings-hint">{t("settings.sources.pageMedia.hint")}</span>
-              <div className="settings-radio-row">
-                {(["auto", "event", "source"] as const).map((mode) => (
-                  <label key={mode} className="settings-radio">
-                    <input
-                      type="radio"
-                      name="settings-source-page-media"
-                      value={mode}
-                      checked={settings.sourcePageMedia === mode}
-                      onChange={() => set({ sourcePageMedia: mode })}
-                    />
-                    <span className="settings-row-label">{t(`settings.sources.pageMedia.${mode}`)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
           </section>
 
           <section className="settings-section">
