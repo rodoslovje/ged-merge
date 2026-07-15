@@ -129,7 +129,7 @@ export interface ReshapeGroup {
    *  still wants enrichment, unlike a source with a real title. */
   urlTitled?: boolean;
   /** Offline-derived source fields; enrichment overrides them on apply. */
-  proposed: { title: string; agency?: string; place?: string; filingNumber?: string };
+  proposed: { title: string; author?: string; agency?: string; place?: string; filingNumber?: string };
   /** Canonical page-independent URL — display + enrichment fetch target. */
   bookUrl: string;
   /** Distinct page numbers cited, numerically sorted. */
@@ -444,12 +444,14 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
       const canonical =
         `https://gw.geneanet.org/${gwTree[1].toLowerCase()}?lang=en&p=${encodeURIComponent(decodeSegment(given ?? ""))}` +
         `&n=${encodeURIComponent(decodeSegment(surname ?? ""))}${oc ? `&oc=${oc}` : ""}`;
+      const tree = gwTree[1].toLowerCase();
       return {
         site: "geneanettree",
-        groupKey: `gt:${gwTree[1].toLowerCase()}:${(surname ?? "").toLowerCase()}:${(given ?? "").toLowerCase()}:${oc ?? ""}`,
+        groupKey: `gt:${tree}:${(surname ?? "").toLowerCase()}:${(given ?? "").toLowerCase()}:${oc ?? ""}`,
         bookUrl: canonical,
-        // The member tree's name is the closest thing to an archive/agency.
-        proposed: { title: siteTitle(who, undefined, "Geneanet Trees"), agency: gwTree[1].toLowerCase() },
+        // The member tree's owner is the source's author, shown in the title:
+        // `{person} - {tree owner} - Geneanet Trees`.
+        proposed: { title: siteTitle(who, tree, "Geneanet Trees"), author: tree },
         titleRank: 1,
       };
     }
@@ -1472,7 +1474,7 @@ export function reshapeSources(
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
       title: extra?.title ?? g.proposed.title,
-      author: extra?.author,
+      author: extra?.author ?? g.proposed.author,
       periodical: extra?.periodical,
       publisher: extra?.publisher,
       agency: extra?.agency ?? g.proposed.agency,
@@ -1872,12 +1874,20 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     }
   } else if (site === "geneanettree") {
     // The rendered page (Geneanet blocks plain relays) titles itself
-    // `Family tree of Rajko Vute` — bookUrl carries lang=en for a stable prefix.
+    // `Family tree of Rajko Vute` — bookUrl carries lang=en for a stable
+    // prefix. A trailing `(26)` is GeneWeb's occurrence ordinal that tells
+    // same-named persons in the tree apart — technical, so it stays out of
+    // the title (the URL keeps it). The tree's owner is the author:
+    // `{person} - {owner} - Geneanet Trees`.
+    const tree = /gw\.geneanet\.org\/([a-z0-9_-]+)\?/i.exec(bookUrl)?.[1];
     const name = pageTitleOf(html)
       ?.replace(/^\s*Family tree of\s+/i, "")
       .replace(/\s*[-|]\s*Geneanet\s*$/i, "")
+      .replace(/\s*\(\d+\)\s*$/, "")
       .trim();
-    if (name && !/^https?:\/\//i.test(name)) meta = { title: siteTitle(name, undefined, "Geneanet Trees") };
+    if (name && !/^https?:\/\//i.test(name)) {
+      meta = { title: siteTitle(name, tree, "Geneanet Trees"), author: tree };
+    }
   } else if (site === "googlebooks") {
     // The reader page's title is the book/newspaper name with a localized
     // suffix: `The Windsor Star - Google Knjige` / `… - Google Books`. The

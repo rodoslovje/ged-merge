@@ -833,12 +833,13 @@ describe("reshapeSources — citation placement", () => {
     const rec = recognizeSourceUrl("http://gw.geneanet.org/hawlina?lang=de;pz=peter;nz=hawlina;ocz=0;p=rajko;n=vute")!;
     expect(rec.site).toBe("geneanettree");
     expect(rec.bookUrl).toBe("https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute");
-    expect(rec.proposed.title).toBe("Rajko Vute - Geneanet Trees");
-    expect(rec.proposed.agency).toBe("hawlina");
+    // The tree's owner is the author, shown in the title.
+    expect(rec.proposed.title).toBe("Rajko Vute - hawlina - Geneanet Trees");
+    expect(rec.proposed.author).toBe("hawlina");
 
     // HTML-escaped params and a stray trailing paren from prose.
     const esc = recognizeSourceUrl("http://gw.geneanet.org/rfonda?lang=en&amp;p=jacobus&amp;n=magajna)")!;
-    expect(esc.proposed.title).toBe("Jacobus Magajna - Geneanet Trees");
+    expect(esc.proposed.title).toBe("Jacobus Magajna - rfonda - Geneanet Trees");
 
     // Same person, oc disambiguator kept in the group identity.
     const oc = recognizeSourceUrl("https://gw.geneanet.org/hawlina?lang=en&pz=peter&nz=hawlina&p=janez&n=plut&oc=26")!;
@@ -846,12 +847,13 @@ describe("reshapeSources — citation placement", () => {
   });
 
   it("fetches the tree person's name from the rendered page title", async () => {
+    // A trailing "(26)" is GeneWeb's same-name occurrence ordinal — stripped.
     const meta = await fetchBookMeta(
       "geneanettree",
-      "https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute",
-      async () => `Title: Family tree of Rajko Vute\n\nURL Source: https://gw.geneanet.org/hawlina\n\nMarkdown Content:`,
+      "https://gw.geneanet.org/hawlina?lang=en&p=janez&n=plut&oc=26",
+      async () => `Title: Family tree of Janez Plut (26)\n\nURL Source: https://gw.geneanet.org/hawlina\n\nMarkdown Content:`,
     );
-    expect(meta).toEqual({ title: "Rajko Vute - Geneanet Trees" });
+    expect(meta).toEqual({ title: "Janez Plut - hawlina - Geneanet Trees", author: "hawlina" });
   });
 
   it("groups Google Books by volume id and YouTube by video id", () => {

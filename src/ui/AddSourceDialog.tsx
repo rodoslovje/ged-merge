@@ -112,7 +112,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
       // SIstory.si") beats the generic parse's bare quoted name — same title
       // the cleanup tool would write.
       title: match ? "" : recognized?.proposed.title ?? parsed.title ?? "",
-      author: match ? "" : parsed.author ?? "",
+      author: match ? "" : parsed.author ?? recognized?.proposed.author ?? "",
       periodical: match ? "" : parsed.periodical ?? "",
       // When the site proposal claims the parenthesized institute as the
       // agency (SIstory), it doesn't repeat as the publisher.
