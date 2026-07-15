@@ -334,6 +334,21 @@ export function SourceCleanupView({
               {t("tools.sources.reshapePlace")}
             </label>
             <QuaySelect value={quay} onChange={setQuay} />
+            {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
+              <button
+                className="nav-btn tools-run"
+                onClick={fetchDetails}
+                disabled={fetching !== null}
+                title={t("tools.sources.reshapeFetchHint")}
+              >
+                {fetching
+                  ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
+                  : `${t("tools.sources.reshapeFetch")} (${fetchableGroups.length})`}
+              </button>
+            )}
+            {fetchFailed > 0 && !fetching && (
+              <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
+            )}
           </div>
 
           <ul className="tools-tree">
@@ -423,21 +438,6 @@ export function SourceCleanupView({
         <button className="nav-btn primary tools-run" onClick={download} disabled={nothingSelected}>
           {t("tools.sources.cleanupDownload")}
         </button>
-        {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
-          <button
-            className="nav-btn tools-run"
-            onClick={fetchDetails}
-            disabled={fetching !== null}
-            title={t("tools.sources.reshapeFetchHint")}
-          >
-            {fetching
-              ? t("tools.sources.reshapeFetching", { done: fetching.done, total: fetching.total })
-              : `${t("tools.sources.reshapeFetch")} (${fetchableGroups.length})`}
-          </button>
-        )}
-        {fetchFailed > 0 && !fetching && (
-          <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
-        )}
         {!nothingSelected && (
           <span className="tools-fix-hint">
             {[
