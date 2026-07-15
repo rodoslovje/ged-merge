@@ -44,8 +44,10 @@ const FORMAT_DIMENSIONS: FormatDimension[] = [
   { key: "pageMedia", choices: ["event", "source"] },
   { key: "baptism", choices: ["BIRT", "BAPM"] },
   { key: "doubledLinks", choices: ["fold", "keep"] },
-  { key: "matriculaLang", choices: ["sl", "de", "en"], verbatim: true },
-  { key: "geneanetLang", choices: ["en", "de", "fr", "es", "it"], verbatim: true },
+  // Matricula's own language form offers exactly these five; the Geneanet
+  // list mirrors GENEANET_CEMETERY_LOCALES (the locales the rewriter knows).
+  { key: "matriculaLang", choices: ["sl", "de", "en", "cs", "it"], verbatim: true },
+  { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
 ];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
