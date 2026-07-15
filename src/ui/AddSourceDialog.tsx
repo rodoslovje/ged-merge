@@ -70,6 +70,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
+  // The optional bibliographic fields sit behind a disclosure; auto-filled
+  // values still apply while collapsed.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const { settings } = useSettings();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -118,21 +121,26 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     });
   }, [editing, text, parsed, normalizedUrl, match, recognized]);
 
-  // Editing an existing citation: seed directly from its current fields.
+  // Editing an existing citation: seed directly from its current fields, and
+  // open the details disclosure when any optional field already has a value.
   useEffect(() => {
     if (!editing) return;
+    const f = editing.fields;
     setFields({
-      title: editing.fields.title ?? "",
-      author: editing.fields.author ?? "",
-      periodical: editing.fields.periodical ?? "",
-      publisher: editing.fields.publisher ?? "",
-      agency: editing.fields.agency ?? "",
-      place: editing.fields.place ?? "",
-      filingNumber: editing.fields.filingNumber ?? "",
-      page: editing.fields.page ?? "",
-      url: editing.fields.url ?? "",
-      note: editing.fields.note ?? "",
+      title: f.title ?? "",
+      author: f.author ?? "",
+      periodical: f.periodical ?? "",
+      publisher: f.publisher ?? "",
+      agency: f.agency ?? "",
+      place: f.place ?? "",
+      filingNumber: f.filingNumber ?? "",
+      page: f.page ?? "",
+      url: f.url ?? "",
+      note: f.note ?? "",
     });
+    setDetailsOpen(
+      Boolean(f.author || f.periodical || f.publisher || f.agency || f.place || f.filingNumber || f.page || f.note),
+    );
   }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -206,6 +214,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     setFields(EMPTY_FORM);
     setFetching(false);
     setFetched(undefined);
+    setDetailsOpen(false);
   }
 
   function handleClose() {
@@ -266,19 +275,25 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{t(editing ? "editSource.title" : "addSource.title")}</h2>
+          <h2>
+            <span className="add-source-badge" aria-hidden="true">📖</span>
+            {t(editing ? "editSource.title" : "addSource.title")}
+          </h2>
           <button className="modal-close" onClick={handleClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
         </div>
         <div className="modal-body">
           {!editing && (
-            <textarea
-              className="edit-input add-source-textarea"
-              rows={3}
-              autoFocus
-              placeholder={t("addSource.placeholder")}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
+            <label className="add-source-field">
+              <span>{t("addSource.field.link")}</span>
+              <textarea
+                className="edit-input add-source-textarea"
+                rows={3}
+                autoFocus
+                placeholder={t("addSource.placeholder")}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </label>
           )}
           {match && (
             <div className="add-source-hint">
@@ -286,27 +301,43 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
             </div>
           )}
           {!match && !editing && recognized && (
-            <div className="add-source-hint">
-              {t("addSource.recognized", { site: t(`tools.sources.reshapeSite.${recognized.site}`) })}
-              {!settings.allowLinkFetch && (
-                <> {t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</>
-              )}
+            <div className="add-source-chip">
+              <span className="add-source-chip-check" aria-hidden="true">✓</span>
+              <span>{t("addSource.recognized")}</span>
+              <span className="add-source-chip-site">{t(`tools.sources.reshapeSite.${recognized.site}`)}</span>
             </div>
+          )}
+          {!match && !editing && recognized && !settings.allowLinkFetch && (
+            <div className="add-source-hint">{t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</div>
           )}
           {fetching && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
             <>
-              {field("title", "addSource.field.title", true)}
-              {field("author", "addSource.field.author")}
-              {field("periodical", "addSource.field.periodical")}
-              {field("publisher", "addSource.field.publisher")}
-              {field("agency", "addSource.field.agency")}
-              {field("place", "addSource.field.place")}
-              {field("filingNumber", "addSource.field.filingNumber")}
-              {field("note", "addSource.field.note", true)}
+              {field("title", "addSource.field.title")}
+              <button
+                type="button"
+                className="add-source-details-toggle"
+                aria-expanded={detailsOpen}
+                onClick={() => setDetailsOpen((o) => !o)}
+              >
+                <span className="add-source-details-chevron" aria-hidden="true">▸</span>
+                {t("addSource.moreDetails")} · {t("addSource.optional")}
+              </button>
+              {detailsOpen && (
+                <div className="add-source-details-grid">
+                  {field("author", "addSource.field.author")}
+                  {field("periodical", "addSource.field.periodical")}
+                  {field("publisher", "addSource.field.publisher")}
+                  {field("agency", "addSource.field.agency")}
+                  {field("place", "addSource.field.place")}
+                  {field("filingNumber", "addSource.field.filingNumber")}
+                  {field("page", "addSource.field.page")}
+                  {field("note", "addSource.field.note", true)}
+                </div>
+              )}
             </>
           )}
-          {field("page", "addSource.field.page")}
+          {match && field("page", "addSource.field.page")}
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}
             {editing && fields.url.trim() && (
@@ -315,17 +346,17 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               </a>
             )}
           </div>
-          <div className="add-source-actions">
-            {editing && (
-              <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
-            )}
-            <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
-            {editing ? (
-              <button className="tree-open-btn" onClick={handleSave}>{t("editSource.save")}</button>
-            ) : (
-              <button className="tree-open-btn" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
-            )}
-          </div>
+        </div>
+        <div className="add-source-actions">
+          {editing && (
+            <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
+          )}
+          <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
+          {editing ? (
+            <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
+          ) : (
+            <button className="add-source-submit" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
+          )}
         </div>
       </div>
     </div>
