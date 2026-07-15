@@ -531,11 +531,11 @@ function firstLine(text: string): string {
 }
 
 /**
- * A readable title for a generic link, when its path carries a name-like slug:
- * the last path segment made of two or more words ("ann-vidmar",
- * "pogreb-angela-zupancic") becomes "Ann Vidmar - tezakfuneralhome.com".
- * Id-like segments (digits, single tokens, hashes) yield nothing — the URL
- * stays the title.
+ * A readable title for a generic link. A name-like last path segment (two or
+ * more words: "ann-vidmar", "pogreb-angela-zupancic") becomes
+ * "Ann Vidmar - tezakfuneralhome.com"; a document/image file name becomes
+ * "16298754_1992_6_L.pdf - arhiv.gorenjskiglas.si". Id-like page segments
+ * (digits, single tokens, hashes) yield nothing — the URL stays the title.
  */
 function slugTitleFromUrl(url: string): string | undefined {
   let parsed: URL;
@@ -544,14 +544,17 @@ function slugTitleFromUrl(url: string): string | undefined {
   } catch {
     return undefined;
   }
+  const host = parsed.hostname.replace(/^www\./i, "");
   const segments = parsed.pathname.split("/").filter(Boolean).map(decodeSegment);
   for (let i = segments.length - 1; i >= 0; i--) {
     const seg = segments[i].replace(/\.(html?|php|aspx?|pdf|jpe?g|png|gif)$/i, "");
     if (!/^\p{L}/u.test(seg)) continue;
     const words = seg.split(/[-_ ]+/).filter(Boolean);
     if (words.length < 2 || words.filter((w) => /^\p{L}+$/u.test(w)).length < 2) continue;
-    return `${prettySlug(seg)} - ${parsed.hostname.replace(/^www\./i, "")}`;
+    return `${prettySlug(seg)} - ${host}`;
   }
+  const file = segments[segments.length - 1];
+  if (file && /\.(pdf|jpe?g|png|gif|tiff?|webp|djvu?|docx?|txt)$/i.test(file)) return `${file} - ${host}`;
   return undefined;
 }
 

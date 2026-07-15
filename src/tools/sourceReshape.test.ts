@@ -828,6 +828,18 @@ describe("reshapeSources — citation placement", () => {
     expect(yt.bookType).toBe("unknown");
   });
 
+  it("titles generic document links by file name + host", () => {
+    const report = scan(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 WWW https://arhiv.gorenjskiglas.si/digitar/16298754_1992_6_L.pdf
+0 TRLR`,
+      ["other"],
+    );
+    expect(report.groups[0].proposed.title).toBe("16298754_1992_6_L.pdf - arhiv.gorenjskiglas.si");
+  });
+
   it("treats BillionGraves graves like Find a Grave: BURI placement, id as filing number", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8
