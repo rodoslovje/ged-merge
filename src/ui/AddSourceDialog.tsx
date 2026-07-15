@@ -303,7 +303,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           )}
           {!match && !editing && recognized && (
             <div className="add-source-chip">
-              <span className="add-source-chip-check" aria-hidden="true">{fetching ? "⋯" : "✓"}</span>
+              <span className="add-source-chip-check" aria-hidden="true">{fetching ? "…" : "✓"}</span>
               <span>{t(fetching ? "addSource.fetching" : "addSource.recognized")}</span>
               <span className="add-source-chip-site">
                 {SITE_ICON[recognized.site]} {t(`tools.sources.reshapeSite.${recognized.site}`)}
