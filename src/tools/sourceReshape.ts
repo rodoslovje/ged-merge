@@ -3,7 +3,7 @@ import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node"
 import {
   bookKeyOf,
   buildObjeIndex,
-  inferSourceFormat,
+  prefersSourceRepos,
   isPointer,
   looksLikeUrl,
   pageParamOf,
@@ -1301,7 +1301,14 @@ function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
     fold: auto(opts.doubledLinks, () => (prefersDoubledLinks(records) ? "keep" : "fold")) === "fold",
     pageMedia: auto(opts.pageMedia, () => detectPageMediaStyle(records)),
     baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
-    layout: auto(opts.sourceLayout, () => inferSourceFormat(records).layout),
+    // Repository creation is its own habit, independent of the page-link
+    // shape (files with page-link sources usually ALSO repo-link each one):
+    // an explicit layout override decides directly; "auto" follows the
+    // file's own REPO majority.
+    createRepos:
+      opts.sourceLayout && opts.sourceLayout !== "auto"
+        ? opts.sourceLayout === "repository"
+        : prefersSourceRepos(records),
   };
 }
 
@@ -1651,9 +1658,13 @@ export function applySiteSourceExtras(
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
   fillField(sourceNode, "DATE", meta.dateRange);
   if (!site || firstChild(sourceNode, "REPO")) return undefined;
-  const layout =
-    opts.sourceLayout && opts.sourceLayout !== "auto" ? opts.sourceLayout : inferSourceFormat(records).layout;
-  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), layout === "repository");
+  const createRepos =
+    opts.sourceLayout && opts.sourceLayout !== "auto"
+      ? opts.sourceLayout === "repository"
+      : // The source being enriched is already in `records` — it must not
+        // vote against the habit it is about to follow.
+        prefersSourceRepos(records, sourceNode);
+  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos);
   if (!repo) return undefined;
   sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
   return repo.created;
@@ -1690,7 +1701,7 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const { fold, pageMedia, baptismTag, layout } = resolveFormatOptions(clone, opts);
+  const { fold, pageMedia, baptismTag, createRepos } = resolveFormatOptions(clone, opts);
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(h.recognized.groupKey),
   );
@@ -1762,7 +1773,7 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       fillField(sourceNode, "DATE", fields.dateRange);
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, layout === "repository");
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos);
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
         sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });

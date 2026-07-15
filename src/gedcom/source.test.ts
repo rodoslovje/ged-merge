@@ -310,7 +310,7 @@ describe("inferSourceFormat", () => {
     expect(inferSourceFormat(ds.records).layout).toBe("paginated");
   });
 
-  it("does not classify a source as paginated when only one OBJE is a real link (the other a local filename)", () => {
+  it("classifies a single real page link as paginated (local filenames still don't count)", () => {
     const text = `0 HEAD
 0 @S1@ SOUR
 1 PERI Kmetski list, 4 Apr 1934
@@ -328,9 +328,9 @@ describe("inferSourceFormat", () => {
 `;
     const buf = new TextEncoder().encode(text);
     const ds = buildDataset(parseGedcom(buf.buffer));
-    // Not "paginated" (only one real-URL OBJE survives filtering); falls
-    // through to "repository" since the source has a REPO link.
-    expect(inferSourceFormat(ds.records).layout).toBe("repository");
+    // ONE real-URL OBJE is already the page-link shape (the local filename
+    // doesn't count) — the REPO link no longer outranks it.
+    expect(inferSourceFormat(ds.records).layout).toBe("paginated");
   });
 
   it("detects a repository convention when sources link out with no page media", () => {
