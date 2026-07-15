@@ -7,6 +7,7 @@ import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
+import { useSettings } from "./SettingsContext";
 
 /** Lifecycle of one whole-file scan. */
 export type AsyncState<T> =
@@ -88,6 +89,17 @@ interface Pending {
  */
 export function useToolsScans(dataset: Dataset, editVersionRef: { readonly current: number }): ToolsScans {
   const [states, setStates] = useState<ScanStates>(ALL_IDLE);
+  // The source-reshape scan depends on the user's format overrides (the
+  // report must match what the apply writes). Kept in a ref so the stable
+  // callbacks below always read the current value; the overrides fingerprint
+  // joins that scan's freshness key, so a settings change re-scans.
+  const { settings } = useSettings();
+  const formatOverridesRef = useRef(settings.formatOverrides);
+  formatOverridesRef.current = settings.formatOverrides;
+  const reshapeSalt = () => {
+    const o = formatOverridesRef.current;
+    return `${o.pageMedia ?? ""}|${o.sourceLayout ?? ""}|${o.baptism ?? ""}|${o.doubledLinks ?? ""}`;
+  };
   // Mirror for same-tick reads (`ensure` guards against double starts before
   // the state update has rendered).
   const statesRef = useRef(states);
@@ -189,10 +201,17 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
 
   /** Content version each scan's latest result was computed against. */
   const scanKeysRef = useRef(new Map<ScanKind, string>());
+  /** Freshness key: dataset content, plus the format overrides for the scan
+   *  whose result depends on them. */
+  const scanKey = useCallback(
+    (kind: ScanKind) =>
+      `${datasetSeqRef.current}:${editVersionRef.current}` + (kind === "sourceReshape" ? `:${reshapeSalt()}` : ""),
+    [editVersionRef],
+  );
 
   const start = useCallback(
     (kind: ScanKind) => {
-      scanKeysRef.current.set(kind, `${datasetSeqRef.current}:${editVersionRef.current}`);
+      scanKeysRef.current.set(kind, scanKey(kind));
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
       // Defer the post one macrotask so React paints the spinner first: when
@@ -208,7 +227,9 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         }
         const requestId = nextIdRef.current++;
         post(
-          { type: REQUEST_TYPE[kind], requestId },
+          kind === "sourceReshape"
+            ? { type: "sourceReshape", requestId, formatOverrides: formatOverridesRef.current }
+            : { type: REQUEST_TYPE[kind], requestId },
           {
             kind,
             onResult: (data) => {
@@ -238,7 +259,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         );
       }, 0);
     },
-    [post, setScan, editVersionRef],
+    [post, setScan, scanKey],
   );
 
   const ensure = useCallback(
@@ -253,11 +274,10 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     (kind: ScanKind) => {
       const status = statesRef.current[kind].status;
       if (status === "running") return;
-      const key = `${datasetSeqRef.current}:${editVersionRef.current}`;
-      if (status !== "idle" && scanKeysRef.current.get(kind) === key) return;
+      if (status !== "idle" && scanKeysRef.current.get(kind) === scanKey(kind)) return;
       start(kind);
     },
-    [start, editVersionRef],
+    [start, scanKey],
   );
 
   const refresh = useCallback((kind: ScanKind) => start(kind), [start]);

@@ -5,6 +5,7 @@ import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 
 /**
  * Requests for the tools worker (whole-file Tools-tab scans).
@@ -21,7 +22,7 @@ export type ToolsRequest =
   | { type: "findDuplicates"; requestId: number }
   | { type: "validate"; requestId: number }
   | { type: "sourceDuplicates"; requestId: number }
-  | { type: "sourceReshape"; requestId: number }
+  | { type: "sourceReshape"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "normalizePreview"; requestId: number }
   | { type: "normalizeText"; requestId: number; options: NormalizeOptions };
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
 import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
@@ -256,6 +257,7 @@ export function SourcesPanel({
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the cleanup tool.
   const [view, setView] = useState<"tree" | "cleanup">("tree");
+  const { settings } = useSettings();
   // Scanned automatically (in the tools worker) so the toggles can show their
   // counts; cached at the ToolsView level so revisits don't re-scan.
   const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
@@ -276,6 +278,10 @@ export function SourcesPanel({
     }
   }, [active, tree, dataset]);
 
+  // The reshape report depends on the format overrides — the fingerprint in
+  // the deps re-checks freshness when the user changes them mid-session.
+  const fmt = settings.formatOverrides;
+  const reshapeSalt = `${fmt.pageMedia ?? ""}|${fmt.sourceLayout ?? ""}|${fmt.baptism ?? ""}|${fmt.doubledLinks ?? ""}`;
   useEffect(() => {
     // Fresh, not just ensured: the cleanup view applies against the live
     // records, so a report cached before in-place edits must not drive it.
@@ -283,7 +289,7 @@ export function SourcesPanel({
       scans.ensureFresh("sourceDuplicates");
       scans.ensureFresh("sourceReshape");
     }
-  }, [active, scans]);
+  }, [active, scans, reshapeSalt]);
 
   const dupCount = dupReport?.groups.length ?? 0;
   const reshapeCount = reshapeReport?.groups.length ?? 0;

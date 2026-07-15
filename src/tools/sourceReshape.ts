@@ -12,6 +12,7 @@ import {
 import { linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import type { SourceLayout } from "../normalize/types";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
@@ -1293,6 +1294,19 @@ function soleFamsXref(rec: GedNode): string | undefined {
   return fams.length === 1 ? fams[0] : undefined;
 }
 
+
+/** The user's format overrides mapped to the reshape options the scan and the
+ *  apply consume — absent overrides stay "auto" (detect from the file). The
+ *  report (tools worker) and the apply MUST both run through this, or the
+ *  preview can drift from what the download writes. */
+export function reshapeOptionsFromOverrides(o: FormatOverrides | undefined): ReshapeOptions {
+  return {
+    pageMedia: o?.pageMedia ?? "auto",
+    sourceLayout: o?.sourceLayout ?? "auto",
+    baptism: o?.baptism ?? "auto",
+    doubledLinks: o?.doubledLinks ?? "auto",
+  };
+}
 
 /** Resolve the "auto" members of {@link ReshapeOptions} against the records. */
 function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
