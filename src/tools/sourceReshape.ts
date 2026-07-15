@@ -1261,37 +1261,109 @@ function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolea
   return groups;
 }
 
+/** Record lookups the relocation decision needs beyond the hit itself
+ *  (identifying which family a multi-marriage person's link belongs to). */
+interface RelocationContext {
+  byXref: Map<string, GedNode>;
+  urlOfObje: (xref: string) => string | undefined;
+}
+
+/** Whether a container's direct children carry the given link — a media
+ *  pointer resolving to the URL, an inline OBJE FILE, or a bare link tag. */
+function carriesLink(container: GedNode, urlKey: string, urlOfObje: (xref: string) => string | undefined): boolean {
+  for (const c of container.children) {
+    if (LINK_TAGS.has(c.tag) && c.value) {
+      for (const m of c.value.matchAll(URL_RE)) if (linkKey(cleanUrl(m[0])) === urlKey) return true;
+    } else if (c.tag === "OBJE") {
+      const v = c.value?.trim();
+      const url = v && isPointer(v) ? urlOfObje(v) : childText(c, "FILE");
+      if (url && linkKey(url) === urlKey) return true;
+    }
+  }
+  return false;
+}
+
+/** Whether a container already cites the source at exactly this page. */
+function citesSourcePage(container: GedNode, sourceXref: string, page: string | undefined): boolean {
+  return childrenByTag(container, "SOUR").some(
+    (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+  );
+}
+
+/**
+ * The FAM a marriage-book link on a person belongs to. A single FAMS is
+ * unambiguous; with several, exactly one family may be tied to the same page
+ * by evidence: its MARR already cites the source at that page, the family (or
+ * its MARR) carries the same link, or the other spouse does. Zero or several
+ * matching families → undefined (the citation stays on the person).
+ */
+function resolveMarriageFam(hit: ScanHit, ctx: RelocationContext, sourceXref: string | undefined): string | undefined {
+  const fams = childrenByTag(hit.rec, "FAMS")
+    .map((c) => c.value?.trim())
+    .filter((v): v is string => !!v && isPointer(v));
+  if (fams.length <= 1) return fams[0];
+  const urlKey = linkKey(hit.url);
+  const matches = fams.filter((famXref) => {
+    const fam = ctx.byXref.get(famXref);
+    if (!fam) return false;
+    const marrs = childrenByTag(fam, "MARR");
+    if (sourceXref && marrs.some((m) => citesSourcePage(m, sourceXref, hit.recognized.page))) return true;
+    if (carriesLink(fam, urlKey, ctx.urlOfObje) || marrs.some((m) => carriesLink(m, urlKey, ctx.urlOfObje))) {
+      return true;
+    }
+    return ["HUSB", "WIFE"].some((tag) => {
+      const spouseXref = childText(fam, tag);
+      if (!spouseXref || spouseXref === hit.rec.xref) return false;
+      const spouse = ctx.byXref.get(spouseXref);
+      return !!spouse && carriesLink(spouse, urlKey, ctx.urlOfObje);
+    });
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 /** Resolve where a hit's citation should attach under the relocation option.
- *  Returns undefined when it stays at its original container. */
+ *  Returns undefined when it stays at its original container; `famXref` names
+ *  the FAM record hosting the event when the move crosses records. */
 function relocationTarget(
   hit: ScanHit,
   bookType: BookType,
   baptismTag: "BIRT" | "BAPM",
-): { eventTag: string; onFam: boolean } | undefined {
+  ctx: RelocationContext,
+  sourceXref: string | undefined,
+): { eventTag: string; famXref?: string } | undefined {
   if (bookType === "unknown" || hit.shape === "sourTitle") return undefined;
   const acceptable = ACCEPTABLE_TAGS[bookType];
   if (hit.eventTag && acceptable.has(hit.eventTag)) return undefined;
 
   if (bookType === "marriage") {
-    if (hit.rec.tag === "FAM") return hit.eventTag === "MARR" ? undefined : { eventTag: "MARR", onFam: false };
-    // From a person, only an unambiguous single-family move is safe.
-    const fams = childrenByTag(hit.rec, "FAMS")
-      .map((c) => c.value?.trim())
-      .filter((v): v is string => !!v && isPointer(v));
-    return fams.length === 1 ? { eventTag: "MARR", onFam: true } : undefined;
+    if (hit.rec.tag === "FAM") return hit.eventTag === "MARR" ? undefined : { eventTag: "MARR" };
+    // From a person the move must name one family: the sole FAMS, or the one
+    // the page's own evidence singles out among several.
+    const famXref = resolveMarriageFam(hit, ctx, sourceXref);
+    return famXref ? { eventTag: "MARR", famXref } : undefined;
   }
 
   if (hit.rec.tag !== "INDI") return undefined;
   const target = bookType === "baptism" ? baptismTag : bookType === "death" ? "DEAT" : "BURI";
-  return hit.eventTag === target ? undefined : { eventTag: target, onFam: false };
+  return hit.eventTag === target ? undefined : { eventTag: target };
 }
 
-/** Single FAMS xref of a person, when unambiguous. */
-function soleFamsXref(rec: GedNode): string | undefined {
-  const fams = childrenByTag(rec, "FAMS")
-    .map((c) => c.value?.trim())
-    .filter((v): v is string => !!v && isPointer(v));
-  return fams.length === 1 ? fams[0] : undefined;
+/** An owned page-image pointer already sitting beside its final citation
+ *  (same source+page, QUAY set) with no relocation left to make — the shape a
+ *  previous apply leaves when the marriage family stays unresolved. The
+ *  report hides it and the apply skips it, so reruns converge to zero. */
+function isSettledPointer(
+  hit: ScanHit,
+  move: { eventTag: string } | undefined,
+  sourceXref: string | undefined,
+  pageMedia: PageMediaStyle,
+): boolean {
+  if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
+  if (pageMedia !== "event" || !sourceXref) return false;
+  const cite = childrenByTag(hit.container, "SOUR").find(
+    (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (hit.recognized.page ?? ""),
+  );
+  return !!cite && !!firstChild(cite, "QUAY");
 }
 
 
@@ -1340,6 +1412,10 @@ export function findReshapableLinks(
   const { fold, pageMedia, baptismTag } = resolveFormatOptions(dataset.records, opts);
   const hits = scanOccurrences(dataset.records, sites, fold ? pageMedia : undefined);
   const groups = buildGroups(dataset.records, hits, fold);
+  const byXref = new Map<string, GedNode>();
+  for (const r of dataset.records) if (r.xref) byXref.set(r.xref, r);
+  const objeIndex = buildObjeIndex(dataset.records);
+  const ctx: RelocationContext = { byXref, urlOfObje: (xref) => objeIndex.get(xref)?.url };
 
   const recordLabel = (rec: GedNode): string => {
     if (rec.tag === "INDI") {
@@ -1358,24 +1434,30 @@ export function findReshapableLinks(
   const bySite = Object.fromEntries(ALL_SITES.map((s) => [s, 0])) as Record<ReshapeSite, number>;
   for (const state of groups.values()) {
     const g = state.group;
-    g.members = state.hits.map((hit) => {
+    g.members = state.hits.flatMap((hit) => {
       const move =
-        relocate && !hit.foldedInto && !hit.twinEvent ? relocationTarget(hit, g.bookType, baptismTag) : undefined;
-      return {
-        recordXref: hit.rec.xref ?? "?",
-        recordLabel: recordLabel(hit.rec),
-        recordTag: hit.rec.tag as ReshapeOccurrence["recordTag"],
-        eventTag: hit.eventTag,
-        eventIndex: hit.eventIndex,
-        shape: hit.shape,
-        url: hit.url,
-        page: hit.recognized.page,
-        prefix: hit.prefix,
-        targetEvent: move?.eventTag,
-        targetFam: move?.onFam ? soleFamsXref(hit.rec) : undefined,
-        foldedInto: hit.foldedInto,
-      };
+        relocate && !hit.foldedInto && !hit.twinEvent
+          ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
+          : undefined;
+      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia)) return [];
+      return [
+        {
+          recordXref: hit.rec.xref ?? "?",
+          recordLabel: recordLabel(hit.rec),
+          recordTag: hit.rec.tag as ReshapeOccurrence["recordTag"],
+          eventTag: hit.eventTag,
+          eventIndex: hit.eventIndex,
+          shape: hit.shape,
+          url: hit.url,
+          page: hit.recognized.page,
+          prefix: hit.prefix,
+          targetEvent: move?.eventTag,
+          targetFam: move?.famXref,
+          foldedInto: hit.foldedInto,
+        },
+      ];
     });
+    if (g.members.length === 0) continue; // everything already in its final shape
     total += g.members.length;
     bySite[g.site] += g.members.length;
     out.push(g);
@@ -1734,6 +1816,7 @@ export function reshapeSources(
   const createdObjeUrls = new Map<string, string>();
   const urlOfObje = (xref: string): string | undefined =>
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
+  const ctx: RelocationContext = { byXref, urlOfObje };
   const { resolve: resolvePlace, structuredAddr } = buildPlaceResolver(clone);
 
   for (const [key, state] of groups) {
@@ -1898,10 +1981,11 @@ export function reshapeSources(
       }
 
       const page = hit.recognized.page;
-      const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag) : undefined;
+      const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
+      if (isSettledPointer(hit, move, sourceXref, pageMedia)) continue;
       let container = hit.container;
       if (move) {
-        const host = move.onFam ? byXref.get(soleFamsXref(hit.rec) ?? "") : hit.rec;
+        const host = move.famXref ? byXref.get(move.famXref) : hit.rec;
         if (host) {
           let event = firstChild(host, move.eventTag);
           if (!event) {
@@ -1984,6 +2068,32 @@ export function reshapeSources(
         ensurePageMedia(container, order, hit.url);
         counts.citationsRewritten++;
         continue;
+      }
+
+      // Relocating takes an identical citation at the link's old spot along —
+      // the record-level citation an earlier run wrote while the marriage
+      // family was still unresolved — instead of leaving a redundant copy.
+      if (container !== hit.container) {
+        const stale = childrenByTag(hit.container, "SOUR").find(
+          (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+        );
+        if (stale) {
+          spliceChild(hit.container, stale);
+          const existing = childrenByTag(container, "SOUR").find(
+            (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+          );
+          if (existing) {
+            // Folds into the citation already there; carry its QUAY over.
+            const quay = childText(stale, "QUAY");
+            if (quay && !firstChild(existing, "QUAY")) {
+              existing.children.push({ level: existing.level + 1, tag: "QUAY", value: quay, children: [] });
+            }
+          } else {
+            relevel(stale, container.level + 1);
+            insertOrdered(container, stale, order);
+          }
+          counts.citationsRewritten++;
+        }
       }
 
       if (attachCitation(container, sourceXref, page, quayFor, order)) counts.citationsAdded++;
