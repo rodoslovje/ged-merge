@@ -246,7 +246,7 @@ describe("findReshapableLinks — scan", () => {
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
-2 SOUR https://www.sistory.si/ww2/ABC
+2 SOUR https://example.org/records/ABC
 0 TRLR`;
     expect(scan(text).groups).toHaveLength(0);
     const withOther = scan(text, ["matricula", "geneanet", "familysearch", "other"]);
