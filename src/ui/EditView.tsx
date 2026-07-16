@@ -1230,7 +1230,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         agency: childText(sourceNode, "AGNC"),
         place: childText(sourceNode, "PLAC"),
         filingNumber: childText(sourceNode, "FILN"),
-        note: childText(sourceNode, "NOTE"),
+        // A pointer note prefills with the shared record's resolved text (not
+        // the raw "@N1@"); saving routes the edit back into that record.
+        note: (() => {
+          const v = childText(sourceNode, "NOTE");
+          return v && isPointer(v) ? getMediaAndSourceCtx(dataset.records).noteIndex.get(v)?.trim() : v;
+        })(),
         url: resolved?.url,
         objeXref: resolved?.objeXref,
         page,
@@ -1247,7 +1252,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
-    updateSourceCitation(dataset.records, node, index, fields);
+    const notes = noteCtx(dataset.records);
+    updateSourceCitation(dataset.records, node, index, fields, notes);
     const ownerAfter = cloneRaw(ownerRaw);
 
     const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
@@ -1259,6 +1265,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
     }
     if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed
+    extraPatches.push(...noteChangePatches(notes.changes, { kind: owner.kind, id: owner.kind === "individual" ? owner.indi.id : owner.fam.id }));
+    afterNoteChanges(notes.changes, owner.kind === "individual" ? owner.indi.id : owner.fam.id);
 
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
@@ -1691,7 +1699,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             }}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
-            showAddNote={!notesAdded && !(person.notes ?? []).length}
+            showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
@@ -1718,7 +1726,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               />
             </div>
           )}
-          {((person.notes ?? []).length > 0 || notesAdded) && (() => {
+          {((person.noteRefs ?? []).some((r) => r.text.trim()) || notesAdded) && (() => {
             // Refresh the baseline while the person is clean (its notes are the
             // saved state); keep it once edits begin so changed notes stay bold.
             const bl = noteBaselineRef.current;
@@ -1730,7 +1738,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 <NotesEditor
                   key={`notes-${person.id}-${undoVersion}-${noteGenRef.current}`}
                   notes={person.noteRefs ?? []}
-                  addOnMount={notesAdded && !(person.notes ?? []).length}
+                  addOnMount={notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
                   sectionLabel={t("field.notes")}
                   baselineNotes={bl.get(person.id)}
                   t={t}

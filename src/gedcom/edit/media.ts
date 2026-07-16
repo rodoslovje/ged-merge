@@ -139,7 +139,11 @@ export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
   if (fields.date !== undefined) set("DATE", fields.date);
   if (fields.place !== undefined) set("PLAC", fields.place);
   if (fields.description !== undefined) {
-    objeNode.children = objeNode.children.filter((c) => c.tag !== "_DSCR" && c.tag !== "NOTE");
+    // Only an *inline* NOTE is the legacy description home — a `NOTE @N1@`
+    // pointer is a shared note in its own right (not shown as the
+    // description) and must survive a description edit.
+    const isSharedNote = (c: GedNode) => c.tag === "NOTE" && !!c.value && isPointer(c.value.trim());
+    objeNode.children = objeNode.children.filter((c) => (c.tag !== "_DSCR" && c.tag !== "NOTE") || isSharedNote(c));
     const v = fields.description.trim();
     if (v) objeNode.children.push({ level: objeNode.level + 1, tag: "_DSCR", value: v, children: [] });
   }

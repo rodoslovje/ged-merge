@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { NoteRef } from "../../gedcom/types";
-import { stripNoteLinks } from "../../gedcom/builder";
 import type { Translate } from "../../locales/i18n";
 import { ClearableTextarea } from "./ClearableInput";
 
 /** Multi-line notes attached to a person or family record.
  *
  * Works on `NoteRef`s (verbatim text + shared-record identity) so a pointer
- * to a shared NOTE record keeps its identity through an edit round-trip. Two
- * kinds of refs are carried through commits but not shown as chips: pointer
- * notes with no resolvable text (the record may still hold sub-structure)
- * and notes whose text is only URLs (those surface as link chips instead) —
- * previously an edit silently deleted them. */
+ * to a shared NOTE record keeps its identity through an edit round-trip.
+ * Every note with text is a chip — including URL-only ones, which the old
+ * string-based editor hid (and then silently deleted on the next edit). Only
+ * a pointer with no resolvable text stays chipless: it's carried through
+ * commits untouched (the record may still hold sub-structure). */
 export function NotesEditor({
   notes: initialNotes,
   addOnMount,
@@ -51,9 +50,9 @@ export function NotesEditor({
     }
   });
 
-  /** Carried but not chip-rendered: an empty pointer note, or a note whose
-   *  text is only URLs (a blank inline entry is a chip being typed into). */
-  const isHidden = (n: NoteRef) => (n.text.trim() ? !stripNoteLinks(n.text) : !!n.xref);
+  /** Carried but not chip-rendered: a pointer note with no resolvable text
+   *  (a blank inline entry is a chip being typed into). */
+  const isHidden = (n: NoteRef) => !n.text.trim() && !!n.xref;
 
   function commitNotes(next: NoteRef[]) {
     setNotes(next);
@@ -78,7 +77,13 @@ export function NotesEditor({
         wrapClassName="edit-note-chip"
         wrapStyle={noteWidth(note.text)}
         className={`edit-input edit-event-note${note.text.trim() && !baseline.has(note.text) ? " edit-input--dirty" : ""}`}
-        value={note.text}
+        // A shared record whose text starts on a CONT line (MacFamilyTree
+        // writes "0 @N@ NOTE" + "1 CONT https://…") has a leading newline in
+        // its verbatim value — hide it from the chip (a 1-row textarea would
+        // show only the blank first line), but keep the stored text verbatim
+        // until the user really edits, so an untouched blur can't rewrite the
+        // record.
+        value={note.text.replace(/^\n+/, "")}
         placeholder={t("field.notes")}
         title={t("field.notes")}
         rows={1}

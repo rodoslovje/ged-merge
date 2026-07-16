@@ -154,8 +154,14 @@ export function objeInfoOf(node: GedNode): ObjeInfo {
   const url = file && looksLikeUrl(file) ? file : undefined;
   const title = childText(fileNode ?? node, "TITL") ?? childText(node, "TITL");
   // Family Historian's `_KEYS` keywords ride along with the free-text
-  // description so they stay visible in the viewer.
-  const description = [childText(node, "_DSCR") ?? childText(node, "NOTE"), childText(node, "_KEYS")]
+  // description so they stay visible in the viewer. A `NOTE @N1@` pointer is
+  // a shared note, not an inline description — showing it would surface the
+  // raw xref.
+  const inlineNote = (() => {
+    const v = childText(node, "NOTE");
+    return v && isPointer(v) ? undefined : v;
+  })();
+  const description = [childText(node, "_DSCR") ?? inlineNote, childText(node, "_KEYS")]
     .filter(Boolean)
     .join(" · ") || undefined;
   return {

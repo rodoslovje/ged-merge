@@ -7,6 +7,7 @@ import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
 const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion } from "./cache";
 import { createMediaRecord, referencedObjeXrefs } from "./media";
+import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 
 /** Fields for a newly authored `SOUR` record — see `createSourceRecord`. */
 export interface NewSourceFields {
@@ -94,7 +95,7 @@ export type EditSourceFields = NewSourceFields & { place?: string; page?: string
  * never touching another page's file. For an inline (plain-text) citation,
  * only its own value/page can change (there's no shared record).
  */
-export function updateSourceCitation(records: GedNode[], node: GedNode, index: number, fields: EditSourceFields): void {
+export function updateSourceCitation(records: GedNode[], node: GedNode, index: number, fields: EditSourceFields, notes?: SharedNoteCtx): void {
   const citation = sourceCitationNodes(node)[index];
   if (!citation) return;
 
@@ -123,7 +124,21 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
   setChild("AGNC", fields.agency);
   setChild("PLAC", fields.place);
   setChild("FILN", fields.filingNumber);
-  setChild("NOTE", fields.note);
+  // A NOTE that points at a shared record is edited inside that record (the
+  // dialog was prefilled with its resolved text); clearing it releases the
+  // reference, deleting the record only once nothing else uses it.
+  const noteNode = firstChild(sourceNode, "NOTE");
+  const notePtr = noteNode?.value?.trim();
+  if (noteNode && notePtr && isPointer(notePtr) && notes) {
+    if (!fields.note?.trim()) {
+      sourceNode.children = sourceNode.children.filter((c) => c !== noteNode);
+      removeNoteRecordIfOrphaned(notes, notePtr);
+    } else {
+      setSharedNoteText(notes, notePtr, fields.note);
+    }
+  } else {
+    setChild("NOTE", fields.note);
+  }
 
   const url = fields.url?.trim();
   const soleObjeXref = sourceNode.children.filter((c) => c.tag === "OBJE" && c.value).length === 1

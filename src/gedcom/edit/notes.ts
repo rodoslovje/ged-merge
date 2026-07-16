@@ -59,11 +59,15 @@ export function countNoteRefs(records: GedNode[], xref: string): number {
   return n;
 }
 
-/** Rewrite the text of shared NOTE record `xref` in place (no-op if the text
- *  is unchanged or the record doesn't exist), recording the change in `ctx`. */
+/** Rewrite the text of shared NOTE record `xref` in place, recording the
+ *  change in `ctx`. No-op if the record doesn't exist or the text is
+ *  trim-equal to what's stored: editors show/prefill trimmed text (a
+ *  MacFamilyTree record's text starts on a CONT line, i.e. with a newline),
+ *  and an untouched save must not rewrite records with whitespace-only
+ *  differences. */
 export function setSharedNoteText(ctx: SharedNoteCtx, xref: string, text: string): void {
   const rec = findNoteRecord(ctx.records, xref);
-  if (!rec || (rec.value ?? "") === text) return;
+  if (!rec || (rec.value ?? "").trim() === text.trim()) return;
   const before = cloneNode(rec);
   rec.value = text;
   // The note index caches record *values*, so an in-place text edit goes stale.

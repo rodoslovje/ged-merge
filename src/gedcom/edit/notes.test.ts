@@ -4,7 +4,7 @@ import { buildDataset } from "../builder";
 import { serializeGedcom } from "../serialize";
 import {
   applyEventNodeUpdate, applyNoteRefs, countNoteRefs, noteCtx,
-  rebuildNoteReferrers, setNotes,
+  rebuildNoteReferrers, setMediaInfo, setNotes, updateSourceCitation,
 } from "../edit";
 import { INDI_CHILD_ORDER } from "./shared";
 import { firstChild } from "../node";
@@ -199,6 +199,50 @@ describe("event pointer notes", () => {
     expect(firstChild(birt, "NOTE")).toBeUndefined();
   });
 
+  it("source-record pointer notes edit inside the shared record via the Edit Source dialog path", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 SOUR @S1@",
+      "2 PAGE p. 5",
+      "0 @S1@ SOUR",
+      "1 TITL Parish register",
+      "1 NOTE @N1@",
+      "0 @N1@ NOTE register remark",
+      "0 TRLR",
+    ]);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Parish register", page: "p. 5", note: "better remark" }, ctx);
+
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 NOTE @N1@");
+    expect(out).toContain("0 @N1@ NOTE better remark");
+    expect(ctx.changes.map((c) => c.xref)).toEqual(["@N1@"]);
+
+    // Clearing the note releases the reference and removes the orphaned record.
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Parish register", page: "p. 5", note: "" }, ctx);
+    expect(serializeGedcom(ds.records)).not.toContain("@N1@");
+  });
+
+  it("setMediaInfo keeps a shared pointer note while migrating the description", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @O1@ OBJE",
+      "1 FILE photo.jpg",
+      "1 NOTE @N1@",
+      "1 NOTE old inline description",
+      "0 @N1@ NOTE shared media note",
+      "0 TRLR",
+    ]);
+    const obje = ds.records.find((r) => r.xref === "@O1@")!;
+    setMediaInfo(obje, { description: "new description" });
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 NOTE @N1@"); // pointer survives
+    expect(out).not.toContain("old inline description"); // inline NOTE migrated
+    expect(out).toContain("1 _DSCR new description");
+  });
+
   it("without a ctx, inline behavior is unchanged", () => {
     const ds = buildFromText([
       "0 HEAD",
@@ -211,6 +255,23 @@ describe("event pointer notes", () => {
     const birt = firstChild(indi.raw, "BIRT")!;
     applyEventNodeUpdate(indi.raw, birt, { note: "edited note" });
     expect(firstChild(birt, "NOTE")?.value).toBe("edited note");
+  });
+
+  it("whitespace-only differences don't rewrite the record (trimmed dialog prefill)", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE @N1@",
+      "0 @N1@ NOTE",
+      "1 CONT https://www.facebook.com/annik.alvarado",
+      "0 TRLR",
+    ]);
+    // The record's text starts on a CONT line → verbatim value has a leading
+    // newline; committing the trimmed form back must be a no-op.
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, ds.individuals.get("@I1@")!, [{ xref: "@N1@", text: "https://www.facebook.com/annik.alvarado" }]);
+    expect(ctx.changes).toHaveLength(0);
+    expect(serializeGedcom(ds.records)).toContain("1 CONT https://www.facebook.com/annik.alvarado");
   });
 
   it("multi-line pointer-note text serializes as CONT lines in the record", () => {
