@@ -62,7 +62,7 @@ export function FamilyEventRow({
       label={label}
       tag={tag}
       t={t}
-      commitField={(update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches)}
+      commitField={(update, extraPatches) => commit(fam, (f, notes) => setFamilyEventField(f, tag, update, notes), extraPatches)}
       onRemove={onRemove}
       onChangeTag={tagChoices.length > 1 ? (newTag) => {
         commit(fam, (f) => changeFamilyEventTag(f, tag, newTag));

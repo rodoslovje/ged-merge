@@ -103,6 +103,9 @@ interface SharedSectionProps {
    *  for the memo's prop comparison. */
   relationsGen: number;
   undoVersion: number;
+  /** Bumped when a shared NOTE record changes via another owner's edit, so
+   *  this section's note chips remount and re-read the shared text. */
+  noteGen?: number;
 }
 
 // ── Parents band ─────────────────────────────────────────────────────────────
@@ -294,6 +297,7 @@ export const FamilySection = memo(function FamilySection({
   startId,
   startPersonName,
   undoVersion,
+  noteGen,
   commitFamily,
   openEditSource,
   onOpenSourceDialog,
@@ -536,11 +540,11 @@ export const FamilySection = memo(function FamilySection({
       {fam && (
         <div className="edit-record-section">
           <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}`}
-            notes={fam.notes ?? []}
+            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}`}
+            notes={fam.noteRefs ?? []}
             addTrigger={famNoteAddCount}
             t={t}
-            onCommit={(notes) => commitFamily(fam, (f) => setFamilyNotes(f, notes))}
+            onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
@@ -43,8 +43,10 @@ import {
   insertOrdered,
   insertRecord,
   insertRecordAt,
+  noteCtx,
   rebuildFamily,
   rebuildIndividual,
+  rebuildNoteReferrers,
   removeIndividual,
   removeSourceCitationAtIndex,
   setIndividualLinks,
@@ -53,6 +55,8 @@ import {
   updateSourceCitation,
   type EditSourceFields,
   type NewSourceFields,
+  type SharedNoteChange,
+  type SharedNoteCtx,
 } from "../gedcom/edit";
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
 import { applySiteSourceExtras, detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
@@ -283,6 +287,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           rebuildFamily(dataset, { raw: restored } as any);
         }
       }
+    }
+    // Shared NOTE records restored above: referrers other than the patched
+    // owner still project the pre-undo text — refresh them (and the editors).
+    const noteChanges = patches
+      .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "NOTE")
+      .map((p) => ({ xref: p.id }));
+    if (noteChanges.length) {
+      rebuildNoteReferrers(dataset, noteChanges);
+      noteGenRef.current++;
     }
   }
 
@@ -738,26 +751,40 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
-  const commit: Commit = useStableHandler((mutate: (indi: Individual) => void, extraPatches?: RecordPatch[]) => {
+  /** After a commit whose note ctx touched shared NOTE records: refresh every
+   *  other referrer's stale projection and remount the note editors. */
+  function afterNoteChanges(changes: SharedNoteChange[], skipId: string) {
+    if (!changes.length) return;
+    rebuildNoteReferrers(dataset, changes, skipId);
+    noteGenRef.current++;
+  }
+
+  const commit: Commit = useStableHandler((mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
-    mutate(person);
+    const notes = noteCtx(dataset.records);
+    mutate(person, notes);
     const after = cloneRaw(person.raw);
-    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
+    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: person.id })];
+    if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildIndividual(dataset, person);
-    onPushEdit([{ type: "individual", id: person.id, before, after }, ...(extraPatches ?? [])], selectedId);
+    onPushEdit([{ type: "individual", id: person.id, before, after }, ...extra], selectedId);
     onDirty("individual", person.id);
+    afterNoteChanges(notes.changes, person.id);
     setTick((v) => v + 1);
   });
 
-  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family) => void, extraPatches?: RecordPatch[]) => {
+  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
-    mutate(fam);
+    const notes = noteCtx(dataset.records);
+    mutate(fam, notes);
     const after = cloneRaw(fam.raw);
-    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
+    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
+    if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildFamily(dataset, fam);
-    onPushEdit([{ type: "family", id: fam.id, before, after }, ...(extraPatches ?? [])], selectedId);
+    onPushEdit([{ type: "family", id: fam.id, before, after }, ...extra], selectedId);
     onDirty("family", fam.id);
+    afterNoteChanges(notes.changes, fam.id);
     setTick((v) => v + 1);
   });
 
@@ -777,6 +804,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * remounted (and re-resolved blobs for) every tray on every keystroke-commit.
    */
   const mediaGenRef = useRef(0);
+  /**
+   * Bumped when a shared top-level `NOTE` record is edited or removed — the
+   * note editors key on it so a referrer's chips remount and re-read text
+   * that changed via *another* owner's edit (the shared-note counterpart of
+   * `mediaGenRef`).
+   */
+  const noteGenRef = useRef(0);
 
   // ── Media (OBJE) ──────────────────────────────────────────────────────────
 
@@ -1689,18 +1723,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             // saved state); keep it once edits begin so changed notes stay bold.
             const bl = noteBaselineRef.current;
             if (!changedPersonIds.has(person.id) || !bl.has(person.id)) {
-              bl.set(person.id, person.notes ?? []);
+              bl.set(person.id, (person.noteRefs ?? []).map((r) => r.text));
             }
             return (
               <div className="edit-record-section">
                 <NotesEditor
-                  key={`notes-${person.id}-${undoVersion}`}
-                  notes={person.notes ?? []}
+                  key={`notes-${person.id}-${undoVersion}-${noteGenRef.current}`}
+                  notes={person.noteRefs ?? []}
                   addOnMount={notesAdded && !(person.notes ?? []).length}
                   sectionLabel={t("field.notes")}
                   baselineNotes={bl.get(person.id)}
                   t={t}
-                  onCommit={(notes) => commit((indi) => setNotes(indi, notes))}
+                  onCommit={(refs) => commit((indi, notes) => setNotes(notes, indi, refs))}
                 />
               </div>
             );
@@ -1757,6 +1791,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               startPersonName={startPersonName}
               relationsGen={relationsGenRef.current}
               undoVersion={undoVersion}
+              noteGen={noteGenRef.current}
               commitFamily={commitFamily}
               openEditSource={openEditSource}
               onOpenSourceDialog={setSourceDialogTarget}

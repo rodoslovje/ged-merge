@@ -1,10 +1,12 @@
 import { INDI_EVENT_TAGS } from "../eventTags";
 import { childrenByTag, firstChild, hasChild, removeChildren } from "../node";
+import { isPointer } from "../uri";
 import type { Family, GedNode, Individual } from "../types";
 import {
   EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
   insertOrdered, markEventTouched, setOrRemoveValue,
 } from "./shared";
+import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 import { attachSourceCitation } from "./sources";
 
 export interface EventFieldUpdate {
@@ -46,13 +48,33 @@ function setLinks(event: GedNode, links: string[]): void {
   }
 }
 
+/** Apply the note field of an event update. When the event's existing NOTE is
+ *  a pointer to a shared record (and a `SharedNoteCtx` is given), the edit is
+ *  applied inside that record — the pointer survives, and removing the note
+ *  releases the reference (deleting the record only once nothing else uses it). */
+function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx): void {
+  const noteNode = firstChild(eventNode, "NOTE");
+  const ptr = noteNode?.value?.trim();
+  if (noteNode && ptr && isPointer(ptr) && notes) {
+    if (!note.trim()) {
+      const i = eventNode.children.indexOf(noteNode);
+      if (i !== -1) eventNode.children.splice(i, 1);
+      removeNoteRecordIfOrphaned(notes, ptr);
+    } else {
+      setSharedNoteText(notes, ptr, note);
+    }
+    return;
+  }
+  setOrRemoveValue(eventNode, "NOTE", note, EVENT_CHILD_ORDER);
+}
+
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
-export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate): void {
+export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
-  if (update.note !== undefined) setOrRemoveValue(eventNode, "NOTE", update.note, EVENT_CHILD_ORDER);
+  if (update.note !== undefined) applyEventNote(eventNode, update.note, notes);
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
   if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
@@ -87,7 +109,7 @@ function eventUpdateHasContent(update: EventFieldUpdate): boolean {
  * `2 ADDR`/`2 WWW` children. Fields set to `""`/`[]` remove the corresponding
  * lines; an event left with no children and no value is removed entirely.
  */
-function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[]): GedNode | undefined {
+function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpdate, order: string[], notes?: SharedNoteCtx): GedNode | undefined {
   let event = firstChild(record, tag);
   const isNewEvent = !event;
   if (!event) {
@@ -95,7 +117,7 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
     event = { level: record.level + 1, tag, children: [] };
     insertOrdered(record, event, order);
   }
-  applyEventNodeUpdate(record, event, update);
+  applyEventNodeUpdate(record, event, update, notes);
   // `applyEventNodeUpdate` removes the node from `record.children` if the
   // update left it empty — don't hand back a now-detached node.
   if (!record.children.includes(event)) return undefined;
@@ -106,16 +128,16 @@ function setRecordEventField(record: GedNode, tag: string, update: EventFieldUpd
 /** Update an individual event's date, place, address and/or links — see
  * `setRecordEventField`. Returns the event node touched (or created), or
  * `undefined` if there was nothing to set and no event already existed. */
-export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate): GedNode | undefined {
-  return setRecordEventField(indi.raw, tag, update, INDI_CHILD_ORDER);
+export function setEventField(indi: Individual, tag: string, update: EventFieldUpdate, notes?: SharedNoteCtx): GedNode | undefined {
+  return setRecordEventField(indi.raw, tag, update, INDI_CHILD_ORDER, notes);
 }
 
 /** Update an individual event at position `index` in `indi.events` (0-based). */
-export function setEventFieldAtIndex(indi: Individual, index: number, update: EventFieldUpdate): void {
+export function setEventFieldAtIndex(indi: Individual, index: number, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
   const eventNode = eventNodes[index];
   if (eventNode) {
-    applyEventNodeUpdate(indi.raw, eventNode, update);
+    applyEventNodeUpdate(indi.raw, eventNode, update, notes);
     if (indi.raw.children.includes(eventNode)) markEventTouched(eventNode, "changed");
   }
 }
@@ -190,8 +212,8 @@ export function addEventNode(indi: Individual, tag: string): void {
 
 /** Update a family event's (e.g. `1 MARR`) date, place, address and/or
  * links — see `setRecordEventField`. */
-export function setFamilyEventField(fam: Family, tag: string, update: EventFieldUpdate): void {
-  setRecordEventField(fam.raw, tag, update, FAM_CHILD_ORDER);
+export function setFamilyEventField(fam: Family, tag: string, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
+  setRecordEventField(fam.raw, tag, update, FAM_CHILD_ORDER, notes);
 }
 
 /** Change a family event's tag (e.g. turn an Engagement into a Marriage) in

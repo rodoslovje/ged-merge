@@ -199,7 +199,7 @@ export const EventList = memo(function EventList({
         tag="BIRT"
         t={t}
         commitField={(update, extraPatches) => {
-          commit((indi) => setEventField(indi, "BIRT", update), extraPatches);
+          commit((indi, notes) => setEventField(indi, "BIRT", update, notes), extraPatches);
           onResolveMergeField?.(birtMergeKeyBase, birtMergeKeyBase, subsOf(update));
         }}
         forcedKeyBase={birtMergeKeyBase}
@@ -228,7 +228,7 @@ export const EventList = memo(function EventList({
             tag={row.ev.tag}
             t={t}
             commitField={(update, extraPatches) => {
-              commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches);
+              commit((indi, notes) => setEventFieldAtIndex(indi, row.i, update, notes), extraPatches);
               onResolveMergeField?.(row.mergeKeyBase, String(row.stableKey), subsOf(update));
             }}
             onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}

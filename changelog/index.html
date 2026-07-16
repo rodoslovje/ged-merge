@@ -86,6 +86,13 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-16</h2>
+            <ul>
+              <li><strong>Shared notes keep their identity through edits.</strong> Notes stored as shared records (MacFamilyTree, webtrees, MyHeritage exports write <code>NOTE @N1@</code> pointers) used to be flattened into plain text copies by any note edit — orphaning the shared record and losing whatever it carried (privacy flags, change history). Editing a note now updates the shared record itself, so every person or event referencing it sees the new text, and the pointer structure round-trips losslessly; removing the last reference cleans the record up.</li>
+              <li>Editing any event field no longer rewrites the event's untouched note as a side effect — notes whose text is only a link, and note URLs in general, survive unrelated edits instead of being silently dropped.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-15</h2>
             <ul>
               <li><strong>Organize sources</strong> now places a marriage-book link found on a person with several marriages onto the right family's MARR event, identified by the page's own evidence: the family whose marriage already cites the same book and page, or whose other spouse carries the same page link. The record-level citation an earlier run left on the person moves along with it.</li>

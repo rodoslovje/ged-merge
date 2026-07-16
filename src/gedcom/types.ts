@@ -200,6 +200,21 @@ export interface SourceCitation {
   objeXref?: string;
 }
 
+/**
+ * One record-level note as an editable reference: its verbatim text plus the
+ * shared `0 @N…@ NOTE` record it points to, when it's a pointer note. Unlike
+ * the display-oriented `notes` (URLs stripped, markup tidied), `text` is the
+ * stored text as-is, so writing it back round-trips losslessly and an edit to
+ * a pointer note can be applied to the shared record instead of flattening
+ * the pointer into an inline copy.
+ */
+export interface NoteRef {
+  /** xref of the shared NOTE record this note points to; absent = inline note. */
+  xref?: string;
+  /** Full note text, verbatim — for a pointer note, the referenced record's text. */
+  text: string;
+}
+
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
 export interface GedEvent {
   tag: string;
@@ -221,6 +236,10 @@ export interface GedEvent {
    *  had links stripped out of it (they live in `links` for merging).
    *  Renderers that show the note verbatim (reports) prefer this. */
   noteWithLinks?: string;
+  /** When the event's first NOTE sub-tag is a pointer to a shared NOTE record,
+   *  that record's xref — note edits are applied to the record, keeping the
+   *  pointer (and the record's sharing) intact. */
+  noteXref?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
   /** Source citations (`SOUR`) attached to this event. */
@@ -244,6 +263,10 @@ export interface Individual {
    *  had links stripped (they live in `links` for merging). Renderers that
    *  show notes verbatim (reports) prefer this. */
   notesWithLinks?: string[];
+  /** Every record-level note as an editable reference (verbatim text + shared-record
+   *  identity), including notes `notes` hides because only a URL remains after
+   *  stripping. The editing UI works on these; `notes` stays display-only. */
+  noteRefs?: NoteRef[];
   /** Source citations (`SOUR`) attached directly to the individual (not to a specific event). */
   sources?: SourceCitation[];
   /** Record-level unique identifiers (`_UID` vendor tag / GEDCOM 7 `UID`),
@@ -269,6 +292,8 @@ export interface Family {
   notes?: string[];
   /** The same notes with their URLs kept in place (see {@link Individual.notesWithLinks}). */
   notesWithLinks?: string[];
+  /** Editable note references (see {@link Individual.noteRefs}). */
+  noteRefs?: NoteRef[];
   /** Source citations (`SOUR`) attached directly to the family (not to a specific event). */
   sources?: SourceCitation[];
   raw: GedNode;
