@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableTextarea } from "./ClearableInput";
 
 /** First URL in a note's text, for the chip's open-link button. */
@@ -101,8 +100,8 @@ export function NotesEditor({
           onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
         />
         {url && (
-          <a className="note-chip-btn" href={url} target="_blank" rel="noreferrer noopener" title={url}>
-            {siteIconForUrl(url) ?? "🔗"}
+          <a className="source-ref-open" href={url} target="_blank" rel="noreferrer noopener" title={url}>
+            ↗
           </a>
         )}
         <button
