@@ -385,7 +385,8 @@ function makeNode(
     years: birthYears(main, incoming),
     age: lifespanAge(primary),
     place: placeLabel(primary),
-    living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs),
+    // Declared-private people redact exactly like the presumed-living.
+    living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs) || !!main?.private || !!incoming?.private,
     sex,
     detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt),
     children: [],

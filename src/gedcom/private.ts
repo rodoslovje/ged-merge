@@ -41,10 +41,9 @@ export function isPrivateNode(node: GedNode): boolean {
 
 /**
  * The file's own privacy dialect, from the markers it already carries (most
- * common wins; PRIV > _PRIV > RESN on ties). A file with none uses the
- * standard RESN.
+ * common wins; PRIV > _PRIV > RESN on ties) — undefined when it has none.
  */
-export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
+export function detectPrivacyStyleIfAny(records: GedNode[]): PrivacyTagStyle | undefined {
   const counts: Record<PrivacyTagStyle, number> = { PRIV: 0, _PRIV: 0, RESN: 0 };
   const countIn = (node: GedNode) => {
     for (const child of node.children) {
@@ -58,7 +57,12 @@ export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
     for (const child of rec.children) countIn(child);
   }
   const best = (Object.keys(counts) as PrivacyTagStyle[]).reduce((a, b) => (counts[b] > counts[a] ? b : a));
-  return counts[best] > 0 ? best : "RESN";
+  return counts[best] > 0 ? best : undefined;
+}
+
+/** Like {@link detectPrivacyStyleIfAny}, defaulting to the standard RESN. */
+export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
+  return detectPrivacyStyleIfAny(records) ?? "RESN";
 }
 
 /** GEDCOM version of the file, for RESN's enum casing (7.0 is upper-case). */

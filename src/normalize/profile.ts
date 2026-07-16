@@ -1,6 +1,7 @@
 import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
+import { detectPrivacyStyleIfAny } from "../gedcom/private";
 import { firstChild } from "../gedcom/node";
 import type { Dataset, DateOrder } from "../gedcom/types";
 import type {
@@ -75,6 +76,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
     placeFmt: inferPlaceExportFormat(main),
     nameVariants: inferNameVariants(main),
     unknownName: analyzeUnknownNames(main).target,
+    privacyStyle: detectPrivacyStyleIfAny(main.records),
   };
 }
 

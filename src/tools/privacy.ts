@@ -28,7 +28,7 @@ export type ResnMode = "stripStamp" | "stripOnly" | "markOnly";
 export type StripCategory = "events" | "notes" | "sources" | "media" | "contact";
 
 /** Why an individual was flagged as living — surfaced in the preview breakdown. */
-export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath";
+export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath" | "declared";
 
 export interface PrivacyOptions {
   /** Treat an undated, un-dead person as living if their (estimated) birth is
@@ -134,6 +134,9 @@ function livingReason(
   opts: PrivacyOptions,
   currentYear: number,
 ): { reason: LivingReason; estimate?: BirthEstimate } | undefined {
+  // An explicit private flag (PRIV / _PRIV / RESN privacy) is the user's own
+  // declaration — it wins over every date heuristic, deceased or not.
+  if (indi.private) return { reason: "declared" };
   if (isDeceased(indi)) {
     const dy = deathYear(indi);
     if (opts.alsoRecentlyDeceasedYears > 0 && dy !== undefined && currentYear - dy <= opts.alsoRecentlyDeceasedYears) {
@@ -332,7 +335,7 @@ export function privatizeDataset(
     }
   }
 
-  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, unknown: 0, recentDeath: 0 };
+  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, unknown: 0, recentDeath: 0, declared: 0 };
   for (const f of flaggedList) byReason[f.reason]++;
 
   const report: PrivacyReport = {

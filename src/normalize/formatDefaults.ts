@@ -3,6 +3,7 @@ import { walkNodes } from "./walk";
 import { inferSourceFormat } from "../gedcom/source";
 import { LINK_TAGS } from "../gedcom/builder";
 import { looksLikeUrl } from "../gedcom/uri";
+import { detectPrivacyStyleIfAny } from "../gedcom/private";
 import {
   baptismTargetTag,
   detectCitationPlacement,
@@ -50,6 +51,7 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
     doubledLinks: prefersDoubledLinks(dataset.records) ? "keep" : "fold",
     matriculaLang: linkLangs.matricula,
     geneanetLang: linkLangs.geneanet,
+    privacy: detectPrivacyStyleIfAny(dataset.records),
   };
   for (const k of Object.keys(out) as (keyof FormatOverrides)[]) if (out[k] === undefined) delete out[k];
   return out;

@@ -41,8 +41,10 @@ export interface SharedNoteCtx {
   privacyStyle?: PrivacyTagStyle;
 }
 
-export function noteCtx(records: GedNode[]): SharedNoteCtx {
-  return { records, changes: [] };
+/** `privacyStyle` presets the marker dialect (e.g. the Settings override);
+ *  left out, it's detected from the file on first use. */
+export function noteCtx(records: GedNode[], privacyStyle?: PrivacyTagStyle): SharedNoteCtx {
+  return { records, changes: [], ...(privacyStyle ? { privacyStyle } : {}) };
 }
 
 /** The file's privacy dialect, detected once per ctx (i.e. per commit). */

@@ -45,6 +45,8 @@ export interface MediaEditFields {
   date: string;
   place: string;
   description: string;
+  /** Private flag (PRIV / _PRIV / RESN privacy, in the file's dialect). */
+  private: boolean;
 }
 
 /** Makes a photo's info panel editable (Edit/main context only): the current
@@ -374,6 +376,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                   date: ref.date ?? "",
                   place: ref.place ?? "",
                   description: ref.description ?? "",
+                  private: !!ref.private,
                 },
                 onSave: (fields) => onEditMedia(ref, fields),
                 crop: ref.crop,
@@ -463,6 +466,23 @@ function MediaInfoEditor({
         <span>{t("media.field.description")}</span>
         <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} onBlur={commit} />
       </label>
+      <div className="media-edit-field">
+        <span>{t("edit.privateLabel")}</span>
+        <button
+          type="button"
+          className={`edit-name-chip private-toggle${fields.private ? " is-on" : ""}`}
+          title={t(fields.private ? "edit.privateOn" : "edit.privateOff")}
+          aria-pressed={fields.private}
+          onClick={() => {
+            const next = { ...fields, private: !fields.private };
+            setFields(next);
+            onSaved(next);
+            edit.onSave(next);
+          }}
+        >
+          🔒{fields.private ? ` ${t("edit.privateLabel")}` : ""}
+        </button>
+      </div>
     </div>
   );
 }

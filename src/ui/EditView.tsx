@@ -74,7 +74,7 @@ import { FamilySection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
-import { detectPrivacyStyle, setPrivateFlag } from "../gedcom/private";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -752,8 +752,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
   // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
-  // family lock toggles write markers in the file's own style.
-  const privacyStyle = useMemo(() => detectPrivacyStyle(dataset.records), [dataset.records]);
+  // family lock toggles write markers in the file's own style, unless the
+  // Settings → GEDCOM override picks one explicitly.
+  const privacyStyle = useMemo(
+    () => settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
+    [dataset.records, settings.formatOverrides.privacy],
+  );
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
   /** After a commit whose note ctx touched shared NOTE records: refresh every
@@ -767,7 +771,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const commit: Commit = useStableHandler((mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
-    const notes = noteCtx(dataset.records);
+    const notes = noteCtx(dataset.records, privacyStyle);
     mutate(person, notes);
     const after = cloneRaw(person.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: person.id })];
@@ -781,7 +785,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
-    const notes = noteCtx(dataset.records);
+    const notes = noteCtx(dataset.records, privacyStyle);
     mutate(fam, notes);
     const after = cloneRaw(fam.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
@@ -868,6 +872,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (!rec) return;
       const before = cloneRaw(rec);
       setMediaInfo(rec, fields);
+      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
       const after = cloneRaw(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
@@ -889,7 +894,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else {
       ownerCommit(owner, (r) => {
         const child = mediaNodeAt(r, addr);
-        if (child) setMediaInfo(child, fields);
+        if (child) {
+          setMediaInfo(child, fields);
+          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
+        }
       });
     }
   }
@@ -1257,7 +1265,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
-    const notes = noteCtx(dataset.records);
+    const notes = noteCtx(dataset.records, privacyStyle);
     updateSourceCitation(dataset.records, node, index, fields, notes);
     const ownerAfter = cloneRaw(ownerRaw);
 

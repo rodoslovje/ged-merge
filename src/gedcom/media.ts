@@ -13,6 +13,7 @@
 
 import { cropOf, isPointer, objeInfoOf, objeNodesFor, type CropRegion } from "./source";
 import { childrenByTag, firstChild, hasChild } from "./node";
+import { isPrivateNode } from "./private";
 import type { GedNode } from "./types";
 
 export type MediaMode = "inline" | "shared";
@@ -88,6 +89,8 @@ export interface MediaRef extends MediaAddress {
   place?: string;
   /** Free-text description, from `_DSCR` or `NOTE`. */
   description?: string;
+  /** The media item is flagged private (PRIV / _PRIV / RESN privacy). */
+  private?: boolean;
   /** Shared media record xref, present only for pointer-style OBJE links. */
   xref?: string;
   /** GEDCOM 7 crop region from the OBJE *link* — the part of this (group) photo
@@ -98,7 +101,7 @@ export interface MediaRef extends MediaAddress {
 /** Local file, title, and descriptive content for one OBJE node, or null when
  *  it's a URL/has no file. Reuses the shared OBJE parser; keeps only nodes whose
  *  `FILE` is a local filename (a displayable photo), dropping URL-only links. */
-function objeMediaRef(objeNode: GedNode): Pick<MediaRef, "file" | "title" | "date" | "place" | "description"> | null {
+function objeMediaRef(objeNode: GedNode): Pick<MediaRef, "file" | "title" | "date" | "place" | "description" | "private"> | null {
   const info = objeInfoOf(objeNode);
   if (!info.file || info.url) return null;
   return {
@@ -107,6 +110,7 @@ function objeMediaRef(objeNode: GedNode): Pick<MediaRef, "file" | "title" | "dat
     date: info.date,
     place: info.place,
     description: info.description,
+    private: isPrivateNode(objeNode) || undefined,
   };
 }
 

@@ -181,7 +181,7 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
   // Redact people inferred to be living: label only (a bar would betray the
   // dates), name replaced by their kinship to the start person or "Living".
   const redacted = useCallback(
-    (row: TimelineRow) => settings.privacyLiving && row.living,
+    (row: TimelineRow) => settings.privacyLiving && (row.living || !!row.private),
     [settings.privacyLiving],
   );
   const rowName = useCallback(

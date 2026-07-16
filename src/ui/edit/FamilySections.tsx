@@ -386,7 +386,8 @@ export const FamilySection = memo(function FamilySection({
             <PrivateToggle
               on={!!fam.private}
               t={t}
-              onToggle={() => commitFamily(fam, (f) => setPrivateFlag(f.raw, !f.private, detectPrivacyStyle(dataset.records), dataset.records))}
+              onToggle={() => commitFamily(fam, (f) =>
+                setPrivateFlag(f.raw, !f.private, settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (

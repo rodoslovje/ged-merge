@@ -71,6 +71,10 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
       { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
     ],
   },
+  {
+    group: "privacy",
+    dims: [{ key: "privacy", choices: ["PRIV", "_PRIV", "RESN"], verbatim: true }],
+  },
 ];
 
 /** Concrete, language-neutral samples of what each choice writes — shown
@@ -96,6 +100,7 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   pageMedia: { event: "2 SOUR + 2 OBJE", source: "0 SOUR › 1 OBJE" },
   baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
+  privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
