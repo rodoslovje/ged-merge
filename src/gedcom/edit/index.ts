@@ -41,8 +41,8 @@ export {
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks } from "./records";
 
 export {
-  noteCtx, applyNoteRefs, setSharedNoteText, removeNoteRecordIfOrphaned,
-  countNoteRefs, rebuildNoteReferrers,
+  noteCtx, applyNoteRefs, setSharedNoteText, setSharedNotePrivate,
+  removeNoteRecordIfOrphaned, countNoteRefs, rebuildNoteReferrers,
 } from "./notes";
 export type { SharedNoteChange, SharedNoteCtx } from "./notes";
 

@@ -73,6 +73,8 @@ import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSource
 import { FamilySection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
+import { PrivateToggle } from "./edit/PrivateToggle";
+import { detectPrivacyStyle, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -749,6 +751,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
+  // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
+  // family lock toggles write markers in the file's own style.
+  const privacyStyle = useMemo(() => detectPrivacyStyle(dataset.records), [dataset.records]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
   /** After a commit whose note ctx touched shared NOTE records: refresh every
@@ -1234,7 +1239,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         // the raw "@N1@"); saving routes the edit back into that record.
         note: (() => {
           const v = childText(sourceNode, "NOTE");
-          return v && isPointer(v) ? getMediaAndSourceCtx(dataset.records).noteIndex.get(v)?.trim() : v;
+          return v && isPointer(v) ? getMediaAndSourceCtx(dataset.records).noteIndex.get(v)?.text.trim() : v;
         })(),
         url: resolved?.url,
         objeXref: resolved?.objeXref,
@@ -1704,7 +1709,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
             marriedNameTag={marriedNameTag}
-            leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
+            leadingControl={
+              <>
+                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
+                <PrivateToggle
+                  on={!!person.private}
+                  t={t}
+                  onToggle={() => commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
+                />
+              </>
+            }
           />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">

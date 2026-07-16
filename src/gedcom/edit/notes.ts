@@ -1,5 +1,6 @@
 import { cloneNode, removeChildren } from "../node";
 import { isPointer } from "../uri";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag, type PrivacyTagStyle } from "../private";
 import type { Dataset, GedNode, NoteRef } from "../types";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { insertOrdered } from "./shared";
@@ -36,10 +37,17 @@ export interface SharedNoteChange {
 export interface SharedNoteCtx {
   records: GedNode[];
   changes: SharedNoteChange[];
+  /** Lazily detected privacy-marker dialect (see {@link detectPrivacyStyle}). */
+  privacyStyle?: PrivacyTagStyle;
 }
 
 export function noteCtx(records: GedNode[]): SharedNoteCtx {
   return { records, changes: [] };
+}
+
+/** The file's privacy dialect, detected once per ctx (i.e. per commit). */
+function privacyStyleOf(ctx: SharedNoteCtx): PrivacyTagStyle {
+  return (ctx.privacyStyle ??= detectPrivacyStyle(ctx.records));
 }
 
 function findNoteRecord(records: GedNode[], xref: string): GedNode | undefined {
@@ -75,6 +83,17 @@ export function setSharedNoteText(ctx: SharedNoteCtx, xref: string, text: string
   ctx.changes.push({ xref, before, after: cloneNode(rec) });
 }
 
+/** Set/clear the private flag on shared NOTE record `xref` (no-op when it
+ *  already matches), following the file's own marker dialect. */
+export function setSharedNotePrivate(ctx: SharedNoteCtx, xref: string, on: boolean): void {
+  const rec = findNoteRecord(ctx.records, xref);
+  if (!rec || isPrivateNode(rec) === on) return;
+  const before = cloneNode(rec);
+  setPrivateFlag(rec, on, privacyStyleOf(ctx), ctx.records);
+  bumpSourceCacheVersion(ctx.records);
+  ctx.changes.push({ xref, before, after: cloneNode(rec) });
+}
+
 /** Delete shared NOTE record `xref` if nothing references it anymore (call
  *  after the referring pointer node has been removed from its owner). */
 export function removeNoteRecordIfOrphaned(ctx: SharedNoteCtx, xref: string): void {
@@ -98,7 +117,12 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     .map((c) => c.value!.trim());
 
   for (const ref of refs) {
-    if (ref.xref) setSharedNoteText(ctx, ref.xref, ref.text);
+    if (ref.xref) {
+      setSharedNoteText(ctx, ref.xref, ref.text);
+      // Only an explicit flag writes: refs built without `private` (older
+      // callers, tests) must not silently strip a record's privacy marker.
+      if (ref.private !== undefined) setSharedNotePrivate(ctx, ref.xref, ref.private);
+    }
   }
 
   removeChildren(ownerRaw, "NOTE");
@@ -107,7 +131,11 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     // An inline note with no text left is a removal; a pointer stays even when
     // its record text is empty (the record may carry sub-structure).
     if (!value) continue;
-    insertOrdered(ownerRaw, { level: ownerRaw.level + 1, tag: "NOTE", value, children: [] }, order);
+    const node: GedNode = { level: ownerRaw.level + 1, tag: "NOTE", value, children: [] };
+    // An inline note carries its own private marker; a pointer's lives in the
+    // shared record (set above).
+    if (!ref.xref && ref.private) setPrivateFlag(node, true, privacyStyleOf(ctx), ctx.records);
+    insertOrdered(ownerRaw, node, order);
   }
 
   const kept = new Set(refs.map((r) => r.xref).filter(Boolean));

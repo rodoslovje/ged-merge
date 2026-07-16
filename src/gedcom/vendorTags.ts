@@ -238,7 +238,7 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
   MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
   NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },
-  PRIV: { software: MFT, category: "internal", meaning: { en: "private-note flag", sl: "oznaka zasebne opombe" } },
+  PRIV: { software: MFT, category: "attribute", meaning: { en: "private flag — exclude from publishing", sl: "zasebno — izloči iz objave" } },
   LATR: { software: MFT, category: "event", meaning: { en: "legal transaction", sl: "pravni posel" } },
   DEED: { software: MFT, category: "event", meaning: { en: "deed / property record", sl: "listina / lastninski zapis" } },
   ILL: { software: MFT, category: "event", meaning: { en: "illness", sl: "bolezen" } },

@@ -2156,3 +2156,57 @@ describe("Add Source parity (recognizeSourceUrl / applySiteSourceExtras)", () =>
     expect(ds.records.some((r) => r.tag === "REPO")).toBe(false);
   });
 });
+
+describe("private entries never become sources", () => {
+  const HEAD = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1"];
+
+  it("skips a private person's links entirely", () => {
+    const report = scan([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 _PRIV Y",
+      `1 WWW ${BOOK}/?pg=10`,
+      "0 TRLR",
+    ].join("\n"));
+    expect(report.totalOccurrences).toBe(0);
+  });
+
+  it("skips a private inline note's link but keeps the person's other links", () => {
+    const report = scan([
+      ...HEAD,
+      "0 @I1@ INDI",
+      `1 NOTE see ${BOOK}/?pg=10`,
+      "2 PRIV",
+      `1 WWW ${BOOK2}/?pg=5`,
+      "0 TRLR",
+    ].join("\n"));
+    expect(report.totalOccurrences).toBe(1);
+    expect(report.groups[0].members[0].url).toContain(BOOK2);
+  });
+
+  it("skips a pointer to a private media record", () => {
+    const report = scan([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 OBJE @O1@",
+      "0 @O1@ OBJE",
+      `1 FILE ${BOOK}/?pg=10`,
+      "1 PRIV",
+      "0 TRLR",
+    ].join("\n"));
+    expect(report.totalOccurrences).toBe(0);
+  });
+
+  it("control: the same shapes without privacy markers are found", () => {
+    const report = scan([
+      ...HEAD,
+      "0 @I1@ INDI",
+      `1 NOTE see ${BOOK}/?pg=10`,
+      "1 OBJE @O1@",
+      "0 @O1@ OBJE",
+      `1 FILE ${BOOK2}/?pg=5`,
+      "0 TRLR",
+    ].join("\n"));
+    expect(report.totalOccurrences).toBe(2);
+  });
+});

@@ -151,6 +151,70 @@ describe("applyNoteRefs (record-level notes)", () => {
   });
 });
 
+describe("private notes", () => {
+  const PRIVATE_FILE = [
+    "0 HEAD",
+    "0 @I1@ INDI",
+    "1 NOTE @N1@",
+    "1 NOTE inline note https://example.com/public",
+    "0 @N1@ NOTE",
+    "1 CONT https://www.facebook.com/annik.alvarado",
+    "1 PRIV",
+    // A second private record keeps the file's dialect detectable even while
+    // @N1@'s flag is toggled off.
+    "0 @N2@ NOTE another private remark",
+    "1 PRIV",
+    "0 TRLR",
+  ];
+
+  it("builder flags private notes and keeps their URLs out of links", () => {
+    const ds = buildFromText(PRIVATE_FILE);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.noteRefs?.map((r) => !!r.private)).toEqual([true, false]);
+    expect(indi.links).toEqual(["https://example.com/public"]); // facebook URL stays private
+  });
+
+  it("toggling a pointer note's private flag writes the file's dialect into the record", () => {
+    const ds = buildFromText(PRIVATE_FILE);
+    const indi = ds.individuals.get("@I1@")!;
+    const n1 = ds.records.find((r) => r.xref === "@N1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref === "@N1@" ? { ...r, private: false } : r)));
+    expect(n1.children.some((c) => c.tag === "PRIV")).toBe(false);
+    expect(ctx.changes.map((c) => c.xref)).toEqual(["@N1@"]);
+
+    // Toggle back on: the file's dialect (bare PRIV) is what gets written.
+    const ctx2 = noteCtx(ds.records);
+    setNotes(ctx2, indi, indi.noteRefs!.map((r) => (r.xref === "@N1@" ? { ...r, private: true } : r)));
+    expect(n1.children.some((c) => c.tag === "PRIV" && c.value === undefined)).toBe(true);
+  });
+
+  it("an inline note's private flag is written as a marker child", () => {
+    const ds = buildFromText(PRIVATE_FILE);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref ? r : { ...r, private: true })));
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 NOTE inline note https://example.com/public");
+    expect(out).toMatch(/1 NOTE inline note[^\n]*\n2 PRIV/);
+  });
+
+  it("person and family records project their private flag", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 _PRIV Y",
+      "0 @I2@ INDI",
+      "0 @F1@ FAM",
+      "1 RESN confidential",
+      "0 TRLR",
+    ]);
+    expect(ds.individuals.get("@I1@")!.private).toBe(true);
+    expect(ds.individuals.get("@I2@")!.private).toBeUndefined();
+    expect(ds.families.get("@F1@")!.private).toBe(true);
+  });
+});
+
 describe("event pointer notes", () => {
   it("edits an event's pointer note inside the shared record", () => {
     const ds = buildFromText(SHARED);

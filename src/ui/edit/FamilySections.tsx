@@ -23,6 +23,8 @@ import type { MediaRefContext } from "../MediaViewer";
 import type { MediaAddress } from "../../gedcom/media";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
+import { PrivateToggle } from "./PrivateToggle";
+import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
 import { LinksEditor } from "./LinksEditor";
@@ -378,6 +380,13 @@ export const FamilySection = memo(function FamilySection({
               tooltip={t("edit.addFamilyEventTooltip")}
               t={t}
               onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
+            />
+          )}
+          {fam && (
+            <PrivateToggle
+              on={!!fam.private}
+              t={t}
+              onToggle={() => commitFamily(fam, (f) => setPrivateFlag(f.raw, !f.private, detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (

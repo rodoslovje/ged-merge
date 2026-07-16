@@ -213,6 +213,10 @@ export interface NoteRef {
   xref?: string;
   /** Full note text, verbatim — for a pointer note, the referenced record's text. */
   text: string;
+  /** Flagged private (MacFamilyTree `PRIV`, MyHeritage `_PRIV Y`, standard
+   *  `RESN privacy`/`confidential`) — excluded from publishing, and its URLs
+   *  are never surfaced as links or moved into sources. */
+  private?: boolean;
 }
 
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
@@ -276,6 +280,8 @@ export interface Individual {
   /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic),
    *  verbatim — a second identity namespace for the same pre-match. */
   fsids?: string[];
+  /** Record flagged private (see {@link NoteRef.private} for the dialects). */
+  private?: boolean;
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -296,6 +302,8 @@ export interface Family {
   noteRefs?: NoteRef[];
   /** Source citations (`SOUR`) attached directly to the family (not to a specific event). */
   sources?: SourceCitation[];
+  /** Record flagged private (see {@link NoteRef.private} for the dialects). */
+  private?: boolean;
   raw: GedNode;
 }
 
