@@ -5,6 +5,7 @@ import {
   insertRecord,
 } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
+import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
@@ -322,8 +323,11 @@ export function applyIndividualFamilies(
       const key = `${famKey}.MARR.${sub}`;
       return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
     };
-    const wantMarriage = (["type", "date", "place", "addr", "note", "agency", "cause", "sources"] as const).some((s) => marriageChoice(s));
-    if (!takeSpouses && !takeChildren && !wantMarriage) continue;
+    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "sources"] as const;
+    const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
+      EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
+    );
+    if (!takeSpouses && !takeChildren && !wantFamEvent) continue;
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
@@ -357,10 +361,14 @@ export function applyIndividualFamilies(
       ctx.touched.add(famNode.xref!);
     }
 
-    // Engagement, Separation, Divorce, Status — same pattern as MARR; the
-    // value-bearing tags (`_MSTAT Partners`) additionally carry a `.value` sub.
-    for (const evTag of ["ENGA", "SEPA", "DIV", "_MSTAT"] as const) {
-      const evName = ctx.t(`event.${evTag}`);
+    // Engagement, Separation, Divorce, custom Event, Status — same pattern as
+    // MARR; the value-bearing tags (`_MSTAT Partners`, `1 EVEN <v>`)
+    // additionally carry a `.value` sub. A custom EVEN reports under its own
+    // TYPE name ("Civil Partnership"), matching how the review labels it.
+    for (const evTag of EDITABLE_FAM_EVENT_TAGS.filter((tg) => tg !== "MARR")) {
+      const evName =
+        (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
+        ctx.t(`event.${evTag}`);
       const evEntries: EventSubEdit[] = [];
       for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;

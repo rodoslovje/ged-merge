@@ -2367,7 +2367,12 @@ button:focus-visible {
   align-items: baseline;
   gap: 6px;
 }
-.edit-event-label { flex: none; width: auto; color: var(--muted); }
+/* Constrained to the fixed slot so a long multi-word name (a custom EVEN's
+ * own Title, e.g. "Civil Partnership") wraps onto further right-aligned lines
+ * instead of overflowing off the panel's left edge; a long single word
+ * ("Naturalization") still overflows left as before rather than breaking
+ * mid-word. */
+.edit-event-label { flex: none; width: auto; max-width: 100%; text-align: right; color: var(--muted); }
 /* The type-change control is a native <select> stretched invisibly over the
  * label (so it picks up the same click target and keyboard handling as a
  * regular select) with only the small ▾ caret showing — the label text

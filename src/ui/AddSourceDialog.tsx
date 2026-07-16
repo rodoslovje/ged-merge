@@ -179,6 +179,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               publisher: upgrade(f.publisher, undefined, meta.publisher),
               agency: upgrade(f.agency, proposal?.agency, meta.agency),
               place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
+              page: upgrade(f.page, recognized?.page, meta.page),
             }
           : f,
       );

@@ -23,6 +23,9 @@ export interface FieldRow {
   label: string; // full label used in change reports, e.g. "Birth date"
   /** Short label for UI display when an event group header provides context (e.g. "Date"). Falls back to `label`. */
   displayLabel?: string;
+  /** Hover tooltip for the label — e.g. a custom EVEN/FACT header, whose
+   *  `label` is the event's own TYPE, says here that the event is custom. */
+  labelTitle?: string;
   main: string; // "" when absent
   incoming: string; // "" when absent
   state: FieldState;

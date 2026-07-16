@@ -165,9 +165,12 @@ export interface ReshapeMeta {
   publisher?: string;
   agency?: string;
   place?: string;
-  /** Sub-place detail (the cemetery name + plot) — becomes the BURI event's
+  /** Sub-place detail (the cemetery name) — becomes the BURI event's
    *  ADDR in files whose place format keeps addresses separate. */
   address?: string;
+  /** Where within the source, for every citation in the group — the grave
+   *  plot ("P06"). A page id the link itself carries wins over this. */
+  page?: string;
   dateRange?: string;
   bookType?: BookType;
   /** Set by the panel's manual field editor only — page parsers never
@@ -1357,11 +1360,16 @@ function isSettledPointer(
   move: { eventTag: string } | undefined,
   sourceXref: string | undefined,
   pageMedia: PageMediaStyle,
+  page: string | undefined,
 ): boolean {
   if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
   if (pageMedia !== "event" || !sourceXref) return false;
+  // With no page known this run, any citation of the source settles the
+  // pointer: a PAGE that only enrichment knows (the grave plot) isn't
+  // derivable from the URL, so an offline rerun must still converge instead
+  // of re-attaching a page-less citation beside the enriched one.
   const cite = childrenByTag(hit.container, "SOUR").find(
-    (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (hit.recognized.page ?? ""),
+    (c) => c.value?.trim() === sourceXref && (page === undefined || (childText(c, "PAGE") ?? "") === page),
   );
   return !!cite && !!firstChild(cite, "QUAY");
 }
@@ -1439,7 +1447,7 @@ export function findReshapableLinks(
         relocate && !hit.foldedInto && !hit.twinEvent
           ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
           : undefined;
-      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia)) return [];
+      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page)) return [];
       return [
         {
           recordXref: hit.rec.xref ?? "?",
@@ -1980,9 +1988,9 @@ export function reshapeSources(
         continue;
       }
 
-      const page = hit.recognized.page;
+      const page = hit.recognized.page ?? extra?.page;
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
-      if (isSettledPointer(hit, move, sourceXref, pageMedia)) continue;
+      if (isSettledPointer(hit, move, sourceXref, pageMedia, page)) continue;
       let container = hit.container;
       if (move) {
         const host = move.famXref ? byXref.get(move.famXref) : hit.rec;
@@ -2257,8 +2265,10 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         // PLAC is the *place* (town, country); the cemetery itself
         // names the source and stays in the title.
         place: [page.town, page.country].filter(Boolean).join(", ") || undefined,
-        // The cemetery (and plot) is address-level detail for the BURI event.
-        address: [page.cemetery, page.plot].filter(Boolean).join(", ") || undefined,
+        // The cemetery is address-level detail for the BURI event; the plot
+        // says where within the cemetery, so it goes on the citation PAGE.
+        address: page.cemetery,
+        page: page.plot,
         // `{cemetery} - Geneanet Cemeteries` — the town stays out of the
         // title (PLAC carries it) and the view id is the filing number.
         title: page.cemetery ? siteTitle(page.cemetery, undefined, "Geneanet Cemeteries") : undefined,

@@ -175,7 +175,9 @@ describe("attribute tags and vendor events (BK premium support)", () => {
       person("1 FACT 1234567\n2 TYPE RIN"),
       undefined,
     );
-    expect(rows.find((r) => r.isEventHeader && r.key === "FACT.header")?.label).toBe("event.FACT — RIN");
+    const factHeader = rows.find((r) => r.isEventHeader && r.key === "FACT.header");
+    expect(factHeader?.label).toBe("RIN");
+    expect(factHeader?.labelTitle).toBe("event.customTooltip");
     expect(byKey(rows, "FACT.type")?.label).toBe("event.colTitle");
     expect(byKey(rows, "FACT.value")?.main).toBe("1234567");
   });
@@ -186,14 +188,16 @@ describe("generic EVEN with a TYPE", () => {
     dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n${body}\n0 TRLR\n`)
       .individuals.get(id);
 
-  it("labels the event 'Event', the TYPE as Title and the line value as Agency", () => {
+  it("names the event by its TYPE, the TYPE as Title and the line value as Agency", () => {
     const rows = individualFieldRows(tr,
       even("1 EVEN LDHD-PNT\n2 TYPE FamilySearch ID", "@I1@"),
       undefined,
     );
-    // The heading is the generic "Event" label with the TYPE appended, so the
-    // row reads "Event — FamilySearch ID" instead of an anonymous "Event".
-    expect(rows.find((r) => r.isEventHeader && r.key === "EVEN.header")?.label).toBe("event.EVEN — FamilySearch ID");
+    // The heading is the TYPE itself, so the custom event reads like any
+    // built-in one; the tooltip is what marks it as custom.
+    const header = rows.find((r) => r.isEventHeader && r.key === "EVEN.header");
+    expect(header?.label).toBe("FamilySearch ID");
+    expect(header?.labelTitle).toBe("event.customTooltip");
     // TYPE → "Title", line value → "Agency".
     const title = byKey(rows, "EVEN.type");
     expect(title?.label).toBe("event.colTitle");
@@ -1120,6 +1124,29 @@ describe("marriage rows on the spouse", () => {
     const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
     expect(byKey(rows, "fam.@F@.MARR.date")?.state).toBe("agree");
     expect(byKey(rows, "fam.@F@.MARR.place")?.state).toBe("incoming-only");
+  });
+});
+
+describe("family custom EVEN rows on the spouse", () => {
+  const doc = (body: string) =>
+    `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F@\n` +
+    `0 @F@ FAM\n1 HUSB @H@\n${body}0 TRLR\n`;
+
+  it("surfaces a family EVEN named by its TYPE, with Title and Agency sub-rows", () => {
+    const m = dataset(doc("1 EVEN reg-042\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n"));
+    const c = dataset(doc("1 EVEN reg-042\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n2 PLAC Preddvor\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    const header = rows.find((r) => r.key === "fam.@F@.EVEN.header");
+    expect(header?.label).toBe("Civil Partnership");
+    expect(header?.labelTitle).toBe("event.customTooltip");
+    expect(byKey(rows, "fam.@F@.EVEN.type")?.label).toBe("event.colTitle");
+    const agency = byKey(rows, "fam.@F@.EVEN.value");
+    expect(agency?.label).toBe("event.colAgency");
+    expect(agency?.main).toBe("reg-042");
+    expect(byKey(rows, "fam.@F@.EVEN.date")?.state).toBe("agree");
+    expect(byKey(rows, "fam.@F@.EVEN.place")?.state).toBe("incoming-only");
+    // The EVEN line value owns the Agency label — no second agency row.
+    expect(byKey(rows, "fam.@F@.EVEN.agency")).toBeUndefined();
   });
 });
 
