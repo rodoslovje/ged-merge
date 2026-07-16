@@ -90,6 +90,9 @@
             <ul>
               <li><strong>Shared notes keep their identity through edits.</strong> Notes stored as shared records (MacFamilyTree, webtrees, MyHeritage exports write <code>NOTE @N1@</code> pointers) used to be flattened into plain text copies by any note edit — orphaning the shared record and losing whatever it carried (privacy flags, change history). Editing a note now updates the shared record itself, so every person or event referencing it sees the new text, and the pointer structure round-trips losslessly; removing the last reference cleans the record up.</li>
               <li>Editing any event field no longer rewrites the event's untouched note as a side effect — notes whose text is only a link, and note URLs in general, survive unrelated edits instead of being silently dropped.</li>
+              <li><strong>Custom events (EVEN)</strong> are now supported on families too: a family's custom event (e.g. "Civil Partnership") shows up in Edit mode, in the merge comparison and in the merge itself, and can be added via the family's Add event menu — previously it survived saves but was invisible.</li>
+              <li>Custom events (EVEN/FACT) on persons and families now display under their own Title ("Civil Partnership") instead of a generic "Event — …" label, so they read like built-in events; the tooltip marks them as custom, and the Title is edited in its own always-visible field on the event row.</li>
+              <li><strong>Organize sources</strong>: a Geneanet grave's plot number now goes onto the citation's PAGE (where within the cemetery) instead of being appended to the burial address — the ADDR keeps just the cemetery name. The Add Source dialog's online lookup fills the plot into its Page field the same way.</li>
             </ul>
           </section>
           <section class="changelog-entry">

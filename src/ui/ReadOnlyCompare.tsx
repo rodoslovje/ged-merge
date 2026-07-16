@@ -65,7 +65,7 @@ export function ReadOnlyCompare({
             const isEventHeader = !!row.isEventHeader;
             return (
               <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
-                <td colSpan={1 + valueCols} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }}>
+                <td colSpan={1 + valueCols} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }} title={row.labelTitle}>
                   {row.label}
                 </td>
               </tr>

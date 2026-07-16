@@ -200,7 +200,7 @@ export function ComparePanel({
               const isEventHeader = !!row.isEventHeader;
               return (
                 <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
-                  <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>
+                  <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} title={row.labelTitle}>
                     {row.label}
                   </td>
                 </tr>

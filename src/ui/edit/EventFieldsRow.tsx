@@ -90,10 +90,11 @@ export function EventFieldsRow({
    * "♀28"), each with its own tooltip. */
   age?: { text: string; title: string }[];
 }) {
-  // A generic `EVEN`/`FACT` is labelled "Event"/"Fact"; its descriptive `TYPE`
-  // is edited in the "Title" slot and its own line value (`1 EVEN <v>`) in the
-  // "Agency" slot (see the title/agency field bindings below). The Title slot
-  // shows for it too.
+  // A generic `EVEN`/`FACT` wears its descriptive `TYPE` as the event label
+  // ("Civil Partnership"), so it reads like any built-in event — the label's
+  // tooltip is what says it's custom. The TYPE itself is edited in an
+  // always-shown "Title" extra, and the tag's own line value (`1 EVEN <v>`)
+  // in the "Agency" slot (see the field bindings below).
   const isEven = tag === "EVEN" || tag === "FACT";
   const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
 
@@ -152,22 +153,22 @@ export function EventFieldsRow({
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  // EVEN remaps the Title slot to its TYPE and the Agency slot to its line
-  // value; every other event keeps the normal value/agency mapping.
-  const titleField = isEven ? typeField : valueField;
-  const titleForced = isEven ? typeForced : valueForced;
-  const titleLabel = isEven ? t("event.colTitle") : label;
-  const titleClearUpdate: Partial<EventFieldUpdate> = isEven ? { type: "" } : { value: "" };
+  // EVEN remaps the Agency slot to its line value; every other event keeps the
+  // normal value/agency mapping.
   const agencySlotField = isEven ? valueField : agencyField;
   const agencySlotForced = isEven ? valueForced : agencyForced;
   const agencySlotLabel = isEven ? t("event.colAgency") : t("event.agency", { event: label });
   const agencyClearUpdate: Partial<EventFieldUpdate> = isEven ? { value: "" } : { agency: "" };
 
-  // Only value events (OCCU/EDUC/RETI) and EVEN expose a Title slot (their line
-  // value / TYPE). Plain events have none — their TYPE lives in the column-2
-  // Type field stacked under Date/Sources instead (EVEN keeps TYPE as Title).
-  const hasTitle = showValue;
-  const showTypeCell = !isEven;
+  // EVEN's TYPE doubles as its display label; while it has one, the label
+  // column shows it in place of the generic "Event"/"Fact".
+  const customName = isEven ? (typeField.value.trim() || ev?.type?.trim() || "") : "";
+
+  // Only value events (OCCU/EDUC/RETI) expose a Title slot (their line value).
+  // Plain events have none — their TYPE lives in the extras-line Type field
+  // instead; EVEN edits its TYPE there too, relabelled "Title" and always
+  // shown (a custom event is named by it).
+  const hasTitle = !isEven && showValue;
 
   // Sizes a flowing field to its content (in `ch`) so short values like "fsd"
   // don't each claim a full-width column — that content-sizing is what lets the
@@ -197,7 +198,8 @@ export function EventFieldsRow({
   // slot. Value-events (OCCU/EDUC/RETI/EVEN) lead with their value instead.
   const primaryLine = !hasTitle;
   const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
-  const typeShown = Boolean(typeField.value.trim()) || typeField.isMerge;
+  // A custom EVEN/FACT is named by its TYPE, so its Title field always shows.
+  const typeShown = isEven || Boolean(typeField.value.trim()) || typeField.isMerge;
   const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
@@ -225,7 +227,7 @@ export function EventFieldsRow({
     { key: "addr", label: t("event.colAddr") },
     { key: "agency", label: t("event.colAgency") },
     { key: "source", label: t("event.colLink") },
-    ...(showTypeCell ? [{ key: "type", label: t("event.colType") }] : []),
+    { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
     { key: "cause", label: t("event.colCause") },
     { key: "note", label: t("event.colNote") },
   ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
@@ -412,8 +414,9 @@ export function EventFieldsRow({
             false,
             tagDirty || tagForced,
           )}
+          title={isEven ? t("event.customTooltip", { tag: tag ?? "EVEN" }) : undefined}
         >
-          {label}
+          {customName || label}
           {showSelect && (
             <>
               <span className="edit-event-type-caret" aria-hidden="true">▾</span>
@@ -488,14 +491,14 @@ export function EventFieldsRow({
         {!primaryLine && (
           <ClearableInput
             wrapClassName="edit-event-primary"
-            wrapStyle={chW(titleField.value, 60)}
-            className={fieldCls("edit-input edit-event-value", titleField.isMerge, titleField.isDirty || titleForced)}
-            value={titleField.value}
+            wrapStyle={chW(valueField.value, 60)}
+            className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty || valueForced)}
+            value={valueField.value}
             placeholder={t("event.colTitle")}
-            title={titleLabel}
-            onChange={titleField.onChange}
+            title={label}
+            onChange={valueField.onChange}
             onBlur={() => commitAll({})}
-            onClear={() => { titleField.clear(); commitAll(titleClearUpdate); }}
+            onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
           />
         )}
         {/* Place — the same everywhere: unlabelled (a place reads as a place) and
@@ -517,8 +520,15 @@ export function EventFieldsRow({
           />
         </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }))}
-        {showTypeCell &&
-          extraText("type", t("event.colType"), show.type, typeField, typeForced, t("event.type", { event: label }), { type: "" })}
+        {extraText(
+          "type",
+          isEven ? t("event.colTitle") : t("event.colType"),
+          show.type,
+          typeField,
+          typeForced,
+          isEven ? t("event.customTooltip", { tag: tag ?? "EVEN" }) : t("event.type", { event: label }),
+          { type: "" },
+        )}
         {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
         {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
         <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>

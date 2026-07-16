@@ -570,11 +570,12 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     const report = findReshapableLinks(ds);
     const enrichment = new Map([
-      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje, P02" }],
+      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje", page: "P02" }],
     ]);
     const { records } = reshapeSources(ds.records, report.groups, enrichment);
     const text = serializeGedcom(records);
-    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje, P02\n2 SOUR/);
+    // Cemetery in the ADDR; the plot is the citation's where-within-source.
+    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n2 SOUR @S\d+@\n3 PAGE P02/);
   });
 
   it("adds the cemetery ADDR even when the BURI already has a place", () => {
@@ -597,12 +598,29 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     const report = findReshapableLinks(ds);
     const enrichment = new Map([
-      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje, P02" }],
+      [report.groups[0].id, { place: "Žabnica, Slovenia", address: "Pokopališče Zgornje Bitnje", page: "P02" }],
     ]);
     const { records } = reshapeSources(ds.records, report.groups, enrichment);
     const text = serializeGedcom(records);
     // The existing place is kept, the cemetery still lands in the ADDR.
-    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje, P02\n2 SOUR/);
+    expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n2 SOUR @S\d+@\n3 PAGE P02/);
+  });
+
+  it("an offline rerun converges on a grave whose PAGE only enrichment knew", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/555
+0 TRLR`);
+    const report = findReshapableLinks(ds, undefined, { pageMedia: "event" });
+    const enrichment = new Map([[report.groups[0].id, { page: "P02" }]]);
+    const groups = report.groups.map((g) => ({ ...g, quay: "3" }));
+    const { records } = reshapeSources(ds.records, groups, enrichment, { pageMedia: "event" });
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/1 BURI\n2 OBJE @O\d+@\n2 SOUR @S\d+@\n3 PAGE P02\n3 QUAY 3/);
+    // The rescan has no enrichment, so it can't know the plot PAGE — the
+    // settled citation must still count and the group must not reappear.
+    expect(findReshapableLinks(dataset(text), undefined, { pageMedia: "event" }).groups).toHaveLength(0);
   });
 
   it("never overwrites an existing BURI place", () => {
@@ -1639,7 +1657,8 @@ GPS Coordinates : 46.2181,14.3463`;
     const enrichment = await fetchReshapeMeta(report.groups, async () => GRAVE_MD);
     expect(enrichment.get(report.groups[0].id)).toEqual({
       place: "Žabnica, Slovenia", // PLAC is the place; the cemetery names the source
-      address: "Pokopališče Zgornje Bitnje, P02", // cemetery + plot → BURI ADDR
+      address: "Pokopališče Zgornje Bitnje", // cemetery → BURI ADDR
+      page: "P02", // plot = where within the cemetery → citation PAGE
       title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
     });
   });
@@ -2004,7 +2023,8 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
     const meta = await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
     expect(meta).toEqual({
       place: "Žabnica, Slovenia",
-      address: "Pokopališče Zgornje Bitnje, P02",
+      address: "Pokopališče Zgornje Bitnje",
+      page: "P02",
       title: "Pokopališče Zgornje Bitnje - Geneanet Cemeteries",
     });
     await fetchBookMeta("geneanet", "https://en.geneanet.org/cemetery/view/424242", fetchHtml);
