@@ -185,15 +185,16 @@ function buildEventRows(
     const ce = !rejected && compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
     const effectiveCompareIdx = rejected ? -1 : compareIdx;
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
-    // A generic `EVEN`/`FACT` is just labelled "Event"/"Fact"; its descriptive
-    // `TYPE` sub-tag (e.g. "Alt. Birth", "RIN") is surfaced under the "Title"
-    // label and its own line value (`1 EVEN <v>`) under the "Agency" label.
-    // The group header appends the TYPE so the row reads "Event — Alt. Birth"
-    // instead of an anonymous "Event".
+    // A generic `EVEN`/`FACT` shows its descriptive `TYPE` (e.g. "Civil
+    // Partnership") as the event name itself, so it reads like any built-in
+    // event — the header's tooltip is what says it's custom. The TYPE stays
+    // editable/comparable under the "Title" label and the tag's own line
+    // value (`1 EVEN <v>`) under the "Agency" label.
     const isEven = tag === "EVEN" || tag === "FACT";
     const baseLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
     const headerType = isEven ? (me?.type ?? ce?.type) : undefined;
-    const eventLabel = headerType ? `${baseLabel} — ${headerType}` : baseLabel;
+    const eventLabel = headerType?.trim() || baseLabel;
+    const customTitle = isEven ? t("event.customTooltip", { tag }) : undefined;
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
@@ -224,7 +225,7 @@ function buildEventRows(
     for (const r of subRows) { r.eventMainIdx = mainIdx; r.eventCompareIdx = effectiveCompareIdx; }
     if (subRows.length > 0) {
       rows.push({
-        key: `${keyBase}.header`, label: eventLabel, main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+        key: `${keyBase}.header`, label: eventLabel, labelTitle: customTitle, main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
       });
       rows.push(...subRows);
     }
@@ -294,16 +295,24 @@ function buildFamilyRows(
       const mEv = mFam?.events.find((e) => e.tag === etag);
       const cEv = cFam?.events.find((e) => e.tag === etag);
       if (!mEv && !cEv) continue;
+      // A family `EVEN` gets the same custom-event treatment as on a person:
+      // the TYPE is the event's name (header + "Title" sub-row) and its line
+      // value compares under the "Agency" label.
+      const isEven = etag === "EVEN";
       const etagRows: FieldRow[] = [];
-      pushRow(etagRows, `${famKey}.${etag}.type`, t("event.colType"), mEv?.type, cEv?.type);
-      if (VALUE_EVENT_TAGS.has(etag)) {
+      pushRow(etagRows, `${famKey}.${etag}.type`, isEven ? t("event.colTitle") : t("event.colType"), mEv?.type, cEv?.type);
+      if (isEven) {
+        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colAgency"), mEv?.value, cEv?.value);
+      } else if (VALUE_EVENT_TAGS.has(etag)) {
         pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"), mEv?.value, cEv?.value);
       }
       pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
-      pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
+      // EVEN's line value already occupies the "Agency" label (above), so its
+      // real AGNC sub-tag (rare) isn't shown as a second Agency row.
+      if (!isEven) pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
       pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
       if (showAge) {
@@ -312,8 +321,13 @@ function buildFamilyRows(
           coupleEventAges(cFam, compareDs, cEv, t));
       }
       if (etagRows.length > 0) {
+        const baseLabel = t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag });
+        const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
         rows.push({
-          key: `${famKey}.${etag}.header`, label: t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag }), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+          key: `${famKey}.${etag}.header`,
+          label: headerType?.trim() || baseLabel,
+          labelTitle: isEven ? t("event.customTooltip", { tag: etag }) : undefined,
+          main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
         });
         rows.push(...etagRows);
       }

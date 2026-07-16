@@ -22,10 +22,11 @@ export const INDI_EVENT_TAG_ORDER = [
   "DEAT", "_FNRL", "BURI", "_INTE", "CREM",
 ];
 
-/** Family event tags in canonical order. `_MSTAT` is the canonical
+/** Family event tags in canonical order. `EVEN` is the generic custom event
+ *  (named by its `TYPE`, e.g. "Civil Partnership"). `_MSTAT` is the canonical
  *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
  *  normalization consolidates the other vendor encodings into. */
-export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "_MSTAT"];
+export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "EVEN", "_MSTAT"];
 
 /** Event-bearing INDI children lifted into the typed `events` array. Includes
  *  MARR: some exports write a marriage event directly on the individual. */
@@ -38,8 +39,10 @@ export const FAM_EVENT_TAGS: Set<string> = new Set(FAM_EVENT_TAG_ORDER);
 export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_EVENT_TAGS]);
 
 /** Family events Edit mode can create and edit (MARB/MARL are preserved on
- *  load/save but not surfaced), and therefore the ones the edit report diffs. */
-export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "_MSTAT"];
+ *  load/save but not surfaced), and therefore the ones the edit report diffs.
+ *  Like the other tags here, `EVEN` is modelled as one row per family — a
+ *  second `EVEN` on the same FAM round-trips untouched but isn't editable. */
+export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "_MSTAT"];
 
 /** Event tags that carry a direct text value on the tag line
  *  (e.g. `1 OCCU Farmer`, `1 _MSTAT Partners`) — shown/edited as an inline

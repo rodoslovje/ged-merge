@@ -484,6 +484,46 @@ describe("mergeDecisions — family touched via both confirmed spouses", () => {
   });
 });
 
+describe("mergeDecisions — family custom EVEN", () => {
+  const main = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1900\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1900\n" +
+        "1 EVEN\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n2 PLAC Preddvor\n",
+    ),
+  );
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+
+  it("stitches the incoming EVEN onto the main family, even with no MARR/spouse choice", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [
+        decisionKey("individual", "@I1@", "@P1@"),
+        {
+          status: "confirmed",
+          fields: {
+            "fam.@G1@.EVEN.type": "incoming",
+            "fam.@G1@.EVEN.date": "incoming",
+            "fam.@G1@.EVEN.place": "incoming",
+          },
+        },
+      ],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 EVEN\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n2 PLAC Preddvor");
+    // The change report names the event by its TYPE, like the review does.
+    expect(report.changes.some((c) => c.group === "Civil Partnership" || c.field.includes("Civil Partnership"))).toBe(true);
+  });
+});
+
 describe("mergeDecisions — individual relations (parents & partners)", () => {
   // Main has the people but @I1@ has no parents and no spouse linked.
   const main = dataset(
