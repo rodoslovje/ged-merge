@@ -127,6 +127,18 @@ export function scanGeocode(
   return { rows, coveredDistinct, totalOccurrences, coveredOccurrences };
 }
 
+/** Cheap count of distinct PLAC values still missing coordinates — the
+ *  Places-panel chip badge (equals the review list's row count). */
+export function countGeocodePending(dataset: Dataset): number {
+  const missing = new Set<string>();
+  const visit = (plac: GedNode) => {
+    if (!coordOf(plac)) missing.add(plac.value!.trim());
+  };
+  for (const indi of dataset.individuals.values()) walkPlacNodes(indi.raw, visit);
+  for (const fam of dataset.families.values()) walkPlacNodes(fam.raw, visit);
+  return missing.size;
+}
+
 /**
  * Write accepted coordinates into every PLAC node whose exact value matches
  * an assignment and that still lacks a coordinate. Mutates the dataset in

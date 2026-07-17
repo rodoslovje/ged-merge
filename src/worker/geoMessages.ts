@@ -7,9 +7,13 @@
 export interface GeoImportRequest {
   type: "importGazetteer";
   requestId: number;
-  /** The picked file's bytes — a GeoNames country extract, .txt or .zip. */
+  /** The payload bytes — a GeoNames extract (.txt/.zip) or Overpass JSON. */
   buffer: ArrayBuffer;
   fileName: string;
+  /** Payload shape; "geonames" when omitted. */
+  format?: "geonames" | "overpass";
+  /** Overpass only: the country code the entries are stored under. */
+  country?: string;
 }
 
 export type GeoWorkerRequest = GeoImportRequest;

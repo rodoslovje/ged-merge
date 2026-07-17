@@ -80,12 +80,16 @@ async function readWithProgress(
   return out.buffer;
 }
 
-/** geonames.org sends no CORS headers reliably — the public relays (the same
- *  ones the opt-in link-fetch feature uses) are the fallback. */
-const GEONAMES_RELAYS = [
-  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-];
+/** Overpass (OpenStreetMap) endpoints — CORS-enabled, so the browser can
+ *  fetch a country's places directly. geonames.org was tried first but sends
+ *  no CORS headers and blocks the public relays' addresses, so the one-click
+ *  path uses OSM; GeoNames stays available via the manual file import. */
+const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+
+/** Every place node in the country: settlements down to isolated dwellings. */
+function overpassQuery(code: string): string {
+  return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
+}
 
 export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
   const { t, i18n } = useTranslation();
@@ -121,7 +125,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
     return () => workerRef.current?.terminate();
   }, []);
 
-  const runImport = (buffer: ArrayBuffer, fileName: string) => {
+  const runImport = (buffer: ArrayBuffer, fileName: string, extra?: { format: "overpass"; country: string }) => {
     setImportState({ phase: "running", done: 0, total: buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
@@ -139,7 +143,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
         setImportState({ phase: "error", message: msg.message });
       }
     };
-    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName };
+    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
     worker.postMessage(req, [buffer]);
   };
 
@@ -147,28 +151,30 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
     runImport(await file.arrayBuffer(), file.name);
   };
 
-  // Direct download of a country extract — the download-then-pick round trip
-  // is confusing, so fetch it here. geonames.org sends no CORS headers, so a
-  // failed direct fetch falls back to the link-fetch relays; the whole path
-  // is gated behind the same online-lookups opt-in.
+  // Direct download of a country's places — the download-then-pick round
+  // trip is confusing, so fetch from Overpass (OpenStreetMap) here, gated
+  // behind the same online-lookups opt-in as the other network features.
   const [countryDraft, setCountryDraft] = useState("");
   const fetchAbortRef = useRef<AbortController | null>(null);
   const downloadCountry = async () => {
     const code = countryDraft.trim().toUpperCase();
     if (!/^[A-Z]{2}$/.test(code)) return;
-    const url = `https://download.geonames.org/export/dump/${code}.zip`;
     const abort = new AbortController();
     fetchAbortRef.current = abort;
     setImportState({ phase: "running", done: 0, total: 0 });
     const onProgress = (done: number, total: number) => setImportState({ phase: "running", done, total });
     try {
       let buffer: ArrayBuffer | undefined;
-      for (const toUrl of [(u: string) => u, ...GEONAMES_RELAYS]) {
+      for (const endpoint of OVERPASS_ENDPOINTS) {
         try {
-          const res = await fetch(toUrl(url), { signal: abort.signal });
+          const res = await fetch(endpoint, {
+            method: "POST",
+            body: new URLSearchParams({ data: overpassQuery(code) }),
+            signal: abort.signal,
+          });
           if (res.ok) {
             buffer = await readWithProgress(res, onProgress);
-            if (buffer.byteLength > 500) break;
+            if (buffer.byteLength > 200) break;
             buffer = undefined;
           }
         } catch (e) {
@@ -180,7 +186,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
       }
-      runImport(buffer, `${code}.zip`);
+      runImport(buffer, `${code}.osm.json`, { format: "overpass", country: code });
     } finally {
       fetchAbortRef.current = null;
     }
@@ -405,85 +411,102 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
         {lastApplied !== null && ` ${t("tools.geocode.applied", { count: lastApplied })}`}
       </p>
 
+      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
+
       {scan.rows.length > 0 && (
-        <div className="tools-geo-actions">
+      <section className="tools-cleanup-section">
+        <div className="tools-dup-kind-head">
+          {t("tools.geocode.heading")}
+          <span className="tools-chip-count">{scan.rows.length}</span>
+          <div className="tools-dup-bulk">
+            <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
+              {t("tools.geocode.selectConfident", { count: confidentCount })}
+            </button>
+            <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
+              {t("tools.sources.dupSelectNone")}
+            </button>
+            <button className="tools-issue-link" onClick={() => setExpanded(new Set(rows.map((r) => r.key)))}>
+              {t("tools.sources.expandAll")}
+            </button>
+            <button className="tools-issue-link" onClick={() => setExpanded(new Set())}>
+              {t("tools.sources.collapseAll")}
+            </button>
+          </div>
+        </div>
+        <div className="tools-reshape-options">
           <TreeSearch value={search} onChange={setSearch} />
-          <button className="nav-btn" onClick={selectConfident} disabled={confidentCount === 0}>
-            {t("tools.geocode.selectConfident", { count: confidentCount })}
-          </button>
-          <button className="nav-btn" onClick={() => setChecked(new Set())} disabled={checked.size === 0}>
-            {t("tools.geocode.clearSelection")}
-          </button>
           <button className="nav-btn tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
             {t("tools.geocode.apply", { count: checked.size })}
           </button>
         </div>
-      )}
 
-      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
-
-      <ul className="tools-geo-rows">
+      <ul className="tools-tree">
         {shown.map((row) => {
           const c = chosenFor(row);
           const isOpen = expanded.has(row.key);
           const marked = noMatch.has(row.key);
+          const toggleOpen = () =>
+            setExpanded((prev) => {
+              const next = new Set(prev);
+              if (next.has(row.key)) next.delete(row.key);
+              else next.add(row.key);
+              return next;
+            });
           return (
-            <li key={row.key} className={`tools-geo-row${marked ? " nomatch" : ""}`}>
-              <div className="tools-geo-row-main">
+            <li key={row.key} className="tools-tree-node">
+              <div className="tools-tree-row">
                 <input
                   type="checkbox"
+                  className="tools-dup-check"
                   checked={checked.has(row.key)}
                   disabled={!c || marked}
                   onChange={(e) => toggleChecked(row.key, e.target.checked)}
                 />
-                <button
-                  className="tools-pair-toggle"
-                  onClick={() =>
-                    setExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(row.key)) next.delete(row.key);
-                      else next.add(row.key);
-                      return next;
-                    })
-                  }
-                  aria-expanded={isOpen}
-                >
-                  {isOpen ? "▾" : "▸"}
+                <button className={`tools-pair-toggle ${isOpen ? "open" : ""}`} onClick={toggleOpen} aria-expanded={isOpen}>
+                  ▶
                 </button>
-                <span className="tools-geo-place">{row.key}</span>
-                <span className="tools-geo-uses gm-data">×{row.missing}</span>
-                {c ? (
-                  <span className="tools-geo-proposal">
-                    → {c.label}
-                    <span className="gm-data"> {c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
-                    {row.fileCoord && !chosen.has(row.key) && !row.cached ? (
-                      <span className="tools-geo-score confident" title={t("tools.geocode.fromFileTooltip")}>
-                        {t("tools.geocode.fromFile")}
-                      </span>
-                    ) : (
-                      row.candidates[0] && !chosen.has(row.key) && !row.cached && (
-                        <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
-                          {Math.round(row.candidates[0].score * 100)}%
-                        </span>
-                      )
-                    )}
-                    {row.cached?.status === "accepted" && !chosen.has(row.key) && (
-                      <span className="tools-geo-cachedchip" title={t("tools.geocode.cachedTooltip")}>⭯</span>
-                    )}
+                <span
+                  className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
+                  onClick={toggleOpen}
+                >
+                  {row.key}
+                </span>
+                {c && (
+                  <span className="tools-tree-meta">
+                    → {c.label} · <span className="gm-data">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
                   </span>
-                ) : (
-                  !marked && <span className="tools-geo-nocand">{t("tools.geocode.noCandidate")}</span>
                 )}
+                {marked ? (
+                  <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
+                    {t("tools.geocode.noMatchBadge")}
+                  </span>
+                ) : row.cached?.status === "accepted" && !chosen.has(row.key) ? (
+                  <span className="tools-reshape-badge reuse" title={t("tools.geocode.cachedTooltip")}>
+                    {t("tools.geocode.cached")}
+                  </span>
+                ) : row.fileCoord && !chosen.has(row.key) ? (
+                  <span className="tools-reshape-badge new" title={t("tools.geocode.fromFileTooltip")}>
+                    {t("tools.geocode.fromFile")}
+                  </span>
+                ) : row.candidates[0] && !chosen.has(row.key) ? (
+                  <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
+                    {Math.round(row.candidates[0].score * 100)}%
+                  </span>
+                ) : !c ? (
+                  <span className="tools-tree-meta">{t("tools.geocode.noCandidate")}</span>
+                ) : null}
                 <button
-                  className={`tools-geo-nomatch${marked ? " active" : ""}`}
+                  className="tools-issue-link"
                   onClick={() => toggleNoMatch(row.key)}
+                  aria-pressed={marked}
                   title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
                 >
-                  {marked ? "↩" : "🚫"}
+                  {marked ? "↩" : "🗑"}
                 </button>
+                <span className="tools-chip-count">{row.missing}</span>
               </div>
               {isOpen && (
-                <div className="tools-geo-detail">
+                <div className="tools-tree-children tools-geo-detail">
                   {row.candidates.length > 0 && (
                     <ul className="tools-geo-candidates">
                       {row.candidates.map((cand, i) => (
@@ -533,6 +556,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
         })}
       </ul>
       {rows.length > SHOW_LIMIT && <p className="tools-geo-more">{t("tools.geocode.more", { count: rows.length - SHOW_LIMIT })}</p>}
+      </section>
+      )}
     </div>
   );
 }

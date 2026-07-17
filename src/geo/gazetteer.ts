@@ -59,6 +59,48 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
   };
 }
 
+/** Overpass (OpenStreetMap) JSON response, reduced to what we read. */
+export interface OverpassJson {
+  elements?: { lat?: number; lon?: number; tags?: Record<string, string> }[];
+}
+
+/** OSM name tags worth keeping as alternate names (exonyms, historical). */
+const OSM_ALT_TAGS = ["alt_name", "old_name", "loc_name", "name:de", "name:it", "name:hu", "name:en", "name:sl", "name:hr"];
+
+/**
+ * Convert an Overpass place query result (nodes tagged `place=*` in one
+ * country) into gazetteer entries — the direct-download alternative to a
+ * GeoNames file. Data © OpenStreetMap contributors (ODbL).
+ */
+export function overpassToEntries(data: OverpassJson, country: string): GazEntry[] {
+  const entries: GazEntry[] = [];
+  for (const el of data.elements ?? []) {
+    const name = el.tags?.name?.trim();
+    if (!name || el.lat === undefined || el.lon === undefined) continue;
+    const alt: string[] = [];
+    for (const tag of OSM_ALT_TAGS) {
+      const v = el.tags?.[tag];
+      if (!v) continue;
+      for (const part of v.split(";")) {
+        const s = part.trim();
+        if (s && s !== name && !alt.includes(s)) alt.push(s);
+      }
+    }
+    entries.push({
+      name,
+      ascii: "",
+      alt,
+      lat: el.lat,
+      lon: el.lon,
+      fclass: "P",
+      country,
+      admin1: "",
+      population: Number(el.tags?.population) || 0,
+    });
+  }
+  return entries;
+}
+
 /** Fuzzy-match bucket key: first two folded characters. */
 function bucketKey(folded: string): string {
   return folded.slice(0, 2);

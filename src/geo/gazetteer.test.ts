@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGazetteerIndex, lookupPlace, parseGeoNamesLine, type GazEntry } from "./gazetteer";
+import { buildGazetteerIndex, lookupPlace, overpassToEntries, parseGeoNamesLine, type GazEntry } from "./gazetteer";
 import { formatCoordValue } from "../gedcom/edit";
 
 // A few realistic GeoNames rows (19 tab-separated columns).
@@ -81,6 +81,27 @@ describe("lookupPlace", () => {
   it("prefers the populated place over the same-named admin division", () => {
     const c = lookupPlace(index, "Kranj");
     expect(c[0].entry.fclass).toBe("P");
+  });
+});
+
+describe("overpassToEntries", () => {
+  it("converts place nodes with alternate-name tags, skips unnamed", () => {
+    const entries = overpassToEntries(
+      {
+        elements: [
+          { lat: 46.1655, lon: 14.3061, tags: { place: "town", name: "Škofja Loka", "name:de": "Bischoflack", population: "11987" } },
+          { lat: 46.0, lon: 14.0, tags: { place: "hamlet" } },
+          { lat: 46.2331, lon: 14.3308, tags: { place: "suburb", name: "Stražišče", old_name: "Strasisch;Straschische" } },
+        ],
+      },
+      "SI",
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ name: "Škofja Loka", alt: ["Bischoflack"], population: 11987, country: "SI", fclass: "P" });
+    expect(entries[1].alt).toEqual(["Strasisch", "Straschische"]);
+    // The converted entries match through the shared index like GeoNames rows.
+    const index = buildGazetteerIndex(entries);
+    expect(lookupPlace(index, "Bischoflack")[0].entry.name).toBe("Škofja Loka");
   });
 });
 

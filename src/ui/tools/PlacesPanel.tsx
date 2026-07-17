@@ -5,6 +5,7 @@ import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSP
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import type { GeoCoord } from "../../gedcom/types";
 import { GeocodePanel } from "./GeocodePanel";
+import { countGeocodePending } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
@@ -153,18 +154,40 @@ export function PlacesPanel({
     setOpen(toOpen);
   }
 
+  // Distinct place names still missing coordinates — the geocode chip badge.
+  // Recomputed with the tree (same trigger: dataset change / re-entry).
+  const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
+
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
   if (view === "geocode")
-    return <GeocodePanel dataset={dataset} active={active} onApplyGeocode={onApplyGeocode} onBack={() => setView("tree")} />;
+    return (
+      <GeocodePanel
+        dataset={dataset}
+        active={active}
+        onApplyGeocode={onApplyGeocode}
+        // Applied coordinates changed the dataset in place — drop the cached
+        // tree so the panel (and the chip count) rebuild on return.
+        onBack={() => {
+          setView("tree");
+          setTree(null);
+        }}
+      />
+    );
 
   return (
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
-          <button type="button" className="tools-chip" onClick={() => setView("geocode")}>
+          <button
+            type="button"
+            className="tools-chip"
+            title={t("tools.places.geocodeChipHint", { count: geocodePending })}
+            onClick={() => setView("geocode")}
+          >
             {t("tools.places.geocodeToggle")}
+            {geocodePending > 0 && <span className="tools-chip-count">{geocodePending}</span>}
           </button>
         </div>
         <p className="tools-summary">

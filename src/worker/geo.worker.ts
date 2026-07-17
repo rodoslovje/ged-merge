@@ -1,4 +1,4 @@
-import { parseGeoNamesLine, type GazEntry } from "../geo/gazetteer";
+import { overpassToEntries, parseGeoNamesLine, type GazEntry, type OverpassJson } from "../geo/gazetteer";
 import { putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
@@ -75,6 +75,14 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   if (msg.type !== "importGazetteer") return;
   const { requestId } = msg;
   try {
+    if (msg.format === "overpass") {
+      const country = msg.country ?? "??";
+      const entries = overpassToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson, country);
+      if (!entries.length) throw new Error("no places in the Overpass result");
+      await putCountry({ code: country, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code: country, count: entries.length }] });
+      return;
+    }
     let bytes = new Uint8Array(msg.buffer);
     const isZip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
     if (isZip) {

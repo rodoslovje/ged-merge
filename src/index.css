@@ -6357,31 +6357,16 @@ kbd {
 .tools-geo-download .tools-run { margin: 0; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
 .tools-geo-coverage { color: var(--text); margin: 0 0 10px; }
-.tools-geo-actions {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
-  margin: 0 0 12px;
-}
-.tools-geo-actions .tools-search { margin: 0; flex: 0 1 280px; }
-.tools-geo-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.tools-geo-row { padding: 6px 10px; }
-.tools-geo-row + .tools-geo-row { border-top: 1px solid var(--border); }
-.tools-geo-row.nomatch .tools-geo-place { text-decoration: line-through; opacity: 0.65; }
-.tools-geo-row-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tools-geo-place { font-weight: 500; }
-.tools-geo-uses { color: var(--muted); font-size: 0.82rem; }
-.tools-geo-proposal { color: var(--muted); font-size: 0.9rem; }
-.tools-geo-nocand { color: var(--faint); font-size: 0.85rem; font-style: italic; }
+/* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
+   dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
+   their own classes. The search box loses its own bottom margin inside the
+   options row so it baselines with the Apply button. */
+.tools-reshape-options .tools-search { margin: 0; flex: 0 1 280px; }
 .tools-geo-score {
   margin-left: 6px; font-size: 0.78rem; color: var(--muted);
   border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 6px;
 }
 .tools-geo-score.confident { color: var(--state-match); border-color: var(--state-match); }
-.tools-geo-cachedchip { margin-left: 6px; color: var(--status-link); }
-.tools-geo-nomatch {
-  margin-left: auto; background: none; border: none; cursor: pointer;
-  font-size: 0.9rem; opacity: 0.6; padding: 2px 4px;
-}
-.tools-geo-nomatch:hover, .tools-geo-nomatch.active { opacity: 1; }
 .tools-geo-detail { padding: 6px 0 4px 46px; }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
