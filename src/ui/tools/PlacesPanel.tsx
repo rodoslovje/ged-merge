@@ -3,6 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import type { GeoCoord } from "../../gedcom/types";
+import { GeocodePanel } from "./GeocodePanel";
+import { countGeocodePending } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
@@ -45,16 +48,21 @@ export function PlacesPanel({
   onNavigate,
   active,
   onApplyPlaceRename,
+  onApplyGeocode,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
+  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  // Switches the panel body between the containment tree and the geocode tool
+  // (same pattern as the Sources panel hosting Organize sources).
+  const [view, setView] = useState<"tree" | "geocode">("tree");
 
   useEffect(() => {
     setTree(null);
@@ -146,12 +154,42 @@ export function PlacesPanel({
     setOpen(toOpen);
   }
 
+  // Distinct place names still missing coordinates — the geocode chip badge.
+  // Recomputed with the tree (same trigger: dataset change / re-entry).
+  const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
+
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
+
+  if (view === "geocode")
+    return (
+      <GeocodePanel
+        dataset={dataset}
+        active={active}
+        onApplyGeocode={onApplyGeocode}
+        // Applied coordinates changed the dataset in place — drop the cached
+        // tree so the panel (and the chip count) rebuild on return.
+        onBack={() => {
+          setView("tree");
+          setTree(null);
+        }}
+      />
+    );
 
   return (
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
+        <div className="tools-chip-group">
+          <button
+            type="button"
+            className="tools-chip"
+            title={t("tools.places.geocodeChipHint", { count: geocodePending })}
+            onClick={() => setView("geocode")}
+          >
+            {t("tools.places.geocodeToggle")}{" "}
+            {geocodePending > 0 && <span className="tools-chip-count">{geocodePending}</span>}
+          </button>
+        </div>
         <p className="tools-summary">
           {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}
         </p>

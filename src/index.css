@@ -5356,7 +5356,7 @@ kbd {
 }
 .legal-content a:hover { text-decoration: underline; }
 
-/* --- Map chart (Charts-hub kind 6) ----------------------------------------- */
+/* --- Map chart (Charts-hub kind 7) ----------------------------------------- */
 
 /* Leaflet's internal panes/controls carry z-indexes up to ~1000 (and the
    cluster panel sits above those). Isolating the wrapper keeps that whole
@@ -5576,6 +5576,11 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 2px 10px;
+}
+.map-panel-person {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
 }
 .map-panel-more {
   color: var(--faint);
@@ -6287,6 +6292,25 @@ kbd {
 /* Fixed-width select column pinned to the right edge, so every dropdown's
    left and right edges line up down the tab. */
 .settings-format-row select { flex-shrink: 0; width: 210px; margin-left: auto; }
+
+/* Free-text settings inputs (custom tile URL): app input look — the browser
+   default focus ring reads foreign in both themes — and room for a URL. */
+.settings-text-input {
+  flex: 1 1 auto;
+  min-width: 280px;
+  margin-left: auto;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+.settings-text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */
@@ -6302,3 +6326,58 @@ kbd {
 .tools-reshape-site { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .tools-reshape-site input[type="checkbox"] { cursor: pointer; }
 .tools-reshape-site select { cursor: pointer; }
+
+/* --- Geocode places (Tools tab) -------------------------------------------- */
+
+.tools-geo-gazetteer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+.tools-geo-countries { list-style: none; margin: 0 0 10px; padding: 0; }
+.tools-geo-countries li { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.tools-geo-country { font-weight: 600; }
+.tools-geo-count { color: var(--muted); font-size: 0.85rem; }
+.tools-geo-delete {
+  background: none; border: none; cursor: pointer; font-size: 0.9rem;
+  opacity: 0.7; padding: 2px 4px;
+}
+.tools-geo-delete:hover { opacity: 1; }
+.tools-geo-empty { color: var(--muted); margin: 0 0 10px; }
+.tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
+.tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.tools-geo-download { display: inline-flex; align-items: center; gap: 8px; }
+.tools-geo-download input {
+  width: 3.2em; box-sizing: border-box; padding: 5px 8px; text-transform: uppercase;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.9rem;
+}
+.tools-geo-download input:focus { outline: none; border-color: var(--accent); }
+.tools-geo-download .tools-run { margin: 0; }
+.tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+.tools-geo-coverage { color: var(--text); margin: 0 0 10px; }
+/* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
+   dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
+   their own classes. The search box loses its own bottom margin inside the
+   options row so it baselines with the Apply button. */
+.tools-reshape-options .tools-search { margin: 0; flex: 0 1 280px; }
+.tools-geo-score {
+  margin-left: 6px; font-size: 0.78rem; color: var(--muted);
+  border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 6px;
+}
+.tools-geo-score.confident { color: var(--state-match); border-color: var(--state-match); }
+.tools-geo-detail { padding: 6px 0 4px 46px; }
+.tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
+.tools-geo-candidates li { padding: 2px 0; }
+.tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
+.tools-geo-cand-name { font-weight: 500; }
+.tools-geo-manual { display: flex; align-items: center; gap: 8px; }
+.tools-geo-manual input {
+  width: 220px; box-sizing: border-box; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.85rem;
+}
+.tools-geo-manual input:focus { outline: none; border-color: var(--accent); }
+.tools-geo-manual .nav-btn { margin: 0; }
+.tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }

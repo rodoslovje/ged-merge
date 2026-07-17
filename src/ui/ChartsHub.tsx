@@ -25,9 +25,9 @@ const MapChart = lazy(() => import("./map/MapChart"));
 // whatever was used last.
 
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
- *  (pedigrees, then the timeline) first, then the places map, the two-person
- *  relationship, then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "map", "relationship", "report"];
+ *  (pedigrees, then the timeline) first, then the two-person relationship,
+ *  then the places map, then the text reports. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "map", "report"];
 
 interface Props {
   mainDs: Dataset;
@@ -76,6 +76,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
       <ReportView
         mainDs={mainDs}
         rootId={rootId}
+        startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         backLabel={backLabel}
@@ -95,6 +96,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         <MapChart
           mainDs={mainDs}
           rootId={rootId}
+          startId={startId}
           backLabel={backLabel}
           onBack={onBack}
           onNavigate={onNavigate}

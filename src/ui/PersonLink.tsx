@@ -1,5 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { lifespanAge } from "../gedcom/age";
+import { lifespanLine } from "../chart/nodeDisplay";
 import { xrefLabel } from "../gedcom/nameDisplay";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { sexClass } from "./sex";
@@ -29,7 +31,12 @@ export function PersonLink({ dataset, id, fallback, onNavigate }: Props) {
       </button>
     );
   }
-  const lifespan = lifespanOf(indi);
+  // The global "Show ages" preference folds the age into the lifespan,
+  // matching person headers and chart titles ("1810–1881 (71)").
+  const lifespan = lifespanLine(
+    { showLifespan: true, showAge: settings.showAge },
+    { years: lifespanOf(indi), age: lifespanAge(indi) },
+  );
   return (
     <button
       className="tools-issue-link person-ref"

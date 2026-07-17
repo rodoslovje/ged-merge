@@ -251,9 +251,14 @@ the existing event vocabulary; new keys under `map.*`.
    the model; hub kind `map` (digit 8) with Leaflet, CARTO/custom tiles,
    opt-in + offline fallback, clustering, scope/event/year filters, popovers,
    PNG export, en+sl. Useful immediately for files that carry coordinates.
-2. **Geocoding.** GeoNames import (worker) + IndexedDB store/cache; Tools-tab
-   "Geocode places" review flow; write-back patches; coverage line. Optional:
-   Nominatim opt-in for addresses.
+2. ~~**Geocoding.**~~ *Done 2026-07-17: GeoNames import (own worker, .txt or
+   .zip via DecompressionStream, progress + cancel) into the separate
+   `gedmerge-geo` IndexedDB; Tools-tab "Geocode places" review flow (exact +
+   alt-name + fuzzy matching with country confirmation, confident-only bulk
+   select, per-row candidate picker, manual lat/lon entry, no-match marks in
+   the decision cache only); accepted coordinates written as `PLAC.MAP.
+   LATI/LONG` through the edit/undo pipeline; coverage line. Deferred:
+   Nominatim opt-in for street addresses, GOV (phase 4).*
 3. **Time + paths.** Year-range slider; person life paths and displayed-set
    dispersal lines; path styling and direction.
 4. **Historical overlays + GOV.** Overlay-layer settings + curated presets +

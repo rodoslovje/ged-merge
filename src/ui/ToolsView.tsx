@@ -10,6 +10,7 @@ import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
+import type { GeoCoord } from "../gedcom/types";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
@@ -29,6 +30,9 @@ interface Props {
   active: boolean;
   /** Rename a place segment in the given records and push to the undo stack. */
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
+  /** Write reviewed geocode coordinates (raw PLAC value → coordinate) into the
+   *  matching PLAC nodes and push to the undo stack; returns records changed. */
+  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
   /** Remove all broken family pointers and push to the undo stack. Returns the
    *  number of records changed, so the panel can re-validate and report. */
   onFixBrokenLinks: () => number;
@@ -54,7 +58,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   // One shared worker runs the heavy whole-file scans off the main thread;
@@ -107,7 +111,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} />
         )}
       </div>
     </div>

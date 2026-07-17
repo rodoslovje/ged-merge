@@ -37,6 +37,7 @@ import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
 import { applyPlaceRename } from "./tools/placeEdit";
+import { applyGeocode } from "./tools/geocode";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
@@ -1867,6 +1868,7 @@ function AppContent() {
               }}
               active={mode === "tools"}
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
+              onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}

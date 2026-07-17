@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../gedcom/types";
 import type { TreeMode } from "../chart/personTree";
-import { livingLabelFor } from "../chart/nodeDisplay";
+import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { createKinshipResolver } from "../match/kinship";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
@@ -33,7 +33,9 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
 import type { CandidateDecision } from "../review/types";
-import { useNameOf } from "./SettingsContext";
+import { useNameOf, useSettings } from "./SettingsContext";
+import { ChartRootTitle } from "./ChartRootTitle";
+import { lifespanAge } from "../gedcom/age";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Full-page text report — the Charts hub's "Report" kind, with the shared
@@ -61,6 +63,8 @@ const REPORT_NAME_DISPLAY = { marriedSurname: false } as const;
 interface Props {
   mainDs: Dataset;
   rootId: string;
+  /** The app-wide start person, for the header's kinship-to-start chip. */
+  startId?: string;
   /** Main ids with unsaved edits — those entries show the "M" chip. */
   changedPersonIds?: Set<string>;
   /** Merge decisions, so decided matches show their C/R/D chip here too. */
@@ -81,9 +85,10 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
+  const { settings: appSettings } = useSettings();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings, set } = useChartSettings();
   const [currentRootId, setCurrentRootId] = useState(rootId);
@@ -158,7 +163,23 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
     [data],
   );
   const pageKind = t(mode === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle");
-  const exportTitle = [rootEntry && reportName(rootEntry, exportOpts), rootEntry && !redacted(rootEntry) ? rootEntry.years : undefined, "—", pageKind]
+  // Header lifespan with the age folded in when the Age display toggle is on —
+  // the same lifespanLine convention as the pedigree charts and the timeline.
+  const rootYears =
+    rootEntry && !redacted(rootEntry)
+      ? lifespanLine(
+          { showLifespan: true, showAge: settings.showAge },
+          { years: rootEntry.years, age: lifespanAge(mainDs.individuals.get(currentRootId)) },
+        )
+      : undefined;
+  // Kinship-to-start chip, matching the other chart headers. The body's
+  // `kinship` resolver is rooted at the report root; this one is to the start.
+  const showStartKinship = settings.showKinship && appSettings.showKinship && !!startId;
+  const startKinship = useMemo(
+    () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
+    [mainDs, startId, t],
+  );
+  const exportTitle = [rootEntry && reportName(rootEntry, exportOpts), rootYears, "—", pageKind]
     .filter(Boolean)
     .join(" ");
 
@@ -221,12 +242,14 @@ export function ReportView({ mainDs, rootId, changedPersonIds, decisions, backLa
       onBack={onBack}
       title={
         rootEntry ? (
-          <>
-            <span className={`tree-title-name ${sexClass(rootEntry.sex)}`}>{reportName(rootEntry, exportOpts)}</span>
-            {!redacted(rootEntry) && rootEntry.years && <span className="tree-title-years gm-data">{rootEntry.years}</span>}
-            <span className="tree-title-break" aria-hidden="true" />
-            <span className="tree-title-kind">{pageKind}</span>
-          </>
+          <ChartRootTitle
+            name={reportName(rootEntry, exportOpts)}
+            sexCls={sexClass(rootEntry.sex)}
+            years={rootYears}
+            kinship={showStartKinship ? startKinship?.label(currentRootId) : undefined}
+            lineage={startKinship?.lineage(currentRootId)}
+            kind={pageKind}
+          />
         ) : (
           pageKind
         )

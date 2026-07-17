@@ -59,3 +59,5 @@ export {
 export type { EditSourceFields, NewSourceFields } from "./sources";
 
 export { bumpSourceCacheVersion, getMediaAndSourceCtx, rebuildIndividual, rebuildFamily } from "./cache";
+
+export { formatCoordValue, setPlaceCoord } from "./geo";
