@@ -1,4 +1,5 @@
 import type { DateOrder, DateQualifier, GedcomVersion } from "../gedcom/types";
+import type { PrivacyTagStyle } from "../gedcom/private";
 import type { LinkLangs } from "./links";
 
 /**
@@ -20,6 +21,11 @@ export interface MainProfile {
   /** How the main marks an unknown given/surname, so incoming placeholder
    * tokens (`NN`, `____`, `????`) can be reshaped to match. */
   unknownName: UnknownNameTarget;
+  /** The main's privacy-marker dialect (MacFamilyTree `PRIV`, MyHeritage
+   * `_PRIV Y`, standard `RESN`), so incoming markers are rewritten to match.
+   * Absent when the main carries no markers — the compare's dialect then
+   * passes through unchanged. */
+  privacyStyle?: PrivacyTagStyle;
 }
 
 /**

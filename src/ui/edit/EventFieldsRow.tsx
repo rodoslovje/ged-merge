@@ -314,12 +314,21 @@ export function EventFieldsRow({
       cause: causeField.value,
       ...override,
     };
+    // An untouched note is omitted rather than re-sent: its displayed text is a
+    // stripped projection (URLs pulled into links; shared-note text resolved
+    // from the record), so rewriting it as collateral of another field's commit
+    // would flatten a shared-note pointer / drop the note's URLs. A still-shown
+    // merge-incoming value is not "untouched" — it must materialize like the
+    // other suggested fields (see the docstring above).
+    if (override.note === undefined && !noteField.isMerge && noteField.value === noteField.initial) {
+      delete merged.note;
+    }
     const unchanged =
       (merged.date ?? "") === dateField.initial &&
       (merged.value ?? "") === valueField.initial &&
       (merged.place ?? "") === placeField.initial &&
       (merged.address ?? "") === addrField.initial &&
-      (merged.note ?? "") === noteField.initial &&
+      (merged.note === undefined || merged.note === noteField.initial) &&
       (merged.agency ?? "") === agencyField.initial &&
       (merged.type ?? "") === typeField.initial &&
       (merged.cause ?? "") === causeField.initial;

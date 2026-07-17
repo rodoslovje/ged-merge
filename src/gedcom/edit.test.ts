@@ -44,6 +44,7 @@ import {
   setAdditionalName,
   setEventField,
   setFamilyEventField,
+  noteCtx,
   setFamilyNotes,
   setIndividualLinks,
   setMarriedName,
@@ -734,7 +735,7 @@ describe("setNotes", () => {
   it("adds notes to an individual", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(indi, ["First note", "Second note"]);
+    setNotes(noteCtx(ds.records), indi, [{ text: "First note" }, { text: "Second note" }]);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes).toEqual(["First note", "Second note"]);
   });
@@ -742,8 +743,8 @@ describe("setNotes", () => {
   it("replaces existing notes", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(indi, ["Old note"]);
-    setNotes(indi, ["New note"]);
+    setNotes(noteCtx(ds.records), indi, [{ text: "Old note" }]);
+    setNotes(noteCtx(ds.records), indi, [{ text: "New note" }]);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes).toEqual(["New note"]);
   });
@@ -751,8 +752,8 @@ describe("setNotes", () => {
   it("removes all notes when given an empty array", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(indi, ["A note"]);
-    setNotes(indi, []);
+    setNotes(noteCtx(ds.records), indi, [{ text: "A note" }]);
+    setNotes(noteCtx(ds.records), indi, []);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("NOTE");
@@ -763,7 +764,7 @@ describe("setFamilyNotes", () => {
   it("adds notes to a family", () => {
     const ds = buildFromText(FAM_BASE);
     const fam = ds.families.get("@F1@")!;
-    setFamilyNotes(fam, ["Family note"]);
+    setFamilyNotes(noteCtx(ds.records), fam, [{ text: "Family note" }]);
     const updated = rebuildFamily(ds, fam);
     expect(updated.notes).toEqual(["Family note"]);
   });
@@ -771,8 +772,8 @@ describe("setFamilyNotes", () => {
   it("clears family notes", () => {
     const ds = buildFromText(FAM_BASE);
     const fam = ds.families.get("@F1@")!;
-    setFamilyNotes(fam, ["Note"]);
-    setFamilyNotes(fam, []);
+    setFamilyNotes(noteCtx(ds.records), fam, [{ text: "Note" }]);
+    setFamilyNotes(noteCtx(ds.records), fam, []);
     const updated = rebuildFamily(ds, fam);
     expect(updated.notes ?? []).toHaveLength(0);
   });

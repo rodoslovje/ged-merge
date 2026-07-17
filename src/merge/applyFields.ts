@@ -13,6 +13,7 @@ import {
   nextXref,
 } from "../gedcom/edit";
 import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
@@ -186,6 +187,8 @@ export function applyRows(
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
+    } else if (row.key === "private") {
+      applied = applyPrivateFlag(target, records);
     } else if (parsed) {
       const { tag, sub } = parsed;
       // The row's own true per-side array positions, not a position parsed
@@ -381,6 +384,17 @@ export function applyNotes(
     collectCustomTags(clone, customTags);
     insertOrdered(target, clone, order);
   }
+  return true;
+}
+
+/**
+ * Add the private flag to `target` (in the main file's own dialect) when the
+ * incoming side declares it. Additive only: merging never *removes* a
+ * main-side privacy marker (that row is "main-only" and never reaches here).
+ */
+export function applyPrivateFlag(target: GedNode, records: GedNode[]): boolean {
+  if (isPrivateNode(target)) return false;
+  setPrivateFlag(target, true, detectPrivacyStyle(records), records);
   return true;
 }
 

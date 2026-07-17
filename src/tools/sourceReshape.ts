@@ -30,6 +30,7 @@ import {
 const SOUR_TRAILING = ["REPO", "CHAN", "CREA"] as const;
 const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
+import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
 import { familySpouses } from "./sources";
 
@@ -986,10 +987,15 @@ function scanContainer(
   hits: ScanHit[],
   eventTag?: string,
   eventIndex?: number,
+  privateObje?: ReadonlySet<string>,
 ): void {
   const base = { rec, container, eventTag, eventIndex };
   for (const child of container.children) {
     const value = child.value ?? "";
+    // Private entries stay private: an inline NOTE/OBJE flagged private (or a
+    // pointer to a private OBJE record) never becomes source material.
+    if (isPrivateNode(child)) continue;
+    if (child.tag === "OBJE" && value && isPointer(value.trim()) && privateObje?.has(value.trim())) continue;
 
     if (LINK_TAGS.has(child.tag) && value) {
       for (const { url, recognized } of recognizedUrls(value, undefined, sites)) {
@@ -1106,17 +1112,23 @@ function scanOccurrences(
   const sourTitles = new Map<string, string | undefined>();
   for (const rec of records) if (rec.tag === "SOUR" && rec.xref) sourTitles.set(rec.xref, sourceTitle(rec));
 
+  // Private OBJE records: their URLs are private data, never source material.
+  const privateObje = new Set(records.filter((r) => r.tag === "OBJE" && r.xref && isPrivateNode(r)).map((r) => r.xref!));
+
   const hits: ScanHit[] = [];
   for (const rec of records) {
+    // A record flagged private (person, family) is meant to stay out of
+    // publishing — none of its links become (shared) source citations.
+    if (isPrivateNode(rec)) continue;
     if (rec.tag === "INDI" || rec.tag === "FAM") {
       const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
-      scanContainer(rec, rec, sites, objeUrls, sourTitles, hits);
+      scanContainer(rec, rec, sites, objeUrls, sourTitles, hits, undefined, undefined, privateObje);
       const seen = new Map<string, number>();
       for (const child of rec.children) {
         if (!eventTags.has(child.tag)) continue;
         const idx = seen.get(child.tag) ?? 0;
         seen.set(child.tag, idx + 1);
-        scanContainer(rec, child, sites, objeUrls, sourTitles, hits, child.tag, idx);
+        scanContainer(rec, child, sites, objeUrls, sourTitles, hits, child.tag, idx, privateObje);
       }
     } else if (rec.tag === "SOUR" && rec.xref) {
       // A SOUR record whose TITL *is* a site URL: rewrite the record in place.

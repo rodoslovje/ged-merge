@@ -1,6 +1,6 @@
 import type { GedNode, Individual, Family } from "../../gedcom/types";
 import type { RecordPatch } from "../historyTypes";
-import type { EditSourceFields, EventFieldUpdate } from "../../gedcom/edit";
+import type { EditSourceFields, EventFieldUpdate, SharedNoteCtx } from "../../gedcom/edit";
 
 /** A media edit target: the selected person's record, or one of their
  *  families' — every media operation routes through the owner's
@@ -10,12 +10,14 @@ export type MediaOwner = { kind: "individual" } | { kind: "family"; fam: Family 
 /** A mutation applied to the selected person's raw record, then rebuilt and
  * re-rendered. `extraPatches` carries undo/redo entries for any other
  * top-level record the mutation touched (e.g. a `SOUR`/`OBJE` created or
- * modified by "Add Source"). */
-export type Commit = (mutate: (indi: Individual) => void, extraPatches?: RecordPatch[]) => void;
+ * modified by "Add Source"). The mutate callback also receives a
+ * `SharedNoteCtx`: note-editing helpers write shared-`NOTE`-record changes
+ * into it, and the commit turns those into undo patches automatically. */
+export type Commit = (mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => void;
 
 /** A mutation applied to a family's raw record, then rebuilt and
- * re-rendered — see `Commit` for `extraPatches`. */
-export type FamilyCommit = (fam: Family, mutate: (fam: Family) => void, extraPatches?: RecordPatch[]) => void;
+ * re-rendered — see `Commit` for `extraPatches` and the note ctx. */
+export type FamilyCommit = (fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => void;
 
 /** Where a confirmed "Add Source" citation should attach: the selected
  * person's own record, or a specific event (via its already-bound

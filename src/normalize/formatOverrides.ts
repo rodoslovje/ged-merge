@@ -38,6 +38,8 @@ export interface FormatOverrides {
   matriculaLang?: string;
   /** Preferred Geneanet cemetery URL language ("en", "de", "fr", …). */
   geneanetLang?: string;
+  /** Privacy-marker dialect (MacFamilyTree PRIV / MyHeritage _PRIV / standard RESN). */
+  privacy?: "PRIV" | "_PRIV" | "RESN";
 }
 
 /** What "Auto (detected)" resolves to per dimension, as override-value
@@ -170,6 +172,7 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
       ...(o.geneanetLang ? { geneanet: o.geneanetLang } : {}),
     };
   }
+  if (o.privacy) out.privacyStyle = o.privacy;
   return out;
 }
 
@@ -193,6 +196,7 @@ export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   out.doubledLinks = oneOf(r.doubledLinks, ["fold", "keep"] as const);
   out.matriculaLang = str(r.matriculaLang);
   out.geneanetLang = str(r.geneanetLang);
+  out.privacy = oneOf(r.privacy, ["PRIV", "_PRIV", "RESN"] as const);
   for (const k of Object.keys(out) as (keyof FormatOverrides)[]) if (out[k] === undefined) delete out[k];
   return out;
 }

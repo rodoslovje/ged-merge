@@ -75,7 +75,7 @@ export function buildAhnentafel(
       // to the mother's entry so the date/place isn't lost.
       if (father) {
         const wife = famF!.wife ? ds.individuals.get(famF!.wife) : undefined;
-        const fact = marriageFact(famF!, wife && nameOf(wife), opts, wife && isPresumedLiving(wife, ds, nowYear), ds);
+        const fact = marriageFact(famF!, wife && nameOf(wife), opts, wife && (isPresumedLiving(wife, ds, nowYear) || !!wife.private), ds);
         next.push({ num: 2 * num, indi: father, marriages: fact ? [fact] : [] });
       }
       if (mother) {

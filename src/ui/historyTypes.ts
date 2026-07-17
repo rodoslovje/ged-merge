@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
+import type { SharedNoteChange } from "../gedcom/edit";
 
 export interface RecordPatch {
   /** "record" covers a top-level non-INDI/FAM record (e.g. a `SOUR`/`OBJE`
@@ -26,6 +27,22 @@ export interface RecordPatch {
 
 export function cloneRaw(raw: GedNode): GedNode {
   return cloneNode(raw);
+}
+
+/** Undo/redo patches for shared `NOTE` records a note edit touched, surfaced
+ *  through the individual/family the edit was made from (see `RecordPatch.owner`). */
+export function noteChangePatches(
+  changes: SharedNoteChange[],
+  owner: { kind: "individual" | "family"; id: string },
+): RecordPatch[] {
+  return changes.map((c) => ({
+    type: "record" as const,
+    id: c.xref,
+    before: c.before,
+    after: c.after,
+    ...(c.index !== undefined ? { index: c.index } : {}),
+    owner,
+  }));
 }
 
 export interface RecordSnapshots {

@@ -77,7 +77,7 @@ export function PrivacyPanel({
 
   const flagged = useMemo(() => (ready ? findLiving(dataset, options) : []), [ready, dataset, options]);
   const counts = useMemo(() => {
-    const c = { birth: 0, relative: 0, unknown: 0, recentDeath: 0 };
+    const c = { birth: 0, relative: 0, unknown: 0, recentDeath: 0, declared: 0 };
     for (const f of flagged) c[f.reason]++;
     return c;
   }, [flagged]);

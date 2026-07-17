@@ -4,6 +4,7 @@ import { parsePlace } from "./place";
 import { firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
+import { isPrivateNode } from "./private";
 
 // Re-exported so existing importers (merge, normalize) keep their import path.
 export { looksLikeUrl };
@@ -14,6 +15,7 @@ import type {
   GedEvent,
   GedNode,
   Individual,
+  NoteRef,
   ParseResult,
   SourceCitation,
   Sex,
@@ -129,6 +131,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const links: string[] = [];
   const notes: string[] = [];
   const notesFull: string[] = [];
+  const noteRefs: NoteRef[] = [];
   const sources: SourceCitation[] = [];
   const uids: string[] = [];
   const fsids: string[] = [];
@@ -157,7 +160,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         if (child.value) spouseOf.push(child.value.trim());
         break;
       case "NOTE": {
-        collectNote(child, noteIndex, media, notes, links, notesFull);
+        collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
       case "SOUR": {
@@ -179,7 +182,9 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (links.length) indi.links = dedupe(links);
   if (notes.length) indi.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
+  if (noteRefs.length) indi.noteRefs = noteRefs;
   if (sources.length) indi.sources = sources;
+  if (isPrivateNode(record)) indi.private = true;
   return indi;
 }
 
@@ -189,6 +194,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   const links: string[] = [];
   const notes: string[] = [];
   const notesFull: string[] = [];
+  const noteRefs: NoteRef[] = [];
   const sources: SourceCitation[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
@@ -205,7 +211,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         if (child.value) children.push(child.value.trim());
         break;
       case "NOTE": {
-        collectNote(child, noteIndex, media, notes, links, notesFull);
+        collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
       case "SOUR": {
@@ -225,7 +231,9 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (links.length) fam.links = dedupe(links);
   if (notes.length) fam.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
+  if (noteRefs.length) fam.noteRefs = noteRefs;
   if (sources.length) fam.sources = sources;
+  if (isPrivateNode(record)) fam.private = true;
   return fam;
 }
 
@@ -253,6 +261,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const links = collectLinks(node, media);
   const noteNode = firstChild(node, "NOTE");
   if (noteNode) {
+    const notePtr = noteNode.value?.trim() ?? "";
+    if (isPointer(notePtr)) event.noteXref = notePtr;
     const text = resolveNoteText(noteNode, noteIndex, links);
     const noteStripped = text && stripNoteLinks(text);
     if (noteStripped) event.note = noteStripped;
@@ -271,8 +281,15 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
 /** Map of OBJE record xref -> the URLs that record holds. */
 export type MediaLinks = Map<string, string[]>;
 
-/** Map of top-level NOTE record xref -> its (CONT/CONC-folded) text. */
-export type NoteIndex = Map<string, string>;
+/** One shared NOTE record's projection: its (CONT/CONC-folded) text plus its
+ *  private flag (a private note's URLs are never surfaced as links). */
+export interface NoteIndexEntry {
+  text: string;
+  private: boolean;
+}
+
+/** Map of top-level NOTE record xref -> its text + private flag. */
+export type NoteIndex = Map<string, NoteIndexEntry>;
 
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
@@ -314,7 +331,7 @@ function tidyNoteText(text: string): string {
  * (its own wrapping, and whatever wrapped the now-removed URL). Returns the
  * remaining text, or "" if nothing is left.
  */
-function stripNoteLinks(text: string): string {
+export function stripNoteLinks(text: string): string {
   return tidyNoteText(text.replace(URL_RE, ""));
 }
 
@@ -343,7 +360,9 @@ export function buildMediaLinks(records: GedNode[]): MediaLinks {
 export function buildNoteIndex(records: GedNode[]): NoteIndex {
   const map: NoteIndex = new Map();
   for (const rec of records) {
-    if (rec.tag === "NOTE" && rec.xref && rec.value !== undefined) map.set(rec.xref, rec.value);
+    if (rec.tag === "NOTE" && rec.xref && rec.value !== undefined) {
+      map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec) });
+    }
   }
   return map;
 }
@@ -357,25 +376,44 @@ export function buildNoteIndex(records: GedNode[]): NoteIndex {
 function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): string | undefined {
   const v = node.value?.trim();
   if (!(v && isPointer(v))) return node.value;
-  const text = notes.get(v);
-  if (text && links) for (const m of text.match(URL_RE) ?? []) links.push(stripTrailingPunct(m));
-  return text;
+  const entry = notes.get(v);
+  // A private note's URLs stay inside the note — never surfaced as links,
+  // where they'd be one click from becoming a (public) source citation.
+  if (entry && !entry.private && links) {
+    for (const m of entry.text.match(URL_RE) ?? []) links.push(stripTrailingPunct(m));
+  }
+  return entry?.text;
 }
 
 /** Collect one record-level NOTE's stripped text and any URLs it carries.
  *  `outFull` receives the same note with its URLs kept in place, for
- *  renderers (reports) that show the note verbatim. */
-function collectNote(node: GedNode, notes: NoteIndex, media: MediaLinks, out: string[], links: string[], outFull: string[]): void {
-  const isPtr = isPointer(node.value?.trim() ?? "");
+ *  renderers (reports) that show the note verbatim; `outRefs` receives the
+ *  editable reference (verbatim text + shared-record identity + private
+ *  flag) — including notes the display arrays drop because only a URL
+ *  remains after stripping, so an edit round-trip can't silently discard
+ *  them. */
+function collectNote(
+  node: GedNode, notes: NoteIndex, media: MediaLinks,
+  out: string[], links: string[], outFull: string[], outRefs?: NoteRef[],
+): void {
+  const ptr = node.value?.trim() ?? "";
+  const isPtr = isPointer(ptr);
+  const isPrivate = isPtr ? !!notes.get(ptr)?.private : isPrivateNode(node);
   const text = resolveNoteText(node, notes, links);
   const stripped = text && stripNoteLinks(text);
   if (stripped) out.push(stripped);
   const full = text && tidyNoteText(text);
   if (full) outFull.push(full);
+  // A pointer is kept even when it doesn't resolve (dangling refs are policed
+  // at save time, not silently dropped by a note edit round-trip).
+  if (outRefs) {
+    if (isPtr) outRefs.push({ xref: ptr, text: text ?? "", ...(isPrivate ? { private: true } : {}) });
+    else if (node.value?.trim()) outRefs.push({ text: node.value, ...(isPrivate ? { private: true } : {}) });
+  }
   // An inline note may also carry sub-tags / embedded media; let collectLinks
-  // walk it. A pointer note has no such children, and its URLs were already
-  // pulled from the resolved text above.
-  if (!isPtr) collectLinks(node, media, links);
+  // walk it (unless the note is private — see resolveNoteText). A pointer
+  // note's URLs were already handled above.
+  if (!isPtr && !isPrivate) collectLinks(node, media, links);
 }
 
 /**

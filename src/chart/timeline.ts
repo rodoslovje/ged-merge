@@ -91,6 +91,8 @@ export interface TimelineRow {
   years: string;
   sex: Sex;
   living: boolean;
+  /** Declared private — redacted like the living, without affecting the bar. */
+  private?: boolean;
   /** First-available place (birth → residence → death) for the place toggle. */
   place?: string;
   /** Bar extent in years; absent when the person has no dated event at all. */
@@ -260,6 +262,7 @@ function makeRow(
     years: formatLifespan(birth, death, deceased),
     sex: indi.sex,
     living,
+    private: !!indi.private,
     place: placeLabel(indi),
     from,
     to,

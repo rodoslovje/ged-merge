@@ -3014,6 +3014,57 @@ button:focus-visible {
   /* Match the events grid so person notes read at the same size as event notes. */
   font-size: 0.88rem;
 }
+/* A note chip plus its trailing open-link arrow. */
+.edit-note-item {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+/* The private lock sits inside the box at the LEFT edge — the mirror of the
+ * × clear button: invisible at rest, revealed on the chip's hover/focus,
+ * always shown (colored) once the note is private. The text clears it via
+ * the wrapper's `--leading` padding below. */
+.note-chip-lock {
+  position: absolute;
+  left: 3px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.65rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  filter: grayscale(1);
+  transition: opacity 0.1s;
+}
+.clearable-wrap:hover .note-chip-lock,
+.clearable-wrap:focus-within .note-chip-lock { opacity: 0.7; }
+.clearable-wrap .note-chip-lock:hover { opacity: 1; background: var(--border); }
+.clearable-wrap .note-chip-lock.is-on {
+  opacity: 1;
+  filter: none;
+}
+.clearable-wrap--leading .edit-input { padding-left: 19px; }
+/* Person/family private chip: quiet outline at rest, accented when set. */
+.private-toggle {
+  cursor: pointer;
+}
+.private-toggle:not(.is-on) {
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+.private-toggle.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
@@ -3291,6 +3342,7 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 .edit-event:hover .source-ref-open,
 .edit-record-label-row:hover .source-ref-open,
 .edit-record-section:hover .source-ref-open,
+.edit-note-item:hover .source-ref-open,
 .source-ref-open:focus-visible {
   max-width: 1.2em;
   opacity: 1;

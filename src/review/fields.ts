@@ -76,6 +76,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.sources");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
+  if (key === "private" || key.endsWith(".private")) return t("field.private");
 
   let tag = key;
   let sub = "";
@@ -151,6 +152,11 @@ export function individualFieldRows(
   // notes, all before the events.
   pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), main?.notes?.join("\n"), compare?.notes?.join("\n"));
+  // Private flag: shown when either side declares it; merging is additive
+  // (an incoming flag is written, a main-side flag is never removed).
+  pushRow(rows, "private", formatFieldLabel(t, "private"),
+    main?.private ? `🔒 ${t("edit.privateLabel")}` : undefined,
+    compare?.private ? `🔒 ${t("edit.privateLabel")}` : undefined);
 
   buildEventRows(rows, t, main, compare, mainDs, compareDs, shouldReshape, rejectedEvents, showAge);
 
@@ -336,6 +342,9 @@ function buildFamilyRows(
     const mFamNotes = mFam?.notes?.join("\n");
     const cFamNotes = cFam?.notes?.join("\n");
     pushRow(rows, `${famKey}.notes`, formatFieldLabel(t, `${famKey}.notes`), mFamNotes, cFamNotes);
+    pushRow(rows, `${famKey}.private`, formatFieldLabel(t, `${famKey}.private`),
+      mFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined,
+      cFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined);
 
     const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
     const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
@@ -43,8 +43,10 @@ import {
   insertOrdered,
   insertRecord,
   insertRecordAt,
+  noteCtx,
   rebuildFamily,
   rebuildIndividual,
+  rebuildNoteReferrers,
   removeIndividual,
   removeSourceCitationAtIndex,
   setIndividualLinks,
@@ -53,6 +55,8 @@ import {
   updateSourceCitation,
   type EditSourceFields,
   type NewSourceFields,
+  type SharedNoteChange,
+  type SharedNoteCtx,
 } from "../gedcom/edit";
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
 import { applySiteSourceExtras, detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
@@ -69,6 +73,8 @@ import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSource
 import { FamilySection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
+import { PrivateToggle } from "./edit/PrivateToggle";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -283,6 +289,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           rebuildFamily(dataset, { raw: restored } as any);
         }
       }
+    }
+    // Shared NOTE records restored above: referrers other than the patched
+    // owner still project the pre-undo text — refresh them (and the editors).
+    const noteChanges = patches
+      .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "NOTE")
+      .map((p) => ({ xref: p.id }));
+    if (noteChanges.length) {
+      rebuildNoteReferrers(dataset, noteChanges);
+      noteGenRef.current++;
     }
   }
 
@@ -736,28 +751,49 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
+  // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
+  // family lock toggles write markers in the file's own style, unless the
+  // Settings → GEDCOM override picks one explicitly.
+  const privacyStyle = useMemo(
+    () => settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
+    [dataset.records, settings.formatOverrides.privacy],
+  );
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
-  const commit: Commit = useStableHandler((mutate: (indi: Individual) => void, extraPatches?: RecordPatch[]) => {
+  /** After a commit whose note ctx touched shared NOTE records: refresh every
+   *  other referrer's stale projection and remount the note editors. */
+  function afterNoteChanges(changes: SharedNoteChange[], skipId: string) {
+    if (!changes.length) return;
+    rebuildNoteReferrers(dataset, changes, skipId);
+    noteGenRef.current++;
+  }
+
+  const commit: Commit = useStableHandler((mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     if (!person) return;
     const before = cloneRaw(person.raw);
-    mutate(person);
+    const notes = noteCtx(dataset.records, privacyStyle);
+    mutate(person, notes);
     const after = cloneRaw(person.raw);
-    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
+    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: person.id })];
+    if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildIndividual(dataset, person);
-    onPushEdit([{ type: "individual", id: person.id, before, after }, ...(extraPatches ?? [])], selectedId);
+    onPushEdit([{ type: "individual", id: person.id, before, after }, ...extra], selectedId);
     onDirty("individual", person.id);
+    afterNoteChanges(notes.changes, person.id);
     setTick((v) => v + 1);
   });
 
-  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family) => void, extraPatches?: RecordPatch[]) => {
+  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
-    mutate(fam);
+    const notes = noteCtx(dataset.records, privacyStyle);
+    mutate(fam, notes);
     const after = cloneRaw(fam.raw);
-    if (JSON.stringify(before) === JSON.stringify(after) && !extraPatches?.length) return;
+    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
+    if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildFamily(dataset, fam);
-    onPushEdit([{ type: "family", id: fam.id, before, after }, ...(extraPatches ?? [])], selectedId);
+    onPushEdit([{ type: "family", id: fam.id, before, after }, ...extra], selectedId);
     onDirty("family", fam.id);
+    afterNoteChanges(notes.changes, fam.id);
     setTick((v) => v + 1);
   });
 
@@ -777,6 +813,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * remounted (and re-resolved blobs for) every tray on every keystroke-commit.
    */
   const mediaGenRef = useRef(0);
+  /**
+   * Bumped when a shared top-level `NOTE` record is edited or removed — the
+   * note editors key on it so a referrer's chips remount and re-read text
+   * that changed via *another* owner's edit (the shared-note counterpart of
+   * `mediaGenRef`).
+   */
+  const noteGenRef = useRef(0);
 
   // ── Media (OBJE) ──────────────────────────────────────────────────────────
 
@@ -829,6 +872,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (!rec) return;
       const before = cloneRaw(rec);
       setMediaInfo(rec, fields);
+      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
       const after = cloneRaw(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
@@ -850,7 +894,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else {
       ownerCommit(owner, (r) => {
         const child = mediaNodeAt(r, addr);
-        if (child) setMediaInfo(child, fields);
+        if (child) {
+          setMediaInfo(child, fields);
+          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
+        }
       });
     }
   }
@@ -1196,7 +1243,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         agency: childText(sourceNode, "AGNC"),
         place: childText(sourceNode, "PLAC"),
         filingNumber: childText(sourceNode, "FILN"),
-        note: childText(sourceNode, "NOTE"),
+        // A pointer note prefills with the shared record's resolved text (not
+        // the raw "@N1@"); saving routes the edit back into that record.
+        note: (() => {
+          const v = childText(sourceNode, "NOTE");
+          return v && isPointer(v) ? getMediaAndSourceCtx(dataset.records).noteIndex.get(v)?.text.trim() : v;
+        })(),
         url: resolved?.url,
         objeXref: resolved?.objeXref,
         page,
@@ -1213,7 +1265,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
-    updateSourceCitation(dataset.records, node, index, fields);
+    const notes = noteCtx(dataset.records, privacyStyle);
+    updateSourceCitation(dataset.records, node, index, fields, notes);
     const ownerAfter = cloneRaw(ownerRaw);
 
     const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
@@ -1225,6 +1278,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
     }
     if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed
+    extraPatches.push(...noteChangePatches(notes.changes, { kind: owner.kind, id: owner.kind === "individual" ? owner.indi.id : owner.fam.id }));
+    afterNoteChanges(notes.changes, owner.kind === "individual" ? owner.indi.id : owner.fam.id);
 
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
@@ -1657,12 +1712,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             }}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
-            showAddNote={!notesAdded && !(person.notes ?? []).length}
+            showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
             marriedNameTag={marriedNameTag}
-            leadingControl={<SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />}
+            leadingControl={
+              <>
+                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
+                <PrivateToggle
+                  on={!!person.private}
+                  t={t}
+                  onToggle={() => commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
+                />
+              </>
+            }
           />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
@@ -1684,23 +1748,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               />
             </div>
           )}
-          {((person.notes ?? []).length > 0 || notesAdded) && (() => {
+          {((person.noteRefs ?? []).some((r) => r.text.trim()) || notesAdded) && (() => {
             // Refresh the baseline while the person is clean (its notes are the
             // saved state); keep it once edits begin so changed notes stay bold.
             const bl = noteBaselineRef.current;
             if (!changedPersonIds.has(person.id) || !bl.has(person.id)) {
-              bl.set(person.id, person.notes ?? []);
+              bl.set(person.id, (person.noteRefs ?? []).map((r) => r.text));
             }
             return (
               <div className="edit-record-section">
                 <NotesEditor
-                  key={`notes-${person.id}-${undoVersion}`}
-                  notes={person.notes ?? []}
-                  addOnMount={notesAdded && !(person.notes ?? []).length}
+                  key={`notes-${person.id}-${undoVersion}-${noteGenRef.current}`}
+                  notes={person.noteRefs ?? []}
+                  addOnMount={notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
                   sectionLabel={t("field.notes")}
                   baselineNotes={bl.get(person.id)}
                   t={t}
-                  onCommit={(notes) => commit((indi) => setNotes(indi, notes))}
+                  onCommit={(refs) => commit((indi, notes) => setNotes(notes, indi, refs))}
                 />
               </div>
             );
@@ -1757,6 +1821,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               startPersonName={startPersonName}
               relationsGen={relationsGenRef.current}
               undoVersion={undoVersion}
+              noteGen={noteGenRef.current}
               commitFamily={commitFamily}
               openEditSource={openEditSource}
               onOpenSourceDialog={setSourceDialogTarget}

@@ -38,6 +38,24 @@ The items most worth doing next, in rough order of payoff for real usage
 
 ## Features
 
+### Shared-notes sharing UX (Phase C)
+
+Pointer identity of shared notes now survives edits (2026-07-16); what's
+missing is the UI that makes *sharing itself* visible and creatable:
+
+- **"×N shared" badge** on a note chip whose record has more than one
+  referrer, with a tooltip listing who else uses it and an "edits apply to
+  all" hint on the first edit.
+- **Detach action** — replace this person's pointer with an independent copy,
+  for "change just my copy".
+- **"Attach existing note" picker** in the + Add note flow (same pattern as
+  Add Source / Add Media) — without it sharing can be preserved but never
+  created in-app.
+- Related small gaps: only the first NOTE on an event is surfaced/editable;
+  merge's `copyNotes` with "incoming" replaces NOTE children wholesale and can
+  orphan a main-side shared record; GEDCOM 7 `SNOTE` rename in the 5.5.1⇄7.0
+  version migration.
+
 ### FamilySearch API integration (major feature)
 
 FamilySearch is the one enrichment site that can never work through the public

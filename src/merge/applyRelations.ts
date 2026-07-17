@@ -18,6 +18,7 @@ import {
   applyEventSub,
   applyEventValue,
   applyNotes,
+  applyPrivateFlag,
   cloneNodeRemapped,
   collectCustomTags,
   combineEventEdits,
@@ -410,6 +411,23 @@ export function applyIndividualFamilies(
           field: ctx.t("field.notes"),
           from: "",
           to: incFam.notes?.join("\n") ?? "",
+          action: choice,
+          unedited: choice === "incoming",
+        });
+        ctx.touched.add(famNode.xref!);
+      }
+    }
+
+    // Family private flag (additive — see applyPrivateFlag).
+    const famPrivateKey = `${famKey}.private`;
+    if (wantsIncoming(rows, fields, famPrivateKey)) {
+      const choice = fields[famPrivateKey] ?? "incoming";
+      if (applyPrivateFlag(famNode, ctx.records)) {
+        ctx.report.changes.push({
+          recordId: famNode.xref!,
+          field: ctx.t("field.private"),
+          from: "",
+          to: "🔒",
           action: choice,
           unedited: choice === "incoming",
         });

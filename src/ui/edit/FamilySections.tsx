@@ -23,6 +23,8 @@ import type { MediaRefContext } from "../MediaViewer";
 import type { MediaAddress } from "../../gedcom/media";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
+import { PrivateToggle } from "./PrivateToggle";
+import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
 import { LinksEditor } from "./LinksEditor";
@@ -103,6 +105,9 @@ interface SharedSectionProps {
    *  for the memo's prop comparison. */
   relationsGen: number;
   undoVersion: number;
+  /** Bumped when a shared NOTE record changes via another owner's edit, so
+   *  this section's note chips remount and re-read the shared text. */
+  noteGen?: number;
 }
 
 // ── Parents band ─────────────────────────────────────────────────────────────
@@ -294,6 +299,7 @@ export const FamilySection = memo(function FamilySection({
   startId,
   startPersonName,
   undoVersion,
+  noteGen,
   commitFamily,
   openEditSource,
   onOpenSourceDialog,
@@ -374,6 +380,14 @@ export const FamilySection = memo(function FamilySection({
               tooltip={t("edit.addFamilyEventTooltip")}
               t={t}
               onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
+            />
+          )}
+          {fam && (
+            <PrivateToggle
+              on={!!fam.private}
+              t={t}
+              onToggle={() => commitFamily(fam, (f) =>
+                setPrivateFlag(f.raw, !f.private, settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (
@@ -536,11 +550,11 @@ export const FamilySection = memo(function FamilySection({
       {fam && (
         <div className="edit-record-section">
           <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}`}
-            notes={fam.notes ?? []}
+            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}`}
+            notes={fam.noteRefs ?? []}
             addTrigger={famNoteAddCount}
             t={t}
-            onCommit={(notes) => commitFamily(fam, (f) => setFamilyNotes(f, notes))}
+            onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
         </div>
       )}

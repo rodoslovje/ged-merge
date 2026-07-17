@@ -140,7 +140,7 @@ export function personRef(indi: Individual, nameOf: NameOf, nowYear: number, ds:
     name: nameOf(indi),
     sex: indi.sex,
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
-    living: isPresumedLiving(indi, ds, nowYear),
+    living: isPresumedLiving(indi, ds, nowYear) || !!indi.private,
   };
 }
 
@@ -248,7 +248,7 @@ export function makeEntry(
     sex: indi.sex,
     name: nameOf(indi),
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
-    living: isPresumedLiving(indi, ds, nowYear),
+    living: isPresumedLiving(indi, ds, nowYear) || !!indi.private,
     dupOf,
     facts: dupOf === undefined ? facts : [],
   };
@@ -432,7 +432,7 @@ export function marriageFacts(
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner), opts, partner && isPresumedLiving(partner, ds, nowYear), ds);
+      return marriageFact(fam, partner && nameOf(partner), opts, partner && (isPresumedLiving(partner, ds, nowYear) || !!partner.private), ds);
     })
     .filter((f): f is FactLine => f !== undefined);
 }

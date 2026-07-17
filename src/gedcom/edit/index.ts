@@ -41,6 +41,12 @@ export {
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks } from "./records";
 
 export {
+  noteCtx, applyNoteRefs, setSharedNoteText, setSharedNotePrivate,
+  removeNoteRecordIfOrphaned, countNoteRefs, rebuildNoteReferrers,
+} from "./notes";
+export type { SharedNoteChange, SharedNoteCtx } from "./notes";
+
+export {
   createMediaRecord, findSharedMediaByFile, attachInlineMedia, attachMediaPointer,
   removeMediaAt, reorderMedia, setMediaInfo, setCropRegion, pruneUnreferencedMedia,
 } from "./media";
