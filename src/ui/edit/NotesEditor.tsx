@@ -84,6 +84,21 @@ export function NotesEditor({
           ref={(el) => { textareaRefs.current[i] = el; }}
           wrapClassName="edit-note-chip"
           wrapStyle={noteWidth(note.text)}
+          leading={
+            <button
+              type="button"
+              className={`note-chip-lock${note.private ? " is-on" : ""}`}
+              title={t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
+              aria-pressed={!!note.private}
+              tabIndex={-1}
+              onMouseDown={(e) => {
+                e.preventDefault(); // keep the textarea's focus/blur cycle intact
+                commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)));
+              }}
+            >
+              🔒
+            </button>
+          }
           className={`edit-input edit-event-note${note.text.trim() && !baseline.has(note.text) ? " edit-input--dirty" : ""}`}
           // A shared record whose text starts on a CONT line (MacFamilyTree
           // writes "0 @N@ NOTE" + "1 CONT https://…") has a leading newline in
@@ -104,15 +119,6 @@ export function NotesEditor({
             ↗
           </a>
         )}
-        <button
-          type="button"
-          className={`note-chip-btn note-chip-lock${note.private ? " is-on" : ""}`}
-          title={t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
-          aria-pressed={!!note.private}
-          onClick={() => commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)))}
-        >
-          🔒
-        </button>
       </span>
     );
   });

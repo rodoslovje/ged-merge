@@ -44,8 +44,12 @@ export const ClearableTextarea = forwardRef<
     onClear: () => void;
     wrapStyle?: React.CSSProperties;
     wrapClassName?: string;
+    /** Optional control at the left edge inside the box — the mirror of the ×
+     *  clear button (e.g. a note's private-flag lock). The text gets left
+     *  padding to clear it. */
+    leading?: React.ReactNode;
   }
->(function ClearableTextarea({ value, onClear, wrapStyle, wrapClassName, className, ...rest }, ref) {
+>(function ClearableTextarea({ value, onClear, wrapStyle, wrapClassName, className, leading, ...rest }, ref) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Grow the textarea to fit its content — one line tall when short, taller
@@ -79,9 +83,10 @@ export const ClearableTextarea = forwardRef<
 
   return (
     <div
-      className={`clearable-wrap clearable-wrap--textarea${wrapClassName ? ` ${wrapClassName}` : ""}`}
+      className={`clearable-wrap clearable-wrap--textarea${leading ? " clearable-wrap--leading" : ""}${wrapClassName ? ` ${wrapClassName}` : ""}`}
       style={wrapStyle}
     >
+      {leading}
       <textarea
         ref={(el) => {
           innerRef.current = el;
