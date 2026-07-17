@@ -1,4 +1,4 @@
-import type { GedPlace } from "./types";
+import type { GedPlace, GeoCoord } from "./types";
 
 /**
  * A house number on the most-specific part: a number (optionally with a letter
@@ -23,6 +23,41 @@ export function parsePlace(raw: string): GedPlace {
   const m = parts.length ? HOUSE_NUMBER.exec(parts[0]) : null;
   if (m) place.detail = m[1];
   return place;
+}
+
+/**
+ * Parse a `MAP` structure's `LATI`/`LONG` value pair into decimal degrees.
+ * Accepts the standard GEDCOM hemisphere-prefixed decimal form (`N46.05` /
+ * `E14.51`), plain signed decimals, and webtrees' DMS-ish form
+ * (`N46::3::19"` = degrees::minutes::seconds). Returns undefined when either
+ * value is unparseable or out of range — a bad coordinate is worse than none.
+ */
+export function parseCoordPair(lati: string, long: string): GeoCoord | undefined {
+  const lat = parseCoordValue(lati, "S");
+  const lon = parseCoordValue(long, "W");
+  if (lat === undefined || lon === undefined) return undefined;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
+  return { lat, lon };
+}
+
+/** One LATI/LONG value to signed decimal degrees; `negative` names the
+ *  hemisphere letter that flips the sign (S for latitude, W for longitude). */
+function parseCoordValue(raw: string, negative: "S" | "W"): number | undefined {
+  let s = raw.trim().toUpperCase();
+  if (!s) return undefined;
+  let sign = 1;
+  if (/^[NSEW]/.test(s)) {
+    if (s[0] === negative) sign = -1;
+    s = s.slice(1).trim();
+  }
+  // Degree/minute/second marks (webtrees writes a trailing `"`), then the
+  // webtrees `::` separators; what remains is 1–3 numeric components.
+  s = s.replace(/[°'"″′]/g, "");
+  const comps = s.split("::").map((c) => c.trim());
+  if (comps.length > 3 || comps.some((c) => !/^-?\d+(\.\d+)?$/.test(c))) return undefined;
+  const [deg, min = 0, sec = 0] = comps.map(Number);
+  if (comps.length > 1 && deg < 0) return undefined;
+  return sign * (deg + min / 60 + sec / 3600);
 }
 
 /**

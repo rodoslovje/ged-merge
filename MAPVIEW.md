@@ -72,14 +72,16 @@ interface GedPlace {
   raw: string;
   parts: string[];
   detail?: string;
-  coord?: { lat: number; lon: number };   // from PLAC.MAP.LATI/LONG or _GEO
+  coord?: { lat: number; lon: number };   // from PLAC.MAP.LATI/LONG
 }
 ```
 
 - `parsePlace` stays string-only; coordinate lifting happens where the `PLAC`
   *node* is available (the event builders in `src/gedcom/builder.ts`), reading
   the standard `MAP` → `LATI`/`LONG` children (GEDCOM `N48.2325`/`E14.1234`
-  format and plain decimal) and vendor `_GEO` where present.
+  format, plain decimal, and webtrees' `N46::3::19"` DMS form). MacFamilyTree's
+  `_GEO` turned out to be a GeoNames place *id*, not a coordinate — useful for
+  the phase-2/4 gazetteer work, not for direct plotting.
 - **Precision** is tracked per point, derived from how the coordinate was
   obtained: `exact` (house/address), `locality`, `region`. Geocode write-backs
   record the level; coordinates read from the file default to `exact`.
@@ -150,7 +152,7 @@ Map-page controls (persisted like other chart settings):
 
 Sources, in lookup order:
 
-1. **Coordinates already in the file** (`MAP`/`LATI`/`LONG`, `_GEO`) — free,
+1. **Coordinates already in the file** (`MAP`/`LATI`/`LONG`) — free,
    no lookup, plotted immediately. This alone makes phase 1 useful.
 2. **IndexedDB cache** of previously accepted resolutions.
 3. **Offline gazetteer: GeoNames country extracts** (CC-BY). The user
@@ -241,7 +243,7 @@ the existing event vocabulary; new keys under `map.*`.
 
 ## Phases
 
-1. **Map page + in-file coordinates.** Lift `MAP`/`LATI`/`LONG`/`_GEO` into
+1. **Map page + in-file coordinates.** Lift `MAP`/`LATI`/`LONG` into
    the model; hub kind `map` (digit 8) with Leaflet, CARTO/custom tiles,
    opt-in + offline fallback, clustering, scope/event/year filters, popovers,
    PNG export, en+sl. Useful immediately for files that carry coordinates.
@@ -259,11 +261,10 @@ entries on merge, dev-server validation per the standard workflow.
 
 ## Open questions
 
-- Marker color semantics: by event kind (proposed) vs. by person sex vs. by
-  time — or a setting? Proposal: event kind, with the existing `--sex-*`
-  tokens used inside popovers only.
-- Should "no match" decisions write a marker into the file (e.g. a `PLAC`
-  note) or live only in the IndexedDB cache? Proposal: cache only.
+- ~~Marker color semantics~~ **Decided 2026-07-17: by event kind**, with the
+  existing `--sex-*` tokens used inside popovers only.
+- ~~"No match" persistence~~ **Decided 2026-07-17: IndexedDB cache only** —
+  never written into the file.
 - GOV id storage tag (`_GOV` is used by some German programs — check the
   corpus scan before inventing anything).
 - Does the Compare Tree ever need a map (compare-file places on the same

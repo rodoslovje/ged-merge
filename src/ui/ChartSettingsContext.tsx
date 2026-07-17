@@ -13,16 +13,16 @@ import { useSettings } from "./SettingsContext";
 export type PedigreeType = "tree" | "grid" | "fan" | "circle";
 
 /** What the Charts hub is showing: one of the pedigree chart types, the
- *  relationship-to-start diagram, the family timeline, or the report page
- *  (currently the Ahnentafel; the descendant register will share the kind).
- *  The hub's kind switcher drives this; `type` keeps tracking the last
- *  pedigree chart so display logic (radial vs layered) stays valid while a
- *  non-pedigree view is open. */
-export type ChartKind = PedigreeType | "relationship" | "timeline" | "report";
+ *  relationship-to-start diagram, the family timeline, the places map, or the
+ *  report page (currently the Ahnentafel; the descendant register will share
+ *  the kind). The hub's kind switcher drives this; `type` keeps tracking the
+ *  last pedigree chart so display logic (radial vs layered) stays valid while
+ *  a non-pedigree view is open. */
+export type ChartKind = PedigreeType | "relationship" | "timeline" | "map" | "report";
 
 /** The hub kinds that are not pedigree charts: choosing them leaves `type`
  *  untouched, so leaving them restores the last pedigree chart. */
-const NON_PEDIGREE_KINDS = ["relationship", "timeline", "report"] as const;
+const NON_PEDIGREE_KINDS = ["relationship", "timeline", "map", "report"] as const;
 
 export type { ChartAlignment };
 

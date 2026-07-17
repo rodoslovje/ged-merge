@@ -158,11 +158,19 @@ export interface GedDate {
   placeholder?: boolean;
 }
 
+/** A decimal-degree coordinate lifted from `PLAC.MAP` (`LATI`/`LONG`). */
+export interface GeoCoord {
+  lat: number;
+  lon: number;
+}
+
 /** A place, kept raw plus split into its comma-separated hierarchy. */
 export interface GedPlace {
   raw: string;
   /** Jurisdiction parts, outermost-last as GEDCOM convention (city..country). */
   parts: string[];
+  /** Coordinates from the place's `MAP` structure, when present and parseable. */
+  coord?: GeoCoord;
   /**
    * Most-specific "place detail" extracted from the leading part — typically a
    * house number (Slovenian hišna številka), e.g. "23" in "Šentvid 23". Two

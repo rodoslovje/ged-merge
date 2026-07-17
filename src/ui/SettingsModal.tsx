@@ -393,6 +393,33 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           </section>
 
           <section className="settings-section">
+            <h3>{t("settings.map.title")}</h3>
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.allowMapTiles}
+                onChange={(e) => set({ allowMapTiles: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.map.tiles")}</span>
+                <span className="settings-hint">{t("settings.map.tiles.hint")}</span>
+              </span>
+            </label>
+            {settings.allowMapTiles && (
+              <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
+                <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
+                <input
+                  type="text"
+                  className="settings-text-input"
+                  value={settings.mapTileUrl}
+                  placeholder={t("settings.map.tileUrl.default")}
+                  onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
+                />
+              </label>
+            )}
+          </section>
+
+          <section className="settings-section">
             <h3>{t("settings.data.title")}</h3>
             <label className="settings-row settings-row-toggle">
               <input

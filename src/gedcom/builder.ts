@@ -1,6 +1,6 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
-import { parsePlace } from "./place";
+import { parseCoordPair, parsePlace } from "./place";
 import { firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
@@ -250,6 +250,13 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
+    const mapNode = firstChild(placeNode, "MAP");
+    const lati = mapNode && firstChild(mapNode, "LATI")?.value;
+    const long = mapNode && firstChild(mapNode, "LONG")?.value;
+    if (lati && long) {
+      const coord = parseCoordPair(lati, long);
+      if (coord) event.place.coord = coord;
+    }
   }
   if (addrNode?.value) {
     event.address = parsePlace(addrNode.value);

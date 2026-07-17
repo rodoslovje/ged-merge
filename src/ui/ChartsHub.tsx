@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { TreeMode } from "../chart/personTree";
@@ -13,6 +13,10 @@ import { TimelineChart } from "./TimelineChart";
 import { ReportView } from "./ReportView";
 import { StartPersonSelector } from "./StartPersonSelector";
 
+// The Map is the one kind with a heavyweight dependency (Leaflet + the offline
+// world outline), so it loads as its own chunk on first use.
+const MapChart = lazy(() => import("./map/MapChart"));
+
 // The full-page "Charts" hub for a person in the main file: one overlay that
 // hosts every per-person diagram — the pedigree charts (tree / grid / fan /
 // circle, drawn by EditTree), the relationship-to-start diagram, and the family
@@ -21,9 +25,9 @@ import { StartPersonSelector } from "./StartPersonSelector";
 // whatever was used last.
 
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
- *  (pedigrees, then the timeline) first, then the two-person relationship,
- *  then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "report"];
+ *  (pedigrees, then the timeline) first, then the places map, the two-person
+ *  relationship, then the text reports. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "map", "relationship", "report"];
 
 interface Props {
   mainDs: Dataset;
@@ -53,7 +57,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
   // remounts the pedigree chart.
   const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
 
-  // Digits 1–7 switch the kind (the chart-level keys — zoom, A/D, Esc — are
+  // Digits 1–8 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
   // on the start-person prompt page, where no chart is mounted to own it.
   const showingPrompt = settings.kind === "relationship" && !startId;
@@ -82,6 +86,21 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         mode={treeMode}
         onModeChange={setTreeMode}
       />
+    );
+  }
+
+  if (settings.kind === "map") {
+    return (
+      <Suspense fallback={null}>
+        <MapChart
+          mainDs={mainDs}
+          rootId={rootId}
+          backLabel={backLabel}
+          onBack={onBack}
+          onNavigate={onNavigate}
+          kindSwitcher={kindSwitcher}
+        />
+      </Suspense>
     );
   }
 
