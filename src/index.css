@@ -5356,7 +5356,7 @@ kbd {
 }
 .legal-content a:hover { text-decoration: underline; }
 
-/* --- Map chart (Charts-hub kind 6) ----------------------------------------- */
+/* --- Map chart (Charts-hub kind 7) ----------------------------------------- */
 
 /* Leaflet's internal panes/controls carry z-indexes up to ~1000 (and the
    cluster panel sits above those). Isolating the wrapper keeps that whole
@@ -6287,6 +6287,25 @@ kbd {
 /* Fixed-width select column pinned to the right edge, so every dropdown's
    left and right edges line up down the tab. */
 .settings-format-row select { flex-shrink: 0; width: 210px; margin-left: auto; }
+
+/* Free-text settings inputs (custom tile URL): app input look — the browser
+   default focus ring reads foreign in both themes — and room for a URL. */
+.settings-text-input {
+  flex: 1 1 auto;
+  min-width: 280px;
+  margin-left: auto;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+.settings-text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */

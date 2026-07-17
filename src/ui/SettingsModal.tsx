@@ -413,6 +413,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   className="settings-text-input"
                   value={settings.mapTileUrl}
                   placeholder={t("settings.map.tileUrl.default")}
+                  title={t("settings.map.tileUrl.hint")}
                   onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
                 />
               </label>
