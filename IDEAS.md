@@ -96,7 +96,8 @@ platform API with OAuth2 solves both, and unlocks person-level linking.
 - **Report generation depth** — a max-generations setting for the Ahnentafel /
   descendant register (both currently walk the whole tree).
 - **Research to-do / log** — per-person open questions, flags, research notes.
-- **Map view** — plot birth/death/marriage places (geocoded) and migration paths.
+- **Map view** — plot birth/death/marriage places (geocoded) and migration
+  paths. Designed — see [MAPVIEW.md](MAPVIEW.md) for the agreed phased plan.
 
 ### Settings
 - **Local media photos in SVG** — choose how to save people's local media photos
