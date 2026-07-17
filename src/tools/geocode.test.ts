@@ -29,6 +29,15 @@ const SAMPLE = `0 HEAD
 2 PLAC Kranj, Slovenija
 1 RESI
 2 PLAC Neznani Kraj XY
+1 DEAT
+2 PLAC Stražišče,Kranj,Slovenia
+0 @I3@ INDI
+1 NAME France /Novak/
+1 BIRT
+2 PLAC Stražišče,Kranj,Slovenia
+3 MAP
+4 LATI N46.2331
+4 LONG E14.3308
 0 @F1@ FAM
 1 HUSB @I1@
 1 WIFE @I2@
@@ -48,11 +57,17 @@ describe("scanGeocode", () => {
   it("groups by raw value, counts missing, proposes candidates", () => {
     const ds = buildFromText(SAMPLE);
     const scan = scanGeocode(ds, index, new Map());
-    // "Ljubljana, Slovenija" is fully covered; two rows remain.
+    // "Ljubljana, Slovenija" is fully covered; three rows remain.
     expect(scan.coveredDistinct).toBe(1);
-    expect(scan.totalOccurrences).toBe(5);
-    expect(scan.coveredOccurrences).toBe(1);
-    expect(scan.rows).toHaveLength(2);
+    expect(scan.totalOccurrences).toBe(7);
+    expect(scan.coveredOccurrences).toBe(2);
+    expect(scan.rows).toHaveLength(3);
+    // One occurrence of Stražišče already carries a coordinate — proposed
+    // for the other occurrence as the file's own, confidently.
+    const straz = scan.rows.find((r) => r.key === "Stražišče,Kranj,Slovenia")!;
+    expect(straz.missing).toBe(1);
+    expect(straz.fileCoord).toEqual({ lat: 46.2331, lon: 14.3308 });
+    expect(straz.confident).toBe(true);
     const kranj = scan.rows.find((r) => r.key === "Kranj, Slovenija")!;
     expect(kranj.count).toBe(3);
     expect(kranj.missing).toBe(3);

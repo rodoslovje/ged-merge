@@ -4,6 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Dataset } from "../../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../../gedcom/lifespan";
+import { lifespanAge } from "../../gedcom/age";
+import { lifespanLine } from "../../chart/nodeDisplay";
+import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import type { TreeMode } from "../../chart/personTree";
 import {
   branchIds,
@@ -22,6 +25,7 @@ import { PersonLink } from "../PersonLink";
 import { useChartSettings } from "../ChartSettingsContext";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { sexClass } from "../sex";
+import { ChartRootTitle } from "../ChartRootTitle";
 import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
 import { chartSlug } from "../exportSvg";
 import { ImageIcon } from "../icons/FormatIcons";
@@ -68,6 +72,8 @@ function useDocTheme(): "light" | "dark" {
 interface Props {
   mainDs: Dataset;
   rootId: string;
+  /** The app-wide start person, for kinship labels (header + event panel). */
+  startId?: string;
   backLabel: string;
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the hub). */
@@ -80,7 +86,7 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, mode, onModeChange }: Props) {
+export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, mode, onModeChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const { settings } = useChartSettings();
@@ -282,7 +288,16 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
   }, [panel]);
 
   const root = mainDs.individuals.get(rootId);
-  const rootYears = root && lifespanOf(root);
+  // Header lifespan (+ age when the Age display toggle is on) and kinship
+  // chip — the same conventions as every other chart header.
+  const rootYears = root
+    ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: lifespanOf(root), age: lifespanAge(root) })
+    : undefined;
+  const showKin = settings.showKinship && appSettings.showKinship && !!startId;
+  const kinship = useMemo(
+    () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
+    [mainDs, startId, t],
+  );
 
   return (
     <ChartPage
@@ -290,12 +305,14 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
       onBack={onBack}
       title={
         root ? (
-          <>
-            <span className={`tree-title-name ${sexClass(root.sex)}`}>{nameOf(root)}</span>
-            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-            <span className="tree-title-break" aria-hidden="true" />
-            <span className="tree-title-kind">{t("map.pageTitle")}</span>
-          </>
+          <ChartRootTitle
+            name={nameOf(root)}
+            sexCls={sexClass(root.sex)}
+            years={rootYears}
+            kinship={showKin ? kinship?.label(rootId) : undefined}
+            lineage={kinship?.lineage(rootId)}
+            kind={t("map.pageTitle")}
+          />
         ) : (
           <span className="tree-title-kind">{t("map.pageTitle")}</span>
         )
@@ -415,9 +432,15 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
                     <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
                   </span>
                   <span className="map-panel-people">
-                    {p.personIds.map((id) => (
-                      <PersonLink key={id} dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
-                    ))}
+                    {p.personIds.map((id) => {
+                      const kin = showKin ? kinship?.label(id) : undefined;
+                      return (
+                        <span key={id} className="map-panel-person">
+                          <PersonLink dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
+                          {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+                        </span>
+                      );
+                    })}
                   </span>
                 </li>
               ))}

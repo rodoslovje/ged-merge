@@ -11,6 +11,7 @@ import { useNodeStatus } from "./useNodeStatus";
 import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
+import { ChartRootTitle } from "./ChartRootTitle";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
@@ -282,12 +283,14 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
       onBack={onBack}
       title={
         rootRow ? (
-          <>
-            <span className={`tree-title-name ${sexClass(rootRow.sex)}`}>{rowName(rootRow)}</span>
-            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-            <span className="tree-title-break" aria-hidden="true" />
-            <span className="tree-title-kind">{pageKind}</span>
-          </>
+          <ChartRootTitle
+            name={rowName(rootRow)}
+            sexCls={sexClass(rootRow.sex)}
+            years={rootYears}
+            kinship={showKinship ? kinship?.label(currentRootId) : undefined}
+            lineage={kinship?.lineage(currentRootId)}
+            kind={pageKind}
+          />
         ) : (
           pageKind
         )

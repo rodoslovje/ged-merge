@@ -76,6 +76,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
       <ReportView
         mainDs={mainDs}
         rootId={rootId}
+        startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         backLabel={backLabel}
@@ -95,6 +96,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         <MapChart
           mainDs={mainDs}
           rootId={rootId}
+          startId={startId}
           backLabel={backLabel}
           onBack={onBack}
           onNavigate={onNavigate}

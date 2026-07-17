@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import type { GeoCoord } from "../../gedcom/types";
+import { GeocodePanel } from "./GeocodePanel";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
@@ -45,16 +47,21 @@ export function PlacesPanel({
   onNavigate,
   active,
   onApplyPlaceRename,
+  onApplyGeocode,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
+  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  // Switches the panel body between the containment tree and the geocode tool
+  // (same pattern as the Sources panel hosting Organize sources).
+  const [view, setView] = useState<"tree" | "geocode">("tree");
 
   useEffect(() => {
     setTree(null);
@@ -148,10 +155,18 @@ export function PlacesPanel({
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
+  if (view === "geocode")
+    return <GeocodePanel dataset={dataset} active={active} onApplyGeocode={onApplyGeocode} onBack={() => setView("tree")} />;
+
   return (
     <>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
+        <div className="tools-chip-group">
+          <button type="button" className="tools-chip" onClick={() => setView("geocode")}>
+            {t("tools.places.geocodeToggle")}
+          </button>
+        </div>
         <p className="tools-summary">
           {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}
         </p>

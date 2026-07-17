@@ -21,10 +21,14 @@ export interface GeocodeRow {
   count: number;
   /** Occurrences still lacking a parseable MAP coordinate. */
   missing: number;
+  /** The coordinate other occurrences of this exact value already carry in
+   *  the file (the most frequent one, when several disagree) — the strongest
+   *  possible proposal: same file, same spelling, someone already placed it. */
+  fileCoord?: GeoCoord;
   /** Gazetteer proposals for the missing ones, best first. */
   candidates: GazCandidate[];
-  /** True when the best candidate is safe for bulk-accept: confident score
-   *  and not ambiguous (no runner-up within a hair of it). */
+  /** True when the proposal is safe for bulk-accept: the file's own
+   *  coordinate, or a confident unambiguous gazetteer match. */
   confident: boolean;
   /** Cached decision from an earlier session/file, when one exists. */
   cached?: GeocodeDecision;
@@ -40,12 +44,12 @@ export interface GeocodeScan {
   coveredOccurrences: number;
 }
 
-/** A PLAC node has a usable coordinate when MAP → LATI/LONG parses. */
-function hasCoord(plac: GedNode): boolean {
+/** The PLAC node's usable coordinate (MAP → LATI/LONG), when it parses. */
+function coordOf(plac: GedNode): GeoCoord | undefined {
   const map = firstChild(plac, "MAP");
   const lati = map && firstChild(map, "LATI")?.value;
   const long = map && firstChild(map, "LONG")?.value;
-  return !!(lati && long && parseCoordPair(lati, long));
+  return lati && long ? parseCoordPair(lati, long) : undefined;
 }
 
 function walkPlacNodes(node: GedNode, visit: (plac: GedNode) => void): void {
@@ -67,16 +71,23 @@ export function scanGeocode(
   index: GazetteerIndex | undefined,
   decisions: ReadonlyMap<string, GeocodeDecision>,
 ): GeocodeScan {
-  const groups = new Map<string, { count: number; missing: number }>();
+  const groups = new Map<string, { count: number; missing: number; coords: Map<string, { coord: GeoCoord; n: number }> }>();
   const visit = (plac: GedNode) => {
     const key = plac.value!.trim();
     let g = groups.get(key);
     if (!g) {
-      g = { count: 0, missing: 0 };
+      g = { count: 0, missing: 0, coords: new Map() };
       groups.set(key, g);
     }
     g.count++;
-    if (!hasCoord(plac)) g.missing++;
+    const coord = coordOf(plac);
+    if (!coord) g.missing++;
+    else {
+      const ck = `${coord.lat}:${coord.lon}`;
+      const hit = g.coords.get(ck);
+      if (hit) hit.n++;
+      else g.coords.set(ck, { coord, n: 1 });
+    }
   };
   for (const indi of dataset.individuals.values()) walkPlacNodes(indi.raw, visit);
   for (const fam of dataset.families.values()) walkPlacNodes(fam.raw, visit);
@@ -94,18 +105,22 @@ export function scanGeocode(
     }
     const candidates = index ? lookupPlace(index, key) : [];
     const best = candidates[0];
+    // The most frequent coordinate other occurrences of this value carry.
+    const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
     const confident =
-      !!best &&
-      best.score >= HIGH_CONFIDENCE &&
-      (candidates.length < 2 || candidates[1].score <= best.score - AMBIGUITY_GAP);
+      !!fileCoord ||
+      (!!best &&
+        best.score >= HIGH_CONFIDENCE &&
+        (candidates.length < 2 || candidates[1].score <= best.score - AMBIGUITY_GAP));
     const row: GeocodeRow = { key, count: g.count, missing: g.missing, candidates, confident };
+    if (fileCoord) row.fileCoord = fileCoord;
     const cached = decisions.get(key);
     if (cached) row.cached = cached;
     rows.push(row);
   }
   rows.sort((a, b) => {
-    const aHas = a.candidates.length || a.cached?.status === "accepted" ? 1 : 0;
-    const bHas = b.candidates.length || b.cached?.status === "accepted" ? 1 : 0;
+    const aHas = a.fileCoord || a.candidates.length || a.cached?.status === "accepted" ? 1 : 0;
+    const bHas = b.fileCoord || b.candidates.length || b.cached?.status === "accepted" ? 1 : 0;
     if (aHas !== bHas) return bHas - aHas;
     return b.missing - a.missing || a.key.localeCompare(b.key);
   });
@@ -123,7 +138,7 @@ export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, 
     let changed = false;
     walkPlacNodes(raw, (plac) => {
       const coord = assignments.get(plac.value!.trim());
-      if (!coord || hasCoord(plac)) return;
+      if (!coord || coordOf(plac)) return;
       setPlaceCoord(plac, coord);
       changed = true;
     });

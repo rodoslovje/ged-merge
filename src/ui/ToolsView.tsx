@@ -10,12 +10,11 @@ import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
-import { GeocodePanel } from "./tools/GeocodePanel";
 import type { GeoCoord } from "../gedcom/types";
 
-type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places" | "geocode";
+type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
-const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places", "geocode"];
+const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -112,10 +111,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} />
-        )}
-        {tool === "geocode" && (
-          <GeocodePanel dataset={dataset} active={active} onApplyGeocode={onApplyGeocode} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} />
         )}
       </div>
     </div>

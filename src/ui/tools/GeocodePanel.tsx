@@ -13,6 +13,9 @@ import {
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { BackButton } from "../BackButton";
+import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
+import { useSettings } from "../SettingsContext";
 
 // The "Geocode places" tool (MAPVIEW.md phase 2). Top: the offline gazetteer
 // manager — imported GeoNames country extracts living in the gedmerge-geo
@@ -47,10 +50,57 @@ interface Props {
   /** Write the accepted coordinates through the edit/undo pipeline; returns
    *  the number of records changed. */
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  /** Return to the Places tree (the panel hosting this view). */
+  onBack: () => void;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
+/** Read a response body with byte progress (falls back to one shot). */
+async function readWithProgress(
+  res: Response,
+  onProgress: (done: number, total: number) => void,
+): Promise<ArrayBuffer> {
+  const total = Number(res.headers.get("content-length")) || 0;
+  if (!res.body) return res.arrayBuffer();
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let done = 0;
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    if (end) break;
+    chunks.push(value);
+    done += value.byteLength;
+    onProgress(done, Math.max(total, done));
+  }
+  const out = new Uint8Array(done);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.byteLength;
+  }
+  return out.buffer;
+}
+
+/** geonames.org sends no CORS headers reliably — the public relays (the same
+ *  ones the opt-in link-fetch feature uses) are the fallback. */
+const GEONAMES_RELAYS = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+];
+
+export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
   const { t, i18n } = useTranslation();
+  const { settings: appSettings } = useSettings();
+
+  // Esc returns to the Places tree, like leaving Organize sources.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || isEditableTarget(e.target) || isModalOpen()) return;
+      e.preventDefault();
+      onBack();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onBack]);
 
   // ── Gazetteer (IndexedDB) ─────────────────────────────────────────────────
   const [countries, setCountries] = useState<CountryMeta[] | null>(null);
@@ -71,8 +121,7 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
     return () => workerRef.current?.terminate();
   }, []);
 
-  const importFile = async (file: File) => {
-    const buffer = await file.arrayBuffer();
+  const runImport = (buffer: ArrayBuffer, fileName: string) => {
     setImportState({ phase: "running", done: 0, total: buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
@@ -90,11 +139,56 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
         setImportState({ phase: "error", message: msg.message });
       }
     };
-    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName: file.name };
+    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName };
     worker.postMessage(req, [buffer]);
   };
 
+  const importFile = async (file: File) => {
+    runImport(await file.arrayBuffer(), file.name);
+  };
+
+  // Direct download of a country extract — the download-then-pick round trip
+  // is confusing, so fetch it here. geonames.org sends no CORS headers, so a
+  // failed direct fetch falls back to the link-fetch relays; the whole path
+  // is gated behind the same online-lookups opt-in.
+  const [countryDraft, setCountryDraft] = useState("");
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const downloadCountry = async () => {
+    const code = countryDraft.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) return;
+    const url = `https://download.geonames.org/export/dump/${code}.zip`;
+    const abort = new AbortController();
+    fetchAbortRef.current = abort;
+    setImportState({ phase: "running", done: 0, total: 0 });
+    const onProgress = (done: number, total: number) => setImportState({ phase: "running", done, total });
+    try {
+      let buffer: ArrayBuffer | undefined;
+      for (const toUrl of [(u: string) => u, ...GEONAMES_RELAYS]) {
+        try {
+          const res = await fetch(toUrl(url), { signal: abort.signal });
+          if (res.ok) {
+            buffer = await readWithProgress(res, onProgress);
+            if (buffer.byteLength > 500) break;
+            buffer = undefined;
+          }
+        } catch (e) {
+          if (abort.signal.aborted) return;
+          void e;
+        }
+      }
+      if (!buffer) {
+        setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
+        return;
+      }
+      runImport(buffer, `${code}.zip`);
+    } finally {
+      fetchAbortRef.current = null;
+    }
+  };
+
   const cancelImport = () => {
+    fetchAbortRef.current?.abort();
+    fetchAbortRef.current = null;
     workerRef.current?.terminate();
     workerRef.current = null;
     setImportState(null);
@@ -137,6 +231,9 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
     if (override) return override;
     if (row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined)
       return { coord: { lat: row.cached.lat, lon: row.cached.lon }, label: row.cached.label ?? t("tools.geocode.cached") };
+    // The file's own coordinate for this exact value beats any gazetteer
+    // guess — same file, same spelling, already placed by someone.
+    if (row.fileCoord) return { coord: row.fileCoord, label: t("tools.geocode.fromFile") };
     const best = row.candidates[0];
     return best ? { coord: { lat: best.entry.lat, lon: best.entry.lon }, label: best.entry.name } : undefined;
   };
@@ -220,6 +317,7 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
 
   return (
     <div className="tools-geocode">
+      <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
 
       <div className="tools-geo-gazetteer">
@@ -243,21 +341,49 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
           </ul>
         )}
         {importState?.phase === "running" ? (
-          <ToolsLoading label={t("tools.geocode.importing")} progress={importState} onCancel={cancelImport} />
+          <ToolsLoading
+            label={t("tools.geocode.importing")}
+            progress={importState.total > 0 ? importState : undefined}
+            onCancel={cancelImport}
+          />
         ) : (
-          <label className="nav-btn tools-run tools-geo-import">
-            {t("tools.geocode.importBtn")}
-            <input
-              type="file"
-              accept=".txt,.zip"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) void importFile(file);
-              }}
-            />
-          </label>
+          <div className="tools-geo-acquire">
+            {appSettings.allowLinkFetch && (
+              <span className="tools-geo-download">
+                <input
+                  type="text"
+                  maxLength={2}
+                  placeholder={t("tools.geocode.countryCodePlaceholder")}
+                  title={t("tools.geocode.countryCodeTooltip")}
+                  value={countryDraft}
+                  onChange={(e) => setCountryDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void downloadCountry();
+                  }}
+                />
+                <button
+                  className="nav-btn tools-run"
+                  onClick={() => void downloadCountry()}
+                  disabled={!/^[A-Za-z]{2}$/.test(countryDraft.trim())}
+                >
+                  {t("tools.geocode.downloadBtn")}
+                </button>
+              </span>
+            )}
+            <label className="nav-btn tools-geo-import">
+              {t("tools.geocode.importBtn")}
+              <input
+                type="file"
+                accept=".txt,.zip"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void importFile(file);
+                }}
+              />
+            </label>
+          </div>
         )}
         {importState?.phase === "error" && <ToolsError message={importState.message} />}
         <p className="tools-geo-hint">
@@ -266,6 +392,7 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
             download.geonames.org/export/dump
           </a>{" "}
           {t("tools.geocode.importHint2")}
+          {!appSettings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
         </p>
       </div>
 
@@ -329,10 +456,16 @@ export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
                   <span className="tools-geo-proposal">
                     → {c.label}
                     <span className="gm-data"> {c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
-                    {row.candidates[0] && !chosen.has(row.key) && !row.cached && (
-                      <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
-                        {Math.round(row.candidates[0].score * 100)}%
+                    {row.fileCoord && !chosen.has(row.key) && !row.cached ? (
+                      <span className="tools-geo-score confident" title={t("tools.geocode.fromFileTooltip")}>
+                        {t("tools.geocode.fromFile")}
                       </span>
+                    ) : (
+                      row.candidates[0] && !chosen.has(row.key) && !row.cached && (
+                        <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
+                          {Math.round(row.candidates[0].score * 100)}%
+                        </span>
+                      )
                     )}
                     {row.cached?.status === "accepted" && !chosen.has(row.key) && (
                       <span className="tools-geo-cachedchip" title={t("tools.geocode.cachedTooltip")}>⭯</span>

@@ -18,7 +18,8 @@ import { collectFirstFilePath } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
-import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { createKinshipResolver } from "../match/kinship";
+import { ChartRootTitle } from "./ChartRootTitle";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
@@ -271,15 +272,14 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
       onBack={onBack}
       title={
         tree ? (
-          <>
-            <span className={`tree-title-name ${rootPerson ? sexClass(rootPerson.sex) : ""}`}>
-              {tree.name}
-            </span>
-            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
-            <span className="tree-title-break" aria-hidden="true" />
-            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
-            <span className="tree-title-kind">{chartKind}</span>
-          </>
+          <ChartRootTitle
+            name={tree.name}
+            sexCls={rootPerson ? sexClass(rootPerson.sex) : ""}
+            years={rootYears}
+            kinship={rootKinship}
+            lineage={rootLineage}
+            kind={chartKind}
+          />
         ) : (
           chartKind
         )
