@@ -5466,11 +5466,155 @@ kbd {
 .map-years {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   color: var(--muted);
 }
 .map-year-input {
   width: 5.2em;
+}
+
+/* Year-range slider: two overlaid native range inputs whose thumbs are the
+   only pointer targets, over a shared track with the selected span filled. */
+.year-slider {
+  position: relative;
+  width: 170px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.year-slider input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  pointer-events: none;
+}
+.year-slider input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.year-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--border-2);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.year-slider input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--border-2);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.year-slider input[type="range"].year-slider-ontop {
+  z-index: 3;
+}
+.year-slider-track,
+.year-slider-fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.year-slider-track {
+  left: 0;
+  right: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.year-slider-fill {
+  background: var(--accent);
+}
+
+/* Life paths: the toggle chip's squiggle icon, the direction chevrons along
+   the polylines, and the selected-person chip floating over the map. */
+.map-paths-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+.map-paths-icon-line {
+  fill: none;
+  stroke: var(--map-path);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.map-paths-icon-head {
+  fill: var(--map-path);
+}
+.map-kind-chip:not(.active) .map-paths-icon {
+  opacity: 0.35;
+}
+.map-path-arrow-wrap {
+  background: none;
+  border: none;
+  pointer-events: none;
+}
+.map-path-arrow {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: var(--map-path);
+  opacity: 0.85;
+}
+.map-path-selchip {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92%, 440px);
+  padding: 4px 6px 4px 12px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.map-path-selchip-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-path-selchip b {
+  color: var(--text);
+  font-weight: 600;
+}
+.map-panel-pathbtn {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 1px 3px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.map-panel-pathbtn .map-paths-icon {
+  opacity: 0.6;
+}
+.map-panel-pathbtn:hover {
+  background: var(--panel-2);
+}
+.map-panel-pathbtn:hover .map-paths-icon {
+  opacity: 1;
 }
 .map-undated {
   display: inline-flex;

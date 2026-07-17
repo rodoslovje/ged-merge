@@ -69,6 +69,7 @@
   --map-other:     #8a9a90;
   --map-mixed:     var(--accent);   /* cluster holding several kinds */
   --map-land:      #22302a;         /* offline fallback land fill on --bg water */
+  --map-path:      #cf7fb4;         /* life-path lines — deliberately off the kind palette */
 
   /* ---- shape ---- */
   --radius-sm:   6px;
@@ -119,6 +120,7 @@
   --map-other:     #64746a;
   /* --map-mixed inherits var(--accent) from dark */
   --map-land:      #e9efe7;
+  --map-path:      #a3477e;
 
   /* --node-* fills are intentionally shared with dark (they pop on both). */
 }

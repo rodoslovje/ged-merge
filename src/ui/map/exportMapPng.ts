@@ -1,7 +1,16 @@
 import type L from "leaflet";
 import type { MapCluster } from "../../geo/cluster";
+import type { PersonPath } from "../../geo/paths";
 import worldOutline from "../../geo/world110m.json";
-import { clusterColorVar, markerSize } from "./markerStyle";
+import {
+  ARROW_MAX_TOTAL,
+  ARROW_MIN_SEG_PX,
+  ARROW_MIN_SEG_SELECTED_PX,
+  clusterColorVar,
+  markerSize,
+  PATH_STYLE,
+  pathArrows,
+} from "./markerStyle";
 
 // PNG snapshot of the current map view. The existing SVG export pipeline
 // can't serialize raster tiles, so the map composes its own canvas: the
@@ -26,6 +35,8 @@ export function exportMapPng(
   map: L.Map,
   container: HTMLElement,
   clusters: MapCluster[],
+  paths: PersonPath[],
+  selectedPathId: string | null,
   slug: string,
   attribution: string,
 ): void {
@@ -71,6 +82,51 @@ export function exportMapPng(
       ctx.fill();
       ctx.stroke();
     }
+  }
+
+  // Life paths under the markers, drawn with the same style rules as the
+  // live canvas layer (weights, dimming, direction-chevron budget).
+  if (paths.length) {
+    const pathColor = token("--map-path");
+    const anySelected = selectedPathId !== null && paths.some((p) => p.personId === selectedPathId);
+    let arrowBudget = ARROW_MAX_TOTAL;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const path of paths) {
+      const isSel = path.personId === selectedPathId;
+      const pts = path.stops.map((s) => map.latLngToContainerPoint([s.coord.lat, s.coord.lon]));
+      if (!isSel && !pts.some((p) => p.x > -50 && p.y > -50 && p.x < rect.width + 50 && p.y < rect.height + 50)) continue;
+      ctx.strokeStyle = pathColor;
+      ctx.lineWidth = isSel ? PATH_STYLE.weightSelected : PATH_STYLE.weight;
+      ctx.globalAlpha = anySelected
+        ? isSel
+          ? PATH_STYLE.opacitySelected
+          : PATH_STYLE.opacityDimmed
+        : PATH_STYLE.opacity;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+        else ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.stroke();
+      if ((isSel || !anySelected) && arrowBudget > 0) {
+        ctx.fillStyle = pathColor;
+        for (const a of pathArrows(pts, isSel ? ARROW_MIN_SEG_SELECTED_PX : ARROW_MIN_SEG_PX)) {
+          if (arrowBudget-- <= 0) break;
+          ctx.save();
+          ctx.translate(a.x, a.y);
+          ctx.rotate((a.angleDeg * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.moveTo(-4, -3);
+          ctx.lineTo(4, 0);
+          ctx.lineTo(-4, 3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 
   const ink = token("--accent-ink") || "#fff";
