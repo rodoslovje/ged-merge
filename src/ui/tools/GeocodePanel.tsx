@@ -1,0 +1,405 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { buildGazetteerIndex, type GazCandidate, type GazetteerIndex } from "../../geo/gazetteer";
+import { scanGeocode, type GeocodeRow } from "../../tools/geocode";
+import {
+  deleteCountry,
+  loadCountries,
+  loadDecisions,
+  putDecisions,
+  type CountryMeta,
+  type GeocodeDecision,
+} from "../../persist/geoDb";
+import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
+import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+
+// The "Geocode places" tool (MAPVIEW.md phase 2). Top: the offline gazetteer
+// manager — imported GeoNames country extracts living in the gedmerge-geo
+// IndexedDB. Below: the review list — every distinct PLAC value still missing
+// coordinates, with proposed matches. Nothing is written without review:
+// checked rows are applied in one undoable batch; "no match" marks go to the
+// decision cache only, never into the file.
+
+const SHOW_LIMIT = 300;
+
+/** "lat, lon" free input → validated coordinate. */
+function parseManualCoord(text: string): GeoCoord | undefined {
+  const m = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(text);
+  if (!m) return undefined;
+  const lat = Number(m[1].replace(",", "."));
+  const lon = Number(m[2].replace(",", "."));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
+  return { lat, lon };
+}
+
+interface Chosen {
+  coord: GeoCoord;
+  label: string;
+}
+
+type ImportState = { phase: "running"; done: number; total: number } | { phase: "error"; message: string } | null;
+
+interface Props {
+  dataset: Dataset;
+  active: boolean;
+  /** Write the accepted coordinates through the edit/undo pipeline; returns
+   *  the number of records changed. */
+  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+}
+
+export function GeocodePanel({ dataset, onApplyGeocode }: Props) {
+  const { t, i18n } = useTranslation();
+
+  // ── Gazetteer (IndexedDB) ─────────────────────────────────────────────────
+  const [countries, setCountries] = useState<CountryMeta[] | null>(null);
+  const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
+  const [decisions, setDecisions] = useState<Map<string, GeocodeDecision> | null>(null);
+  const [importState, setImportState] = useState<ImportState>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  const refreshGazetteer = async () => {
+    const stored = await loadCountries();
+    setCountries(stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count));
+    setIndex(stored.length ? buildGazetteerIndex(stored.flatMap((c) => c.entries)) : undefined);
+  };
+
+  useEffect(() => {
+    void refreshGazetteer();
+    void loadDecisions().then(setDecisions);
+    return () => workerRef.current?.terminate();
+  }, []);
+
+  const importFile = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    setImportState({ phase: "running", done: 0, total: buffer.byteLength });
+    const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
+    workerRef.current = worker;
+    worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
+      const msg = e.data;
+      if (msg.type === "progress") setImportState({ phase: "running", done: msg.done, total: msg.total });
+      else if (msg.type === "result") {
+        worker.terminate();
+        workerRef.current = null;
+        setImportState(null);
+        void refreshGazetteer();
+      } else {
+        worker.terminate();
+        workerRef.current = null;
+        setImportState({ phase: "error", message: msg.message });
+      }
+    };
+    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName: file.name };
+    worker.postMessage(req, [buffer]);
+  };
+
+  const cancelImport = () => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
+    setImportState(null);
+  };
+
+  const removeCountry = async (code: string) => {
+    await deleteCountry(code);
+    void refreshGazetteer();
+  };
+
+  // ── Scan + review state ───────────────────────────────────────────────────
+  const [scanGen, setScanGen] = useState(0);
+  const scan = useMemo(
+    () => (decisions ? scanGeocode(dataset, index, decisions) : null),
+    // scanGen re-runs the scan after an apply mutates the dataset in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, index, decisions, scanGen],
+  );
+
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [chosen, setChosen] = useState<Map<string, Chosen>>(new Map());
+  const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [manualDraft, setManualDraft] = useState<Map<string, string>>(new Map());
+  const [lastApplied, setLastApplied] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const query = useDebounced(search.trim().toLowerCase());
+
+  // A fresh scan re-seeds the review state from the cached decisions.
+  useEffect(() => {
+    if (!scan) return;
+    setChecked(new Set(scan.rows.filter((r) => r.cached?.status === "accepted" && r.cached.lat !== undefined).map((r) => r.key)));
+    setNoMatch(new Set(scan.rows.filter((r) => r.cached?.status === "nomatch").map((r) => r.key)));
+    setChosen(new Map());
+    setExpanded(new Set());
+  }, [scan]);
+
+  const chosenFor = (row: GeocodeRow): Chosen | undefined => {
+    const override = chosen.get(row.key);
+    if (override) return override;
+    if (row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined)
+      return { coord: { lat: row.cached.lat, lon: row.cached.lon }, label: row.cached.label ?? t("tools.geocode.cached") };
+    const best = row.candidates[0];
+    return best ? { coord: { lat: best.entry.lat, lon: best.entry.lon }, label: best.entry.name } : undefined;
+  };
+
+  const toggleChecked = (key: string, on: boolean) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+
+  const pickCandidate = (row: GeocodeRow, c: GazCandidate) => {
+    setChosen((prev) => new Map(prev).set(row.key, { coord: { lat: c.entry.lat, lon: c.entry.lon }, label: c.entry.name }));
+    toggleChecked(row.key, true);
+    setNoMatch((prev) => {
+      const next = new Set(prev);
+      next.delete(row.key);
+      return next;
+    });
+  };
+
+  const setManual = (row: GeocodeRow) => {
+    const coord = parseManualCoord(manualDraft.get(row.key) ?? "");
+    if (!coord) return;
+    setChosen((prev) => new Map(prev).set(row.key, { coord, label: t("tools.geocode.manual") }));
+    toggleChecked(row.key, true);
+  };
+
+  const toggleNoMatch = (key: string) => {
+    setNoMatch((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else {
+        next.add(key);
+        toggleChecked(key, false);
+      }
+      return next;
+    });
+  };
+
+  const selectConfident = () => {
+    if (!scan) return;
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const row of scan.rows) if (row.confident && !noMatch.has(row.key)) next.add(row.key);
+      return next;
+    });
+  };
+
+  const apply = async () => {
+    if (!scan) return;
+    const assignments = new Map<string, GeoCoord>();
+    const toStore: GeocodeDecision[] = [];
+    const now = Date.now();
+    for (const row of scan.rows) {
+      if (checked.has(row.key)) {
+        const c = chosenFor(row);
+        if (!c) continue;
+        assignments.set(row.key, c.coord);
+        toStore.push({ key: row.key, status: "accepted", lat: c.coord.lat, lon: c.coord.lon, label: c.label, ts: now });
+      } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
+        toStore.push({ key: row.key, status: "nomatch", ts: now });
+      }
+    }
+    const changed = assignments.size ? onApplyGeocode(assignments) : 0;
+    setLastApplied(changed);
+    await putDecisions(toStore);
+    const fresh = await loadDecisions();
+    setDecisions(fresh);
+    setScanGen((g) => g + 1);
+  };
+
+  // ── Rendering ─────────────────────────────────────────────────────────────
+  if (!scan || countries === null) return <ToolsLoading label={t("tools.running")} />;
+
+  const rows = query ? scan.rows.filter((r) => r.key.toLowerCase().includes(query)) : scan.rows;
+  const shown = rows.slice(0, SHOW_LIMIT);
+  const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
+  const dateFmt = new Intl.DateTimeFormat(i18n.language);
+
+  return (
+    <div className="tools-geocode">
+      <p className="tools-intro">{t("tools.geocode.intro")}</p>
+
+      <div className="tools-geo-gazetteer">
+        {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
+        {countries.length > 0 && (
+          <ul className="tools-geo-countries">
+            {countries.map((c) => (
+              <li key={c.code}>
+                <span className="tools-geo-country gm-data">{c.code}</span>
+                <span className="tools-geo-count">{t("tools.geocode.countryMeta", { count: c.count, date: dateFmt.format(c.importedAt) })}</span>
+                <button
+                  className="tools-geo-delete"
+                  onClick={() => void removeCountry(c.code)}
+                  title={t("tools.geocode.deleteCountry")}
+                  aria-label={t("tools.geocode.deleteCountry")}
+                >
+                  🗑
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {importState?.phase === "running" ? (
+          <ToolsLoading label={t("tools.geocode.importing")} progress={importState} onCancel={cancelImport} />
+        ) : (
+          <label className="nav-btn tools-run tools-geo-import">
+            {t("tools.geocode.importBtn")}
+            <input
+              type="file"
+              accept=".txt,.zip"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void importFile(file);
+              }}
+            />
+          </label>
+        )}
+        {importState?.phase === "error" && <ToolsError message={importState.message} />}
+        <p className="tools-geo-hint">
+          {t("tools.geocode.importHint")}{" "}
+          <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
+            download.geonames.org/export/dump
+          </a>{" "}
+          {t("tools.geocode.importHint2")}
+        </p>
+      </div>
+
+      <p className="tools-geo-coverage">
+        {t("tools.geocode.coverage", {
+          covered: scan.coveredOccurrences,
+          total: scan.totalOccurrences,
+          distinct: scan.rows.length,
+        })}
+        {lastApplied !== null && ` ${t("tools.geocode.applied", { count: lastApplied })}`}
+      </p>
+
+      {scan.rows.length > 0 && (
+        <div className="tools-geo-actions">
+          <TreeSearch value={search} onChange={setSearch} />
+          <button className="nav-btn" onClick={selectConfident} disabled={confidentCount === 0}>
+            {t("tools.geocode.selectConfident", { count: confidentCount })}
+          </button>
+          <button className="nav-btn" onClick={() => setChecked(new Set())} disabled={checked.size === 0}>
+            {t("tools.geocode.clearSelection")}
+          </button>
+          <button className="nav-btn tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
+            {t("tools.geocode.apply", { count: checked.size })}
+          </button>
+        </div>
+      )}
+
+      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
+
+      <ul className="tools-geo-rows">
+        {shown.map((row) => {
+          const c = chosenFor(row);
+          const isOpen = expanded.has(row.key);
+          const marked = noMatch.has(row.key);
+          return (
+            <li key={row.key} className={`tools-geo-row${marked ? " nomatch" : ""}`}>
+              <div className="tools-geo-row-main">
+                <input
+                  type="checkbox"
+                  checked={checked.has(row.key)}
+                  disabled={!c || marked}
+                  onChange={(e) => toggleChecked(row.key, e.target.checked)}
+                />
+                <button
+                  className="tools-pair-toggle"
+                  onClick={() =>
+                    setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(row.key)) next.delete(row.key);
+                      else next.add(row.key);
+                      return next;
+                    })
+                  }
+                  aria-expanded={isOpen}
+                >
+                  {isOpen ? "▾" : "▸"}
+                </button>
+                <span className="tools-geo-place">{row.key}</span>
+                <span className="tools-geo-uses gm-data">×{row.missing}</span>
+                {c ? (
+                  <span className="tools-geo-proposal">
+                    → {c.label}
+                    <span className="gm-data"> {c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+                    {row.candidates[0] && !chosen.has(row.key) && !row.cached && (
+                      <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
+                        {Math.round(row.candidates[0].score * 100)}%
+                      </span>
+                    )}
+                    {row.cached?.status === "accepted" && !chosen.has(row.key) && (
+                      <span className="tools-geo-cachedchip" title={t("tools.geocode.cachedTooltip")}>⭯</span>
+                    )}
+                  </span>
+                ) : (
+                  !marked && <span className="tools-geo-nocand">{t("tools.geocode.noCandidate")}</span>
+                )}
+                <button
+                  className={`tools-geo-nomatch${marked ? " active" : ""}`}
+                  onClick={() => toggleNoMatch(row.key)}
+                  title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
+                >
+                  {marked ? "↩" : "🚫"}
+                </button>
+              </div>
+              {isOpen && (
+                <div className="tools-geo-detail">
+                  {row.candidates.length > 0 && (
+                    <ul className="tools-geo-candidates">
+                      {row.candidates.map((cand, i) => (
+                        <li key={i}>
+                          <label>
+                            <input
+                              type="radio"
+                              name={`geo-${row.key}`}
+                              checked={c?.coord.lat === cand.entry.lat && c?.coord.lon === cand.entry.lon}
+                              onChange={() => pickCandidate(row, cand)}
+                            />
+                            <span className="tools-geo-cand-name">{cand.entry.name}</span>
+                            <span className="gm-data">
+                              {cand.entry.country}
+                              {cand.entry.population > 0 && ` · ${t("tools.geocode.population", { count: cand.entry.population })}`}
+                              {` · ${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
+                            </span>
+                            <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="tools-geo-manual">
+                    <input
+                      type="text"
+                      placeholder={t("tools.geocode.manualPlaceholder")}
+                      title={t("tools.geocode.manualTooltip")}
+                      value={manualDraft.get(row.key) ?? ""}
+                      onChange={(e) => setManualDraft((prev) => new Map(prev).set(row.key, e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setManual(row);
+                      }}
+                    />
+                    <button
+                      className="nav-btn"
+                      onClick={() => setManual(row)}
+                      disabled={!parseManualCoord(manualDraft.get(row.key) ?? "")}
+                    >
+                      {t("tools.geocode.manualSet")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {rows.length > SHOW_LIMIT && <p className="tools-geo-more">{t("tools.geocode.more", { count: rows.length - SHOW_LIMIT })}</p>}
+    </div>
+  );
+}
