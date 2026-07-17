@@ -133,8 +133,12 @@ it is a cache, never the store of record.
 
 Map-page controls (persisted like other chart settings):
 
-- **Scope**: whole file / current branch (reuses the `extractBranch` walk from
-  the GEDCOM branch export) / single person (+ ancestors/descendants toggle).
+- **Scope**: the root person's branch via the *shared hub
+  Ancestors/Descendants toggle* (the same control and state as the pedigree
+  charts and the report — decided 2026-07-17). No whole-file scope in the
+  hub chart: a per-person chart plots that person's branch; if a whole-file
+  places view is wanted later, it belongs in the Tools tab ("Places"),
+  alongside the other whole-file tooling.
 - **Event kinds**: birth/baptism, marriage, death/burial, residence, other —
   toggleable chips, color-coded by event kind (tokens: new `--map-*` family,
   defined in both themes).

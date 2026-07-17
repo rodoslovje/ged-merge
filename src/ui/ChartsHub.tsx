@@ -99,6 +99,8 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
           onBack={onBack}
           onNavigate={onNavigate}
           kindSwitcher={kindSwitcher}
+          mode={treeMode}
+          onModeChange={setTreeMode}
         />
       </Suspense>
     );

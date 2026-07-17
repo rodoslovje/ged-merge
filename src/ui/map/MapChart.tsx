@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Dataset } from "../../gedcom/types";
-import { isPresumedLiving } from "../../gedcom/lifespan";
+import { isPresumedLiving, lifespanOf } from "../../gedcom/lifespan";
+import type { TreeMode } from "../../chart/personTree";
 import {
   branchIds,
   filterPoints,
@@ -19,19 +20,22 @@ import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
 import { useChartSettings } from "../ChartSettingsContext";
-import { useSettings } from "../SettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
+import { sexClass } from "../sex";
+import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
 import { chartSlug } from "../exportSvg";
 import { ImageIcon } from "../icons/FormatIcons";
 import { exportMapPng } from "./exportMapPng";
 import { clusterColorVar, markerSize } from "./markerStyle";
 
-// Full-page places Map: every event of the main file that carries coordinates
-// (PLAC.MAP lifted at build time) as clustered markers on a Leaflet map, with
-// scope / event-kind / year filters. Base tiles are opt-in (requests reveal
-// the viewed region to the provider); until enabled the map draws on the
-// bundled offline world outline. Marker colour = event kind (see the
-// --map-* tokens); clicking a cluster zooms in, or opens the event list
-// panel once it's small or the map is deep enough.
+// Full-page places Map: the events of the root person's branch — the shared
+// hub Ancestors/Descendants choice, like the pedigree charts — as clustered
+// markers on a Leaflet map, with event-kind / year filters. (A whole-file
+// places view belongs to the Tools tab, not a per-person chart.) Base tiles
+// are opt-in (requests reveal the viewed region to the provider); until
+// enabled the map draws on the bundled offline world outline. Marker colour =
+// event kind (see the --map-* tokens); clicking a cluster zooms in, or opens
+// the event list panel once it's small or the map is deep enough.
 
 const LIGHT_TILES = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -45,8 +49,6 @@ const PANEL_MIN_ZOOM = 13;
 
 /** The panel lists at most this many events (the rest summarized). */
 const PANEL_MAX_ROWS = 150;
-
-export type MapScope = "file" | "ancestors" | "descendants";
 
 /** Current live document theme (App's useTheme owns the attribute). */
 function useDocTheme(): "light" | "dark" {
@@ -72,15 +74,19 @@ interface Props {
   onNavigate: (id: string) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
+  /** The hub-owned ancestors/descendants choice, shared with the pedigree
+   *  charts and the report so it survives kind switches. */
+  mode: TreeMode;
+  onModeChange: (mode: TreeMode) => void;
 }
 
-export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate, kindSwitcher }: Props) {
+export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, mode, onModeChange }: Props) {
   const { t } = useTranslation();
+  const nameOf = useNameOf();
   const { settings } = useChartSettings();
   const { settings: appSettings, set: setAppSettings } = useSettings();
   const theme = useDocTheme();
 
-  const [scope, setScope] = useState<MapScope>("file");
   const [kinds, setKinds] = useState<ReadonlySet<MapEventKind>>(() => new Set(MAP_EVENT_KINDS));
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
@@ -107,10 +113,11 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
     return ids;
   }, [allPoints, mainDs, settings.privacyLiving]);
 
-  const scopeIds = useMemo(
-    () => (scope === "file" ? undefined : branchIds(mainDs, rootId, scope)),
-    [mainDs, rootId, scope],
-  );
+  // Both branch closures are computed so the A/D toggle can show its people
+  // counts (the pedigree charts do the same); the active one scopes the map.
+  const ancestorIds = useMemo(() => branchIds(mainDs, rootId, "ancestors"), [mainDs, rootId]);
+  const descendantIds = useMemo(() => branchIds(mainDs, rootId, "descendants"), [mainDs, rootId]);
+  const scopeIds = mode === "ancestors" ? ancestorIds : descendantIds;
 
   const filtered = useMemo(
     () =>
@@ -192,7 +199,11 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
     }
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
 
-  // Zoom to the data once it first shows up.
+  // Zoom to the data when it first shows up — and again after the branch
+  // changes (new root or A/D flip), which can move the whole point cloud.
+  useEffect(() => {
+    didFitRef.current = false;
+  }, [rootId, mode]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || didFitRef.current || !filtered.length) return;
@@ -245,6 +256,9 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
   // Keep the panel in sync: filters changing under it would show stale rows.
   useEffect(() => setPanel(null), [filtered]);
 
+  // A / D switch the branch direction; Esc leaves (Leaflet owns +/− itself).
+  useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
+
   const toggleKind = (kind: MapEventKind) =>
     setKinds((prev) => {
       const next = new Set(prev);
@@ -267,11 +281,25 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
     return [...panel.points].sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)).slice(0, PANEL_MAX_ROWS);
   }, [panel]);
 
+  const root = mainDs.individuals.get(rootId);
+  const rootYears = root && lifespanOf(root);
+
   return (
     <ChartPage
       backLabel={backLabel}
       onBack={onBack}
-      title={<span className="tree-title-kind">{t("map.pageTitle")}</span>}
+      title={
+        root ? (
+          <>
+            <span className={`tree-title-name ${sexClass(root.sex)}`}>{nameOf(root)}</span>
+            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            <span className="tree-title-kind">{t("map.pageTitle")}</span>
+          </>
+        ) : (
+          <span className="tree-title-kind">{t("map.pageTitle")}</span>
+        )
+      }
       actions={
         <ChartExportMenu
           disabled={!filtered.length}
@@ -297,20 +325,24 @@ export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate
           ]}
         />
       }
-      controlsLeft={kindSwitcher}
+      controlsLeft={
+        <>
+          {kindSwitcher}
+          <div className="tree-mode">
+            <button className={mode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
+              {t("tree.ancestors")}
+              <span className="tree-mode-count">{ancestorIds.size}</span>
+            </button>
+            <button className={mode === "descendants" ? "active" : ""} onClick={() => onModeChange("descendants")}>
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{descendantIds.size}</span>
+            </button>
+          </div>
+        </>
+      }
       controlsRight={<span className="map-count gm-data">{t("map.count", { shown: filtered.length, total: allPoints.length })}</span>}
     >
       <div className="map-filters">
-        <select
-          className="map-scope"
-          value={scope}
-          onChange={(e) => setScope(e.target.value as MapScope)}
-          title={t("map.scope.tooltip")}
-        >
-          <option value="file">{t("map.scope.file")}</option>
-          <option value="ancestors">{t("map.scope.ancestors")}</option>
-          <option value="descendants">{t("map.scope.descendants")}</option>
-        </select>
         <div className="map-kinds" role="group" aria-label={t("map.kinds.label")}>
           {MAP_EVENT_KINDS.map((kind) => (
             <button
