@@ -5358,6 +5358,14 @@ kbd {
 
 /* --- Map chart (Charts-hub kind 6) ----------------------------------------- */
 
+/* Leaflet's internal panes/controls carry z-indexes up to ~1000 (and the
+   cluster panel sits above those). Isolating the wrapper keeps that whole
+   z-scale internal, so overlays elsewhere in the app (modal-overlay at
+   z-index 100) still cover the map. */
+.map-canvas-wrap {
+  isolation: isolate;
+}
+
 .map-canvas {
   position: absolute;
   inset: 0;
