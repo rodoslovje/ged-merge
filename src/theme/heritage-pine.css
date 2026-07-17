@@ -60,6 +60,16 @@
   --node-main:   #286853;
   --node-incoming: #7846a9;
 
+  /* ---- Map chart: marker colour per event kind + offline-outline land ---- */
+  --map-birth:     #6ec87f;
+  --map-marriage:  #d9a441;
+  --map-death:     #d1685a;
+  --map-burial:    #a08bc0;
+  --map-residence: #5fa8d3;
+  --map-other:     #8a9a90;
+  --map-mixed:     var(--accent);   /* cluster holding several kinds */
+  --map-land:      #22302a;         /* offline fallback land fill on --bg water */
+
   /* ---- shape ---- */
   --radius-sm:   6px;
   --radius:      8px;
@@ -100,6 +110,15 @@
   --status-diff:   #b45309;
   --status-link:   #2563eb;
   --status-import: #7c3aed;
+
+  --map-birth:     #2e7d43;
+  --map-marriage:  #a9750e;
+  --map-death:     #b04434;
+  --map-burial:    #6d5a92;
+  --map-residence: #2c6e99;
+  --map-other:     #64746a;
+  /* --map-mixed inherits var(--accent) from dark */
+  --map-land:      #e9efe7;
 
   /* --node-* fills are intentionally shared with dark (they pop on both). */
 }

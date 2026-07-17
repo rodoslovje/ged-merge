@@ -1,0 +1,433 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import type { Dataset } from "../../gedcom/types";
+import { isPresumedLiving, lifespanOf } from "../../gedcom/lifespan";
+import type { TreeMode } from "../../chart/personTree";
+import {
+  branchIds,
+  filterPoints,
+  MAP_EVENT_KINDS,
+  projectPoints,
+  yearRange,
+  type MapEventKind,
+  type MapPoint,
+} from "../../geo/points";
+import { clusterPoints, type MapCluster } from "../../geo/cluster";
+import worldOutline from "../../geo/world110m.json";
+import { ChartPage } from "../ChartPage";
+import { ChartExportMenu } from "../ChartExportMenu";
+import { PersonLink } from "../PersonLink";
+import { useChartSettings } from "../ChartSettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
+import { sexClass } from "../sex";
+import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
+import { chartSlug } from "../exportSvg";
+import { ImageIcon } from "../icons/FormatIcons";
+import { exportMapPng } from "./exportMapPng";
+import { clusterColorVar, markerSize } from "./markerStyle";
+
+// Full-page places Map: the events of the root person's branch — the shared
+// hub Ancestors/Descendants choice, like the pedigree charts — as clustered
+// markers on a Leaflet map, with event-kind / year filters. (A whole-file
+// places view belongs to the Tools tab, not a per-person chart.) Base tiles
+// are opt-in (requests reveal the viewed region to the provider); until
+// enabled the map draws on the bundled offline world outline. Marker colour =
+// event kind (see the --map-* tokens); clicking a cluster zooms in, or opens
+// the event list panel once it's small or the map is deep enough.
+
+const LIGHT_TILES = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+/** Cluster click: zoom in while it still holds this many points and the map
+ *  isn't already deep; otherwise open the event-list panel. */
+const PANEL_MAX_POINTS = 30;
+const PANEL_MIN_ZOOM = 13;
+
+/** The panel lists at most this many events (the rest summarized). */
+const PANEL_MAX_ROWS = 150;
+
+/** Current live document theme (App's useTheme owns the attribute). */
+function useDocTheme(): "light" | "dark" {
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark",
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() =>
+      setTheme(document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"),
+    );
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return theme;
+}
+
+interface Props {
+  mainDs: Dataset;
+  rootId: string;
+  backLabel: string;
+  onBack: () => void;
+  /** Jump to a person in Edit mode (closes the hub). */
+  onNavigate: (id: string) => void;
+  /** The Charts-hub kind switcher, rendered in the controls row. */
+  kindSwitcher?: React.ReactNode;
+  /** The hub-owned ancestors/descendants choice, shared with the pedigree
+   *  charts and the report so it survives kind switches. */
+  mode: TreeMode;
+  onModeChange: (mode: TreeMode) => void;
+}
+
+export default function MapChart({ mainDs, rootId, backLabel, onBack, onNavigate, kindSwitcher, mode, onModeChange }: Props) {
+  const { t } = useTranslation();
+  const nameOf = useNameOf();
+  const { settings } = useChartSettings();
+  const { settings: appSettings, set: setAppSettings } = useSettings();
+  const theme = useDocTheme();
+
+  const [kinds, setKinds] = useState<ReadonlySet<MapEventKind>>(() => new Set(MAP_EVENT_KINDS));
+  const [yearFrom, setYearFrom] = useState("");
+  const [yearTo, setYearTo] = useState("");
+  const [includeUndated, setIncludeUndated] = useState(true);
+  const [panel, setPanel] = useState<MapCluster | null>(null);
+  // Bumped on every pan/zoom so the marker pass re-runs against the new view.
+  const [viewGen, setViewGen] = useState(0);
+
+  const allPoints = useMemo(() => projectPoints(mainDs), [mainDs]);
+  const range = useMemo(() => yearRange(allPoints), [allPoints]);
+
+  // Living-persons privacy: the shared chart toggle drops every point that
+  // involves a presumed-living (or explicitly private) person.
+  const excludeLiving = useMemo(() => {
+    if (!settings.privacyLiving) return undefined;
+    const ids = new Set<string>();
+    for (const p of allPoints) {
+      for (const id of p.personIds) {
+        if (ids.has(id)) continue;
+        const indi = mainDs.individuals.get(id);
+        if (indi && (isPresumedLiving(indi, mainDs) || indi.private)) ids.add(id);
+      }
+    }
+    return ids;
+  }, [allPoints, mainDs, settings.privacyLiving]);
+
+  // Both branch closures are computed so the A/D toggle can show its people
+  // counts (the pedigree charts do the same); the active one scopes the map.
+  const ancestorIds = useMemo(() => branchIds(mainDs, rootId, "ancestors"), [mainDs, rootId]);
+  const descendantIds = useMemo(() => branchIds(mainDs, rootId, "descendants"), [mainDs, rootId]);
+  const scopeIds = mode === "ancestors" ? ancestorIds : descendantIds;
+
+  const filtered = useMemo(
+    () =>
+      filterPoints(allPoints, {
+        kinds,
+        yearFrom: yearFrom ? Number(yearFrom) : undefined,
+        yearTo: yearTo ? Number(yearTo) : undefined,
+        includeUndated,
+        personIds: scopeIds,
+        excludePersonIds: excludeLiving,
+      }),
+    [allPoints, kinds, yearFrom, yearTo, includeUndated, scopeIds, excludeLiving],
+  );
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const outlineRef = useRef<L.GeoJSON | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
+  const clustersRef = useRef<MapCluster[]>([]);
+  const didFitRef = useRef(false);
+
+  // ── Map lifecycle ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || mapRef.current) return;
+    const map = L.map(el, {
+      minZoom: 2,
+      maxZoom: 18,
+      worldCopyJump: true,
+      attributionControl: false,
+    });
+    L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
+    map.setView([46.1, 14.5], 5);
+    markersRef.current = L.layerGroup().addTo(map);
+    const bump = () => setViewGen((g) => g + 1);
+    map.on("moveend zoomend", bump);
+    mapRef.current = map;
+    return () => {
+      map.off("moveend zoomend", bump);
+      map.remove();
+      mapRef.current = null;
+      tileLayerRef.current = null;
+      outlineRef.current = null;
+      markersRef.current = null;
+    };
+  }, []);
+
+  // Base layer: opt-in provider tiles, else the bundled offline outline.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    tileLayerRef.current?.remove();
+    tileLayerRef.current = null;
+    outlineRef.current?.remove();
+    outlineRef.current = null;
+    if (appSettings.allowMapTiles) {
+      const custom = appSettings.mapTileUrl;
+      tileLayerRef.current = L.tileLayer(custom || (theme === "dark" ? DARK_TILES : LIGHT_TILES), {
+        attribution: custom ? "" : TILE_ATTRIBUTION,
+        crossOrigin: "anonymous",
+        // The CARTO default uses a–d shards; a custom URL keeps Leaflet's own default.
+        ...(custom ? {} : { subdomains: "abcd" }),
+        maxZoom: 18,
+      }).addTo(map);
+    } else {
+      // SVG presentation attributes don't resolve var(), so the outline colours
+      // are read from the tokens here; the effect re-runs on theme change.
+      const styles = getComputedStyle(document.documentElement);
+      outlineRef.current = L.geoJSON(worldOutline as GeoJSON.GeoJsonObject, {
+        interactive: false,
+        style: {
+          fillColor: styles.getPropertyValue("--map-land").trim(),
+          fillOpacity: 1,
+          color: styles.getPropertyValue("--border-2").trim(),
+          weight: 0.6,
+        },
+      }).addTo(map);
+    }
+  }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+
+  // Zoom to the data when it first shows up — and again after the branch
+  // changes (new root or A/D flip), which can move the whole point cloud.
+  useEffect(() => {
+    didFitRef.current = false;
+  }, [rootId, mode]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || didFitRef.current || !filtered.length) return;
+    didFitRef.current = true;
+    const bounds = L.latLngBounds(filtered.map((p) => [p.coord.lat, p.coord.lon] as [number, number]));
+    map.fitBounds(bounds.pad(0.1), { maxZoom: 10 });
+  }, [filtered]);
+
+  const openCluster = useCallback((cluster: MapCluster) => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (cluster.points.length > PANEL_MAX_POINTS && map.getZoom() < PANEL_MIN_ZOOM) {
+      map.setView([cluster.lat, cluster.lon], map.getZoom() + 2);
+    } else {
+      setPanel(cluster);
+    }
+  }, []);
+
+  // ── Markers: cluster the filtered points for the current view ─────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = markersRef.current;
+    if (!map || !layer) return;
+    const zoom = map.getZoom();
+    const view = map.getBounds().pad(0.3);
+    const clusters = clusterPoints(filtered, zoom).filter((c) => view.contains([c.lat, c.lon]));
+    clustersRef.current = clusters;
+    layer.clearLayers();
+    for (const cluster of clusters) {
+      const count = cluster.points.length;
+      const size = markerSize(count);
+      const marker = L.marker([cluster.lat, cluster.lon], {
+        icon: L.divIcon({
+          className: "map-cluster",
+          html: `<div class="map-cluster-dot" style="background:var(${clusterColorVar(cluster)});width:${size}px;height:${size}px">${count > 1 ? count : ""}</div>`,
+          iconSize: [size, size],
+        }),
+        keyboard: false,
+      });
+      marker.on("click", () => openCluster(cluster));
+      marker.bindTooltip(
+        count === 1 ? cluster.points[0].place : t("map.clusterTooltip", { count }),
+        { direction: "top", opacity: 0.9 },
+      );
+      layer.addLayer(marker);
+    }
+    // viewGen re-runs this pass after every pan/zoom.
+  }, [filtered, viewGen, openCluster, t]);
+
+  // Keep the panel in sync: filters changing under it would show stale rows.
+  useEffect(() => setPanel(null), [filtered]);
+
+  // A / D switch the branch direction; Esc leaves (Leaflet owns +/− itself).
+  useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
+
+  const toggleKind = (kind: MapEventKind) =>
+    setKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+
+  const shownPersonIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of filtered) for (const id of p.personIds) ids.add(id);
+    return [...ids];
+  }, [filtered]);
+
+  const slug = chartSlug(t("map.pageTitle"));
+  const eventLabel = (p: MapPoint) => t(`event.${p.tag}`, { defaultValue: p.tag });
+
+  const panelRows = useMemo(() => {
+    if (!panel) return [];
+    return [...panel.points].sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)).slice(0, PANEL_MAX_ROWS);
+  }, [panel]);
+
+  const root = mainDs.individuals.get(rootId);
+  const rootYears = root && lifespanOf(root);
+
+  return (
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={
+        root ? (
+          <>
+            <span className={`tree-title-name ${sexClass(root.sex)}`}>{nameOf(root)}</span>
+            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            <span className="tree-title-break" aria-hidden="true" />
+            <span className="tree-title-kind">{t("map.pageTitle")}</span>
+          </>
+        ) : (
+          <span className="tree-title-kind">{t("map.pageTitle")}</span>
+        )
+      }
+      actions={
+        <ChartExportMenu
+          disabled={!filtered.length}
+          slug={slug}
+          gedcom={{ ds: mainDs, personIds: shownPersonIds }}
+          extraItems={[
+            {
+              key: "png",
+              icon: <ImageIcon />,
+              label: t("map.export.png"),
+              title: t("map.export.png.tooltip"),
+              onSelect: () => {
+                const map = mapRef.current;
+                const el = containerRef.current;
+                const attribution = appSettings.allowMapTiles
+                  ? appSettings.mapTileUrl
+                    ? ""
+                    : "© OpenStreetMap contributors © CARTO"
+                  : "Natural Earth";
+                if (map && el) exportMapPng(map, el, clustersRef.current, slug, attribution);
+              },
+            },
+          ]}
+        />
+      }
+      controlsLeft={
+        <>
+          {kindSwitcher}
+          <div className="tree-mode">
+            <button className={mode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
+              {t("tree.ancestors")}
+              <span className="tree-mode-count">{ancestorIds.size}</span>
+            </button>
+            <button className={mode === "descendants" ? "active" : ""} onClick={() => onModeChange("descendants")}>
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{descendantIds.size}</span>
+            </button>
+          </div>
+        </>
+      }
+      controlsRight={<span className="map-count gm-data">{t("map.count", { shown: filtered.length, total: allPoints.length })}</span>}
+    >
+      <div className="map-filters">
+        <div className="map-kinds" role="group" aria-label={t("map.kinds.label")}>
+          {MAP_EVENT_KINDS.map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              className={`map-kind-chip${kinds.has(kind) ? " active" : ""}`}
+              aria-pressed={kinds.has(kind)}
+              onClick={() => toggleKind(kind)}
+            >
+              <span className="map-kind-dot" style={{ background: `var(--map-${kind})` }} />
+              {t(`map.kind.${kind}`)}
+            </button>
+          ))}
+        </div>
+        <span className="map-years">
+          <input
+            type="number"
+            className="map-year-input"
+            value={yearFrom}
+            placeholder={range ? String(range.min) : ""}
+            onChange={(e) => setYearFrom(e.target.value)}
+            aria-label={t("map.yearFrom")}
+          />
+          –
+          <input
+            type="number"
+            className="map-year-input"
+            value={yearTo}
+            placeholder={range ? String(range.max) : ""}
+            onChange={(e) => setYearTo(e.target.value)}
+            aria-label={t("map.yearTo")}
+          />
+        </span>
+        <label className="map-undated">
+          <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
+          {t("map.undated")}
+        </label>
+      </div>
+      <div className="tree-canvas-wrap map-canvas-wrap">
+        <div ref={containerRef} className="map-canvas" />
+        {!appSettings.allowMapTiles && (
+          <div className="map-tiles-notice">
+            <span>{t("map.tilesNotice")}</span>
+            <button type="button" onClick={() => setAppSettings({ allowMapTiles: true })}>
+              {t("map.tilesEnable")}
+            </button>
+          </div>
+        )}
+        {!allPoints.length && (
+          <div className="map-empty">
+            <p>{t("map.empty")}</p>
+            <p className="map-empty-hint">{t("map.emptyHint")}</p>
+          </div>
+        )}
+        {panel && (
+          <div className="map-panel">
+            <div className="map-panel-header">
+              <span className="map-panel-title">
+                {t("map.panelTitle", { count: panel.points.length })}
+              </span>
+              <button className="modal-close" onClick={() => setPanel(null)} title={t("help.close")} aria-label={t("help.close")}>
+                ×
+              </button>
+            </div>
+            <ul className="map-panel-list">
+              {panelRows.map((p, i) => (
+                <li key={i}>
+                  <span className="map-panel-fact">
+                    <span className="map-kind-dot" style={{ background: `var(--map-${p.kind})` }} />
+                    <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
+                  </span>
+                  <span className="map-panel-people">
+                    {p.personIds.map((id) => (
+                      <PersonLink key={id} dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
+                    ))}
+                  </span>
+                </li>
+              ))}
+              {panel.points.length > PANEL_MAX_ROWS && (
+                <li className="map-panel-more">{t("map.panelMore", { count: panel.points.length - PANEL_MAX_ROWS })}</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+    </ChartPage>
+  );
+}

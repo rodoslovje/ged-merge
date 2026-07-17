@@ -28,6 +28,13 @@ export interface AppSettings extends NameDisplayOptions {
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
+  /** Allow the Map chart to load base-map tiles from the tile provider
+   *  (opt-in: tile requests reveal the viewed region). Until enabled the map
+   *  draws on the bundled offline world outline. */
+  allowMapTiles: boolean;
+  /** Custom XYZ tile URL template ({z}/{x}/{y}); empty = the default CARTO
+   *  basemap matching the current theme. */
+  mapTileUrl: string;
   /** User overrides for the detected file-format conventions (dates, places,
    *  names, sources, links…). Absent fields mean "Detected" — the tools
    *  follow the file's own habit. See {@link FormatOverrides}. */
@@ -44,6 +51,8 @@ const DEFAULTS: AppSettings = {
   showKinship: true,
   showAge: false,
   allowLinkFetch: false,
+  allowMapTiles: false,
+  mapTileUrl: "",
   formatOverrides: {},
   persistWorkspace: false,
 };
@@ -75,6 +84,8 @@ function load(): AppSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
+      allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
+      mapTileUrl: typeof parsed.mapTileUrl === "string" ? parsed.mapTileUrl : DEFAULTS.mapTileUrl,
       formatOverrides: {
         // Legacy key from the first page-media release, folded into overrides.
         ...((parsed as { sourcePageMedia?: string }).sourcePageMedia === "event" ||
