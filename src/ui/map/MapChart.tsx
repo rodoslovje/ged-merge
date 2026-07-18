@@ -300,7 +300,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       line.on("mouseout", () => line.setStyle({ weight, opacity }));
       layer.addLayer(line);
       // The singled-out path shows its stop order as numbered chips.
-      if (isSel) for (const m of pathStopMarkers(path.stops.map((s) => s.coord))) layer.addLayer(m);
+      if (isSel) for (const m of pathStopMarkers(map, path.stops.map((s) => s.coord))) layer.addLayer(m);
       // Direction chevrons — on everything while nothing is selected, and on
       // the selected path alone once there is one (the rest are dimmed).
       if ((isSel || !anySelected) && arrowBudget > 0) {

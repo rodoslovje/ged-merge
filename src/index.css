@@ -5586,9 +5586,12 @@ kbd {
 .map-kind-chip:not(.active) .map-paths-icon {
   opacity: 0.75;
 }
-/* Life-path stop numbers (mini map): order chips beside the stops. */
+/* Life-path stop numbers: order chips floated beside the path line (the
+   marker anchors at the offset point; the chip centers itself on it). */
 .map-path-stopnum-wrap { pointer-events: none; }
 .map-path-stopnum {
+  position: absolute;
+  transform: translate(-50%, -50%);
   display: inline-block;
   min-width: 15px;
   padding: 0 3px;

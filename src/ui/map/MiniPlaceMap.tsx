@@ -27,7 +27,7 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
       interactive: false,
     }),
   );
-  for (const m of pathStopMarkers(path)) layer.addLayer(m);
+  for (const m of pathStopMarkers(map, path)) layer.addLayer(m);
   const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
   for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) {
     layer.addLayer(
