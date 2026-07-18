@@ -321,7 +321,7 @@ function PlaceTreeRow({
             onClick={openEdit}
             title={t("tools.places.rename.open")}
           >
-            ✏︎
+            ✎
           </button>
         )}
         {editing && (

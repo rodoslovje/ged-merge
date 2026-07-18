@@ -619,7 +619,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     }}
                     title={t("tools.geocode.renameOpen")}
                   >
-                    ✏︎
+                    ✎
                   </button>
                 )}
                 {c && (

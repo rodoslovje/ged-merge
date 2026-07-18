@@ -229,16 +229,18 @@
 
             <h3>Settings</h3>
             <p>
-              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has two tabs. <strong>General</strong>
-              covers everyday preferences; <strong>Advanced</strong> holds the one option that reaches the network. Every
-              choice is remembered in this browser.
+              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has three tabs. <strong>General</strong>
+              covers everyday preferences; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
+              detects automatically; <strong>Advanced</strong> holds the one option that reaches the network. Every choice
+              is remembered in this browser.
             </p>
             <ul>
               <li><strong>Appearance</strong> — <em>Theme</em> (Automatic, Light or Dark; Automatic follows your operating system) and <em>Language</em> (English or Slovenščina).</li>
               <li><strong>Names</strong> — <em>Name order</em> (given name first or surname first), <em>Uppercase surnames</em> (e.g. Ana NOVAK) and <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač). These change how names <em>display</em> everywhere; your stored data is untouched.</li>
               <li><strong>Display</strong> — <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (§6) throughout the app.</li>
               <li><strong>Data</strong> — <em>Remember my work in this browser</em> (see <em>Keeping your work</em> below).</li>
-              <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. <strong>This is the only feature that sends anything off your device, and it is off by default.</strong></li>
+              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect: date format, unknown date parts, place format, alternate names, the unknown-name marker, source and citation layout, page links, baptism citations, doubled links, privacy tag, and the Matricula/Geneanet link languages. Each defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§7</a> and <a href="#sources">§13</a>.</li>
+              <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. It also powers the one-click OpenStreetMap gazetteer download used by <a href="#tools">Geocode places</a>. <strong>This is the only feature that sends anything off your device, and it is off by default.</strong></li>
             </ul>
 
             <h3>Keeping your work &amp; working offline</h3>
@@ -348,6 +350,19 @@
               already matches your file's conventions. The <a href="#tools">Normalize</a> tool applies the same idea
               <em>within</em> a single file, bringing outliers in line with the file's own dominant style.
             </p>
+            <p>
+              GED Merge also reconciles the two files' <strong>GEDCOM version</strong>. If the incoming file uses a
+              different version than your main file (5.5.1 vs 7.0), it is migrated to your file's version on load: shared
+              notes (<code>NOTE</code> ⇄ <code>SNOTE</code>), date phrases and dual-year dates, age keywords, association
+              roles, legacy identifiers (<code>AFN</code>/<code>RFN</code> ⇄ <code>EXID</code>), transliterated names and
+              media types are all rewritten to the target spec, so merged records stay valid. The load summary lists what
+              was migrated, with examples on hover.
+            </p>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Tip</span>
+              <p>Every one of these conventions can be pinned by hand in <strong>Settings › GEDCOM</strong> (<a href="#workspace">§2</a>)
+              when you'd rather choose the target style than let GED Merge detect it.</p>
+            </div>
           </section>
 
           <section id="data-model">
@@ -384,8 +399,8 @@
             <p>
               One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the header's
               chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for the
-              selected person. A tab strip switches between seven kinds (digits <span class="gm-key">1</span>–<span
-              class="gm-key">7</span> jump straight to one); GED Merge remembers whichever you used last:
+              selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
+              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last:
             </p>
             <ul>
               <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
@@ -401,12 +416,14 @@
                 menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click
                 either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or
                 open a node in <span class="gm-pill">Edit</span>.</li>
+              <li><strong>Map</strong> — the family's events plotted geographically, with optional life paths; see
+                <a href="#map">below</a>.</li>
               <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
                 <a href="#reports">below</a>.</li>
             </ul>
             <p>
-              The pedigree kinds and the Report also carry an <strong>Ancestors / Descendants</strong> toggle (each
-              option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
+              The pedigree kinds, the Map and the Report also carry an <strong>Ancestors / Descendants</strong> toggle
+              (each option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
               opens a settings panel whose options adapt to whichever kind is open; every choice is remembered across
               sessions:
             </p>
@@ -424,6 +441,10 @@
               <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
                 people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
                 shared <strong>Residence bar</strong> (see Reports, below).</li>
+              <li><strong>Map</strong> (Map only) — which event kinds appear as markers, a <em>year range</em> (with a
+                two-thumb slider) and whether <em>undated</em> events show; <strong>Paths</strong> draws each person's
+                life journey as a line — see <a href="#map">below</a>. The street-tile background is opt-in in
+                <strong>Settings › Advanced</strong>.</li>
               <li><strong>Facts</strong> (Report only) — see <a href="#reports">below</a>.</li>
               <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
                 only their relationship or “Living” (see <a href="#privacy">§19</a>), so the diagram is safe to
@@ -451,6 +472,31 @@
               marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
               if the person is presumed living.
             </p>
+            <h3 id="map">Places map</h3>
+            <p>
+              The <strong>Map</strong> kind plots the family's events geographically. Births, marriages, deaths, burials
+              and residences for the root person's ancestors or descendants (the same <strong>Ancestors / Descendants</strong>
+              toggle) appear as colour-coded, clustered markers, using coordinates the file already carries
+              (<code>PLAC</code> → <code>MAP</code> <code>LATI</code>/<code>LONG</code>, as written by webtrees,
+              MacFamilyTree and others — or added yourself with <a href="#tools">Geocode places</a>, §11). Click a cluster
+              to zoom in, or open a list of its events with links to the people. The <strong>Map</strong> settings group
+              (above) filters by event kind, year range and undated events.
+            </p>
+            <p>
+              Turn on <strong>Paths</strong> to draw each shown person's life journey — birth through residences and
+              marriages to death — as a line with arrows in the direction of travel. Click a line (or the path button
+              beside a person in the event-list panel) to single that person out: their path is highlighted and framed
+              while the rest fade back. Combined with the <strong>year-range slider</strong>, scrubbing the period lets
+              you watch a family disperse over time.
+            </p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Note</span>
+              <p>The street-map background (CARTO) is <strong>off by default</strong> — requesting map tiles would reveal
+              which region you're viewing — so the map draws on a built-in offline world outline until you opt in under
+              <strong>Settings › Advanced</strong> (where a custom tile URL can also be set). Export a
+              <strong>PNG</strong> snapshot (paths included) or the branch <strong>GEDCOM</strong> from the
+              <strong>Export ▾</strong> menu; <em>Hide living people</em> applies here too.</p>
+            </div>
             <h3 id="reports">Reports</h3>
             <p>
               The <strong>Report</strong> kind renders a text-based, numbered report instead of a diagram — the same
@@ -505,8 +551,20 @@
               Each event row carries <strong>date</strong>, <strong>place</strong> and <strong>address</strong>; expand
               it to add a note, agency, type, cause and <strong>sources</strong>. Use <span class="gm-glyph">×</span> to
               clear a single field. To change an event's type or remove the whole event, use the dropdown menu on its
-              event-type label.
+              event-type label. A <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code> such as
+              “Civil Partnership”) reads under its own <strong>Title</strong> — edited in an always-visible field on the
+              event row — instead of a generic label, and is available from the <strong>+ Add Event</strong> menu on both
+              a person and a family.
             </div>
+            <h3>Place map</h3>
+            <p>
+              When a person's events (their own and their families') carry coordinates, a small <strong>map</strong> appears
+              under their events: each geocoded event is a colour-coded pin (hover shows the event and year), and the pins
+              are joined chronologically by the person's <strong>life path</strong> with direction arrows. A toggle hides
+              or shows it, and a compact colour legend keys the pins. Coordinates come from the file or from
+              <a href="#tools">Geocode places</a> (§11); the same opt-in street-tile / offline-outline choice as the
+              <a href="#map">Places map</a> applies.
+            </p>
             <h3>Family relationships</h3>
             <div>
               The panel shows three family sections:
@@ -528,12 +586,15 @@
             <p>
               <strong>Detach</strong> (the <span class="gm-glyph">−</span> glyph) only removes a family connection — both
               individual records survive and can be re-linked later. <strong>Delete Person</strong> (the
-              <span class="gm-glyph danger">🗑</span> at the foot of the panel) permanently removes the individual and
-              unlinks them everywhere.
+              <span class="gm-glyph danger">🗑</span> at the foot of the panel) removes the individual and unlinks them
+              everywhere. It asks for confirmation first, but — like every edit — it joins the undo history:
+              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> brings the person back at their original
+              position, right up until you download.
             </p>
-            <div class="gm-callout warn">
-              <span class="gm-callout-label">Cannot be undone</span>
-              <p>Deleting a person is permanent and asks for confirmation. If in doubt, download a backup copy first.</p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Note</span>
+              <p>Undo reverses a deletion only while you're still working. Once you download and that file becomes your
+              new baseline, the removal is baked in — so keep a backup before a large clean-up.</p>
             </div>
             <h3>Saving</h3>
             <p>
@@ -698,11 +759,56 @@
               that describe the same media, source or repository under different ids — pick groups to collapse and
               download a deduplicated file with every citation re-pointed.
             </p>
+            <h3>Organize sources</h3>
+            <p>
+              <strong>Organize sources</strong> gathers the archive links scattered around your file — Matricula Online,
+              Geneanet, Find a Grave, BillionGraves, FamilySearch, SIstory.si, dLib.si, newspaper and library URLs sitting
+              in link fields, notes or inline citations — and turns them into proper <strong>source records with page
+              citations</strong>, grouped by book, grave or record and reusing the sources and repositories your file
+              already has. It reads a growing list of sites: from the URL alone it derives a readable title, filing number
+              and place, and <strong>Fetch source details</strong> can enrich each with the real register/grave/record
+              metadata through public relays (the online-lookups opt-in). Citations land on the matching event (created if
+              missing), a <strong>QUAY</strong> quality can be set globally with per-row overrides, and graves fill the
+              burial place and cemetery address.
+            </p>
+            <p>
+              Every proposed group is reviewable before you download: edit a source by hand with <span class="gm-glyph">✎</span>
+              on its row (title, author, archive, place, filing number, year range — hand-edited sources are then skipped
+              by Fetch source details), or mark a group <strong>Remove references</strong> (<span class="gm-glyph danger">🗑</span>)
+              to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
+              unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
+              when you change one, and it shares the download with the source <strong>duplicate finder</strong> — one save
+              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§19</a>).
+            </p>
             <h3>Places</h3>
             <p>
               Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
               a place to see the records that use it, or use <strong>Rename</strong> on any level to bulk-rename or merge
               a place segment across every record at once — ideal for standardizing spelling variants.
+            </p>
+            <h3>Geocode places</h3>
+            <p>
+              <strong>Geocode places</strong> matches your file's place names against an offline gazetteer and writes the
+              coordinates you accept into the GEDCOM as standard <code>MAP</code> <code>LATI</code>/<code>LONG</code> — the
+              same coordinates the <a href="#map">Places map</a> and the Edit-view person map then draw from. Every write
+              is reviewed by you and undoable.
+            </p>
+            <p>
+              Load the gazetteer either with one click from <strong>OpenStreetMap</strong> (country code + Download, needs
+              the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>) or by importing a
+              <strong>GeoNames</strong> country file (<em>.zip</em> or <em>.txt</em>) — the loaded gazetteers are listed
+              under their own heading, and the data stays in your browser. Proposals are ranked: coordinates other
+              occurrences of the same place already carry come first, then exact and historical-name matches
+              (<em>Laibach → Ljubljana</em>), then fuzzy ones. <strong>Select confident</strong> bulk-picks only the
+              unambiguous matches.
+            </p>
+            <p>
+              Each row can be expanded to a small <strong>map</strong> — candidate places as clickable pins, your chosen
+              coordinate highlighted, and the file's other known coordinates as faint dots, so same-named places are told
+              apart by position; click anywhere else on the map to hand-pick a point. A row also offers alternatives, a
+              typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
+              <strong>rename</strong> the raw place value (all occurrences at once — the correction is rescanned for
+              matches immediately). Accepted matches are cached, so other files resolve instantly.
             </p>
           </section>
 
@@ -778,9 +884,17 @@
               publisher, agency, filing number, page, URL and note — as needed for your house style.
             </p>
             <p>
+              Add Source <strong>recognizes archive links</strong> the same way <a href="#tools">Organize sources</a>
+              does: paste a URL from a supported site (Matricula, Geneanet, Find a Grave, FamilySearch, newspaper and
+              library archives, and more) and it prefills the title, author, place, archive, filing number and page, with
+              the online lookup fetching the real book/grave/record details. The created source picks up your file's place
+              format, year range and repository. Which layout it writes — where citations, page images and baptism sources
+              sit — follows your <a href="#workspace">Settings › GEDCOM</a> overrides (§2).
+            </p>
+            <p>
               Existing citations can be reopened and edited the same way. To see and tidy sources across the entire
-              file — including duplicates — use <span class="gm-pill">Tools</span> › <strong>Sources</strong>
-              (<a href="#tools">§11</a>).
+              file — including duplicates — use <span class="gm-pill">Tools</span> › <strong>Sources</strong>, and to
+              convert scattered links into proper citations in bulk, <strong>Organize sources</strong> (<a href="#tools">§11</a>).
             </p>
           </section>
 
@@ -797,7 +911,9 @@
               not be merged. Each entry carries a badge: <span class="gm-badge b">New</span>,
               <span class="gm-badge i">Incoming</span>, <span class="gm-badge c">Edited</span> or
               <span class="gm-badge r">Removed</span>. Use <strong>Remove from Save</strong> to drop any single change
-              before downloading.
+              before downloading. The preview covers <strong>every</strong> event, whatever its tag — events outside the
+              common list (adult christening, LDS baptism, marriage banns, vendor-specific events) show their changes too —
+              and written place <strong>coordinates</strong> appear as the event's changed field.
             </p>
             <p>
               <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text
@@ -824,7 +940,10 @@
                 <tr><td><span class="gm-glyph">×</span></td><td>Clear a field, remove a note or link, or close a dialog</td></tr>
                 <tr><td><span class="gm-glyph">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
-                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person permanently (cannot be undone)</td></tr>
+                <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
+                <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see §19)</td></tr>
+                <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person (undoable with Ctrl+Z until you download), or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
@@ -901,7 +1020,7 @@
             <table class="gm-table">
               <thead><tr><th>Keys</th><th>Action</th></tr></thead>
               <tbody>
-                <tr><td><span class="gm-key">1</span> … <span class="gm-key">7</span></td><td>Switch chart kind (Tree … Report)</td></tr>
+                <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Switch chart kind (Tree … Report)</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Reset zoom to 100%</td></tr>
@@ -921,6 +1040,13 @@
               <li><strong>Estate</strong> — Will, Probate</li>
               <li><strong>Death</strong> — Death, Burial, Cremation</li>
             </ul>
+            <p>
+              Beyond these, a <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code>, e.g. “Civil
+              Partnership”) can be added to a person or a family and carries its own editable <strong>Title</strong>;
+              GED Merge also surfaces many other programs' attributes and facts — reference numbers, title, religion,
+              nationality, physical description, and vendor-specific events — as editable, mergeable rows (see
+              <a href="#saving">§14</a>).
+            </p>
           </section>
 
           <section id="glossary">
@@ -948,6 +1074,26 @@
               server. The full
               <a href="../?legal=privacy">Privacy Policy</a> &amp; <a href="../?legal=terms">Terms</a> are also linked in
               the footer below.
+            </p>
+            <h3>Marking records private</h3>
+            <p>
+              GED Merge understands the <strong>privacy flags</strong> other programs write — MacFamilyTree's
+              <code>PRIV</code>, MyHeritage's <code>_PRIV Y</code>, and the standard <code>RESN privacy</code> /
+              <code>confidential</code>. People, families, notes and media items show a <span class="gm-glyph">🔒</span>
+              toggle in <span class="gm-pill">Edit</span> that sets or clears the flag (written in your file's own dialect;
+              a compare file's flags are converted to that dialect on load, like dates and places). Private entries are
+              honored throughout: a private note's URL never surfaces as a link chip, and <a href="#sources">Organize
+              sources</a> and Add Source never turn a private person's, note's or media item's URL into a citation. In the
+              merge comparison a <em>Private</em> row shows the flag, and it is carried into the merged record.
+            </p>
+            <h3>Sharing without living people</h3>
+            <p>
+              To share a tree or a chart, two features hide people who should stay private. Charts and reports have a
+              <strong>Hide living people</strong> option (<a href="#edit">§9</a>) that redacts anyone inferred to be
+              living — and anyone explicitly marked private — showing only their relationship or “Living”. For a whole
+              file, <span class="gm-pill">Tools</span> › <strong>Privacy</strong> (<a href="#tools">§11</a>) produces a
+              redacted copy: it infers who is likely living, flags declared-private people too, and lets you sanitize,
+              rename or remove them and strip file-level identifiers before download.
             </p>
           </section>
         </article>
