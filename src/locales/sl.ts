@@ -199,6 +199,7 @@ export const sl = {
   "tools.geocode.downloadNeedsOptIn": "Neposredni prenos iz OpenStreetMap se pokaže, ko so v Nastavitve → Napredno dovoljene spletne poizvedbe.",
   "tools.geocode.more": "…in še {{count}} vrstic — seznam zožite z iskalnikom.",
   "tools.geocode.morePeople": "…in še {{count}} oseb.",
+  "tools.geocode.eventCount": "{{count}} dogodkov pri tej osebi",
   "tools.sources.summary": "{{repos}} hramb · {{sources}} virov · {{media}} medijev",
   "tools.sources.none": "Ni najdenih zapisov virov.",
   "tools.sources.noRepo": "Brez hrambe",

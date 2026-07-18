@@ -13,7 +13,9 @@ import {
   type GeocodeDecision,
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
-import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { PersonLink } from "../PersonLink";
+import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { BackButton } from "../BackButton";
@@ -65,6 +67,8 @@ interface Props {
   onBack: () => void;
   /** Jump to a person in Edit mode (the expanded row's people list). */
   onNavigate: (id: string) => void;
+  /** The app-wide start person, for kinship labels in the people list. */
+  startId?: string;
 }
 
 /** Read a response body with byte progress (falls back to one shot). */
@@ -104,10 +108,17 @@ function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack, onNavigate }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack, onNavigate, startId }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
+
+  // Kinship labels for the expanded row's people list — same resolver and
+  // display gate (the Kinship display setting) as the Map's event panel.
+  const kinship = useMemo(
+    () => (startId && appSettings.showKinship ? createKinshipResolver(dataset, startId, t) : undefined),
+    [dataset, startId, appSettings.showKinship, t],
+  );
 
   /** Hover list of the people this unresolved place occurs at (capped). */
   const missingInTitle = (row: GeocodeRow): string | undefined => {
@@ -831,12 +842,25 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     </li>
                   </ul>
                   {/* Who this unresolved place belongs to — standard person
-                      links (sex colour, lifespan, click to open in Edit). */}
-                  <UsageList
-                    dataset={dataset}
-                    uses={row.missingIn.slice(0, 30).map((id) => ({ persons: [{ id, label: id }] }))}
-                    onNavigate={onNavigate}
-                  />
+                      links (sex colour, lifespan, click to open in Edit),
+                      with the kinship chip and the person's event count. */}
+                  <ul className="tools-usage">
+                    {row.missingIn.slice(0, 30).map((id) => {
+                      const indi = dataset.individuals.get(id);
+                      const kin = kinship?.label(id);
+                      return (
+                        <li key={id}>
+                          <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+                          {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+                          {indi && (
+                            <span className="tools-chip-count" title={t("tools.geocode.eventCount", { count: indi.events.length })}>
+                              {indi.events.length}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
                   {row.missingIn.length > 30 && (
                     <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: row.missingIn.length - 30 })}</p>
                   )}

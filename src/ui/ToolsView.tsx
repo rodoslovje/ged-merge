@@ -34,6 +34,8 @@ interface Props {
    *  matching PLAC nodes and push to the undo stack; returns records changed. */
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** The app-wide start person, for kinship labels in people lists. */
+  startId?: string;
   /** Remove all broken family pointers and push to the undo stack. Returns the
    *  number of records changed, so the panel can re-validate and report. */
   onFixBrokenLinks: () => number;
@@ -59,7 +61,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onRenamePlaceValue, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onRenamePlaceValue, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   // One shared worker runs the heavy whole-file scans off the main thread;
@@ -112,7 +114,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onRenamePlaceValue={onRenamePlaceValue} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onRenamePlaceValue={onRenamePlaceValue} startId={startId} />
         )}
       </div>
     </div>

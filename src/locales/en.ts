@@ -199,6 +199,7 @@ export const en = {
   "tools.geocode.downloadNeedsOptIn": "Direct download from OpenStreetMap appears here once online lookups are allowed in Settings → Advanced.",
   "tools.geocode.more": "…and {{count}} more rows — narrow the list with the search box.",
   "tools.geocode.morePeople": "…and {{count}} more people.",
+  "tools.geocode.eventCount": "{{count}} events on this person",
   "tools.sources.summary": "{{repos}} repositories · {{sources}} sources · {{media}} media",
   "tools.sources.none": "No source records found.",
   "tools.sources.noRepo": "No repository",
