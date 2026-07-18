@@ -58,6 +58,20 @@ function tooltipEl(label: string, lines?: string[]): HTMLElement {
   return el;
 }
 
+/** Bind a hover tooltip that flips below the marker when it sits in the top
+ *  half of the map — a "top" tooltip there is clipped by the container's
+ *  overflow:hidden (rounded corners), so pick the side with more room. */
+function bindFlippingTooltip(map: L.Map, marker: L.CircleMarker, content: HTMLElement): void {
+  marker.bindTooltip(content, { direction: "top", className: "minimap-tooltip" });
+  marker.on("tooltipopen", (e) => {
+    const dir = map.latLngToContainerPoint(marker.getLatLng()).y < map.getSize().y / 2 ? "bottom" : "top";
+    if (e.tooltip.options.direction !== dir) {
+      e.tooltip.options.direction = dir;
+      e.tooltip.update();
+    }
+  });
+}
+
 // Small embedded map for the geocode review list: the row's candidate
 // coordinates as clickable pins (click = pick that candidate), the currently
 // chosen coordinate highlighted, and the file's already-known coordinates as
@@ -121,7 +135,9 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   useEffect(() => {
     const el = containerRef.current;
     if (!el || mapRef.current) return;
-    const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false });
+    // fadeAnimation off: the tile fade-in (and the programmatic fits below
+    // being instant) keeps the little map from "performing" while it loads.
+    const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false, fadeAnimation: false });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
     map.setView([46.1, 14.5], 5);
     map.on("click", (e: L.LeafletMouseEvent) => {
@@ -149,7 +165,8 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     el.addEventListener("wheel", markUser, { passive: true });
     const ro = new ResizeObserver(() => {
       map.invalidateSize();
-      if (fitBoundsRef.current && !userMovedRef.current) map.fitBounds(fitBoundsRef.current, { maxZoom: 11 });
+      if (fitBoundsRef.current && !userMovedRef.current)
+        map.fitBounds(fitBoundsRef.current, { maxZoom: 11, animate: false });
     });
     ro.observe(el);
     mapRef.current = map;
@@ -199,14 +216,14 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     for (const c of latestContext.current) {
       // Interactive for the name tooltip; clicks bubble on to the map, so
       // click-to-pick still works on top of a dot.
-      L.circleMarker([c.coord.lat, c.coord.lon], {
+      const dot = L.circleMarker([c.coord.lat, c.coord.lon], {
         radius: 2.5,
         stroke: false,
         fillColor: mutedColor,
         fillOpacity: 0.4,
-      })
-        .bindTooltip(tooltipEl(c.name), { direction: "top", className: "minimap-tooltip" })
-        .addTo(group);
+      });
+      bindFlippingTooltip(map, dot, tooltipEl(c.name));
+      dot.addTo(group);
     }
     latestPins.current.forEach((p, i) => {
       const chosen = p.kind === "chosen";
@@ -221,7 +238,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         // A pin click picks the pin — it must not double as a map click.
         bubblingMouseEvents: false,
       });
-      marker.bindTooltip(tooltipEl(p.label, p.lines), { direction: "top", className: "minimap-tooltip" });
+      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
     });
@@ -235,7 +252,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         didFitRef.current = true;
         const bounds = L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3);
         fitBoundsRef.current = bounds;
-        map.fitBounds(bounds, { maxZoom: 11 });
+        map.fitBounds(bounds, { maxZoom: 11, animate: false });
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);
