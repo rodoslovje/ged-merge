@@ -16,6 +16,33 @@ const FAMILY_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
 const RECORD_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_WEBTAG"]);
 
+/** Record children handled by their own dedicated diff passes (names, notes,
+ *  links, citations, media, memberships, audit stamps) — never diffed as
+ *  events, whatever their substructure. */
+const NON_EVENT_TAGS = new Set([
+  "NAME", "SEX", "NOTE", "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
+  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI",
+  ...RECORD_LINK_TAGS,
+]);
+
+/** Substructure that marks a child as event-shaped. Any tag outside the
+ *  canonical event lists that carries one of these (CHRA, BAPL, MARB/MARL,
+ *  vendor events, …) is still diffed as an event — bulk tools (geocode,
+ *  place rename) write into every PLAC, so a whitelist here would let those
+ *  changes silently vanish from the save preview. */
+const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC"]);
+
+function isEventShaped(node: GedNode): boolean {
+  return node.children.some((c) => EVENT_SHAPE_TAGS.has(c.tag));
+}
+
+/** Tags to diff as events on a record: the known set, plus anything
+ *  event-shaped that no dedicated pass owns. */
+function eventTagsOf(before: GedNode, after: GedNode, known: Set<string>): Set<string> {
+  const isEvent = (c: GedNode) => known.has(c.tag) || (!NON_EVENT_TAGS.has(c.tag) && isEventShaped(c));
+  return new Set([...before.children, ...after.children].filter(isEvent).map((c) => c.tag));
+}
+
 function nodeChild(node: GedNode, tag: string): string {
   return node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
 }
@@ -345,11 +372,8 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   check(t("field.sex"),      nodeChild(before, "SEX"), nodeChild(after, "SEX"));
   diffs.push(...diffAdditionalNames(id, before, after, t));
 
-  const evTags = new Set([
-    ...before.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
-    ...after.children.filter((c) => INDIVIDUAL_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
-  ]);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`), resolveSource));
+  const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
@@ -403,11 +427,8 @@ function diffFamilyNodes(
 
   diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
-  const evTags = new Set([
-    ...before.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
-    ...after.children.filter((c) => FAMILY_EVENT_TAGS.has(c.tag)).map((c) => c.tag),
-  ]);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`), resolveSource));
+  const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
