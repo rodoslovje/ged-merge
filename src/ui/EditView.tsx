@@ -1852,14 +1852,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           />
           {personMap && (
             <div className="edit-person-map">
+              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
+                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+              </button>
               {!mapHidden && (
                 <Suspense fallback={<div className="tools-geo-minimap" />}>
                   <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
                 </Suspense>
               )}
-              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
-                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
-              </button>
             </div>
           )}
         </div>
