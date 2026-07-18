@@ -5586,6 +5586,22 @@ kbd {
 .map-kind-chip:not(.active) .map-paths-icon {
   opacity: 0.75;
 }
+/* Life-path stop numbers (mini map): order chips beside the stops. */
+.map-path-stopnum-wrap { pointer-events: none; }
+.map-path-stopnum {
+  display: inline-block;
+  min-width: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  border: 1px solid var(--map-path);
+  color: var(--map-path);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  white-space: nowrap;
+}
 .map-path-arrow-wrap {
   background: none;
   border: none;
