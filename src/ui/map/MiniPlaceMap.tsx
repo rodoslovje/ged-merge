@@ -5,6 +5,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
+import { pathStopMarkers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
 /** Draw the life path — polyline plus direction chevrons — into `layer`.
@@ -26,32 +27,7 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
       interactive: false,
     }),
   );
-  // Stop numbers (1…N) once the path has more than two stops — the line
-  // alone doesn't tell a longer journey's order. A place visited twice
-  // shows its visits joined ("2·5") instead of stacked markers.
-  if (path.length > 2) {
-    const byCoord = new Map<string, { coord: GeoCoord; nums: number[] }>();
-    path.forEach((c, i) => {
-      const k = `${c.lat}:${c.lon}`;
-      const hit = byCoord.get(k);
-      if (hit) hit.nums.push(i + 1);
-      else byCoord.set(k, { coord: c, nums: [i + 1] });
-    });
-    for (const { coord, nums } of byCoord.values()) {
-      layer.addLayer(
-        L.marker([coord.lat, coord.lon], {
-          interactive: false,
-          icon: L.divIcon({
-            className: "map-path-stopnum-wrap",
-            html: `<span class="map-path-stopnum">${nums.join("·")}</span>`,
-            iconSize: [0, 0],
-            // Nudged up-right so the chip sits beside the stop's pin.
-            iconAnchor: [-7, 16],
-          }),
-        }),
-      );
-    }
-  }
+  for (const m of pathStopMarkers(path)) layer.addLayer(m);
   const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
   for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) {
     layer.addLayer(
