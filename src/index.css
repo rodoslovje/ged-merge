@@ -5550,14 +5550,20 @@ kbd {
 .map-paths-icon-line {
   fill: none;
   stroke: var(--map-path);
-  stroke-width: 1.8;
+  stroke-width: 2;
   stroke-linecap: round;
 }
 .map-paths-icon-head {
   fill: var(--map-path);
 }
+/* The toggle chip's icon: same size as the panel buttons, and only mildly
+   dimmed when off — the full 0.35 kind-dot fade washes the squiggle out. */
+.map-paths-chip .map-paths-icon {
+  width: 21px;
+  height: 16px;
+}
 .map-kind-chip:not(.active) .map-paths-icon {
-  opacity: 0.35;
+  opacity: 0.75;
 }
 .map-path-arrow-wrap {
   background: none;
