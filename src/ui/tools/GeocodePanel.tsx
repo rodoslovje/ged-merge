@@ -598,7 +598,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <span
                   className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
                   onClick={toggleOpen}
-                  title={missingInTitles.get(row.key)}
                 >
                   {row.key}
                 </span>
@@ -670,7 +669,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 >
                   {marked ? "↩" : "🗑"}
                 </button>
-                <span className="tools-chip-count">{row.missing}</span>
+                <span className="tools-chip-count" title={missingInTitles.get(row.key)}>{row.missing}</span>
               </div>
               {renameKey === row.key && (
                 <div
@@ -815,7 +814,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                           <span className="gm-data">{cand.entry.country}</span>
                           <span className="tools-geo-cand-name">{cand.entry.name}</span>
                           <span className="gm-data">
-                            {cand.entry.population > 0 && `${t("tools.geocode.population", { count: cand.entry.population })} · `}
+                            {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                             {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                           </span>
                           <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
