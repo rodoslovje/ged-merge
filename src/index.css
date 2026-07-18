@@ -5614,10 +5614,11 @@ kbd {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+/* Same idle strength as the (inactive) Paths chip; hover goes full. */
 .map-panel-pathbtn .map-paths-icon {
   width: 21px;
   height: 16px;
-  opacity: 0.6;
+  opacity: 0.75;
 }
 .map-panel-pathbtn:hover {
   background: var(--panel-2);
