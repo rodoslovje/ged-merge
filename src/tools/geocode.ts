@@ -88,6 +88,14 @@ function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): Recor
 export interface ChosenCoord {
   coord: GeoCoord;
   label: string;
+  /** GOV id (only set when the pick came from GOV) — written back as `_GOV`. */
+  govId?: string;
+}
+
+/** An accepted coordinate to write into the file, with its optional GOV id. */
+export interface GeoAssignment {
+  coord: GeoCoord;
+  govId?: string;
 }
 
 /**
@@ -102,8 +110,11 @@ export function chosenCoordFor(
   labels: { fromFile: string; cached: string },
 ): ChosenCoord | undefined {
   if (override) return override;
-  if (row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined)
-    return { coord: { lat: row.cached.lat, lon: row.cached.lon }, label: row.cached.label ?? labels.cached };
+  if (row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined) {
+    const chosen: ChosenCoord = { coord: { lat: row.cached.lat, lon: row.cached.lon }, label: row.cached.label ?? labels.cached };
+    if (row.cached.govId) chosen.govId = row.cached.govId;
+    return chosen;
+  }
   // The file's own coordinate for this exact value beats any gazetteer
   // guess — same file, same spelling, already placed by someone.
   if (row.fileCoord) return { coord: row.fileCoord, label: labels.fromFile };
@@ -267,13 +278,13 @@ export function renamePlaceValue(dataset: Dataset, from: string, to: string, add
  * an assignment and that still lacks a coordinate. Mutates the dataset in
  * place and returns RecordPatch[] for the unified undo stack.
  */
-export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, GeoCoord>): RecordPatch[] {
+export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, GeoAssignment>): RecordPatch[] {
   return patchRecords(dataset, (raw) => {
     let changed = false;
     walkPlacNodes(raw, (plac) => {
-      const coord = assignments.get(plac.value!.trim());
-      if (!coord || coordOf(plac)) return;
-      setPlaceCoord(plac, coord);
+      const a = assignments.get(plac.value!.trim());
+      if (!a || coordOf(plac)) return;
+      setPlaceCoord(plac, a.coord, a.govId);
       changed = true;
     });
     return changed;

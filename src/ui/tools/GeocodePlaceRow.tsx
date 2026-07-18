@@ -4,6 +4,7 @@ import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { searchGov, type GovResult } from "../../geo/gov";
 import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
@@ -59,7 +60,9 @@ interface Props {
   onToggleChecked: (key: string, on: boolean) => void;
   onToggleOpen: (key: string) => void;
   onClaimMap: (key: string) => void;
-  onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string) => void;
+  /** Choose a coordinate for the row; `govId` is set only for GOV picks and
+   *  drives the `_GOV` write-back. */
+  onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => void;
   onToggleNoMatch: (key: string) => void;
   /** Rename all occurrences of the row's raw value (with an optional
    *  place/ADDR split); the panel applies it and rescans. */
@@ -109,6 +112,22 @@ export function GeocodePlaceRow({
     searchNominatim(row.key, i18n.language).then(
       (results) => setOnline({ state: "done", results }),
       () => setOnline({ state: "error", results: [] }),
+    );
+  };
+
+  // GOV (gov.genealogy.net) — the genealogy gazetteer with time-valid,
+  // multilingual historical names and a stable GOV id. Same online opt-in and
+  // explicit-button model as Nominatim; accepting a GOV match also writes the
+  // GEDCOM-L `_GOV` id into the file.
+  const [gov, setGov] = useState<{ state: "idle" | "loading" | "error" | "done"; results: GovResult[] }>({
+    state: "idle",
+    results: [],
+  });
+  const runGovSearch = () => {
+    setGov({ state: "loading", results: [] });
+    searchGov(row.key, i18n.language).then(
+      (results) => setGov({ state: "done", results }),
+      () => setGov({ state: "error", results: [] }),
     );
   };
 
@@ -311,7 +330,8 @@ export function GeocodePlaceRow({
           {(() => {
             // Cheap gates first — under "Expand all" most rows render
             // the claim link, and must not build throwaway pin arrays.
-            if (!row.candidates.length && !c && !draftCoord && !online.results.length && !fileCoords.length) return null;
+            if (!row.candidates.length && !c && !draftCoord && !online.results.length && !gov.results.length && !fileCoords.length)
+              return null;
             if (!hasMap)
               return (
                 <button className="tools-issue-link tools-geo-showmap" onClick={() => onClaimMap(row.key)}>
@@ -336,6 +356,15 @@ export function GeocodePlaceRow({
                 label: `${r.name} · OSM`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 onPick: () => onPickCoord(row, r.coord, r.name),
+              });
+            }
+            for (const r of gov.results) {
+              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
+              pins.push({
+                coord: r.coord,
+                label: `${r.name} · GOV`,
+                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                onPick: () => onPickCoord(row, r.coord, r.name, r.govId),
               });
             }
             if (c && !pins.some((p) => sameCoord(p.coord, c.coord)))
@@ -432,6 +461,23 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             ))}
+            {gov.results.map((r, i) => (
+              <li key={`gov-${i}`}>
+                <label title={`${r.label} · GOV ${r.govId}`}>
+                  <input
+                    type="radio"
+                    name={`geo-${row.key}`}
+                    checked={sameCoord(c?.coord, r.coord)}
+                    onChange={() => onPickCoord(row, r.coord, r.name, r.govId)}
+                  />
+                  <span className="tools-geo-cand-name">{r.label}</span>
+                  <span className="gm-data">
+                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                  </span>
+                  <span className="tools-reshape-badge new">GOV</span>
+                </label>
+              </li>
+            ))}
             {/* Online (Nominatim) search for what the offline gazetteer
                 can't resolve — above all street addresses. Explicit per-row
                 action behind the online opt-in: the text leaves the device. */}
@@ -448,6 +494,18 @@ export function GeocodePlaceRow({
                 {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
                 {online.state === "done" && !online.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
+                )}
+                <button
+                  className="tools-issue-link"
+                  disabled={gov.state === "loading"}
+                  title={t("tools.geocode.gov.tooltip")}
+                  onClick={runGovSearch}
+                >
+                  {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
+                </button>
+                {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
+                {gov.state === "done" && !gov.results.length && (
+                  <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
                 )}
               </li>
             )}
