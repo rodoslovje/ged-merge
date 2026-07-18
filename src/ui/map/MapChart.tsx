@@ -19,7 +19,6 @@ import {
 } from "../../geo/points";
 import { clusterPoints, type MapCluster } from "../../geo/cluster";
 import { buildPersonPaths } from "../../geo/paths";
-import worldOutline from "../../geo/world110m.json";
 import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
@@ -41,6 +40,9 @@ import {
   pathArrows,
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
+import { createBaseLayer } from "./baseLayer";
+import { arrowMarker, pathLegNumbers } from "./pathStops";
+import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
 // hub Ancestors/Descendants choice, like the pedigree charts — as clustered
@@ -50,11 +52,6 @@ import { YearRangeSlider } from "./YearRangeSlider";
 // enabled the map draws on the bundled offline world outline. Marker colour =
 // event kind (see the --map-* tokens); clicking a cluster zooms in, or opens
 // the event list panel once it's small or the map is deep enough.
-
-const LIGHT_TILES = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 /** Cluster click: zoom in while it still holds this many points and the map
  *  isn't already deep; otherwise open the event-list panel. */
@@ -75,21 +72,6 @@ function PathIcon() {
       <path className="map-paths-icon-head" d="M10.6 3.4 L15.2 4.2 L11.9 7.5 Z" />
     </svg>
   );
-}
-
-/** Current live document theme (App's useTheme owns the attribute). */
-function useDocTheme(): "light" | "dark" {
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark",
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() =>
-      setTheme(document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"),
-    );
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
-  return theme;
 }
 
 interface Props {
@@ -183,8 +165,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const outlineRef = useRef<L.GeoJSON | null>(null);
+  const baseLayerRef = useRef<L.Layer | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   const pathRendererRef = useRef<L.Renderer | null>(null);
@@ -215,8 +196,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       map.off("moveend zoomend", bump);
       map.remove();
       mapRef.current = null;
-      tileLayerRef.current = null;
-      outlineRef.current = null;
+      baseLayerRef.current = null;
       markersRef.current = null;
       pathsRef.current = null;
       pathRendererRef.current = null;
@@ -227,33 +207,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    tileLayerRef.current?.remove();
-    tileLayerRef.current = null;
-    outlineRef.current?.remove();
-    outlineRef.current = null;
-    if (appSettings.allowMapTiles) {
-      const custom = appSettings.mapTileUrl;
-      tileLayerRef.current = L.tileLayer(custom || (theme === "dark" ? DARK_TILES : LIGHT_TILES), {
-        attribution: custom ? "" : TILE_ATTRIBUTION,
-        crossOrigin: "anonymous",
-        // The CARTO default uses a–d shards; a custom URL keeps Leaflet's own default.
-        ...(custom ? {} : { subdomains: "abcd" }),
-        maxZoom: 18,
-      }).addTo(map);
-    } else {
-      // SVG presentation attributes don't resolve var(), so the outline colours
-      // are read from the tokens here; the effect re-runs on theme change.
-      const styles = getComputedStyle(document.documentElement);
-      outlineRef.current = L.geoJSON(worldOutline as GeoJSON.GeoJsonObject, {
-        interactive: false,
-        style: {
-          fillColor: styles.getPropertyValue("--map-land").trim(),
-          fillOpacity: 1,
-          color: styles.getPropertyValue("--border-2").trim(),
-          weight: 0.6,
-        },
-      }).addTo(map);
-    }
+    baseLayerRef.current?.remove();
+    baseLayerRef.current = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
 
   // Zoom to the data when it first shows up — and again after the branch
@@ -344,24 +299,15 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       line.on("mouseover", () => line.setStyle({ weight: weight + 1.5, opacity: 1 }));
       line.on("mouseout", () => line.setStyle({ weight, opacity }));
       layer.addLayer(line);
+      // The singled-out path numbers its legs along the line.
+      if (isSel) for (const m of pathLegNumbers(map, path.stops.map((s) => s.coord))) layer.addLayer(m);
       // Direction chevrons — on everything while nothing is selected, and on
       // the selected path alone once there is one (the rest are dimmed).
       if ((isSel || !anySelected) && arrowBudget > 0) {
         const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
         for (const a of pathArrows(pts, isSel ? ARROW_MIN_SEG_SELECTED_PX : ARROW_MIN_SEG_PX)) {
           if (arrowBudget-- <= 0) break;
-          layer.addLayer(
-            L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
-              icon: L.divIcon({
-                className: "map-path-arrow-wrap",
-                html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
-                iconSize: [10, 10],
-              }),
-              interactive: false,
-              keyboard: false,
-              zIndexOffset: -1000,
-            }),
-          );
+          layer.addLayer(arrowMarker(map, a));
         }
       }
     }

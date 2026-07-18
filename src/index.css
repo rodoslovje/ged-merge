@@ -2379,11 +2379,23 @@ button:focus-visible {
  * itself stays a plain, unconstrained string so long labels (e.g.
  * "Naturalization") keep overflowing exactly as before instead of being
  * clipped by a select's fixed-width rendering. */
-.edit-event-label--select { position: relative; padding-right: 11px; cursor: pointer; }
+.edit-event-label--select { position: relative; padding-right: 15px; cursor: pointer; }
 .edit-event-label--select:hover,
 .edit-event-label--select:focus-within { color: var(--text); }
-/* Prominent so the label clearly reads as a clickable dropdown. */
-.edit-event-type-caret { margin-left: 4px; font-size: 1.35em; line-height: 1; opacity: 1; color: var(--accent); }
+/* Prominent so the label clearly reads as a clickable dropdown. Anchored to
+ * the label's right edge and centered on its full height, so a wrapped
+ * two-line name (e.g. "Civil Partnership") gets the caret mid-block rather
+ * than trailing the last line. */
+.edit-event-type-caret {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.35em;
+  line-height: 1;
+  opacity: 1;
+  color: var(--accent);
+}
 .edit-event-type-select {
   position: absolute;
   inset: 0;
@@ -2954,11 +2966,18 @@ button:focus-visible {
 .place-autocomplete-wrap > .clearable-wrap {
   width: 100%;
 }
+/* A focused place/address field grows past its content width (an inline
+   style from chW) so there is room to type and read a query. */
+.edit-event-extra-field:focus-within { min-width: 24ch; }
 .place-suggestions {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
-  right: 0;
+  /* At least as wide as the input, but grow to the suggestions — the input
+     is content-sized (often a few chars), and "Lj…" helps nobody. */
+  min-width: 100%;
+  width: max-content;
+  max-width: min(480px, 80vw);
   z-index: 200;
   list-style: none;
   margin: 0;
@@ -2983,6 +3002,8 @@ button:focus-visible {
 .place-suggestion--hi {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* The address part of a place+address combo suggestion. */
+.place-suggestion-addr { color: var(--muted); }
 
 /* Record-level links and notes sections (individual and family) */
 .edit-record-section {
@@ -5565,6 +5586,19 @@ kbd {
 .map-kind-chip:not(.active) .map-paths-icon {
   opacity: 0.75;
 }
+/* Life-path leg numbers: plain digits beside each segment's midpoint, with
+   a background-coloured halo for readability over the map. */
+.map-path-legnum-wrap { pointer-events: none; }
+.map-path-legnum {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--map-path);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg), 0 0 2px var(--bg);
+}
 .map-path-arrow-wrap {
   background: none;
   border: none;
@@ -6226,8 +6260,9 @@ kbd {
 .tools-search-input::placeholder { color: var(--muted); }
 .tools-clean { color: var(--text); font-size: 1rem; padding: 10px 0; }
 .tools-clean--ok { color: var(--state-match); font-weight: 600; }
-.tools-loading { color: var(--muted); padding: 20px 0; }
-.tools-loading .tools-run { margin: 16px 0 0; }
+/* Spinner line and the optional Cancel share one row. */
+.tools-loading { color: var(--muted); padding: 20px 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tools-loading .tools-run { margin: 0; }
 .tools-run { margin: 0 0 16px; }
 .tools-fix-list { list-style: none; margin: 0 0 16px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .tools-fix-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
@@ -6346,21 +6381,27 @@ kbd {
 .tools-tree-link:hover { color: var(--accent); }
 .tools-place-edit-btn {
   opacity: 0;
+  /* Fully collapsed until the row is hovered: no width, no padding, and a
+     negative margin that swallows the flex gap slot it would otherwise add. */
+  width: 0;
+  padding: 1px 0;
+  margin-left: -8px;
+  overflow: hidden;
   transition: opacity 0.12s;
   flex: none;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 1px 5px;
   border-radius: 4px;
   color: var(--text);
   font-size: 1em;
   line-height: 1;
 }
 .tools-tree-row:hover .tools-place-edit-btn,
-.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; }
+.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
-.tools-place-edit-cancel { opacity: 1 !important; }
+/* Wins over the base rule by source order — no !important needed. */
+.tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-rename {
   display: flex;
   align-items: center;
@@ -6380,6 +6421,34 @@ kbd {
   color: var(--text);
 }
 .tools-place-rename-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* Autocomplete-wrapped variant (geocode list): the wrapper takes the flex
+   slot the bare input otherwise fills, and the input stretches inside it.
+   Wide, because one box searches places AND addresses — the dropdown (sized
+   to the input) must fit a full "place · address" line. */
+.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 560px; }
+.tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
+/* The queued ADDR part of a picked place·address combo, cleared with ×. */
+.tools-geo-addr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.tools-geo-addr-chip-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1em;
+  line-height: 1;
+  padding: 0 2px;
+}
+.tools-geo-addr-chip-clear:hover { color: var(--danger); }
 .tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
@@ -6532,7 +6601,55 @@ kbd {
 .tools-geo-download input:focus { outline: none; border-color: var(--accent); }
 .tools-geo-download .tools-run { margin: 0; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
-.tools-geo-coverage { color: var(--text); margin: 0 0 10px; }
+.tools-geo-minimap {
+  height: 220px;
+  max-width: 560px;
+  margin: 4px 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--panel-2);
+  /* Leaflet panes default to z-index 400+; keep them under the app header. */
+  isolation: isolate;
+}
+/* A pick-enabled mini map signals it, overriding Leaflet's grab hand. */
+.tools-geo-minimap--pick .leaflet-container { cursor: crosshair; }
+/* Mini-map tooltips: multi-line (place header + one row per event), wrapped
+   inside the map instead of one endless nowrap line. */
+.minimap-tooltip { white-space: normal; max-width: 280px; }
+.minimap-tooltip .minimap-tip-title { font-weight: 600; }
+/* The person's places map below the Edit-view event list. */
+.edit-person-map { margin: 12px 0 4px; }
+/* Compact colour legend under the map: only the kinds actually shown. */
+.edit-person-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-width: 560px;
+}
+.edit-map-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.edit-map-legend-item .map-kind-dot { width: 9px; height: 9px; }
+.edit-map-legend-line { width: 16px; border-top: 2px solid var(--map-path); display: inline-block; }
+.edit-person-map-toggle {
+  display: block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.edit-person-map-toggle:hover { color: var(--accent); }
+/* "Show on map" link on expanded rows not holding the (single) mini map. */
+.tools-geo-showmap { display: block; margin: 0 0 6px; padding-left: 0; }
+/* The geocode row's people list: breathing room between the person link,
+   the kinship chip and the event-count chip. */
+.tools-geo-people li { gap: 8px; }
+.tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the
@@ -6549,11 +6666,12 @@ kbd {
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
-.tools-geo-manual input {
+/* Type-scoped: the row also holds the option's radio, which must keep its
+   native size so it lines up under the candidate radios above. */
+.tools-geo-manual input[type="text"] {
   width: 220px; box-sizing: border-box; padding: 4px 8px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.85rem;
 }
-.tools-geo-manual input:focus { outline: none; border-color: var(--accent); }
-.tools-geo-manual .nav-btn { margin: 0; }
+.tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }

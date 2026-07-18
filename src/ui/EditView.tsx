@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, GeoCoord, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { childrenByTag, firstChild } from "../gedcom/node";
@@ -78,6 +78,15 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/pri
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
+import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
+import { buildPersonPaths } from "../geo/paths";
+import { kindsColorVar } from "./map/markerStyle";
+
+/** The person's places map, in the shared Leaflet lazy chunk. */
+const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
+
+/** Remembered "hide the person map" preference (more room for editing). */
+const EDIT_MAP_HIDDEN_KEY = "gedmerge-edit-map-hidden";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
@@ -1540,6 +1549,55 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // on the person's identity (replaced by rebuildIndividual on each of their
   // own edits) so the memoized EventList's prop stays stable across unrelated
   // ticks.
+  // Hidden-map preference: session-persistent, so a user who wants the full
+  // height for editing sets it once.
+  const [mapHidden, setMapHidden] = useState(() => localStorage.getItem(EDIT_MAP_HIDDEN_KEY) === "true");
+  const toggleMapHidden = () =>
+    setMapHidden((h) => {
+      const next = !h;
+      localStorage.setItem(EDIT_MAP_HIDDEN_KEY, String(next));
+      return next;
+    });
+
+  // The person's coordinate-carrying events (own + spouse-family), grouped
+  // per location as coloured pins, plus their chronological life path — the
+  // small map under the events list. Null when nothing is geocoded.
+  const personMap = useMemo(() => {
+    if (!person) return null;
+    const points = personPoints(dataset, person.id);
+    if (!points.length) return null;
+    const byCoord = new Map<string, { coord: GeoCoord; place: string; labels: string[]; kinds: Set<string> }>();
+    for (const p of points) {
+      const k = `${p.coord.lat}:${p.coord.lon}`;
+      const label = `${t(`event.${p.tag}`, { defaultValue: p.tag })}${p.year !== undefined ? ` ${p.year}` : ""}`;
+      const hit = byCoord.get(k);
+      if (hit) {
+        hit.labels.push(label);
+        hit.kinds.add(p.kind);
+      } else {
+        byCoord.set(k, { coord: p.coord, place: p.place, labels: [label], kinds: new Set([p.kind]) });
+      }
+    }
+    const pins = [...byCoord.values()].map((g) => ({
+      coord: g.coord,
+      label: g.place,
+      lines: g.labels,
+      kind: "candidate" as const,
+      colorVar: kindsColorVar(g.kinds),
+    }));
+    const path = buildPersonPaths(points)
+      .find((pp) => pp.personId === person.id)
+      ?.stops.map((s) => s.coord);
+    // Event kinds present, in the canonical order — the legend row.
+    const present = new Set(points.map((p) => p.kind));
+    const kinds = MAP_EVENT_KINDS.filter((k) => present.has(k));
+    return { pins, path, kinds };
+    // person is rebuilt (fresh identity) on each own edit; undoVersion covers
+    // undo/redo; tick covers family-event edits, which replace the Family
+    // object but not this person (same reason birthParentAges depends on it).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataset, person, undoVersion, tick, t]);
+
   const birthParentAges = useMemo(() => {
     if (!settings.showAge || !person) return undefined;
     const birthDate = birthDateOf(person);
@@ -1797,6 +1855,34 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             mergeGen={mergeGenRef.current}
             birthParentAges={birthParentAges}
           />
+          {personMap && (
+            <div className="edit-person-map">
+              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
+                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+              </button>
+              {!mapHidden && (
+                <>
+                  <Suspense fallback={<div className="tools-geo-minimap" />}>
+                    <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} path={personMap.path} />
+                  </Suspense>
+                  <div className="edit-person-map-legend">
+                    {personMap.kinds.map((k) => (
+                      <span key={k} className="edit-map-legend-item">
+                        <span className="map-kind-dot" style={{ background: `var(--map-${k})` }} />
+                        {t(`map.kind.${k}`)}
+                      </span>
+                    ))}
+                    {personMap.path && personMap.path.length > 1 && (
+                      <span className="edit-map-legend-item">
+                        <span className="edit-map-legend-line" />
+                        {t("map.paths")}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="edit-families">

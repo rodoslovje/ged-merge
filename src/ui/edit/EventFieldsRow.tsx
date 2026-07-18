@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GedEvent, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
@@ -9,7 +9,7 @@ import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
-import { placeKey } from "./placeSuggestions";
+import { placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
@@ -137,6 +137,23 @@ export function EventFieldsRow({
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
+
+  // Known place+address pairs for the place field's combo suggestions —
+  // typing an address there fills both fields in one go.
+  const placeCombos = useMemo(() => placeCombosOf(placeToAddrs, placeCanonical), [placeToAddrs, placeCanonical]);
+  /** Combo pick fills both fields in one commit — shared by both hosts. */
+  const pickCombo = (place: string, addr: string) => {
+    placeField.set(place);
+    addrField.set(addr);
+    commitAll({ place, address: addr });
+  };
+  // The address field's combos: pairs at other places (this place's own
+  // addresses are already its plain suggestions), so an address lookup there
+  // can move place+address together.
+  const addrCombos = useMemo(
+    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(placeField.value)),
+    [placeCombos, placeField.value],
+  );
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const typeField = useField(ev?.type ?? "", typeMergeVal);
@@ -379,6 +396,8 @@ export function EventFieldsRow({
     cls: string,
     title: string,
     commit: (val: string) => void,
+    combos?: { place: string; addr: string }[],
+    onPickCombo?: (place: string, addr: string) => void,
   ) {
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
@@ -387,6 +406,7 @@ export function EventFieldsRow({
           value={field.value}
           suggestions={suggestions}
           canonical={canonical}
+          combos={combos}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
@@ -396,6 +416,7 @@ export function EventFieldsRow({
           onChange={field.set}
           onCommit={commit}
           onClear={() => { field.clear(); commit(""); }}
+          onPickCombo={onPickCombo}
         />
       </span>
     );
@@ -508,6 +529,7 @@ export function EventFieldsRow({
             value={placeField.value}
             suggestions={placeSuggestions}
             canonical={placeCanonical}
+            combos={placeCombos}
             isDirty={placeField.isDirty || placeForced}
             isMerge={placeField.isMerge}
             className="edit-input edit-event-place"
@@ -517,9 +539,10 @@ export function EventFieldsRow({
             onChange={placeField.set}
             onCommit={(val) => commitAll({ place: val })}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
+            onPickCombo={pickCombo}
           />
         </span>
-        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }))}
+        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, pickCombo)}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),

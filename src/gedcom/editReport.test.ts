@@ -76,6 +76,23 @@ describe("enrichEditReport — event diffing", () => {
     ]);
   });
 
+  it("shows a geocode write-back (MAP under an existing PLAC) as the event's changed coordinate", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2389\n4 LONG E14.3556\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].segments).toEqual([
+      { text: "1901", state: "same" },
+      { text: "Kranj", state: "same" },
+      { text: "46.2389, 14.3556", state: "changed" },
+    ]);
+  });
+
   it("renders a brand-new event as a plain addition (no segments)", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
     const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OCCU Engineer\n2 DATE 1960\n"));
