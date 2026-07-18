@@ -323,12 +323,24 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
 
   return (
     <div className="tools-geocode">
-      <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
+      <div className="tools-filter-row">
+        <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
+        <p className="tools-summary">
+          {[
+            scan.rows.length > 0 && t("tools.geocode.coverage", { distinct: scan.rows.length }),
+            lastApplied !== null && t("tools.geocode.applied", { count: lastApplied }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
 
       <div className="tools-geo-gazetteer">
         {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
         {countries.length > 0 && (
+          <>
+          <p className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</p>
           <ul className="tools-geo-countries">
             {countries.map((c) => (
               <li key={c.code}>
@@ -345,6 +357,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
               </li>
             ))}
           </ul>
+          </>
         )}
         {importState?.phase === "running" ? (
           <ToolsLoading
@@ -402,15 +415,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
         </p>
       </div>
 
-      <p className="tools-geo-coverage">
-        {t("tools.geocode.coverage", {
-          covered: scan.coveredOccurrences,
-          total: scan.totalOccurrences,
-          distinct: scan.rows.length,
-        })}
-        {lastApplied !== null && ` ${t("tools.geocode.applied", { count: lastApplied })}`}
-      </p>
-
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
       {scan.rows.length > 0 && (
@@ -445,6 +449,18 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
           const c = chosenFor(row);
           const isOpen = expanded.has(row.key);
           const marked = noMatch.has(row.key);
+          // A remembered (cached) acceptance is shown with its original origin
+          // badge — file coordinate or gazetteer score — and only the tooltip
+          // says it came from a previous session; the plain "remembered" badge
+          // remains for decisions with no recognizable origin (e.g. manual).
+          const cachedCoord =
+            row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined
+              ? { lat: row.cached.lat, lon: row.cached.lon }
+              : undefined;
+          const cachedIsFile = !!cachedCoord && row.fileCoord?.lat === cachedCoord.lat && row.fileCoord?.lon === cachedCoord.lon;
+          const cachedCand = cachedCoord
+            ? row.candidates.find((cand) => cand.entry.lat === cachedCoord.lat && cand.entry.lon === cachedCoord.lon)
+            : undefined;
           const toggleOpen = () =>
             setExpanded((prev) => {
               const next = new Set(prev);
@@ -480,10 +496,20 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
                   <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
                     {t("tools.geocode.noMatchBadge")}
                   </span>
-                ) : row.cached?.status === "accepted" && !chosen.has(row.key) ? (
-                  <span className="tools-reshape-badge reuse" title={t("tools.geocode.cachedTooltip")}>
-                    {t("tools.geocode.cached")}
-                  </span>
+                ) : cachedCoord && !chosen.has(row.key) ? (
+                  cachedIsFile ? (
+                    <span className="tools-reshape-badge new" title={`${t("tools.geocode.fromFileTooltip")} · ${t("tools.geocode.cachedTooltip")}`}>
+                      {t("tools.geocode.fromFile")}
+                    </span>
+                  ) : cachedCand ? (
+                    <span className={`tools-geo-score${row.confident ? " confident" : ""}`} title={t("tools.geocode.cachedTooltip")}>
+                      {Math.round(cachedCand.score * 100)}%
+                    </span>
+                  ) : (
+                    <span className="tools-reshape-badge reuse" title={t("tools.geocode.cachedTooltip")}>
+                      {t("tools.geocode.cached")}
+                    </span>
+                  )
                 ) : row.fileCoord && !chosen.has(row.key) ? (
                   <span className="tools-reshape-badge new" title={t("tools.geocode.fromFileTooltip")}>
                     {t("tools.geocode.fromFile")}

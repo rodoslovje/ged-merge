@@ -4,6 +4,7 @@ import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild } from "./node";
 import { parseName } from "./name";
+import { parseCoordPair } from "./place";
 import { buildObjeIndex, isPointer, objeInfoOf } from "./source";
 import type { Translate } from "../locales/i18n";
 
@@ -112,13 +113,26 @@ interface EventFields {
   value: string;
   date: string;
   place: string;
+  coord: string;
   addr: string;
   note: string;
   cause: string;
   sources: string;
 }
 
-const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "addr", "note", "cause", "sources"];
+const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "coord", "addr", "note", "cause", "sources"];
+
+/** The place's MAP coordinate as a display string ("46.0511, 14.5051"), so a
+ *  geocode write-back (MAP LATI/LONG added under an existing PLAC) shows in
+ *  the diff instead of silently disappearing. */
+function placeCoord(node: GedNode): string {
+  const plac = firstChild(node, "PLAC");
+  const map = plac && firstChild(plac, "MAP");
+  const lati = map && firstChild(map, "LATI")?.value;
+  const long = map && firstChild(map, "LONG")?.value;
+  const coord = lati && long ? parseCoordPair(lati, long) : undefined;
+  return coord ? `${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : "";
+}
 
 function eventFields(node: GedNode, resolveSource: SourceResolver): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
@@ -127,7 +141,7 @@ function eventFields(node: GedNode, resolveSource: SourceResolver): EventFields 
   // the summary and the diff silently drops the change. Citations are part of
   // the summary for the same reason — adding a source to an event must show.
   const sources = childrenByTag(node, "SOUR").map(resolveSource).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS"), sources };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS"), sources };
 }
 
 function eventSummary(f: EventFields): string {
@@ -202,7 +216,7 @@ function diffEventSet(
     // agree (including both empty). eventOverlapScore requires a truthy match,
     // so place-only events score 0 and miss the first pass — but they are
     // clearly the same event with an edited location, not a remove+add pair.
-    const nonPlaceKeys = EVENT_FIELD_KEYS.filter(k => k !== "place" && k !== "addr") as (keyof EventFields)[];
+    const nonPlaceKeys = EVENT_FIELD_KEYS.filter(k => k !== "place" && k !== "coord" && k !== "addr") as (keyof EventFields)[];
     for (let bi = 0; bi < beforeFields.length; bi++) {
       if (usedB.has(bi)) continue;
       for (let ai = 0; ai < afterFields.length; ai++) {

@@ -6532,7 +6532,7 @@ kbd {
 .tools-geo-download input:focus { outline: none; border-color: var(--accent); }
 .tools-geo-download .tools-run { margin: 0; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
-.tools-geo-coverage { color: var(--text); margin: 0 0 10px; }
+.tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the
