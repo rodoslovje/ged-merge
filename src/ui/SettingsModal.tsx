@@ -24,8 +24,8 @@ interface Props {
   detectedFormats?: DetectedFormats;
 }
 
-type SettingsTab = "general" | "format" | "advanced";
-const SETTINGS_TABS: SettingsTab[] = ["general", "format", "advanced"];
+type SettingsTab = "general" | "format" | "map" | "advanced";
+const SETTINGS_TABS: SettingsTab[] = ["general", "format", "map", "advanced"];
 
 /** One format dimension: a select whose first option is "Detected" (= no
  *  override) and whose value patches a single {@link FormatOverrides} key. */
@@ -436,6 +436,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </label>
           </section>
 
+          </>
+          )}
+
+          {tab === "map" && (
+          <>
           <section className="settings-section">
             <h3>{t("settings.map.title")}</h3>
             <label className="settings-row settings-row-toggle">
@@ -583,6 +588,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             })}
           </section>
 
+          </>
+          )}
+
+          {tab === "advanced" && (
+          <>
           <section className="settings-section">
             <h3>{t("settings.data.title")}</h3>
             <label className="settings-row settings-row-toggle">

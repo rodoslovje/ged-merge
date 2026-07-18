@@ -97,58 +97,59 @@ def apply_h(h, x, y):
 
 def detect_frame(im: Image.Image):
     """Find the inner map frame (neatline): in each outer band of the scan,
-    the innermost long dark line. Lines are fitted from several windows so a
-    slightly rotated scan still yields true corner intersections."""
+    the innermost strong dark line. Each edge is probed in several narrow
+    strips (a strip is short enough that scan rotation can't smear the line
+    across rows), the line shows as a mean-luminance minimum clearly below
+    the paper tone, and a least-squares fit across strips turns the probes
+    into true corner intersections."""
     g = im.convert("L")
     w, h = g.size
-    band_h = max(1, h // 22)
-    band_w = max(1, w // 22)
+    band_h = max(4, h // 22)
+    band_w = max(4, w // 22)
     px = g.load()
 
-    def dark_fraction_row(y, x0, x1):
-        dark = 0
-        step = max(1, (x1 - x0) // 800)
-        total = 0
-        for x in range(x0, x1, step):
-            total += 1
-            if px[x, y] < 120:
-                dark += 1
-        return dark / max(1, total)
+    def strip_profile(horizontal, pos_range, s0, s1):
+        """Mean luminance per row (or column) of one narrow strip."""
+        step = max(1, (s1 - s0) // 60)
+        out = []
+        for p in pos_range:
+            total = 0
+            n = 0
+            for s in range(s0, s1, step):
+                total += px[s, p] if horizontal else px[p, s]
+                n += 1
+            out.append((p, total / n))
+        return out
 
-    def dark_fraction_col(x, y0, y1):
-        dark = 0
-        step = max(1, (y1 - y0) // 800)
-        total = 0
-        for y in range(y0, y1, step):
-            total += 1
-            if px[x, y] < 120:
-                dark += 1
-        return dark / max(1, total)
+    def innermost_minimum(profile, reverse):
+        """The innermost profile position that is clearly line-dark: at least
+        35 units below the strip's bright (paper) level."""
+        paper = sorted(v for _p, v in profile)[int(len(profile) * 0.8)]
+        dark = [p for p, v in profile if v < paper - 35]
+        if not dark:
+            return None
+        return max(dark) if not reverse else min(dark)
 
-    def innermost_line_rows(y_range, windows, reverse):
-        """Per x-window, the innermost y in y_range whose row is ≥70% dark."""
+    def probe_edge(horizontal, near_start):
         pts = []
-        for x0, x1 in windows:
-            ys = [y for y in y_range if dark_fraction_row(y, x0, x1) >= 0.7]
-            if ys:
-                pts.append(((x0 + x1) / 2, max(ys) if not reverse else min(ys)))
+        length = w if horizontal else h
+        for f in (0.15, 0.3, 0.45, 0.6, 0.75, 0.88):
+            s0 = int(length * f)
+            s1 = min(length, s0 + max(40, length // 100))
+            pos_range = range(0, band_h if horizontal else band_w) if near_start else (
+                range(h - band_h, h) if horizontal else range(w - band_w, w))
+            profile = strip_profile(horizontal, pos_range, s0, s1)
+            # Innermost = the largest position in a start-side band, the
+            # smallest in an end-side band.
+            p = innermost_minimum(profile, reverse=not near_start)
+            if p is not None:
+                pts.append(((s0 + s1) / 2, p) if horizontal else (p, (s0 + s1) / 2))
         return pts
 
-    def innermost_line_cols(x_range, windows, reverse):
-        pts = []
-        for y0, y1 in windows:
-            xs = [x for x in x_range if dark_fraction_col(x, y0, y1) >= 0.7]
-            if xs:
-                pts.append((max(xs) if not reverse else min(xs), (y0 + y1) / 2))
-        return pts
-
-    # Three sampling windows along each edge, away from the corners.
-    xw = [(int(w * f0), int(w * f1)) for f0, f1 in [(0.15, 0.35), (0.4, 0.6), (0.65, 0.85)]]
-    yw = [(int(h * f0), int(h * f1)) for f0, f1 in [(0.15, 0.35), (0.4, 0.6), (0.65, 0.85)]]
-    top = innermost_line_rows(range(0, band_h), xw, reverse=False)
-    bottom = innermost_line_rows(range(h - band_h, h), xw, reverse=True)
-    left = innermost_line_cols(range(0, band_w), yw, reverse=False)
-    right = innermost_line_cols(range(w - band_w, w), yw, reverse=True)
+    top = probe_edge(horizontal=True, near_start=True)
+    bottom = probe_edge(horizontal=True, near_start=False)
+    left = probe_edge(horizontal=False, near_start=True)
+    right = probe_edge(horizontal=False, near_start=False)
     if min(len(top), len(bottom), len(left), len(right)) < 2:
         raise SystemExit("neatline auto-detection failed — pass --frame with explicit corner pixels")
 
