@@ -103,6 +103,38 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
 
+/** Verified free overlay sources offered as one-click presets: open license,
+ *  no API key, CORS-enabled tiles (all three checked live 2026-07-18). The
+ *  max zoom is each source's deepest native level — deeper views scale it.
+ *  Subscription/keyed sources (Arcanum, David Rumsey, NLS…) are deliberately
+ *  not bundled — their per-account tile URLs paste into a custom layer. */
+const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
+  {
+    name: "France · Carte de l'État-major (1820–1866)",
+    url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}",
+    yearFrom: 1820,
+    yearTo: 1866,
+    attribution: "© IGN",
+    maxZoom: 15,
+  },
+  {
+    name: "Switzerland · Dufour Map (1845–1865)",
+    url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-dufour/default/current/3857/{z}/{x}/{y}.png",
+    yearFrom: 1845,
+    yearTo: 1865,
+    attribution: "© swisstopo",
+    maxZoom: 14,
+  },
+  {
+    name: "Switzerland · Siegfried Map (1870–1926)",
+    url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-siegfried/default/current/3857/{z}/{x}/{y}.png",
+    yearFrom: 1870,
+    yearTo: 1926,
+    attribution: "© swisstopo",
+    maxZoom: 13,
+  },
+];
+
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
 
@@ -435,21 +467,41 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.map.overlays")}</span>
                 <span className="settings-hint">{t("settings.map.overlays.hint")}</span>
+                <span className="settings-hint">{t("settings.map.overlays.sources")}</span>
               </span>
-              <button
-                type="button"
-                className="nav-btn"
-                onClick={() =>
-                  set({
-                    mapOverlays: [
-                      ...settings.mapOverlays,
-                      { id: crypto.randomUUID(), name: "", url: "" },
-                    ],
-                  })
-                }
-              >
-                {t("settings.map.overlays.add")}
-              </button>
+              <span className="settings-overlays-actions">
+                <select
+                  className="settings-overlay-preset"
+                  value=""
+                  aria-label={t("settings.map.overlays.preset")}
+                  onChange={(e) => {
+                    const preset = OVERLAY_PRESETS[Number(e.target.value)];
+                    if (preset)
+                      set({ mapOverlays: [...settings.mapOverlays, { ...preset, id: crypto.randomUUID() }] });
+                  }}
+                >
+                  <option value="">{t("settings.map.overlays.preset")}</option>
+                  {OVERLAY_PRESETS.map((p, i) => (
+                    <option key={p.name} value={i}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="nav-btn"
+                  onClick={() =>
+                    set({
+                      mapOverlays: [
+                        ...settings.mapOverlays,
+                        { id: crypto.randomUUID(), name: "", url: "" },
+                      ],
+                    })
+                  }
+                >
+                  {t("settings.map.overlays.add")}
+                </button>
+              </span>
             </div>
             {settings.mapOverlays.map((layer) => {
               const update = (patch: Partial<MapOverlay>) =>

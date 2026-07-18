@@ -6633,8 +6633,11 @@ kbd {
   align-items: center;
   gap: 10px;
 }
-.settings-overlays-head .nav-btn {
+.settings-overlays-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
 }
 .settings-overlay-row {
