@@ -5597,21 +5597,26 @@ kbd {
   color: var(--text);
   font-weight: 600;
 }
+/* Right-edge life-path button, spanning the row's two text lines. */
 .map-panel-pathbtn {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  align-self: center;
-  padding: 1px 3px;
-  border: none;
-  background: none;
+  justify-content: center;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  background: var(--panel);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .map-panel-pathbtn .map-paths-icon {
-  opacity: 0.6;
+  width: 24px;
+  height: 18px;
+  opacity: 0.75;
 }
 .map-panel-pathbtn:hover {
   background: var(--panel-2);
+  border-color: var(--border-2);
 }
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
@@ -5703,9 +5708,16 @@ kbd {
   overflow-y: auto;
 }
 .map-panel-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 5px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   font-size: 13px;
+}
+.map-panel-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .map-panel-list li:last-child {
   border-bottom: none;

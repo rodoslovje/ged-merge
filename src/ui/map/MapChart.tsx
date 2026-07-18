@@ -611,36 +611,48 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               </button>
             </div>
             <ul className="map-panel-list">
-              {panelRows.map((p, i) => (
-                <li key={i}>
-                  <span className="map-panel-fact">
-                    <span className="map-kind-dot" style={{ background: `var(--map-${p.kind})` }} />
-                    <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
-                  </span>
-                  <span className="map-panel-people">
-                    {p.personIds.map((id) => {
-                      const kin = showKin ? kinship?.label(id) : undefined;
+              {panelRows.map((p, i) => {
+                const pathable = p.personIds.filter((id) => pathPersonIds.has(id));
+                return (
+                  <li key={i}>
+                    <div className="map-panel-row-main">
+                      <span className="map-panel-fact">
+                        <span className="map-kind-dot" style={{ background: `var(--map-${p.kind})` }} />
+                        <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
+                      </span>
+                      <span className="map-panel-people">
+                        {p.personIds.map((id) => {
+                          const kin = showKin ? kinship?.label(id) : undefined;
+                          return (
+                            <span key={id} className="map-panel-person">
+                              <PersonLink dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
+                              {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </div>
+                    {pathable.map((id) => {
+                      const indi = mainDs.individuals.get(id);
+                      // With both spouses pathable the name tells the buttons apart.
+                      const label =
+                        pathable.length > 1 && indi ? `${t("map.showPath")} — ${nameOf(indi)}` : t("map.showPath");
                       return (
-                        <span key={id} className="map-panel-person">
-                          <PersonLink dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
-                          {pathPersonIds.has(id) && (
-                            <button
-                              type="button"
-                              className="map-panel-pathbtn"
-                              title={t("map.showPath")}
-                              aria-label={t("map.showPath")}
-                              onClick={() => showPathFor(id)}
-                            >
-                              <PathIcon />
-                            </button>
-                          )}
-                          {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
-                        </span>
+                        <button
+                          key={id}
+                          type="button"
+                          className="map-panel-pathbtn"
+                          title={label}
+                          aria-label={label}
+                          onClick={() => showPathFor(id)}
+                        >
+                          <PathIcon />
+                        </button>
                       );
                     })}
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
               {panel.points.length > PANEL_MAX_ROWS && (
                 <li className="map-panel-more">{t("map.panelMore", { count: panel.points.length - PANEL_MAX_ROWS })}</li>
               )}
