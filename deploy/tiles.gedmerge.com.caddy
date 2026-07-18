@@ -1,0 +1,55 @@
+# tiles.gedmerge.com — static historical map tile pyramids.
+# Drop this file into the Caddy container's conf.d/ (wherever the main
+# Caddyfile does `import conf.d/*`).
+#
+# Content: generated XYZ pyramids from scripts/overlay-tiles.py, e.g.
+#   spezialkarte-si-hr/{z}/{x}/{y}.png
+#
+# Upload (from the app checkout) to the host path mounted below:
+#   rsync -av --delete public/tiles-local/spezialkarte-si-hr/ \
+#       <host>:/srv/tiles/spezialkarte-si-hr/
+# and mount it into the Caddy container read-only, e.g. docker-compose:
+#   volumes:
+#     - /srv/tiles:/srv/tiles:ro
+#
+# Cloudflare notes (subdomain proxied / orange-cloud):
+# - Tiles never change once published (a rebuild should go to a NEW path,
+#   e.g. spezialkarte-si-hr-v2/), so the origin sends a one-year immutable
+#   Cache-Control which Cloudflare respects for its edge TTL. No dashboard
+#   rule is required; optional but recommended: a Cache Rule for
+#   tiles.gedmerge.com set to "Respect origin TTL", plus Tiered Cache, so
+#   edge misses fan in through one region instead of each PoP hitting the
+#   origin.
+# - Missing tiles are normal (the map requests tiles outside sheet
+#   coverage); they 404 with a day of edge caching so repeats are absorbed
+#   at the edge, not by this origin.
+# - CORS `*` is required: the app loads tiles with crossOrigin=anonymous
+#   (needed so PNG map export can draw them onto a canvas), and that fails
+#   entirely without Access-Control-Allow-Origin on both hits and 404s.
+
+tiles.gedmerge.com {
+	# TLS: reuse whatever the other gedmerge.com sites in this Caddy use
+	# behind Cloudflare (origin certificate, or the cloudflare-dns ACME
+	# plugin). Uncomment and adjust if this vhost needs its own directive:
+	# tls /etc/caddy/certs/gedmerge.com.pem /etc/caddy/certs/gedmerge.com.key
+
+	root * /srv/tiles
+
+	header {
+		Access-Control-Allow-Origin "*"
+		Cache-Control "public, max-age=31536000, immutable"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	file_server
+
+	handle_errors {
+		@notfound expression `{err.status_code} == 404`
+		handle @notfound {
+			header Access-Control-Allow-Origin "*"
+			header Cache-Control "public, max-age=86400"
+			respond "" 404
+		}
+	}
+}
