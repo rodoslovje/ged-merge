@@ -6620,16 +6620,24 @@ kbd {
 .minimap-tooltip .minimap-tip-title { font-weight: 600; }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
-/* Compact colour legend under the map: only the kinds actually shown. */
+/* Header row above the map: hide/show toggle left, colour legend right. */
+.edit-person-map-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 16px;
+  max-width: 560px;
+  margin-bottom: 4px;
+}
+/* Compact colour legend: only the kinds actually shown. */
 .edit-person-map-legend {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 4px 14px;
-  margin-top: 6px;
   font-size: 0.8rem;
   color: var(--muted);
-  max-width: 560px;
 }
 .edit-map-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .edit-map-legend-item .map-kind-dot { width: 9px; height: 9px; }
@@ -6639,9 +6647,10 @@ kbd {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 0 4px;
+  padding: 0;
   font-size: 0.8rem;
   color: var(--muted);
+  white-space: nowrap;
 }
 .edit-person-map-toggle:hover { color: var(--accent); }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
