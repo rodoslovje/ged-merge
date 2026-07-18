@@ -121,16 +121,26 @@ def detect_frame(im: Image.Image):
             out.append((p, total / n))
         return out
 
-    def innermost_minimum(profile, reverse):
-        """The innermost profile position that is clearly line-dark: at least
-        35 units below the strip's bright (paper) level."""
+    def thin_run_centers(profile, max_thick=14):
+        """Centres of thin dark runs — rule lines. Map content and marginal
+        text form thicker runs and are dropped."""
         paper = sorted(v for _p, v in profile)[int(len(profile) * 0.8)]
         dark = [p for p, v in profile if v < paper - 35]
         if not dark:
-            return None
-        return max(dark) if not reverse else min(dark)
+            return []
+        runs = []
+        start = prev = dark[0]
+        for p in dark[1:]:
+            if p == prev + 1:
+                prev = p
+                continue
+            runs.append((start, prev))
+            start = prev = p
+        runs.append((start, prev))
+        return [(a + b) / 2 for a, b in runs if b - a <= max_thick]
 
     def probe_edge(horizontal, near_start):
+        """Per strip: the centres of every thin line found in the band."""
         pts = []
         length = w if horizontal else h
         for f in (0.15, 0.3, 0.45, 0.6, 0.75, 0.88):
@@ -138,39 +148,64 @@ def detect_frame(im: Image.Image):
             s1 = min(length, s0 + max(40, length // 100))
             pos_range = range(0, band_h if horizontal else band_w) if near_start else (
                 range(h - band_h, h) if horizontal else range(w - band_w, w))
-            profile = strip_profile(horizontal, pos_range, s0, s1)
-            # Innermost = the largest position in a start-side band, the
-            # smallest in an end-side band.
-            p = innermost_minimum(profile, reverse=not near_start)
-            if p is not None:
-                pts.append(((s0 + s1) / 2, p) if horizontal else (p, (s0 + s1) / 2))
+            centers = thin_run_centers(strip_profile(horizontal, pos_range, s0, s1))
+            if centers:
+                pts.append(((s0 + s1) / 2, centers))
         return pts
 
-    top = probe_edge(horizontal=True, near_start=True)
-    bottom = probe_edge(horizontal=True, near_start=False)
-    left = probe_edge(horizontal=False, near_start=True)
-    right = probe_edge(horizontal=False, near_start=False)
-    if min(len(top), len(bottom), len(left), len(right)) < 2:
+    def edge_line(pts, near_start, dim):
+        """Fit the outer border (outermost thin line — reliable, only scan
+        margin lies outside it), then shift inward by the sheets' consistent
+        outer→neatline inset (the mode across strips). Returns (slope,
+        intercept) with positions as a function of the along-edge coordinate,
+        plus the point count that supported it."""
+        sign = 1 if near_start else -1
+        outer = [(s, min(cs) if near_start else max(cs)) for s, cs in pts]
+        # Least-squares with one outlier-rejection round.
+        def fit(points):
+            n = len(points)
+            sx = sum(p[0] for p in points)
+            sy = sum(p[1] for p in points)
+            sxx = sum(p[0] * p[0] for p in points)
+            sxy = sum(p[0] * p[1] for p in points)
+            d = n * sxx - sx * sx
+            a = (n * sxy - sx * sy) / d if d else 0.0
+            b = (sy - a * sx) / n
+            return a, b
+        a, b = fit(outer)
+        kept = [(s, p) for s, p in outer if abs(a * s + b - p) <= 5] or outer
+        a, b = fit(kept)
+        # Outer→inner inset consensus over every thin line inward of the outer.
+        insets = []
+        for s, cs in pts:
+            o = a * s + b
+            for c in cs:
+                d = (c - o) * sign
+                if 5 <= d <= dim * 0.04:
+                    insets.append(d)
+        best = 0.0
+        support = 0
+        for m in insets:
+            near = [x for x in insets if abs(x - m) <= 4]
+            if len(near) > support:
+                support = len(near)
+                best = sum(near) / len(near)
+        if support < 3:
+            best = 0.0  # single-line frame: the outer border IS the neatline
+        return a, b + sign * best, len(kept)
+
+    top_pts = probe_edge(horizontal=True, near_start=True)
+    bottom_pts = probe_edge(horizontal=True, near_start=False)
+    left_pts = probe_edge(horizontal=False, near_start=True)
+    right_pts = probe_edge(horizontal=False, near_start=False)
+    if min(len(top_pts), len(bottom_pts), len(left_pts), len(right_pts)) < 2:
         raise SystemExit("neatline auto-detection failed — pass --frame with explicit corner pixels")
-
-    def fit(pts, vertical):
-        # least-squares line; vertical edges fitted as x = a*y + b
-        if vertical:
-            pts = [(y, x) for x, y in pts]
-        n = len(pts)
-        sx = sum(p[0] for p in pts)
-        sy = sum(p[1] for p in pts)
-        sxx = sum(p[0] * p[0] for p in pts)
-        sxy = sum(p[0] * p[1] for p in pts)
-        d = n * sxx - sx * sx
-        a = (n * sxy - sx * sy) / d
-        b = (sy - a * sx) / n
-        return a, b
-
-    ta, tb = fit(top, False)
-    ba, bb = fit(bottom, False)
-    la, lb = fit(left, True)
-    ra, rb = fit(right, True)
+    # Every edge is fitted as position-across = f(along-edge coordinate):
+    # horizontal edges y = a·x + b, vertical edges x = a·y + b.
+    ta, tb, _ = edge_line(top_pts, near_start=True, dim=h)
+    ba, bb, _ = edge_line(bottom_pts, near_start=False, dim=h)
+    la, lb, _ = edge_line(left_pts, near_start=True, dim=w)
+    ra, rb, _ = edge_line(right_pts, near_start=False, dim=w)
 
     def intersect_h_v(ha, hb, va, vb):
         # y = ha*x + hb ; x = va*y + vb

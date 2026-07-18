@@ -1212,7 +1212,7 @@ export const sl = {
   "settings.links.fetch.hint": "Pri dodajanju vira iz golega URL-ja pridobi naslov strani prek javnega posrednika. To je edina funkcija, ki pošlje povezavo z vaše naprave; privzeto izklopljeno.",
   "settings.links.fetch.relays": "Uporabljeni javni posredniki, v tem vrstnem redu:",
   "settings.links.fetch.relaysNote": "Pošlje se samo iskani naslov — nikoli vaše datoteke.",
-  "settings.map.title": "Zemljevid",
+  "settings.map.base": "Osnovni zemljevid",
   "settings.map.tiles": "Nalagaj ploščice zemljevida",
   "settings.map.tiles.hint": "Zemljevid ulično ozadje nalaga s strežnikov CARTO (ploščice © CARTO, podatki © sodelavci OpenStreetMap); zahteve po ploščicah ponudniku razkrijejo ogledovano območje. Izklopljeno = vgrajeni obris sveta brez povezave.",
   "settings.map.tileUrl": "URL ploščic po meri",

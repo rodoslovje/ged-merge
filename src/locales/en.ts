@@ -1111,7 +1111,7 @@ export const en = {
   "settings.links.fetch.relays": "Public relays used, tried in this order:",
   "settings.links.fetch.relaysNote": "Only the looked-up address is sent — never your file.",
   "settings.tab.map": "Map",
-  "settings.map.title": "Map",
+  "settings.map.base": "Base map",
   "settings.map.tiles": "Load base-map tiles",
   "settings.map.tiles.hint": "The map fetches its street background from CARTO (basemap tiles © CARTO, map data © OpenStreetMap contributors); tile requests reveal the viewed region to the provider. Off = the built-in offline outline.",
   "settings.map.tileUrl": "Custom tile URL",

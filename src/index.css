@@ -6635,7 +6635,9 @@ kbd {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+  margin: 0 0 10px;
 }
+.settings-overlays-head .settings-hint { margin: 0; }
 .settings-overlays-actions {
   display: flex;
   align-items: center;

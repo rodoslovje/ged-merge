@@ -442,7 +442,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           {tab === "map" && (
           <>
           <section className="settings-section">
-            <h3>{t("settings.map.title")}</h3>
+            <h3>{t("settings.map.base")}</h3>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -468,12 +468,13 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               </label>
             )}
 
-            <div className="settings-row settings-overlays-head">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.map.overlays")}</span>
-                <span className="settings-hint">{t("settings.map.overlays.hint")}</span>
-                <span className="settings-hint">{t("settings.map.overlays.sources")}</span>
-              </span>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.map.overlays")}</h3>
+            <div className="settings-overlays-head">
+              <p className="settings-hint">{t("settings.map.overlays.hint")}</p>
+              <p className="settings-hint">{t("settings.map.overlays.sources")}</p>
               <span className="settings-overlays-actions">
                 <select
                   className="settings-overlay-preset"
