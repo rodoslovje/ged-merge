@@ -1,0 +1,105 @@
+{
+  "sheets": [
+    {
+      "image": "ljubljana1880.jpg",
+      "bbox": [
+        14.33722,
+        46.0,
+        14.83722,
+        46.25
+      ],
+      "frame": [
+        385,
+        205,
+        12520,
+        250,
+        12505,
+        9030,
+        348,
+        8930
+      ],
+      "source": "https://commons.wikimedia.org/wiki/File:Spezialkarte_der_%C3%96sterreichisch-ungarischen_Monarchie_-_Ljubljana_1880.jpg (PD, dLib.si)"
+    },
+    {
+      "image": "weixelburg.jpg",
+      "bbox": [
+        14.33722,
+        45.75,
+        14.83722,
+        46.0
+      ],
+      "frame": [
+        1257,
+        1486,
+        13477,
+        1523,
+        13435,
+        10310,
+        1150,
+        10235
+      ],
+      "source": "https://commons.wikimedia.org/wiki/File:Spezialkarte_der_%C3%96sterreichisch-ungarischen_Monarchie_-_Weixelburg_und_Zirknitz_1897.jpg (PD, dLib.si)"
+    },
+    {
+      "image": "rudolfswerth_rot.jpg",
+      "bbox": [
+        14.83722,
+        45.75,
+        15.33722,
+        46.0
+      ],
+      "frame": [
+        740,
+        608,
+        4746,
+        615,
+        4720,
+        3490,
+        718,
+        3468
+      ],
+      "source": "https://commons.wikimedia.org/wiki/File:Rudolfswerth._NYPL1226817.tiff (CC0, NYPL) — rotate 90° CCW before tiling"
+    },
+    {
+      "image": "gurkfeld.jpg",
+      "bbox": [
+        15.33722,
+        45.75,
+        15.83722,
+        46.0
+      ],
+      "frame": [
+        1202,
+        1326,
+        13414,
+        1224,
+        13410,
+        10010,
+        1190,
+        10095
+      ],
+      "source": "https://commons.wikimedia.org/wiki/File:Spezialkarte_der_%C3%96sterreichisch-ungarischen_Monarchie_-_Gurkfeld,_Rann_und_Samobor_1903.jpg (PD, dLib.si)"
+    },
+    {
+      "image": "agram_rot.jpg",
+      "bbox": [
+        15.83722,
+        45.75,
+        16.33722,
+        46.0
+      ],
+      "frame": [
+        714,
+        603,
+        4736,
+        680,
+        4692,
+        3532,
+        665,
+        3497
+      ],
+      "source": "https://commons.wikimedia.org/wiki/File:Agram._NYPL1226819.tiff (CC0, NYPL) — rotate 90° CCW before tiling"
+    }
+  ],
+  "note": "Ljubljana–Zagreb corridor of the Spezialkarte 1:75,000 (Third Military Survey). Download the source scans next to this manifest (names above), then: python3 scripts/overlay-tiles.py --manifest <this file> --base-zoom 14 --out public/tiles-local/spezialkarte-corridor. Frames are hand-measured neatline corners; bboxes convert the printed Ferro graticule (Greenwich = Ferro − 17°39'46'')."
+}

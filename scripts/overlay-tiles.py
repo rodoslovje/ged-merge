@@ -1,29 +1,37 @@
 #!/usr/bin/env python3
 """Static XYZ tile-pyramid builder for scanned historical map sheets.
 
-Turns a public-domain map scan (e.g. an Austro-Hungarian Spezialkarte sheet
-from Wikimedia Commons / dLib.si) into a folder of web-mercator tiles that the
-Map chart's overlay layers can consume — the self-hosted alternative to
-subscription tile services. Pure Pillow; no GDAL required.
+Turns public-domain map scans (e.g. Austro-Hungarian Spezialkarte sheets from
+Wikimedia Commons / dLib.si / the NYPL CC0 collection) into a folder of
+web-mercator tiles that the Map chart's overlay layers can consume — the
+self-hosted alternative to subscription tile services. Pure Pillow; no GDAL.
 
-The sheet is assumed to be drawn on a lon/lat graticule (true for the
+Each sheet is assumed to be drawn on a lon/lat graticule (true for the
 Spezialkarte's polyhedric sheets at this scale): the four neatline corners are
-mapped to the given geographic bounding box with a projective (homography)
+mapped to the sheet's geographic bounding box with a projective (homography)
 transform, so scan rotation/shear is handled. Base-zoom tiles are cut with
-per-tile quad sampling (mercator-correct at the tile corners), and every
-lower zoom is a downsample of its four children.
+per-tile quad sampling (mercator-correct at the tile corners) and masked to
+the sheet's bbox (the scan margins never cover a neighbouring sheet), several
+sheets composite into one seamless pyramid, and every lower zoom is a
+downsample of its four children.
 
-Usage:
+Usage — single sheet:
   python3 scripts/overlay-tiles.py sheet.jpg \
       --bbox 14.33722,46.0,14.83722,46.25 \
-      --out public/tiles-local/ljubljana-1880 [--frame auto] [--min-zoom 7]
+      --out public/tiles-local/ljubljana-1880 [--min-zoom 7]
+
+Usage — mosaic:
+  python3 scripts/overlay-tiles.py --manifest sheets.json --out DIR
+  # sheets.json: {"sheets": [{"image": "a.jpg", "bbox": [W,S,E,N],
+  #                           "frame": "auto" | [8 corner pixels]}, …]}
 
   --bbox W,S,E,N   geographic coordinates of the neatline (map frame) corners
-  --frame          'auto' (default) detects the neatline — works on clean,
-                   well-contrasted scans; aged or warped sheets are better
-                   served by measuring the four corners in an image viewer
-                   and passing nwx,nwy,nex,ney,sex,sey,swx,swy explicitly
-  --base-zoom      override the auto-chosen deepest zoom
+  --frame          'auto' (default) finds each neatline corner locally: the
+                   innermost long rule line with paper on its outer side, per
+                   corner quadrant; or eight explicit scan pixels
+                   nwx,nwy,nex,ney,sex,sey,swx,swy
+  --base-zoom      override the auto-chosen deepest zoom (auto: the finest
+                   sheet's scan resolution, capped at 15)
   --min-zoom       shallowest zoom to generate (default 7)
 
 Ferro reminder: Austro-Hungarian sheets label longitudes east of Ferro;
@@ -31,11 +39,12 @@ Greenwich = Ferro value − 17°39'46" (≈ 17.662783°).
 """
 
 import argparse
+import json
 import math
 import os
 import sys
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -95,173 +104,187 @@ def apply_h(h, x, y):
     return (h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w
 
 
-# ── Neatline auto-detection ──────────────────────────────────────────────────
+# ── Neatline detection ───────────────────────────────────────────────────────
+# Each edge of the map frame is probed in short chunks along its length. In a
+# chunk, a rule line is a row (column) whose dark fraction across the chunk is
+# high — a chunk is short enough that scan lean can't smear the line across
+# rows — and whose immediate exterior side is paper (map content fails that
+# test, and it separates the innermost border rule from hachures that start
+# right at the frame). The innermost qualifying row per chunk, line-fitted
+# across chunks with outlier rejection, gives each edge; corner = the fitted
+# edges' intersection.
+
+def _line_fit(points):
+    n = len(points)
+    sx = sum(p[0] for p in points)
+    sy = sum(p[1] for p in points)
+    sxx = sum(p[0] * p[0] for p in points)
+    sxy = sum(p[0] * p[1] for p in points)
+    d = n * sxx - sx * sx
+    a = (n * sxy - sx * sy) / d if d else 0.0
+    b = (sy - a * sx) / n
+    return a, b
+
+
+def _fit_with_rejection(points, tolerance=6):
+    a, b = _line_fit(points)
+    kept = [(s, p) for s, p in points if abs(a * s + b - p) <= tolerance]
+    if len(kept) >= 3:
+        a, b = _line_fit(kept)
+    return a, b, len(kept)
+
+
+def _edge_picks(px, w, h, horizontal, near_start):
+    """(along, across) picks of the innermost border rule, one per chunk."""
+    length = w if horizontal else h
+    depth = h if horizontal else w
+    band = max(60, depth // 9)
+    chunk = max(120, length // 40)
+    picks = []
+    for i in range(8):
+        s0 = int(length * (0.12 + 0.76 * i / 7)) - chunk // 2
+        s0 = max(0, min(length - chunk, s0))
+        rng = range(0, band) if near_start else range(depth - band, depth)
+        # Paper tone within this chunk's band.
+        vals = sorted(
+            (px[s, p] if horizontal else px[p, s])
+            for p in rng[:: max(1, band // 40)]
+            for s in range(s0, s0 + chunk, 16)
+        )
+        if not vals:
+            continue
+        paper = vals[int(len(vals) * 0.85)]
+
+        def dark_frac(p):
+            n = dark = 0
+            for s in range(s0, s0 + chunk, 2):
+                n += 1
+                if (px[s, p] if horizontal else px[p, s]) < paper - 38:
+                    dark += 1
+            return dark / max(1, n)
+
+        def paper_outside(p):
+            # Mean of the 4–9 px band on the exterior side — between the
+            # bundle's rules there is paper; interior content is not.
+            step = 1 if near_start else -1
+            qs = [p - step * d for d in range(4, 10)]
+            vals = [
+                (px[s, q] if horizontal else px[q, s])
+                for q in qs
+                if 0 <= q < depth
+                for s in range(s0, s0 + chunk, 24)
+            ]
+            return bool(vals) and sum(vals) / len(vals) >= paper - 30
+
+        candidates = [p for p in rng if dark_frac(p) >= 0.5 and paper_outside(p)]
+        if candidates:
+            innermost = max(candidates) if near_start else min(candidates)
+            picks.append((s0 + chunk / 2, innermost))
+    return picks
+
 
 def detect_frame(im: Image.Image):
-    """Find the inner map frame (neatline): in each outer band of the scan,
-    the innermost strong dark line. Each edge is probed in several narrow
-    strips (a strip is short enough that scan rotation can't smear the line
-    across rows), the line shows as a mean-luminance minimum clearly below
-    the paper tone, and a least-squares fit across strips turns the probes
-    into true corner intersections."""
     g = im.convert("L")
     w, h = g.size
-    band_h = max(4, h // 22)
-    band_w = max(4, w // 22)
     px = g.load()
+    edges = {}
+    for name, horizontal, near_start in (
+        ("top", True, True), ("bottom", True, False), ("left", False, True), ("right", False, False),
+    ):
+        picks = _edge_picks(px, w, h, horizontal, near_start)
+        if len(picks) < 3:
+            raise SystemExit(f"neatline detection failed on the {name} edge — pass --frame")
+        edges[name] = _fit_with_rejection(picks)[:2]
 
-    def strip_profile(horizontal, pos_range, s0, s1):
-        """Mean luminance per row (or column) of one narrow strip."""
-        step = max(1, (s1 - s0) // 60)
-        out = []
-        for p in pos_range:
-            total = 0
-            n = 0
-            for s in range(s0, s1, step):
-                total += px[s, p] if horizontal else px[p, s]
-                n += 1
-            out.append((p, total / n))
-        return out
-
-    def thin_run_centers(profile, max_thick=14):
-        """Centres of thin dark runs — rule lines. Map content and marginal
-        text form thicker runs and are dropped."""
-        paper = sorted(v for _p, v in profile)[int(len(profile) * 0.8)]
-        dark = [p for p, v in profile if v < paper - 35]
-        if not dark:
-            return []
-        runs = []
-        start = prev = dark[0]
-        for p in dark[1:]:
-            if p == prev + 1:
-                prev = p
-                continue
-            runs.append((start, prev))
-            start = prev = p
-        runs.append((start, prev))
-        return [(a + b) / 2 for a, b in runs if b - a <= max_thick]
-
-    def probe_edge(horizontal, near_start):
-        """Per strip: the centres of every thin line found in the band."""
-        pts = []
-        length = w if horizontal else h
-        for f in (0.15, 0.3, 0.45, 0.6, 0.75, 0.88):
-            s0 = int(length * f)
-            s1 = min(length, s0 + max(40, length // 100))
-            pos_range = range(0, band_h if horizontal else band_w) if near_start else (
-                range(h - band_h, h) if horizontal else range(w - band_w, w))
-            centers = thin_run_centers(strip_profile(horizontal, pos_range, s0, s1))
-            if centers:
-                pts.append(((s0 + s1) / 2, centers))
-        return pts
-
-    def edge_line(pts, near_start, dim):
-        """Fit the outer border (outermost thin line — reliable, only scan
-        margin lies outside it), then shift inward by the sheets' consistent
-        outer→neatline inset (the mode across strips). Returns (slope,
-        intercept) with positions as a function of the along-edge coordinate,
-        plus the point count that supported it."""
-        sign = 1 if near_start else -1
-        outer = [(s, min(cs) if near_start else max(cs)) for s, cs in pts]
-        # Least-squares with one outlier-rejection round.
-        def fit(points):
-            n = len(points)
-            sx = sum(p[0] for p in points)
-            sy = sum(p[1] for p in points)
-            sxx = sum(p[0] * p[0] for p in points)
-            sxy = sum(p[0] * p[1] for p in points)
-            d = n * sxx - sx * sx
-            a = (n * sxy - sx * sy) / d if d else 0.0
-            b = (sy - a * sx) / n
-            return a, b
-        a, b = fit(outer)
-        kept = [(s, p) for s, p in outer if abs(a * s + b - p) <= 5] or outer
-        a, b = fit(kept)
-        # Outer→inner inset consensus over every thin line inward of the outer.
-        insets = []
-        for s, cs in pts:
-            o = a * s + b
-            for c in cs:
-                d = (c - o) * sign
-                if 5 <= d <= dim * 0.04:
-                    insets.append(d)
-        best = 0.0
-        support = 0
-        for m in insets:
-            near = [x for x in insets if abs(x - m) <= 4]
-            if len(near) > support:
-                support = len(near)
-                best = sum(near) / len(near)
-        if support < 3:
-            best = 0.0  # single-line frame: the outer border IS the neatline
-        return a, b + sign * best, len(kept)
-
-    top_pts = probe_edge(horizontal=True, near_start=True)
-    bottom_pts = probe_edge(horizontal=True, near_start=False)
-    left_pts = probe_edge(horizontal=False, near_start=True)
-    right_pts = probe_edge(horizontal=False, near_start=False)
-    if min(len(top_pts), len(bottom_pts), len(left_pts), len(right_pts)) < 2:
-        raise SystemExit("neatline auto-detection failed — pass --frame with explicit corner pixels")
-    # Every edge is fitted as position-across = f(along-edge coordinate):
-    # horizontal edges y = a·x + b, vertical edges x = a·y + b.
-    ta, tb, _ = edge_line(top_pts, near_start=True, dim=h)
-    ba, bb, _ = edge_line(bottom_pts, near_start=False, dim=h)
-    la, lb, _ = edge_line(left_pts, near_start=True, dim=w)
-    ra, rb, _ = edge_line(right_pts, near_start=False, dim=w)
-
-    def intersect_h_v(ha, hb, va, vb):
-        # y = ha*x + hb ; x = va*y + vb
+    def cross(hline, vline):
+        ha, hb = hline  # y = ha·x + hb
+        va, vb = vline  # x = va·y + vb
         y = (ha * vb + hb) / (1 - ha * va)
-        x = va * y + vb
-        return x, y
+        return va * y + vb, y
 
-    nw = intersect_h_v(ta, tb, la, lb)
-    ne = intersect_h_v(ta, tb, ra, rb)
-    se = intersect_h_v(ba, bb, ra, rb)
-    sw = intersect_h_v(ba, bb, la, lb)
+    nw = cross(edges["top"], edges["left"])
+    ne = cross(edges["top"], edges["right"])
+    se = cross(edges["bottom"], edges["right"])
+    sw = cross(edges["bottom"], edges["left"])
     return nw, ne, se, sw
+
+
+# ── Sheets ───────────────────────────────────────────────────────────────────
+
+class Sheet:
+    def __init__(self, image_path, bbox, frame):
+        self.path = image_path
+        self.bbox = bbox  # (west, south, east, north)
+        self.im = Image.open(image_path).convert("RGBA")
+        w, h = self.im.size
+        if frame == "auto":
+            nw, ne, se, sw = detect_frame(self.im)
+        else:
+            v = [float(t) for t in frame]
+            nw, ne, se, sw = (v[0], v[1]), (v[2], v[3]), (v[4], v[5]), (v[6], v[7])
+        self.corners = (nw, ne, se, sw)
+        west, south, east, north = bbox
+        self.h = solve_homography(
+            [(west, north), (east, north), (east, south), (west, south)],
+            [nw, ne, se, sw],
+        )
+        self.frame_px_w = ((ne[0] - nw[0]) + (se[0] - sw[0])) / 2
+        print(f"{os.path.basename(image_path)}: frame NW {tuple(round(c) for c in nw)} "
+              f"NE {tuple(round(c) for c in ne)} SE {tuple(round(c) for c in se)} "
+              f"SW {tuple(round(c) for c in sw)}")
+
+    def natural_zoom(self):
+        west, _s, east, _n = self.bbox
+        z = 7
+        while z < 15:
+            need = (lon_to_x(east, z + 1) - lon_to_x(west, z + 1)) * TILE
+            if need > self.frame_px_w * 1.35:
+                break
+            z += 1
+        return z
+
+    def intersects(self, lon_w, lat_s, lon_e, lat_n):
+        west, south, east, north = self.bbox
+        return west < lon_e and east > lon_w and south < lat_n and north > lat_s
+
+    def render_into(self, tile, tx, ty, z):
+        """Composite this sheet's part of tile (tx, ty, z) into `tile`."""
+        lon_w, lon_e = x_to_lon(tx, z), x_to_lon(tx + 1, z)
+        lat_n, lat_s = y_to_lat(ty, z), y_to_lat(ty + 1, z)
+        quad = []
+        for lon, lat in ((lon_w, lat_n), (lon_w, lat_s), (lon_e, lat_s), (lon_e, lat_n)):
+            quad.extend(apply_h(self.h, lon, lat))
+        part = self.im.transform((TILE, TILE), Image.Transform.QUAD, quad,
+                                 resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
+        # Mask to the sheet's bbox: in mercator tile space the lon/lat box is
+        # an axis-aligned rectangle, so margins beyond the neatline (and any
+        # overshoot from warped paper) are clipped exactly at the sheet edge.
+        west, south, east, north = self.bbox
+        px_w = max(0, round((lon_to_x(west, z) - tx) * TILE))
+        px_e = min(TILE, round((lon_to_x(east, z) - tx) * TILE))
+        px_n = max(0, round((lat_to_y(north, z) - ty) * TILE))
+        px_s = min(TILE, round((lat_to_y(south, z) - ty) * TILE))
+        if px_w > 0 or px_e < TILE or px_n > 0 or px_s < TILE:
+            mask = Image.new("L", (TILE, TILE), 0)
+            ImageDraw.Draw(mask).rectangle((px_w, px_n, px_e - 1, px_s - 1), fill=255)
+            part.putalpha(ImageChops.multiply(part.getchannel("A"), mask))
+        tile.alpha_composite(part)
 
 
 # ── Pyramid build ────────────────────────────────────────────────────────────
 
-def build(args):
-    im = Image.open(args.image).convert("RGBA")
-    w, h = im.size
-    west, south, east, north = args.bbox
+def build(sheets, out, base_zoom, min_zoom):
+    west = min(s.bbox[0] for s in sheets)
+    south = min(s.bbox[1] for s in sheets)
+    east = max(s.bbox[2] for s in sheets)
+    north = max(s.bbox[3] for s in sheets)
 
-    if args.frame == "auto":
-        nw, ne, se, sw = detect_frame(im)
-    else:
-        v = [float(t) for t in args.frame.split(",")]
-        if len(v) != 8:
-            raise SystemExit("--frame needs 8 numbers: nwx,nwy,nex,ney,sex,sey,swx,swy")
-        nw, ne, se, sw = (v[0], v[1]), (v[2], v[3]), (v[4], v[5]), (v[6], v[7])
-    print(f"frame px: NW {tuple(round(c) for c in nw)}  NE {tuple(round(c) for c in ne)}  "
-          f"SE {tuple(round(c) for c in se)}  SW {tuple(round(c) for c in sw)}")
-
-    # lon/lat → scan pixel, projective over the four corner pairs.
-    hgy = solve_homography(
-        [(west, north), (east, north), (east, south), (west, south)],
-        [nw, ne, se, sw],
-    )
-
-    # Deepest zoom: scan resolution ≈ tile resolution (allow mild upscaling).
-    frame_px_w = ((ne[0] - nw[0]) + (se[0] - sw[0])) / 2
-    if args.base_zoom:
-        base_z = args.base_zoom
-    else:
-        base_z = 7
-        while base_z < 18:
-            need = (lon_to_x(east, base_z + 1) - lon_to_x(west, base_z + 1)) * TILE
-            if need > frame_px_w * 1.35:
-                break
-            base_z += 1
-    print(f"base zoom {base_z}, min zoom {args.min_zoom}")
+    base_z = base_zoom or max(s.natural_zoom() for s in sheets)
+    print(f"{len(sheets)} sheet(s), base zoom {base_z}, min zoom {min_zoom}")
 
     def tile_path(z, x, y):
-        return os.path.join(args.out, str(z), str(x), f"{y}.png")
+        return os.path.join(out, str(z), str(x), f"{y}.png")
 
-    # Base tiles: output rect ← source quad via mercator corner mapping.
     x0 = math.floor(lon_to_x(west, base_z))
     x1 = math.ceil(lon_to_x(east, base_z))
     y0 = math.floor(lat_to_y(north, base_z))
@@ -271,11 +294,12 @@ def build(args):
         for ty in range(y0, y1):
             lon_w, lon_e = x_to_lon(tx, base_z), x_to_lon(tx + 1, base_z)
             lat_n, lat_s = y_to_lat(ty, base_z), y_to_lat(ty + 1, base_z)
-            quad = []
-            for lon, lat in ((lon_w, lat_n), (lon_w, lat_s), (lon_e, lat_s), (lon_e, lat_n)):
-                quad.extend(apply_h(hgy, lon, lat))
-            tile = im.transform((TILE, TILE), Image.Transform.QUAD, quad,
-                                resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
+            contributors = [s for s in sheets if s.intersects(lon_w, lat_s, lon_e, lat_n)]
+            if not contributors:
+                continue
+            tile = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+            for s in contributors:
+                s.render_into(tile, tx, ty, base_z)
             if tile.getbbox() is None:
                 continue
             os.makedirs(os.path.dirname(tile_path(base_z, tx, ty)), exist_ok=True)
@@ -284,7 +308,7 @@ def build(args):
     print(f"z{base_z}: {count} tiles")
 
     # Parents: stitch and halve the four children.
-    for z in range(base_z - 1, args.min_zoom - 1, -1):
+    for z in range(base_z - 1, min_zoom - 1, -1):
         made = 0
         cx0, cx1 = math.floor(lon_to_x(west, z)), math.ceil(lon_to_x(east, z))
         cy0, cy1 = math.floor(lat_to_y(north, z)), math.ceil(lat_to_y(south, z))
@@ -307,30 +331,49 @@ def build(args):
 
     total = 0
     files = 0
-    for root, _dirs, names in os.walk(args.out):
+    for root, _dirs, names in os.walk(out):
         for name in names:
             files += 1
             total += os.path.getsize(os.path.join(root, name))
-    print(f"done: {files} tiles, {total / 1e6:.1f} MB → {args.out}")
-    print(f"overlay URL template: /{os.path.relpath(args.out, 'public')}/{{z}}/{{x}}/{{y}}.png"
-          if args.out.startswith("public/") else f"overlay URL: serve {args.out} and use .../{{z}}/{{x}}/{{y}}.png")
+    print(f"done: {files} tiles, {total / 1e6:.1f} MB → {out}")
+    print(f"overlay URL template: /{os.path.relpath(out, 'public')}/{{z}}/{{x}}/{{y}}.png"
+          if out.startswith("public/") else f"overlay URL: serve {out} and use .../{{z}}/{{x}}/{{y}}.png")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("image")
-    ap.add_argument("--bbox", required=True,
-                    help="W,S,E,N in decimal degrees (Greenwich) of the neatline corners")
+    ap.add_argument("image", nargs="?")
+    ap.add_argument("--manifest", help="JSON with a sheets list for a multi-sheet mosaic")
+    ap.add_argument("--bbox", help="W,S,E,N in decimal degrees (Greenwich) of the neatline corners")
     ap.add_argument("--frame", default="auto",
                     help="'auto' or nwx,nwy,nex,ney,sex,sey,swx,swy scan-pixel corners")
     ap.add_argument("--out", required=True)
     ap.add_argument("--base-zoom", type=int, default=0)
     ap.add_argument("--min-zoom", type=int, default=7)
     args = ap.parse_args()
-    args.bbox = [float(t) for t in args.bbox.split(",")]
-    if len(args.bbox) != 4:
-        raise SystemExit("--bbox needs W,S,E,N")
-    build(args)
+
+    sheets = []
+    if args.manifest:
+        spec = json.load(open(args.manifest))
+        base = os.path.dirname(os.path.abspath(args.manifest))
+        for entry in spec["sheets"]:
+            path = entry["image"]
+            if not os.path.isabs(path):
+                path = os.path.join(base, path)
+            frame = entry.get("frame", "auto")
+            sheets.append(Sheet(path, tuple(entry["bbox"]), frame))
+    else:
+        if not args.image or not args.bbox:
+            raise SystemExit("either --manifest, or an image plus --bbox, is required")
+        bbox = [float(t) for t in args.bbox.split(",")]
+        if len(bbox) != 4:
+            raise SystemExit("--bbox needs W,S,E,N")
+        frame = "auto" if args.frame == "auto" else args.frame.split(",")
+        if frame != "auto" and len(frame) != 8:
+            raise SystemExit("--frame needs 8 numbers: nwx,nwy,nex,ney,sex,sey,swx,swy")
+        sheets.append(Sheet(args.image, tuple(bbox), frame))
+
+    build(sheets, args.out, args.base_zoom, args.min_zoom)
 
 
 if __name__ == "__main__":
