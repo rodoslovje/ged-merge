@@ -33,7 +33,7 @@ interface Props {
   /** Write reviewed geocode coordinates (raw PLAC value → coordinate) into the
    *  matching PLAC nodes and push to the undo stack; returns records changed. */
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
-  onRenamePlaceValue: (from: string, to: string) => number;
+  onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** Remove all broken family pointers and push to the undo stack. Returns the
    *  number of records changed, so the panel can re-validate and report. */
   onFixBrokenLinks: () => number;

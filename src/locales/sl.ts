@@ -163,6 +163,8 @@ export const sl = {
   "tools.geocode.noGazetteer": "Imenik krajev še ni uvožen — ujemanje ga potrebuje. Koordinate lahko pri vsaki vrstici spodaj vnesete tudi ročno.",
   "tools.geocode.loadedCountries": "Uvoženi imeniki (pri ujemanju se uporabljajo vsi, shranjeni v tem brskalniku):",
   "tools.geocode.renameOpen": "Preimenuj ta kraj — vse navedbe točno tega imena v datoteki",
+  "tools.geocode.renameAddrPlaceholder": "Naslov (neobvezno)",
+  "tools.geocode.renameAddrTooltip": "Razdeli vrednost: kraj gre v PLAC, ta del postane naslov (ADDR) dogodka (obstoječi naslov se ohrani)",
   "tools.geocode.countryMeta": "{{count}} krajev · uvoženo {{date}}",
   "tools.geocode.deleteCountry": "Odstrani imenik te države",
   "tools.geocode.importing": "Uvažanje imenika…",

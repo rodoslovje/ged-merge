@@ -157,20 +157,38 @@ export function collectFileCoords(dataset: Dataset): GeoCoord[] {
  * Rename every PLAC node carrying exactly `from` (trimmed) to `to` — the
  * whole raw value, unlike the segment-based {@link applyPlaceRename}. Used
  * from the geocode review list, where each row IS one exact raw value (fix a
- * typo so the gazetteer can match it). Mutates the dataset in place and
- * returns RecordPatch[] for the unified undo stack.
+ * typo so the gazetteer can match it). With `addr`, the value is split:
+ * PLAC becomes `to` and `addr` is written as an ADDR sibling on the parent
+ * event (an ADDR already carrying a value is left untouched). Mutates the
+ * dataset in place and returns RecordPatch[] for the unified undo stack.
  */
-export function renamePlaceValue(dataset: Dataset, from: string, to: string): RecordPatch[] {
+export function renamePlaceValue(dataset: Dataset, from: string, to: string, addr?: string): RecordPatch[] {
   const target = to.trim();
-  if (!target || target === from) return [];
+  const addrTarget = addr?.trim() ?? "";
+  if (!target || (target === from && !addrTarget)) return [];
   const patches: RecordPatch[] = [];
   const applyToRecord = (raw: GedNode): boolean => {
     let changed = false;
-    walkPlacNodes(raw, (plac) => {
-      if (plac.value!.trim() !== from) return;
-      plac.value = target;
-      changed = true;
-    });
+    // Parent-aware walk: the ADDR sibling lives on the PLAC's parent event.
+    const walk = (node: GedNode) => {
+      for (const child of node.children) {
+        if (child.tag === "PLAC" && child.value?.trim() === from) {
+          child.value = target;
+          if (addrTarget) {
+            const existing = node.children.find((c) => c.tag === "ADDR");
+            if (!existing) {
+              const at = node.children.indexOf(child) + 1;
+              node.children.splice(at, 0, { level: child.level, tag: "ADDR", value: addrTarget, children: [] });
+            } else if (!existing.value?.trim()) {
+              existing.value = addrTarget;
+            }
+          }
+          changed = true;
+        }
+        walk(child);
+      }
+    };
+    walk(raw);
     return changed;
   };
   for (const indi of dataset.individuals.values()) {

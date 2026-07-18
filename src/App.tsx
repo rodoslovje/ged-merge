@@ -1869,7 +1869,7 @@ function AppContent() {
               active={mode === "tools"}
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
-              onRenamePlaceValue={(from, to) => applyToolPatches(renamePlaceValue(mainDataset, from, to))}
+              onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
               onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}

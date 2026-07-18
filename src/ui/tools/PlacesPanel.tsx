@@ -56,7 +56,7 @@ export function PlacesPanel({
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
-  onRenamePlaceValue: (from: string, to: string) => number;
+  onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);

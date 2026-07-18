@@ -58,8 +58,9 @@ interface Props {
    *  the number of records changed. */
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
   /** Rename all occurrences of exactly this raw place value (edit/undo
-   *  pipeline); returns the number of records changed. */
-  onRenamePlaceValue: (from: string, to: string) => number;
+   *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
+   *  event. Returns the number of records changed. */
+  onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** Return to the Places tree (the panel hosting this view). */
   onBack: () => void;
 }
@@ -232,6 +233,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     [dataset, scanGen],
   );
 
+  // Known addresses for the rename editor's address input autocomplete.
+  const addrSug = useMemo(() => [...new Set(placeSug.addrCanonical.values())].sort(), [placeSug]);
+
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
     () => collectFileCoords(dataset),
@@ -245,8 +249,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [manualDraft, setManualDraft] = useState<Map<string, string>>(new Map());
   // Inline rename of one row's raw place value (fix a typo so it matches).
+  // The optional address draft splits the value into PLAC + ADDR on apply.
   const [renameKey, setRenameKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [renameAddrDraft, setRenameAddrDraft] = useState("");
   const [lastApplied, setLastApplied] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim().toLowerCase());
@@ -494,11 +500,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
           // into an already-covered row and drops off the list).
           const applyRename = () => {
             const target = renameDraft.trim();
-            if (!target || target === row.key) return;
-            setLastApplied(onRenamePlaceValue(row.key, target));
+            const addrTarget = renameAddrDraft.trim();
+            if (!target || (target === row.key && !addrTarget)) return;
+            setLastApplied(onRenamePlaceValue(row.key, target, addrTarget || undefined));
             setRenameKey(null);
             setScanGen((g) => g + 1);
           };
+          const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
           const toggleOpen = () =>
             setExpanded((prev) => {
               const next = new Set(prev);
@@ -539,6 +547,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     onClick={() => {
                       setRenameKey(row.key);
                       setRenameDraft(row.key);
+                      setRenameAddrDraft("");
                     }}
                     title={t("tools.geocode.renameOpen")}
                   >
@@ -612,10 +621,23 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     onCommit={setRenameDraft}
                     onClear={() => setRenameDraft("")}
                   />
+                  <PlaceAutocomplete
+                    value={renameAddrDraft}
+                    suggestions={addrSug}
+                    canonical={placeSug.addrCanonical}
+                    isDirty={false}
+                    className="tools-place-rename-input"
+                    wrapClassName="tools-place-rename-auto"
+                    placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                    title={t("tools.geocode.renameAddrTooltip")}
+                    onChange={setRenameAddrDraft}
+                    onCommit={setRenameAddrDraft}
+                    onClear={() => setRenameAddrDraft("")}
+                  />
                   <button
                     className="nav-btn primary tools-place-rename-apply"
                     onClick={applyRename}
-                    disabled={!renameDraft.trim() || renameDraft.trim() === row.key}
+                    disabled={renameDisabled}
                   >
                     {t("tools.places.rename.apply")}
                   </button>

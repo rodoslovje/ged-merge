@@ -2995,6 +2995,8 @@ button:focus-visible {
 .place-suggestion--hi {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* The address part of a place+address combo suggestion. */
+.place-suggestion-addr { color: var(--muted); }
 
 /* Record-level links and notes sections (individual and family) */
 .edit-record-section {

@@ -109,6 +109,21 @@ describe("renamePlaceValue", () => {
     expect(renamePlaceValue(ds, "Kranj, Slovenija", "Kranj, Slovenija")).toEqual([]);
   });
 
+  it("splits into PLAC + ADDR when an address is given", () => {
+    const ds = buildFromText(SAMPLE);
+    const patches = renamePlaceValue(ds, "Neznani Kraj XY", "Kranj, Slovenija", "Glavni trg 1");
+    expect(patches.map((p) => p.id)).toEqual(["@I2@"]);
+    const text = serializeDataset(ds);
+    expect(text).toContain("1 RESI\n2 PLAC Kranj, Slovenija\n2 ADDR Glavni trg 1");
+  });
+
+  it("with an unchanged place but a new address, still writes the ADDR", () => {
+    const ds = buildFromText(SAMPLE);
+    const patches = renamePlaceValue(ds, "Neznani Kraj XY", "Neznani Kraj XY", "Glavni trg 1");
+    expect(patches).toHaveLength(1);
+    expect(serializeDataset(ds)).toContain("2 PLAC Neznani Kraj XY\n2 ADDR Glavni trg 1");
+  });
+
   it("keeps an existing MAP subtree when renaming a partially covered value", () => {
     const ds = buildFromText(SAMPLE);
     renamePlaceValue(ds, "Stražišče,Kranj,Slovenia", "Stražišče, Kranj, Slovenija");
