@@ -870,12 +870,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                         <li key={id}>
                           <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
                           {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
-                          {indi && (
-                            <span
-                              className="tools-chip-count"
-                              title={placeEventsTitle || t("tools.geocode.eventCount", { count: indi.events.length })}
-                            >
-                              {indi.events.length}
+                          {indi && placeEvents.length > 0 && (
+                            <span className="tools-chip-count" title={placeEventsTitle}>
+                              {placeEvents.length}
                             </span>
                           )}
                         </li>
