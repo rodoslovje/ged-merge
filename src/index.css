@@ -6427,7 +6427,8 @@ kbd {
    to the input) must fit a full "place · address" line. */
 .tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 560px; }
 .tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
-/* The queued ADDR part of a picked place·address combo, cleared with ×. */
+/* The ADDR part of the rename: editable, pre-filled by a place·address
+   combo pick, cleared with ×. */
 .tools-geo-addr-chip {
   display: inline-flex;
   align-items: center;
@@ -6439,6 +6440,18 @@ kbd {
   padding: 2px 8px;
   white-space: nowrap;
 }
+.tools-geo-addr-chip-input {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  border-radius: 0;
+  color: var(--text);
+  font-size: inherit;
+  padding: 0 2px;
+  min-width: 56px;
+  max-width: 180px;
+}
+.tools-geo-addr-chip-input:focus { outline: none; border-bottom-color: var(--accent); }
 .tools-geo-addr-chip-clear {
   background: none;
   border: none;
