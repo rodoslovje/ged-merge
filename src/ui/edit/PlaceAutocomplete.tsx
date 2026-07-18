@@ -68,9 +68,15 @@ export function PlaceAutocomplete({
   const showDropdown = open && filtered.length > 0;
 
   function selectSuggestion(item: Item) {
-    onChange(item.place);
-    if (item.addr && onPickCombo) onPickCombo(item.place, item.addr);
-    else onCommit(item.place);
+    // A combo pick is handled entirely by onPickCombo (it sets both fields —
+    // this component may be hosted by either of them), a plain place by the
+    // usual change+commit pair.
+    if (item.addr && onPickCombo) {
+      onPickCombo(item.place, item.addr);
+    } else {
+      onChange(item.place);
+      onCommit(item.place);
+    }
     setOpen(false);
     setHighlighted(-1);
   }

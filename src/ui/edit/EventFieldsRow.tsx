@@ -141,6 +141,13 @@ export function EventFieldsRow({
   // Known place+address pairs for the place field's combo suggestions —
   // typing an address there fills both fields in one go.
   const placeCombos = useMemo(() => placeCombosOf(placeToAddrs, placeCanonical), [placeToAddrs, placeCanonical]);
+  // The address field's combos: pairs at other places (this place's own
+  // addresses are already its plain suggestions), so an address lookup there
+  // can move place+address together.
+  const addrCombos = useMemo(
+    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(placeField.value)),
+    [placeCombos, placeField.value],
+  );
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const typeField = useField(ev?.type ?? "", typeMergeVal);
@@ -383,6 +390,8 @@ export function EventFieldsRow({
     cls: string,
     title: string,
     commit: (val: string) => void,
+    combos?: { place: string; addr: string }[],
+    onPickCombo?: (place: string, addr: string) => void,
   ) {
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
@@ -391,6 +400,7 @@ export function EventFieldsRow({
           value={field.value}
           suggestions={suggestions}
           canonical={canonical}
+          combos={combos}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
@@ -400,6 +410,7 @@ export function EventFieldsRow({
           onChange={field.set}
           onCommit={commit}
           onClear={() => { field.clear(); commit(""); }}
+          onPickCombo={onPickCombo}
         />
       </span>
     );
@@ -529,7 +540,11 @@ export function EventFieldsRow({
             }}
           />
         </span>
-        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }))}
+        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, (place, addr) => {
+          placeField.set(place);
+          addrField.set(addr);
+          commitAll({ place, address: addr });
+        })}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),
