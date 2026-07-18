@@ -844,7 +844,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                   {/* Who this unresolved place belongs to — standard person
                       links (sex colour, lifespan, click to open in Edit),
                       with the kinship chip and the person's event count. */}
-                  <ul className="tools-usage">
+                  <ul className="tools-usage tools-geo-people">
                     {row.missingIn.slice(0, 30).map((id) => {
                       const indi = dataset.individuals.get(id);
                       const kin = kinship?.label(id);

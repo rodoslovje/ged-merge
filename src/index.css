@@ -6631,6 +6631,9 @@ kbd {
 .edit-person-map-toggle:hover { color: var(--accent); }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
 .tools-geo-showmap { display: block; margin: 0 0 6px; padding-left: 0; }
+/* The geocode row's people list: breathing room between the person link,
+   the kinship chip and the event-count chip. */
+.tools-geo-people li { gap: 8px; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
