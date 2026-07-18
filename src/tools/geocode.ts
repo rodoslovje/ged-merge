@@ -32,6 +32,9 @@ export interface GeocodeRow {
   confident: boolean;
   /** Cached decision from an earlier session/file, when one exists. */
   cached?: GeocodeDecision;
+  /** Individuals whose events carry this value without coordinates — the
+   *  event's person, or both spouses for a family event. */
+  missingIn: string[];
 }
 
 export interface GeocodeScan {
@@ -71,26 +74,34 @@ export function scanGeocode(
   index: GazetteerIndex | undefined,
   decisions: ReadonlyMap<string, GeocodeDecision>,
 ): GeocodeScan {
-  const groups = new Map<string, { count: number; missing: number; coords: Map<string, { coord: GeoCoord; n: number }> }>();
-  const visit = (plac: GedNode) => {
-    const key = plac.value!.trim();
-    let g = groups.get(key);
-    if (!g) {
-      g = { count: 0, missing: 0, coords: new Map() };
-      groups.set(key, g);
-    }
-    g.count++;
-    const coord = coordOf(plac);
-    if (!coord) g.missing++;
-    else {
-      const ck = `${coord.lat}:${coord.lon}`;
-      const hit = g.coords.get(ck);
-      if (hit) hit.n++;
-      else g.coords.set(ck, { coord, n: 1 });
-    }
+  const groups = new Map<
+    string,
+    { count: number; missing: number; coords: Map<string, { coord: GeoCoord; n: number }>; people: Set<string> }
+  >();
+  const visitRecord = (raw: GedNode, personIds: string[]) => {
+    walkPlacNodes(raw, (plac) => {
+      const key = plac.value!.trim();
+      let g = groups.get(key);
+      if (!g) {
+        g = { count: 0, missing: 0, coords: new Map(), people: new Set() };
+        groups.set(key, g);
+      }
+      g.count++;
+      const coord = coordOf(plac);
+      if (!coord) {
+        g.missing++;
+        for (const id of personIds) g.people.add(id);
+      } else {
+        const ck = `${coord.lat}:${coord.lon}`;
+        const hit = g.coords.get(ck);
+        if (hit) hit.n++;
+        else g.coords.set(ck, { coord, n: 1 });
+      }
+    });
   };
-  for (const indi of dataset.individuals.values()) walkPlacNodes(indi.raw, visit);
-  for (const fam of dataset.families.values()) walkPlacNodes(fam.raw, visit);
+  for (const indi of dataset.individuals.values()) visitRecord(indi.raw, [indi.id]);
+  for (const fam of dataset.families.values())
+    visitRecord(fam.raw, [fam.husband, fam.wife].filter((id): id is string => !!id));
 
   const rows: GeocodeRow[] = [];
   let coveredDistinct = 0;
@@ -112,7 +123,7 @@ export function scanGeocode(
       (!!best &&
         best.score >= HIGH_CONFIDENCE &&
         (candidates.length < 2 || candidates[1].score <= best.score - AMBIGUITY_GAP));
-    const row: GeocodeRow = { key, count: g.count, missing: g.missing, candidates, confident };
+    const row: GeocodeRow = { key, count: g.count, missing: g.missing, candidates, confident, missingIn: [...g.people] };
     if (fileCoord) row.fileCoord = fileCoord;
     const cached = decisions.get(key);
     if (cached) row.cached = cached;

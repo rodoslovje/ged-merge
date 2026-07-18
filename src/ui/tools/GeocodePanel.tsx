@@ -18,7 +18,7 @@ import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
-import { useSettings } from "../SettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
 
 // The "Geocode places" tool (MAPVIEW.md phase 2). Top: the offline gazetteer
 // manager — imported GeoNames country extracts living in the gedmerge-geo
@@ -105,6 +105,18 @@ function overpassQuery(code: string): string {
 export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
+  const nameOf = useNameOf();
+
+  /** Hover list of the people this unresolved place occurs at (capped). */
+  const missingInTitle = (row: GeocodeRow): string | undefined => {
+    if (!row.missingIn.length) return undefined;
+    const shown = row.missingIn.slice(0, 15).map((id) => {
+      const p = dataset.individuals.get(id);
+      return p ? nameOf(p) : id;
+    });
+    const more = row.missingIn.length - shown.length;
+    return shown.join("\n") + (more > 0 ? `\n… +${more}` : "");
+  };
 
   // Esc returns to the Places tree, like leaving Organize sources.
   useEffect(() => {
@@ -562,6 +574,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <span
                   className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
                   onClick={toggleOpen}
+                  title={missingInTitle(row)}
                 >
                   {row.key}
                 </span>
