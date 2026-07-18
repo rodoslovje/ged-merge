@@ -83,6 +83,10 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const pathLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
+  /** The bounds of the last automatic fit, re-applied when the container
+   *  resizes (or first gets its real size) until the user takes over. */
+  const fitBoundsRef = useRef<L.LatLngBounds | null>(null);
+  const userMovedRef = useRef(false);
   const latestPath = useRef(path);
   latestPath.current = path;
   // Latest pins/handler for the click handlers, so markers only rebuild when
@@ -107,8 +111,25 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     // the path when the zoom settles.
     const redraw = () => drawPath(map, pathLayerRef.current, latestPath.current);
     map.on("zoomend", redraw);
+    // The container may not have its final size when Leaflet measures it
+    // (lazy mount into a flowing layout) — the initial fitBounds then lands
+    // on a wrong zoom. Re-measure and re-apply the fit on every container
+    // size change until the user pans/zooms themselves.
+    const markUser = () => {
+      userMovedRef.current = true;
+    };
+    map.on("dragend", markUser);
+    el.addEventListener("wheel", markUser, { passive: true });
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+      if (fitBoundsRef.current && !userMovedRef.current) map.fitBounds(fitBoundsRef.current, { maxZoom: 11 });
+    });
+    ro.observe(el);
     mapRef.current = map;
     return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", markUser);
+      map.off("dragend", markUser);
       map.off("zoomend", redraw);
       map.remove();
       mapRef.current = null;
@@ -174,7 +195,9 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
       const fitPts = latestPins.current.length ? latestPins.current.map((p) => p.coord) : context.map((c) => c.coord);
       if (fitPts.length) {
         didFitRef.current = true;
-        map.fitBounds(L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3), { maxZoom: 11 });
+        const bounds = L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3);
+        fitBoundsRef.current = bounds;
+        map.fitBounds(bounds, { maxZoom: 11 });
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);

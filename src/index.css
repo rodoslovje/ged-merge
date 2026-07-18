@@ -6601,6 +6601,16 @@ kbd {
 .tools-geo-minimap--pick .leaflet-container { cursor: crosshair; }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
+.edit-person-map-toggle {
+  display: block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.edit-person-map-toggle:hover { color: var(--accent); }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
 .tools-geo-showmap { display: block; margin: 0 0 6px; padding-left: 0; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }

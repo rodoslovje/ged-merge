@@ -83,6 +83,9 @@ import { buildPersonPaths } from "../geo/paths";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
+
+/** Remembered "hide the person map" preference (more room for editing). */
+const EDIT_MAP_HIDDEN_KEY = "gedmerge-edit-map-hidden";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
@@ -1545,6 +1548,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // on the person's identity (replaced by rebuildIndividual on each of their
   // own edits) so the memoized EventList's prop stays stable across unrelated
   // ticks.
+  // Hidden-map preference: session-persistent, so a user who wants the full
+  // height for editing sets it once.
+  const [mapHidden, setMapHidden] = useState(() => localStorage.getItem(EDIT_MAP_HIDDEN_KEY) === "true");
+  const toggleMapHidden = () =>
+    setMapHidden((h) => {
+      const next = !h;
+      localStorage.setItem(EDIT_MAP_HIDDEN_KEY, String(next));
+      return next;
+    });
+
   // The person's coordinate-carrying events (own + spouse-family), grouped
   // per location as coloured pins, plus their chronological life path — the
   // small map under the events list. Null when nothing is geocoded.
@@ -1838,9 +1851,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           />
           {personMap && (
             <div className="edit-person-map">
-              <Suspense fallback={<div className="tools-geo-minimap" />}>
-                <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
-              </Suspense>
+              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
+                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+              </button>
+              {!mapHidden && (
+                <Suspense fallback={<div className="tools-geo-minimap" />}>
+                  <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
+                </Suspense>
+              )}
             </div>
           )}
         </div>
