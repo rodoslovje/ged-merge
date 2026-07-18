@@ -23,8 +23,9 @@ export interface MiniMapPin {
 
 interface Props {
   pins: MiniMapPin[];
-  /** Faint background dots: coordinates the file already carries. */
-  context: GeoCoord[];
+  /** Faint background dots: coordinates the file already carries, with the
+   *  place name(s) written there as the hover tooltip. */
+  context: { coord: GeoCoord; name: string }[];
   /** Click on the map background: pick that point as a manual coordinate. */
   onPickCoord?: (coord: GeoCoord) => void;
   /** Tooltip for the map container (e.g. the click-to-pick hint). */
@@ -86,13 +87,16 @@ export default function MiniPlaceMap({ pins, context, onPickCoord, title }: Prop
     const candColor = styles.getPropertyValue("--accent").trim();
     const chosenColor = styles.getPropertyValue("--status-new").trim();
     for (const c of context) {
-      L.circleMarker([c.lat, c.lon], {
+      // Interactive for the name tooltip; clicks bubble on to the map, so
+      // click-to-pick still works on top of a dot.
+      L.circleMarker([c.coord.lat, c.coord.lon], {
         radius: 2.5,
         stroke: false,
         fillColor: mutedColor,
         fillOpacity: 0.4,
-        interactive: false,
-      }).addTo(group);
+      })
+        .bindTooltip(c.name, { direction: "top" })
+        .addTo(group);
     }
     latestPins.current.forEach((p, i) => {
       const chosen = p.kind === "chosen";
@@ -112,7 +116,7 @@ export default function MiniPlaceMap({ pins, context, onPickCoord, title }: Prop
     // Zoom to the pins once (context dots frame themselves); later pin
     // changes (picking a candidate) keep the user's pan/zoom.
     if (!didFitRef.current) {
-      const fitPts = latestPins.current.length ? latestPins.current.map((p) => p.coord) : context;
+      const fitPts = latestPins.current.length ? latestPins.current.map((p) => p.coord) : context.map((c) => c.coord);
       if (fitPts.length) {
         didFitRef.current = true;
         map.fitBounds(L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3), { maxZoom: 11 });

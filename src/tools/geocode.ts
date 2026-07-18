@@ -139,18 +139,33 @@ export function countGeocodePending(dataset: Dataset): number {
   return missing.size;
 }
 
+/** A coordinate the file already carries, with the place name(s) written at
+ *  it — context dots (and their tooltips) for the geocode mini map. */
+export interface FileCoord {
+  coord: GeoCoord;
+  /** Up to three distinct PLAC values seen at this coordinate. */
+  name: string;
+}
+
 /** Distinct coordinates the file already carries — context dots for the
  *  geocode mini map (the family cluster that tells same-named places apart).
  *  Deduplicated on ~100 m so dense reuse of one place stays one dot. */
-export function collectFileCoords(dataset: Dataset): GeoCoord[] {
-  const seen = new Map<string, GeoCoord>();
+export function collectFileCoords(dataset: Dataset): FileCoord[] {
+  const seen = new Map<string, { coord: GeoCoord; names: Set<string> }>();
   const visit = (plac: GedNode) => {
     const c = coordOf(plac);
-    if (c) seen.set(`${c.lat.toFixed(3)}:${c.lon.toFixed(3)}`, c);
+    if (!c) return;
+    const key = `${c.lat.toFixed(3)}:${c.lon.toFixed(3)}`;
+    const hit = seen.get(key);
+    if (hit) hit.names.add(plac.value!.trim());
+    else seen.set(key, { coord: c, names: new Set([plac.value!.trim()]) });
   };
   for (const indi of dataset.individuals.values()) walkPlacNodes(indi.raw, visit);
   for (const fam of dataset.families.values()) walkPlacNodes(fam.raw, visit);
-  return [...seen.values()];
+  return [...seen.values()].map(({ coord, names }) => ({
+    coord,
+    name: [...names].slice(0, 3).join(" · ") + (names.size > 3 ? " …" : ""),
+  }));
 }
 
 /**

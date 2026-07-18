@@ -301,6 +301,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     if (!coord) return;
     setChosen((prev) => new Map(prev).set(row.key, { coord, label: t("tools.geocode.manual") }));
     toggleChecked(row.key, true);
+    setNoMatch((prev) => {
+      const next = new Set(prev);
+      next.delete(row.key);
+      return next;
+    });
   };
 
   const toggleNoMatch = (key: string) => {
@@ -507,6 +512,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
             setScanGen((g) => g + 1);
           };
           const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
+          // The manual coordinate as a selectable option: parsed draft (typed
+          // or map-picked), checked when it is the row's chosen coordinate.
+          const draftCoord = parseManualCoord(manualDraft.get(row.key) ?? "");
+          const manualChosen = !!c && !!draftCoord && c.coord.lat === draftCoord.lat && c.coord.lon === draftCoord.lon;
           const toggleOpen = () =>
             setExpanded((prev) => {
               const next = new Set(prev);
@@ -659,7 +668,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     }));
                     if (c && !pins.some((p) => p.coord.lat === c.coord.lat && p.coord.lon === c.coord.lon))
                       pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
-                    const draftCoord = parseManualCoord(manualDraft.get(row.key) ?? "");
                     if (draftCoord && !pins.some((p) => p.coord.lat === draftCoord.lat && p.coord.lon === draftCoord.lon))
                       pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen" });
                     if (!pins.length && !fileCoords.length) return null;
@@ -685,48 +693,54 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                       </Suspense>
                     );
                   })()}
-                  {row.candidates.length > 0 && (
-                    <ul className="tools-geo-candidates">
-                      {row.candidates.map((cand, i) => (
-                        <li key={i}>
-                          <label>
-                            <input
-                              type="radio"
-                              name={`geo-${row.key}`}
-                              checked={c?.coord.lat === cand.entry.lat && c?.coord.lon === cand.entry.lon}
-                              onChange={() => pickCandidate(row, cand)}
-                            />
-                            <span className="tools-geo-cand-name">{cand.entry.name}</span>
-                            <span className="gm-data">
-                              {cand.entry.country}
-                              {cand.entry.population > 0 && ` · ${t("tools.geocode.population", { count: cand.entry.population })}`}
-                              {` · ${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
-                            </span>
-                            <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="tools-geo-manual">
-                    <input
-                      type="text"
-                      placeholder={t("tools.geocode.manualPlaceholder")}
-                      title={t("tools.geocode.manualTooltip")}
-                      value={manualDraft.get(row.key) ?? ""}
-                      onChange={(e) => setManualDraft((prev) => new Map(prev).set(row.key, e.target.value))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") setManual(row);
-                      }}
-                    />
-                    <button
-                      className="nav-btn"
-                      onClick={() => setManual(row)}
-                      disabled={!parseManualCoord(manualDraft.get(row.key) ?? "")}
-                    >
-                      {t("tools.geocode.manualSet")}
-                    </button>
-                  </div>
+                  <ul className="tools-geo-candidates">
+                    {row.candidates.map((cand, i) => (
+                      <li key={i}>
+                        <label>
+                          <input
+                            type="radio"
+                            name={`geo-${row.key}`}
+                            checked={c?.coord.lat === cand.entry.lat && c?.coord.lon === cand.entry.lon}
+                            onChange={() => pickCandidate(row, cand)}
+                          />
+                          <span className="tools-geo-cand-name">{cand.entry.name}</span>
+                          <span className="gm-data">
+                            {cand.entry.country}
+                            {cand.entry.population > 0 && ` · ${t("tools.geocode.population", { count: cand.entry.population })}`}
+                            {` · ${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
+                          </span>
+                          <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                        </label>
+                      </li>
+                    ))}
+                    {/* Manual entry as the last option — the same radio group,
+                        selectable once the draft (typed or map-picked) parses. */}
+                    <li className="tools-geo-manual">
+                      <label>
+                        <input
+                          type="radio"
+                          name={`geo-${row.key}`}
+                          checked={manualChosen}
+                          disabled={!draftCoord}
+                          onChange={() => setManual(row)}
+                        />
+                        <span className="tools-geo-cand-name">{t("tools.geocode.manual")}</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={t("tools.geocode.manualPlaceholder")}
+                        title={t("tools.geocode.manualTooltip")}
+                        value={manualDraft.get(row.key) ?? ""}
+                        onChange={(e) => setManualDraft((prev) => new Map(prev).set(row.key, e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") setManual(row);
+                        }}
+                      />
+                      <button className="nav-btn" onClick={() => setManual(row)} disabled={!draftCoord}>
+                        {t("tools.geocode.manualSet")}
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               )}
             </li>
