@@ -2966,11 +2966,18 @@ button:focus-visible {
 .place-autocomplete-wrap > .clearable-wrap {
   width: 100%;
 }
+/* A focused place/address field grows past its content width (an inline
+   style from chW) so there is room to type and read a query. */
+.edit-event-extra-field:focus-within { min-width: 24ch; }
 .place-suggestions {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
-  right: 0;
+  /* At least as wide as the input, but grow to the suggestions — the input
+     is content-sized (often a few chars), and "Lj…" helps nobody. */
+  min-width: 100%;
+  width: max-content;
+  max-width: min(480px, 80vw);
   z-index: 200;
   list-style: none;
   margin: 0;
