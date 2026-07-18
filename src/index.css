@@ -6587,11 +6587,13 @@ kbd {
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
-.tools-geo-manual input {
+/* Type-scoped: the row also holds the option's radio, which must keep its
+   native size so it lines up under the candidate radios above. */
+.tools-geo-manual input[type="text"] {
   width: 220px; box-sizing: border-box; padding: 4px 8px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.85rem;
 }
-.tools-geo-manual input:focus { outline: none; border-color: var(--accent); }
+.tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-manual .nav-btn { margin: 0; }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
