@@ -50,6 +50,9 @@ interface Props {
   /** Write the accepted coordinates through the edit/undo pipeline; returns
    *  the number of records changed. */
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  /** Rename all occurrences of exactly this raw place value (edit/undo
+   *  pipeline); returns the number of records changed. */
+  onRenamePlaceValue: (from: string, to: string) => number;
   /** Return to the Places tree (the panel hosting this view). */
   onBack: () => void;
 }
@@ -91,7 +94,7 @@ function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
 
@@ -219,6 +222,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
   const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [manualDraft, setManualDraft] = useState<Map<string, string>>(new Map());
+  // Inline rename of one row's raw place value (fix a typo so it matches).
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [lastApplied, setLastApplied] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim().toLowerCase());
@@ -461,6 +467,16 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
           const cachedCand = cachedCoord
             ? row.candidates.find((cand) => cand.entry.lat === cachedCoord.lat && cand.entry.lon === cachedCoord.lon)
             : undefined;
+          // Rename every occurrence of exactly this raw value, then rescan —
+          // the corrected spelling gets fresh gazetteer proposals (or merges
+          // into an already-covered row and drops off the list).
+          const applyRename = () => {
+            const target = renameDraft.trim();
+            if (!target || target === row.key) return;
+            setLastApplied(onRenamePlaceValue(row.key, target));
+            setRenameKey(null);
+            setScanGen((g) => g + 1);
+          };
           const toggleOpen = () =>
             setExpanded((prev) => {
               const next = new Set(prev);
@@ -487,6 +503,26 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
                 >
                   {row.key}
                 </span>
+                {renameKey === row.key ? (
+                  <button
+                    className="tools-place-edit-btn tools-place-edit-cancel"
+                    onClick={() => setRenameKey(null)}
+                    title={t("tools.places.rename.cancel")}
+                  >
+                    ✕
+                  </button>
+                ) : (
+                  <button
+                    className="tools-place-edit-btn"
+                    onClick={() => {
+                      setRenameKey(row.key);
+                      setRenameDraft(row.key);
+                    }}
+                    title={t("tools.geocode.renameOpen")}
+                  >
+                    ✏︎
+                  </button>
+                )}
                 {c && (
                   <span className="tools-tree-meta">
                     → {c.label} · <span className="gm-data">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
@@ -531,6 +567,29 @@ export function GeocodePanel({ dataset, onApplyGeocode, onBack }: Props) {
                 </button>
                 <span className="tools-chip-count">{row.missing}</span>
               </div>
+              {renameKey === row.key && (
+                <div className="tools-place-rename">
+                  <input
+                    type="text"
+                    className="tools-place-rename-input"
+                    value={renameDraft}
+                    autoFocus
+                    placeholder={t("tools.places.rename.placeholder")}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applyRename();
+                      if (e.key === "Escape") setRenameKey(null);
+                    }}
+                  />
+                  <button
+                    className="nav-btn primary tools-place-rename-apply"
+                    onClick={applyRename}
+                    disabled={!renameDraft.trim() || renameDraft.trim() === row.key}
+                  >
+                    {t("tools.places.rename.apply")}
+                  </button>
+                </div>
+              )}
               {isOpen && (
                 <div className="tools-tree-children tools-geo-detail">
                   {row.candidates.length > 0 && (

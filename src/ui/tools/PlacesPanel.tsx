@@ -49,12 +49,14 @@ export function PlacesPanel({
   active,
   onApplyPlaceRename,
   onApplyGeocode,
+  onRenamePlaceValue,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  onRenamePlaceValue: (from: string, to: string) => number;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<PlaceTree | null>(null);
@@ -166,6 +168,7 @@ export function PlacesPanel({
         dataset={dataset}
         active={active}
         onApplyGeocode={onApplyGeocode}
+        onRenamePlaceValue={onRenamePlaceValue}
         // Applied coordinates changed the dataset in place — drop the cached
         // tree so the panel (and the chip count) rebuild on return.
         onBack={() => {

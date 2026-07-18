@@ -3,7 +3,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeDataset } from "../gedcom/serialize";
 import { buildGazetteerIndex, parseGeoNamesLine, type GazEntry } from "../geo/gazetteer";
-import { applyGeocode, scanGeocode } from "./geocode";
+import { applyGeocode, renamePlaceValue, scanGeocode } from "./geocode";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -87,6 +87,33 @@ describe("scanGeocode", () => {
     const scan = scanGeocode(ds, undefined, cached);
     expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached?.status).toBe("accepted");
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
+  });
+});
+
+describe("renamePlaceValue", () => {
+  it("renames every PLAC carrying exactly the raw value, leaving others alone", () => {
+    const ds = buildFromText(SAMPLE);
+    const patches = renamePlaceValue(ds, "Kranj, Slovenija", "Kranj, Gorenjska, Slovenija");
+    // @I1@ (BIRT), @I2@ (BIRT), @F1@ (MARR) carry the exact value.
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I2@"]);
+    const text = serializeDataset(ds);
+    expect(text).not.toContain("2 PLAC Kranj, Slovenija\n");
+    expect(text).toContain("2 PLAC Kranj, Gorenjska, Slovenija");
+    // The comma-free variant spelled differently is untouched.
+    expect(text).toContain("2 PLAC Stražišče,Kranj,Slovenia");
+  });
+
+  it("is a no-op for an empty or unchanged target", () => {
+    const ds = buildFromText(SAMPLE);
+    expect(renamePlaceValue(ds, "Kranj, Slovenija", "  ")).toEqual([]);
+    expect(renamePlaceValue(ds, "Kranj, Slovenija", "Kranj, Slovenija")).toEqual([]);
+  });
+
+  it("keeps an existing MAP subtree when renaming a partially covered value", () => {
+    const ds = buildFromText(SAMPLE);
+    renamePlaceValue(ds, "Stražišče,Kranj,Slovenia", "Stražišče, Kranj, Slovenija");
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC Stražišče, Kranj, Slovenija\n3 MAP\n4 LATI N46.2331\n4 LONG E14.3308");
   });
 });
 

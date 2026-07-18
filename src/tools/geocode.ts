@@ -140,6 +140,43 @@ export function countGeocodePending(dataset: Dataset): number {
 }
 
 /**
+ * Rename every PLAC node carrying exactly `from` (trimmed) to `to` — the
+ * whole raw value, unlike the segment-based {@link applyPlaceRename}. Used
+ * from the geocode review list, where each row IS one exact raw value (fix a
+ * typo so the gazetteer can match it). Mutates the dataset in place and
+ * returns RecordPatch[] for the unified undo stack.
+ */
+export function renamePlaceValue(dataset: Dataset, from: string, to: string): RecordPatch[] {
+  const target = to.trim();
+  if (!target || target === from) return [];
+  const patches: RecordPatch[] = [];
+  const applyToRecord = (raw: GedNode): boolean => {
+    let changed = false;
+    walkPlacNodes(raw, (plac) => {
+      if (plac.value!.trim() !== from) return;
+      plac.value = target;
+      changed = true;
+    });
+    return changed;
+  };
+  for (const indi of dataset.individuals.values()) {
+    const before = cloneRaw(indi.raw);
+    if (applyToRecord(indi.raw)) {
+      rebuildIndividual(dataset, indi);
+      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+    }
+  }
+  for (const fam of dataset.families.values()) {
+    const before = cloneRaw(fam.raw);
+    if (applyToRecord(fam.raw)) {
+      rebuildFamily(dataset, fam);
+      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+    }
+  }
+  return patches;
+}
+
+/**
  * Write accepted coordinates into every PLAC node whose exact value matches
  * an assignment and that still lacks a coordinate. Mutates the dataset in
  * place and returns RecordPatch[] for the unified undo stack.
