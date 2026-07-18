@@ -6619,6 +6619,20 @@ kbd {
 .minimap-tooltip .minimap-tip-title { font-weight: 600; }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
+/* Compact colour legend under the map: only the kinds actually shown. */
+.edit-person-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-width: 560px;
+}
+.edit-map-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.edit-map-legend-item .map-kind-dot { width: 9px; height: 9px; }
+.edit-map-legend-line { width: 16px; border-top: 2px solid var(--map-path); display: inline-block; }
 .edit-person-map-toggle {
   display: block;
   background: none;

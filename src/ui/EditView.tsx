@@ -78,7 +78,7 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/pri
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
-import { personPoints } from "../geo/points";
+import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
 import { buildPersonPaths } from "../geo/paths";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
@@ -1587,7 +1587,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const path = buildPersonPaths(points)
       .find((pp) => pp.personId === person.id)
       ?.stops.map((s) => s.coord);
-    return { pins, path };
+    // Event kinds present, in the canonical order — the legend row.
+    const present = new Set(points.map((p) => p.kind));
+    const kinds = MAP_EVENT_KINDS.filter((k) => present.has(k));
+    return { pins, path, kinds };
     // person is rebuilt (fresh identity) on each own edit; undoVersion covers
     // undo/redo and family-event edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1856,9 +1859,25 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
               </button>
               {!mapHidden && (
-                <Suspense fallback={<div className="tools-geo-minimap" />}>
-                  <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
-                </Suspense>
+                <>
+                  <Suspense fallback={<div className="tools-geo-minimap" />}>
+                    <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
+                  </Suspense>
+                  <div className="edit-person-map-legend">
+                    {personMap.kinds.map((k) => (
+                      <span key={k} className="edit-map-legend-item">
+                        <span className="map-kind-dot" style={{ background: `var(--map-${k})` }} />
+                        {t(`map.kind.${k}`)}
+                      </span>
+                    ))}
+                    {personMap.path && personMap.path.length > 1 && (
+                      <span className="edit-map-legend-item">
+                        <span className="edit-map-legend-line" />
+                        {t("map.paths")}
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
