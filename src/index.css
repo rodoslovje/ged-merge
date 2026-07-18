@@ -6637,7 +6637,13 @@ kbd {
   gap: 8px;
   margin: 0 0 10px;
 }
-.settings-overlays-head .settings-hint { margin: 0; }
+/* As <p> these fall under .modal-body p (1.05rem) — restate the hint scale
+   with higher specificity. */
+.settings-overlays-head .settings-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
 .settings-overlays-actions {
   display: flex;
   align-items: center;
