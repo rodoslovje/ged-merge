@@ -165,7 +165,6 @@ export const sl = {
   "tools.geocode.renameOpen": "Preimenuj ta kraj — vse navedbe točno tega imena v datoteki",
   "tools.geocode.showMap": "Pokaži na zemljevidu",
   "tools.geocode.mapPickHint": "Bucike: predlagani kraji (klik izbere) · sive pike: koordinate, ki jih datoteka že ima · klik kamorkoli nastavi koordinato ročno",
-  "tools.geocode.renameAddrPlaceholder": "Naslov (neobvezno)",
   "tools.geocode.renameAddrTooltip": "Razdeli vrednost: kraj gre v PLAC, ta del postane naslov (ADDR) dogodka (obstoječi naslov se ohrani)",
   "tools.geocode.countryMeta": "{{count}} krajev · uvoženo {{date}}",
   "tools.geocode.deleteCountry": "Odstrani imenik te države",

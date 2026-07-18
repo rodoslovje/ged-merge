@@ -6400,9 +6400,33 @@ kbd {
 }
 .tools-place-rename-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 /* Autocomplete-wrapped variant (geocode list): the wrapper takes the flex
-   slot the bare input otherwise fills, and the input stretches inside it. */
-.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 300px; }
+   slot the bare input otherwise fills, and the input stretches inside it.
+   Wide, because one box searches places AND addresses — the dropdown (sized
+   to the input) must fit a full "place · address" line. */
+.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 560px; }
 .tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
+/* The queued ADDR part of a picked place·address combo, cleared with ×. */
+.tools-geo-addr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.tools-geo-addr-chip-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1em;
+  line-height: 1;
+  padding: 0 2px;
+}
+.tools-geo-addr-chip-clear:hover { color: var(--danger); }
 .tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }

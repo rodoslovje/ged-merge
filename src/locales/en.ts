@@ -165,7 +165,6 @@ export const en = {
   "tools.geocode.renameOpen": "Rename this place — all occurrences of exactly this value in the file",
   "tools.geocode.showMap": "Show on map",
   "tools.geocode.mapPickHint": "Pins: proposed places (click to pick) · grey dots: coordinates this file already carries · click anywhere to set the coordinate by hand",
-  "tools.geocode.renameAddrPlaceholder": "Address (optional)",
   "tools.geocode.renameAddrTooltip": "Split the value: the place goes to PLAC, this part becomes the event's ADDR (an existing address is kept)",
   "tools.geocode.countryMeta": "{{count}} places · imported {{date}}",
   "tools.geocode.deleteCountry": "Remove this country's gazetteer",

@@ -233,9 +233,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     [dataset, scanGen],
   );
 
-  // Known addresses for the rename editor's address input autocomplete, and
-  // place+address combos for its place input (picking one fills both).
-  const addrSug = useMemo(() => [...new Set(placeSug.addrCanonical.values())].sort(), [placeSug]);
+  // Place+address combos for the rename input — one box searches both, and
+  // picking a combo queues the address part as the split's ADDR (shown as a
+  // removable chip next to the input).
   const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);
 
   // Every coordinate the file already carries — the mini map's context dots.
@@ -653,19 +653,18 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                       setRenameAddrDraft(addr);
                     }}
                   />
-                  <PlaceAutocomplete
-                    value={renameAddrDraft}
-                    suggestions={addrSug}
-                    canonical={placeSug.addrCanonical}
-                    isDirty={false}
-                    className="tools-place-rename-input"
-                    wrapClassName="tools-place-rename-auto"
-                    placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                    title={t("tools.geocode.renameAddrTooltip")}
-                    onChange={setRenameAddrDraft}
-                    onCommit={setRenameAddrDraft}
-                    onClear={() => setRenameAddrDraft("")}
-                  />
+                  {renameAddrDraft && (
+                    <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+                      {t("event.colAddr")}: {renameAddrDraft}
+                      <button
+                        className="tools-geo-addr-chip-clear"
+                        onClick={() => setRenameAddrDraft("")}
+                        aria-label={t("tools.places.rename.cancel")}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
                   <button
                     className="nav-btn primary tools-place-rename-apply"
                     onClick={applyRename}
