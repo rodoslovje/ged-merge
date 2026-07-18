@@ -6346,21 +6346,26 @@ kbd {
 .tools-tree-link:hover { color: var(--accent); }
 .tools-place-edit-btn {
   opacity: 0;
+  /* Fully collapsed until the row is hovered: no width, no padding, and a
+     negative margin that swallows the flex gap slot it would otherwise add. */
+  width: 0;
+  padding: 1px 0;
+  margin-left: -8px;
+  overflow: hidden;
   transition: opacity 0.12s;
   flex: none;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 1px 5px;
   border-radius: 4px;
   color: var(--text);
   font-size: 1em;
   line-height: 1;
 }
 .tools-tree-row:hover .tools-place-edit-btn,
-.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; }
+.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
-.tools-place-edit-cancel { opacity: 1 !important; }
+.tools-place-edit-cancel { opacity: 1 !important; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-rename {
   display: flex;
   align-items: center;
@@ -6380,6 +6385,10 @@ kbd {
   color: var(--text);
 }
 .tools-place-rename-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* Autocomplete-wrapped variant (geocode list): the wrapper takes the flex
+   slot the bare input otherwise fills, and the input stretches inside it. */
+.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 300px; }
+.tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
 .tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
 .tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }

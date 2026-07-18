@@ -15,6 +15,7 @@ export function PlaceAutocomplete({
   wrapStyle,
   placeholder,
   title,
+  autoFocus,
   onChange,
   onCommit,
   onClear,
@@ -29,6 +30,7 @@ export function PlaceAutocomplete({
   wrapStyle?: React.CSSProperties;
   placeholder?: string;
   title?: string;
+  autoFocus?: boolean;
   onChange: (value: string) => void;
   onCommit: (value: string) => void;
   onClear: () => void;
@@ -85,6 +87,7 @@ export function PlaceAutocomplete({
         value={value}
         placeholder={placeholder}
         title={title}
+        autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlighted(-1); }}
         onFocus={() => { if (value.trim()) setOpen(true); }}
         onKeyDown={handleKeyDown}

@@ -13,6 +13,8 @@ import {
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useSettings } from "../SettingsContext";
@@ -215,6 +217,14 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     // scanGen re-runs the scan after an apply mutates the dataset in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, index, decisions, scanGen],
+  );
+
+  // Existing place values for the rename input's autocomplete — the same
+  // suggestion list (and canonical casing) the Edit-mode event fields use.
+  const placeSug = useMemo(
+    () => buildPlaceSuggestions(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
   );
 
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -568,18 +578,27 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <span className="tools-chip-count">{row.missing}</span>
               </div>
               {renameKey === row.key && (
-                <div className="tools-place-rename">
-                  <input
-                    type="text"
-                    className="tools-place-rename-input"
+                <div
+                  className="tools-place-rename"
+                  onKeyDown={(e) => {
+                    // Enter with a highlighted suggestion is consumed by the
+                    // autocomplete (defaultPrevented); a second Enter applies.
+                    if (e.key === "Enter" && !e.defaultPrevented) applyRename();
+                    if (e.key === "Escape") setRenameKey(null);
+                  }}
+                >
+                  <PlaceAutocomplete
                     value={renameDraft}
-                    autoFocus
+                    suggestions={placeSug.placeSuggestions}
+                    canonical={placeSug.placeCanonical}
+                    isDirty={false}
+                    className="tools-place-rename-input"
+                    wrapClassName="tools-place-rename-auto"
                     placeholder={t("tools.places.rename.placeholder")}
-                    onChange={(e) => setRenameDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") applyRename();
-                      if (e.key === "Escape") setRenameKey(null);
-                    }}
+                    autoFocus
+                    onChange={setRenameDraft}
+                    onCommit={setRenameDraft}
+                    onClear={() => setRenameDraft("")}
                   />
                   <button
                     className="nav-btn primary tools-place-rename-apply"
