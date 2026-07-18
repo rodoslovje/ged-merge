@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildGazetteerIndex, type GazCandidate, type GazetteerIndex } from "../../geo/gazetteer";
-import { scanGeocode, type GeocodeRow } from "../../tools/geocode";
+import { collectFileCoords, scanGeocode, type GeocodeRow } from "../../tools/geocode";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
 import {
   deleteCountry,
   loadCountries,
@@ -27,6 +28,10 @@ import { useSettings } from "../SettingsContext";
 // decision cache only, never into the file.
 
 const SHOW_LIMIT = 300;
+
+/** The expanded-row mini map, in the Leaflet lazy chunk it shares with the
+ *  Map chart — the list itself must not pull Leaflet into the main bundle. */
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** "lat, lon" free input → validated coordinate. */
 function parseManualCoord(text: string): GeoCoord | undefined {
@@ -223,6 +228,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
   // suggestion list (and canonical casing) the Edit-mode event fields use.
   const placeSug = useMemo(
     () => buildPlaceSuggestions(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
+
+  // Every coordinate the file already carries — the mini map's context dots.
+  const fileCoords = useMemo(
+    () => collectFileCoords(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
@@ -611,6 +623,30 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
               )}
               {isOpen && (
                 <div className="tools-tree-children tools-geo-detail">
+                  {(() => {
+                    // Candidate pins (click = pick), the chosen coordinate
+                    // highlighted, plus a live pin for a parseable manual draft.
+                    const pins: MiniMapPin[] = row.candidates.map((cand) => ({
+                      coord: { lat: cand.entry.lat, lon: cand.entry.lon },
+                      label: `${cand.entry.name} · ${Math.round(cand.score * 100)}%`,
+                      kind:
+                        c && c.coord.lat === cand.entry.lat && c.coord.lon === cand.entry.lon
+                          ? ("chosen" as const)
+                          : ("candidate" as const),
+                      onPick: () => pickCandidate(row, cand),
+                    }));
+                    if (c && !pins.some((p) => p.coord.lat === c.coord.lat && p.coord.lon === c.coord.lon))
+                      pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
+                    const draftCoord = parseManualCoord(manualDraft.get(row.key) ?? "");
+                    if (draftCoord && !pins.some((p) => p.coord.lat === draftCoord.lat && p.coord.lon === draftCoord.lon))
+                      pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen" });
+                    if (!pins.length && !fileCoords.length) return null;
+                    return (
+                      <Suspense fallback={<div className="tools-geo-minimap" />}>
+                        <MiniPlaceMap pins={pins} context={fileCoords} />
+                      </Suspense>
+                    );
+                  })()}
                   {row.candidates.length > 0 && (
                     <ul className="tools-geo-candidates">
                       {row.candidates.map((cand, i) => (

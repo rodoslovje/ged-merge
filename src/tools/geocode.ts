@@ -139,6 +139,20 @@ export function countGeocodePending(dataset: Dataset): number {
   return missing.size;
 }
 
+/** Distinct coordinates the file already carries — context dots for the
+ *  geocode mini map (the family cluster that tells same-named places apart).
+ *  Deduplicated on ~100 m so dense reuse of one place stays one dot. */
+export function collectFileCoords(dataset: Dataset): GeoCoord[] {
+  const seen = new Map<string, GeoCoord>();
+  const visit = (plac: GedNode) => {
+    const c = coordOf(plac);
+    if (c) seen.set(`${c.lat.toFixed(3)}:${c.lon.toFixed(3)}`, c);
+  };
+  for (const indi of dataset.individuals.values()) walkPlacNodes(indi.raw, visit);
+  for (const fam of dataset.families.values()) walkPlacNodes(fam.raw, visit);
+  return [...seen.values()];
+}
+
 /**
  * Rename every PLAC node carrying exactly `from` (trimmed) to `to` — the
  * whole raw value, unlike the segment-based {@link applyPlaceRename}. Used
