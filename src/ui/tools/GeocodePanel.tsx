@@ -598,7 +598,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <span
                   className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
                   onClick={toggleOpen}
-                  title={missingInTitles.get(row.key)}
                 >
                   {row.key}
                 </span>
@@ -670,7 +669,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 >
                   {marked ? "↩" : "🗑"}
                 </button>
-                <span className="tools-chip-count">{row.missing}</span>
+                <span className="tools-chip-count" title={missingInTitles.get(row.key)}>{row.missing}</span>
               </div>
               {renameKey === row.key && (
                 <div
@@ -815,7 +814,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                           <span className="gm-data">{cand.entry.country}</span>
                           <span className="tools-geo-cand-name">{cand.entry.name}</span>
                           <span className="gm-data">
-                            {cand.entry.population > 0 && `${t("tools.geocode.population", { count: cand.entry.population })} · `}
+                            {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                             {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                           </span>
                           <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
@@ -854,13 +853,26 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     {row.missingIn.slice(0, 30).map((id) => {
                       const indi = dataset.individuals.get(id);
                       const kin = kinship?.label(id);
+                      // The person's events at this exact place (own + spouse
+                      // family events, matching how scanGeocode attributes
+                      // family PLACs to the spouses) — listed in the tooltip.
+                      const placeEvents = indi
+                        ? [...indi.events, ...indi.spouseOf.flatMap((fid) => dataset.families.get(fid)?.events ?? [])]
+                            .filter((ev) => ev.place?.raw.trim() === row.key)
+                        : [];
+                      const placeEventsTitle = placeEvents
+                        .map((ev) => {
+                          const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
+                          return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
+                        })
+                        .join("\n");
                       return (
                         <li key={id}>
                           <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
                           {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
-                          {indi && (
-                            <span className="tools-chip-count" title={t("tools.geocode.eventCount", { count: indi.events.length })}>
-                              {indi.events.length}
+                          {indi && placeEvents.length > 0 && (
+                            <span className="tools-chip-count" title={placeEventsTitle}>
+                              {placeEvents.length}
                             </span>
                           )}
                         </li>
