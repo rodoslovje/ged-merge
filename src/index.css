@@ -3523,7 +3523,10 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  z-index: 10;
+  /* Above the map's overlays chip (.map-overlays-wrap, z-index 30), which
+     otherwise pokes through this dropdown where they overlap; still below
+     the modal overlay (z-index 100). */
+  z-index: 40;
 }
 .export-menu-item {
   display: flex;
