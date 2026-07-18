@@ -168,6 +168,7 @@ export const sl = {
   "edit.mapShow": "Pokaži zemljevid",
   "tools.geocode.mapPickHint": "Bucike: predlagani kraji (klik izbere) · sive pike: koordinate, ki jih datoteka že ima · klik kamorkoli nastavi koordinato ročno",
   "tools.geocode.renameAddrTooltip": "Razdeli vrednost: kraj gre v PLAC, ta del postane naslov (ADDR) dogodka (obstoječi naslov se ohrani)",
+  "tools.geocode.renameAddrPlaceholder": "naslov…",
   "tools.geocode.countryMeta": "{{count}} krajev · uvoženo {{date}}",
   "tools.geocode.deleteCountry": "Odstrani imenik te države",
   "tools.geocode.importing": "Uvažanje imenika…",
