@@ -15,7 +15,7 @@ import {
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
-import { buildPlaceSuggestions } from "../edit/placeSuggestions";
+import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useSettings } from "../SettingsContext";
@@ -233,8 +233,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     [dataset, scanGen],
   );
 
-  // Known addresses for the rename editor's address input autocomplete.
+  // Known addresses for the rename editor's address input autocomplete, and
+  // place+address combos for its place input (picking one fills both).
   const addrSug = useMemo(() => [...new Set(placeSug.addrCanonical.values())].sort(), [placeSug]);
+  const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -637,6 +639,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     value={renameDraft}
                     suggestions={placeSug.placeSuggestions}
                     canonical={placeSug.placeCanonical}
+                    combos={placeCombos}
                     isDirty={false}
                     className="tools-place-rename-input"
                     wrapClassName="tools-place-rename-auto"
@@ -645,6 +648,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     onChange={setRenameDraft}
                     onCommit={setRenameDraft}
                     onClear={() => setRenameDraft("")}
+                    onPickCombo={(place, addr) => {
+                      setRenameDraft(place);
+                      setRenameAddrDraft(addr);
+                    }}
                   />
                   <PlaceAutocomplete
                     value={renameAddrDraft}

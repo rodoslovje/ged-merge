@@ -9,7 +9,7 @@ import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
-import { placeKey } from "./placeSuggestions";
+import { placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
@@ -140,15 +140,7 @@ export function EventFieldsRow({
 
   // Known place+address pairs for the place field's combo suggestions —
   // typing an address there fills both fields in one go.
-  const placeCombos = useMemo(() => {
-    const out: { place: string; addr: string }[] = [];
-    for (const [key, addrs] of placeToAddrs) {
-      const place = placeCanonical.get(key);
-      if (!place) continue;
-      for (const addr of addrs) out.push({ place, addr });
-    }
-    return out;
-  }, [placeToAddrs, placeCanonical]);
+  const placeCombos = useMemo(() => placeCombosOf(placeToAddrs, placeCanonical), [placeToAddrs, placeCanonical]);
   const noteField = useField(ev?.note ?? "", noteMergeVal);
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const typeField = useField(ev?.type ?? "", typeMergeVal);

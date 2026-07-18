@@ -82,6 +82,21 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   };
 }
 
+/** Every known place+address pair, flattened for the place autocomplete's
+ * combo suggestions ("place · address" fills both fields in one go). */
+export function placeCombosOf(
+  placeToAddrs: Map<string, string[]>,
+  placeCanonical: Map<string, string>,
+): { place: string; addr: string }[] {
+  const out: { place: string; addr: string }[] = [];
+  for (const [key, addrs] of placeToAddrs) {
+    const place = placeCanonical.get(key);
+    if (!place) continue;
+    for (const addr of addrs) out.push({ place, addr });
+  }
+  return out;
+}
+
 /** Canonical lookup: given raw user input, return the canonical casing form if
  * it matches an existing entry in the map, otherwise return the input trimmed. */
 export function applyCanonical(raw: string, canonical: Map<string, string>): string {
