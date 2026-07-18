@@ -2379,11 +2379,23 @@ button:focus-visible {
  * itself stays a plain, unconstrained string so long labels (e.g.
  * "Naturalization") keep overflowing exactly as before instead of being
  * clipped by a select's fixed-width rendering. */
-.edit-event-label--select { position: relative; padding-right: 11px; cursor: pointer; }
+.edit-event-label--select { position: relative; padding-right: 15px; cursor: pointer; }
 .edit-event-label--select:hover,
 .edit-event-label--select:focus-within { color: var(--text); }
-/* Prominent so the label clearly reads as a clickable dropdown. */
-.edit-event-type-caret { margin-left: 4px; font-size: 1.35em; line-height: 1; opacity: 1; color: var(--accent); }
+/* Prominent so the label clearly reads as a clickable dropdown. Anchored to
+ * the label's right edge and centered on its full height, so a wrapped
+ * two-line name (e.g. "Civil Partnership") gets the caret mid-block rather
+ * than trailing the last line. */
+.edit-event-type-caret {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.35em;
+  line-height: 1;
+  opacity: 1;
+  color: var(--accent);
+}
 .edit-event-type-select {
   position: absolute;
   inset: 0;
