@@ -1849,14 +1849,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           />
           {personMap && (
             <div className="edit-person-map">
-              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
-                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
-              </button>
-              {!mapHidden && (
-                <>
-                  <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap pins={personMap.pins} path={personMap.path} fitKey={person.id} />
-                  </Suspense>
+              <div className="edit-person-map-head">
+                <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
+                  {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+                </button>
+                {!mapHidden && (
                   <div className="edit-person-map-legend">
                     {personMap.kinds.map((k) => (
                       <span key={k} className="edit-map-legend-item">
@@ -1871,7 +1868,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                       </span>
                     )}
                   </div>
-                </>
+                )}
+              </div>
+              {!mapHidden && (
+                <Suspense fallback={<div className="tools-geo-minimap" />}>
+                  <MiniPlaceMap pins={personMap.pins} path={personMap.path} fitKey={person.id} />
+                </Suspense>
               )}
             </div>
           )}

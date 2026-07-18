@@ -277,9 +277,17 @@ export function GeocodePlaceRow({
               setRenameAddrDraft(addr);
             }}
           />
-          {renameAddrDraft && (
-            <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
-              {t("event.colAddr")}: {renameAddrDraft}
+          <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+            {t("event.colAddr")}:
+            <input
+              type="text"
+              className="tools-geo-addr-chip-input"
+              value={renameAddrDraft}
+              size={Math.max(8, renameAddrDraft.length + 1)}
+              placeholder={t("tools.geocode.renameAddrPlaceholder")}
+              onChange={(e) => setRenameAddrDraft(e.target.value)}
+            />
+            {renameAddrDraft && (
               <button
                 className="tools-geo-addr-chip-clear"
                 onClick={() => setRenameAddrDraft("")}
@@ -287,8 +295,8 @@ export function GeocodePlaceRow({
               >
                 ×
               </button>
-            </span>
-          )}
+            )}
+          </span>
           <button
             className="nav-btn primary tools-place-rename-apply"
             onClick={applyRename}

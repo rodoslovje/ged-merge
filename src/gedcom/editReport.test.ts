@@ -133,3 +133,57 @@ describe("enrichEditReport — event diffing", () => {
     expect(resi.every((c) => !c.segments)).toBe(true);
   });
 });
+
+describe("enrichEditReport — event tags outside the canonical lists", () => {
+  const famReport = (id: string): ChangeReport => ({
+    ...baseReport(id),
+    recordKinds: { [id]: "family" },
+  });
+
+  it("shows a geocode write on a CHRA (adult christening) not in the tag list", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 CHRA\n2 DATE 1920\n2 PLAC Kranj\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 CHRA\n2 DATE 1920\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2389\n4 LONG E14.3556\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const chra = report.changes.filter((c) => c.group === "event.CHRA");
+    expect(chra).toHaveLength(1);
+    expect(chra[0].segments).toContainEqual({ text: "46.2389, 14.3556", state: "changed" });
+  });
+
+  it("shows a place rename on a family MARB (banns) event", () => {
+    const before = dataset(
+      wrap("0 @F1@ FAM\n1 HUSB @I1@\n1 MARB\n2 DATE 1900\n2 PLAC Krupa 7,Semič,\n0 @I1@ INDI\n1 NAME Janez /Novak/\n1 FAMS @F1@\n"),
+    );
+    const after = dataset(
+      wrap("0 @F1@ FAM\n1 HUSB @I1@\n1 MARB\n2 DATE 1900\n2 PLAC Krupa,Semič,Slovenia\n0 @I1@ INDI\n1 NAME Janez /Novak/\n1 FAMS @F1@\n"),
+    );
+    const snapshots = new Map([["@F1@", before.families.get("@F1@")!.raw]]);
+    const report = enrichEditReport(famReport("@F1@"), after, new Map(), snapshots, tr);
+
+    const marb = report.changes.filter((c) => c.group === "event.MARB");
+    expect(marb).toHaveLength(1);
+    expect(marb[0].segments).toContainEqual({ text: "Krupa,Semič,Slovenia", state: "changed" });
+  });
+
+  it("shows a date change on a vendor event tag with event substructure", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _KRST\n2 DATE 1901\n2 PLAC Kranj\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _KRST\n2 DATE 1902\n2 PLAC Kranj\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const ev = report.changes.filter((c) => c.group === "event._KRST");
+    expect(ev).toHaveLength(1);
+  });
+
+  it("does not diff structureless value tags (_UID) as events", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _UID AAAA\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _UID BBBB\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.filter((c) => c.group === "event._UID")).toHaveLength(0);
+  });
+});

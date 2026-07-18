@@ -230,16 +230,18 @@
 
             <h3>Nastavitve</h3>
             <p>
-              Meni <span class="gm-glyph">⚙</span> <strong>Nastavitve</strong> ima dva zavihka. <strong>Splošno</strong>
-              zajema vsakodnevne izbire; <strong>Napredno</strong> vsebuje edino možnost, ki seže v omrežje. Vsaka izbira
-              se zapomni v tem brskalniku.
+              Meni <span class="gm-glyph">⚙</span> <strong>Nastavitve</strong> ima tri zavihke. <strong>Splošno</strong>
+              zajema vsakodnevne izbire; <strong>GEDCOM</strong> omogoča, da ročno določite pravila datoteke, ki jih GED
+              Merge sicer zazna samodejno; <strong>Napredno</strong> vsebuje edino možnost, ki seže v omrežje. Vsaka
+              izbira se zapomni v tem brskalniku.
             </p>
             <ul>
               <li><strong>Videz</strong> — <em>Tema</em> (Samodejno, Svetlo ali Temno; Samodejno sledi operacijskemu sistemu) in <em>Jezik</em> (angleščina ali slovenščina).</li>
               <li><strong>Imena</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK) in <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač). To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
               <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji.</li>
               <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
-              <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. <strong>To je edina funkcija, ki karkoli pošlje z vaše naprave, in je privzeto izklopljena.</strong></li>
+              <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam: obliko datumov, neznane dele datuma, obliko krajev, dodatna imena, oznako za neznano ime, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, oznako zasebnosti ter jezike povezav Matricula/Geneanet. Vsako privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#tools">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§7</a> in <a href="#sources">§13</a>.</li>
+              <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenos imenika z OpenStreetMap z enim klikom, ki ga uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To je edina funkcija, ki karkoli pošlje z vaše naprave, in je privzeto izklopljena.</strong></li>
             </ul>
 
             <h3>Ohranjanje dela in delo brez povezave</h3>
@@ -349,6 +351,19 @@
               vaše datoteke. Orodje <a href="#tools">Poenoti</a> isto idejo uporabi <em>znotraj</em> ene datoteke in
               odstopanja uskladi s prevladujočim slogom datoteke.
             </p>
+            <p>
+              GED Merge uskladi tudi <strong>različico GEDCOM</strong> obeh datotek. Če vhodna datoteka uporablja drugo
+              različico kot vaša glavna (5.5.1 proti 7.0), se ob nalaganju pretvori v vašo različico: skupne opombe
+              (<code>NOTE</code> ⇄ <code>SNOTE</code>), datumske fraze in dvojna letna števila, starostne ključne besede,
+              vloge povezav, starejši identifikatorji (<code>AFN</code>/<code>RFN</code> ⇄ <code>EXID</code>),
+              transliterirana imena in vrste medijev se prepišejo v ciljno specifikacijo, tako da združeni zapisi ostanejo
+              veljavni. Povzetek nalaganja navede, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.
+            </p>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Namig</span>
+              <p>Vsako od teh pravil lahko ročno določite v <strong>Nastavitve › GEDCOM</strong> (<a href="#workspace">§2</a>),
+              če želite ciljni slog raje izbrati sami, kot da ga GED Merge zazna.</p>
+            </div>
           </section>
 
           <section id="data-model">
@@ -405,13 +420,13 @@
                 <span class="gm-glyph">✎</span> ob enem koncu zamenjate to osebo, s klikom na vozlišče ga postavite v
                 središče ali ga odprete v <span class="gm-pill">Urejanju</span>.</li>
               <li><strong>Zemljevid</strong> — vsi dogodki veje, katerih kraj nosi koordinate, združeni v skupine na
-                pravem zemljevidu; glejte <a href="#map">spodaj</a>.</li>
+                pravem zemljevidu, z izbirnimi zgodovinskimi sloji in življenjskimi potmi; glejte <a href="#map">spodaj</a>.</li>
               <li><strong>Poročilo</strong> — besedilno poročilo, seznam prednikov ali potomcev; glejte
                 <a href="#reports">spodaj</a>.</li>
             </ul>
             <p>
-              Rodovniški slogi, Poročilo in Zemljevid imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka izbira pokaže
-              trenutno število). Gumb <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
+              Rodovniški slogi, Zemljevid in Poročilo imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka
+              izbira pokaže trenutno število). Gumb <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
               nastavitvami, ki se prilagodijo odprti vrsti; vse izbire se ohranijo med sejami:
             </p>
             <ul>
@@ -428,6 +443,10 @@
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte Poročila spodaj).</li>
+              <li><strong>Zemljevid</strong> (samo Zemljevid) — katere vrste dogodkov se pojavijo kot oznake, <em>razpon
+                let</em> (z drsnikom z dvema ročicama) in ali so prikazani <em>nedatirani</em> dogodki; <strong>Poti</strong>
+                nariše življenjsko pot vsake osebe kot črto — glejte <a href="#map">spodaj</a>. Ulična podlaga je izbirna
+                v <strong>Nastavitve › Napredno</strong>.</li>
               <li><strong>Dejstva</strong> (samo Poročilo) — glejte <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
                 in prikaže le njihovo sorodstvo ali „Živ/a“ (glejte <a href="#privacy">§19</a>), tako da je diagram
@@ -547,8 +566,20 @@
               Vsaka vrstica dogodka nosi <strong>datum</strong>, <strong>kraj</strong> in <strong>naslov</strong>;
               razširite jo za dodajanje opombe, ustanove, vrste, vzroka in <strong>virov</strong>. Z
               <span class="gm-glyph">×</span> počistite posamezno polje. Za spremembo vrste dogodka ali odstranitev
-              celega dogodka uporabite spustni meni na njegovi oznaki vrste dogodka.
+              celega dogodka uporabite spustni meni na njegovi oznaki vrste dogodka. <strong>Dogodek po meri</strong>
+              (GEDCOM <code>EVEN</code>/<code>FACT</code>, npr. „Civilno partnerstvo“) se prikaže pod svojim lastnim
+              <strong>naslovom</strong> — urejate ga v vedno vidnem polju v vrstici dogodka — namesto splošne oznake, na
+              voljo pa je iz menija <strong>+ Dodaj dogodek</strong> tako pri osebi kot pri družini.
             </div>
+            <h3>Zemljevid krajev</h3>
+            <p>
+              Kadar dogodki osebe (njeni in njenih družin) nosijo koordinate, se pod dogodki prikaže majhen
+              <strong>zemljevid</strong>: vsak geokodiran dogodek je barvno označena bucika (ob prehodu z miško se pokažeta
+              dogodek in leto), bucike pa so kronološko povezane z <strong>življenjsko potjo</strong> osebe s puščicami
+              smeri. Preklop ga skrije ali pokaže, strnjena barvna legenda pa pojasni bucike. Koordinate izhajajo iz
+              datoteke ali iz <a href="#tools">Geokodiranja krajev</a> (§11); velja ista izbira uličnih ploščic / orisa
+              brez povezave kot pri <a href="#map">Zemljevidu krajev</a>.
+            </p>
             <h3>Družinska razmerja</h3>
             <div>
               Plošča prikazuje tri družinske razdelke:
@@ -570,11 +601,15 @@
             <p>
               <strong>Odklop</strong> (ikona <span class="gm-glyph">−</span>) odstrani le družinsko vez — oba zapisa oseb
               ostaneta in ju je mogoče pozneje znova povezati. <strong>Izbriši osebo</strong> (ikona
-              <span class="gm-glyph danger">🗑</span> na dnu plošče) osebo trajno odstrani in jo odklopi povsod.
+              <span class="gm-glyph danger">🗑</span> na dnu plošče) osebo odstrani in jo odklopi povsod. Najprej zahteva
+              potrditev, a se — kot vsako urejanje — pridruži zgodovini razveljavitev:
+              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> osebo vrne na njeno prvotno mesto, vse do
+              prenosa datoteke.
             </p>
-            <div class="gm-callout warn">
-              <span class="gm-callout-label">Ni mogoče razveljaviti</span>
-              <p>Brisanje osebe je trajno in zahteva potrditev. Če ste v dvomih, najprej prenesite varnostno kopijo.</p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Opomba</span>
+              <p>Razveljavitev prekliče brisanje le, dokler še delate. Ko datoteko prenesete in ta postane vaše novo
+              izhodišče, je odstranitev dokončna — zato pred večjim čiščenjem obdržite varnostno kopijo.</p>
             </div>
             <h3>Shranjevanje</h3>
             <p>
@@ -740,39 +775,61 @@
               zapise, ki opisujejo isti medij, vir ali repozitorij pod različnimi oznakami — izberite skupine za strnitev
               in prenesite datoteko brez dvojnikov z vsemi navedbami preusmerjenimi.
             </p>
+            <h3>Uredi vire</h3>
+            <p>
+              <strong>Uredi vire</strong> zbere arhivske povezave, raztresene po datoteki — naslove URL z Matricula
+              Online, Geneanet, Find a Grave, BillionGraves, FamilySearch, SIstory.si, dLib.si ter časopisnih in
+              knjižničnih strani v poljih povezav, opombah ali navedbah v vrstici — in jih spremeni v prave
+              <strong>zapise virov z navedbami strani</strong>, razvrščene po knjigi, grobu ali zapisu, pri čemer znova
+              uporabi vire in repozitorije, ki jih datoteka že ima. Prepozna vse več strani: že iz samega naslova URL
+              izpelje berljiv naslov, arhivsko številko in kraj, <strong>Pridobi podrobnosti vira</strong> pa lahko vsak
+              obogati z resničnimi podatki registra/groba/zapisa prek javnih posrednikov (privzeta izbira spletnega
+              iskanja). Navedbe pristanejo na ustreznem dogodku (ustvarjenem, če manjka), kakovost <strong>QUAY</strong>
+              lahko nastavite globalno s prepisi po vrstici, grobovi pa izpolnijo kraj pokopa in naslov pokopališča.
+            </p>
+            <p>
+              Vsaka predlagana skupina je pred prenosom pregledljiva: vir uredite ročno z <span class="gm-glyph">✎</span>
+              v vrstici (naslov, avtor, arhiv, kraj, arhivsko številko, razpon let — ročno urejene vire nato Pridobi
+              podrobnosti vira preskoči), ali skupino označite <strong>Odstrani sklice</strong>
+              (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
+              brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
+              <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, prenos pa deli z
+              <strong>iskalnikom dvojnikov</strong> virov — eno shranjevanje uveljavi oboje. Zasebne osebe, opombe in
+              mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§19</a>).
+            </p>
             <h3>Kraji</h3>
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hiša → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za seznam zapisov, ki ga uporabljajo, ali z <strong>Preimenuj</strong> na kateri koli ravni hkrati
               preimenujte ali združite del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
             </p>
-            <h3 id="geocode">Geokodiraj kraje</h3>
+            <h3 id="geocode">Geokodiranje krajev</h3>
             <p>
-              Značka <strong>Geokodiraj kraje</strong> (s številom krajev, ki še nimajo koordinat) odpre pregledni
-              seznam, ki imena krajev spremeni v koordinate — podatke, ki jih izrisuje diagram
-              <a href="#map">Zemljevid</a>. Nič se ne zapiše brez vašega pregleda: potrjene vrstice se uveljavijo v enem
-              razveljavljivem koraku, kot standardna struktura <code>MAP</code> · <code>LATI</code>/<code>LONG</code>
-              pod vsakim ujemajočim se <code>PLAC</code>.
+              <strong>Geokodiranje krajev</strong> primerja imena krajev iz vaše datoteke z geografskim imenikom brez
+              povezave in koordinate, ki jih sprejmete, zapiše v GEDCOM kot standardni <code>MAP</code>
+              <code>LATI</code>/<code>LONG</code> — iste koordinate nato izrišeta <a href="#map">Zemljevid krajev</a> in
+              zemljevid osebe v Urejanju. Vsak zapis pregledate vi in ga je mogoče razveljaviti.
             </p>
-            <ul>
-              <li><strong>Krajevni imenik</strong> — ujemanje teče prek imenika krajev, shranjenega v brskalniku brez
-                povezave: državo prenesete neposredno (OpenStreetMap, za spletno privolitvijo) ali uvozite datoteko
-                GeoNames za državo. Imenik preživi vnovična nalaganja in čiščenje predpomnilnika.</li>
-              <li><strong>Predlogi</strong> — vsaka vrstica je en različen zapis kraja. Najmočnejši predlog je
-                koordinata, ki jo druge pojavitve <em>istega zapisa</em> v vaši datoteki že nosijo (<em>iz te
-                datoteke</em>); sicer kandidati iz imenika z oceno ujemanja. Zanesljive vrstice lahko izberete v paketu;
-                pri ostalih izbirate po vrsticah — med kandidati, zapomnjeno odločitvijo iz prejšnje seje, ročno
-                vnesenimi koordinatami ali s klikom naravnost na mali zemljevid vrstice (blede pike kažejo, kje že
-                ležijo znani kraji vaše datoteke).</li>
-              <li><strong>Iskanje na spletu</strong> — za spletno privolitvijo iskanje OpenStreetMap (Nominatim) po
-                vrsticah razreši, česar imenik brez povezave ne zna — predvsem ulične naslove. Zadetki se pridružijo
-                možnostim vrstice in bucikam na malem zemljevidu.</li>
-              <li><strong>Najprej popravite zapis</strong> — gumb <span class="gm-glyph">✎</span> preimenuje surovo
-                vrednost povsod (s samodokončanjem iz vaših krajev) in jo zna hkrati razdeliti na kraj + naslov;
-                popravljeni zapis takoj dobi sveže predloge.</li>
-              <li><strong>Ni ujemanja</strong> — označi vrednost kot nerešljivo; zapomni se samo v brskalniku, v
-                datoteko se ne zapiše nikoli.</li>
-            </ul>
+            <p>
+              Imenik naložite bodisi z enim klikom z <strong>OpenStreetMap</strong> (koda države + Prenesi, potrebuje
+              privzeto izbiro spletnega iskanja v <a href="#workspace">Nastavitve › Napredno</a>) bodisi z uvozom
+              datoteke države <strong>GeoNames</strong> (<em>.zip</em> ali <em>.txt</em>) — naloženi imeniki so našteti
+              pod svojim naslovom, podatki pa ostanejo v vašem brskalniku. Predlogi so razvrščeni: najprej koordinate, ki
+              jih druge navedbe istega kraja že nosijo, nato natančna in zgodovinsko-imenska ujemanja
+              (<em>Laibach → Ljubljana</em>), nato približna. <strong>Izberi zanesljive</strong> paketno izbere le
+              nedvoumna ujemanja.
+            </p>
+            <p>
+              Vsako vrstico lahko razširite v majhen <strong>zemljevid</strong> — predlagani kraji kot bucike, na katere
+              lahko kliknete, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
+              tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko.
+              Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako „ni ujemanja“, ter gumb
+              <span class="gm-glyph">✎</span> za <strong>preimenovanje</strong> surove vrednosti kraja (vseh navedb hkrati,
+              z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Kar imenik brez
+              povezave ne razreši — predvsem ulične naslove — po vrsticah poišče <strong>Iskanje na spletu</strong> prek
+              OpenStreetMap (Nominatim), za isto spletno privolitvijo; zadetki se pridružijo kandidatom in bucikam na
+              zemljevidu. Sprejeta ujemanja se predpomnijo, tako da se druge datoteke razrešijo v hipu.
+            </p>
           </section>
 
           <!-- ═══════════════ IV. DEL — PREČNE FUNKCIJE ═══════════════ -->
@@ -848,9 +905,17 @@
               arhivska številka, stran, URL in opomba.
             </p>
             <p>
+              Dodaj vir <strong>prepozna arhivske povezave</strong> tako kot <a href="#tools">Uredi vire</a>: prilepite
+              URL s podprte strani (Matricula, Geneanet, Find a Grave, FamilySearch, časopisni in knjižnični arhivi in
+              druge) in vnaprej izpolni naslov, avtorja, kraj, arhiv, arhivsko številko in stran, spletno iskanje pa
+              pridobi resnične podatke knjige/groba/zapisa. Ustvarjeni vir prevzame obliko krajev, razpon let in
+              repozitorij vaše datoteke. Kakšno postavitev zapiše — kam pridejo navedbe, slike strani in krstni viri —
+              sledi vašim prepisom v <a href="#workspace">Nastavitve › GEDCOM</a> (§2).
+            </p>
+            <p>
               Obstoječe navedbe lahko znova odprete in uredite na enak način. Za pregled in urejanje virov po celotni
-              datoteki — vključno z dvojniki — uporabite <span class="gm-pill">Orodja</span> › <strong>Viri</strong>
-              (<a href="#tools">§11</a>).
+              datoteki — vključno z dvojniki — uporabite <span class="gm-pill">Orodja</span> › <strong>Viri</strong>, za
+              paketno pretvorbo raztresenih povezav v prave navedbe pa <strong>Uredi vire</strong> (<a href="#tools">§11</a>).
             </p>
           </section>
 
@@ -867,7 +932,9 @@
               združiti. Vsak vnos nosi oznako: <span class="gm-badge b">Nov</span>,
               <span class="gm-badge i">Dohodni</span>, <span class="gm-badge c">Spremenjen</span> ali
               <span class="gm-badge r">Odstranjen</span>. Z <strong>Odstrani iz shranjevanja</strong> pred prenosom
-              opustite posamezno spremembo.
+              opustite posamezno spremembo. Predogled zajema <strong>vsak</strong> dogodek, ne glede na oznako — pokažejo
+              se tudi spremembe dogodkov zunaj običajnega seznama (krst odraslega, LDS krst, oklici, dogodki posameznih
+              programov) — zapisane <strong>koordinate</strong> kraja pa se prikažejo kot spremenjeno polje dogodka.
             </p>
             <p>
               <strong>Prenesi GEDCOM</strong> zapiše dve datoteki: novo <em>.ged</em> in besedilno
@@ -895,7 +962,10 @@
                 <tr><td><span class="gm-glyph">×</span></td><td>Počisti polje, odstrani opombo ali povezavo ali zapri okno</td></tr>
                 <tr><td><span class="gm-glyph">−</span></td><td>Odklopi družinsko vlogo (starš, partner, otrok) brez brisanja zapisa</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Odpri pripeto povezavo v novem zavihku</td></tr>
-                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Trajno izbriši osebo (ni mogoče razveljaviti)</td></tr>
+                <tr><td><span class="gm-glyph">✎</span></td><td>Uredi — zamenjaj konec sorodstvene poti, uredi vir ali preimenuj vrednost kraja</td></tr>
+                <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte §19)</td></tr>
+                <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo (razveljavljivo s Ctrl+Z do prenosa) ali označi povezave za odstranitev</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
               </tbody>
             </table>
@@ -973,7 +1043,7 @@
             <table class="gm-table">
               <thead><tr><th>Tipke</th><th>Dejanje</th></tr></thead>
               <tbody>
-                <tr><td><span class="gm-key">1</span> … <span class="gm-key">7</span></td><td>Preklopi vrsto diagrama (drevo … poročilo)</td></tr>
+                <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Preklopi vrsto diagrama (drevo … poročilo)</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Predniki / potomci</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Povečaj / pomanjšaj</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Ponastavi povečavo na 100 %</td></tr>
@@ -993,6 +1063,13 @@
               <li><strong>Zapuščina</strong> — Oporoka, Zapuščinska obravnava</li>
               <li><strong>Smrt</strong> — Smrt, Pokop, Upepelitev</li>
             </ul>
+            <p>
+              Poleg teh lahko osebi ali družini dodate <strong>dogodek po meri</strong> (GEDCOM
+              <code>EVEN</code>/<code>FACT</code>, npr. „Civilno partnerstvo“) z lastnim uredljivim <strong>naslovom</strong>;
+              GED Merge prikaže tudi mnoge lastnosti in dejstva iz drugih programov — referenčne številke, naziv, vero,
+              narodnost, telesni opis in dogodke posameznih programov — kot uredljive, združljive vrstice (glejte
+              <a href="#saving">§14</a>).
+            </p>
           </section>
 
           <section id="glossary">
@@ -1019,6 +1096,26 @@
               vključno z mapo z mediji, ki se bere le na napravi. Vaše rodoslovno drevo se nikoli ne
               pošlje na strežnik. Celoten <a href="../?legal=privacy">pravilnik o zasebnosti</a> in
               <a href="../?legal=terms">pogoji</a> so povezani tudi v nogi spodaj.
+            </p>
+            <h3>Označevanje zasebnih zapisov</h3>
+            <p>
+              GED Merge razume <strong>oznake zasebnosti</strong>, ki jih zapisujejo drugi programi — MacFamilyTree
+              <code>PRIV</code>, MyHeritage <code>_PRIV Y</code> in standardni <code>RESN privacy</code> /
+              <code>confidential</code>. Osebe, družine, opombe in mediji prikažejo v <span class="gm-pill">Urejanju</span>
+              stikalo <span class="gm-glyph">🔒</span>, ki oznako nastavi ali počisti (zapisano v narečju vaše datoteke;
+              oznake vhodne datoteke se ob nalaganju pretvorijo v to narečje, kot datumi in kraji). Zasebni vnosi se
+              upoštevajo povsod: URL zasebne opombe se nikoli ne pojavi kot žeton povezave, <a href="#tools">Uredi
+              vire</a> in Dodaj vir pa URL-ja zasebne osebe, opombe ali medija nikoli ne spremenita v navedbo. V
+              primerjavi pri združevanju vrstica <em>Zasebno</em> pokaže oznako, ki se prenese v združeni zapis.
+            </p>
+            <h3>Deljenje brez živih oseb</h3>
+            <p>
+              Za deljenje drevesa ali diagrama dve funkciji skrijeta osebe, ki naj ostanejo zasebne. Diagrami in poročila
+              imajo možnost <strong>Skrij žive osebe</strong> (<a href="#edit">§9</a>), ki prikrije vse, za katere se
+              sklepa, da so žive — in vse izrecno označene kot zasebne — ter pokaže le njihovo sorodstvo ali „Živ/a“. Za
+              celotno datoteko <span class="gm-pill">Orodja</span> › <strong>Zasebnost</strong> (<a href="#tools">§11</a>)
+              izdela prikrito kopijo: sklepa, kdo je verjetno živ, označi tudi izrecno zasebne osebe ter omogoča, da jih
+              pred prenosom prečistite, preimenujete ali odstranite in odstranite identifikatorje na ravni datoteke.
             </p>
           </section>
         </article>
