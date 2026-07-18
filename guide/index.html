@@ -586,12 +586,15 @@
             <p>
               <strong>Detach</strong> (the <span class="gm-glyph">−</span> glyph) only removes a family connection — both
               individual records survive and can be re-linked later. <strong>Delete Person</strong> (the
-              <span class="gm-glyph danger">🗑</span> at the foot of the panel) permanently removes the individual and
-              unlinks them everywhere.
+              <span class="gm-glyph danger">🗑</span> at the foot of the panel) removes the individual and unlinks them
+              everywhere. It asks for confirmation first, but — like every edit — it joins the undo history:
+              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> brings the person back at their original
+              position, right up until you download.
             </p>
-            <div class="gm-callout warn">
-              <span class="gm-callout-label">Cannot be undone</span>
-              <p>Deleting a person is permanent and asks for confirmation. If in doubt, download a backup copy first.</p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Note</span>
+              <p>Undo reverses a deletion only while you're still working. Once you download and that file becomes your
+              new baseline, the removal is baked in — so keep a backup before a large clean-up.</p>
             </div>
             <h3>Saving</h3>
             <p>
@@ -940,7 +943,7 @@
                 <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see §19)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
-                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person permanently (cannot be undone), or mark links for removal</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person (undoable with Ctrl+Z until you download), or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
