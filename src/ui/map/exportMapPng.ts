@@ -25,10 +25,18 @@ import {
 
 // PNG snapshot of the current map view. The existing SVG export pipeline
 // can't serialize raster tiles, so the map composes its own canvas: the
-// loaded tile images (drawable because the tile layer requests them with
-// crossOrigin) — or the offline outline polygons — then the cluster circles
-// re-drawn from data (the live markers are DOM DivIcons), then the
+// loaded tile images (drawable because the tile layers request them with
+// crossOrigin) — base first (or the offline outline polygons), then the
+// active historical overlays at their picker opacity — then the cluster
+// circles re-drawn from data (the live markers are DOM DivIcons), then the
 // attribution line the provider terms require.
+
+/** The tile layers to compose, in paint order. `base` null = the offline
+ *  outline; each overlay is one layer's container with its live opacity. */
+export interface ExportTiles {
+  base: HTMLElement | null;
+  overlays: { el: HTMLElement; opacity: number }[];
+}
 
 type Ring = [number, number][];
 
@@ -84,6 +92,7 @@ function outlineRings(): Ring[] {
 export function exportMapPng(
   map: L.Map,
   container: HTMLElement,
+  tiles: ExportTiles,
   clusters: MapCluster[],
   paths: PersonPath[],
   selectedPathId: string | null,
@@ -129,9 +138,9 @@ export function exportMapPng(
   ctx.rect(0, 0, rect.width, rect.height);
   ctx.clip();
 
-  const tiles = container.querySelectorAll<HTMLImageElement>("img.leaflet-tile-loaded");
-  if (tiles.length) {
-    for (const img of tiles) {
+  const drawTileImages = (root: HTMLElement, opacity: number) => {
+    ctx.globalAlpha = opacity;
+    for (const img of root.querySelectorAll<HTMLImageElement>("img.leaflet-tile-loaded")) {
       const r = img.getBoundingClientRect();
       try {
         ctx.drawImage(img, r.left - rect.left, r.top - rect.top, r.width, r.height);
@@ -140,6 +149,10 @@ export function exportMapPng(
         // rather than abort; the marker layer still carries the information.
       }
     }
+    ctx.globalAlpha = 1;
+  };
+  if (tiles.base) {
+    drawTileImages(tiles.base, 1);
   } else {
     // Offline outline fallback: draw the land polygons through the live map
     // projection so the export matches the screen exactly.
@@ -158,6 +171,8 @@ export function exportMapPng(
       ctx.stroke();
     }
   }
+  // Historical overlays above the base, at their live picker opacity.
+  for (const overlay of tiles.overlays) drawTileImages(overlay.el, overlay.opacity);
 
   // Life paths under the markers, drawn with the same style rules as the
   // live canvas layer (weights, dimming, direction-chevron budget).

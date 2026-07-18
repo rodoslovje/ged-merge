@@ -64,6 +64,22 @@ const PANEL_MAX_ROWS = 150;
 /** At most this many life paths drawn at once (a selected one always is). */
 const PATHS_MAX = 300;
 
+/** Historical overlays start at this opacity; the picker's slider adjusts. */
+const OVERLAY_DEFAULT_OPACITY = 0.7;
+
+/** Leaflet z-index for overlay tile layers — above the base (1). */
+const OVERLAY_Z = 5;
+
+/** Stacked-layers glyph for the historical-overlays picker chip. */
+function LayersIcon() {
+  return (
+    <svg className="map-layers-icon" viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
+      <path d="M8 1 L15 4.5 L8 8 L1 4.5 Z" />
+      <path d="M2.8 7.4 L1 8.3 L8 11.8 L15 8.3 L13.2 7.4 L8 10 Z" />
+    </svg>
+  );
+}
+
 /** The life-path squiggle-with-arrow, used by the toggle chip and the panel. */
 function PathIcon() {
   return (
@@ -105,6 +121,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const [showPaths, setShowPaths] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [panel, setPanel] = useState<MapCluster | null>(null);
+  // Historical overlay layers (configured in Settings → Advanced): which are
+  // shown and how opaque — session state; the layer definitions persist.
+  const overlays = appSettings.mapOverlays;
+  const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(new Set());
+  const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
+  const [overlaysOpen, setOverlaysOpen] = useState(false);
   // Bumped on every pan/zoom so the marker pass re-runs against the new view.
   const [viewGen, setViewGen] = useState(0);
 
@@ -166,6 +188,11 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
+  /** Live overlay tile layers with the definition they were built from —
+   *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
+  const overlayLayersRef = useRef<Map<string, { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string }>>(
+    new Map(),
+  );
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   const pathRendererRef = useRef<L.Renderer | null>(null);
@@ -192,11 +219,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     const bump = () => setViewGen((g) => g + 1);
     map.on("moveend zoomend", bump);
     mapRef.current = map;
+    const overlayLayers = overlayLayersRef.current;
     return () => {
       map.off("moveend zoomend", bump);
       map.remove();
       mapRef.current = null;
       baseLayerRef.current = null;
+      overlayLayers.clear();
       markersRef.current = null;
       pathsRef.current = null;
       pathRendererRef.current = null;
@@ -210,6 +239,71 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     baseLayerRef.current?.remove();
     baseLayerRef.current = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+
+  // Historical overlays: keep the live tile layers in sync with the picker.
+  // Overlay tiles are remote fetches like the base — the same opt-in gates
+  // them (until then the picker isn't rendered either).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const live = overlayLayersRef.current;
+    for (const [id, entry] of [...live]) {
+      const o = overlays.find((ov) => ov.id === id);
+      const stale =
+        !appSettings.allowMapTiles ||
+        !o ||
+        !overlayOn.has(id) ||
+        o.url !== entry.url ||
+        o.maxZoom !== entry.maxZoom ||
+        o.attribution !== entry.attribution;
+      if (stale) {
+        entry.layer.remove();
+        live.delete(id);
+      }
+    }
+    if (!appSettings.allowMapTiles) return;
+    for (const o of overlays) {
+      if (!overlayOn.has(o.id) || !o.url) continue;
+      const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
+      const entry = live.get(o.id);
+      if (entry) {
+        entry.layer.setOpacity(opacity);
+        continue;
+      }
+      const layer = L.tileLayer(o.url, {
+        opacity,
+        attribution: o.attribution ?? "",
+        crossOrigin: "anonymous",
+        maxZoom: 18,
+        // Sources that stop at a lower zoom get their deepest tiles scaled.
+        maxNativeZoom: o.maxZoom ?? 18,
+        zIndex: OVERLAY_Z,
+      }).addTo(map);
+      live.set(o.id, { layer, url: o.url, maxZoom: o.maxZoom, attribution: o.attribution });
+    }
+  }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // Era suggestion: overlays whose validity period intersects the selected
+  // year window (layers with no period at all are never highlighted).
+  const suggestedOverlays = useMemo(() => {
+    const ids = new Set<string>();
+    const winFrom = yearFrom ? Number(yearFrom) : range?.min;
+    const winTo = yearTo ? Number(yearTo) : range?.max;
+    if (winFrom === undefined || winTo === undefined) return ids;
+    for (const o of overlays) {
+      if (o.yearFrom === undefined && o.yearTo === undefined) continue;
+      if ((o.yearFrom ?? -Infinity) <= winTo && (o.yearTo ?? Infinity) >= winFrom) ids.add(o.id);
+    }
+    return ids;
+  }, [overlays, yearFrom, yearTo, range]);
+
+  const toggleOverlay = (id: string) =>
+    setOverlayOn((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Zoom to the data when it first shows up — and again after the branch
   // changes (new root or A/D flip), which can move the whole point cloud.
@@ -413,15 +507,33 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               onSelect: () => {
                 const map = mapRef.current;
                 const el = containerRef.current;
-                const attribution = appSettings.allowMapTiles
+                const base = baseLayerRef.current;
+                // Compose per layer (base, then overlays) so stacking and
+                // opacity match the screen even after a base-layer rebuild.
+                const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
+                const overlayTiles = overlays
+                  .filter((o) => overlayOn.has(o.id))
+                  .flatMap((o) => {
+                    const entry = overlayLayersRef.current.get(o.id);
+                    const layerEl = entry?.layer.getContainer();
+                    return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
+                  });
+                const baseAttribution = appSettings.allowMapTiles
                   ? appSettings.mapTileUrl
                     ? ""
                     : "© OpenStreetMap contributors © CARTO"
                   : "Natural Earth";
+                const attribution = [
+                  baseAttribution,
+                  ...overlays.filter((o) => overlayOn.has(o.id) && o.attribution).map((o) => o.attribution!),
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 if (map && el)
                   exportMapPng(
                     map,
                     el,
+                    { base: baseEl, overlays: overlayTiles },
                     clustersRef.current,
                     showPaths ? shownPaths : [],
                     selectedPath,
@@ -526,6 +638,62 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           <PathIcon />
           {t("map.paths")}
         </button>
+        {appSettings.allowMapTiles && overlays.length > 0 && (
+          <span className="map-overlays-wrap">
+            <button
+              type="button"
+              className={`map-kind-chip map-overlays-chip${overlayOn.size ? " active" : ""}`}
+              aria-pressed={overlaysOpen}
+              aria-expanded={overlaysOpen}
+              title={t("map.overlays.tooltip")}
+              onClick={() => setOverlaysOpen((v) => !v)}
+            >
+              <LayersIcon />
+              {t("map.overlays")}
+              {overlayOn.size > 0 && <span className="tree-mode-count">{overlayOn.size}</span>}
+            </button>
+            {overlaysOpen && (
+              <div className="map-overlays-panel">
+                {overlays.map((o) => {
+                  const on = overlayOn.has(o.id);
+                  const suggested = suggestedOverlays.has(o.id);
+                  const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
+                  return (
+                    <div
+                      key={o.id}
+                      className={`map-overlay-row${suggested ? " suggested" : ""}`}
+                      title={suggested ? t("map.overlays.suggested") : undefined}
+                    >
+                      <label className="map-overlay-pick">
+                        <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
+                        <span className="map-overlay-name">{o.name || o.url}</span>
+                        {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
+                          <span className="gm-data map-overlay-years">
+                            {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}
+                          </span>
+                        )}
+                      </label>
+                      {on && (
+                        <input
+                          type="range"
+                          className="map-overlay-opacity"
+                          min={10}
+                          max={100}
+                          value={Math.round(opacity * 100)}
+                          aria-label={t("map.overlays.opacity")}
+                          title={t("map.overlays.opacity")}
+                          onChange={(e) =>
+                            setOverlayOpacity((prev) => new Map(prev).set(o.id, Number(e.target.value) / 100))
+                          }
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </span>
+        )}
       </div>
       <div className="tree-canvas-wrap map-canvas-wrap">
         <div ref={containerRef} className="map-canvas" />

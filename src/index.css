@@ -5562,6 +5562,75 @@ kbd {
   background: var(--accent);
 }
 
+/* Historical overlays: the picker chip opens a small dropdown listing the
+   configured layers — checkbox + name + years, an opacity slider when on,
+   and an accent edge on layers whose period matches the year window. The
+   wrap's z-index lifts the dropdown above the map canvas (its own stacking
+   context via isolation). */
+.map-overlays-wrap {
+  position: relative;
+  z-index: 200;
+}
+.map-layers-icon {
+  display: block;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.map-overlays-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  max-width: 340px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-overlay-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 6px;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.map-overlay-row.suggested {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+.map-overlay-pick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  min-width: 0;
+}
+.map-overlay-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.map-overlay-years {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.map-overlay-opacity {
+  width: 100%;
+  margin: 0 0 2px;
+}
+
 /* Life paths: the toggle chip's squiggle icon, the direction chevrons along
    the polylines, and the selected-person chip floating over the map. */
 .map-paths-icon {
@@ -6555,6 +6624,47 @@ kbd {
 .settings-text-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+/* Historical overlay layers editor (Settings → Advanced → Map): a head row
+   with the add button, then one bordered block per layer — name + validity
+   years on the first line, the tile URL and attribution + max zoom under. */
+.settings-overlays-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-overlays-head .nav-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.settings-overlay-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.settings-overlay-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-overlay-row .settings-text-input {
+  min-width: 0;
+  margin-left: 0;
+}
+.settings-overlay-name {
+  flex: 1 1 auto;
+}
+.settings-overlay-year {
+  width: 5.2em;
+  flex: 0 0 auto;
+}
+.settings-overlay-dash {
+  color: var(--muted);
 }
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }

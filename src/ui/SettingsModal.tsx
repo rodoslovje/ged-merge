@@ -1,7 +1,7 @@
 import { useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import { useSettings, useNameOf } from "./SettingsContext";
+import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -430,6 +430,105 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 />
               </label>
             )}
+
+            <div className="settings-row settings-overlays-head">
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.map.overlays")}</span>
+                <span className="settings-hint">{t("settings.map.overlays.hint")}</span>
+              </span>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() =>
+                  set({
+                    mapOverlays: [
+                      ...settings.mapOverlays,
+                      { id: crypto.randomUUID(), name: "", url: "" },
+                    ],
+                  })
+                }
+              >
+                {t("settings.map.overlays.add")}
+              </button>
+            </div>
+            {settings.mapOverlays.map((layer) => {
+              const update = (patch: Partial<MapOverlay>) =>
+                set({
+                  mapOverlays: settings.mapOverlays.map((o) => (o.id === layer.id ? { ...o, ...patch } : o)),
+                });
+              const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
+                const n = Number(raw);
+                return { [key]: raw.trim() && Number.isFinite(n) ? n : undefined };
+              };
+              return (
+                <div key={layer.id} className="settings-overlay-row">
+                  <div className="settings-overlay-line">
+                    <input
+                      type="text"
+                      className="settings-text-input settings-overlay-name"
+                      value={layer.name}
+                      placeholder={t("settings.map.overlays.name")}
+                      onChange={(e) => update({ name: e.target.value })}
+                    />
+                    <input
+                      type="number"
+                      className="settings-overlay-year"
+                      value={layer.yearFrom ?? ""}
+                      placeholder={t("settings.map.overlays.from")}
+                      title={t("settings.map.overlays.years.hint")}
+                      onChange={(e) => update(yearPatch("yearFrom", e.target.value))}
+                    />
+                    <span className="settings-overlay-dash">–</span>
+                    <input
+                      type="number"
+                      className="settings-overlay-year"
+                      value={layer.yearTo ?? ""}
+                      placeholder={t("settings.map.overlays.to")}
+                      title={t("settings.map.overlays.years.hint")}
+                      onChange={(e) => update(yearPatch("yearTo", e.target.value))}
+                    />
+                    <button
+                      type="button"
+                      className="tools-geo-delete"
+                      onClick={() => set({ mapOverlays: settings.mapOverlays.filter((o) => o.id !== layer.id) })}
+                      title={t("settings.map.overlays.remove")}
+                      aria-label={t("settings.map.overlays.remove")}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    className="settings-text-input"
+                    value={layer.url}
+                    placeholder={t("settings.map.overlays.url")}
+                    title={t("settings.map.overlays.url.hint")}
+                    onChange={(e) => update({ url: e.target.value.trim() })}
+                  />
+                  <div className="settings-overlay-line">
+                    <input
+                      type="text"
+                      className="settings-text-input settings-overlay-name"
+                      value={layer.attribution ?? ""}
+                      placeholder={t("settings.map.overlays.attribution")}
+                      title={t("settings.map.overlays.attribution.hint")}
+                      onChange={(e) => update({ attribution: e.target.value || undefined })}
+                    />
+                    <input
+                      type="number"
+                      className="settings-overlay-year"
+                      value={layer.maxZoom ?? ""}
+                      placeholder={t("settings.map.overlays.maxZoom")}
+                      title={t("settings.map.overlays.maxZoom.hint")}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </section>
 
           <section className="settings-section">

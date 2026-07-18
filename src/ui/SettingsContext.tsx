@@ -14,6 +14,24 @@ import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/form
 // the root, a `set(patch)` updater, and a tolerant `load()` so older saved
 // blobs (missing newer keys) fall back to defaults field by field.
 
+/** One user-configured historical map overlay: a tile URL template with a
+ *  validity period. The Map chart offers configured layers in its overlay
+ *  picker and highlights the ones whose years match the selected window. */
+export interface MapOverlay {
+  /** Stable identity (generated on add) — the picker's on/off key. */
+  id: string;
+  name: string;
+  /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders. */
+  url: string;
+  /** Validity period (either end open) — drives the era suggestion. */
+  yearFrom?: number;
+  yearTo?: number;
+  /** Attribution required by the layer's source, shown on map + PNG export. */
+  attribution?: string;
+  /** Highest zoom the source provides; deeper views scale those tiles. */
+  maxZoom?: number;
+}
+
 export interface AppSettings extends NameDisplayOptions {
   /** Show each person's record id (xref) alongside their name. */
   showXref: boolean;
@@ -37,6 +55,8 @@ export interface AppSettings extends NameDisplayOptions {
   /** Custom XYZ tile URL template ({z}/{x}/{y}); empty = the default CARTO
    *  basemap matching the current theme. */
   mapTileUrl: string;
+  /** Historical map overlay layers (bring-your-own tile URLs + presets). */
+  mapOverlays: MapOverlay[];
   /** User overrides for the detected file-format conventions (dates, places,
    *  names, sources, links…). Absent fields mean "Detected" — the tools
    *  follow the file's own habit. See {@link FormatOverrides}. */
@@ -56,6 +76,7 @@ const DEFAULTS: AppSettings = {
   allowMapTiles: false,
   showEditMap: true,
   mapTileUrl: "",
+  mapOverlays: [],
   formatOverrides: {},
   persistWorkspace: false,
 };
@@ -71,6 +92,22 @@ export const SettingsContext = createContext<SettingsCtx>({
   settings: DEFAULTS,
   set: () => {},
 });
+
+/** Keep only well-formed overlay entries from a stored blob. */
+function sanitizeOverlays(v: unknown): MapOverlay[] {
+  if (!Array.isArray(v)) return [];
+  const out: MapOverlay[] = [];
+  for (const o of v as Partial<MapOverlay>[]) {
+    if (!o || typeof o.id !== "string" || typeof o.name !== "string" || typeof o.url !== "string") continue;
+    const layer: MapOverlay = { id: o.id, name: o.name, url: o.url };
+    if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
+    if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;
+    if (typeof o.attribution === "string" && o.attribution) layer.attribution = o.attribution;
+    if (typeof o.maxZoom === "number" && Number.isFinite(o.maxZoom)) layer.maxZoom = o.maxZoom;
+    out.push(layer);
+  }
+  return out;
+}
 
 function load(): AppSettings {
   try {
@@ -91,6 +128,7 @@ function load(): AppSettings {
       // Legacy home of this preference (before it moved into Settings).
       showEditMap: bool(parsed.showEditMap, localStorage.getItem("gedmerge-edit-map-hidden") !== "true"),
       mapTileUrl: typeof parsed.mapTileUrl === "string" ? parsed.mapTileUrl : DEFAULTS.mapTileUrl,
+      mapOverlays: sanitizeOverlays(parsed.mapOverlays),
       formatOverrides: {
         // Legacy key from the first page-media release, folded into overrides.
         ...((parsed as { sourcePageMedia?: string }).sourcePageMedia === "event" ||
