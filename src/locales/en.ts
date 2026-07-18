@@ -163,6 +163,7 @@ export const en = {
   "tools.geocode.noGazetteer": "No gazetteer imported yet — place matching needs one. You can still enter coordinates by hand on any row below.",
   "tools.geocode.loadedCountries": "Imported gazetteers (all are used for matching, stored in this browser):",
   "tools.geocode.renameOpen": "Rename this place — all occurrences of exactly this value in the file",
+  "tools.geocode.showMap": "Show on map",
   "tools.geocode.mapPickHint": "Pins: proposed places (click to pick) · grey dots: coordinates this file already carries · click anywhere to set the coordinate by hand",
   "tools.geocode.renameAddrPlaceholder": "Address (optional)",
   "tools.geocode.renameAddrTooltip": "Split the value: the place goes to PLAC, this part becomes the event's ADDR (an existing address is kept)",

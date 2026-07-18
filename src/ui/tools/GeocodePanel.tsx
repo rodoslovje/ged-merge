@@ -247,6 +247,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
   const [chosen, setChosen] = useState<Map<string, Chosen>>(new Map());
   const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The one row whose mini map is mounted — a Leaflet instance per expanded
+  // row is too heavy under "Expand all", so the map follows the row the user
+  // last opened (other expanded rows offer a "show on map" link to claim it).
+  const [mapKey, setMapKey] = useState<string | null>(null);
   const [manualDraft, setManualDraft] = useState<Map<string, string>>(new Map());
   // Inline rename of one row's raw place value (fix a typo so it matches).
   // The optional address draft splits the value into PLAC + ADDR on apply.
@@ -264,6 +268,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     setNoMatch(new Set(scan.rows.filter((r) => r.cached?.status === "nomatch").map((r) => r.key)));
     setChosen(new Map());
     setExpanded(new Set());
+    setMapKey(null);
   }, [scan]);
 
   const chosenFor = (row: GeocodeRow): Chosen | undefined => {
@@ -471,7 +476,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
             <button className="tools-issue-link" onClick={() => setExpanded(new Set(rows.map((r) => r.key)))}>
               {t("tools.sources.expandAll")}
             </button>
-            <button className="tools-issue-link" onClick={() => setExpanded(new Set())}>
+            <button
+              className="tools-issue-link"
+              onClick={() => {
+                setExpanded(new Set());
+                setMapKey(null);
+              }}
+            >
               {t("tools.sources.collapseAll")}
             </button>
           </div>
@@ -516,13 +527,18 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
           // or map-picked), checked when it is the row's chosen coordinate.
           const draftCoord = parseManualCoord(manualDraft.get(row.key) ?? "");
           const manualChosen = !!c && !!draftCoord && c.coord.lat === draftCoord.lat && c.coord.lon === draftCoord.lon;
-          const toggleOpen = () =>
+          const toggleOpen = () => {
+            const willOpen = !expanded.has(row.key);
             setExpanded((prev) => {
               const next = new Set(prev);
-              if (next.has(row.key)) next.delete(row.key);
-              else next.add(row.key);
+              if (willOpen) next.add(row.key);
+              else next.delete(row.key);
               return next;
             });
+            // The map follows the row being opened; closing it frees the map.
+            if (willOpen) setMapKey(row.key);
+            else if (mapKey === row.key) setMapKey(null);
+          };
           return (
             <li key={row.key} className="tools-tree-node">
               <div className="tools-tree-row">
@@ -671,6 +687,12 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     if (draftCoord && !pins.some((p) => p.coord.lat === draftCoord.lat && p.coord.lon === draftCoord.lon))
                       pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen" });
                     if (!pins.length && !fileCoords.length) return null;
+                    if (mapKey !== row.key)
+                      return (
+                        <button className="tools-issue-link tools-geo-showmap" onClick={() => setMapKey(row.key)}>
+                          {t("tools.geocode.showMap")}
+                        </button>
+                      );
                     return (
                       <Suspense fallback={<div className="tools-geo-minimap" />}>
                         <MiniPlaceMap
