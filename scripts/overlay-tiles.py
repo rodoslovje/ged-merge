@@ -19,8 +19,10 @@ Usage:
       --out public/tiles-local/ljubljana-1880 [--frame auto] [--min-zoom 7]
 
   --bbox W,S,E,N   geographic coordinates of the neatline (map frame) corners
-  --frame          'auto' (default) detects the neatline; or eight numbers
-                   nwx,nwy,nex,ney,sex,sey,swx,swy in scan pixels
+  --frame          'auto' (default) detects the neatline — works on clean,
+                   well-contrasted scans; aged or warped sheets are better
+                   served by measuring the four corners in an image viewer
+                   and passing nwx,nwy,nex,ney,sex,sey,swx,swy explicitly
   --base-zoom      override the auto-chosen deepest zoom
   --min-zoom       shallowest zoom to generate (default 7)
 
