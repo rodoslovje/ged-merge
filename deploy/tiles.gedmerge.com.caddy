@@ -3,18 +3,18 @@
 # Caddyfile does `import conf.d/*`).
 #
 # Content: generated XYZ pyramids from scripts/overlay-tiles.py, e.g.
-#   spezialkarte-si-hr/{z}/{x}/{y}.png
+#   spezialkarte-se-europe/{z}/{x}/{y}.png
 #
 # Upload (from the app checkout) to the host path mounted below:
-#   rsync -av --delete public/tiles-local/spezialkarte-si-hr/ \
-#       <host>:/srv/tiles/spezialkarte-si-hr/
+#   rsync -av --delete public/tiles-local/spezialkarte-se-europe/ \
+#       <host>:/srv/tiles/spezialkarte-se-europe/
 # and mount it into the Caddy container read-only, e.g. docker-compose:
 #   volumes:
 #     - /srv/tiles:/srv/tiles:ro
 #
 # Cloudflare notes (subdomain proxied / orange-cloud):
 # - Tiles never change once published (a rebuild should go to a NEW path,
-#   e.g. spezialkarte-si-hr-v2/), so the origin sends a one-year immutable
+#   e.g. spezialkarte-se-europe-v2/), so the origin sends a one-year immutable
 #   Cache-Control which Cloudflare respects for its edge TTL. No dashboard
 #   rule is required; optional but recommended: a Cache Rule for
 #   tiles.gedmerge.com set to "Respect origin TTL", plus Tiered Cache, so

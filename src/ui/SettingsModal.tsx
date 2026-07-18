@@ -110,14 +110,16 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
  *  not bundled — their per-account tile URLs paste into a custom layer. */
 const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
   {
-    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 79 PD/CC0
-    // Third-Military-Survey sheets (dLib.si + NYPL scans) covering all of
-    // Slovenia and Croatia, built with scripts/overlay-tiles.py.
-    name: "Slovenia & Croatia · Spezialkarte 1:75 000 (1877–1918)",
-    url: "https://tiles.gedmerge.com/spezialkarte-si-hr/{z}/{x}/{y}.png",
+    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 165 PD/CC0
+    // Third-Military-Survey sheets (dLib.si + NYPL + IOS/GeoPortOst scans)
+    // covering Slovenia, Croatia, Bosnia-Herzegovina, coastal Montenegro and
+    // the southern Austrian / SW Hungarian border, built with
+    // scripts/overlay-tiles.py.
+    name: "Slovenia, Croatia & Bosnia · Spezialkarte 1:75 000 (1877–1918)",
+    url: "https://tiles.gedmerge.com/spezialkarte-se-europe/{z}/{x}/{y}.png",
     yearFrom: 1877,
     yearTo: 1918,
-    attribution: "Spezialkarte 1:75.000 · PD/CC0 (dLib.si, NYPL)",
+    attribution: "Spezialkarte 1:75.000 · PD/CC0 (dLib.si, NYPL, IOS)",
     maxZoom: 14,
   },
   {
