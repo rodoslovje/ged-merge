@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
+import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
@@ -10,6 +11,7 @@ import { lineageClass } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import { useSettings } from "../SettingsContext";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -86,12 +88,29 @@ export function GeocodePlaceRow({
   onRename,
   onNavigate,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { settings: appSettings } = useSettings();
 
   const c = chosenCoordFor(row, override, {
     fromFile: t("tools.geocode.fromFile"),
     cached: t("tools.geocode.cached"),
   });
+
+  // On-demand Nominatim (OSM) search for this row's raw value — the online
+  // fallback for strings the offline gazetteer can't resolve, above all
+  // street addresses. Behind the online opt-in; the query text leaves the
+  // device, so it only ever runs from this explicit button.
+  const [online, setOnline] = useState<{ state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] }>({
+    state: "idle",
+    results: [],
+  });
+  const runOnlineSearch = () => {
+    setOnline({ state: "loading", results: [] });
+    searchNominatim(row.key, i18n.language).then(
+      (results) => setOnline({ state: "done", results }),
+      () => setOnline({ state: "error", results: [] }),
+    );
+  };
 
   // Inline rename of this row's raw place value (fix a typo so it matches).
   // The optional address draft splits the value into PLAC + ADDR on apply.
@@ -284,7 +303,7 @@ export function GeocodePlaceRow({
           {(() => {
             // Cheap gates first — under "Expand all" most rows render
             // the claim link, and must not build throwaway pin arrays.
-            if (!row.candidates.length && !c && !draftCoord && !fileCoords.length) return null;
+            if (!row.candidates.length && !c && !draftCoord && !online.results.length && !fileCoords.length) return null;
             if (!hasMap)
               return (
                 <button className="tools-issue-link tools-geo-showmap" onClick={() => onClaimMap(row.key)}>
@@ -302,6 +321,15 @@ export function GeocodePlaceRow({
                   : ("candidate" as const),
               onPick: () => pickCandidate(cand),
             }));
+            for (const r of online.results) {
+              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
+              pins.push({
+                coord: r.coord,
+                label: `${r.name} · OSM`,
+                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                onPick: () => onPickCoord(row, r.coord, r.name),
+              });
+            }
             if (c && !pins.some((p) => sameCoord(p.coord, c.coord)))
               pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
             if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord)))
@@ -379,6 +407,42 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             ))}
+            {online.results.map((r, i) => (
+              <li key={`osm-${i}`}>
+                <label title={r.label}>
+                  <input
+                    type="radio"
+                    name={`geo-${row.key}`}
+                    checked={sameCoord(c?.coord, r.coord)}
+                    onChange={() => onPickCoord(row, r.coord, r.name)}
+                  />
+                  <span className="tools-geo-cand-name">{r.label}</span>
+                  <span className="gm-data">
+                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                  </span>
+                  <span className="tools-reshape-badge reuse">OSM</span>
+                </label>
+              </li>
+            ))}
+            {/* Online (Nominatim) search for what the offline gazetteer
+                can't resolve — above all street addresses. Explicit per-row
+                action behind the online opt-in: the text leaves the device. */}
+            {appSettings.allowLinkFetch && (
+              <li className="tools-geo-online">
+                <button
+                  className="tools-issue-link"
+                  disabled={online.state === "loading"}
+                  title={t("tools.geocode.online.tooltip")}
+                  onClick={runOnlineSearch}
+                >
+                  {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+                </button>
+                {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
+                {online.state === "done" && !online.results.length && (
+                  <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
+                )}
+              </li>
+            )}
             {/* Manual entry as the last option — the same radio group,
                 selectable once the draft (typed or map-picked) parses. */}
             <li className="tools-geo-manual">

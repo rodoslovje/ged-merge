@@ -6776,6 +6776,9 @@ kbd {
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
+/* The per-row online (Nominatim) search action under the candidate radios. */
+.tools-geo-online { display: flex; align-items: center; gap: 8px; }
+.tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */
 .tools-geo-manual input[type="text"] {
