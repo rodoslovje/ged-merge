@@ -601,7 +601,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                       {t("tools.geocode.fromFile")}
                     </span>
                   ) : cachedCand ? (
-                    <span className={`tools-geo-score${row.confident ? " confident" : ""}`} title={t("tools.geocode.cachedTooltip")}>
+                    <span
+                      className={`tools-geo-score${row.confident || checked.has(row.key) ? " confident" : ""}`}
+                      title={t("tools.geocode.cachedTooltip")}
+                    >
                       {Math.round(cachedCand.score * 100)}%
                     </span>
                   ) : (
@@ -614,7 +617,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     {t("tools.geocode.fromFile")}
                   </span>
                 ) : row.candidates[0] && !chosen.has(row.key) ? (
-                  <span className={`tools-geo-score${row.confident ? " confident" : ""}`}>
+                  // Green when confident — or hand-selected for writing: a
+                  // checked row's badge should read as "going in" too.
+                  <span className={`tools-geo-score${row.confident || checked.has(row.key) ? " confident" : ""}`}>
                     {Math.round(row.candidates[0].score * 100)}%
                   </span>
                 ) : !c ? (
