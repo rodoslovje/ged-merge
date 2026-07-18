@@ -6625,20 +6625,25 @@ kbd {
   outline: none;
   border-color: var(--accent);
 }
-/* Historical overlay layers editor (Settings → Advanced → Map): a head row
-   with the add button, then one bordered block per layer — name + validity
-   years on the first line, the tile URL and attribution + max zoom under. */
+/* Historical overlay layers editor (Settings → Advanced → Map): the head
+   stacks full-width intro text over the preset + add actions row (a
+   side-by-side split squeezes the long hint into a skinny column), then one
+   bordered block per layer — name + validity years on the first line, the
+   tile URL and attribution + max zoom under. */
 .settings-overlays-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 .settings-overlays-actions {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
+  gap: 8px;
+}
+.settings-overlay-preset {
+  flex: 0 1 320px;
+  min-width: 0;
 }
 .settings-overlay-row {
   display: flex;
