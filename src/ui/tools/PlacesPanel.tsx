@@ -169,6 +169,7 @@ export function PlacesPanel({
         active={active}
         onApplyGeocode={onApplyGeocode}
         onRenamePlaceValue={onRenamePlaceValue}
+        onNavigate={onNavigate}
         // Applied coordinates changed the dataset in place — drop the cached
         // tree so the panel (and the chip count) rebuild on return.
         onBack={() => {

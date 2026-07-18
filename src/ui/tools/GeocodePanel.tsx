@@ -13,7 +13,7 @@ import {
   type GeocodeDecision,
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
-import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { BackButton } from "../BackButton";
@@ -63,6 +63,8 @@ interface Props {
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** Return to the Places tree (the panel hosting this view). */
   onBack: () => void;
+  /** Jump to a person in Edit mode (the expanded row's people list). */
+  onNavigate: (id: string) => void;
 }
 
 /** Read a response body with byte progress (falls back to one shot). */
@@ -102,7 +104,7 @@ function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack, onNavigate }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -793,11 +795,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                             checked={c?.coord.lat === cand.entry.lat && c?.coord.lon === cand.entry.lon}
                             onChange={() => pickCandidate(row, cand)}
                           />
+                          <span className="gm-data">{cand.entry.country}</span>
                           <span className="tools-geo-cand-name">{cand.entry.name}</span>
                           <span className="gm-data">
-                            {cand.entry.country}
-                            {cand.entry.population > 0 && ` · ${t("tools.geocode.population", { count: cand.entry.population })}`}
-                            {` · ${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
+                            {cand.entry.population > 0 && `${t("tools.geocode.population", { count: cand.entry.population })} · `}
+                            {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                           </span>
                           <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
                         </label>
@@ -828,6 +830,16 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                       />
                     </li>
                   </ul>
+                  {/* Who this unresolved place belongs to — standard person
+                      links (sex colour, lifespan, click to open in Edit). */}
+                  <UsageList
+                    dataset={dataset}
+                    uses={row.missingIn.slice(0, 30).map((id) => ({ persons: [{ id, label: id }] }))}
+                    onNavigate={onNavigate}
+                  />
+                  {row.missingIn.length > 30 && (
+                    <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: row.missingIn.length - 30 })}</p>
+                  )}
                 </div>
               )}
             </li>
