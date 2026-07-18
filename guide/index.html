@@ -384,8 +384,8 @@
             <p>
               One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the header's
               chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for the
-              selected person. A tab strip switches between seven kinds (digits <span class="gm-key">1</span>–<span
-              class="gm-key">7</span> jump straight to one); GED Merge remembers whichever you used last:
+              selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
+              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last:
             </p>
             <ul>
               <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
@@ -401,11 +401,13 @@
                 menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click
                 either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or
                 open a node in <span class="gm-pill">Edit</span>.</li>
+              <li><strong>Map</strong> — every event of the branch whose place carries coordinates, clustered on a real
+                map; see <a href="#map">below</a>.</li>
               <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
                 <a href="#reports">below</a>.</li>
             </ul>
             <p>
-              The pedigree kinds and the Report also carry an <strong>Ancestors / Descendants</strong> toggle (each
+              The pedigree kinds, the Report and the Map also carry an <strong>Ancestors / Descendants</strong> toggle (each
               option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
               opens a settings panel whose options adapt to whichever kind is open; every choice is remembered across
               sessions:
@@ -450,6 +452,41 @@
               aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
               marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
               if the person is presumed living.
+            </p>
+            <h3 id="map">Map</h3>
+            <p>
+              The <strong>Map</strong> kind plots every event of the chosen branch whose place carries coordinates
+              (the standard GEDCOM <code>MAP</code> · <code>LATI</code>/<code>LONG</code> structure under
+              <code>PLAC</code> — written by the <a href="#geocode">Geocode places</a> tool, or already present in your
+              file). Markers are coloured by event kind (birth, marriage, death, burial, residence, other) and nearby
+              events cluster into counted dots: click a cluster to zoom in, or — once it's small enough — to open its
+              event panel, listing each event with year, place and person links (with kinship chips).
+            </p>
+            <ul>
+              <li><strong>Filters</strong> — event-kind chips, a two-thumb <strong>year window</strong> slider (with
+                exact year inputs), and an <em>Undated</em> toggle for events without a date.</li>
+              <li><strong>Paths</strong> — draws each shown person's <em>life path</em>: their chronological stops
+                joined by a line with direction arrows. Click a path (or a person's <span class="gm-glyph">〰</span>
+                button in the event panel) to single it out — the rest dim, the legs get numbered, and a name chip
+                appears over the map.</li>
+              <li><strong>Overlays</strong> — historical map layers drawn over the base map. Configure them once in
+                <strong>Settings → Advanced → Historical overlay layers</strong>: a name, an XYZ/WMTS tile URL template
+                with <code>{z}/{x}/{y}</code>, the years the map depicts, and its required attribution (subscription
+                sources such as Arcanum/Mapire work with the tile URL from your account). The map's
+                <strong>Overlays</strong> chip then lists your layers with an opacity slider each, and highlights the
+                ones whose period matches the selected year window — the map of your ancestor's own time.</li>
+              <li><strong>Privacy</strong> — the base street map is <em>opt-in</em>: until you allow tiles (one click on
+                the map, or Settings → Advanced), the map draws on a built-in offline world outline and nothing leaves
+                your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
+                entirely.</li>
+              <li><strong>Export</strong> — <strong>PNG</strong> snapshots the current view (tiles, overlays, paths and
+                markers, with the required attribution burned in); <strong>GEDCOM</strong> exports the drawn people as a
+                standalone file.</li>
+            </ul>
+            <p>
+              A small per-person map with the same colours (and the person's life path) also appears under the events
+              list in <span class="gm-pill">Edit</span> — hide it with its own button or the <em>Person map in Edit
+              view</em> display setting.
             </p>
             <h3 id="reports">Reports</h3>
             <p>
@@ -704,6 +741,32 @@
               a place to see the records that use it, or use <strong>Rename</strong> on any level to bulk-rename or merge
               a place segment across every record at once — ideal for standardizing spelling variants.
             </p>
+            <h3 id="geocode">Geocode places</h3>
+            <p>
+              The <strong>Geocode places</strong> chip (with a count of places still missing coordinates) opens a review
+              list that turns your place names into map coordinates — the data the <a href="#map">Map</a> chart plots.
+              Nothing is written without your review: accepted rows are applied in one undoable batch, as the standard
+              <code>MAP</code> · <code>LATI</code>/<code>LONG</code> structure under each matching <code>PLAC</code>.
+            </p>
+            <ul>
+              <li><strong>Gazetteer</strong> — matching runs against an offline place index stored in your browser:
+                download a country's places directly (OpenStreetMap, behind the online opt-in) or import a GeoNames
+                country extract file. It survives reloads and cache clearing.</li>
+              <li><strong>Proposals</strong> — each row is one distinct place spelling. The strongest proposal is the
+                coordinate other occurrences of the <em>same spelling</em> already carry in your file
+                (<em>from this file</em>); otherwise gazetteer candidates with a match score. Confident rows can be
+                selected in bulk; everything else offers a per-row choice — candidates, a remembered decision from an
+                earlier session, hand-typed coordinates, or a click straight onto the row's mini map (faint dots show
+                where your file's known places already sit).</li>
+              <li><strong>Search online</strong> — behind the online opt-in, a per-row OpenStreetMap (Nominatim) search
+                resolves what the offline index can't — above all street addresses. Results join the row's options and
+                the mini map's pins.</li>
+              <li><strong>Fix the spelling first</strong> — the <span class="gm-glyph">✎</span> button renames the raw
+                value everywhere (with autocomplete from your own places), and can split it into place + address in one
+                go; the corrected spelling gets fresh proposals on the spot.</li>
+              <li><strong>No match</strong> — marks a value as not resolvable; remembered only in your browser, never
+                written into the file.</li>
+            </ul>
           </section>
 
           <!-- ═══════════════ PART IV — CROSS-CUTTING ═══════════════ -->

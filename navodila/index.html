@@ -386,8 +386,8 @@
             <p>
               En gumb <strong>Diagrami</strong> (<span class="gm-key">V</span>) — v orodni vrstici Urejanja, na ikoni
               diagramov v glavi ali v podoknu vozlišča Primerjalnega drevesa — odpre celozaslonsko
-              <strong>vozlišče diagramov</strong> za izbrano osebo. Vrstica zavihkov preklaplja med sedmimi vrstami
-              (številke <span class="gm-key">1</span>–<span class="gm-key">7</span> odprejo posamezno neposredno); GED
+              <strong>vozlišče diagramov</strong> za izbrano osebo. Vrstica zavihkov preklaplja med osmimi vrstami
+              (številke <span class="gm-key">1</span>–<span class="gm-key">8</span> odprejo posamezno neposredno); GED
               Merge si zapomni nazadnje uporabljeno:
             </p>
             <ul>
@@ -404,11 +404,13 @@
                 <em>najkrajšo potjo</em> in <em>krvno linijo</em> prek skupnega prednika. S klikom na
                 <span class="gm-glyph">✎</span> ob enem koncu zamenjate to osebo, s klikom na vozlišče ga postavite v
                 središče ali ga odprete v <span class="gm-pill">Urejanju</span>.</li>
+              <li><strong>Zemljevid</strong> — vsi dogodki veje, katerih kraj nosi koordinate, združeni v skupine na
+                pravem zemljevidu; glejte <a href="#map">spodaj</a>.</li>
               <li><strong>Poročilo</strong> — besedilno poročilo, seznam prednikov ali potomcev; glejte
                 <a href="#reports">spodaj</a>.</li>
             </ul>
             <p>
-              Rodovniški slogi in Poročilo imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka izbira pokaže
+              Rodovniški slogi, Poročilo in Zemljevid imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka izbira pokaže
               trenutno število). Gumb <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
               nastavitvami, ki se prilagodijo odprti vrsti; vse izbire se ohranijo med sejami:
             </p>
@@ -453,6 +455,41 @@
               aria-hidden="true">←</span> izselitev/priselitev), <span aria-hidden="true">⚭</span> pa označi poroko. Trak
               brez znanega konca (smrt ni zabeležena) se proti koncu zoži — do zadnjega datiranega dogodka ali do danes,
               če za osebo sklepamo, da še živi.
+            </p>
+            <h3 id="map">Zemljevid</h3>
+            <p>
+              Vrsta <strong>Zemljevid</strong> izriše vsak dogodek izbrane veje, katerega kraj nosi koordinate
+              (standardna struktura GEDCOM <code>MAP</code> · <code>LATI</code>/<code>LONG</code> pod
+              <code>PLAC</code> — zapiše jo orodje <a href="#geocode">Geokodiraj kraje</a>, lahko pa so v datoteki že
+              od prej). Oznake so obarvane po vrsti dogodka (rojstvo, poroka, smrt, pokop, bivališče, drugo), bližnji
+              dogodki pa se združijo v pike s števcem: klik skupino približa, ko je dovolj majhna, pa odpre podokno z
+              dogodki — vsak z letnico, krajem in povezavami na osebe (s sorodstvenimi značkami).
+            </p>
+            <ul>
+              <li><strong>Filtri</strong> — značke vrst dogodkov, drsnik <strong>okna let</strong> z dvema ročajema (in
+                natančna vnosa let) ter preklop <em>Brez datuma</em> za nedatirane dogodke.</li>
+              <li><strong>Poti</strong> — izriše <em>življenjsko pot</em> vsake prikazane osebe: njene kronološke
+                postanke, povezane s črto in puščicami v smeri selitve. Klik na pot (ali gumb
+                <span class="gm-glyph">〰</span> ob osebi v podoknu dogodkov) jo osami — ostale zbledijo, odseki se
+                oštevilčijo, nad zemljevidom pa se pokaže značka z imenom.</li>
+              <li><strong>Sloji</strong> — zgodovinske karte, izrisane čez osnovni zemljevid. Nastavite jih enkrat v
+                <strong>Nastavitve → Napredno → Zgodovinski sloji zemljevida</strong>: ime, predloga URL ploščic
+                XYZ/WMTS z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
+                (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Značka
+                <strong>Sloji</strong> na zemljevidu nato našteje vaše sloje, vsakega s svojim drsnikom prosojnosti, in
+                označi tiste, katerih obdobje ustreza izbranemu oknu let — karta iz časa vašega prednika.</li>
+              <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
+                dovolite (en klik na zemljevidu ali Nastavitve → Napredno), se zemljevid riše na vgrajenem obrisu sveta
+                in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
+                in poti v celoti.</li>
+              <li><strong>Izvoz</strong> — <strong>PNG</strong> posname trenutni pogled (ploščice, sloje, poti in
+                oznake, z vžgano navedbo vira); <strong>GEDCOM</strong> izvozi izrisane osebe kot samostojno
+                datoteko.</li>
+            </ul>
+            <p>
+              Majhen zemljevid osebe z istimi barvami (in njeno življenjsko potjo) se pokaže tudi pod seznamom dogodkov
+              v <span class="gm-pill">Urejanju</span> — skrijete ga z gumbom ob njem ali z nastavitvijo prikaza
+              <em>Zemljevid osebe v urejanju</em>.
             </p>
             <h3 id="reports">Poročila</h3>
             <p>
@@ -709,6 +746,33 @@
               kraj za seznam zapisov, ki ga uporabljajo, ali z <strong>Preimenuj</strong> na kateri koli ravni hkrati
               preimenujte ali združite del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
             </p>
+            <h3 id="geocode">Geokodiraj kraje</h3>
+            <p>
+              Značka <strong>Geokodiraj kraje</strong> (s številom krajev, ki še nimajo koordinat) odpre pregledni
+              seznam, ki imena krajev spremeni v koordinate — podatke, ki jih izrisuje diagram
+              <a href="#map">Zemljevid</a>. Nič se ne zapiše brez vašega pregleda: potrjene vrstice se uveljavijo v enem
+              razveljavljivem koraku, kot standardna struktura <code>MAP</code> · <code>LATI</code>/<code>LONG</code>
+              pod vsakim ujemajočim se <code>PLAC</code>.
+            </p>
+            <ul>
+              <li><strong>Krajevni imenik</strong> — ujemanje teče prek imenika krajev, shranjenega v brskalniku brez
+                povezave: državo prenesete neposredno (OpenStreetMap, za spletno privolitvijo) ali uvozite datoteko
+                GeoNames za državo. Imenik preživi vnovična nalaganja in čiščenje predpomnilnika.</li>
+              <li><strong>Predlogi</strong> — vsaka vrstica je en različen zapis kraja. Najmočnejši predlog je
+                koordinata, ki jo druge pojavitve <em>istega zapisa</em> v vaši datoteki že nosijo (<em>iz te
+                datoteke</em>); sicer kandidati iz imenika z oceno ujemanja. Zanesljive vrstice lahko izberete v paketu;
+                pri ostalih izbirate po vrsticah — med kandidati, zapomnjeno odločitvijo iz prejšnje seje, ročno
+                vnesenimi koordinatami ali s klikom naravnost na mali zemljevid vrstice (blede pike kažejo, kje že
+                ležijo znani kraji vaše datoteke).</li>
+              <li><strong>Iskanje na spletu</strong> — za spletno privolitvijo iskanje OpenStreetMap (Nominatim) po
+                vrsticah razreši, česar imenik brez povezave ne zna — predvsem ulične naslove. Zadetki se pridružijo
+                možnostim vrstice in bucikam na malem zemljevidu.</li>
+              <li><strong>Najprej popravite zapis</strong> — gumb <span class="gm-glyph">✎</span> preimenuje surovo
+                vrednost povsod (s samodokončanjem iz vaših krajev) in jo zna hkrati razdeliti na kraj + naslov;
+                popravljeni zapis takoj dobi sveže predloge.</li>
+              <li><strong>Ni ujemanja</strong> — označi vrednost kot nerešljivo; zapomni se samo v brskalniku, v
+                datoteko se ne zapiše nikoli.</li>
+            </ul>
           </section>
 
           <!-- ═══════════════ IV. DEL — PREČNE FUNKCIJE ═══════════════ -->

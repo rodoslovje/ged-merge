@@ -259,11 +259,29 @@ the existing event vocabulary; new keys under `map.*`.
    the decision cache only); accepted coordinates written as `PLAC.MAP.
    LATI/LONG` through the edit/undo pipeline; coverage line. Deferred:
    Nominatim opt-in for street addresses, GOV (phase 4).*
-3. **Time + paths.** Year-range slider; person life paths and displayed-set
-   dispersal lines; path styling and direction.
-4. **Historical overlays + GOV.** Overlay-layer settings + curated presets +
-   year-range suggestion; GOV lookup/enrichment. Revisit MapLibre if overlay
-   blending demands it.
+3. ~~**Time + paths.**~~ *Done 2026-07-18 (e8393e0): two-thumb year-range
+   slider; per-person life paths with direction chevrons, selection and leg
+   numbers; PNG parity.*
+4. **Historical overlays + GOV.**
+   - ~~Overlay layers~~ *Done 2026-07-18: Settings → Advanced overlay list
+     (name, XYZ/WMTS-REST `{z}/{x}/{y}` URL, validity years, attribution,
+     max zoom); Map-chart picker with per-layer opacity and year-window
+     suggestion; PNG composition per layer with attributions. Leaflet
+     opacity blending sufficed — MapLibre not needed. Curated presets not
+     shipped: no verified freely-licensed layer yet; the mechanism accepts
+     any user-supplied URL.*
+   - ~~Nominatim~~ *Done 2026-07-18: per-row opt-in online search in the
+     geocode review list (jsonv2, 1 req/s shared throttle), closing the
+     phase-2 street-address deferral.*
+   - **GOV lookup/enrichment: deferred by user decision (2026-07-18).**
+     Feasibility verified: `gov.genealogy.net` serves CORS `*` and its SOAP
+     SimpleService (searchByName / getObject / getPositions /
+     getNameAtDate, rpc/literal, WSDL at `/services/SimpleService?wsdl`)
+     works from the browser without a relay; objects carry position,
+     multilingual time-valid names, era-bounded part-of jurisdictions and
+     `geonames:` cross-references. Corpus scan 2026-07-18: no `_GOV`/`_LOC`
+     tags anywhere in the 272-file corpus — adopt GEDCOM-L `PLAC._GOV`
+     when built.
 
 Each phase: typecheck + lint + vitest for the pure `src/geo/` logic, changelog
 entries on merge, dev-server validation per the standard workflow.
