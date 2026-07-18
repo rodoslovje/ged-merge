@@ -44,6 +44,32 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
   }
 }
 
+/** Tooltip content as a DOM element — textContent, never HTML, because the
+ *  labels carry file data (place names). Caps the detail lines at 8. */
+function tooltipEl(label: string, lines?: string[]): HTMLElement {
+  const el = document.createElement("div");
+  if (!lines?.length) {
+    el.textContent = label;
+    return el;
+  }
+  const head = document.createElement("div");
+  head.className = "minimap-tip-title";
+  head.textContent = label;
+  el.appendChild(head);
+  const shown = lines.slice(0, 8);
+  for (const line of shown) {
+    const row = document.createElement("div");
+    row.textContent = line;
+    el.appendChild(row);
+  }
+  if (lines.length > shown.length) {
+    const more = document.createElement("div");
+    more.textContent = `… +${lines.length - shown.length}`;
+    el.appendChild(more);
+  }
+  return el;
+}
+
 // Small embedded map for the geocode review list: the row's candidate
 // coordinates as clickable pins (click = pick that candidate), the currently
 // chosen coordinate highlighted, and the file's already-known coordinates as
@@ -52,8 +78,12 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
 
 export interface MiniMapPin {
   coord: GeoCoord;
-  /** Tooltip text (candidate name + score, or the chosen label). */
+  /** Tooltip text (candidate name + score, or the chosen label) — the
+   *  header line when `lines` follow. */
   label: string;
+  /** Optional detail lines under the label (e.g. the events at this place),
+   *  each rendered as its own row. */
+  lines?: string[];
   kind: "candidate" | "chosen";
   /** CSS custom property naming this pin's colour (e.g. "--map-birth");
    *  defaults to the kind's standard colour. */
@@ -171,7 +201,7 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
         fillColor: mutedColor,
         fillOpacity: 0.4,
       })
-        .bindTooltip(c.name, { direction: "top" })
+        .bindTooltip(tooltipEl(c.name), { direction: "top", className: "minimap-tooltip" })
         .addTo(group);
     }
     latestPins.current.forEach((p, i) => {
@@ -187,7 +217,7 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
         // A pin click picks the pin — it must not double as a map click.
         bubblingMouseEvents: false,
       });
-      marker.bindTooltip(p.label, { direction: "top" });
+      marker.bindTooltip(tooltipEl(p.label, p.lines), { direction: "top", className: "minimap-tooltip" });
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
     });

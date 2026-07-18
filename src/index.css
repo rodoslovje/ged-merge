@@ -6618,6 +6618,10 @@ kbd {
 }
 /* A pick-enabled mini map signals it, overriding Leaflet's grab hand. */
 .tools-geo-minimap--pick .leaflet-container { cursor: crosshair; }
+/* Mini-map tooltips: multi-line (place header + one row per event), wrapped
+   inside the map instead of one endless nowrap line. */
+.minimap-tooltip { white-space: normal; max-width: 280px; }
+.minimap-tooltip .minimap-tip-title { font-weight: 600; }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
 .edit-person-map-toggle {
@@ -6625,7 +6629,7 @@ kbd {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 0 4px;
+  padding: 4px 0 0;
   font-size: 0.8rem;
   color: var(--muted);
 }

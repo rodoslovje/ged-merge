@@ -1579,7 +1579,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
     const pins = [...byCoord.values()].map((g) => ({
       coord: g.coord,
-      label: `${g.labels.join(", ")} · ${g.place}`,
+      label: g.place,
+      lines: g.labels,
       kind: "candidate" as const,
       colorVar: g.kinds.size > 1 ? "--map-mixed" : `--map-${[...g.kinds][0]}`,
     }));
@@ -1851,14 +1852,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           />
           {personMap && (
             <div className="edit-person-map">
-              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
-                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
-              </button>
               {!mapHidden && (
                 <Suspense fallback={<div className="tools-geo-minimap" />}>
                   <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
                 </Suspense>
               )}
+              <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
+                {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+              </button>
             </div>
           )}
         </div>
