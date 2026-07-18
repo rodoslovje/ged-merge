@@ -259,14 +259,16 @@ function withExportStem(base: string, ext: string): string {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
-const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
-const SITE = "gedmerge.com";
+// Band geometry/branding constants are exported: the map's PNG export draws
+// the same header/footer on canvas.
+export const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
+export const SITE = "gedmerge.com";
 const SITE_URL = "https://gedmerge.com";
 
 // Brand badge colours, fixed so the footer logo stays on-brand regardless of the
 // diagram's (theme-dependent) export colours. Mirrors public/app-icon.svg.
-const BADGE_BG = "#31715b";
-const BADGE_FG = "#ffffff";
+export const BADGE_BG = "#31715b";
+export const BADGE_FG = "#ffffff";
 
 /**
  * The GED Merge badge: a green rounded square with the white Node-M mark inside,
@@ -291,12 +293,12 @@ function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
 }
 
 // Header / footer band geometry and side margin.
-const HEADER_H = 52;
-const FOOTER_H = 34;
-const MARGIN_X = 20;
-const BADGE_SIZE = 18;
+export const HEADER_H = 52;
+export const FOOTER_H = 34;
+export const MARGIN_X = 20;
+export const BADGE_SIZE = 18;
 // Minimum gap between the footer's site link and timestamp.
-const FOOTER_GAP = 24;
+export const FOOTER_GAP = 24;
 // Narrow diagrams (e.g. a single relationship card) still get a visible band.
 const MIN_DIAGRAM_H = 80;
 

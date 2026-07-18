@@ -86,6 +86,13 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-18</h2>
+            <ul>
+              <li><strong>Life paths on the Places Map.</strong> A new Paths toggle draws each shown person's life journey — birth through residences and marriages to death — as a line with arrows in the direction of travel. Click a line (or the new path button next to a person in the event-list panel) to single one person out: their path is highlighted and framed, the rest fade back. The PNG snapshot includes the paths.</li>
+              <li>The map's year filter grew a two-thumb slider spanning the file's dated events — drag the thumbs to scrub the shown period (and, with Paths on, watch a family's dispersal unfold); the year boxes still accept exact values.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-17</h2>
             <ul>
               <li><strong>Geocode places</strong> (Tools → Places): match the file's place names against an offline gazetteer and write the accepted coordinates into the GEDCOM as standard <code>MAP</code> <code>LATI</code>/<code>LONG</code> — every write is reviewed by you and undoable. Get the gazetteer either with one click from OpenStreetMap (country code + Download, needs the online-lookups opt-in) or by importing a GeoNames country file (.zip or .txt) — the data stays in your browser. Proposals are ranked: coordinates other occurrences of the same place already carry in the file first, then exact and historical-name matches (Laibach → Ljubljana), then fuzzy ones; "Select confident" bulk-picks only unambiguous matches, and each row offers alternatives, hand-typed coordinates, or a remembered "no match" mark. Accepted matches are cached, so other files resolve instantly.</li>

@@ -18,6 +18,7 @@ import {
   type MapPoint,
 } from "../../geo/points";
 import { clusterPoints, type MapCluster } from "../../geo/cluster";
+import { buildPersonPaths } from "../../geo/paths";
 import worldOutline from "../../geo/world110m.json";
 import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
@@ -30,7 +31,16 @@ import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
 import { chartSlug } from "../exportSvg";
 import { ImageIcon } from "../icons/FormatIcons";
 import { exportMapPng } from "./exportMapPng";
-import { clusterColorVar, markerSize } from "./markerStyle";
+import {
+  ARROW_MAX_TOTAL,
+  ARROW_MIN_SEG_PX,
+  ARROW_MIN_SEG_SELECTED_PX,
+  clusterColorVar,
+  markerSize,
+  PATH_STYLE,
+  pathArrows,
+} from "./markerStyle";
+import { YearRangeSlider } from "./YearRangeSlider";
 
 // Full-page places Map: the events of the root person's branch — the shared
 // hub Ancestors/Descendants choice, like the pedigree charts — as clustered
@@ -53,6 +63,19 @@ const PANEL_MIN_ZOOM = 13;
 
 /** The panel lists at most this many events (the rest summarized). */
 const PANEL_MAX_ROWS = 150;
+
+/** At most this many life paths drawn at once (a selected one always is). */
+const PATHS_MAX = 300;
+
+/** The life-path squiggle-with-arrow, used by the toggle chip and the panel. */
+function PathIcon() {
+  return (
+    <svg className="map-paths-icon" viewBox="0 0 16 12" width="16" height="12" aria-hidden="true">
+      <path className="map-paths-icon-line" d="M1.5 10 C5 3, 8 10.5, 12 5.5" />
+      <path className="map-paths-icon-head" d="M10.6 3.4 L15.2 4.2 L11.9 7.5 Z" />
+    </svg>
+  );
+}
 
 /** Current live document theme (App's useTheme owns the attribute). */
 function useDocTheme(): "light" | "dark" {
@@ -97,6 +120,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
   const [includeUndated, setIncludeUndated] = useState(true);
+  const [showPaths, setShowPaths] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [panel, setPanel] = useState<MapCluster | null>(null);
   // Bumped on every pan/zoom so the marker pass re-runs against the new view.
   const [viewGen, setViewGen] = useState(0);
@@ -138,11 +163,31 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     [allPoints, kinds, yearFrom, yearTo, includeUndated, scopeIds, excludeLiving],
   );
 
+  // Life paths over the filtered points — always computed (the event panel's
+  // per-person path buttons need to know who has one), only drawn when the
+  // Paths toggle is on. Drawing is capped, but a selected path always shows.
+  const allPaths = useMemo(() => buildPersonPaths(filtered), [filtered]);
+  const shownPaths = useMemo(() => {
+    if (allPaths.length <= PATHS_MAX) return allPaths;
+    const head = allPaths.slice(0, PATHS_MAX);
+    if (selectedPath && !head.some((p) => p.personId === selectedPath)) {
+      const sel = allPaths.find((p) => p.personId === selectedPath);
+      if (sel) head.push(sel);
+    }
+    return head;
+  }, [allPaths, selectedPath]);
+  const pathPersonIds = useMemo(() => new Set(allPaths.map((p) => p.personId)), [allPaths]);
+  useEffect(() => {
+    if (selectedPath && !pathPersonIds.has(selectedPath)) setSelectedPath(null);
+  }, [pathPersonIds, selectedPath]);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const outlineRef = useRef<L.GeoJSON | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  const pathsRef = useRef<L.LayerGroup | null>(null);
+  const pathRendererRef = useRef<L.Renderer | null>(null);
   const clustersRef = useRef<MapCluster[]>([]);
   const didFitRef = useRef(false);
 
@@ -158,6 +203,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
     map.setView([46.1, 14.5], 5);
+    // Paths render below the cluster markers, on a canvas with a click
+    // tolerance so thin lines are still selectable.
+    pathRendererRef.current = L.canvas({ tolerance: 8 });
+    pathsRef.current = L.layerGroup().addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
     const bump = () => setViewGen((g) => g + 1);
     map.on("moveend zoomend", bump);
@@ -169,6 +218,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       tileLayerRef.current = null;
       outlineRef.current = null;
       markersRef.current = null;
+      pathsRef.current = null;
+      pathRendererRef.current = null;
     };
   }, []);
 
@@ -259,8 +310,83 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     // viewGen re-runs this pass after every pan/zoom.
   }, [filtered, viewGen, openCluster, t]);
 
+  // ── Life paths: one direction-marked polyline per shown person ────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = pathsRef.current;
+    const renderer = pathRendererRef.current;
+    if (!map || !layer || !renderer) return;
+    layer.clearLayers();
+    if (!showPaths) return;
+    // Canvas strokes can't use var() — resolve the token per theme, like the
+    // offline outline does.
+    const color = getComputedStyle(document.documentElement).getPropertyValue("--map-path").trim();
+    const anySelected = selectedPath !== null;
+    const view = map.getBounds().pad(0.5);
+    let arrowBudget = ARROW_MAX_TOTAL;
+    for (const path of shownPaths) {
+      const isSel = path.personId === selectedPath;
+      const latlngs = path.stops.map((s) => [s.coord.lat, s.coord.lon] as [number, number]);
+      if (!isSel && !view.intersects(L.latLngBounds(latlngs))) continue;
+      const weight = isSel ? PATH_STYLE.weightSelected : PATH_STYLE.weight;
+      const opacity = anySelected
+        ? isSel
+          ? PATH_STYLE.opacitySelected
+          : PATH_STYLE.opacityDimmed
+        : PATH_STYLE.opacity;
+      const line = L.polyline(latlngs, { renderer, color, weight, opacity, lineCap: "round", lineJoin: "round" });
+      const indi = mainDs.individuals.get(path.personId);
+      // Element content, not string: names must not be interpreted as HTML.
+      const tip = document.createElement("span");
+      tip.textContent = indi ? `${nameOf(indi)} · ${lifespanOf(indi)}` : path.personId;
+      line.bindTooltip(tip, { sticky: true, direction: "top", opacity: 0.9 });
+      line.on("click", () => setSelectedPath((prev) => (prev === path.personId ? null : path.personId)));
+      line.on("mouseover", () => line.setStyle({ weight: weight + 1.5, opacity: 1 }));
+      line.on("mouseout", () => line.setStyle({ weight, opacity }));
+      layer.addLayer(line);
+      // Direction chevrons — on everything while nothing is selected, and on
+      // the selected path alone once there is one (the rest are dimmed).
+      if ((isSel || !anySelected) && arrowBudget > 0) {
+        const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
+        for (const a of pathArrows(pts, isSel ? ARROW_MIN_SEG_SELECTED_PX : ARROW_MIN_SEG_PX)) {
+          if (arrowBudget-- <= 0) break;
+          layer.addLayer(
+            L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
+              icon: L.divIcon({
+                className: "map-path-arrow-wrap",
+                html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
+                iconSize: [10, 10],
+              }),
+              interactive: false,
+              keyboard: false,
+              zIndexOffset: -1000,
+            }),
+          );
+        }
+      }
+    }
+    // viewGen: arrows depend on screen-space segment lengths; theme: the
+    // resolved stroke colour.
+  }, [shownPaths, showPaths, selectedPath, viewGen, theme, mainDs, nameOf]);
+
   // Keep the panel in sync: filters changing under it would show stale rows.
   useEffect(() => setPanel(null), [filtered]);
+
+  // Panel path button: turn paths on, single out this person, frame the path.
+  const showPathFor = useCallback(
+    (personId: string) => {
+      setShowPaths(true);
+      setSelectedPath(personId);
+      setPanel(null);
+      const path = allPaths.find((p) => p.personId === personId);
+      const map = mapRef.current;
+      if (path && map) {
+        const bounds = L.latLngBounds(path.stops.map((s) => [s.coord.lat, s.coord.lon] as [number, number]));
+        map.fitBounds(bounds.pad(0.25), { maxZoom: 11 });
+      }
+    },
+    [allPaths],
+  );
 
   // A / D switch the branch direction; Esc leaves (Leaflet owns +/− itself).
   useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
@@ -279,8 +405,14 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return [...ids];
   }, [filtered]);
 
-  const slug = chartSlug(t("map.pageTitle"));
+  // Page kind with the branch direction spelled out, like the tree charts
+  // ("Ancestors Places Map"); drives the header, export title and file names.
+  const pageKind = `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t("map.pageTitle")}`;
   const eventLabel = (p: MapPoint) => t(`event.${p.tag}`, { defaultValue: p.tag });
+
+  // Slider positions for the year window: unset bounds sit at the data range.
+  const clampYear = (v: number) =>
+    range ? Math.min(range.max, Math.max(range.min, Number.isFinite(v) ? v : range.min)) : v;
 
   const panelRows = useMemo(() => {
     if (!panel) return [];
@@ -288,11 +420,15 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   }, [panel]);
 
   const root = mainDs.individuals.get(rootId);
+  const selectedIndi = selectedPath ? mainDs.individuals.get(selectedPath) : undefined;
   // Header lifespan (+ age when the Age display toggle is on) and kinship
   // chip — the same conventions as every other chart header.
   const rootYears = root
     ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: lifespanOf(root), age: lifespanAge(root) })
     : undefined;
+  // Export file base and PNG header line, matching the other charts.
+  const slug = chartSlug(root ? nameOf(root) : undefined, pageKind);
+  const exportTitle = [root && nameOf(root), rootYears, "—", pageKind].filter(Boolean).join(" ");
   const showKin = settings.showKinship && appSettings.showKinship && !!startId;
   const kinship = useMemo(
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
@@ -311,10 +447,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             years={rootYears}
             kinship={showKin ? kinship?.label(rootId) : undefined}
             lineage={kinship?.lineage(rootId)}
-            kind={t("map.pageTitle")}
+            kind={pageKind}
           />
         ) : (
-          <span className="tree-title-kind">{t("map.pageTitle")}</span>
+          <span className="tree-title-kind">{pageKind}</span>
         )
       }
       actions={
@@ -336,7 +472,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                     ? ""
                     : "© OpenStreetMap contributors © CARTO"
                   : "Natural Earth";
-                if (map && el) exportMapPng(map, el, clustersRef.current, slug, attribution);
+                if (map && el)
+                  exportMapPng(
+                    map,
+                    el,
+                    clustersRef.current,
+                    showPaths ? shownPaths : [],
+                    selectedPath,
+                    exportTitle,
+                    slug,
+                    attribution,
+                  );
               },
             },
           ]}
@@ -357,7 +503,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           </div>
         </>
       }
-      controlsRight={<span className="map-count gm-data">{t("map.count", { shown: filtered.length, total: allPoints.length })}</span>}
+      controlsRight={
+        <span className="map-count gm-data">
+          {t("map.count", { shown: filtered.length, total: allPoints.length })}
+          {showPaths &&
+            ` · ${
+              allPaths.length > PATHS_MAX
+                ? t("map.pathCountOf", { shown: PATHS_MAX, total: allPaths.length })
+                : t("map.pathCount", { count: allPaths.length })
+            }`}
+        </span>
+      }
     >
       <div className="map-filters">
         <div className="map-kinds" role="group" aria-label={t("map.kinds.label")}>
@@ -383,7 +539,24 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             onChange={(e) => setYearFrom(e.target.value)}
             aria-label={t("map.yearFrom")}
           />
-          –
+          {range && range.min < range.max ? (
+            <YearRangeSlider
+              min={range.min}
+              max={range.max}
+              from={clampYear(yearFrom ? Number(yearFrom) : range.min)}
+              to={clampYear(yearTo ? Number(yearTo) : range.max)}
+              fromLabel={t("map.yearFrom")}
+              toLabel={t("map.yearTo")}
+              onChange={(from, to) => {
+                // A thumb parked at the data edge means "unbounded" — the
+                // inputs go back to showing the placeholder bound.
+                setYearFrom(from <= range.min ? "" : String(from));
+                setYearTo(to >= range.max ? "" : String(to));
+              }}
+            />
+          ) : (
+            "–"
+          )}
           <input
             type="number"
             className="map-year-input"
@@ -397,6 +570,16 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
           {t("map.undated")}
         </label>
+        <button
+          type="button"
+          className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
+          aria-pressed={showPaths}
+          title={t("map.paths.tooltip")}
+          onClick={() => setShowPaths((v) => !v)}
+        >
+          <PathIcon />
+          {t("map.paths")}
+        </button>
       </div>
       <div className="tree-canvas-wrap map-canvas-wrap">
         <div ref={containerRef} className="map-canvas" />
@@ -405,6 +588,23 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             <span>{t("map.tilesNotice")}</span>
             <button type="button" onClick={() => setAppSettings({ allowMapTiles: true })}>
               {t("map.tilesEnable")}
+            </button>
+          </div>
+        )}
+        {showPaths && selectedPath && (
+          <div className="map-path-selchip">
+            <PathIcon />
+            <span className="map-path-selchip-text">
+              {t("map.pathOf")}: <b>{selectedIndi ? nameOf(selectedIndi) : selectedPath}</b>
+              {selectedIndi && <span className="gm-data"> {lifespanOf(selectedIndi)}</span>}
+            </span>
+            <button
+              className="modal-close"
+              onClick={() => setSelectedPath(null)}
+              title={t("help.close")}
+              aria-label={t("help.close")}
+            >
+              ×
             </button>
           </div>
         )}
@@ -438,6 +638,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                         <span key={id} className="map-panel-person">
                           <PersonLink dataset={mainDs} id={id} fallback={id} onNavigate={onNavigate} />
                           {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+                          {pathPersonIds.has(id) && (
+                            <button
+                              type="button"
+                              className="map-panel-pathbtn"
+                              title={t("map.showPath")}
+                              aria-label={t("map.showPath")}
+                              onClick={() => showPathFor(id)}
+                            >
+                              <PathIcon />
+                            </button>
+                          )}
                         </span>
                       );
                     })}
