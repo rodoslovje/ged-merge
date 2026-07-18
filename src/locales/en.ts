@@ -188,7 +188,6 @@ export const en = {
   "tools.geocode.manual": "manual",
   "tools.geocode.manualPlaceholder": "46.0511, 14.5051",
   "tools.geocode.manualTooltip": "Coordinates by hand: latitude, longitude in decimal degrees (paste from any map site)",
-  "tools.geocode.manualSet": "Use",
   "tools.geocode.population": "pop. {{count}}",
   "tools.geocode.fromFile": "from this file",
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",

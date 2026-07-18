@@ -6595,5 +6595,4 @@ kbd {
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.85rem;
 }
 .tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
-.tools-geo-manual .nav-btn { margin: 0; }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }

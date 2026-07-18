@@ -758,9 +758,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                           if (e.key === "Enter") setManual(row);
                         }}
                       />
-                      <button className="nav-btn" onClick={() => setManual(row)} disabled={!draftCoord}>
-                        {t("tools.geocode.manualSet")}
-                      </button>
                     </li>
                   </ul>
                 </div>

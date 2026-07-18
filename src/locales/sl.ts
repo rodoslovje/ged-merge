@@ -188,7 +188,6 @@ export const sl = {
   "tools.geocode.manual": "ročno",
   "tools.geocode.manualPlaceholder": "46,0511, 14,5051",
   "tools.geocode.manualTooltip": "Ročne koordinate: zemljepisna širina, dolžina v decimalnih stopinjah (prilepite s kateregakoli zemljevida)",
-  "tools.geocode.manualSet": "Uporabi",
   "tools.geocode.population": "preb. {{count}}",
   "tools.geocode.fromFile": "iz te datoteke",
   "tools.geocode.fromFileTooltip": "Druge navedbe točno tega imena kraja v datoteki že nosijo to koordinato",
