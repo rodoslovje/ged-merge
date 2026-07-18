@@ -88,6 +88,29 @@ export function projectPoints(ds: Dataset): MapPoint[] {
   return points;
 }
 
+/** One person's coordinate-carrying events — their own plus the events of
+ *  every family they are a spouse in (marriages etc.), for the Edit-page
+ *  mini map. Same shape the full map's projector produces. */
+export function personPoints(ds: Dataset, personId: string): MapPoint[] {
+  const indi = ds.individuals.get(personId);
+  if (!indi) return [];
+  const points: MapPoint[] = [];
+  for (const event of indi.events) {
+    const p = pointFrom(event, [indi.id]);
+    if (p) points.push(p);
+  }
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const spouses = [fam.husband, fam.wife].filter((id): id is string => !!id);
+    for (const event of fam.events) {
+      const p = pointFrom(event, spouses.length ? spouses : [personId], famId);
+      if (p) points.push(p);
+    }
+  }
+  return points;
+}
+
 /** The dated year range covered by the points, for seeding the year filter. */
 export function yearRange(points: MapPoint[]): { min: number; max: number } | undefined {
   let min = Infinity;

@@ -293,8 +293,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
       return next;
     });
 
-  const pickCandidate = (row: GeocodeRow, c: GazCandidate) => {
-    setChosen((prev) => new Map(prev).set(row.key, { coord: { lat: c.entry.lat, lon: c.entry.lon }, label: c.entry.name }));
+  /** Choose a coordinate for the row: remember it, check the row, and drop
+   *  a no-match mark — shared by every option (candidate, file, cached). */
+  const pickCoord = (row: GeocodeRow, coord: GeoCoord, label: string) => {
+    setChosen((prev) => new Map(prev).set(row.key, { coord, label }));
     toggleChecked(row.key, true);
     setNoMatch((prev) => {
       const next = new Set(prev);
@@ -302,6 +304,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
       return next;
     });
   };
+
+  const pickCandidate = (row: GeocodeRow, c: GazCandidate) =>
+    pickCoord(row, { lat: c.entry.lat, lon: c.entry.lon }, c.entry.name);
 
   const setManual = (row: GeocodeRow) => {
     const coord = parseManualCoord(manualDraft.get(row.key) ?? "");
@@ -722,6 +727,45 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     );
                   })()}
                   <ul className="tools-geo-candidates">
+                    {/* The file's own coordinate as the first option — it is
+                        the default proposal, so it must show as selected. */}
+                    {row.fileCoord && (
+                      <li>
+                        <label>
+                          <input
+                            type="radio"
+                            name={`geo-${row.key}`}
+                            checked={c?.coord.lat === row.fileCoord.lat && c?.coord.lon === row.fileCoord.lon}
+                            onChange={() => pickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
+                          />
+                          <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
+                          <span className="gm-data">
+                            {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
+                          </span>
+                        </label>
+                      </li>
+                    )}
+                    {/* A remembered coordinate matching neither the file's nor
+                        any candidate still needs its own selectable row. */}
+                    {cachedCoord &&
+                      !(row.fileCoord && row.fileCoord.lat === cachedCoord.lat && row.fileCoord.lon === cachedCoord.lon) &&
+                      !row.candidates.some((cand) => cand.entry.lat === cachedCoord.lat && cand.entry.lon === cachedCoord.lon) && (
+                        <li>
+                          <label>
+                            <input
+                              type="radio"
+                              name={`geo-${row.key}`}
+                              checked={c?.coord.lat === cachedCoord.lat && c?.coord.lon === cachedCoord.lon}
+                              onChange={() => pickCoord(row, cachedCoord, row.cached?.label ?? t("tools.geocode.cached"))}
+                            />
+                            <span className="tools-geo-cand-name">{row.cached?.label ?? t("tools.geocode.cached")}</span>
+                            <span className="gm-data">
+                              {cachedCoord.lat.toFixed(4)}, {cachedCoord.lon.toFixed(4)}
+                            </span>
+                            <span className="tools-reshape-badge reuse">{t("tools.geocode.cached")}</span>
+                          </label>
+                        </li>
+                      )}
                     {row.candidates.map((cand, i) => (
                       <li key={i}>
                         <label>

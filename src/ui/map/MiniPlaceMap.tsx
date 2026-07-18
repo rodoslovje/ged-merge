@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { GeoCoord } from "../../gedcom/types";
 import { useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
+import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
 import { useDocTheme } from "./useDocTheme";
 
 // Small embedded map for the geocode review list: the row's candidate
@@ -17,6 +18,9 @@ export interface MiniMapPin {
   /** Tooltip text (candidate name + score, or the chosen label). */
   label: string;
   kind: "candidate" | "chosen";
+  /** CSS custom property naming this pin's colour (e.g. "--map-birth");
+   *  defaults to the kind's standard colour. */
+  colorVar?: string;
   /** Candidate pins: select this candidate for the row. */
   onPick?: () => void;
 }
@@ -26,13 +30,16 @@ interface Props {
   /** Faint background dots: coordinates the file already carries, with the
    *  place name(s) written there as the hover tooltip. */
   context: { coord: GeoCoord; name: string }[];
+  /** Chronological stops of a life path, drawn as a direction-marked line
+   *  under the pins (the Map chart's path style). */
+  path?: GeoCoord[];
   /** Click on the map background: pick that point as a manual coordinate. */
   onPickCoord?: (coord: GeoCoord) => void;
   /** Tooltip for the map container (e.g. the click-to-pick hint). */
   title?: string;
 }
 
-export default function MiniPlaceMap({ pins, context, onPickCoord, title }: Props) {
+export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }: Props) {
   const { settings: appSettings } = useSettings();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
