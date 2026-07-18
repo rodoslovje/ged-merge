@@ -665,7 +665,23 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     if (!pins.length && !fileCoords.length) return null;
                     return (
                       <Suspense fallback={<div className="tools-geo-minimap" />}>
-                        <MiniPlaceMap pins={pins} context={fileCoords} />
+                        <MiniPlaceMap
+                          pins={pins}
+                          context={fileCoords}
+                          title={t("tools.geocode.mapPickHint")}
+                          onPickCoord={(coord) => {
+                            // A background click is a hand-picked coordinate:
+                            // fill the manual field and select it, like "Use".
+                            setManualDraft((prev) => new Map(prev).set(row.key, `${coord.lat}, ${coord.lon}`));
+                            setChosen((prev) => new Map(prev).set(row.key, { coord, label: t("tools.geocode.manual") }));
+                            toggleChecked(row.key, true);
+                            setNoMatch((prev) => {
+                              const next = new Set(prev);
+                              next.delete(row.key);
+                              return next;
+                            });
+                          }}
+                        />
                       </Suspense>
                     );
                   })()}

@@ -6566,6 +6566,8 @@ kbd {
   /* Leaflet panes default to z-index 400+; keep them under the app header. */
   isolation: isolate;
 }
+/* The mini map is a pick target: signal it, overriding Leaflet's grab hand. */
+.tools-geo-minimap .leaflet-container { cursor: crosshair; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep

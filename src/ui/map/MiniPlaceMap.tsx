@@ -25,9 +25,13 @@ interface Props {
   pins: MiniMapPin[];
   /** Faint background dots: coordinates the file already carries. */
   context: GeoCoord[];
+  /** Click on the map background: pick that point as a manual coordinate. */
+  onPickCoord?: (coord: GeoCoord) => void;
+  /** Tooltip for the map container (e.g. the click-to-pick hint). */
+  title?: string;
 }
 
-export default function MiniPlaceMap({ pins, context }: Props) {
+export default function MiniPlaceMap({ pins, context, onPickCoord, title }: Props) {
   const { settings: appSettings } = useSettings();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,10 +39,12 @@ export default function MiniPlaceMap({ pins, context }: Props) {
   const baseLayerRef = useRef<L.Layer | null>(null);
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
-  // Latest pins for the marker click handlers, so markers only rebuild when
+  // Latest pins/handler for the click handlers, so markers only rebuild when
   // the coordinates change, not on every parent render.
   const latestPins = useRef(pins);
   latestPins.current = pins;
+  const latestPick = useRef(onPickCoord);
+  latestPick.current = onPickCoord;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -46,6 +52,9 @@ export default function MiniPlaceMap({ pins, context }: Props) {
     const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
     map.setView([46.1, 14.5], 5);
+    map.on("click", (e: L.LeafletMouseEvent) =>
+      latestPick.current?.({ lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) }),
+    );
     pinsLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
     return () => {
@@ -93,6 +102,8 @@ export default function MiniPlaceMap({ pins, context }: Props) {
         weight: 2,
         fillColor: chosen ? chosenColor : candColor,
         fillOpacity: chosen ? 0.85 : 0.45,
+        // A pin click picks the pin — it must not double as a map click.
+        bubblingMouseEvents: false,
       });
       marker.bindTooltip(p.label, { direction: "top" });
       marker.on("click", () => latestPins.current[i]?.onPick?.());
@@ -109,5 +120,5 @@ export default function MiniPlaceMap({ pins, context }: Props) {
     }
   }, [pinsKey, context, theme]);
 
-  return <div ref={containerRef} className="tools-geo-minimap" />;
+  return <div ref={containerRef} className="tools-geo-minimap" title={title} />;
 }
