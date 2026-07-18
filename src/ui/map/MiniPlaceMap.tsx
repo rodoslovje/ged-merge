@@ -5,7 +5,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
-import { pathStopMarkers } from "./pathStops";
+import { pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
 /** Draw the life path — polyline plus direction chevrons — into `layer`.
@@ -27,7 +27,7 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
       interactive: false,
     }),
   );
-  for (const m of pathStopMarkers(map, path)) layer.addLayer(m);
+  for (const m of pathLegNumbers(map, path)) layer.addLayer(m);
   const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
   for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) {
     layer.addLayer(

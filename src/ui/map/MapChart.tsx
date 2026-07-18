@@ -41,7 +41,7 @@ import {
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
-import { pathStopMarkers } from "./pathStops";
+import { pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -299,8 +299,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       line.on("mouseover", () => line.setStyle({ weight: weight + 1.5, opacity: 1 }));
       line.on("mouseout", () => line.setStyle({ weight, opacity }));
       layer.addLayer(line);
-      // The singled-out path shows its stop order as numbered chips.
-      if (isSel) for (const m of pathStopMarkers(map, path.stops.map((s) => s.coord))) layer.addLayer(m);
+      // The singled-out path numbers its legs along the line.
+      if (isSel) for (const m of pathLegNumbers(map, path.stops.map((s) => s.coord))) layer.addLayer(m);
       // Direction chevrons — on everything while nothing is selected, and on
       // the selected path alone once there is one (the rest are dimmed).
       if ((isSel || !anySelected) && arrowBudget > 0) {

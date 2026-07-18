@@ -5586,24 +5586,18 @@ kbd {
 .map-kind-chip:not(.active) .map-paths-icon {
   opacity: 0.75;
 }
-/* Life-path stop numbers: order chips floated beside the path line (the
-   marker anchors at the offset point; the chip centers itself on it). */
-.map-path-stopnum-wrap { pointer-events: none; }
-.map-path-stopnum {
+/* Life-path leg numbers: plain digits beside each segment's midpoint, with
+   a background-coloured halo for readability over the map. */
+.map-path-legnum-wrap { pointer-events: none; }
+.map-path-legnum {
   position: absolute;
   transform: translate(-50%, -50%);
-  display: inline-block;
-  min-width: 15px;
-  padding: 0 3px;
-  border-radius: var(--radius-pill);
-  background: var(--panel);
-  border: 1px solid var(--map-path);
   color: var(--map-path);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 14px;
-  text-align: center;
+  line-height: 1;
   white-space: nowrap;
+  text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg), 0 0 2px var(--bg);
 }
 .map-path-arrow-wrap {
   background: none;
