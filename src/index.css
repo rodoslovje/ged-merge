@@ -5609,6 +5609,8 @@ kbd {
   cursor: pointer;
 }
 .map-panel-pathbtn .map-paths-icon {
+  width: 21px;
+  height: 16px;
   opacity: 0.6;
 }
 .map-panel-pathbtn:hover {
@@ -5723,10 +5725,31 @@ kbd {
   flex-direction: column;
   gap: 2px;
 }
+/* Inline flow, name/years/kinship each unbreakable: when a row runs out of
+   width the kinship chip (and, if needed, the lifespan) moves to the next
+   line — the name itself never breaks in two. */
 .map-panel-person {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  display: block;
+}
+.map-panel-person .person-ref {
+  display: inline;
+}
+.map-panel-person .person-name {
+  white-space: nowrap;
+  word-break: normal;
+}
+.map-panel-person .person-xref,
+.map-panel-person .person-years {
+  white-space: nowrap;
+  margin-left: 6px;
+}
+.map-panel-person .person-kinship {
+  white-space: nowrap;
+  margin-left: 8px;
+}
+.map-panel-person .map-panel-pathbtn {
+  margin-left: 4px;
+  vertical-align: middle;
 }
 .map-panel-more {
   color: var(--faint);

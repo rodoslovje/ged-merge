@@ -405,7 +405,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return [...ids];
   }, [filtered]);
 
-  const slug = chartSlug(t("map.pageTitle"));
+  // Page kind with the branch direction spelled out, like the tree charts
+  // ("Ancestors Places Map"); drives the header, export title and file names.
+  const pageKind = `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t("map.pageTitle")}`;
   const eventLabel = (p: MapPoint) => t(`event.${p.tag}`, { defaultValue: p.tag });
 
   // Slider positions for the year window: unset bounds sit at the data range.
@@ -424,8 +426,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const rootYears = root
     ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: lifespanOf(root), age: lifespanAge(root) })
     : undefined;
-  // PNG header line, matching the other charts' export titles.
-  const exportTitle = [root && nameOf(root), rootYears, "—", t("map.pageTitle")].filter(Boolean).join(" ");
+  // Export file base and PNG header line, matching the other charts.
+  const slug = chartSlug(root ? nameOf(root) : undefined, pageKind);
+  const exportTitle = [root && nameOf(root), rootYears, "—", pageKind].filter(Boolean).join(" ");
   const showKin = settings.showKinship && appSettings.showKinship && !!startId;
   const kinship = useMemo(
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
@@ -444,10 +447,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             years={rootYears}
             kinship={showKin ? kinship?.label(rootId) : undefined}
             lineage={kinship?.lineage(rootId)}
-            kind={t("map.pageTitle")}
+            kind={pageKind}
           />
         ) : (
-          <span className="tree-title-kind">{t("map.pageTitle")}</span>
+          <span className="tree-title-kind">{pageKind}</span>
         )
       }
       actions={
