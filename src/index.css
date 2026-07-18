@@ -5597,26 +5597,22 @@ kbd {
   color: var(--text);
   font-weight: 600;
 }
-/* Right-edge life-path button, spanning the row's two text lines. */
+/* Small life-path button at the end of each person's row. */
 .map-panel-pathbtn {
-  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px 9px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  align-self: center;
+  padding: 2px 5px;
+  border: none;
+  background: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .map-panel-pathbtn .map-paths-icon {
-  width: 24px;
-  height: 18px;
-  opacity: 0.75;
+  opacity: 0.6;
 }
 .map-panel-pathbtn:hover {
   background: var(--panel-2);
-  border-color: var(--border-2);
 }
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
@@ -5708,16 +5704,9 @@ kbd {
   overflow-y: auto;
 }
 .map-panel-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 5px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   font-size: 13px;
-}
-.map-panel-row-main {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 .map-panel-list li:last-child {
   border-bottom: none;
@@ -5728,10 +5717,11 @@ kbd {
   gap: 6px;
   color: var(--muted);
 }
+/* One row per person, so a marriage's partners each carry their own path button. */
 .map-panel-people {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
+  flex-direction: column;
+  gap: 2px;
 }
 .map-panel-person {
   display: inline-flex;
