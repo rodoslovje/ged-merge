@@ -7,6 +7,41 @@ import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
 import { useDocTheme } from "./useDocTheme";
 
+/** Draw the life path — polyline plus direction chevrons — into `layer`.
+ *  The chevrons are screen-space (like the Map chart's), so this re-runs on
+ *  zoom. */
+function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | undefined): void {
+  if (!layer) return;
+  layer.clearLayers();
+  if (!path || path.length < 2) return;
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--map-path").trim();
+  const latlngs = path.map((c) => [c.lat, c.lon] as [number, number]);
+  layer.addLayer(
+    L.polyline(latlngs, {
+      color,
+      weight: PATH_STYLE.weight,
+      opacity: PATH_STYLE.opacitySelected,
+      lineCap: "round",
+      lineJoin: "round",
+      interactive: false,
+    }),
+  );
+  const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
+  for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) {
+    layer.addLayer(
+      L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
+        interactive: false,
+        icon: L.divIcon({
+          className: "map-path-arrow-wrap",
+          html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
+          iconSize: [10, 10],
+          iconAnchor: [5, 5],
+        }),
+      }),
+    );
+  }
+}
+
 // Small embedded map for the geocode review list: the row's candidate
 // coordinates as clickable pins (click = pick that candidate), the currently
 // chosen coordinate highlighted, and the file's already-known coordinates as
@@ -46,7 +81,10 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
+  const pathLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
+  const latestPath = useRef(path);
+  latestPath.current = path;
   // Latest pins/handler for the click handlers, so markers only rebuild when
   // the coordinates change, not on every parent render.
   const latestPins = useRef(pins);
@@ -63,13 +101,20 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     map.on("click", (e: L.LeafletMouseEvent) =>
       latestPick.current?.({ lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) }),
     );
+    pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
+    // The direction chevrons depend on on-screen segment lengths — redraw
+    // the path when the zoom settles.
+    const redraw = () => drawPath(map, pathLayerRef.current, latestPath.current);
+    map.on("zoomend", redraw);
     mapRef.current = map;
     return () => {
+      map.off("zoomend", redraw);
       map.remove();
       mapRef.current = null;
       baseLayerRef.current = null;
       pinsLayerRef.current = null;
+      pathLayerRef.current = null;
     };
   }, []);
 
@@ -82,7 +127,8 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
 
   // Positions/kinds as a value key: re-render markers only on real changes
   // (picking a candidate flips its kind to "chosen" — that is a real change).
-  const pinsKey = pins.map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}`).join("|");
+  const pinsKey = pins.map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}:${p.colorVar ?? ""}`).join("|");
+  const pathKey = (path ?? []).map((c) => `${c.lat}:${c.lon}`).join("|");
 
   useEffect(() => {
     const map = mapRef.current;
@@ -107,11 +153,13 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     }
     latestPins.current.forEach((p, i) => {
       const chosen = p.kind === "chosen";
+      const own = p.colorVar ? styles.getPropertyValue(p.colorVar).trim() : "";
+      const color = own || (chosen ? chosenColor : candColor);
       const marker = L.circleMarker([p.coord.lat, p.coord.lon], {
         radius: chosen ? 8 : 6.5,
-        color: chosen ? chosenColor : candColor,
+        color,
         weight: 2,
-        fillColor: chosen ? chosenColor : candColor,
+        fillColor: color,
         fillOpacity: chosen ? 0.85 : 0.45,
         // A pin click picks the pin — it must not double as a map click.
         bubblingMouseEvents: false,
@@ -129,7 +177,14 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
         map.fitBounds(L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3), { maxZoom: 11 });
       }
     }
-  }, [pinsKey, context, theme]);
+    drawPath(map, pathLayerRef.current, latestPath.current);
+  }, [pinsKey, pathKey, context, theme]);
 
-  return <div ref={containerRef} className="tools-geo-minimap" title={title} />;
+  return (
+    <div
+      ref={containerRef}
+      className={`tools-geo-minimap${onPickCoord ? " tools-geo-minimap--pick" : ""}`}
+      title={title}
+    />
+  );
 }

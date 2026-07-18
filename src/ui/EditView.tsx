@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, GeoCoord, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { childrenByTag, firstChild } from "../gedcom/node";
@@ -78,6 +78,11 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/pri
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
+import { personPoints } from "../geo/points";
+import { buildPersonPaths } from "../geo/paths";
+
+/** The person's places map, in the shared Leaflet lazy chunk. */
+const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
@@ -1540,6 +1545,40 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // on the person's identity (replaced by rebuildIndividual on each of their
   // own edits) so the memoized EventList's prop stays stable across unrelated
   // ticks.
+  // The person's coordinate-carrying events (own + spouse-family), grouped
+  // per location as coloured pins, plus their chronological life path — the
+  // small map under the events list. Null when nothing is geocoded.
+  const personMap = useMemo(() => {
+    if (!person) return null;
+    const points = personPoints(dataset, person.id);
+    if (!points.length) return null;
+    const byCoord = new Map<string, { coord: GeoCoord; place: string; labels: string[]; kinds: Set<string> }>();
+    for (const p of points) {
+      const k = `${p.coord.lat}:${p.coord.lon}`;
+      const label = `${t(`event.${p.tag}`, { defaultValue: p.tag })}${p.year !== undefined ? ` ${p.year}` : ""}`;
+      const hit = byCoord.get(k);
+      if (hit) {
+        hit.labels.push(label);
+        hit.kinds.add(p.kind);
+      } else {
+        byCoord.set(k, { coord: p.coord, place: p.place, labels: [label], kinds: new Set([p.kind]) });
+      }
+    }
+    const pins = [...byCoord.values()].map((g) => ({
+      coord: g.coord,
+      label: `${g.labels.join(", ")} · ${g.place}`,
+      kind: "candidate" as const,
+      colorVar: g.kinds.size > 1 ? "--map-mixed" : `--map-${[...g.kinds][0]}`,
+    }));
+    const path = buildPersonPaths(points)
+      .find((pp) => pp.personId === person.id)
+      ?.stops.map((s) => s.coord);
+    return { pins, path };
+    // person is rebuilt (fresh identity) on each own edit; undoVersion covers
+    // undo/redo and family-event edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataset, person, undoVersion, t]);
+
   const birthParentAges = useMemo(() => {
     if (!settings.showAge || !person) return undefined;
     const birthDate = birthDateOf(person);
@@ -1797,6 +1836,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             mergeGen={mergeGenRef.current}
             birthParentAges={birthParentAges}
           />
+          {personMap && (
+            <div className="edit-person-map">
+              <Suspense fallback={<div className="tools-geo-minimap" />}>
+                <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
+              </Suspense>
+            </div>
+          )}
         </div>
 
         <div className="edit-families">
