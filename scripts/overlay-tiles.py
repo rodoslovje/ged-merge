@@ -212,13 +212,16 @@ def detect_frame(im: Image.Image):
 # ── Sheets ───────────────────────────────────────────────────────────────────
 
 class Sheet:
-    def __init__(self, image_path, bbox, frame):
+    """One sheet: geometry up front, pixels loaded lazily — a large mosaic
+    holds only the sheet currently being rendered in memory."""
+
+    def __init__(self, image_path, bbox, frame, rotate=0):
         self.path = image_path
         self.bbox = bbox  # (west, south, east, north)
-        self.im = Image.open(image_path).convert("RGBA")
-        w, h = self.im.size
+        self.rotate = rotate
+        self._im = None
         if frame == "auto":
-            nw, ne, se, sw = detect_frame(self.im)
+            nw, ne, se, sw = detect_frame(self.load())
         else:
             v = [float(t) for t in frame]
             nw, ne, se, sw = (v[0], v[1]), (v[2], v[3]), (v[4], v[5]), (v[6], v[7])
@@ -231,7 +234,18 @@ class Sheet:
         self.frame_px_w = ((ne[0] - nw[0]) + (se[0] - sw[0])) / 2
         print(f"{os.path.basename(image_path)}: frame NW {tuple(round(c) for c in nw)} "
               f"NE {tuple(round(c) for c in ne)} SE {tuple(round(c) for c in se)} "
-              f"SW {tuple(round(c) for c in sw)}")
+              f"SW {tuple(round(c) for c in sw)}", flush=True)
+
+    def load(self):
+        if self._im is None:
+            im = Image.open(self.path)
+            if self.rotate:
+                im = im.rotate(self.rotate, expand=True)
+            self._im = im.convert("RGBA")
+        return self._im
+
+    def unload(self):
+        self._im = None
 
     def natural_zoom(self):
         west, _s, east, _n = self.bbox
@@ -254,8 +268,8 @@ class Sheet:
         quad = []
         for lon, lat in ((lon_w, lat_n), (lon_w, lat_s), (lon_e, lat_s), (lon_e, lat_n)):
             quad.extend(apply_h(self.h, lon, lat))
-        part = self.im.transform((TILE, TILE), Image.Transform.QUAD, quad,
-                                 resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
+        part = self.load().transform((TILE, TILE), Image.Transform.QUAD, quad,
+                                     resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
         # Mask to the sheet's bbox: in mercator tile space the lon/lat box is
         # an axis-aligned rectangle, so margins beyond the neatline (and any
         # overshoot from warped paper) are clipped exactly at the sheet edge.
@@ -273,39 +287,50 @@ class Sheet:
 
 # ── Pyramid build ────────────────────────────────────────────────────────────
 
-def build(sheets, out, base_zoom, min_zoom):
+def build(sheets, out, base_zoom, min_zoom, png8=False):
     west = min(s.bbox[0] for s in sheets)
     south = min(s.bbox[1] for s in sheets)
     east = max(s.bbox[2] for s in sheets)
     north = max(s.bbox[3] for s in sheets)
 
     base_z = base_zoom or max(s.natural_zoom() for s in sheets)
-    print(f"{len(sheets)} sheet(s), base zoom {base_z}, min zoom {min_zoom}")
+    print(f"{len(sheets)} sheet(s), base zoom {base_z}, min zoom {min_zoom}", flush=True)
 
     def tile_path(z, x, y):
         return os.path.join(out, str(z), str(x), f"{y}.png")
 
-    x0 = math.floor(lon_to_x(west, base_z))
-    x1 = math.ceil(lon_to_x(east, base_z))
-    y0 = math.floor(lat_to_y(north, base_z))
-    y1 = math.ceil(lat_to_y(south, base_z))
+    def save_tile(img, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if png8:
+            # Quantized palette PNG ≈ 2-3× smaller; these near-monochrome
+            # scans lose nothing visible at 255 colours + 1 transparent.
+            img.quantize(colors=255, method=Image.Quantize.FASTOCTREE).save(path, optimize=True)
+        else:
+            img.save(path, optimize=True)
+
+    # Base tiles, one sheet at a time (only one scan in memory): a tile that
+    # already exists on disk (a neighbour's edge) is composited into.
     count = 0
-    for tx in range(x0, x1):
-        for ty in range(y0, y1):
-            lon_w, lon_e = x_to_lon(tx, base_z), x_to_lon(tx + 1, base_z)
-            lat_n, lat_s = y_to_lat(ty, base_z), y_to_lat(ty + 1, base_z)
-            contributors = [s for s in sheets if s.intersects(lon_w, lat_s, lon_e, lat_n)]
-            if not contributors:
-                continue
-            tile = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
-            for s in contributors:
+    for s in sheets:
+        sx0 = math.floor(lon_to_x(s.bbox[0], base_z))
+        sx1 = math.ceil(lon_to_x(s.bbox[2], base_z))
+        sy0 = math.floor(lat_to_y(s.bbox[3], base_z))
+        sy1 = math.ceil(lat_to_y(s.bbox[1], base_z))
+        made = 0
+        for tx in range(sx0, sx1):
+            for ty in range(sy0, sy1):
+                path = tile_path(base_z, tx, ty)
+                tile = (Image.open(path).convert("RGBA") if os.path.exists(path)
+                        else Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0)))
                 s.render_into(tile, tx, ty, base_z)
-            if tile.getbbox() is None:
-                continue
-            os.makedirs(os.path.dirname(tile_path(base_z, tx, ty)), exist_ok=True)
-            tile.save(tile_path(base_z, tx, ty), optimize=True)
-            count += 1
-    print(f"z{base_z}: {count} tiles")
+                if tile.getbbox() is None:
+                    continue
+                save_tile(tile, path)
+                made += 1
+        s.unload()
+        count += made
+        print(f"  {os.path.basename(s.path)}: {made} tiles", flush=True)
+    print(f"z{base_z}: {count} tiles", flush=True)
 
     # Parents: stitch and halve the four children.
     for z in range(base_z - 1, min_zoom - 1, -1):
@@ -320,14 +345,13 @@ def build(sheets, out, base_zoom, min_zoom):
                     for dy in (0, 1):
                         p = tile_path(z + 1, tx * 2 + dx, ty * 2 + dy)
                         if os.path.exists(p):
-                            parent.paste(Image.open(p), (dx * TILE, dy * TILE))
+                            parent.paste(Image.open(p).convert("RGBA"), (dx * TILE, dy * TILE))
                             any_child = True
                 if not any_child:
                     continue
-                os.makedirs(os.path.dirname(tile_path(z, tx, ty)), exist_ok=True)
-                parent.resize((TILE, TILE), Image.Resampling.LANCZOS).save(tile_path(z, tx, ty), optimize=True)
+                save_tile(parent.resize((TILE, TILE), Image.Resampling.LANCZOS), tile_path(z, tx, ty))
                 made += 1
-        print(f"z{z}: {made} tiles")
+        print(f"z{z}: {made} tiles", flush=True)
 
     total = 0
     files = 0
@@ -350,6 +374,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--base-zoom", type=int, default=0)
     ap.add_argument("--min-zoom", type=int, default=7)
+    ap.add_argument("--png8", action="store_true",
+                    help="quantize tiles to 255-colour palette PNGs (≈2-3× smaller)")
     args = ap.parse_args()
 
     sheets = []
@@ -361,7 +387,7 @@ def main():
             if not os.path.isabs(path):
                 path = os.path.join(base, path)
             frame = entry.get("frame", "auto")
-            sheets.append(Sheet(path, tuple(entry["bbox"]), frame))
+            sheets.append(Sheet(path, tuple(entry["bbox"]), frame, rotate=entry.get("rotate", 0)))
     else:
         if not args.image or not args.bbox:
             raise SystemExit("either --manifest, or an image plus --bbox, is required")
@@ -373,7 +399,7 @@ def main():
             raise SystemExit("--frame needs 8 numbers: nwx,nwy,nex,ney,sex,sey,swx,swy")
         sheets.append(Sheet(args.image, tuple(bbox), frame))
 
-    build(sheets, args.out, args.base_zoom, args.min_zoom)
+    build(sheets, args.out, args.base_zoom, args.min_zoom, png8=args.png8)
 
 
 if __name__ == "__main__":
