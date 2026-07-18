@@ -5569,7 +5569,9 @@ kbd {
    context via isolation). */
 .map-overlays-wrap {
   position: relative;
-  z-index: 200;
+  /* Above the map canvas (a z-auto sibling stacking context), but always
+     below .modal-overlay's z-index 100. */
+  z-index: 30;
 }
 .map-layers-icon {
   display: block;
