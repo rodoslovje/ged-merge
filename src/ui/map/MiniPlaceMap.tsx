@@ -5,7 +5,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
-import { pathLegNumbers } from "./pathStops";
+import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
 /** Draw the life path — polyline plus direction chevrons — into `layer`.
@@ -29,19 +29,7 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
   );
   for (const m of pathLegNumbers(map, path)) layer.addLayer(m);
   const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
-  for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) {
-    layer.addLayer(
-      L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
-        interactive: false,
-        icon: L.divIcon({
-          className: "map-path-arrow-wrap",
-          html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
-          iconSize: [10, 10],
-          iconAnchor: [5, 5],
-        }),
-      }),
-    );
-  }
+  for (const a of pathArrows(pts, ARROW_MIN_SEG_PX)) layer.addLayer(arrowMarker(map, a));
 }
 
 /** Tooltip content as a DOM element — textContent, never HTML, because the
@@ -96,7 +84,7 @@ interface Props {
   pins: MiniMapPin[];
   /** Faint background dots: coordinates the file already carries, with the
    *  place name(s) written there as the hover tooltip. */
-  context: { coord: GeoCoord; name: string }[];
+  context?: { coord: GeoCoord; name: string }[];
   /** Chronological stops of a life path, drawn as a direction-marked line
    *  under the pins (the Map chart's path style). */
   path?: GeoCoord[];
@@ -106,7 +94,9 @@ interface Props {
   title?: string;
 }
 
-export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }: Props) {
+const NO_CONTEXT: NonNullable<Props["context"]> = [];
+
+export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title }: Props) {
   const { settings: appSettings } = useSettings();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,9 +124,12 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
     map.setView([46.1, 14.5], 5);
-    map.on("click", (e: L.LeafletMouseEvent) =>
-      latestPick.current?.({ lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) }),
-    );
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      // wrap(): a click on a repeated world copy must not yield a longitude
+      // outside ±180 — it would be written into the file as-is.
+      const ll = e.latlng.wrap();
+      latestPick.current?.({ lat: +ll.lat.toFixed(5), lon: +ll.lng.toFixed(5) });
+    });
     pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
     // The direction chevrons depend on on-screen segment lengths — redraw
@@ -150,7 +143,9 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     const markUser = () => {
       userMovedRef.current = true;
     };
-    map.on("dragend", markUser);
+    // Any pointer interaction (drag, double-click, the +/- zoom control) or
+    // wheel zoom hands view control to the user — programmatic fits don't.
+    el.addEventListener("pointerdown", markUser);
     el.addEventListener("wheel", markUser, { passive: true });
     const ro = new ResizeObserver(() => {
       map.invalidateSize();
@@ -160,8 +155,8 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     mapRef.current = map;
     return () => {
       ro.disconnect();
+      el.removeEventListener("pointerdown", markUser);
       el.removeEventListener("wheel", markUser);
-      map.off("dragend", markUser);
       map.off("zoomend", redraw);
       map.remove();
       mapRef.current = null;
@@ -175,13 +170,22 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     const map = mapRef.current;
     if (!map) return;
     baseLayerRef.current?.remove();
-    baseLayerRef.current = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
+    const base = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
+    // The offline outline is a vector layer added after the pins — push it
+    // below them or its opaque land fill hides everything already drawn.
+    if (base instanceof L.GeoJSON) base.bringToBack();
+    baseLayerRef.current = base;
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
 
   // Positions/kinds as a value key: re-render markers only on real changes
   // (picking a candidate flips its kind to "chosen" — that is a real change).
   const pinsKey = pins.map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}:${p.colorVar ?? ""}`).join("|");
   const pathKey = (path ?? []).map((c) => `${c.lat}:${c.lon}`).join("|");
+  // Value key, like pinsKey — a caller passing a fresh array identity per
+  // render must not force a marker rebuild.
+  const contextKey = context.map((c) => `${c.coord.lat}:${c.coord.lon}`).join("|");
+  const latestContext = useRef(context);
+  latestContext.current = context;
 
   useEffect(() => {
     const map = mapRef.current;
@@ -192,7 +196,7 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     const mutedColor = styles.getPropertyValue("--muted").trim();
     const candColor = styles.getPropertyValue("--accent").trim();
     const chosenColor = styles.getPropertyValue("--status-new").trim();
-    for (const c of context) {
+    for (const c of latestContext.current) {
       // Interactive for the name tooltip; clicks bubble on to the map, so
       // click-to-pick still works on top of a dot.
       L.circleMarker([c.coord.lat, c.coord.lon], {
@@ -224,7 +228,9 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
     // Zoom to the pins once (context dots frame themselves); later pin
     // changes (picking a candidate) keep the user's pan/zoom.
     if (!didFitRef.current) {
-      const fitPts = latestPins.current.length ? latestPins.current.map((p) => p.coord) : context.map((c) => c.coord);
+      const fitPts = latestPins.current.length
+        ? latestPins.current.map((p) => p.coord)
+        : latestContext.current.map((c) => c.coord);
       if (fitPts.length) {
         didFitRef.current = true;
         const bounds = L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3);
@@ -233,7 +239,7 @@ export default function MiniPlaceMap({ pins, context, path, onPickCoord, title }
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);
-  }, [pinsKey, pathKey, context, theme]);
+  }, [pinsKey, pathKey, contextKey, theme]);
 
   return (
     <div

@@ -6400,7 +6400,8 @@ kbd {
 .tools-tree-row:hover .tools-place-edit-btn,
 .tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
-.tools-place-edit-cancel { opacity: 1 !important; width: auto; padding: 1px 5px; margin-left: 0; }
+/* Wins over the base rule by source order — no !important needed. */
+.tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-rename {
   display: flex;
   align-items: center;

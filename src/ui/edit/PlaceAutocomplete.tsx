@@ -62,7 +62,10 @@ export function PlaceAutocomplete({
     const withAddr: Item[] = onPickCombo
       ? (combos ?? []).filter((cb) => cb.addr.toLowerCase().includes(q)).map((cb) => ({ place: cb.place, addr: cb.addr }))
       : [];
-    return [...plain, ...withAddr].slice(0, 8);
+    // Reserve room for combo hits: with 8+ plain matches the address lookup
+    // would otherwise never surface at all.
+    const comboRoom = Math.min(withAddr.length, 3);
+    return [...plain.slice(0, 8 - comboRoom), ...withAddr].slice(0, 8);
   }, [value, suggestions, combos, onPickCombo]);
 
   const showDropdown = open && filtered.length > 0;
@@ -102,6 +105,10 @@ export function PlaceAutocomplete({
       e.preventDefault();
       selectSuggestion(filtered[highlighted]);
     } else if (e.key === "Escape") {
+      // With the dropdown open, Escape only dismisses it — preventDefault
+      // tells hosting editors (e.g. the geocode rename row) to stay open,
+      // mirroring how a consumed Enter is signalled.
+      if (showDropdown) e.preventDefault();
       setOpen(false);
       setHighlighted(-1);
     }

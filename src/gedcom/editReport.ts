@@ -122,6 +122,16 @@ interface EventFields {
 
 const EVENT_FIELD_KEYS: (keyof EventFields)[] = ["type", "value", "date", "place", "coord", "addr", "note", "cause", "sources"];
 
+/** The location-ish sub-fields, kept in one place so the "same event, moved"
+ *  pairing pass below stays in sync when another location field is added. */
+const PLACE_FIELD_KEYS: (keyof EventFields)[] = ["place", "coord", "addr"];
+
+/** Keys that count towards "same event" pairing. `coord` is excluded: it is
+ *  derived from the place, and after bulk geocoding many distinct PLAC
+ *  strings share one village coordinate — a coord-only match must not glue
+ *  two unrelated events into one "modified" row. */
+const OVERLAP_KEYS = EVENT_FIELD_KEYS.filter((k) => k !== "coord");
+
 /** The place's MAP coordinate as a display string ("46.0511, 14.5051"), so a
  *  geocode write-back (MAP LATI/LONG added under an existing PLAC) shows in
  *  the diff instead of silently disappearing. */
@@ -151,7 +161,7 @@ function eventSummary(f: EventFields): string {
 /** Count of sub-fields two event instances share — used to recognize a before/after
  *  pair as "the same event, modified" rather than an unrelated add+remove pair. */
 function eventOverlapScore(a: EventFields, b: EventFields): number {
-  return EVENT_FIELD_KEYS.reduce((n, k) => n + (a[k] && a[k] === b[k] ? 1 : 0), 0);
+  return OVERLAP_KEYS.reduce((n, k) => n + (a[k] && a[k] === b[k] ? 1 : 0), 0);
 }
 
 /** Builds the segmented diff for one event instance that was modified in place:
@@ -216,7 +226,7 @@ function diffEventSet(
     // agree (including both empty). eventOverlapScore requires a truthy match,
     // so place-only events score 0 and miss the first pass — but they are
     // clearly the same event with an edited location, not a remove+add pair.
-    const nonPlaceKeys = EVENT_FIELD_KEYS.filter(k => k !== "place" && k !== "coord" && k !== "addr") as (keyof EventFields)[];
+    const nonPlaceKeys = EVENT_FIELD_KEYS.filter((k) => !PLACE_FIELD_KEYS.includes(k));
     for (let bi = 0; bi < beforeFields.length; bi++) {
       if (usedB.has(bi)) continue;
       for (let ai = 0; ai < afterFields.length; ai++) {

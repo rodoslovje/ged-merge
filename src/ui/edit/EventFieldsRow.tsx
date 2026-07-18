@@ -141,6 +141,12 @@ export function EventFieldsRow({
   // Known place+address pairs for the place field's combo suggestions —
   // typing an address there fills both fields in one go.
   const placeCombos = useMemo(() => placeCombosOf(placeToAddrs, placeCanonical), [placeToAddrs, placeCanonical]);
+  /** Combo pick fills both fields in one commit — shared by both hosts. */
+  const pickCombo = (place: string, addr: string) => {
+    placeField.set(place);
+    addrField.set(addr);
+    commitAll({ place, address: addr });
+  };
   // The address field's combos: pairs at other places (this place's own
   // addresses are already its plain suggestions), so an address lookup there
   // can move place+address together.
@@ -533,18 +539,10 @@ export function EventFieldsRow({
             onChange={placeField.set}
             onCommit={(val) => commitAll({ place: val })}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
-            onPickCombo={(place, addr) => {
-              placeField.set(place);
-              addrField.set(addr);
-              commitAll({ place, address: addr });
-            }}
+            onPickCombo={pickCombo}
           />
         </span>
-        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, (place, addr) => {
-          placeField.set(place);
-          addrField.set(addr);
-          commitAll({ place, address: addr });
-        })}
+        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, pickCombo)}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),

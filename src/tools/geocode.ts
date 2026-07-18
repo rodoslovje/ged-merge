@@ -55,11 +55,33 @@ function coordOf(plac: GedNode): GeoCoord | undefined {
   return lati && long ? parseCoordPair(lati, long) : undefined;
 }
 
-function walkPlacNodes(node: GedNode, visit: (plac: GedNode) => void): void {
+function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedNode) => void): void {
   for (const child of node.children) {
-    if (child.tag === "PLAC" && child.value?.trim()) visit(child);
+    if (child.tag === "PLAC" && child.value?.trim()) visit(child, node);
     walkPlacNodes(child, visit);
   }
+}
+
+/** Run `apply` over every INDI/FAM record, rebuilding the changed ones and
+ *  collecting the before/after RecordPatch pairs for the unified undo stack —
+ *  the shared tail of every whole-file place edit here. */
+function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): RecordPatch[] {
+  const patches: RecordPatch[] = [];
+  for (const indi of dataset.individuals.values()) {
+    const before = cloneRaw(indi.raw);
+    if (apply(indi.raw)) {
+      rebuildIndividual(dataset, indi);
+      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+    }
+  }
+  for (const fam of dataset.families.values()) {
+    const before = cloneRaw(fam.raw);
+    if (apply(fam.raw)) {
+      rebuildFamily(dataset, fam);
+      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+    }
+  }
+  return patches;
 }
 
 /** Ambiguity guard for bulk accept: runner-up must trail the best clearly. */
@@ -192,46 +214,25 @@ export function renamePlaceValue(dataset: Dataset, from: string, to: string, add
   const target = to.trim();
   const addrTarget = addr?.trim() ?? "";
   if (!target || (target === from && !addrTarget)) return [];
-  const patches: RecordPatch[] = [];
-  const applyToRecord = (raw: GedNode): boolean => {
+  return patchRecords(dataset, (raw) => {
     let changed = false;
-    // Parent-aware walk: the ADDR sibling lives on the PLAC's parent event.
-    const walk = (node: GedNode) => {
-      for (const child of node.children) {
-        if (child.tag === "PLAC" && child.value?.trim() === from) {
-          child.value = target;
-          if (addrTarget) {
-            const existing = node.children.find((c) => c.tag === "ADDR");
-            if (!existing) {
-              const at = node.children.indexOf(child) + 1;
-              node.children.splice(at, 0, { level: child.level, tag: "ADDR", value: addrTarget, children: [] });
-            } else if (!existing.value?.trim()) {
-              existing.value = addrTarget;
-            }
-          }
-          changed = true;
+    walkPlacNodes(raw, (plac, parent) => {
+      if (plac.value!.trim() !== from) return;
+      plac.value = target;
+      if (addrTarget) {
+        // The ADDR sibling lives on the PLAC's parent event.
+        const existing = parent.children.find((c) => c.tag === "ADDR");
+        if (!existing) {
+          const at = parent.children.indexOf(plac) + 1;
+          parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: addrTarget, children: [] });
+        } else if (!existing.value?.trim()) {
+          existing.value = addrTarget;
         }
-        walk(child);
       }
-    };
-    walk(raw);
+      changed = true;
+    });
     return changed;
-  };
-  for (const indi of dataset.individuals.values()) {
-    const before = cloneRaw(indi.raw);
-    if (applyToRecord(indi.raw)) {
-      rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
-    }
-  }
-  for (const fam of dataset.families.values()) {
-    const before = cloneRaw(fam.raw);
-    if (applyToRecord(fam.raw)) {
-      rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
-    }
-  }
-  return patches;
+  });
 }
 
 /**
@@ -240,8 +241,7 @@ export function renamePlaceValue(dataset: Dataset, from: string, to: string, add
  * place and returns RecordPatch[] for the unified undo stack.
  */
 export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, GeoCoord>): RecordPatch[] {
-  const patches: RecordPatch[] = [];
-  const applyToRecord = (raw: GedNode): boolean => {
+  return patchRecords(dataset, (raw) => {
     let changed = false;
     walkPlacNodes(raw, (plac) => {
       const coord = assignments.get(plac.value!.trim());
@@ -250,20 +250,5 @@ export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, 
       changed = true;
     });
     return changed;
-  };
-  for (const indi of dataset.individuals.values()) {
-    const before = cloneRaw(indi.raw);
-    if (applyToRecord(indi.raw)) {
-      rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
-    }
-  }
-  for (const fam of dataset.families.values()) {
-    const before = cloneRaw(fam.raw);
-    if (applyToRecord(fam.raw)) {
-      rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
-    }
-  }
-  return patches;
+  });
 }

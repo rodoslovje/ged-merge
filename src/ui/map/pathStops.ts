@@ -1,5 +1,22 @@
 import L from "leaflet";
 import type { GeoCoord } from "../../gedcom/types";
+import type { PathArrow } from "./markerStyle";
+
+/** One direction chevron as a Leaflet marker — the shared renderer for the
+ *  Map chart's paths and the mini map (same icon, same classes). */
+export function arrowMarker(map: L.Map, a: PathArrow): L.Marker {
+  return L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
+    interactive: false,
+    keyboard: false,
+    zIndexOffset: -1000,
+    icon: L.divIcon({
+      className: "map-path-arrow-wrap",
+      html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    }),
+  });
+}
 
 /** Perpendicular offset of a leg number from the line, in screen px. */
 const NUM_OFFSET_PX = 10;

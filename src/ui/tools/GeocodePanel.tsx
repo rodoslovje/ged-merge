@@ -120,17 +120,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     [dataset, startId, appSettings.showKinship, t],
   );
 
-  /** Hover list of the people this unresolved place occurs at (capped). */
-  const missingInTitle = (row: GeocodeRow): string | undefined => {
-    if (!row.missingIn.length) return undefined;
-    const shown = row.missingIn.slice(0, 15).map((id) => {
-      const p = dataset.individuals.get(id);
-      return p ? nameOf(p) : id;
-    });
-    const more = row.missingIn.length - shown.length;
-    return shown.join("\n") + (more > 0 ? `\n… +${more}` : "");
-  };
-
   // Esc returns to the Places tree, like leaving Organize sources.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -270,6 +259,23 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     [dataset, scanGen],
   );
 
+  // Hover lists of the people each unresolved place occurs at — precomputed
+  // per scan, not per render (300 rows × nameOf per keystroke adds up).
+  const missingInTitles = useMemo(() => {
+    const titles = new Map<string, string>();
+    if (!scan) return titles;
+    for (const row of scan.rows) {
+      if (!row.missingIn.length) continue;
+      const shown = row.missingIn.slice(0, 15).map((id) => {
+        const p = dataset.individuals.get(id);
+        return p ? nameOf(p) : id;
+      });
+      const more = row.missingIn.length - shown.length;
+      titles.set(row.key, shown.join("\n") + (more > 0 ? `\n… +${more}` : ""));
+    }
+    return titles;
+  }, [scan, nameOf, dataset]);
+
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [chosen, setChosen] = useState<Map<string, Chosen>>(new Map());
   const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
@@ -288,14 +294,26 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim().toLowerCase());
 
-  // A fresh scan re-seeds the review state from the cached decisions.
+  // A fresh scan seeds the review state from the cached decisions — but
+  // in-progress picks on rows that survived the rescan (e.g. after renaming
+  // one other row) are preserved, not silently discarded.
   useEffect(() => {
     if (!scan) return;
-    setChecked(new Set(scan.rows.filter((r) => r.cached?.status === "accepted" && r.cached.lat !== undefined).map((r) => r.key)));
-    setNoMatch(new Set(scan.rows.filter((r) => r.cached?.status === "nomatch").map((r) => r.key)));
-    setChosen(new Map());
-    setExpanded(new Set());
-    setMapKey(null);
+    const keys = new Set(scan.rows.map((r) => r.key));
+    setChecked((prev) => {
+      const next = new Set([...prev].filter((k) => keys.has(k)));
+      for (const r of scan.rows) if (r.cached?.status === "accepted" && r.cached.lat !== undefined) next.add(r.key);
+      return next;
+    });
+    setNoMatch((prev) => {
+      const next = new Set([...prev].filter((k) => keys.has(k)));
+      for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
+      return next;
+    });
+    setChosen((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setManualDraft((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setExpanded((prev) => new Set([...prev].filter((k) => keys.has(k))));
+    setMapKey((prev) => (prev && keys.has(prev) ? prev : null));
   }, [scan]);
 
   const chosenFor = (row: GeocodeRow): Chosen | undefined => {
@@ -335,14 +353,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
 
   const setManual = (row: GeocodeRow) => {
     const coord = parseManualCoord(manualDraft.get(row.key) ?? "");
-    if (!coord) return;
-    setChosen((prev) => new Map(prev).set(row.key, { coord, label: t("tools.geocode.manual") }));
-    toggleChecked(row.key, true);
-    setNoMatch((prev) => {
-      const next = new Set(prev);
-      next.delete(row.key);
-      return next;
-    });
+    if (coord) pickCoord(row, coord, t("tools.geocode.manual"));
   };
 
   const toggleNoMatch = (key: string) => {
@@ -587,7 +598,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <span
                   className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
                   onClick={toggleOpen}
-                  title={missingInTitle(row)}
+                  title={missingInTitles.get(row.key)}
                 >
                   {row.key}
                 </span>
@@ -665,10 +676,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                 <div
                   className="tools-place-rename"
                   onKeyDown={(e) => {
-                    // Enter with a highlighted suggestion is consumed by the
-                    // autocomplete (defaultPrevented); a second Enter applies.
+                    // Enter with a highlighted suggestion, and Escape with an
+                    // open dropdown, are consumed by the autocomplete
+                    // (defaultPrevented); the next press reaches the editor.
                     if (e.key === "Enter" && !e.defaultPrevented) applyRename();
-                    if (e.key === "Escape") setRenameKey(null);
+                    if (e.key === "Escape" && !e.defaultPrevented) setRenameKey(null);
                   }}
                 >
                   <PlaceAutocomplete
@@ -713,6 +725,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
               {isOpen && (
                 <div className="tools-tree-children tools-geo-detail">
                   {(() => {
+                    // Cheap gates first — under "Expand all" most rows render
+                    // the claim link, and must not build throwaway pin arrays.
+                    if (!row.candidates.length && !c && !draftCoord && !fileCoords.length) return null;
+                    if (mapKey !== row.key)
+                      return (
+                        <button className="tools-issue-link tools-geo-showmap" onClick={() => setMapKey(row.key)}>
+                          {t("tools.geocode.showMap")}
+                        </button>
+                      );
                     // Candidate pins (click = pick), the chosen coordinate
                     // highlighted, plus a live pin for a parseable manual draft.
                     const pins: MiniMapPin[] = row.candidates.map((cand) => ({
@@ -728,13 +749,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                       pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
                     if (draftCoord && !pins.some((p) => p.coord.lat === draftCoord.lat && p.coord.lon === draftCoord.lon))
                       pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen" });
-                    if (!pins.length && !fileCoords.length) return null;
-                    if (mapKey !== row.key)
-                      return (
-                        <button className="tools-issue-link tools-geo-showmap" onClick={() => setMapKey(row.key)}>
-                          {t("tools.geocode.showMap")}
-                        </button>
-                      );
                     return (
                       <Suspense fallback={<div className="tools-geo-minimap" />}>
                         <MiniPlaceMap
@@ -743,15 +757,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                           title={t("tools.geocode.mapPickHint")}
                           onPickCoord={(coord) => {
                             // A background click is a hand-picked coordinate:
-                            // fill the manual field and select it, like "Use".
+                            // fill the manual field and select it.
                             setManualDraft((prev) => new Map(prev).set(row.key, `${coord.lat}, ${coord.lon}`));
-                            setChosen((prev) => new Map(prev).set(row.key, { coord, label: t("tools.geocode.manual") }));
-                            toggleChecked(row.key, true);
-                            setNoMatch((prev) => {
-                              const next = new Set(prev);
-                              next.delete(row.key);
-                              return next;
-                            });
+                            pickCoord(row, coord, t("tools.geocode.manual"));
                           }}
                         />
                       </Suspense>
@@ -778,9 +786,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                     )}
                     {/* A remembered coordinate matching neither the file's nor
                         any candidate still needs its own selectable row. */}
-                    {cachedCoord &&
-                      !(row.fileCoord && row.fileCoord.lat === cachedCoord.lat && row.fileCoord.lon === cachedCoord.lon) &&
-                      !row.candidates.some((cand) => cand.entry.lat === cachedCoord.lat && cand.entry.lon === cachedCoord.lon) && (
+                    {cachedCoord && !cachedIsFile && !cachedCand && (
                         <li>
                           <label>
                             <input

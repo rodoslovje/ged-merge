@@ -80,6 +80,7 @@ import { EventList } from "./edit/EventList";
 import { NotesEditor } from "./edit/NotesEditor";
 import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
 import { buildPersonPaths } from "../geo/paths";
+import { kindsColorVar } from "./map/markerStyle";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
@@ -1582,7 +1583,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       label: g.place,
       lines: g.labels,
       kind: "candidate" as const,
-      colorVar: g.kinds.size > 1 ? "--map-mixed" : `--map-${[...g.kinds][0]}`,
+      colorVar: kindsColorVar(g.kinds),
     }));
     const path = buildPersonPaths(points)
       .find((pp) => pp.personId === person.id)
@@ -1592,9 +1593,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const kinds = MAP_EVENT_KINDS.filter((k) => present.has(k));
     return { pins, path, kinds };
     // person is rebuilt (fresh identity) on each own edit; undoVersion covers
-    // undo/redo and family-event edits.
+    // undo/redo; tick covers family-event edits, which replace the Family
+    // object but not this person (same reason birthParentAges depends on it).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataset, person, undoVersion, t]);
+  }, [dataset, person, undoVersion, tick, t]);
 
   const birthParentAges = useMemo(() => {
     if (!settings.showAge || !person) return undefined;
@@ -1861,7 +1863,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               {!mapHidden && (
                 <>
                   <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} context={[]} path={personMap.path} />
+                    <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} path={personMap.path} />
                   </Suspense>
                   <div className="edit-person-map-legend">
                     {personMap.kinds.map((k) => (

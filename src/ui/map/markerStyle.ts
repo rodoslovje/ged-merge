@@ -8,10 +8,15 @@ export function markerSize(count: number): number {
   return count === 1 ? 12 : Math.min(42, Math.round(16 + 7 * Math.log10(count)));
 }
 
+/** The colour token for a set of event kinds: the single kind's token, or
+ *  the mixed token — shared by the cluster markers and the Edit mini map. */
+export function kindsColorVar(kinds: ReadonlySet<string>): string {
+  return kinds.size === 1 ? `--map-${[...kinds][0]}` : "--map-mixed";
+}
+
 /** The cluster's colour token: its single kind, or the mixed token. */
 export function clusterColorVar(c: MapCluster): string {
-  const kind = c.points[0].kind;
-  return c.points.every((p) => p.kind === kind) ? `--map-${kind}` : "--map-mixed";
+  return kindsColorVar(new Set(c.points.map((p) => p.kind)));
 }
 
 // ── Life-path presentation (same rules live + PNG export) ──────────────────

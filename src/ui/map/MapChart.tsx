@@ -41,7 +41,7 @@ import {
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
-import { pathLegNumbers } from "./pathStops";
+import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -307,18 +307,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         const pts = latlngs.map((ll) => map.latLngToContainerPoint(ll));
         for (const a of pathArrows(pts, isSel ? ARROW_MIN_SEG_SELECTED_PX : ARROW_MIN_SEG_PX)) {
           if (arrowBudget-- <= 0) break;
-          layer.addLayer(
-            L.marker(map.containerPointToLatLng(L.point(a.x, a.y)), {
-              icon: L.divIcon({
-                className: "map-path-arrow-wrap",
-                html: `<svg class="map-path-arrow" viewBox="0 0 10 10" style="transform:rotate(${Math.round(a.angleDeg)}deg)"><path d="M1 1 L9 5 L1 9 Z"/></svg>`,
-                iconSize: [10, 10],
-              }),
-              interactive: false,
-              keyboard: false,
-              zIndexOffset: -1000,
-            }),
-          );
+          layer.addLayer(arrowMarker(map, a));
         }
       }
     }

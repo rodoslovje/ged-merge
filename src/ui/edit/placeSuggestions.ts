@@ -83,17 +83,23 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
 }
 
 /** Every known place+address pair, flattened for the place autocomplete's
- * combo suggestions ("place · address" fills both fields in one go). */
+ * combo suggestions ("place · address" fills both fields in one go).
+ * Cached per placeToAddrs map — every event row of a person asks for the
+ * same flattening, so one build serves them all until the maps rebuild. */
+const combosCache = new WeakMap<Map<string, string[]>, { place: string; addr: string }[]>();
 export function placeCombosOf(
   placeToAddrs: Map<string, string[]>,
   placeCanonical: Map<string, string>,
 ): { place: string; addr: string }[] {
+  const hit = combosCache.get(placeToAddrs);
+  if (hit) return hit;
   const out: { place: string; addr: string }[] = [];
   for (const [key, addrs] of placeToAddrs) {
     const place = placeCanonical.get(key);
     if (!place) continue;
     for (const addr of addrs) out.push({ place, addr });
   }
+  combosCache.set(placeToAddrs, out);
   return out;
 }
 
