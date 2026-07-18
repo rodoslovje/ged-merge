@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { parseCoordPair } from "../gedcom/place";
-import { branchIds, eventKindOf, filterPoints, projectPoints, yearRange, type MapEventKind } from "./points";
+import { branchIds, eventKindOf, filterPoints, personPoints, projectPoints, sameCoord, yearRange, type MapEventKind } from "./points";
 import { clusterPoints, latToWorldY, lonToWorldX } from "./cluster";
 
 function buildFromText(text: string) {
@@ -132,6 +132,37 @@ describe("projectPoints", () => {
     const excl = filterPoints(points, { kinds: all, includeUndated: true, excludePersonIds: new Set(["@I2@"]) });
     expect(excl.every((p) => !p.personIds.includes("@I2@"))).toBe(true);
     expect(excl).toHaveLength(3);
+  });
+});
+
+describe("personPoints", () => {
+  const ds = buildFromText(SAMPLE);
+
+  it("collects the person's own events plus their spouse-family events", () => {
+    const points = personPoints(ds, "@I1@");
+    // I1 BIRT + DEAT + F1 MARR.
+    expect(points.map((p) => p.tag).sort()).toEqual(["BIRT", "DEAT", "MARR"]);
+    const marr = points.find((p) => p.tag === "MARR")!;
+    expect(marr.personIds.sort()).toEqual(["@I1@", "@I2@"]);
+    expect(marr.familyId).toBe("@F1@");
+  });
+
+  it("does not pull family events for a child of the family", () => {
+    // I3 is a CHIL of F1, not a spouse — only their own RESI qualifies.
+    expect(personPoints(ds, "@I3@").map((p) => p.tag)).toEqual(["RESI"]);
+  });
+
+  it("returns nothing for an unknown person", () => {
+    expect(personPoints(ds, "@I99@")).toEqual([]);
+  });
+});
+
+describe("sameCoord", () => {
+  it("compares exactly and tolerates missing sides", () => {
+    expect(sameCoord({ lat: 46.05, lon: 14.51 }, { lat: 46.05, lon: 14.51 })).toBe(true);
+    expect(sameCoord({ lat: 46.05, lon: 14.51 }, { lat: 46.05, lon: 14.5 })).toBe(false);
+    expect(sameCoord(undefined, { lat: 46.05, lon: 14.51 })).toBe(false);
+    expect(sameCoord(undefined, undefined)).toBe(false);
   });
 });
 

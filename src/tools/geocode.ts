@@ -84,6 +84,33 @@ function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): Recor
   return patches;
 }
 
+/** A row's currently proposed/selected coordinate with its display label. */
+export interface ChosenCoord {
+  coord: GeoCoord;
+  label: string;
+}
+
+/**
+ * The coordinate a review row currently resolves to: an explicit user pick
+ * when there is one, else the remembered (cached) acceptance, else the file's
+ * own coordinate for this exact value, else the best gazetteer candidate.
+ * Shared by the row (radio/badge state) and the panel's apply pass.
+ */
+export function chosenCoordFor(
+  row: GeocodeRow,
+  override: ChosenCoord | undefined,
+  labels: { fromFile: string; cached: string },
+): ChosenCoord | undefined {
+  if (override) return override;
+  if (row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined)
+    return { coord: { lat: row.cached.lat, lon: row.cached.lon }, label: row.cached.label ?? labels.cached };
+  // The file's own coordinate for this exact value beats any gazetteer
+  // guess — same file, same spelling, already placed by someone.
+  if (row.fileCoord) return { coord: row.fileCoord, label: labels.fromFile };
+  const best = row.candidates[0];
+  return best ? { coord: { lat: best.entry.lat, lon: best.entry.lon }, label: best.entry.name } : undefined;
+}
+
 /** Ambiguity guard for bulk accept: runner-up must trail the best clearly. */
 const AMBIGUITY_GAP = 0.05;
 

@@ -3,7 +3,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeDataset } from "../gedcom/serialize";
 import { buildGazetteerIndex, parseGeoNamesLine, type GazEntry } from "../geo/gazetteer";
-import { applyGeocode, renamePlaceValue, scanGeocode } from "./geocode";
+import { applyGeocode, chosenCoordFor, renamePlaceValue, scanGeocode, type GeocodeRow } from "./geocode";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -78,6 +78,17 @@ describe("scanGeocode", () => {
     expect(unknown.confident).toBe(false);
   });
 
+  it("lists the people whose events still miss the coordinate", () => {
+    const ds = buildFromText(SAMPLE);
+    const scan = scanGeocode(ds, index, new Map());
+    // I1 BIRT + I2 BIRT + F1 MARR (attributed to both spouses).
+    const kranj = scan.rows.find((r) => r.key === "Kranj, Slovenija")!;
+    expect(kranj.missingIn.sort()).toEqual(["@I1@", "@I2@"]);
+    // Only I2's DEAT misses it — I3's occurrence already has a MAP.
+    const straz = scan.rows.find((r) => r.key === "Stražišče,Kranj,Slovenia")!;
+    expect(straz.missingIn).toEqual(["@I2@"]);
+  });
+
   it("attaches cached decisions and works without a gazetteer", () => {
     const ds = buildFromText(SAMPLE);
     const cached = new Map([
@@ -87,6 +98,37 @@ describe("scanGeocode", () => {
     const scan = scanGeocode(ds, undefined, cached);
     expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached?.status).toBe("accepted");
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
+  });
+});
+
+describe("chosenCoordFor", () => {
+  const labels = { fromFile: "from file", cached: "cached" };
+  const base: GeocodeRow = { key: "X", count: 1, missing: 1, candidates: [], confident: false, missingIn: [] };
+  const cand = index.entries.find((e) => e.name === "Kranj")!;
+
+  it("prefers override > cached > file coordinate > best candidate", () => {
+    const row: GeocodeRow = {
+      ...base,
+      fileCoord: { lat: 1, lon: 1 },
+      candidates: [{ entry: cand, score: 1 }],
+      cached: { key: "X", status: "accepted", lat: 2, lon: 2, label: "remembered", ts: 1 },
+    };
+    expect(chosenCoordFor(row, { coord: { lat: 3, lon: 3 }, label: "manual" }, labels)?.coord).toEqual({ lat: 3, lon: 3 });
+    expect(chosenCoordFor(row, undefined, labels)).toEqual({ coord: { lat: 2, lon: 2 }, label: "remembered" });
+    expect(chosenCoordFor({ ...row, cached: undefined }, undefined, labels)).toEqual({
+      coord: { lat: 1, lon: 1 },
+      label: "from file",
+    });
+    expect(chosenCoordFor({ ...row, cached: undefined, fileCoord: undefined }, undefined, labels)).toEqual({
+      coord: { lat: cand.lat, lon: cand.lon },
+      label: "Kranj",
+    });
+  });
+
+  it("ignores a no-match cache entry and returns undefined with nothing to offer", () => {
+    expect(
+      chosenCoordFor({ ...base, cached: { key: "X", status: "nomatch", ts: 1 } }, undefined, labels),
+    ).toBeUndefined();
   });
 });
 

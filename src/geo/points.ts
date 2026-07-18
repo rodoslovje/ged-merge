@@ -33,6 +33,12 @@ export function eventKindOf(tag: string): MapEventKind {
   return KIND_BY_TAG[tag] ?? "other";
 }
 
+/** Exact coordinate equality (the review UIs' "is this the chosen pin" test);
+ *  tolerant of either side missing. */
+export function sameCoord(a: GeoCoord | undefined, b: GeoCoord | undefined): boolean {
+  return !!a && !!b && a.lat === b.lat && a.lon === b.lon;
+}
+
 /** One plottable event occurrence. */
 export interface MapPoint {
   /** Everyone the event belongs to — the individual, or both spouses of a

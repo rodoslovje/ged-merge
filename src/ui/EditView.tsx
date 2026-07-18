@@ -84,9 +84,6 @@ import { kindsColorVar } from "./map/markerStyle";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
-
-/** Remembered "hide the person map" preference (more room for editing). */
-const EDIT_MAP_HIDDEN_KEY = "gedmerge-edit-map-hidden";
 import { LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
@@ -191,7 +188,7 @@ const EMPTY_MERGE_DATA = Object.freeze({
 export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
-  const { settings } = useSettings();
+  const { settings, set: setSettings } = useSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
   const { settings: chartSettings } = useChartSettings();
@@ -1549,15 +1546,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // on the person's identity (replaced by rebuildIndividual on each of their
   // own edits) so the memoized EventList's prop stays stable across unrelated
   // ticks.
-  // Hidden-map preference: session-persistent, so a user who wants the full
-  // height for editing sets it once.
-  const [mapHidden, setMapHidden] = useState(() => localStorage.getItem(EDIT_MAP_HIDDEN_KEY) === "true");
-  const toggleMapHidden = () =>
-    setMapHidden((h) => {
-      const next = !h;
-      localStorage.setItem(EDIT_MAP_HIDDEN_KEY, String(next));
-      return next;
-    });
+  // Hidden-map preference: an app setting (Settings → Display), so a user who
+  // wants the full height for editing sets it once.
+  const mapHidden = !settings.showEditMap;
+  const toggleMapHidden = () => setSettings({ showEditMap: mapHidden });
 
   // The person's coordinate-carrying events (own + spouse-family), grouped
   // per location as coloured pins, plus their chronological life path — the
@@ -1863,7 +1855,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               {!mapHidden && (
                 <>
                   <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap key={`pmap-${person.id}`} pins={personMap.pins} path={personMap.path} />
+                    <MiniPlaceMap pins={personMap.pins} path={personMap.path} fitKey={person.id} />
                   </Suspense>
                   <div className="edit-person-map-legend">
                     {personMap.kinds.map((k) => (

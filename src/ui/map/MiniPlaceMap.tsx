@@ -92,11 +92,15 @@ interface Props {
   onPickCoord?: (coord: GeoCoord) => void;
   /** Tooltip for the map container (e.g. the click-to-pick hint). */
   title?: string;
+  /** Identity of the shown subject (e.g. the Edit view's person id). When it
+   *  changes the next pin pass re-fits the view — the map instance is reused
+   *  across subjects instead of being remounted. */
+  fitKey?: string;
 }
 
 const NO_CONTEXT: NonNullable<Props["context"]> = [];
 
-export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title }: Props) {
+export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title, fitKey }: Props) {
   const { settings: appSettings } = useSettings();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -177,6 +181,15 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     baseLayerRef.current = base;
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
 
+  // A new subject on the same map instance: forget the previous fit and any
+  // user pan/zoom so the next pin pass frames the new pins. Declared before
+  // the pin effect — effects run in order.
+  useEffect(() => {
+    didFitRef.current = false;
+    userMovedRef.current = false;
+    fitBoundsRef.current = null;
+  }, [fitKey]);
+
   // Positions/kinds as a value key: re-render markers only on real changes
   // (picking a candidate flips its kind to "chosen" — that is a real change).
   const pinsKey = pins.map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}:${p.colorVar ?? ""}`).join("|");
@@ -239,7 +252,8 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);
-  }, [pinsKey, pathKey, contextKey, theme]);
+    // fitKey: two subjects with identical pins still re-fit (refs were reset).
+  }, [pinsKey, pathKey, contextKey, theme, fitKey]);
 
   return (
     <div

@@ -1,4 +1,4 @@
-import type { MapEventKind, MapPoint } from "./points";
+import { sameCoord, type MapEventKind, type MapPoint } from "./points";
 
 // Life paths for the map: per person, the chronological sequence of their
 // (already filtered) event points — birth → residences/marriages → death —
@@ -34,10 +34,6 @@ function stopYear(p: MapPoint): number {
   return NaN;
 }
 
-function sameCoord(a: MapPoint, b: MapPoint): boolean {
-  return a.coord.lat === b.coord.lat && a.coord.lon === b.coord.lon;
-}
-
 /**
  * Group the points by person and order each person's stops chronologically
  * (stable, so same-year events keep their file order). Only persons whose
@@ -65,7 +61,7 @@ export function buildPersonPaths(points: MapPoint[]): PersonPath[] {
     });
     const stops: MapPoint[] = [];
     for (const p of sorted) {
-      if (stops.length && sameCoord(stops[stops.length - 1], p)) continue;
+      if (stops.length && sameCoord(stops[stops.length - 1].coord, p.coord)) continue;
       stops.push(p);
     }
     if (stops.length >= 2) paths.push({ personId, stops });

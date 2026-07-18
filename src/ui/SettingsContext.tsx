@@ -32,6 +32,8 @@ export interface AppSettings extends NameDisplayOptions {
    *  (opt-in: tile requests reveal the viewed region). Until enabled the map
    *  draws on the bundled offline world outline. */
   allowMapTiles: boolean;
+  /** Show the small per-person places map under the Edit view's events. */
+  showEditMap: boolean;
   /** Custom XYZ tile URL template ({z}/{x}/{y}); empty = the default CARTO
    *  basemap matching the current theme. */
   mapTileUrl: string;
@@ -52,6 +54,7 @@ const DEFAULTS: AppSettings = {
   showAge: false,
   allowLinkFetch: false,
   allowMapTiles: false,
+  showEditMap: true,
   mapTileUrl: "",
   formatOverrides: {},
   persistWorkspace: false,
@@ -85,6 +88,8 @@ function load(): AppSettings {
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
+      // Legacy home of this preference (before it moved into Settings).
+      showEditMap: bool(parsed.showEditMap, localStorage.getItem("gedmerge-edit-map-hidden") !== "true"),
       mapTileUrl: typeof parsed.mapTileUrl === "string" ? parsed.mapTileUrl : DEFAULTS.mapTileUrl,
       formatOverrides: {
         // Legacy key from the first page-media release, folded into overrides.
