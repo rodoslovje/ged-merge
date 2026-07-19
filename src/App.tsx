@@ -42,6 +42,7 @@ import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
+import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
 import { duplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
@@ -1875,6 +1876,7 @@ function AppContent() {
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
+              onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
               onMergeDuplicate={(survivorId, removedId, decision) =>
                 applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) > 0}
               rejectedDuplicates={rejectedDuplicates}
