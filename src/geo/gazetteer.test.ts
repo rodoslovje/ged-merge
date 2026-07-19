@@ -60,9 +60,18 @@ describe("lookupPlace", () => {
     expect(c[0].entry.name).toBe("Kranj");
   });
 
-  it("penalizes a country mismatch stated in the place string", () => {
-    const c = lookupPlace(index, "Graz, Slovenija");
-    expect(c[0].score).toBeLessThan(0.7);
+  it("excludes entries from a different stated country (hard gate)", () => {
+    // Graz is Austrian; stated as being in Slovenia it must not match the
+    // Austrian gazetteer entry — the country gate drops it entirely.
+    expect(lookupPlace(index, "Graz, Slovenija")).toEqual([]);
+    // The Austrian Graz is still found when the place agrees it's Austrian.
+    expect(lookupPlace(index, "Graz, Austria")[0]?.entry.name).toBe("Graz");
+  });
+
+  it("does not fuzzy-match a foreign place onto a loaded country (Belfast → Bela)", () => {
+    // "Northern Ireland" resolves to GB; with only SI/AT loaded, nothing
+    // qualifies — better no proposal than a wrong Slovenian one.
+    expect(lookupPlace(index, "Belfast, County Antrim, Northern Ireland")).toEqual([]);
   });
 
   it("fuzzy-matches misspellings when nothing matches exactly", () => {
