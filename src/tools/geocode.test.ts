@@ -177,7 +177,7 @@ describe("renamePlaceValue", () => {
 describe("applyGeocode", () => {
   it("writes MAP into every missing PLAC, skips covered ones, patches + rebuilds", () => {
     const ds = buildFromText(SAMPLE);
-    const assignments = new Map([["Kranj, Slovenija", { lat: 46.23887, lon: 14.35561 }]]);
+    const assignments = new Map([["Kranj, Slovenija", { coord: { lat: 46.23887, lon: 14.35561 }, govId: "object_310010" }]]);
     const patches = applyGeocode(ds, assignments);
     // I1 (BIRT), I2 (BIRT) and F1 (MARR) change; I1's DEAT already had MAP.
     expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I2@"]);
@@ -194,6 +194,8 @@ describe("applyGeocode", () => {
     expect(text).toContain("3 MAP");
     expect(text).toContain("4 LATI N46.23887");
     expect(text).toContain("4 LONG E14.35561");
+    // The GOV id is written as the GEDCOM-L `_GOV` sibling of MAP.
+    expect(text).toContain("3 _GOV object_310010");
     // A re-scan reports the value as covered.
     const rescan = scanGeocode(ds, index, new Map());
     expect(rescan.rows.find((r) => r.key === "Kranj, Slovenija")).toBeUndefined();
@@ -201,7 +203,13 @@ describe("applyGeocode", () => {
 
   it("is a no-op for values that don't occur or are already covered", () => {
     const ds = buildFromText(SAMPLE);
-    const patches = applyGeocode(ds, new Map([["Ljubljana, Slovenija", { lat: 1, lon: 1 }], ["Nowhere", { lat: 2, lon: 2 }]]));
+    const patches = applyGeocode(
+      ds,
+      new Map([
+        ["Ljubljana, Slovenija", { coord: { lat: 1, lon: 1 } }],
+        ["Nowhere", { coord: { lat: 2, lon: 2 } }],
+      ]),
+    );
     expect(patches).toHaveLength(0);
   });
 });

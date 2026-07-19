@@ -46,6 +46,8 @@ export interface GeocodeDecision {
   lon?: number;
   /** Display label of the accepted match (gazetteer name or "manual"). */
   label?: string;
+  /** GOV id, when the accepted match came from GOV (re-written as `_GOV`). */
+  govId?: string;
   ts: number;
 }
 
