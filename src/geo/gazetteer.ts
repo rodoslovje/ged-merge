@@ -158,8 +158,11 @@ const MAX_CANDIDATES = 6;
 /**
  * Candidates for one raw place string: the locality part is matched exactly
  * (primary/ascii/alternate names), then fuzzily within its 2-char bucket;
- * a country named in the place string confirms or penalizes each candidate,
- * and population breaks ties between same-named places.
+ * a country named in the place string gates the candidates to that country
+ * (a Slovenian gazetteer must not fuzzily offer "Bela, SI" for "Belfast, …,
+ * Northern Ireland"), and population breaks ties between same-named places.
+ * When no country is named, or its name isn't one we recognize, every
+ * country's entries stay eligible — we can't rule anything out.
  */
 export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
   const components = decomposePlace(rawPlace);
@@ -198,8 +201,12 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
   const candidates: GazCandidate[] = [];
   for (const [i, base] of scores) {
     const e = index.entries[i];
+    // Hard country gate: when the place names a country we recognize, only
+    // that country's entries qualify. Otherwise a diacritic-tolerant fuzzy
+    // match to a loaded but unrelated country's gazetteer proposes nonsense
+    // (Belfast → Bela). Places with no recognized country match anywhere.
+    if (wantCountry && e.country !== wantCountry) continue;
     let score = base;
-    if (wantCountry) score *= e.country === wantCountry ? 1 : 0.55;
     if (e.fclass === "A") score *= 0.97;
     score = Math.min(1, score + Math.min(e.population, 500_000) / 500_000 / 50);
     candidates.push({ entry: e, score });

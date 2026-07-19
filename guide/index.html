@@ -717,13 +717,18 @@
               (at death, at marriage, parent's age, spouse age gap). A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
-              folder</strong> lists referenced media files that are missing from it.
+              folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
+              coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
+              coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to
+              copy the coordinate the value already carries in the file onto the events that lack it, no lookup needed.
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
               in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers, <strong>Remove
-              duplicate pointers</strong> de-duplicates repeated links, and a sex fix sets the sex on unspecified spouses
-              (husband → male, wife → female).
+              duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on unspecified spouses
+              (husband → male, wife → female), and <strong>Fill coordinates from the file</strong> settles the split-place
+              coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
+              places</a>, which looks them up.)
             </p>
             <h3>Find duplicates</h3>
             <p>
@@ -811,7 +816,9 @@
               <strong>GeoNames</strong> country file (<em>.zip</em> or <em>.txt</em>) — the loaded gazetteers are listed
               under their own heading, and the data stays in your browser. Proposals are ranked: coordinates other
               occurrences of the same place already carry come first, then exact and historical-name matches
-              (<em>Laibach → Ljubljana</em>), then fuzzy ones. <strong>Select confident</strong> bulk-picks only the
+              (<em>Laibach → Ljubljana</em>), then fuzzy ones. When a place names its country, matches are confined to
+              that country, so a foreign place is never matched to a loaded gazetteer (<em>Belfast, Northern Ireland</em>
+              won't become <em>Bela</em> in Slovenia). <strong>Select confident</strong> bulk-picks only the
               unambiguous matches.
             </p>
             <p>

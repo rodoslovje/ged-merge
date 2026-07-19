@@ -147,7 +147,7 @@ const COUNTRIES = new Set([
   "syria", "taiwan", "tajikistan", "tanzania", "thailand", "timor-leste",
   "togo", "tonga", "trinidad and tobago", "tunisia", "turkey", "türkiye",
   "turkmenistan", "tuvalu", "uganda", "ukraine", "united arab emirates",
-  "united kingdom", "great britain", "england", "scotland", "wales",
+  "united kingdom", "great britain", "england", "scotland", "wales", "northern ireland",
   "united states", "united states of america", "uruguay", "uzbekistan",
   "vanuatu", "vatican city", "venezuela", "vietnam", "yemen", "zambia",
   "zimbabwe",

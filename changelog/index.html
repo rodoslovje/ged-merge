@@ -86,6 +86,13 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-19</h2>
+            <ul>
+              <li><strong>Geocoding no longer proposes a place from the wrong country.</strong> When a place name states its country, the offline gazetteer now matches only that country's entries — so <em>Belfast, County Antrim, Northern Ireland</em> is no longer fuzzily matched to <em>Bela</em> in Slovenia. Places with no country stated still match anywhere. (“Northern Ireland” is now also recognised as a country.)</li>
+              <li>The <strong>Health check</strong> now flags <strong>places with coordinates in some records but not others</strong> — a place name geocoded on most events but missing its coordinate on a few (common when an event is added or re-typed after the file was geocoded). One click, <strong>Fill coordinates from the file</strong>, copies the coordinate the value already carries onto the events that lack it — no lookup, and undoable.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-18</h2>
             <ul>
               <li><strong>Geocode places can now search GOV</strong>, the Genealogical Gazetteer (gov.genealogy.net) — a per-row <em>Search GOV</em> button (behind the online opt-in) that finds historical, multilingual place names with their coordinates. Accepting a GOV match also writes its stable GOV id into the file as <code>_GOV</code>, a durable link back to the GOV record for other genealogy software.</li>

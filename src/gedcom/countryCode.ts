@@ -27,7 +27,7 @@ const CODES: Record<string, string> = {
   russia: "ru", "san marino": "sm", serbia: "rs", slovakia: "sk",
   slovenia: "si", spain: "es", sweden: "se", switzerland: "ch",
   ukraine: "ua", "united kingdom": "gb", "great britain": "gb",
-  england: "gb", scotland: "gb", wales: "gb",
+  england: "gb", scotland: "gb", wales: "gb", "northern ireland": "gb",
   "united states": "us", "united states of america": "us",
   albania: "al", armenia: "am", azerbaijan: "az", belarus: "by",
   "bosnia": "ba", georgia: "ge", kazakhstan: "kz", kosovo: "xk",

@@ -4,6 +4,7 @@ import type { Dataset } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
 import { countInferableSex } from "../../tools/fixSex";
 import { countFixableDates } from "../../tools/fixDates";
+import { countSplitCoordFills, scanSplitCoordPlaces } from "../../tools/placeCoords";
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -61,6 +62,7 @@ export function ValidatePanel({
   onFixSexFromRole,
   onFixDates,
   onFixDuplicatePointers,
+  onFillPlaceCoords,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -70,6 +72,7 @@ export function ValidatePanel({
   onFixSexFromRole: () => number;
   onFixDates: () => number;
   onFixDuplicatePointers: () => number;
+  onFillPlaceCoords: () => number;
 }) {
   const { t } = useTranslation();
   // Both validation passes come from the worker scan cache. While a re-run is
@@ -106,6 +109,28 @@ export function ValidatePanel({
     setMediaChecking(false);
   }
 
+  // Places geocoded on some events but not others: a coordinate the file
+  // already carries for a value, missing from other occurrences of the same
+  // value. Detected on the main thread (a PLAC walk), like the fixable-subset
+  // counts above; re-derived after a fix's re-validate refreshes `report`.
+  const splitPlaces = useMemo(
+    () => scanSplitCoordPlaces(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, report],
+  );
+  const splitFills = countSplitCoordFills(splitPlaces);
+  const [placeCoordDone, setPlaceCoordDone] = useState<number | null>(null);
+  const [placeCoordPending, setPlaceCoordPending] = useState(false);
+
+  function applyPlaceCoordFix() {
+    setPlaceCoordPending(false);
+    const changed = onFillPlaceCoords();
+    setPlaceCoordDone(changed);
+    // Re-validate (in the worker) so the shared report — and this section's
+    // main-thread scan, which keys on it — refreshes to the fixed data.
+    scans.refresh("validate");
+  }
+
   // Step 1: clicking a fix button shows the affected findings (switch the
   // filter to the fix's category), then asks for confirmation.
   function requestFix(kind: FixKind) {
@@ -134,6 +159,8 @@ export function ValidatePanel({
     setQuery("");
     setFixDone(null);
     setPendingFix(null);
+    setPlaceCoordDone(null);
+    setPlaceCoordPending(false);
   }, [dataset]);
 
   // A new dataset or a changed folder invalidates a prior photo check.
@@ -236,6 +263,44 @@ export function ValidatePanel({
           </div>
         )
       )}
+      {placeCoordDone !== null && (
+        <p className="tools-clean tools-clean--ok">
+          {t(`tools.validate.placeCoord.${placeCoordDone > 0 ? "done" : "none"}`, { count: placeCoordDone })}
+        </p>
+      )}
+      {splitPlaces.length > 0 && placeCoordDone === null && (
+        <div className="tools-struct">
+          <div className="tools-examples-title">{t("tools.validate.placeCoord.title")}</div>
+          <p className="tools-fix-hint">{t("tools.validate.placeCoord.hint", { count: splitPlaces.length, fills: splitFills })}</p>
+          <button className="nav-btn tools-run" onClick={() => setPlaceCoordPending(true)}>
+            {t("tools.validate.placeCoord.fix", { count: splitFills })}
+          </button>
+          <ul className="tools-issues">
+            {splitPlaces.slice(0, 200).map((p, i) => (
+              <li key={p.value} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
+                <span className="tools-issue-msg">{p.value}</span>
+                <span className="tools-chip-count" title={t("tools.validate.placeCoord.occ", { count: p.missing })}>
+                  {p.missing}
+                </span>
+                <span className="gm-data">
+                  {p.coord.lat.toFixed(4)}, {p.coord.lon.toFixed(4)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {splitPlaces.length > 200 && (
+            <p className="tools-fix-hint">{t("tools.geocode.more", { count: splitPlaces.length - 200 })}</p>
+          )}
+        </div>
+      )}
+      {placeCoordPending && (
+        <ConfirmDialog
+          message={`${t("tools.validate.placeCoord.fix", { count: splitFills })}\n\n${t("tools.validate.placeCoord.fixHint")}`}
+          confirmLabel={t("tools.validate.applyFix")}
+          onConfirm={applyPlaceCoordFix}
+          onCancel={() => setPlaceCoordPending(false)}
+        />
+      )}
       {(showMediaCheck || fixActions.length > 0) && (
         <ul className="tools-fix-list">
           {showMediaCheck && (
@@ -265,7 +330,8 @@ export function ValidatePanel({
         />
       )}
       {total === 0 ? (
-        !(mediaMissing && mediaMissing.length > 0) && <p className="tools-clean">{t("tools.validate.clean")}</p>
+        !(mediaMissing && mediaMissing.length > 0) &&
+        !(splitPlaces.length > 0 && placeCoordDone === null) && <p className="tools-clean">{t("tools.validate.clean")}</p>
       ) : (
         <>
           <div className="tools-filter-row">
