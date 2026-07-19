@@ -48,14 +48,14 @@ export interface GeocodeScan {
 }
 
 /** The PLAC node's usable coordinate (MAP → LATI/LONG), when it parses. */
-function coordOf(plac: GedNode): GeoCoord | undefined {
+export function coordOf(plac: GedNode): GeoCoord | undefined {
   const map = firstChild(plac, "MAP");
   const lati = map && firstChild(map, "LATI")?.value;
   const long = map && firstChild(map, "LONG")?.value;
   return lati && long ? parseCoordPair(lati, long) : undefined;
 }
 
-function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedNode) => void): void {
+export function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedNode) => void): void {
   for (const child of node.children) {
     if (child.tag === "PLAC" && child.value?.trim()) visit(child, node);
     walkPlacNodes(child, visit);
