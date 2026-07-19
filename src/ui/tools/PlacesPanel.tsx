@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
-import type { GeoCoord } from "../../gedcom/types";
 import { GeocodePanel } from "./GeocodePanel";
-import { countGeocodePending } from "../../tools/geocode";
+import { countGeocodePending, type GeoAssignment } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
@@ -56,7 +55,7 @@ export function PlacesPanel({
   onNavigate: (id: string) => void;
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
-  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   startId?: string;
 }) {

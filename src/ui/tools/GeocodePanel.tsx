@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildGazetteerIndex, type GazetteerIndex } from "../../geo/gazetteer";
-import { chosenCoordFor, collectFileCoords, scanGeocode, type ChosenCoord, type GeocodeRow } from "../../tools/geocode";
+import {
+  chosenCoordFor,
+  collectFileCoords,
+  scanGeocode,
+  type ChosenCoord,
+  type GeoAssignment,
+  type GeocodeRow,
+} from "../../tools/geocode";
 import {
   deleteCountry,
   loadCountries,
@@ -34,9 +41,9 @@ type ImportState = { phase: "running"; done: number; total: number } | { phase: 
 interface Props {
   dataset: Dataset;
   active: boolean;
-  /** Write the accepted coordinates through the edit/undo pipeline; returns
-   *  the number of records changed. */
-  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  /** Write the accepted coordinates (with any GOV ids) through the edit/undo
+   *  pipeline; returns the number of records changed. */
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   /** Rename all occurrences of exactly this raw place value (edit/undo
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
@@ -302,9 +309,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     });
 
   /** Choose a coordinate for the row: remember it, check the row, and drop
-   *  a no-match mark — shared by every option (candidate, file, cached). */
-  const pickCoord = (row: GeocodeRow, coord: GeoCoord, label: string) => {
-    setChosen((prev) => new Map(prev).set(row.key, { coord, label }));
+   *  a no-match mark — shared by every option (candidate, file, cached, GOV).
+   *  A govId is carried only by GOV picks and ends up in the `_GOV` write-back. */
+  const pickCoord = (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => {
+    setChosen((prev) => new Map(prev).set(row.key, govId ? { coord, label, govId } : { coord, label }));
     toggleChecked(row.key, true);
     setNoMatch((prev) => {
       const next = new Set(prev);
@@ -354,15 +362,23 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
 
   const apply = async () => {
     if (!scan) return;
-    const assignments = new Map<string, GeoCoord>();
+    const assignments = new Map<string, GeoAssignment>();
     const toStore: GeocodeDecision[] = [];
     const now = Date.now();
     for (const row of scan.rows) {
       if (checked.has(row.key)) {
         const c = chosenFor(row);
         if (!c) continue;
-        assignments.set(row.key, c.coord);
-        toStore.push({ key: row.key, status: "accepted", lat: c.coord.lat, lon: c.coord.lon, label: c.label, ts: now });
+        assignments.set(row.key, c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord });
+        toStore.push({
+          key: row.key,
+          status: "accepted",
+          lat: c.coord.lat,
+          lon: c.coord.lon,
+          label: c.label,
+          ts: now,
+          ...(c.govId ? { govId: c.govId } : {}),
+        });
       } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
         toStore.push({ key: row.key, status: "nomatch", ts: now });
       }

@@ -10,7 +10,7 @@ import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
-import type { GeoCoord } from "../gedcom/types";
+import type { GeoAssignment } from "../tools/geocode";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
@@ -32,7 +32,7 @@ interface Props {
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   /** Write reviewed geocode coordinates (raw PLAC value → coordinate) into the
    *  matching PLAC nodes and push to the undo stack; returns records changed. */
-  onApplyGeocode: (assignments: Map<string, GeoCoord>) => number;
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;

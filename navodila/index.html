@@ -243,7 +243,7 @@
               <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
               <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam: obliko datumov, neznane dele datuma, obliko krajev, dodatna imena, oznako za neznano ime, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, oznako zasebnosti ter jezike povezav Matricula/Geneanet. Vsako privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#tools">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§7</a> in <a href="#sources">§13</a>.</li>
               <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Zgodovinski sloji zemljevida</em> nastavi georeferencirane stare karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj ali dodajte svojega (ime, URL XYZ/WMTS z <code>{z}/{x}/{y}</code>, veljavna leta, navedba vira, najv. povečava). Glejte <a href="#map">§9</a>.</li>
-              <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenos imenika z OpenStreetMap z enim klikom in iskanje naslovov po vrsticah, ki ju uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To sta edini funkciji, ki karkoli pošljeta z vaše naprave, in sta privzeto izklopljeni.</strong></li>
+              <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenos imenika z OpenStreetMap z enim klikom in spletni iskanji po vrsticah (OpenStreetMap in GOV), ki ju uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To sta edini funkciji, ki karkoli pošljeta z vaše naprave, in sta privzeto izklopljeni.</strong></li>
             </ul>
 
             <h3>Ohranjanje dela in delo brez povezave</h3>
@@ -828,9 +828,14 @@
               Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako „ni ujemanja“, ter gumb
               <span class="gm-glyph">✎</span> za <strong>preimenovanje</strong> surove vrednosti kraja (vseh navedb hkrati,
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Kar imenik brez
-              povezave ne razreši — predvsem ulične naslove — po vrsticah poišče <strong>Iskanje na spletu</strong> prek
-              OpenStreetMap (Nominatim), za isto spletno privolitvijo; zadetki se pridružijo kandidatom in bucikam na
-              zemljevidu. Sprejeta ujemanja se predpomnijo, tako da se druge datoteke razrešijo v hipu.
+              povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
+              kliku na gumb, njuni zadetki pa se pridružijo kandidatom in bucikam na zemljevidu. <strong>Išči na
+              spletu</strong> uporablja OpenStreetMap (Nominatim) — najbolje za ulične naslove. <strong>Išči v GOV</strong>
+              uporablja <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealoški imenik krajev
+              (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev in stalni identifikator GOV; ob
+              potrditvi zadetka GOV se ta identifikator zapiše tudi v datoteko kot <code>_GOV</code> (ob <code>MAP</code>),
+              kar je trajna povezava nazaj na zapis GOV za druge rodoslovne programe. Sprejeta ujemanja se predpomnijo,
+              tako da se druge datoteke razrešijo v hipu.
             </p>
           </section>
 
