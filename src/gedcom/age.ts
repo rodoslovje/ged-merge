@@ -160,12 +160,16 @@ export function coupleAgesDisplay(
   t: Translate,
 ): AgeBadge[] | undefined {
   const badges: AgeBadge[] = [];
-  for (const [indi, glyph, label] of [
+  for (const [indi, fallbackGlyph, label] of [
     [husband, "♂", labels.husband],
     [wife, "♀", labels.wife],
   ] as const) {
     const age = ageAtDate(indi, at);
     if (age === undefined) continue;
+    // Glyph follows the person's actual SEX, not the HUSB/WIFE slot, so a
+    // same-sex couple (both ♂ or both ♀) reads correctly; falls back to the
+    // slot's glyph when SEX is unknown.
+    const glyph = indi?.sex === "M" ? "♂" : indi?.sex === "F" ? "♀" : fallbackGlyph;
     const detail = fullAgeBetween(birthDateOf(indi), at, t);
     badges.push({ text: `${glyph}${age}`, title: detail ? `${label}: ${detail}` : label });
   }

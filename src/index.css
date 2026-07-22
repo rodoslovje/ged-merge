@@ -2908,6 +2908,24 @@ button:focus-visible {
 .relative-picker-option.highlighted,
 .relative-picker-option:hover { background: var(--panel); }
 .relative-picker-new { color: var(--accent); font-weight: 500; }
+/* "Add new person" row: the neutral action plus two sex quick-add chips that
+   pre-set the new person's SEX (for same-sex partners/co-parents). */
+.relative-picker-new-row { display: flex; align-items: center; gap: 2px; }
+.relative-picker-new-row .relative-picker-new { flex: 1; min-width: 0; }
+.relative-picker-sex {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.relative-picker-sex.sex-m { color: var(--sex-male); }
+.relative-picker-sex.sex-f { color: var(--sex-female); }
+.relative-picker-sex:hover { background: var(--panel); }
 .relative-picker-empty { padding: 5px 8px; font-size: 0.85rem; }
 
 /* Clearable input wrapper — positions the × button at the right edge */

@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 import { birthYear, deathYear } from "../gedcom/lifespan";
+import { isSameSexCouple } from "../gedcom/couple";
 
 /**
  * Plausibility limits for age-based sanity checks, in whole years. Computed from
@@ -32,6 +33,7 @@ export type IssueCategory =
   | "duplicatePointer"
   | "pedigreeLoop"
   | "roleSexConflict"
+  | "multiSpouseSlot"
   | "missingSex"
   | "missingName"
   | "missingVitals"
@@ -72,6 +74,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   duplicatePointer: 0,
   pedigreeLoop: 0,
   roleSexConflict: 0,
+  multiSpouseSlot: 0,
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
@@ -289,7 +292,11 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     // Role/sex contradiction: a HUSB recorded female or a WIFE recorded male.
     // SEX U is left alone (unknown, not contradictory). Reported on the person,
     // naming the partner they're married to (or the family if there's no partner).
-    if (husband && husband.sex === "F") {
+    // A genuine same-sex couple (both spouses present, same known sex) is the
+    // expected way to store such a marriage in GEDCOM — one partner in each
+    // slot — so it is NOT a contradiction and is suppressed here.
+    const sameSexCouple = isSameSexCouple(husband, wife);
+    if (!sameSexCouple && husband && husband.sex === "F") {
       push({
         scope: "individual", id: husband.id, category: "roleSexConflict", severity: "error",
         subject: subjectOf(husband),
@@ -297,7 +304,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         messageVars: wife ? { spouse: subjectOf(wife) } : { fam: fam.id },
       });
     }
-    if (wife && wife.sex === "M") {
+    if (!sameSexCouple && wife && wife.sex === "M") {
       push({
         scope: "individual", id: wife.id, category: "roleSexConflict", severity: "error",
         subject: subjectOf(wife),
@@ -365,6 +372,29 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       if (ref && !ds.individuals.has(ref)) {
         add("tools.validate.issue.spouseMissing", { indi: ref });
       }
+    }
+    // Two different individuals crammed into one spouse slot — some exporters
+    // write two HUSB (or two WIFE) lines for a same-sex couple. The typed model
+    // keeps only the last, so the earlier partner(s) are invisible to the app
+    // (though still serialized). Flag it and name who is hidden so the user can
+    // move the extra partner into the empty opposite slot.
+    for (const [tag, kept] of [["HUSB", fam.husband], ["WIFE", fam.wife]] as const) {
+      const distinct = [...new Set(
+        fam.raw.children.filter((c) => c.tag === tag && c.value).map((c) => c.value!.trim()),
+      )];
+      if (distinct.length < 2) continue;
+      const nameFor = (id: string): string => {
+        const i = ds.individuals.get(id);
+        return i ? subjectOf(i) : id;
+      };
+      push({
+        scope: "family", id: fam.id, category: "multiSpouseSlot", severity: "warning",
+        subject, messageKey: "tools.validate.issue.multiSpouseSlot",
+        messageVars: {
+          shown: kept ? nameFor(kept) : "?",
+          hidden: distinct.filter((id) => id !== kept).map(nameFor).join(", "),
+        },
+      });
     }
     for (const childId of fam.children) {
       if (!ds.individuals.has(childId)) {

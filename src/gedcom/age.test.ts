@@ -171,4 +171,14 @@ describe("coupleAgesDisplay", () => {
     ]);
     expect(coupleAgesDisplay(undefined, undefined, d(1885, 5, 20), labels, t)).toBeUndefined();
   });
+
+  it("takes the glyph from each person's SEX, not the slot (same-sex couple)", () => {
+    const m1 = { ...indi([{ tag: "BIRT", date: d(1850, 1, 10) }]), sex: "M" as const };
+    const m2 = { ...indi([{ tag: "BIRT", date: d(1855, 6, 1) }]), sex: "M" as const };
+    // Two men — both badges use ♂ even though m2 sits in the WIFE slot.
+    expect(coupleAgesDisplay(m1, m2, d(1885, 5, 20), labels, t)).toEqual([
+      { text: "♂35", title: "H: 35y 4m 10d" },
+      { text: "♂29", title: "W: 29y 11m 19d" },
+    ]);
+  });
 });

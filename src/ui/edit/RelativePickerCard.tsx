@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Individual } from "../../gedcom/types";
+import type { Individual, Sex } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { lifespanLabel } from "../../match/relatives";
 import { foldSearch } from "../globalSearch";
@@ -18,7 +18,9 @@ export function RelativePickerCard({
   individuals: Map<string, Individual>;
   excludeId: string;
   onPickExisting: (id: string) => void;
-  onAddNew: () => void;
+  /** `sex` overrides the new person's `SEX` (the ♂/♀ quick-add chips); omitted
+   *  from the plain "add new person" action, which keeps the role default. */
+  onAddNew: (sex?: Sex) => void;
   onCancel: () => void;
   t: Translate;
 }) {
@@ -75,7 +77,7 @@ export function RelativePickerCard({
           onKeyDown={onKeyDown}
         />
         <ul className="relative-picker-list">
-          <li>
+          <li className="relative-picker-new-row">
             <button
               className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
               onMouseEnter={() => setActiveIdx(0)}
@@ -83,6 +85,20 @@ export function RelativePickerCard({
             >
               + {t("edit.addNewPerson")}
             </button>
+            {/* Quick-add with a chosen sex — lets you create a same-sex partner
+                or co-parent without adding then flipping SEX afterwards. */}
+            <button
+              type="button"
+              className="relative-picker-sex sex-m"
+              title={t("edit.addNewMale")}
+              onMouseDown={(e) => { e.preventDefault(); onAddNew("M"); }}
+            >♂</button>
+            <button
+              type="button"
+              className="relative-picker-sex sex-f"
+              title={t("edit.addNewFemale")}
+              onMouseDown={(e) => { e.preventDefault(); onAddNew("F"); }}
+            >♀</button>
           </li>
           {options.map((o, i) => (
             <li key={o.id}>
