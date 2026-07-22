@@ -981,46 +981,88 @@
               datum.
             </p>
 
-            <p><strong>Preprosto in varno: sinhronizirana mapa (priporočeno za večino).</strong>
-              To mapo z drevesom postavite v storitev za sinhronizacijo v oblaku, ki jo že uporabljate — Dropbox, OneDrive,
-              Google Drive ali iCloud Drive. Brez novega programa dobite dvoje:</p>
-            <ul>
-              <li><strong>Varnostno kopijo zunaj računalnika</strong> — vaše drevo preživi izgubljen, ukraden ali
-                pokvarjen računalnik.</li>
-              <li><strong>Samodejno zgodovino različic</strong> — vse te storitve omogočajo obnovitev starejše različice
-                datoteke prek spletne strani ali aplikacije, tako da je mogoče razveljaviti tudi prepis.</li>
-            </ul>
             <p>
-              Za korak nazaj v času odprite zgodovino različic datoteke v svoji storitvi za sinhronizacijo ali pa preprosto
-              naložite starejšo z datumom označeno <em>.ged</em> kot glavno datoteko. Za skoraj vsakogar je to vse, kar
-              potrebuje.
+              Spodaj sta oba pristopa kot celotna, ponovljiva kroga — <em>naloži → spremeni → shrani → shrani na varno</em>
+              — da natanko vidite, kaj se zgodi vsako sejo. Izberite enega; oba delita zgornje zlato pravilo.
             </p>
 
-            <p><strong>Polni nadzor različic: Git in GitHub Desktop (napredno).</strong>
+            <h4>Krog s sinhronizirano mapo (priporočeno za večino)</h4>
+            <p>
+              Mapo z drevesom postavite v storitev za sinhronizacijo v oblaku, ki jo že uporabljate — <strong>Dropbox,
+              OneDrive, Google Drive ali iCloud Drive</strong>. Brez novega programa dobite varnostno kopijo zunaj
+              računalnika (vaše drevo preživi izgubljen ali pokvarjen računalnik) in samodejno zgodovino različic (te
+              storitve lahko obnovijo starejšo različico katere koli datoteke).
+            </p>
+            <p><strong>Nastavite enkrat:</strong></p>
+            <ol>
+              <li>V aplikaciji za sinhronizacijo ustvarite eno mapo za drevo — na primer <em>Družinsko drevo</em>.</li>
+              <li>Vanjo postavite svojo trenutno <em>.ged</em>. Je še nimate? Enkrat shranite iz GED Merge in to datoteko
+                prestavite vanjo — postane vaše izhodišče.</li>
+            </ol>
+            <p><strong>Vsako sejo urejanja:</strong></p>
+            <ol>
+              <li><strong>Naloži.</strong> Odprite GED Merge. Če se je znova odprl tam, kjer ste končali, ste pripravljeni;
+                sicer povlecite zadnjo <em>.ged</em> iz mape <em>Družinsko drevo</em> na spustno polje (<a href="#loading">§3</a>).</li>
+              <li><strong>Spremeni.</strong> Urejajte zapise, združite dohodno datoteko ali zaženite orodje kot običajno.</li>
+              <li><strong>Shrani.</strong> Pritisnite <span class="gm-key">Ctrl</span><span class="gm-key">S</span> →
+                <strong>Shrani GEDCOM</strong>, preglejte predogled in nato <strong>Prenesi GEDCOM</strong>. V mapo
+                <strong>Prenosi</strong> pristaneta dve datoteki: z datumom označena <em>.ged</em> in njeno poročilo o
+                spremembah.</li>
+              <li><strong>Shrani na varno.</strong> Z datumom označeno <em>.ged</em> prestavite iz Prenosov v mapo
+                <em>Družinsko drevo</em>. (Poročilo obdržite ali zavrzite — je le berljiv dnevnik, za ponovno odpiranje
+                datoteke ni potreben.)</li>
+              <li><strong>Končano.</strong> Vaša storitev za sinhronizacijo poskrbi za varnostno kopijo in svojo zgodovino.
+                Datum v imenu datoteke ohranja vse različice po vrsti; naslednjo sejo naložite najnovejšo.</li>
+            </ol>
+            <p>
+              <strong>Za razveljavitev neuspele seje:</strong> naložite starejšo z datumom označeno <em>.ged</em> kot glavno
+              datoteko ali uporabite <em>zgodovino različic / obnovi prejšnjo različico</em> v svoji aplikaciji za
+              sinhronizacijo.
+            </p>
+
+            <h4>Krog z Gitom (napredno)</h4>
+            <p>
               GEDCOM je golo besedilo — eno dejstvo v vrstici — zato se izjemno dobro poda h <strong>Gitu</strong>, orodju
               za nadzor različic, ki ga uporabljajo razvijalci: natanko vidite, katere osebe in dogodki so se med dvema
               različicama spremenili, in se z gotovostjo vrnete nazaj. Če vam ni odveč namestiti orodja, vam to da
-              najmočnejšo zgodovino.</p>
+              najmočnejšo zgodovino.
+            </p>
+            <p><strong>Nastavite enkrat:</strong></p>
             <ol>
               <li>Namestite <a href="https://desktop.github.com/" target="_blank" rel="noopener noreferrer">GitHub
-                Desktop</a> (Windows ali macOS) in ustvarite brezplačen račun GitHub.</li>
-              <li>Ustvarite repozitorij za svoje drevo — <em>File → New repository</em> — in izberite mapo na računalniku.
-                Ta mapa postane vaša ena mapa z drevesom.</li>
-              <li><strong>Naj bo zaseben.</strong> Vaše drevo vsebuje podatke o živih sorodnikih, zato ob ponudbi za
-                objavo izberite <strong>Keep this code private</strong>. Drevesa z živimi osebami <strong>nikoli</strong>
-                ne objavite v javnem repozitoriju (glejte <a href="#privacy">§19</a>) — ali ga prej redaktirajte z orodjem
-                <a href="#tools">Zaščita zasebnosti</a>.</li>
-              <li>Po vsakem shranjevanju v GED Merge prestavite preneseno <em>.ged</em> iz Prenosov v mapo repozitorija.
-                Za Git jo ob prestavljanju preimenujte v eno stalno ime, na primer <code>drevo.ged</code> — ker Git že sam
-                beleži datum in opis vsake različice, stalno ime omogoči čist prikaz razlik po vrsticah, namesto da bi
-                bilo vsako shranjevanje povsem nova datoteka.</li>
-              <li>V GitHub Desktop vpišite kratek povzetek sprememb („Združena veja Novak“, „Popravljeni datumi rojstva“),
-                kliknite <strong>Commit</strong> in nato <strong>Push</strong> za varnostno kopijo na GitHubu.</li>
+                Desktop</a> (Windows ali macOS) in se prijavite z brezplačnim računom GitHub.</li>
+              <li><em>File → New repository</em>. Poimenujte ga (npr. <code>family-tree</code>) in izberite mapo na
+                računalniku — ta postane vaša ena mapa z drevesom.</li>
+              <li>Svojo <em>.ged</em> postavite v to mapo in jo preimenujte v stalno ime, na primer <code>drevo.ged</code>.</li>
+              <li>Vpišite povzetek („Začetno drevo“) in kliknite <strong>Commit</strong>. Ko repozitorij
+                <strong>objavite</strong> (Publish), izberite <strong>Keep this code private</strong> — vaše drevo vsebuje
+                podatke o živih sorodnikih, zato ga <strong>nikoli</strong> ne objavite v javnem repozitoriju
+                (<a href="#privacy">§19</a>) ali ga prej redaktirajte z orodjem <a href="#tools">Zaščita zasebnosti</a>.</li>
             </ol>
+            <p><strong>Vsako sejo urejanja:</strong></p>
+            <ol>
+              <li><strong>Naloži.</strong> Odprite GED Merge in povlecite <code>drevo.ged</code> iz mape repozitorija na
+                spustno polje.</li>
+              <li><strong>Spremeni.</strong> Urejajte, združite ali zaženite orodje kot običajno.</li>
+              <li><strong>Shrani.</strong> Pritisnite <span class="gm-key">Ctrl</span><span class="gm-key">S</span> →
+                <strong>Shrani GEDCOM</strong> → <strong>Prenesi GEDCOM</strong>. Z datumom označena <em>.ged</em> pristane
+                v Prenosih.</li>
+              <li><strong>Shrani na varno.</strong> Prestavite jo v mapo repozitorija in preimenujte nazaj v
+                <code>drevo.ged</code>, tako da zamenja staro. GED Merge prenos označi z datumom, a Git datum in opis vsake
+                različice beleži sam — zato stalno ime omogoči čist prikaz razlik po vrsticah namesto povsem nove datoteke
+                vsakič.</li>
+              <li><strong>Commit.</strong> V GitHub Desktop se pokažejo spremenjene vrstice (katere osebe in dogodki so se
+                spremenili); vpišite kratek povzetek („Združena veja Novak“, „Popravljeni datumi rojstva“), kliknite
+                <strong>Commit</strong> in nato <strong>Push</strong> za varnostno kopijo na GitHubu.</li>
+            </ol>
+            <p>
+              <strong>Za razveljavitev:</strong> <em>History</em> v GitHub Desktop navaja vsako različico za primerjavo; z
+              desnim klikom na dobro objavo (commit) jo z <em>revert</em> obnovite.
+            </p>
 
             <div class="gm-callout note">
               <span class="gm-callout-label">Katero naj izberem?</span>
-              <p>Če želite drevo le varnostno kopirati in ga imeti obnovljivo, je <strong>sinhronizirana mapa</strong>
+              <p>Če želite drevo le varnostno kopirati in ga imeti obnovljivo, je <strong>krog s sinhronizirano mapo</strong>
               vse, kar potrebujete. Po <strong>Gitu</strong> posezite le, če želite natanko pregledati, kaj se je med
               različicami spremenilo, ali sodelovati z drugimi. V vsakem primeru velja isto zlato pravilo:
               <strong>ena namenska mapa in zadnjo shranjeno datoteko vedno naložite nazaj kot glavno datoteko.</strong></p>

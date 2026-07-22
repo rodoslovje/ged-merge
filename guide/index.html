@@ -969,44 +969,84 @@
               a stamped file back in is fine — the next save simply carries today's date.
             </p>
 
-            <p><strong>Simple &amp; safe: a synced folder (recommended for most people).</strong>
-              Put that family-tree folder inside a cloud-sync service you already use — Dropbox, OneDrive, Google Drive or
-              iCloud Drive. You get two things for free, with no new software to learn:</p>
-            <ul>
-              <li><strong>An off-computer backup</strong> — your tree survives a lost, stolen or broken laptop.</li>
-              <li><strong>Automatic version history</strong> — all of these services let you restore an earlier version of a
-                file from their website or app, so even an overwrite is recoverable.</li>
-            </ul>
             <p>
-              To step back in time, either open the file's version history in your sync app, or simply re-load an older
-              date-stamped <em>.ged</em> as your main file. For almost everyone, this is all you need.
+              Below are the two approaches as complete, repeatable cycles — <em>load → change → save → store</em> — so you
+              can see exactly what happens every session. Pick one; both share the golden rule above.
             </p>
 
-            <p><strong>Full version control: Git &amp; GitHub Desktop (advanced).</strong>
+            <h4>The cloud-folder cycle (recommended for most people)</h4>
+            <p>
+              Put your family-tree folder inside a cloud-sync service you already use — <strong>Dropbox, OneDrive, Google
+              Drive or iCloud Drive</strong>. With no new software to learn, you get an off-computer backup (your tree
+              survives a lost or broken laptop) and automatic version history (these services can restore an earlier
+              version of any file).
+            </p>
+            <p><strong>Set up once:</strong></p>
+            <ol>
+              <li>In your sync app, make one folder for your tree — for example <em>Family tree</em>.</li>
+              <li>Put your current <em>.ged</em> in it. Don't have one yet? Save once from GED Merge and move that file in —
+                it becomes your starting point.</li>
+            </ol>
+            <p><strong>Every editing session:</strong></p>
+            <ol>
+              <li><strong>Load.</strong> Open GED Merge. If it reopened where you left off, you're ready; otherwise drag
+                your latest <em>.ged</em> from the <em>Family tree</em> folder onto the drop zone (<a href="#loading">§3</a>).</li>
+              <li><strong>Change.</strong> Edit records, merge an incoming file, or run a tool as usual.</li>
+              <li><strong>Save.</strong> Press <span class="gm-key">Ctrl</span><span class="gm-key">S</span> →
+                <strong>Save GEDCOM</strong>, check the preview, then <strong>Download GEDCOM</strong>. Two files land in
+                <strong>Downloads</strong>: the dated <em>.ged</em> and its change report.</li>
+              <li><strong>Store.</strong> Move the dated <em>.ged</em> from Downloads into your <em>Family tree</em> folder.
+                (Keep or discard the report — it's just a human-readable log, not needed to reopen the file.)</li>
+              <li><strong>Done.</strong> Your sync service backs it up and keeps its own history. The date in the filename
+                keeps every version in order; next session, load the newest one.</li>
+            </ol>
+            <p>
+              <strong>To undo a bad session:</strong> re-load an earlier date-stamped <em>.ged</em> as your main file, or use
+              your sync app's <em>version history / restore previous version</em> on the file.
+            </p>
+
+            <h4>The Git cycle (advanced)</h4>
+            <p>
               GEDCOM is plain text — one fact per line — so it fits <strong>Git</strong>, the version-control tool
-              developers use, unusually well: you can see exactly which people and events changed between two versions and
-              roll back with confidence. If you're comfortable installing a tool, this gives you the strongest history.</p>
+              developers use, unusually well: you see exactly which people and events changed between two versions and roll
+              back with confidence. If you're comfortable installing a tool, this gives the strongest history.
+            </p>
+            <p><strong>Set up once:</strong></p>
             <ol>
               <li>Install <a href="https://desktop.github.com/" target="_blank" rel="noopener noreferrer">GitHub
-                Desktop</a> (Windows or macOS) and create a free GitHub account.</li>
-              <li>Create a repository for your tree — <em>File → New repository</em> — and pick a folder on your computer.
-                That folder becomes your one family-tree folder.</li>
-              <li><strong>Keep it private.</strong> Your tree holds details about living relatives, so when GitHub Desktop
-                offers to publish, choose <strong>Keep this code private</strong>. <strong>Never</strong> publish a tree
-                containing living people to a public repository (see <a href="#privacy">§19</a>) — or redact it first with
-                the <a href="#tools">Privacy</a> tool.</li>
-              <li>After each save in GED Merge, move the downloaded <em>.ged</em> from Downloads into the repository folder.
-                For Git, rename it to a single stable name such as <code>tree.ged</code> as you move it in — because Git
-                already records the date and message of every version, a fixed filename lets it show a clean, line-by-line
-                diff instead of treating each save as a brand-new file.</li>
-              <li>In GitHub Desktop, type a short summary of what changed (“Merged Novak branch”, “Fixed birth dates”),
-                click <strong>Commit</strong>, then <strong>Push</strong> to back it up on GitHub.</li>
+                Desktop</a> (Windows or macOS) and sign in with a free GitHub account.</li>
+              <li><em>File → New repository</em>. Name it (e.g. <code>family-tree</code>) and pick a local folder — this
+                becomes your one tree folder.</li>
+              <li>Put your <em>.ged</em> in that folder and rename it to a stable name such as <code>tree.ged</code>.</li>
+              <li>Type a summary (“Initial tree”) and click <strong>Commit</strong>. When you <strong>Publish</strong> the
+                repository, choose <strong>Keep this code private</strong> — your tree holds details about living relatives,
+                so <strong>never</strong> publish it to a public repository (<a href="#privacy">§19</a>), or redact it first
+                with the <a href="#tools">Privacy</a> tool.</li>
             </ol>
+            <p><strong>Every editing session:</strong></p>
+            <ol>
+              <li><strong>Load.</strong> Open GED Merge and drag <code>tree.ged</code> from the repository folder onto the
+                drop zone.</li>
+              <li><strong>Change.</strong> Edit, merge or run a tool as usual.</li>
+              <li><strong>Save.</strong> Press <span class="gm-key">Ctrl</span><span class="gm-key">S</span> →
+                <strong>Save GEDCOM</strong> → <strong>Download GEDCOM</strong>. The dated <em>.ged</em> lands in Downloads.</li>
+              <li><strong>Store.</strong> Move it into the repository folder and rename it back to <code>tree.ged</code>,
+                replacing the old one. GED Merge stamps the download with the date, but Git records the date and message of
+                every version itself — so a fixed filename gives a clean, line-by-line diff instead of a brand-new file each
+                time.</li>
+              <li><strong>Commit.</strong> In GitHub Desktop the changed lines appear (which people and events changed);
+                type a short summary (“Merged Novak branch”, “Fixed birth dates”), click <strong>Commit</strong>, then
+                <strong>Push</strong> to back it up on GitHub.</li>
+            </ol>
+            <p>
+              <strong>To undo:</strong> GitHub Desktop's <em>History</em> lists every version to compare; right-click a good
+              commit to <em>revert</em> back to it.
+            </p>
 
             <div class="gm-callout note">
               <span class="gm-callout-label">Which should I use?</span>
-              <p>If you just want your tree backed up and recoverable, a <strong>synced folder</strong> is all you need.
-              Reach for <strong>Git</strong> only if you want to inspect exactly what changed between versions, or to
+              <p>If you just want your tree backed up and recoverable, the <strong>cloud-folder cycle</strong> is all you
+              need. Reach for <strong>Git</strong> only if you want to inspect exactly what changed between versions, or to
               collaborate. Either way the golden rule is the same: <strong>one dedicated folder, and always load your latest
               saved file back as the main file.</strong></p>
             </div>
