@@ -583,6 +583,7 @@
               <ul>
                 <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph">−</span> glyph detaches the role without deleting the record.</li>
                 <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and supports Engagement, Separation and Divorce via <strong>+ Add Family Event</strong>; <span class="gm-glyph">−</span> detaches the spouse. Families carry their own notes and links too.</li>
+                <li><strong>Same-sex couples.</strong> When you add a new partner or parent, the search box offers <span class="gm-glyph">♂</span> / <span class="gm-glyph">♀</span> quick-add buttons beside <em>Add new person</em> — use them to create a same-sex partner or co-parent directly, instead of adding the person and then changing their sex. A same-sex couple's two cards are labelled <strong>Parent</strong> rather than <em>Father</em>/<em>Mother</em>. Behind the scenes GED Merge keeps the standard GEDCOM layout (one partner in each spouse role), so the file stays compatible with other genealogy software.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph">−</span> unlinks a child without deleting them.</li>
               </ul>
             </div>
@@ -713,7 +714,10 @@
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
               dates, disconnected records, broken or one-way family links, duplicate pointers, <strong>pedigree
               loops</strong> (a person who is their own ancestor), <strong>sex vs. role</strong> conflicts (a female
-              recorded as a husband, or a male as a wife), future-dated events, death before birth, and implausible ages
+              recorded as a husband, or a male as a wife — a genuine same-sex couple, one partner in each role, is
+              <em>not</em> flagged), <strong>two spouses in one role</strong> (a family that packs two different people
+              into the husband or wife role, hiding one partner — the finding names who is hidden), future-dated events,
+              death before birth, and implausible ages
               (at death, at marriage, parent's age, spouse age gap). A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media

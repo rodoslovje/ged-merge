@@ -869,6 +869,19 @@ describe("addPartner", () => {
     expect(rebuildFamily(ds, fam).wife).toBe(partner.id);
     expect(rebuildIndividual(ds, ds.individuals.get(child.id)!).childOf).toContain(fam.id);
   });
+
+  it("honours a sexOverride for a same-sex partner (opposite slot, same sex)", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!; // sex M
+
+    const partner = addPartner(ds, indi, undefined, "M");
+
+    // Same sex as the person, but still fills the opposite (WIFE) slot — the
+    // standard convention-1 representation of a same-sex couple.
+    expect(partner.sex).toBe("M");
+    const fam = [...ds.families.values()].find((f) => f.husband === indi.id)!;
+    expect(fam.wife).toBe(partner.id);
+  });
 });
 
 // ─── addChild ─────────────────────────────────────────────────────────────────

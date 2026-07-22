@@ -32,6 +32,7 @@ const CATEGORIES: IssueCategory[] = [
   "duplicatePointer",
   "pedigreeLoop",
   "roleSexConflict",
+  "multiSpouseSlot",
   "deathBeforeBirth",
   "ageAtDeath",
   "ageAtMarriage",
