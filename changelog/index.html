@@ -86,6 +86,13 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-07-22</h2>
+            <ul>
+              <li><strong>Saved files now carry the date.</strong> Every saved GEDCOM (and its change report, and the Tools exports) is now named <code>{yourfile}.2026-07-22.gedmerge.ged</code>, so successive versions sort by date in your Downloads folder and never overwrite one another. Re-saving a previously saved file just updates the date instead of stacking suffixes.</li>
+              <li><strong>New guide section: keeping versions of your tree.</strong> The <a href="../guide/#versioning">User's Guide</a> now explains how to keep a safe, recoverable history of your tree — a simple synced folder (Dropbox/OneDrive/Google Drive/iCloud) for most people, or Git with GitHub Desktop for full version control.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-19</h2>
             <ul>
               <li><strong>Geocoding no longer proposes a place from the wrong country.</strong> When a place name states its country, the offline gazetteer now matches only that country's entries — so <em>Belfast, County Antrim, Northern Ireland</em> is no longer fuzzily matched to <em>Bela</em> in Slovenia. Places with no country stated still match anywhere. (“Northern Ireland” is now also recognised as a country.)</li>

@@ -155,6 +155,7 @@
             <li><a href="#photos">12. Fotografije in mediji</a></li>
             <li><a href="#sources">13. Viri in navedbe</a></li>
             <li><a href="#saving">14. Shranjevanje in poročilo sprememb</a></li>
+            <li class="guide-toc-sub"><a href="#versioning">↳ Varnostne kopije in različice drevesa</a></li>
 
             <li class="guide-toc-part">V · Referenca</li>
             <li><a href="#legend">15. Legenda ikon in oznak</a></li>
@@ -959,7 +960,70 @@
             <div class="gm-callout tip">
               <span class="gm-callout-label">Namig</span>
               <p>Vaš izvirnik na disku se nikoli ne prepiše — prenos je vedno nova kopija. Kljub temu pred velikimi
-              združevanji obdržite varnostno kopijo drevesa.</p>
+              združevanji obdržite varnostno kopijo drevesa — glejte <a href="#versioning">Varnostne kopije in
+              različice</a> spodaj.</p>
+            </div>
+
+            <h3 id="versioning">Varnostne kopije in različice drevesa</h3>
+            <p>
+              Ker je vsako shranjevanje nov prenos, datoteka pristane v vaši mapi <strong>Prenosi</strong> — ki se hitro
+              napolni z na videz enakimi datotekami brez jasnega odgovora, „katera je zdaj prava?“. Malo discipline to
+              spremeni v varno zgodovino vašega drevesa, iz katere lahko kadar koli obnovite prejšnje stanje.
+            </p>
+            <p>
+              <strong>Ena sama navada, ki šteje.</strong> Imejte <em>eno</em> namensko mapo za drevo (na primer
+              <em>Družinsko drevo</em>). Po vsakem shranjevanju prestavite preneseno <em>.ged</em> iz mape Prenosi v to
+              mapo, naslednjič pa <strong>to datoteko naložite nazaj kot glavno datoteko</strong> — nikoli ne delajte z
+              raztresenimi kopijami v Prenosih. Da je to čim lažje, GED Merge <strong>vsako shranjeno datoteko označi z
+              datumom</strong>: <code>Smith-drevo.2026-07-22.gedmerge.ged</code>. Zaporedne različice tako stojijo druga ob
+              drugi po datumu in se nikoli ne prepišejo; najnovejša je vaša delovna kopija, starejši datumi pa vaša
+              zgodovina. Ponovno nalaganje označene datoteke ni težava — naslednje shranjevanje preprosto nosi današnji
+              datum.
+            </p>
+
+            <p><strong>Preprosto in varno: sinhronizirana mapa (priporočeno za večino).</strong>
+              To mapo z drevesom postavite v storitev za sinhronizacijo v oblaku, ki jo že uporabljate — Dropbox, OneDrive,
+              Google Drive ali iCloud Drive. Brez novega programa dobite dvoje:</p>
+            <ul>
+              <li><strong>Varnostno kopijo zunaj računalnika</strong> — vaše drevo preživi izgubljen, ukraden ali
+                pokvarjen računalnik.</li>
+              <li><strong>Samodejno zgodovino različic</strong> — vse te storitve omogočajo obnovitev starejše različice
+                datoteke prek spletne strani ali aplikacije, tako da je mogoče razveljaviti tudi prepis.</li>
+            </ul>
+            <p>
+              Za korak nazaj v času odprite zgodovino različic datoteke v svoji storitvi za sinhronizacijo ali pa preprosto
+              naložite starejšo z datumom označeno <em>.ged</em> kot glavno datoteko. Za skoraj vsakogar je to vse, kar
+              potrebuje.
+            </p>
+
+            <p><strong>Polni nadzor različic: Git in GitHub Desktop (napredno).</strong>
+              GEDCOM je golo besedilo — eno dejstvo v vrstici — zato se izjemno dobro poda h <strong>Gitu</strong>, orodju
+              za nadzor različic, ki ga uporabljajo razvijalci: natanko vidite, katere osebe in dogodki so se med dvema
+              različicama spremenili, in se z gotovostjo vrnete nazaj. Če vam ni odveč namestiti orodja, vam to da
+              najmočnejšo zgodovino.</p>
+            <ol>
+              <li>Namestite <a href="https://desktop.github.com/" target="_blank" rel="noopener noreferrer">GitHub
+                Desktop</a> (Windows ali macOS) in ustvarite brezplačen račun GitHub.</li>
+              <li>Ustvarite repozitorij za svoje drevo — <em>File → New repository</em> — in izberite mapo na računalniku.
+                Ta mapa postane vaša ena mapa z drevesom.</li>
+              <li><strong>Naj bo zaseben.</strong> Vaše drevo vsebuje podatke o živih sorodnikih, zato ob ponudbi za
+                objavo izberite <strong>Keep this code private</strong>. Drevesa z živimi osebami <strong>nikoli</strong>
+                ne objavite v javnem repozitoriju (glejte <a href="#privacy">§19</a>) — ali ga prej redaktirajte z orodjem
+                <a href="#tools">Zaščita zasebnosti</a>.</li>
+              <li>Po vsakem shranjevanju v GED Merge prestavite preneseno <em>.ged</em> iz Prenosov v mapo repozitorija.
+                Za Git jo ob prestavljanju preimenujte v eno stalno ime, na primer <code>drevo.ged</code> — ker Git že sam
+                beleži datum in opis vsake različice, stalno ime omogoči čist prikaz razlik po vrsticah, namesto da bi
+                bilo vsako shranjevanje povsem nova datoteka.</li>
+              <li>V GitHub Desktop vpišite kratek povzetek sprememb („Združena veja Novak“, „Popravljeni datumi rojstva“),
+                kliknite <strong>Commit</strong> in nato <strong>Push</strong> za varnostno kopijo na GitHubu.</li>
+            </ol>
+
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Katero naj izberem?</span>
+              <p>Če želite drevo le varnostno kopirati in ga imeti obnovljivo, je <strong>sinhronizirana mapa</strong>
+              vse, kar potrebujete. Po <strong>Gitu</strong> posezite le, če želite natanko pregledati, kaj se je med
+              različicami spremenilo, ali sodelovati z drugimi. V vsakem primeru velja isto zlato pravilo:
+              <strong>ena namenska mapa in zadnjo shranjeno datoteko vedno naložite nazaj kot glavno datoteko.</strong></p>
             </div>
           </section>
 

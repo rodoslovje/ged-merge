@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import type { NormalizeOptions } from "../../normalize/types";
-import { downloadText } from "../download";
+import { downloadText, savedName } from "../download";
 import { revealEdgeWhitespace } from "../whitespace";
 import { type ToolsScans } from "../useToolsScans";
 import { ToolsError, ToolsLoading } from "./shared";
@@ -38,8 +38,7 @@ export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: 
       selected,
       (text) => {
         setDownloading(false);
-        const base = fileName.replace(/\.ged$/i, "");
-        downloadText(`${base}.gedmerge.ged`, text);
+        downloadText(savedName(fileName, "ged"), text);
       },
       () => setDownloading(false),
     );

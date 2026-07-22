@@ -148,6 +148,10 @@
   color: var(--accent);
   border-left-color: var(--accent);
 }
+.guide-toc-sub a {
+  padding-left: 24px;
+  font-size: 0.86rem;
+}
 
 .guide-main {
   min-width: 0;
