@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { Dataset, Family, Sex, SourceCitation } from "../../gedcom/types";
+import type { Dataset, Family, SourceCitation } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
@@ -94,7 +94,7 @@ interface SharedSectionProps {
   pickingSlot: PickingSlot;
   setPickingSlot: (slot: PickingSlot) => void;
   connectRelative: (kind: RelativeKind, existingId: string, fam?: Family) => void;
-  addRelative: (kind: RelativeKind, fam?: Family, sexOverride?: Sex) => void;
+  addRelative: (kind: RelativeKind, fam?: Family) => void;
   handleDetachSpouseRole: (fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) => void;
   cardRefCtx: MediaRefContext;
   decisionStatusById: Map<string, Exclude<MatchDecisionStatus, "undecided">>;
@@ -172,7 +172,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("father", id, fam)}
-          onAddNew={(sex) => { setPickingSlot(null); addRelative("father", fam, sex); }}
+          onAddNew={() => { setPickingSlot(null); addRelative("father", fam); }}
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
@@ -237,7 +237,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("mother", id, fam)}
-          onAddNew={(sex) => { setPickingSlot(null); addRelative("mother", fam, sex); }}
+          onAddNew={() => { setPickingSlot(null); addRelative("mother", fam); }}
           onCancel={() => setPickingSlot(null)}
           t={t}
         />

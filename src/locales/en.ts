@@ -390,8 +390,6 @@ export const en = {
   "edit.addChild": "+ Add Child",
   "edit.searchPerson": "Search existing person…",
   "edit.addNewPerson": "Add new person",
-  "edit.addNewMale": "Add new male",
-  "edit.addNewFemale": "Add new female",
   "edit.noEvents": "No events recorded",
   "edit.unknown": "—",
   "edit.empty": "The main GEDCOM file has no individuals to edit.",

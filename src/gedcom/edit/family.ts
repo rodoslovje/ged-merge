@@ -56,12 +56,10 @@ export function addFamily(dataset: Dataset): Family {
  * existing parent family missing that role), the new individual fills its
  * `HUSB`/`WIFE` slot; otherwise a new family is created and linked via
  * `FAMC`/`HUSB`/`WIFE`. Returns the new individual so the caller can navigate
- * to it for editing. `sexOverride` lets the caller pick the new parent's `SEX`
- * — e.g. a second father in a same-sex couple filling the `WIFE` slot —
- * instead of the role-implied default.
+ * to it for editing.
  */
-export function addParent(dataset: Dataset, person: Individual, fam: Family | undefined, role: "father" | "mother", sexOverride?: Sex): Individual {
-  const sex: Sex = sexOverride ?? (role === "father" ? "M" : "F");
+export function addParent(dataset: Dataset, person: Individual, fam: Family | undefined, role: "father" | "mother"): Individual {
+  const sex: Sex = role === "father" ? "M" : "F";
   const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
   const parent = addIndividual(dataset, sex);
 
@@ -82,13 +80,11 @@ export function addParent(dataset: Dataset, person: Individual, fam: Family | un
  * family missing the other `HUSB`/`WIFE` slot), the new individual fills it;
  * otherwise a new family is created with `person` in the slot matching their
  * sex. Returns the new individual so the caller can navigate to it.
- * `sexOverride` lets the caller pick the new partner's `SEX` — e.g. a same-sex
- * partner — instead of defaulting to the opposite of `person`.
  */
-export function addPartner(dataset: Dataset, person: Individual, fam: Family | undefined, sexOverride?: Sex): Individual {
+export function addPartner(dataset: Dataset, person: Individual, fam: Family | undefined): Individual {
   const personTag: "HUSB" | "WIFE" = fam ? (fam.husband === person.id ? "HUSB" : "WIFE") : person.sex === "F" ? "WIFE" : "HUSB";
   const partnerTag: "HUSB" | "WIFE" = personTag === "HUSB" ? "WIFE" : "HUSB";
-  const partner = addIndividual(dataset, sexOverride ?? (partnerTag === "HUSB" ? "M" : "F"));
+  const partner = addIndividual(dataset, partnerTag === "HUSB" ? "M" : "F");
 
   if (!fam) {
     fam = addFamily(dataset);
@@ -105,12 +101,10 @@ export function addPartner(dataset: Dataset, person: Individual, fam: Family | u
 /**
  * Add a new, empty child to `person`. If `fam` is given, the child is added
  * there; otherwise a new spouse family is created for `person` first.
- * Returns the new individual so the caller can navigate to it. `sexOverride`
- * lets the caller set the new child's `SEX` at creation instead of leaving it
- * unknown.
+ * Returns the new individual so the caller can navigate to it.
  */
-export function addChild(dataset: Dataset, person: Individual, fam: Family | undefined, sexOverride?: Sex): Individual {
-  const child = addIndividual(dataset, sexOverride ?? "U");
+export function addChild(dataset: Dataset, person: Individual, fam: Family | undefined): Individual {
+  const child = addIndividual(dataset, "U");
 
   if (!fam) {
     fam = addFamily(dataset);
