@@ -81,192 +81,105 @@
       <main class="guide-main">
         <header class="guide-header">
           <h1>Novosti</h1>
-          <p>Kaj je novega v GED Merge, najnovejše spremembe najprej. Tukaj so navedene le uporabniku vidne spremembe.</p>
+          <p>Nove funkcije in večje izboljšave v GED Merge, najnovejše najprej.</p>
         </header>
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
             <h2>2026-07-22</h2>
             <ul>
-              <li><strong>Shranjene datoteke zdaj nosijo datum.</strong> Vsak shranjeni GEDCOM (ter njegovo poročilo o spremembah in izvozi iz Orodij) se zdaj imenuje <code>{vašadatoteka}.2026-07-22.gedmerge.ged</code>, tako da se zaporedne različice v mapi Prenosi razvrstijo po datumu in se nikoli ne prepišejo. Ponovno shranjevanje že shranjene datoteke le posodobi datum, namesto da bi kopičilo pripone.</li>
-              <li><strong>Nov razdelek v navodilih: hramba različic drevesa.</strong> <a href="../navodila/#versioning">Navodila</a> zdaj razložijo, kako ohraniti varno in obnovljivo zgodovino drevesa — preprosta sinhronizirana mapa (Dropbox/OneDrive/Google Drive/iCloud) za večino ali Git z GitHub Desktop za polni nadzor različic.</li>
-              <li><strong>Istospolni pari so zdaj prepoznani.</strong> V pogledu urejanja sta pri istospolnem paru kartici staršev označeni <em>Starš</em> namesto <em>Oče</em>/<em>Mati</em>, značke starosti pa vzamejo znak ♂/♀ iz spola vsake osebe.</li>
-              <li><strong>Pregled</strong> pristnega istospolnega zakona (dva zakonca istega spola, vsak v svoji vlogi) ne prijavlja več kot napako „spol proti vlogi“. Zdaj pa označi družino, ki <strong>v eno zakonsko vlogo stlači dve osebi</strong> — postavitev, ki jo nekateri programi uporabljajo za istospolne pare in skrije enega partnerja — ter poimenuje, kdo je skrit, da ga lahko premaknete v drugo vlogo.</li>
+              <li><strong>Shranjene datoteke zdaj nosijo datum</strong> (<code>{vašadatoteka}.2026-07-22.gedmerge.ged</code>), tako da se zaporedne različice razvrstijo po datumu in se nikoli ne prepišejo.</li>
+              <li><strong>Istospolni pari so prepoznani.</strong> Kartici staršev sta označeni <em>Starš</em> namesto Oče/Mati, Pregled pa pristnega istospolnega zakona ne prijavlja več kot napako.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-19</h2>
             <ul>
-              <li><strong>Geokodiranje ne predlaga več kraja iz napačne države.</strong> Ko ime kraja navaja državo, geografski imenik brez povezave ujema le vnose iz te države — tako <em>Belfast, County Antrim, Northern Ireland</em> ni več napačno ujet z <em>Belo</em> v Sloveniji. Kraji brez navedene države se še vedno ujemajo kjer koli. (Tudi „Northern Ireland“ je zdaj prepoznan kot država.)</li>
-              <li><strong>Pregled</strong> zdaj označi <strong>kraje s koordinatami v nekaterih zapisih, v drugih pa ne</strong> — ime kraja, ki je geokodirano pri večini dogodkov, pri nekaterih pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke). Z enim klikom <strong>Dopolni koordinate iz datoteke</strong> prekopira koordinato, ki jo vrednost že ima, na dogodke, ki je nimajo — brez poizvedbe in razveljavljivo.</li>
+              <li><strong>Geokodiranje upošteva državo</strong>, navedeno v kraju, tako da se ime kraja ne ujame več z napačno državo.</li>
+              <li><strong>Pregled</strong> označi kraje, ki so geokodirani v nekaterih zapisih, v drugih pa ne, in z enim klikom dopolni manjkajoče koordinate iz datoteke.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-18</h2>
             <ul>
-              <li><strong>Geokodiranje krajev zdaj išče v GOV</strong>, Genealoškem imeniku krajev (gov.genealogy.net) — gumb <em>Išči v GOV</em> po vrsticah (za spletno privolitvijo), ki najde zgodovinska, večjezična imena krajev z njihovimi koordinatami. Ob potrditvi zadetka GOV se v datoteko zapiše tudi njegov stalni identifikator GOV kot <code>_GOV</code>, trajna povezava nazaj na zapis GOV za druge rodoslovne programe.</li>
-              <li>Odpravljena manjša napaka pri prikazu na Zemljevidu krajev: gumb <em>Sloji</em> se ne prikaže več skozi odprti meni Izvoz, kjer se prekrivata.</li>
-              <li><strong>Slovenija, Hrvaška in Bosna v letih 1877–1918, vgrajeno.</strong> Nov sloj na en klik postreže habsburško <em>Specialko 1:75.000</em> za celotno regijo — 165 javno dostopnih listov vojaške izmere (skeni dLib.si, Newyorške javne knjižnice in GeoPortOst), georeferenciranih in sešitih v en zvezen sloj: Slovenija, Hrvaška, Bosna in Hercegovina, črnogorska obala ter avstrijsko in madžarsko obmejno območje, od Špitala do Sombora in od Beljaka do Kotorja.</li>
-              <li><strong>Zgodovinski sloji zemljevida.</strong> V novem zavihku Nastavitve → Zemljevid dodajte svoje zgodovinske karte — ime, predlogo URL ploščic XYZ/WMTS z {z}/{x}/{y}, leta, ki jih karta prikazuje, in navedbo vira (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Zemljevid krajev je dobil izbirnik <em>Sloji</em> z drsnikom prosojnosti za vsak sloj, sloji, katerih obdobje ustreza izbranemu oknu let, so predlagani — karta iz časa vašega prednika — posnetki PNG pa vključijo sloje z vžgano navedbo vira.</li>
-              <li>Geokodiranje krajev zna zdaj po vrsticah <strong>iskati na spletu (OpenStreetMap)</strong> — razreši ulične naslove in vse, česar imenik brez povezave ne pozna. Za spletno privolitvijo, omejeno na eno poizvedbo na sekundo; zadetki se pokažejo ob kandidatih brez povezave in kot bucike na malem zemljevidu vrstice.</li>
-              <li>Mali zemljevid osebe v pogledu urejanja lahko zdaj trajno izklopite v Nastavitve → Prikaz, Navodila pa so dobila celotni poglavji o Zemljevidu in Geokodiranju krajev.</li>
-              <li><a href="../navodila/">Navodila za uporabo</a> so posodobljena: zdaj pokrivajo Zemljevid krajev in življenjske poti, geokodiranje krajev, Urejanje virov in prilagoditve Nastavitve → GEDCOM, dogodke po meri, oznake zasebnih zapisov 🔒 in pretvorbo različic GEDCOM 5.5.1 ⇄ 7.0.</li>
-              <li>Predogled shranjevanja zdaj pokaže spremembe na vseh dogodkih, ne glede na njihovo oznako: dogodki zunaj vgrajenega seznama — krst odraslega (<code>CHRA</code>), LDS krst, oklici (<code>MARB</code>/<code>MARL</code>), dogodki posameznih programov — so se prej spremenili (npr. z geokodiranjem ali preimenovanjem kraja), ne da bi se v predogledu pokazali.</li>
-              <li>Izboljšave Geokodiranja krajev: statistika vrstic se je preselila gor ob gumb Nazaj, uvoženi imeniki držav so zdaj našteti pod jasnim naslovom (da veste, kaj je naloženo in se uporablja), zapomnjena ujemanja pa kažejo svoj prvotni izvor — koordinato iz datoteke ali oceno imenika — z opombo »zapomnjeno iz prejšnje seje« v namigu. Vsaka vrstica je dobila tudi gumb ✎ za preimenovanje kraja (vseh navedb točno tega imena) kar v seznamu — popravite tipkarsko napako in popravljeno ime se takoj znova poišče med predlogi.</li>
-              <li>Predogled shranjevanja zdaj prikaže zapisane koordinate kraja kot spremenjeno polje dogodka — prej je bil geokodiran zapis štet kot spremenjen, a ni pokazal ničesar.</li>
-              <li>Razširjena vrstica geokodiranja zdaj pokaže majhen zemljevid: predlagani kraji kot bucike, na katere lahko kliknete za izbiro, izbrana koordinata poudarjena, znane koordinate iz datoteke pa kot drobne pike — tako istoimenske kraje ločite po legi glede na svoj družinski krog. Klik kamorkoli drugam na zemljevidu nastavi tisto točko kot ročno izbrano koordinato. Uporablja iste izbirne ulične podlage / oris brez povezave kot Zemljevid krajev.</li>
-              <li>Iskanje krajev zdaj pozna tudi naslove: v urejanju vnos naslova v polje kraja ponudi predloge »kraj · naslov«, ki izpolnijo obe polji hkrati, preimenovanje pri geokodiranju pa zna vrednost razdeliti na kraj + naslov (naslov postane ADDR dogodka).</li>
-              <li>Pogled urejanja je pod dogodki osebe dobil majhen zemljevid: vsak geokodiran dogodek — njeni in njenih družin — kot barvna bucika (lebdenje pokaže dogodek in leto), kronološko povezani z življenjsko potjo s puščicami smeri.</li>
-              <li><strong>Življenjske poti na Zemljevidu krajev.</strong> Novo stikalo Poti nariše življenjsko pot vsake prikazane osebe — od rojstva prek bivališč in porok do smrti — kot črto s puščicami v smeri poti. S klikom na črto (ali na novi gumb poti ob osebi v plošči s seznamom dogodkov) izpostavite eno osebo: njena pot se poudari in uokviri, ostale zbledijo. Poti so vključene tudi v izvoz PNG.</li>
-              <li>Letni filter zemljevida je dobil drsnik z dvema ročicama, razpet čez datirane dogodke datoteke — z vlečenjem ročic prebirate prikazano obdobje (in ob vklopljenih Poteh opazujete, kako se je družina razseljevala); polji z letnicama še vedno sprejmeta točne vrednosti.</li>
+              <li><strong>Zgodovinski sloji zemljevida.</strong> V Nastavitve → Zemljevid dodajte svoje zgodovinske karte, z vgrajenim slojem na en klik za Slovenijo, Hrvaško in Bosno v letih 1877–1918 (habsburška <em>Specialka 1:75.000</em>).</li>
+              <li><strong>Geokodiranje krajev zna iskati na spletu</strong> — OpenStreetMap za naslove in GOV (Genealoški imenik krajev) za zgodovinska, večjezična imena krajev, ob tem pa v datoteko zapiše trajni identifikator <code>_GOV</code>.</li>
+              <li><strong>Življenjske poti na Zemljevidu krajev.</strong> Pot vsake osebe od rojstva prek bivališč in porok do smrti je narisana kot črta s puščicami smeri, z drsnikom z dvema ročicama za prebiranje obdobja.</li>
+              <li>Pogled urejanja pod dogodki osebe pokaže majhen zemljevid z njeno življenjsko potjo.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-17</h2>
             <ul>
-              <li><strong>Geokodiranje krajev</strong> (Orodja → Kraji): imena krajev iz datoteke se primerjajo z imenikom krajev brez povezave, potrjene koordinate pa se zapišejo v GEDCOM kot standardni <code>MAP</code> <code>LATI</code>/<code>LONG</code> — vsak zapis pregledate sami in ga je mogoče razveljaviti. Imenik pridobite z enim klikom z OpenStreetMap (koda države + Prenesi, ob dovoljenih spletnih poizvedbah) ali z uvozom datoteke GeoNames (.zip ali .txt) — podatki ostanejo v brskalniku. Predlogi so razvrščeni: najprej koordinate, ki jih druge navedbe istega kraja v datoteki že nosijo, nato točna in zgodovinska ujemanja imen (Laibach → Ljubljana), nazadnje približna; »Izberi zanesljive« množično izbere le nedvoumna ujemanja, vsaka vrstica pa ponudi tudi druge kandidate, ročni vnos koordinat ali zapomnjeno oznako »brez ujemanja«. Potrjena ujemanja se shranijo, zato se v drugih datotekah razrešijo takoj.</li>
-              <li>Glave prikazov (drevesa, Časovnica, Zemljevid, Poročilo) zdaj povsod kažejo enako vrstico izhodiščne osebe: življenjsko dobo s starostjo (ob vklopljenem »Prikaži starosti«) in značko sorodstva; plošča dogodkov na Zemljevidu ob vsaki osebi pokaže sorodstvo, povezave na osebe v Orodjih pa tudi starost. Zavihek Zemljevid se je premaknil ob Poročilo, nastavitev URL ploščic po meri pa je dobila urejen videz in namig.</li>
-              <li><strong>Nov prikaz: Zemljevid krajev.</strong> Središče prikazov je dobilo Zemljevid: dogodki prednikov ali potomcev izhodiščne osebe — rojstva, poroke, smrti, pokopi, bivališča — se izrišejo kot barvno označene, združene oznake, iz koordinat, ki jih datoteka že vsebuje (<code>PLAC</code> → <code>MAP</code> <code>LATI</code>/<code>LONG</code>, kot jih zapisujejo webtrees, MacFamilyTree in drugi). Klik na skupino približa pogled ali odpre seznam dogodkov s povezavami do oseb; filtri zajemajo vrsto dogodka, razpon let in nedatirane dogodke, meni Izvoz pa poleg GEDCOM veje ponudi tudi sliko PNG.</li>
-              <li>Kartografsko ozadje (CARTO) je izbirno — zahteve po ploščicah razkrijejo ogledovano območje, zato se zemljevid do vklopa riše na vgrajenem obrisu sveta, ki deluje brez povezave; URL ploščic po meri je na voljo v Nastavitve → Napredno. Možnost prikazov »skrij žive osebe« velja tudi za zemljevid.</li>
-              <li><strong>Podpora zasebnim podatkom.</strong> Zapisi in opombe z oznako zasebnosti — MacFamilyTree <code>PRIV</code>, MyHeritage <code>_PRIV Y</code> ali standardni <code>RESN privacy</code>/<code>confidential</code> — so zdaj razumljeni: osebe, družine in opombe imajo v urejanju stikalo 🔒 (zapisano v narečju datoteke), zasebni vnosi pa so spoštovani povsod: povezava iz zasebne opombe se ne pokaže med povezavami, Uredi vire in Dodaj vir pa URL-ja zasebne osebe, opombe ali predstavnosti nikoli ne spremenita v navedbo vira. Čiščenje "odstrani interne oznake" ne briše več MacFamilyTree oznak zasebnosti.</li>
-              <li>Čipi opomb so dobili gumb za odpiranje povezave: opomba s URL-jem pokaže običajni ↗ ob lebdenju, ki odpre stran v novem zavihku.</li>
-              <li><strong>Podpora zasebnosti povsod.</strong> Predstavnosti dobijo stikalo 🔒 v podatkovni plošči fotografije; primerjava ob združevanju pokaže vrstico Zasebno in dohodna oznaka se zapiše v združeni zapis (oznaka na glavni strani se nikoli ne odstrani); oznake zasebnosti primerjalne datoteke se ob nalaganju pretvorijo v narečje glavne, tako kot datumi in kraji; možnost "skrij žive osebe" v grafikonih in poročilih skrije tudi izrecno zasebne osebe; Orodja → Zasebnost jih označi z razlogom "označeno kot zasebno" ne glede na datume; Nastavitve → GEDCOM pa so dobile razsežnost Zasebnost za povozitev zaznane oznake (PRIV / _PRIV / RESN).</li>
-              <li><strong>Deljene opombe ohranijo svojo identiteto skozi urejanje.</strong> Opombe, shranjene kot deljeni zapisi (MacFamilyTree, webtrees in MyHeritage izvozi zapišejo kazalce <code>NOTE @N1@</code>), so se prej ob vsakem urejanju sploščile v navadne besedilne kopije — deljeni zapis je osirotel in izgubil, kar je nosil (oznake zasebnosti, zgodovino sprememb). Urejanje opombe — pri osebi, družini, dogodku ali viru prek okna Uredi vir — zdaj posodobi sam deljeni zapis, tako da novo besedilo vidi vse, kar se nanj sklicuje, struktura kazalcev pa se ohrani brez izgub; ob odstranitvi zadnjega sklica se zapis počisti.</li>
-              <li>Opombe, katerih besedilo je samo povezava (npr. zasebna opomba s povezavo na profil), se zdaj v urejanju pokažejo kot čipi opomb — prej so bile nevidne in jih je naslednje urejanje opomb tiho izbrisalo. Urejanje kateregakoli polja dogodka tudi ne prepiše več njegove nedotaknjene opombe kot stranski učinek, deljena opomba predstavnosti pa preživi urejanje njenega opisa.</li>
+              <li><strong>Nov prikaz: Zemljevid krajev.</strong> Dogodki prednikov ali potomcev osebe se izrišejo kot združene oznake iz koordinat, ki jih datoteka že vsebuje, z izvozom slike PNG.</li>
+              <li><strong>Geokodiranje krajev</strong> (Orodja → Kraji): imena krajev iz datoteke primerjajte z imenikom brez povezave in potrjene koordinate zapišite v GEDCOM.</li>
+              <li><strong>Podpora zasebnim podatkom.</strong> Zapisi, opombe in predstavnosti z oznako zasebnosti dobijo stikalo 🔒 in so spoštovani povsod — v grafikonih, poročilih, združevanju in Uredi vire.</li>
+              <li><strong>Deljene opombe ohranijo svojo identiteto skozi urejanje</strong>, tako da spremembo vidi vse, kar se nanje sklicuje, struktura kazalcev pa se ohrani brez izgub.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-16</h2>
             <ul>
-              <li><strong>Dogodki po meri (EVEN)</strong> so zdaj podprti tudi na družinah: družinski dogodek po meri (npr. "Civil Partnership") se pokaže v urejanju, v primerjavi ob združevanju in v samem združevanju, dodati pa ga je mogoče prek menija Dodaj dogodek pri družini — prej je preživel shranjevanje, a je bil neviden.</li>
-              <li>Dogodki po meri (EVEN/FACT) na osebah in družinah se zdaj prikazujejo pod svojim nazivom ("Civil Partnership") namesto s splošno oznako "Dogodek — …", tako da so videti kot vgrajeni dogodki; da gre za dogodek po meri, pove namig, naziv pa se ureja v svojem, vedno vidnem polju v vrstici dogodka.</li>
-              <li><strong>Uredi vire</strong>: številka groba z Geneanet strani se zdaj zapiše v PAGE navedbe (kje znotraj pokopališča), namesto da bi se pripela k naslovu pokopa — v ADDR ostane samo ime pokopališča. Spletni poizvedbi v oknu Dodaj vir grob na enak način izpolni polje Stran.</li>
+              <li><strong>Dogodki po meri (EVEN) so zdaj podprti tudi na družinah</strong>, prikazani pod svojim nazivom v urejanju, v primerjavi ob združevanju in v samem združevanju.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-15</h2>
             <ul>
-              <li><strong>Uredi vire</strong> zdaj povezavo na poročno knjigo pri osebi z več porokami postavi na MARR dogodek prave družine, ki jo prepozna po dokazih same strani: družina, katere poroka že navaja isto knjigo in stran, ali katere drugi zakonec nosi povezavo na isto stran. Navedba na ravni zapisa, ki jo je prejšnji zagon pustil pri osebi, se preseli skupaj z njo.</li>
-              <li>Ponovni zagon Uredi vire ne prijavlja več povezav, ki jih je že uredil: slika strani ob dokončani navedbi (vir, stran in kakovost so že zapisani) šteje za opravljeno, zato se poročilo izprazni, namesto da bi iste vrstice kazalo ob vsakem zagonu.</li>
-              <li>Nov zavihek nastavitev <strong>GEDCOM</strong>: vsak zaznani dogovor datoteke je zdaj mogoče povoziti — oblika datumov, neznani deli datuma, oblika krajev, dodatna imena, oznaka neznanih imen, zapisi virov, navedbe, povezave strani, navedbe krstov (BIRT/BAPM), podvojene povezave ter jezika Matricule in Geneaneta. "Samodejno (zaznano)" — privzeto — še naprej sledi navadi datoteke; izbrano vrednost uveljavijo poenotenje primerjalne datoteke, Uredi vire, Dodaj vir in urejanje. Izbire za datume/kraje/imena/povezave veljajo od naslednjega nalaganja datoteke.</li>
-              <li><strong>Očisti vire</strong> se preimenuje v <strong>Uredi vire</strong>.</li>
-              <li><strong>Dodaj vir</strong> razume arhivske povezave enako kot Uredi vire: prepoznan URL predizpolni naslov, avtorja, kraj, arhiv, signaturo in stran — spletna poizvedba pridobi prave podatke knjige/groba/zapisa — ustvarjeni vir pa dobi kraj v obliki datoteke, časovni razpon in hrambo. Pogovorno okno je prenovljeno: dva stolpca, značka prepoznane povezave, polje Kraj.</li>
-              <li>Nove vrste povezav <strong>BillionGraves</strong>, <strong>dLib.si</strong>, <strong>Google Books</strong> (naslov knjige/časopisa, stran iz pg=), <strong>YouTube</strong> (naslov videa in kanal prek oEmbed) in <strong>Geneanet drevesa</strong> (osebe v družinskih drevesih, ločeno od pokopališč); berljivi naslovi pri vseh straneh ("Katarina Abdonec - WW2 - SIstory.si", "Adam Troha - St. Theresa Cemetery - Find a Grave", "Dolenjski list, 08.06.1978 … - dLib.si") z identifikatorji zapisov v signaturi; grobovi izpolnijo kraj pokopa in naslov pokopališča; splošne povezave na osmrtnice/pogrebe štejejo kot dokaz smrti in dobijo naslove iz imen/datotek.</li>
-              <li>Vir, dodan na osebi, pristane na ustreznem dogodku (rojstvo/poroka/smrt/pokop, ustvarjenem po potrebi), kadar datoteka navedbe hrani na dogodkih; predogled shranjevanja zdaj prikaže dodane in odstranjene navedbe virov.</li>
-              <li>Izboljšave orodja <strong>Uredi vire</strong>: namig ob novem viru pokaže avtorja in kraj, usklajen z obliko krajev v vaši datoteki; pri prepisu vira Geneanet dreves z URL-jem v naslovu se lastnik drevesa vpiše kot avtor; grobovi dodajo pokopališče v naslov pokopa tudi, kadar je kraj pokopa že vpisan.</li>
-              <li>Povezave FamilySearch dobijo številko zapisa/filma kot signaturo brez spletne poizvedbe; kategorija povezav Legacy.com se zdaj imenuje samo "Legacy.com".</li>
-              <li>Poizvedba za časopis v Google Books zdaj prevzame datum številke: naslov se glasi "The Windsor Star, May 23, 1969 - Google Books" namesto oznake zvezka, datum pa izpolni tudi datumsko polje vira. Gumb <strong>Pridobi podatke o virih</strong> je prestavljen gor, poleg izbire kakovosti citata.</li>
-              <li>Vire na seznamu orodja Uredi vire je mogoče ročno urediti (✎ v vrstici): naslov, avtor, ustanova, kraj, arhivska številka in časovni razpon so nastavljivi pred prenosom; urejene vire poizvedba Pridobi podatke o virih preskoči — vaše vrednosti obveljajo.</li>
-              <li>Enake podvojene navedbe (Ancestryjev izvoz isto navedbo na osebi ponovi dobesedno) se zdaj združijo v eno samo navedbo na ciljnem dogodku; osamljena oznaka "URL", ki ostane po odstranitvi povezave, se počisti.</li>
-              <li>Nova vrsta povezav <strong>Newspapers.com</strong>: povezave na strani in izrezke časopisov postanejo en vir na časopisno stran, poimenovan iz Ancestryjevega citata ("The Windsor Star, 23 Jun 1998 - Newspapers.com") s krajem, datumom in oznako strani — povsem brez spleta (stran blokira poizvedbe). Navedbe iz indeksov osmrtnic/porok pristanejo na ustreznem dogodku. Datumsko polje vira se zdaj imenuje samo "Datum" — lahko je posamezen datum ali razpon. Povezave Geneanet pokopališč in Legacy.com brez imena osebe v naslovu brez spleta pokažejo oznako zapisa ("8782549 - Geneanet Cemeteries"), da se vrstice iste strani ločijo med sabo; Legacy.com ime prebere tudi iz starejših povezav obituary.aspx z "n=".</li>
-              <li>Vrstica oblike virov v povzetku nalaganja zdaj pove tudi, kje datoteka hrani slike navedenih strani ("vir, repozitorij · povezave strani na dogodkih"), samodejna zaznava sloga pa upošteva tudi pripetosti na osebah — datoteka v slogu MyHeritage s slikami zapisov na osebah se šteje kot "povezave strani na dogodkih", zato pretvorbe vsako sliko postavijo ob njeno navedbo.</li>
-              <li>Poročilo orodja Uredi vire zdaj prav tako upošteva izbire zavihka GEDCOM (prej jih je upošteval le prenos, poročilo pa je zaznavalo samodejno) in se ob spremembi nastavitve med sejo znova pregleda — predogled se vedno ujema s tem, kar uveljavitev zapiše.</li>
-              <li>Nova izbira v nastavitvah <strong>GEDCOM → Viri → Povezave strani</strong>: "vir, dogodek/zapis" poveže sliko navedene strani na dogodku ob navedbi (kot webtrees sliko zapisa prikaže ob dejstvu), poleg tega da ostane na zapisu vira; "samo vir" jo obdrži le na zapisu vira; "Samodejno (zaznano)" — privzeto — sledi obstoječemu slogu datoteke. Upoštevata jo Uredi vire in Dodaj vir — slike strani, ki že pravilno stojijo ob svojih navedbah, veljajo za hišni slog in ostanejo.</li>
-              <li>Vsako skupino v Uredi vire je mogoče označiti z <strong>Odstrani sklice</strong> (🗑 v vrstici) za mrtve ali zastarele povezave: uveljavitev odstrani URL povsod, kjer se pojavi — opombe in besedilo navedb ostanejo — vir se ne ustvari. ↩ oznako umakne.</li>
-              <li>Uredi vire zdaj našteje tudi <strong>kazalce na slike strani matičnih knjig na osebah</strong>, ki že pripadajo viru (MyHeritage sliko zapisa pripne na osebo poleg navedbe knjige): v datoteki z navedbami na dogodkih jih uveljavitev pretvori v pravo navedbo s stranjo na ustreznem dogodku — ali kazalec le odstrani, kadar dogodek to stran že navaja — slika pa ostane pri viru. Datoteke, ki povezave namenoma podvajajo, obdržijo svoj slog.</li>
-              <li>Še tri vrste povezav: <strong>Wikipedija</strong> (katera koli jezikovna izdaja, mobilne in index.php oblike; ime članka pride kar iz URL-ja, poizvedba ga nadgradi v prikazni naslov), <strong>Slovenska biografija</strong> (osebe in rodbine po oznaki sbi; poizvedba izpolni ime z letnicami, "Trubar, Primož (med 1507 in 1509–1586)") in <strong>Obrazi slovenskih pokrajin</strong> (biografski leksikon območnih knjižnic — ime osebe pride iz URL-ja, poizvedba doda zapis s šumniki).</li>
+              <li><strong>Nov zavihek nastavitev GEDCOM.</strong> Povozite vsak zaznani dogovor datoteke — oblike datumov in krajev, dodatna imena, zapise virov, navedbe in povezave strani ter jezika Matricule in Geneaneta.</li>
+              <li><strong>Dodaj vir</strong> razume arhivske povezave: prepoznan URL predizpolni naslov, avtorja, kraj, arhiv, signaturo in stran.</li>
+              <li>Veliko <strong>novih vrst povezav</strong>, ki jih prepozna Uredi vire — BillionGraves, dLib.si, Google Books, YouTube, Newspapers.com, Wikipedija, Slovenska biografija in druge.</li>
+              <li><strong>Očisti vire</strong> se preimenuje v <strong>Uredi vire</strong>; njegove vire je zdaj mogoče ročno urejati in mrtve povezave označiti za odstranitev.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-14</h2>
             <ul>
-              <li>Novo orodje Orodja → Viri → <strong>Uredi vire</strong> (uvedeno kot „Očisti vire“): arhivske povezave, raztresene po datoteki — Matricula Online, Geneanet pokopališča, Find a Grave, Legacy.com, SIstory.si in FamilySearch v poljih povezav, opombah ali besedilnih navedbah — se združijo po knjigi, grobu ali zapisu in pretvorijo v prave vire s citati po straneh, ob ponovni uporabi obstoječih virov in hramb. Iskalnik dvojnikov je v istem pogledu; en prenos uveljavi oboje.</li>
-              <li>Citati se pripnejo na ustrezen dogodek (ustvarjen, če manjka), podvojene povezave oseba+dogodek se strnejo po navadi datoteke, ocena <strong>QUAY</strong> se nastavi globalno s prilagoditvami na citat. <strong>Pridobi podatke o knjigah</strong> izpolni prave podatke knjig in grobov prek javnih posrednikov (navedeni v Nastavitvah); kraji sledijo obliki krajev v datoteki, grobovi izpolnijo manjkajoči kraj pokopa in naslov pokopališča.</li>
-              <li>Urejanje imena v datoteki z ločenimi vrsticami <strong>GIVN</strong>/<strong>SURN</strong> (MacFamilyTree in podobni) te vrstice posodobi, namesto da bi jih odstranilo.</li>
+              <li><strong>Novo orodje: Uredi vire</strong> (Orodja → Viri). Arhivske povezave, raztresene po datoteki — Matricula, Geneanet, Find a Grave, FamilySearch in druge — se združijo po knjigi, grobu ali zapisu in pretvorijo v prave vire s citati po straneh.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-13</h2>
             <ul>
-              <li>Fotografije iz drugih programov so zdaj bolje prikazane: oznaka <strong>glavne fotografije</strong> (MyHeritage/Legacy/RootsMagic <strong>_PRIM</strong>, webtrees <strong>_THUM</strong>) postavi to fotografijo za sličico osebe in na prvo mesto, upoštevana sta vrstni red <strong>_SEQ</strong> in ključne besede <strong>_KEYS</strong> programa Family Historian, MyHeritagovi izrezi obrazov (<strong>_POSITION</strong>) pa se prikažejo kot izrezi GEDCOM 7.</li>
-              <li>Čistejši izhodi: MyHeritagovi časovni žigi <strong>_UPD</strong> ob nalaganju postanejo standardni zapisi sprememb (CHAN); predogled shranjevanja pojasni vsako oznako po meri in vnaprej odznači zgolj interne programske oznake; Orodja → Poenoti pa dobi izbirni korak <strong>Odstrani interne programske oznake</strong> (_UPD, _RINS, _COLOR, zastavice …).</li>
-              <li>Če vhodna datoteka uporablja drugo različico GEDCOM kot glavna (5.5.1 ali 7.0), se ob nalaganju zdaj pretvori v različico glavne datoteke — skupne opombe (<strong>NOTE</strong> ⇄ <strong>SNOTE</strong>), opisni in interpretirani datumi ter dvojne letnice, starostne besede, vloge pri dogodkih, stari identifikatorji (AFN/RFN/RIN ⇄ EXID), prečrkovana imena in vrste medijev se prepišejo v zapis glavne datoteke, tako da združeni zapisi ostanejo veljavni. Povzetek ob nalaganju pokaže, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.</li>
-              <li>Zanesljivejše sledenje razveljavitvam: razveljavitev urejanja pri novo dodani osebi ali pri podatkih skupne slike ne zmede več števca čakajočih sprememb; dodajanje sorodnika v predogledu shranjevanja zdaj navede tudi prizadeto družino; razveljavitev izbrisa osebe pa jo obnovi na prvotnem mestu v datoteki.</li>
-              <li>Oznako <strong>Ni dvojnik</strong> v Orodjih je zdaj mogoče razveljaviti z običajnim Razveljavi/Uveljavi.</li>
-              <li>Predogled shranjevanja zdaj opozori, kadar potrjeno ujemanje ne velja več — oseba je bila izbrisana ali urejena po potrditvi ujemanja — da zastarele izbire polj neopazno ne prepišejo novejših urejanj.</li>
-              <li>Boljša podpora datotekam GEDCOM iz drugih rodoslovnih programov: lastnosti osebe, ki so bile prej nevidne — <strong>referenčne številke (REFN)</strong>, nazivi, veroizpoved, narodnost, telesni opis, število otrok, zaključek šolanja in splošna dejstva — ter vnosi programa Brother's Keeper za <strong>pogreb, položitev v grob, vojaško službo in zdravstveno stanje</strong> so zdaj vidni v načinu urejanja in pri primerjavi za združitev, jih je mogoče urejati in dodajati ter se združujejo kot vsak drug dogodek. Splošne vrstice »Dogodek«/»Dejstvo« v naslovu zdaj pokažejo svojo vrsto (npr. <strong>Dogodek — FamilySearch ID</strong>).</li>
-              <li>Pregled datoteke zdaj pojasni oznake po meri, ki jih v datoteki puščajo drugi programi — npr. <strong>_UPD (160×) — MyHeritage: časovni žig zadnje spremembe</strong> — namesto da bi jih le naštel; pozna oznake programov Brother's Keeper, Family Historian, MyHeritage, Family Tree Maker/Ancestry, Legacy, RootsMagic, MacFamilyTree, webtrees, Gramps in PAF.</li>
-              <li>Orodje za zasebnost: <strong>Odstrani pošiljatelja</strong> zdaj odstrani tudi sledi računov, ki jih vgradijo drugi programi — MyHeritagove zapise o objavi strani (z e-pošto računa), Ancestryjeve žetone računa in webtreesova imena urejevalcev; odstranjevanje zunanjih ID-jev zajame tudi ID-je FamilySearch, Ancestry in Find&nbsp;a&nbsp;Grave.</li>
-              <li>Poenotenje (ob nalaganju primerjalne datoteke in v Orodja → Poenoti) dobi korak <strong>oznake po meri</strong>: oznaka <strong>_SEPR</strong> programa Brother's Keeper postane standardni dogodek Ločeno življenje, njegova starejša oznaka <strong>_MILI</strong> za vojaško službo pa <strong>_MILT</strong>; nezdružljivi zapisi »neporočenih partnerjev« (trojica oznak Brother's Keeperja, MyHeritagovi dogodki razmerja, oznaka _STAT programa Family Tree Maker) se poenotijo v eno družinsko polje <strong>Status</strong>; ujemajoči se oznaki <strong>_FREL/_MREL</strong> o razmerju otroka do staršev postaneta standardni <strong>PEDI</strong> (posvojen/rejniški), privzeti pari »Natural« pa se kot šum odstranijo.</li>
-              <li>Partnerski <strong>Status</strong> družine (»Partners«, »Divorced« …) je zdaj viden pri primerjavi za združitev in v razdelku družine v načinu urejanja, kjer ga je mogoče dodati, urejati in združevati kot vsak drug družinski dogodek.</li>
-              <li>Ujemanje zdaj prepozna <strong>identifikatorje zapisov</strong> (<strong>_UID</strong>, GEDCOM 7 <strong>UID</strong> — zapisujejo jih MyHeritage, Family Historian, Legacy, Gramps, RootsMagic, PAF …) in <strong>FamilySearch ID-je oseb</strong> (MacFamilyTreejev <strong>_FID</strong>, RootsMagicov <strong>_FSFTID</strong>): zapisa z istim ID-jem se ujameta z gotovostjo (🔑, ocena 100), tudi če so se imena ali datumi razšli — tudi med različnimi programi; ob združitvi se ID prenese na vaš zapis, tako da se naslednji uvoz iste datoteke ujame takoj.</li>
-              <li>Gole oznake programa MacFamilyTree so zdaj prepoznane: Pregled datoteke jih pojasni, namesto da bi jih označil kot neznane; ime periodike <strong>PERI</strong> velja za standardno, <strong>MISE</strong> se poenoti v dogodek Vojaška služba, drugo ime (<strong>SECG</strong>), ki manjka v glavnem imenu, se pripoji, oznake <strong>RACE</strong>, priznanja (<strong>NOBI</strong>), pravni posli (<strong>LATR</strong>), listine (<strong>DEED</strong>) in bolezni (<strong>ILL</strong>) pa so prikazani kot dejstva, ki jih je mogoče urejati in združevati.</li>
-              <li>Pregled datoteke zdaj prebere oznake polj, ki jih deklarirajo predloge virov v sami datoteki MacFamilyTree (pokopališče, leto popisa, okraj, številka mikrofilma …), zato so te gole oznake (<strong>CEME</strong>, <strong>CENY</strong>, <strong>COUN</strong>, <strong>LOCA</strong>, <strong>ROLN</strong>, <strong>TOWN</strong> …) pojasnjene kot polja predlog, ne pa označene kot neznane.</li>
-              <li>Orodja → Poenoti ne prepisuje več oznak, ki so narečje programa, iz katerega datoteka izvira: datoteka iz MacFamilyTreeja obdrži svojo oznako <strong>MISE</strong> za vojaško službo (datoteka iz Brother's Keeperja pa svojo <strong>_SEPR</strong>), namesto da bi dobila zapis, ki ga njen lastni program ob ponovnem uvozu ne bi prepoznal. Ob nalaganju primerjalne datoteke se te oznake še naprej pretvarjajo kot doslej.</li>
-              <li>Poenotenje krajev ne izgublja več podrobnosti, kadar se datoteka poenoti še enkrat (na primer datoteka, ki jo je aplikacija shranila in je pozneje naložena kot vhodna): samostojna hišna številka (»26«) zdaj ostane pri svoji vasi, namesto da bi izginila, naslov z dodatnim besedilom ob znamenitosti (»Hrastje 26 Mrva (Moravče)«) se ohrani v celoti, podrobnost, ki je samo <em>videti</em> kot znamenitost (»Šlapanov (Češka)«), pa se zapiše v obliki, ki se naslednjič prebere enako. Naslov, ki vsebuje samo župnijo, se zdaj čisto preseli v polje Ustanova brez podvajanja.</li>
+              <li><strong>Boljša podpora datotekam GEDCOM iz drugih programov.</strong> Lastnosti osebe, ki so bile prej nevidne — referenčne številke, nazivi, veroizpoved, narodnost, telesni opis, splošna dejstva ter pogrebni/vojaški/zdravstveni dogodki — se zdaj vidijo v urejanju in združujejo kot vsak drug dogodek.</li>
+              <li><strong>Ujemanje prepozna identifikatorje zapisov</strong> (<strong>_UID</strong>/<strong>UID</strong>) in FamilySearch ID-je oseb: zapisa z istim ID-jem se ujameta z gotovostjo (🔑), tudi med različnimi programi.</li>
+              <li><strong>Pretvorba različic GEDCOM.</strong> Vhodna datoteka v drugi različici (5.5.1 ⇄ 7.0) se ob nalaganju pretvori v različico glavne datoteke, tako da združeni zapisi ostanejo veljavni.</li>
+              <li>Boljši prikaz fotografij iz drugih programov — upoštevani so oznaka glavne fotografije, izrezi obrazov, vrstni red in ključne besede.</li>
+              <li>Pregled zdaj pojasni oznake po meri, ki jih v datoteki puščajo drugi programi, namesto da bi jih le naštel.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-12</h2>
             <ul>
-              <li>Pregledi v Orodjih (Pregled, Dvojniki, Poenoti, Viri) zdaj tečejo v ozadju — aplikacija ostane odzivna tudi med pregledovanjem velike datoteke, namesto da bi zmrznila do konca pregleda. Končani rezultati se ohranijo ob preklapljanju med zavihki in načini, začeti pregled pa teče naprej, tudi če medtem brskate drugod.</li>
-              <li>Iskanje dvojnikov prikazuje napredek in ga je mogoče prekiniti. Pri datotekah z ogromnim številom parov seznam prikaže tiste z najvišjo oceno, zato brskanje in odpiranje para ostane hitro — do preostalih pridete z iskalnikom.</li>
-              <li>Urejen meni <strong>+ Dodaj</strong> v načinu Urejanje: Kraj, Naslov in Ustanova so zdaj pred Virom, vnos za vir pa se glasi preprosto <strong>Vir</strong>.</li>
-              <li>Nova možnost <strong>Starost</strong> med nastavitvami osebe na grafikonih: starost vsake osebe (ob smrti ali trenutna za žive) se prikaže v oklepaju za življenjsko dobo — ali, če je življenjska doba izklopljena, v svoji vrstici kot »star/stara N«. Prikaže se v okvirčkih in v naslovu grafikona, deluje na drevesnem, prednikovem, pahljačastem, sorodstvenem in časovnem grafikonu ter se samodejno vklopi, kadar je vključena splošna nastavitev <strong>Prikaži starost</strong>.</li>
-              <li>Nova možnost <strong>Starost</strong> med nastavitvami dejstev v poročilih: ob datumu vsakega dejstva se v oklepaju prikaže dosežena starost — lastna starost osebe ob njenih dogodkih, starost obeh zakoncev (♂ / ♀) ob poroki in starost staršev ob rojstvu. V pripovednem slogu se glasi »(star/stara N let)«.</li>
-              <li>Iskanje zdaj ne upošteva strešic: če vpišete <strong>Ziva</strong>, najde <strong>Živa</strong>, <strong>Skofja</strong> najde <strong>Škofja</strong> — tako imena in kraji niso spregledani, kadar so čšž in podobne črke vpisane brez strešic. Velja za iskanje po celotni datoteki in vse izbirnike oseb.</li>
-              <li>Varnejše shranjevanje nepopolnih datotek GEDCOM: kadar dva zapisa delita isto oznako (ID), se zapiše le veljavni zapis (prej sta v shranjeno datoteko prišla oba); besedilo, ki se začne z <strong>@</strong>, se shrani s standardnim podvojenim <strong>@@</strong>, da ga drugi programi ne razumejo napačno kot kazalec na zapis; znak <strong>/</strong>, vtipkan v polje imena, ne pokvari več shranjene vrstice imena; vrstica s preskočeno ravnjo v poškodovani datoteki pa ostane znotraj svojega zapisa, namesto da bi se od njega odtrgala.</li>
-              <li>Če obdelava v ozadju (nalaganje, primerjava ali pregled v Orodjih) nepričakovano odpove, aplikacija zdaj prikaže napako, namesto da bi se vrtela v nedogled.</li>
+              <li><strong>Pregledi v Orodjih tečejo v ozadju.</strong> Pregled, Dvojniki, Poenoti in Viri ne zamrznejo več aplikacije pri velikih datotekah, končani rezultati pa se ohranijo ob preklapljanju med zavihki.</li>
+              <li>Nova možnost <strong>Starost</strong> na grafikonih in v poročilih: starost vsake osebe se pokaže ob njeni življenjski dobi in datumih dogodkov.</li>
+              <li><strong>Iskanje ne upošteva strešic</strong> — če vpišete <em>Ziva</em>, najde <em>Živa</em>, <em>Skofja</em> najde <em>Škofja</em>.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-11</h2>
             <ul>
-              <li>Precej bolj strnjen <strong>način Urejanje</strong>: vsak dogodek je zdaj v eni vrstici — datum, kraj in druga izpolnjena polja tečejo skupaj in se prelomijo šele po potrebi, namesto da bi zasedla tri vrstice. Meni <strong>+ Dodaj</strong> (viden ob prehodu miške) doda vir, kraj, opombo ali drugo podrobnost po potrebi, tako da prazna polja ne motijo več pogleda.</li>
-              <li>Popolno urejanje s tipkovnico: s Tab se premikate med vsemi polji, s tipko <strong>Enter</strong> pa odprete spustni seznam vrste dogodka ▾, izbirnik spola ali meni + Dodaj; dodano polje se postavi v žarišče za vnos, ob zaprtju pogovornega okna Dodaj vir pa se vrnete tja, kjer ste bili.</li>
-              <li>Tudi viri in opombe osebe so bolj strnjeni, na novo dodane ali spremenjene opombe pa so zdaj krepko označene kot drugi urejeni podatki.</li>
-              <li>Način Združevanje zdaj upošteva nastavitev prikaza <strong>Prikaži starost</strong>, enako kot način Urejanje: starost osebe je prikazana ob letnicah življenja na seznamu ujemanj in v glavi primerjalnega pladnja, ob vsakem sorodniku (starši, partnerji, otroci) v primerjalni tabeli ter ob vsakem datumu dogodka — starost osebe, starost staršev ob rojstvu ter starost obeh zakoncev ob poroki in drugih družinskih dogodkih.</li>
-              <li>Ko je vklopljena <strong>Prikaži starosti</strong>, pregledovalnik fotografij zdaj pokaže, koliko je bila oseba stara ob datirani fotografiji — v vrstici "Datum na sliki" in pri skupinskih fotografijah ob vsaki označeni osebi na njenem okvirčku ter na seznamu "sklici".</li>
+              <li><strong>Precej bolj strnjen način Urejanje.</strong> Vsak dogodek je v eni vrstici, meni <strong>+ Dodaj</strong> (viden ob prehodu miške) pa doda podrobnosti po potrebi, tako da prazna polja ne motijo več pogleda.</li>
+              <li><strong>Popolno urejanje s tipkovnico:</strong> s Tab se premikate med vsemi polji, s tipko Enter pa odprete menije vrste dogodka, spola in + Dodaj.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-10</h2>
             <ul>
-              <li>Orodja → Poišči dvojnike ima zdaj funkcijo <strong>Zavrni</strong> za označbo para kot "ni dvojnik"; zavrnjeni pari se zapomnijo, zato se ne pojavijo znova ob naslednjem iskanju, ogledate in razveljavite pa jih lahko na novem seznamu "Zavrnjeni".</li>
-              <li>Zavrnitev ujemanja v Združevanju zdaj takoj skrije zapis s seznama, primerjalni pladenj pa samodejno preskoči na naslednjega kandidata.</li>
-              <li>V nogi je zdaj prikazana različica aplikacije s povezavo na te novosti — na voljo tudi v angleščini na <a href="../changelog/">/changelog</a>.</li>
-              <li>Nov gumb <strong>Preveri</strong> ob naloženi GEDCOM datoteki (Chrome/Edge): preveri, ali se je datoteka na disku spremenila od nalaganja, in ponudi ponovno nalaganje — samodejno preverjeno tudi ob ponovnem nalaganju strani, kadar je to mogoče, z opozorilom pred izgubo neshranjenih sprememb.</li>
+              <li>Orodja → Poišči dvojnike dobi funkcijo <strong>Zavrni</strong>: zavrnjeni pari se zapomnijo, ogledate in razveljavite pa jih lahko pozneje.</li>
+              <li>V nogi je zdaj prikazana različica aplikacije s povezavo na te novosti.</li>
+              <li>Nov gumb <strong>Preveri</strong> (Chrome/Edge): preveri, ali se je naložena datoteka na disku spremenila, in ponudi ponovno nalaganje.</li>
             </ul>
           </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-08</h2>
-            <ul>
-              <li>Odpravljena napaka, zaradi katere je bil izvoz grafikona v PDF/tisk lahko prazen.</li>
-              <li>Diagram sorodstva zdaj daje prednost poti prek skupnega prednika pred naključno enako dolgo potjo.</li>
-            </ul>
-          </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-13</h2>
-            <ul>
-              <li>Dolgi seznami ostanejo hitri tudi pri zelo velikih datotekah: rezultati ujemanja, najdbe Preverjanja zdravja in pari dvojnikov zdaj izrisujejo le vrstice na zaslonu, med drsenjem pa je dosegljiv celoten seznam.</li>
-              <li>Iskalnik dvojnikov se ne ustavi več pri 200 parih z najvišjo oceno — do vsakega najdenega para se je zdaj mogoče pomakniti in ga pregledati.</li>
-              <li>Urejanje ostane odzivno pri kompleksnih osebah in zelo velikih datotekah: potrditev polja ne izriše več celotne postavitve osebe znova, dodajanje oseb ali virov pa ne pregleduje več vseh zapisov.</li>
-              <li>Popravek: odstranitev zadnjega navedka vira je lahko izbrisala njegovo sliko strani, tudi če je bila ta fotografija še vedno pripeta osebi, in pustila pokvarjeno povezavo.</li>
-            </ul>
-          </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-07</h2>
-            <ul>
-              <li>Zanesljivejše zaznavanje živečih oseb: kadar oseba nima lastnega datuma rojstva, GED Merge zdaj pred privzeto oznako živeče osebe preveri tudi datirane sorodnike.</li>
-            </ul>
-          </section>
-
           <section class="changelog-entry">
             <h2>2026-07-06</h2>
             <ul>
               <li>Nova nastavitev Nastavitve → Prikaz → <strong>Prikaži starosti</strong>: starosti ob razponih let in datumih dogodkov, ter poln razčlenjen prikaz let/mesecev/dni v namigih.</li>
-              <li>Fotografije se zdaj povsod imenujejo <strong>mediji</strong>, s podporo za datoteke SVG in PDF, vlečenjem datotek neposredno v mapo z mediji ter označevanjem območja osebe na skupinski fotografiji za uporabo kot sličico.</li>
+              <li>Fotografije se zdaj povsod imenujejo <strong>mediji</strong>, s podporo za datoteke SVG in PDF, vlečenjem datotek neposredno vanje ter označevanjem območja osebe na skupinski fotografiji za uporabo kot sličico.</li>
               <li>Poročila so dobila izvoz v RTF, možno kazalo vsebine in prečiščenje živečih oseb.</li>
               <li>Dodana podpora za datoteke GEDCOM, izvožene iz MyHeritage.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-04</h2>
             <ul>
@@ -274,7 +187,6 @@
               <li>Središče grafikonov zdaj združuje Drevo, Mrežo, Pahljačo, Krog, Časovnico, Sorodstvo in Poročilo pod enim zavihkom, s skupnim izvozom v GEDCOM/SVG/PDF.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-01</h2>
             <ul>
@@ -283,28 +195,24 @@
               <li>Dodano globalno iskanje po celotni datoteki.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-30</h2>
             <ul>
               <li>Nastavite <strong>izhodiščno osebo</strong> in si oglejte vse osebe, razvrščene po sorodstveni razdalji, barvno označene po očetovski ali materini liniji.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-29</h2>
             <ul>
               <li>Pregled zdaj zazna zanke v rodovniku (oseba, ki je svoj lastni prednik) ter neujemanja spola in vloge.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-28</h2>
             <ul>
               <li>Dodane vrste grafikonov Mreža, Pahljača in Krog poleg družinskega drevesa.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-27</h2>
             <ul>
