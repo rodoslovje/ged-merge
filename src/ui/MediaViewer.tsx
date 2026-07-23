@@ -438,7 +438,7 @@ function MediaInfoEditor({
   seed: MediaEditFields;
   onSaved: (fields: MediaEditFields) => void;
   autoFocus: boolean;
-  t: (key: string) => string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const [fields, setFields] = useState<MediaEditFields>(seed);
   const set = (key: keyof MediaEditFields) => (value: string) => setFields((f) => ({ ...f, [key]: value }));
@@ -471,7 +471,7 @@ function MediaInfoEditor({
         <button
           type="button"
           className={`edit-name-chip private-toggle${fields.private ? " is-on" : ""}`}
-          title={t(fields.private ? "edit.privateOn" : "edit.privateOff")}
+          title={fields.private ? t("edit.privateOn") : t("edit.privateOff", { target: t("edit.privateTarget.media") })}
           aria-pressed={fields.private}
           onClick={() => {
             const next = { ...fields, private: !fields.private };

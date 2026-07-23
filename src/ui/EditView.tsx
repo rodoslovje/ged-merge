@@ -1778,6 +1778,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 <PrivateToggle
                   on={!!person.private}
                   t={t}
+                  target={t("edit.privateTarget.individual")}
                   onToggle={() => commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
                 />
               </>
