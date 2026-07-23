@@ -431,6 +431,8 @@ export const en = {
   "edit.detachRoleConfirm": "Remove {{name}} as {{role}}?\n\nThis only removes the family link — their individual record will not be deleted.",
   "edit.detachPartnerTooltip": "Remove {{name}} as partner (keeps their record)",
   "edit.detachPartnerConfirm": "Remove {{name}} as partner?\n\nThis only removes the family link — their individual record will not be deleted.",
+  "edit.removeMarriage": "Remove marriage",
+  "edit.removeMarriageTooltip": "Dissolve this marriage — removes {{name}} as spouse; their record and other relationships are kept",
   "edit.detachChildTooltip": "Remove {{name}} from this family (keeps their record)",
   "edit.detachChildConfirm": "Remove {{name}} from this family?\n\nThis only removes the family link — their individual record will not be deleted.",
   "edit.deletePerson": "Delete Person",
