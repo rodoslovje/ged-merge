@@ -2309,18 +2309,6 @@ button:focus-visible {
 .edit-name-chip-add:hover,
 .edit-name-chip-add:focus-visible,
 .edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); }
-/* Destructive action chip (e.g. remove marriage bond) — muted until hover. */
-.edit-name-chip-danger {
-  border-style: dashed;
-  border-color: var(--border-2);
-  color: var(--muted);
-}
-.edit-name-chip-danger:hover,
-.edit-name-chip-danger:focus-visible {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
-}
 .edit-name-chip-editing {
   display: inline-flex;
   align-items: center;
@@ -2849,29 +2837,25 @@ button:focus-visible {
   right: 4px;
   width: 18px;
   height: 18px;
-  border: none;
+  /* Permanent red outline so the detach control is obvious at a glance and
+     tappable on touch devices (which have no hover). */
+  border: 1px solid var(--danger);
   border-radius: 50%;
   background: transparent;
-  color: var(--muted);
+  color: var(--danger);
   font: inherit;
   font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
-  /* Faintly visible by default so it is discoverable (and tappable on touch
-     devices, which have no hover); brightens on card hover or keyboard focus. */
-  opacity: 0.4;
-  transition: opacity 0.12s;
+  transition: background 0.12s;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
 }
-.person-card-wrap:hover .person-card-detach,
-.person-card-detach:focus-visible { opacity: 1; }
-.person-card-detach:hover {
-  color: var(--danger);
+.person-card-detach:hover,
+.person-card-detach:focus-visible {
   background: var(--danger-soft);
-  opacity: 1;
 }
 
 /* Relative picker — inline search-and-pick widget for adding relatives */

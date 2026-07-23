@@ -435,8 +435,6 @@ export const sl = {
   "edit.detachRoleConfirm": "Odstrani {{name}} kot {{role}}?\n\nOdstranjena bo le družinska vez — individualni zapis se ne izbriše.",
   "edit.detachPartnerTooltip": "Odstrani {{name}} kot partnerja (zapis se ohrani)",
   "edit.detachPartnerConfirm": "Odstrani {{name}} kot partnerja?\n\nOdstranjena bo le družinska vez — individualni zapis se ne izbriše.",
-  "edit.removeMarriage": "Razveljavi poroko",
-  "edit.removeMarriageTooltip": "Razveljavi to poroko — odstrani {{name}} kot partnerja; zapis in druge povezave se ohranijo",
   "edit.detachChildTooltip": "Odstrani {{name}} iz te družine (zapis se ohrani)",
   "edit.detachChildConfirm": "Odstrani {{name}} iz te družine?\n\nOdstranjena bo le družinska vez — individualni zapis se ne izbriše.",
   "edit.deletePerson": "Izbriši osebo",

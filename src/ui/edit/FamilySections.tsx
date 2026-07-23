@@ -420,16 +420,6 @@ export const FamilySection = memo(function FamilySection({
               + {t("media.add")}
             </button>
           )}
-          {fam && partnerId && partnerRole && (
-            <button
-              type="button"
-              className="edit-name-chip edit-name-chip-danger"
-              title={t("edit.removeMarriageTooltip", { name: partnerName })}
-              onClick={() => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName }))}
-            >
-              &minus; {t("edit.removeMarriage")}
-            </button>
-          )}
         </div>
       </div>
       {fam && (
