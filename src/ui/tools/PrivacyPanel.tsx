@@ -13,7 +13,7 @@ import {
   type StripCategory,
 } from "../../tools/privacy";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
-import { downloadText } from "../download";
+import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
 import { ToolsLoading } from "./shared";
 
@@ -95,10 +95,10 @@ export function PrivacyPanel({
 
   function download() {
     const { records, report } = privatizeDataset(dataset, options);
-    const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
-    downloadText(`${base}.gedmerge.ged`, serializeGedcom(records, downloadOptions(dataset)));
-    downloadText(`${base}.gedmerge.report.txt`, privacyReportText(report.flagged, options));
+    const d = new Date(); // one shared stamp so the .ged and its report sort together
+    downloadText(savedName(fileName, "ged", d), serializeGedcom(records, downloadOptions(dataset)));
+    downloadText(savedName(fileName, "report.txt", d), privacyReportText(report.flagged, options));
   }
 
   return (

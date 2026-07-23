@@ -3,6 +3,7 @@ import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
 import { firstChild } from "../../gedcom/node";
 import { coupleAgesDisplay } from "../../gedcom/age";
+import { isSameSexCouple } from "../../gedcom/couple";
 import { useSettings } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
@@ -45,13 +46,18 @@ export function FamilyEventRow({
   const eventNode = firstChild(fam.raw, tag);
   const tagChoices = familyTagChoices(fam, tag);
 
+  const husbandIndi = fam.husband ? individuals?.get(fam.husband) : undefined;
+  const wifeIndi = fam.wife ? individuals?.get(fam.wife) : undefined;
+  const sameSex = isSameSexCouple(husbandIndi, wifeIndi);
   const coupleAges =
     settings.showAge && individuals && ev?.date
       ? coupleAgesDisplay(
-          fam.husband ? individuals.get(fam.husband) : undefined,
-          fam.wife ? individuals.get(fam.wife) : undefined,
+          husbandIndi,
+          wifeIndi,
           ev.date,
-          { husband: t("event.age.husband"), wife: t("event.age.wife") },
+          sameSex
+            ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
+            : { husband: t("event.age.husband"), wife: t("event.age.wife") },
           t,
         )
       : undefined;

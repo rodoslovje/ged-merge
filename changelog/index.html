@@ -81,7 +81,7 @@
       <main class="guide-main">
         <header class="guide-header">
           <h1>Changelog</h1>
-          <p>What's new in GED Merge, newest first. Only user-facing changes are listed here.</p>
+          <p>New features and major improvements in GED Merge, newest first.</p>
         </header>
 
         <article class="guide-body changelog-body">
@@ -92,178 +92,100 @@
             </ul>
           </section>
           <section class="changelog-entry">
+            <h2>2026-07-22</h2>
+            <ul>
+              <li><strong>Saved files now carry the date</strong> (<code>{yourfile}.2026-07-22.gedmerge.ged</code>), so successive versions sort by date and never overwrite one another.</li>
+              <li><strong>Same-sex couples are recognised.</strong> Parent cards are labelled <em>Parent</em> instead of Father/Mother, and the Health check no longer flags a genuine same-sex marriage.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-07-19</h2>
             <ul>
-              <li><strong>Geocoding no longer proposes a place from the wrong country.</strong> When a place name states its country, the offline gazetteer now matches only that country's entries — so <em>Belfast, County Antrim, Northern Ireland</em> is no longer fuzzily matched to <em>Bela</em> in Slovenia. Places with no country stated still match anywhere. (“Northern Ireland” is now also recognised as a country.)</li>
-              <li>The <strong>Health check</strong> now flags <strong>places with coordinates in some records but not others</strong> — a place name geocoded on most events but missing its coordinate on a few (common when an event is added or re-typed after the file was geocoded). One click, <strong>Fill coordinates from the file</strong>, copies the coordinate the value already carries onto the events that lack it — no lookup, and undoable.</li>
+              <li><strong>Geocoding respects the country</strong> named in a place, so a place name no longer matches somewhere in the wrong country.</li>
+              <li>The <strong>Health check</strong> flags places geocoded in some records but not others, and fills the missing coordinates from the file in one click.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-18</h2>
             <ul>
-              <li><strong>Geocode places can now search GOV</strong>, the Genealogical Gazetteer (gov.genealogy.net) — a per-row <em>Search GOV</em> button (behind the online opt-in) that finds historical, multilingual place names with their coordinates. Accepting a GOV match also writes its stable GOV id into the file as <code>_GOV</code>, a durable link back to the GOV record for other genealogy software.</li>
-              <li>Fixed a small display glitch on the Places Map: the <em>Overlays</em> chip no longer shows through the open Export menu where the two overlap.</li>
-              <li><strong>Slovenia, Croatia &amp; Bosnia in 1877–1918, built in.</strong> A new one-click overlay preset serves the Habsburg <em>Spezialkarte 1:75,000</em> across the whole region — 165 public-domain survey sheets (Digital Library of Slovenia, New York Public Library and GeoPortOst scans) georeferenced and stitched into one seamless layer, covering Slovenia, Croatia, Bosnia-Herzegovina, the Montenegrin coast and the Austrian and Hungarian borderlands, from Spittal to Sombor and Villach to Kotor.</li>
-              <li><strong>Historical map overlays.</strong> Add your own historical tile layers in the new Settings → Map tab — a name, an XYZ/WMTS tile URL with {z}/{x}/{y}, the years the map depicts, and its attribution (subscription sources such as Arcanum/Mapire work with the tile URL from your account). The Places Map gains an <em>Overlays</em> picker with a per-layer opacity slider, layers whose period matches the selected year window are suggested — the map of your ancestor's own time — and PNG snapshots include the overlays with their attribution burned in.</li>
-              <li>Geocode places can now <strong>search online (OpenStreetMap)</strong> per row — it resolves street addresses and anything the offline gazetteer doesn't know. Behind the online opt-in, throttled to one request per second; results appear beside the offline candidates and as pins on the row's mini map.</li>
-              <li>The small person map in the Edit view can now be switched off for good in Settings → Display, and the User's Guide gained full Map and Geocode-places chapters.</li>
-              <li>The <a href="../guide/">User's Guide</a> is brought up to date: it now covers the Places map and life paths, geocoding places, Organize sources and the Settings → GEDCOM overrides, custom events, private-record 🔒 flags, and the GEDCOM 5.5.1 ⇄ 7.0 version migration.</li>
-              <li>The Save preview now shows changes on every event, whatever its tag: events outside the app's canonical list — adult christening (<code>CHRA</code>), LDS baptism, marriage banns (<code>MARB</code>/<code>MARL</code>), vendor-specific events — used to be modified (e.g. by geocoding or a place rename) without appearing in the preview.</li>
-              <li>Geocode-places polish: the row stats moved up next to the Back button, the imported country gazetteers are now listed under a clear heading (so you can see what's loaded and matching), and remembered matches show their original origin — the file's coordinate or the gazetteer score — with the "remembered from a previous session" note in the tooltip. Each row also gained a ✎ button to rename the place (all occurrences of exactly that value) right in the list — fix a typo and the corrected name is rescanned for matches immediately.</li>
-              <li>The Save preview now shows written place coordinates as the event's changed field — before, a geocoded record was counted as changed but showed nothing.</li>
-              <li>Expanding a geocode row now shows a small map: candidate places as clickable pins (click one to pick it), the chosen coordinate highlighted, and the file's known coordinates as faint dots — so same-named places are told apart by their position relative to your family cluster. Clicking anywhere else on the map sets that point as the hand-picked coordinate. Uses the same opt-in street tiles / offline outline as the Places Map.</li>
-              <li>Place lookups now know addresses too: in Edit mode, typing an address into the place field offers "place · address" suggestions that fill both fields in one go, and the geocode rename can split a value into place + address (the address becomes the event's ADDR).</li>
-              <li>The Edit view gained a small map under a person's events: every geocoded event — their own and their families' — as colour-coded pins (hover shows event and year), connected chronologically by their life path with direction arrows.</li>
-              <li><strong>Life paths on the Places Map.</strong> A new Paths toggle draws each shown person's life journey — birth through residences and marriages to death — as a line with arrows in the direction of travel. Click a line (or the new path button next to a person in the event-list panel) to single one person out: their path is highlighted and framed, the rest fade back. The PNG snapshot includes the paths.</li>
-              <li>The map's year filter grew a two-thumb slider spanning the file's dated events — drag the thumbs to scrub the shown period (and, with Paths on, watch a family's dispersal unfold); the year boxes still accept exact values.</li>
+              <li><strong>Historical map overlays.</strong> Add your own historical tile layers in Settings → Map, with a one-click built-in preset covering Slovenia, Croatia &amp; Bosnia in 1877–1918 (Habsburg <em>Spezialkarte 1:75,000</em>).</li>
+              <li><strong>Geocode places can now search online</strong> — OpenStreetMap for addresses, and GOV (the Genealogical Gazetteer) for historical, multilingual place names, writing a durable <code>_GOV</code> id back to the file.</li>
+              <li><strong>Life paths on the Places Map.</strong> Each person's journey from birth through residences and marriages to death is drawn as a line with direction arrows, with a two-thumb year slider to scrub the period.</li>
+              <li>The Edit view shows a small map of a person's events along their life path.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-17</h2>
             <ul>
-              <li><strong>Geocode places</strong> (Tools → Places): match the file's place names against an offline gazetteer and write the accepted coordinates into the GEDCOM as standard <code>MAP</code> <code>LATI</code>/<code>LONG</code> — every write is reviewed by you and undoable. Get the gazetteer either with one click from OpenStreetMap (country code + Download, needs the online-lookups opt-in) or by importing a GeoNames country file (.zip or .txt) — the data stays in your browser. Proposals are ranked: coordinates other occurrences of the same place already carry in the file first, then exact and historical-name matches (Laibach → Ljubljana), then fuzzy ones; "Select confident" bulk-picks only unambiguous matches, and each row offers alternatives, hand-typed coordinates, or a remembered "no match" mark. Accepted matches are cached, so other files resolve instantly.</li>
-              <li>The chart headers (trees, Timeline, Map, Report) now show the same root-person line everywhere: lifespan with the age (when "Show ages" is on) and the kinship-to-start chip; the Map's event panel lists each person with their kinship, and person links across the Tools lists include the age too. The Map tab moved next to Report, and the custom tile URL setting got a proper look and tooltip.</li>
-              <li><strong>New chart: Places Map.</strong> The Charts hub gained a Map view: the root person's ancestors' or descendants' events — births, marriages, deaths, burials, residences — appear as colour-coded, clustered markers, using coordinates the file already carries (<code>PLAC</code> → <code>MAP</code> <code>LATI</code>/<code>LONG</code>, as written by webtrees, MacFamilyTree and others). Clicking a group zooms in, or opens a list of its events with links to the people; filters cover event kind, year range and undated events, and the Export menu offers a PNG snapshot alongside the branch GEDCOM.</li>
-              <li>The map's street background (CARTO) is opt-in — tile requests reveal the viewed region, so until enabled the map draws on a built-in offline world outline; a custom tile URL can be set in Settings → Advanced. The charts' "hide living people" option applies to the map too.</li>
-              <li><strong>Private data support.</strong> Records and notes flagged private — MacFamilyTree's <code>PRIV</code>, MyHeritage's <code>_PRIV Y</code>, or the standard <code>RESN privacy</code>/<code>confidential</code> — are now understood: people, families and notes show a 🔒 toggle in Edit mode (written in the file's own dialect), and private entries are honored everywhere: a private note's link never surfaces as a link chip, and Organize sources / Add Source never turn a private person's, note's or media item's URL into a source citation. The "strip internal tags" cleanup no longer deletes MacFamilyTree privacy flags.</li>
-              <li>Note chips gained an open-link button: a note containing a URL shows the standard hover ↗ that opens the page in a new tab.</li>
-              <li><strong>Privacy support everywhere.</strong> Media items get the 🔒 toggle in the photo info panel; the merge comparison shows a Private row and an incoming flag is written into the merged record (a main-side flag is never removed); a compare file's privacy markers are converted to the main's dialect on load, like dates and places; the charts' and reports' "hide living people" option also hides declared-private people; Tools → Privacy flags them with a "marked private" reason regardless of dates; and Settings → GEDCOM gained a Privacy dimension to override the detected tag (PRIV / _PRIV / RESN).</li>
-              <li><strong>Shared notes keep their identity through edits.</strong> Notes stored as shared records (MacFamilyTree, webtrees, MyHeritage exports write <code>NOTE @N1@</code> pointers) used to be flattened into plain text copies by any note edit — orphaning the shared record and losing whatever it carried (privacy flags, change history). Editing a note — on a person, family, event, or a source record via the Edit Source dialog — now updates the shared record itself, so everything referencing it sees the new text, and the pointer structure round-trips losslessly; removing the last reference cleans the record up.</li>
-              <li>Notes whose text is only a link (e.g. a private note holding a profile URL) now show up as note chips in Edit mode — previously they were invisible and silently deleted by the next note edit. Editing any event field also no longer rewrites the event's untouched note as a side effect, and a media item's shared note survives editing its description.</li>
+              <li><strong>New chart: Places Map.</strong> A person's ancestors' or descendants' events appear as clustered markers, using coordinates the file already carries, with a PNG snapshot export.</li>
+              <li><strong>Geocode places</strong> (Tools → Places): match the file's place names against an offline gazetteer and write the accepted coordinates into the GEDCOM.</li>
+              <li><strong>Private data support.</strong> Records, notes and media flagged private show a 🔒 toggle and are honoured everywhere — charts, reports, merge and Organize sources.</li>
+              <li><strong>Shared notes keep their identity through edits</strong>, so everything referencing a shared note sees the change and the pointer structure round-trips losslessly.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-16</h2>
             <ul>
-              <li><strong>Custom events (EVEN)</strong> are now supported on families too: a family's custom event (e.g. "Civil Partnership") shows up in Edit mode, in the merge comparison and in the merge itself, and can be added via the family's Add event menu — previously it survived saves but was invisible.</li>
-              <li>Custom events (EVEN/FACT) on persons and families now display under their own Title ("Civil Partnership") instead of a generic "Event — …" label, so they read like built-in events; the tooltip marks them as custom, and the Title is edited in its own always-visible field on the event row.</li>
-              <li><strong>Organize sources</strong>: a Geneanet grave's plot number now goes onto the citation's PAGE (where within the cemetery) instead of being appended to the burial address — the ADDR keeps just the cemetery name. The Add Source dialog's online lookup fills the plot into its Page field the same way.</li>
+              <li><strong>Custom events (EVEN) are now supported on families too</strong>, shown under their own title in Edit mode, the merge comparison and the merge.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-15</h2>
             <ul>
-              <li><strong>Organize sources</strong> now places a marriage-book link found on a person with several marriages onto the right family's MARR event, identified by the page's own evidence: the family whose marriage already cites the same book and page, or whose other spouse carries the same page link. The record-level citation an earlier run left on the person moves along with it.</li>
-              <li>Re-running Organize sources no longer re-reports links it has already settled: a page image sitting beside its finished citation (source, page and quality all in place) is recognized as done, so the report converges to empty instead of showing the same rows every run.</li>
-              <li>New Settings tab <strong>GEDCOM</strong>: every detected file convention can now be overridden — date format, unknown date parts, place format, alternate names, unknown-name marker, source records, citations, page links, baptism citations (BIRT/BAPM), doubled links, and the Matricula/Geneanet languages. "Auto (detected)" — the default — keeps following the file's own habit; a chosen value is enforced by the compare-file normalizer, Organize sources, Add Source and editing. Date/place/name/link choices apply from the next file load.</li>
-              <li><strong>Clean up sources</strong> is renamed to <strong>Organize sources</strong>.</li>
-              <li><strong>Add Source</strong> understands archive links like Organize sources does: a recognized URL prefills title, author, place, archive, filing number and page — the online lookup fetches the real book/grave/record details — and the created source gets the file-format place, year range and repository. The dialog is redesigned: two columns, a recognized-link chip, an editable Place field.</li>
-              <li>New link types <strong>BillionGraves</strong>, <strong>dLib.si</strong>, <strong>Google Books</strong> (book/newspaper title, page from pg=), <strong>YouTube</strong> (video title and channel via oEmbed) and <strong>Geneanet Trees</strong> (member-tree person pages, separate from Cemeteries); readable titles across all sites ("Katarina Abdonec - WW2 - SIstory.si", "Adam Troha - St. Theresa Cemetery - Find a Grave", "Dolenjski list, 08.06.1978 … - dLib.si") with record ids in the filing number; graves fill the burial place and cemetery address; generic obituary/funeral links count as death evidence and get name/file-based titles.</li>
-              <li>A source added on a person lands on its matching event (birth/marriage/death/burial, created if missing) when the file keeps citations on events; the Save preview now lists added and removed citations.</li>
-              <li><strong>Organize sources</strong> refinements: the new-source tooltip shows the author and the place matched to your file's own place format; rewriting a URL-titled Geneanet Trees source fills the tree owner as its author; graves add the cemetery to the burial address even when the burial place is already set.</li>
-              <li>FamilySearch links get their record/film id as the filing number without an online lookup; the Legacy.com link category is now labeled simply "Legacy.com".</li>
-              <li>Fetching a Google Books newspaper now picks up the issue's date: the title reads "The Windsor Star, May 23, 1969 - Google Books" instead of carrying the volume id, and the date also fills the source's date field. The <strong>Fetch source details</strong> button moved up next to the citation-quality control.</li>
-              <li>Sources in the Organize sources list can be edited by hand (✎ on the row): title, author, archive, place, filing number and year range are adjustable before the download; edited sources are skipped by Fetch source details — your values win.</li>
-              <li>Identical duplicated citations (Ancestry exports repeat the same record-level citation verbatim) now fold into a single citation on the target event, and a dangling "URL" label left after link removal is cleaned up.</li>
-              <li>New link type <strong>Newspapers.com</strong>: page-image and clipping links become one source per newspaper page, titled from the Ancestry citation prose ("The Windsor Star, 23 Jun 1998 - Newspapers.com") with the issue's place, date and page-image id filled in — entirely offline (the site blocks lookups). Obituary/marriage-index citations land on the matching event. The source Date field is now labeled just "Date"/"Datum" — it can hold a single date or a range. Geneanet Cemeteries and Legacy.com links without a person's name show the record id in the offline title ("8782549 - Geneanet Cemeteries") so same-site rows stay tellable apart; Legacy.com also reads the name from the older obituary.aspx "n=" links.</li>
-              <li>The load summary's source-format line now also says where the file keeps cited page images ("source, repository · page links on events"), and the auto style detection counts person-level attachments too — a MyHeritage-style file that pins register photos to persons reads as "page links on events", so conversions place each image beside its citation.</li>
-              <li>The Organize sources report now respects the GEDCOM-format overrides too (it used to auto-detect while only the download honored them), and it re-scans when you change a format setting mid-session — the preview always matches what applying writes.</li>
-              <li>New Settings choice <strong>GEDCOM → Sources → Page links</strong>: "source, event/record" links each cited page's image on the event beside its citation (the way webtrees shows the record image inline with the fact), besides keeping it on the source record; "source only" keeps it under the source record alone; "Auto (detected)" — the default — follows what the file already does. Organize sources and Add Source both honor it — existing page images sitting correctly beside their citations are recognized as house style and left alone.</li>
-              <li>Any group in Organize sources can be marked <strong>Remove references</strong> (🗑 on the row) for dead or obsolete links: applying strips the URL from every place it appears — notes and citation text stay intact — and no source is created. ↩ unmarks it.</li>
-              <li>Organize sources now also lists <strong>person-level pointers to register page images</strong> that already belong to a source (MyHeritage attaches the record photo to the person besides citing the book): in a file that keeps citations on events, applying moves them to a proper page citation on the matching event — or simply removes the pointer when the event already cites that page — while the image stays with its source. Files that double links on purpose keep their style.</li>
-              <li>Three more link types: <strong>Wikipedia</strong> (any language edition, mobile and index.php forms; the article name comes straight from the URL, the lookup upgrades it to the display title), <strong>Slovenska biografija</strong> (person and family entries by sbi id; the lookup fills the person's name with life years, "Trubar, Primož (med 1507 in 1509–1586)") and <strong>Obrazi slovenskih pokrajin</strong> (regional libraries' biographical lexicon — the person's name comes from the URL, the lookup adds the page's diacritic form).</li>
+              <li><strong>New Settings → GEDCOM tab.</strong> Override any detected file convention — date and place formats, alternate names, source records, citations and page links, and the Matricula/Geneanet languages.</li>
+              <li><strong>Add Source</strong> understands archive links: a recognized URL prefills the title, author, place, archive, filing number and page.</li>
+              <li>Many <strong>new link types</strong> recognized by Organize sources — BillionGraves, dLib.si, Google Books, YouTube, Newspapers.com, Wikipedia, Slovenska biografija and more.</li>
+              <li><strong>Clean up sources</strong> is renamed to <strong>Organize sources</strong>; its sources can now be edited by hand and dead links marked for removal.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-14</h2>
             <ul>
-              <li>New Tools → Sources → <strong>Organize sources</strong> (introduced as "Clean up sources"): archive links scattered around the file — Matricula Online, Geneanet Cemeteries, Find a Grave, Legacy.com, SIstory.si and FamilySearch URLs in link fields, notes or inline citations — are grouped by book, grave or record and converted into proper source records with page citations, reusing the file's existing sources and repositories. The duplicate finder shares the view; one download applies both.</li>
-              <li>Citations land on the matching event (created when missing), person+event duplicates collapse per the file's habit, and a <strong>QUAY</strong> quality value can be set globally with per-citation overrides. <strong>Fetch book details</strong> fills real register/grave metadata through public relays (listed in Settings); places follow the file's own place format, and graves fill a missing burial place and cemetery address.</li>
-              <li>Editing a name in a file with separate <strong>GIVN</strong>/<strong>SURN</strong> lines (MacFamilyTree and similar) updates those lines instead of dropping them.</li>
+              <li><strong>New tool: Organize sources</strong> (Tools → Sources). Archive links scattered around the file — Matricula, Geneanet, Find a Grave, FamilySearch and more — are grouped by book, grave or record and converted into proper source records with page citations.</li>
             </ul>
           </section>
           <section class="changelog-entry">
             <h2>2026-07-13</h2>
             <ul>
-              <li>Photos from other programs now display better: a <strong>primary photo</strong> flag (MyHeritage/Legacy/RootsMagic <strong>_PRIM</strong>, webtrees <strong>_THUM</strong>) makes that photo the person's thumbnail and first in the tray, Family Historian's <strong>_SEQ</strong> ordering and <strong>_KEYS</strong> keywords are honored, and MyHeritage face crops (<strong>_POSITION</strong>) show like GEDCOM 7 crop regions.</li>
-              <li>Cleaner outputs: MyHeritage's <strong>_UPD</strong> timestamps become standard change records (CHAN) on load; the save preview explains each custom tag and pre-deselects the purely software-internal ones; and Tools → Normalize gains an opt-in <strong>Remove internal software tags</strong> pass (_UPD, _RINS, _COLOR, flags …).</li>
-              <li>When the incoming file uses a different GEDCOM version than your main file (5.5.1 vs 7.0), it is now migrated to the main file's version on load — shared notes (<strong>NOTE</strong> ⇄ <strong>SNOTE</strong>), date phrases and interpreted/dual-year dates, age keywords, association roles, legacy identifiers (AFN/RFN/RIN ⇄ EXID), transliterated names and media types are all rewritten to the main file's spec, so merged records stay valid. The load summary shows what was migrated, with examples on hover.</li>
-              <li>More reliable undo bookkeeping: undoing an edit on a newly added person, or on a shared media record's details, no longer confuses the pending-changes count; adding a relative now also lists the affected family in the save preview; and undoing a deleted person restores them at their original position in the file.</li>
-              <li>Marking a pair as <strong>Not a duplicate</strong> in Tools can now be undone with the regular Undo/Redo.</li>
-              <li>The save preview now warns when a confirmed match no longer applies cleanly — the person was deleted, or edited after the match was confirmed — so stale field choices don't overwrite newer edits unnoticed.</li>
-              <li>Better support for other genealogy programs' GEDCOM files: person attributes that used to be invisible — <strong>reference numbers (REFN)</strong>, titles, religion, nationality, physical description, number of children, graduation and generic facts — plus Brother's Keeper's <strong>funeral, interment, military-service and medical</strong> entries now show up in Edit mode and in merge comparisons, can be edited and added, and merge like any other event. Generic "Event"/"Fact" rows now show their type in the heading (e.g. <strong>Event — FamilySearch ID</strong>).</li>
-              <li>The Health check now explains the custom tags other programs leave in a file — e.g. <strong>_UPD (160×) — MyHeritage: last-updated timestamp</strong> — instead of only listing them, covering the tags of Brother's Keeper, Family Historian, MyHeritage, Family Tree Maker/Ancestry, Legacy, RootsMagic, MacFamilyTree, webtrees, Gramps and PAF.</li>
-              <li>Privacy tool: <strong>Remove submitter</strong> now also strips account traces other programs embed — MyHeritage site-publish records (with your account e-mail), Ancestry account tokens and webtrees editor names; the external-id strip also covers FamilySearch, Ancestry and Find&nbsp;a&nbsp;Grave ids.</li>
-              <li>Normalization (on compare-file load and in Tools → Normalize) gains a <strong>vendor tags</strong> pass: Brother's Keeper's <strong>_SEPR</strong> becomes the standard Separation event and its older <strong>_MILI</strong> military tag becomes <strong>_MILT</strong>; the incompatible "unmarried partners" encodings (Brother's Keeper's never-married trio, MyHeritage relationship events, Family Tree Maker's _STAT) are consolidated into one family <strong>Status</strong> field; and agreeing <strong>_FREL/_MREL</strong> child relationships become the standard <strong>PEDI</strong> (adopted/foster), with the default "Natural" pairs removed as noise.</li>
-              <li>A family's partnership <strong>Status</strong> ("Partners", "Divorced" …) now shows in merge comparisons and in Edit mode's family section, where it can be added, edited and merged like any other family event.</li>
-              <li>Matching now recognizes <strong>record identifiers</strong> (<strong>_UID</strong>, GEDCOM 7 <strong>UID</strong> — written by MyHeritage, Family Historian, Legacy, Gramps, RootsMagic, PAF …) and <strong>FamilySearch person ids</strong> (MacFamilyTree's <strong>_FID</strong>, RootsMagic's <strong>_FSFTID</strong>): two records carrying the same id are matched with certainty (🔑, score 100) even when names or dates have diverged — across programs, too — and merging carries the incoming id onto your record so the next import of the same file matches instantly.</li>
-              <li>MacFamilyTree's bare vendor tags are now recognized: the Health check explains them instead of flagging them as unknown, the periodical name <strong>PERI</strong> is treated as standard, <strong>MISE</strong> is normalized to the Military service event, a second given name (<strong>SECG</strong>) that's missing from the main name is folded in, and <strong>RACE</strong>, awards (<strong>NOBI</strong>), legal transactions (<strong>LATR</strong>), deeds (<strong>DEED</strong>) and illnesses (<strong>ILL</strong>) show as editable, mergeable facts.</li>
-              <li>The Health check now reads the field tags a MacFamilyTree file's own source templates declare (cemetery, census year, county, microfilm roll number …), so those bare tags (<strong>CEME</strong>, <strong>CENY</strong>, <strong>COUN</strong>, <strong>LOCA</strong>, <strong>ROLN</strong>, <strong>TOWN</strong> …) are explained as template fields instead of flagged as unknown.</li>
-              <li>Tools → Normalize no longer rewrites tags that are the file's own program's dialect: a MacFamilyTree file keeps its native <strong>MISE</strong> military-service tag (and a Brother's Keeper file its <strong>_SEPR</strong>) instead of gaining a spelling its own program wouldn't recognize on re-import. Loading a compare file still converts these tags as before.</li>
-              <li>Place normalization no longer loses details when a file is normalized again (for example a file saved by the app and later loaded as the incoming file): a bare house number ("26") is now kept with its village instead of being dropped, an address with extra text next to its landmark ("Hrastje 26 Mrva (Moravče)") is kept whole, and a detail that only <em>looks</em> like a landmark ("Šlapanov (Češka)") is written back in a form that reads the same way next time. A parish-only address now moves cleanly into the Agency field without leaving a duplicate behind.</li>
+              <li><strong>Broader support for other programs' GEDCOM files.</strong> Person attributes that used to be invisible — reference numbers, titles, religion, nationality, physical description, generic facts, and funeral/military/medical events — now show in Edit mode and merge like any other event.</li>
+              <li><strong>Matching recognizes record identifiers</strong> (<strong>_UID</strong>/<strong>UID</strong>) and FamilySearch person ids: two records carrying the same id match with certainty (🔑), even across programs.</li>
+              <li><strong>GEDCOM version migration.</strong> An incoming file in a different version (5.5.1 ⇄ 7.0) is migrated to your main file's version on load, so merged records stay valid.</li>
+              <li>Better display of photos from other programs — primary-photo flag, face crops, ordering and keywords are honoured.</li>
+              <li>The Health check now explains the custom tags other programs leave in a file, instead of only listing them.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-12</h2>
             <ul>
-              <li>The Tools scans (Health check, Find duplicates, Normalize, Sources) now run in the background — the app stays responsive while a large file is scanned, instead of freezing until the scan finishes. Finished results are kept while you switch tabs or modes, and a scan keeps running if you browse elsewhere in the meantime.</li>
-              <li>The duplicate scan shows its progress and can be cancelled. On files with a huge number of pairs the list shows the highest-scoring ones, so browsing and opening a pair stays fast — use the search box to reach the rest.</li>
-              <li>Tidier <strong>+ Add</strong> menu in Edit mode: Place, Address and Agency now come before Source, the source entry reads simply <strong>Source</strong>, and the media button is labelled <strong>Add Media</strong>.</li>
-              <li>New <strong>Age</strong> option under a chart's Person settings: each person's age (at death, or current for the living) shows in parentheses after their lifespan — or, when the lifespan is turned off, as its own "age N" line. It appears on the node boxes and in the chart title, works on the tree, pedigree, fan, relationship and timeline charts, and starts on automatically when the global <strong>Show ages</strong> preference is on.</li>
-              <li>New <strong>Age</strong> option under a report's Facts settings: the age reached shows in parentheses next to each fact's date — the person's own age on their events, both spouses' ages (♂ / ♀) on a marriage, and the parents' ages on a birth. In the narrative style it reads "(age N)" / "(star/stara N let)".</li>
-              <li>Search now ignores accents: typing <strong>Ziva</strong> finds <strong>Živa</strong>, <strong>Skofja</strong> finds <strong>Škofja</strong> — so names and places aren't missed when čšž and similar letters are typed plainly. Applies to the whole-file search and every person picker.</li>
-              <li>Safer saving of imperfect GEDCOM files: when two records share the same ID, only the surviving record is written (previously both copies ended up in the saved file); text that starts with <strong>@</strong> is saved with the standard doubled <strong>@@</strong> escape so other programs don't misread it as a record reference; a <strong>/</strong> typed into a name field no longer corrupts the saved name line; and a line with a skipped level in a damaged file now stays inside its record instead of being detached from it.</li>
-              <li>If background processing (loading, matching or a Tools scan) fails unexpectedly, the app now reports the error instead of spinning forever.</li>
+              <li><strong>Tools scans run in the background.</strong> Health check, Find duplicates, Normalize and Sources no longer freeze the app on large files, and finished results are kept as you switch tabs.</li>
+              <li>New <strong>Age</strong> option on charts and reports: each person's age shows next to their lifespan and event dates.</li>
+              <li><strong>Search now ignores accents</strong> — typing <em>Ziva</em> finds <em>Živa</em>, <em>Skofja</em> finds <em>Škofja</em>.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-11</h2>
             <ul>
-              <li>Much more compact <strong>Edit mode</strong>: each event now fits on a single line — the date, place and any other filled-in fields flow together and wrap only when needed, instead of taking three rows. A hover-only <strong>+ Add</strong> menu adds a source, place, note or other detail on demand, so empty fields no longer clutter the view.</li>
-              <li>Full keyboard editing: Tab through every field, and press <strong>Enter</strong> on the event-type ▾, the Sex picker or the + Add menu to open it; the field you add is focused for typing, and closing the Add Source dialog returns you where you were.</li>
-              <li>Person sources and notes are more compact too, and newly added or changed notes now show in bold like other edited data.</li>
-              <li>Merge mode now respects the <strong>Show ages</strong> display setting, just like Edit mode: the person's age appears next to the lifespan in the matches list and the compare panel header, next to each relative (parents, partners, children) in the compare table, and after each event date — the person's own age, the parents' ages on a birth, and both spouses' ages on marriage and other family events.</li>
-              <li>When <strong>Show ages</strong> is on, the photo viewer now shows how old a person was when a dated photo was taken — in the "Date depicted" line, and, for group photos, next to each tagged person on their hover box and in the "referenced by" list.</li>
+              <li><strong>Much more compact Edit mode.</strong> Each event fits on a single line, with a hover-only <strong>+ Add</strong> menu for extra details, so empty fields no longer clutter the view.</li>
+              <li><strong>Full keyboard editing:</strong> Tab through every field and press Enter to open the event-type, Sex and + Add menus.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-10</h2>
             <ul>
-              <li>Tools → Find Duplicates now has a <strong>Reject</strong> action to mark a pair as not-a-duplicate; rejected pairs are remembered so they won't resurface next time you run the scan, and can be reviewed and un-rejected from a new "Rejected" list.</li>
-              <li>Rejecting a match in Merge now hides it from the list right away, and the compare panel auto-advances to the next candidate.</li>
-              <li>The footer now shows the app version, linking to this changelog — also available in Slovenian at <a href="../posodobitve/">/posodobitve</a>.</li>
-              <li>New <strong>Verify</strong> button on a loaded GEDCOM file (Chrome/Edge): checks whether the file has changed on disk since it was loaded and offers to reload it, with an automatic check on page reload where possible — always confirming first if you have unsaved changes.</li>
+              <li>Tools → Find Duplicates gains a <strong>Reject</strong> action: rejected pairs are remembered and can be reviewed and un-rejected later.</li>
+              <li>The footer now shows the app version, linking to this changelog.</li>
+              <li>New <strong>Verify</strong> button (Chrome/Edge): checks whether a loaded file has changed on disk and offers to reload it.</li>
             </ul>
           </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-08</h2>
-            <ul>
-              <li>Fixed a bug where the PDF / print export of a chart could come out blank.</li>
-              <li>The relationship diagram now prefers a path through a shared ancestor over an arbitrary same-length route.</li>
-            </ul>
-          </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-13</h2>
-            <ul>
-              <li>Long lists stay fast on very large files: match results, Health check findings and duplicate pairs now render only the rows on screen while scrolling through the full list.</li>
-              <li>The duplicate finder no longer stops at the 200 highest-scoring pairs — every found pair can be scrolled to and reviewed.</li>
-              <li>Editing stays snappy on complex persons and very large files: committing a field no longer re-renders the whole person layout, and adding people or sources no longer rescans every record.</li>
-              <li>Fixed: removing a source's last citation could delete its page image even when that photo was still attached to a person, leaving a broken reference.</li>
-            </ul>
-          </section>
-
-          <section class="changelog-entry">
-            <h2>2026-07-07</h2>
-            <ul>
-              <li>More reliable "living person" detection: when someone has no birth date of their own, GED Merge now also looks at dated relatives before assuming they're living.</li>
-            </ul>
-          </section>
-
           <section class="changelog-entry">
             <h2>2026-07-06</h2>
             <ul>
               <li>New Settings → Display → <strong>Show ages</strong> toggle: ages next to lifespans and event dates, plus a full year/month/day breakdown in tooltips.</li>
-              <li>Photos are now called <strong>media</strong> everywhere, with support for SVG and PDF files, dragging files straight into your media folder, and marking a person's region on a group photo to use as their thumbnail.</li>
+              <li>Photos are now called <strong>media</strong> everywhere, with support for SVG and PDF files, dragging files straight in, and marking a person's region on a group photo to use as their thumbnail.</li>
               <li>Reports gained an RTF export, an optional table of contents, and living-person redaction.</li>
               <li>Added support for GEDCOM files exported from MyHeritage.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-04</h2>
             <ul>
@@ -271,7 +193,6 @@
               <li>The Charts hub now brings Tree, Grid, Fan, Circle, Timeline, Relationship and Report together under one tab strip, with a shared GEDCOM / SVG / PDF export menu.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-07-01</h2>
             <ul>
@@ -280,28 +201,24 @@
               <li>Added global search across the whole file.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-30</h2>
             <ul>
               <li>Set a <strong>start person</strong> and see everyone ranked by kinship distance, colour-coded by paternal or maternal line.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-29</h2>
             <ul>
               <li>Health check now flags pedigree loops (a person who is their own ancestor) and sex/role mismatches.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-28</h2>
             <ul>
               <li>Added Grid, Fan and Circle chart types alongside the family tree.</li>
             </ul>
           </section>
-
           <section class="changelog-entry">
             <h2>2026-06-27</h2>
             <ul>

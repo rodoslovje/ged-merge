@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { Dataset, Family, SourceCitation } from "../../gedcom/types";
+import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
@@ -146,6 +147,14 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
 
   const fatherName = personName(fam?.husband);
   const motherName = personName(fam?.wife);
+  // Same-sex couples have no "Father"/"Mother" split — label both slots
+  // neutrally as "Parent". Opposite-sex (or unknown) keeps the familiar terms.
+  const sameSexParents = isSameSexCouple(
+    fam?.husband ? dataset.individuals.get(fam.husband) : undefined,
+    fam?.wife ? dataset.individuals.get(fam.wife) : undefined,
+  );
+  const fatherLabel = sameSexParents ? t("field.parent") : t("field.father");
+  const motherLabel = sameSexParents ? t("field.parent") : t("field.mother");
   const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
   const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
   // Read-only glimpse of the parents' couple events (marriage, divorce, …),
@@ -159,7 +168,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
     <div className="edit-parent-group">
       {fatherPickerOpen && !fam?.husband ? (
         <RelativePickerCard
-          roleLabel={t("field.father")}
+          roleLabel={fatherLabel}
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("father", id, fam)}
@@ -170,12 +179,12 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
       ) : (
         <PersonCard
           individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
-          roleLabel={t("field.father")}
+          roleLabel={fatherLabel}
           placeholder={t("edit.addFather")}
           onSelect={navigate}
           onAdd={() => setPickingSlot({ kind: "father", fam })}
-          onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: t("field.father") })) : undefined}
-          removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: t("field.father") }) : undefined}
+          onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: fatherLabel })) : undefined}
+          removeTooltip={fam?.husband ? t("edit.detachRoleTooltip", { name: fatherName, role: fatherLabel }) : undefined}
           {...cardKinship(fam?.husband)}
           {...cardDecision(fam?.husband)}
           records={dataset.records}
@@ -192,7 +201,9 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
                     fam.husband ? dataset.individuals.get(fam.husband) : undefined,
                     fam.wife ? dataset.individuals.get(fam.wife) : undefined,
                     ev.date,
-                    { husband: t("event.age.husband"), wife: t("event.age.wife") },
+                    sameSexParents
+                      ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
+                      : { husband: t("event.age.husband"), wife: t("event.age.wife") },
                     t,
                   )
                 : undefined;
@@ -222,7 +233,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
       </div>
       {motherPickerOpen && !fam?.wife ? (
         <RelativePickerCard
-          roleLabel={t("field.mother")}
+          roleLabel={motherLabel}
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("mother", id, fam)}
@@ -233,12 +244,12 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
       ) : (
         <PersonCard
           individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
-          roleLabel={t("field.mother")}
+          roleLabel={motherLabel}
           placeholder={t("edit.addMother")}
           onSelect={navigate}
           onAdd={() => setPickingSlot({ kind: "mother", fam })}
-          onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: t("field.mother") })) : undefined}
-          removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: t("field.mother") }) : undefined}
+          onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: motherLabel })) : undefined}
+          removeTooltip={fam?.wife ? t("edit.detachRoleTooltip", { name: motherName, role: motherLabel }) : undefined}
           {...cardKinship(fam?.wife)}
           {...cardDecision(fam?.wife)}
           records={dataset.records}
@@ -386,6 +397,7 @@ export const FamilySection = memo(function FamilySection({
             <PrivateToggle
               on={!!fam.private}
               t={t}
+              target={t("edit.privateTarget.family")}
               onToggle={() => commitFamily(fam, (f) =>
                 setPrivateFlag(f.raw, !f.private, settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />

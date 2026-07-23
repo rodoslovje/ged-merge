@@ -23,7 +23,7 @@ import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedco
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { linkKey } from "../../normalize/links";
-import { downloadText } from "../download";
+import { downloadText, savedName } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
@@ -195,10 +195,9 @@ export function SourceCleanupView({
       relocate,
     });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
-    const base = fileName.replace(/\.ged$/i, "");
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
     const text = serializeGedcom(records, downloadOptions(dataset));
-    downloadText(`${base}.gedmerge.ged`, text);
+    downloadText(savedName(fileName, "ged"), text);
   }
 
   async function fetchDetails() {

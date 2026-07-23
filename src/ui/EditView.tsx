@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual, SourceCitation } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
+import { isSameSexCouple } from "../gedcom/couple";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -1597,11 +1598,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
     const fatherId = famsOf.find((f) => f?.husband)?.husband;
     const motherId = famsOf.find((f) => f?.wife)?.wife;
+    const father = fatherId ? dataset.individuals.get(fatherId) : undefined;
+    const mother = motherId ? dataset.individuals.get(motherId) : undefined;
     return coupleAgesDisplay(
-      fatherId ? dataset.individuals.get(fatherId) : undefined,
-      motherId ? dataset.individuals.get(motherId) : undefined,
+      father,
+      mother,
       birthDate,
-      { husband: t("event.age.father"), wife: t("event.age.mother") },
+      isSameSexCouple(father, mother)
+        ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
+        : { husband: t("event.age.father"), wife: t("event.age.mother") },
       t,
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1773,6 +1778,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 <PrivateToggle
                   on={!!person.private}
                   t={t}
+                  target={t("edit.privateTarget.individual")}
                   onToggle={() => commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
                 />
               </>

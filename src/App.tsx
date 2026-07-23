@@ -25,7 +25,7 @@ import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messag
 import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { findDanglingXrefs } from "./tools/structure";
-import { downloadText } from "./ui/download";
+import { downloadText, baseStem, savedName } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
@@ -1140,7 +1140,7 @@ function AppContent() {
 
   function handleSave() {
     if (!mainDataset || main.status !== "loaded") return;
-    const base = main.file.fileName.replace(/\.ged$/i, "");
+    const base = baseStem(main.file.fileName);
     const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
     // Merge only with an incoming file actually loaded — a hydrated session can
     // in principle carry decisions whose compare failed to restore.
@@ -1213,7 +1213,11 @@ function AppContent() {
       records,
       report,
       title: t("save.preview.title"),
-      files: [`${base}.gedmerge.ged`, `${base}.gedmerge.report.txt`],
+      files: (() => {
+        // One shared stamp so the .ged and its report sort together in Downloads.
+        const d = new Date();
+        return [savedName(base, "ged", d), savedName(base, "report.txt", d)];
+      })(),
       downloadLabel: t("save.preview.download"),
       mainRecordCount,
       base,
@@ -1261,8 +1265,9 @@ function AppContent() {
     ensureUtf8Charset(preview.records, mainDataset);
 
     const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
-    downloadText(`${preview.base}.gedmerge.ged`, text);
-    downloadText(`${preview.base}.gedmerge.report.txt`, formatReport(preview.report, "GED Save change report"));
+    // Reuse the exact names shown in the preview dialog (already date-stamped).
+    downloadText(preview.files[0], text);
+    downloadText(preview.files[1], formatReport(preview.report, "GED Save change report"));
 
     // The saved file is the new main baseline — refresh the cache so a reload
     // restores the saved state (the confirmed decisions are now baked in and

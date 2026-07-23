@@ -202,6 +202,68 @@ describe("validateDataset", () => {
     expect(report.counts.roleSexConflict).toBe(2);
   });
 
+  it("does not flag a genuine same-sex couple as a sex/role conflict", () => {
+    // Two men — one fills the HUSB slot, one the WIFE slot (the standard way to
+    // store a same-sex marriage in GEDCOM). This is not a contradiction.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bo /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.roleSexConflict).toBe(0);
+  });
+
+  it("flags two different people crammed into one spouse slot", () => {
+    // Two HUSB lines: the builder keeps only the last (@I2@), so @I1@ is hidden.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bo /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 HUSB @I2@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const hidden = report.issues.filter((i) => i.category === "multiSpouseSlot");
+    expect(hidden).toHaveLength(1);
+    expect(report.counts.multiSpouseSlot).toBe(1);
+    // Names the shown (last) and hidden (earlier) partner.
+    expect(hidden[0].messageVars?.shown).toContain("Bo");
+    expect(hidden[0].messageVars?.hidden).toContain("Ana");
+  });
+
+  it("does not flag a repeated identical spouse pointer as a hidden partner", () => {
+    // Same xref twice in HUSB — a redundant line, not two people.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 HUSB @I1@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.multiSpouseSlot).toBe(0);
+  });
+
   it("reports a clean file as having no issues", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
