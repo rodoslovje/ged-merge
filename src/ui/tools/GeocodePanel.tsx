@@ -139,6 +139,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     setImportState({ phase: "running", done: 0, total: buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
+    const fail = (message: string) => {
+      worker.terminate();
+      workerRef.current = null;
+      setImportState({ phase: "error", message });
+    };
     worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
       const msg = e.data;
       if (msg.type === "progress") setImportState({ phase: "running", done: msg.done, total: msg.total });
@@ -147,12 +152,12 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
         workerRef.current = null;
         setImportState(null);
         void refreshGazetteer();
-      } else {
-        worker.terminate();
-        workerRef.current = null;
-        setImportState({ phase: "error", message: msg.message });
-      }
+      } else fail(msg.message);
     };
+    // A worker that fails to load or throws outside the message handler would
+    // otherwise leave the import spinner running forever — surface it instead.
+    worker.onerror = () => fail(t("tools.geocode.importFailed"));
+    worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
     const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
     worker.postMessage(req, [buffer]);
   };

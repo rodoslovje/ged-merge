@@ -1,4 +1,5 @@
 import { overpassToEntries, parseGeoNamesLine, type GazEntry, type OverpassJson } from "../geo/gazetteer";
+import { extractZipTxt } from "../geo/zip";
 import { putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
@@ -9,40 +10,6 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 function post(msg: GeoWorkerResponse): void {
   (self as unknown as Worker).postMessage(msg);
-}
-
-/** Inflate a raw-deflate block via the native DecompressionStream. */
-async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-/**
- * Minimal ZIP reader for GeoNames dumps: walks the local file headers and
- * returns the first `.txt` entry that isn't the bundled readme. GeoNames
- * zips are plain (sizes in the header, stored or deflate) — this is not a
- * general ZIP implementation.
- */
-async function extractZipTxt(buffer: ArrayBuffer): Promise<Uint8Array<ArrayBuffer> | undefined> {
-  const view = new DataView(buffer);
-  const bytes = new Uint8Array(buffer);
-  let off = 0;
-  while (off + 30 <= buffer.byteLength && view.getUint32(off, true) === 0x04034b50) {
-    const method = view.getUint16(off + 8, true);
-    const compressedSize = view.getUint32(off + 18, true);
-    const nameLen = view.getUint16(off + 26, true);
-    const extraLen = view.getUint16(off + 28, true);
-    const name = new TextDecoder().decode(bytes.subarray(off + 30, off + 30 + nameLen));
-    const dataStart = off + 30 + nameLen + extraLen;
-    const data = bytes.subarray(dataStart, dataStart + compressedSize);
-    if (/\.txt$/i.test(name) && !/readme/i.test(name)) {
-      if (method === 0) return data;
-      if (method === 8) return inflateRaw(data);
-      throw new Error(`unsupported zip compression method ${method}`);
-    }
-    off = dataStart + compressedSize;
-  }
-  return undefined;
 }
 
 const CHUNK = 4 * 1024 * 1024;

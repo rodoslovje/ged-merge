@@ -181,6 +181,7 @@ export const sl = {
   "tools.geocode.countryMeta": "{{count}} krajev · uvoženo {{date}}",
   "tools.geocode.deleteCountry": "Odstrani imenik te države",
   "tools.geocode.importing": "Uvažanje imenika…",
+  "tools.geocode.importFailed": "Datoteke ni bilo mogoče prebrati — poskrbite, da gre za izvleček države GeoNames (.txt ali .zip).",
   "tools.geocode.importBtn": "Uvozi datoteko GeoNames…",
   "tools.geocode.importHint": "Prenesite izvleček države (npr. SI.zip) s strani",
   "tools.geocode.importHint2": "in tu izberite .zip ali razpakirano datoteko .txt. Podatki (GeoNames, licenca CC-BY) se shranijo samo v vaš brskalnik — nikamor se ne pošiljajo.",
