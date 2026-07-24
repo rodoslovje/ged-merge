@@ -76,25 +76,17 @@ export function buildRelationshipChart(
     gen[i] = gen[i - 1] + (e === "parent" ? 1 : e === "child" ? -1 : 0);
   }
   const maxGen = Math.max(...gen);
-  let apexIdx = 0;
-  for (let i = 0; i < n; i++) if (gen[i] === maxGen) { apexIdx = i; break; }
-  const hasDescent = apexIdx < n - 1;
-
-  // 2. Spine columns. A direct ancestral line stays in ONE column (drawn as a
-  //    vertical rail); the single sideways step is at the apex, where the path
-  //    crosses to the descending rail. Spouse hops also step sideways.
-  const col: number[] = [0];
-  for (let i = 1; i < n; i++) {
-    const e = steps[i].edge;
-    if (e === "child") col[i] = col[i - 1] + (steps[i - 1].edge === "parent" ? 1 : 0);
-    else if (e === "spouse") col[i] = col[i - 1] + 1;
-    else col[i] = col[i - 1]; // parent: same column
-  }
   const rowOf = (g: number) => maxGen - g;
 
-  // 3. Place every box. Spine first (path order); each link's "other parent"
-  //    (the spouse not on the path) sits one column to the outer side of its
-  //    rail. The apex's spouse goes to the descending side so it heads that rail.
+  // 2+3. Columns and placement in one left-to-right walk. Every maximal
+  //   same-direction vertical run is ONE column (a straight rail); a rail's
+  //   "other parent" context boxes share a reserved column just outside it. A
+  //   new rail — the descent past a peak, a re-ascent out of a valley, or a
+  //   spouse's own line — starts past everything placed so far (`frontier`), so
+  //   rails never overlap and every child always has a box directly above (or,
+  //   failing that, an elbow) to hang from. This handles paths that turn more
+  //   than once (e.g. through a marriage into another family's pedigree), which
+  //   a single rise-and-fall column cursor collapses onto itself.
   const place = new Map<string, Pos>();
   const order: string[] = [];
   const put = (id: string, c: number, r: number, onSpine: boolean) => {
@@ -102,28 +94,97 @@ export function buildRelationshipChart(
     place.set(id, { col: c, row: r, onSpine });
     order.push(id);
   };
-  for (let i = 0; i < n; i++) put(steps[i].id, col[i], rowOf(gen[i]), true);
 
   const partners: [string, string][] = [];
-  const dropChildren: string[] = [];
+  const drops: { child: string; parent: string }[] = [];
+
+  put(steps[0].id, 0, rowOf(gen[0]), true);
+  let frontier = 0; // rightmost column used by any box so far
+  let railCol = 0; // spine column of the rail currently being drawn
+  let railSpouseCol: number | null = null; // reserved co-parent column for it
+  let railSide = -1; // co-parents left (−1: the start's own climb) or right (+1)
+  let descentHead: number | null = null; // column a peak reserved for its descent
+
   for (let i = 1; i < n; i++) {
     const e = steps[i].edge!;
+    const prevId = steps[i - 1].id;
+    const row = rowOf(gen[i]);
+
     if (e === "spouse") {
-      partners.push([steps[i - 1].id, steps[i].id]);
+      // The spouse starts a new rail to the right of everything placed.
+      railCol = frontier + 1;
+      railSpouseCol = null;
+      railSide = 1;
+      descentHead = null;
+      put(steps[i].id, railCol, row, true);
+      frontier = Math.max(frontier, railCol);
+      partners.push([prevId, steps[i].id]);
       continue;
     }
-    const childId = e === "parent" ? steps[i - 1].id : steps[i].id;
-    const parentId = e === "parent" ? steps[i].id : steps[i - 1].id;
+
+    const ascending = e === "parent";
+    const childId = ascending ? prevId : steps[i].id;
+    const parentId = ascending ? steps[i].id : prevId;
+    const parentRow = rowOf(gen[ascending ? i : i - 1]);
     const other = otherParent(ds, childId, parentId);
-    if (other) {
-      // Ascending links put the spouse on the left rail-edge; the apex couple
-      // and descending links put it on the right (the descending rail head).
-      const onTargetSide = e === "child" || (i === apexIdx && hasDescent);
-      const parentPos = place.get(parentId)!;
-      put(other, parentPos.col + (onTargetSide ? 1 : -1), parentPos.row, false);
-      partners.push([parentId, other]);
+
+    if (ascending) {
+      // Re-ascending out of a valley (child→parent) starts a fresh rail.
+      if (steps[i - 1].edge === "child") {
+        railCol = frontier + 1;
+        railSpouseCol = null;
+        railSide = 1;
+      }
+      put(steps[i].id, railCol, row, true);
+      const peak = i + 1 < n && steps[i + 1].edge === "child";
+      if (other) {
+        if (peak) {
+          // The co-parent heads the coming descent: placed to the right, with
+          // the descent rail hanging directly below it.
+          put(other, frontier + 1, row, false);
+          descentHead = place.get(other)!.col;
+        } else {
+          if (railSpouseCol === null) railSpouseCol = railSide < 0 ? railCol - 1 : frontier + 1;
+          put(other, railSpouseCol, row, false);
+        }
+        partners.push([steps[i].id, other]);
+        frontier = Math.max(frontier, place.get(other)!.col);
+      }
+      // The child sits directly below its on-spine parent in the same column.
+      drops.push({ child: childId, parent: parentId });
+    } else if (steps[i - 1].edge === "child") {
+      // Continue the current descent rail downward.
+      put(steps[i].id, railCol, row, true);
+      if (other) {
+        if (railSpouseCol === null) railSpouseCol = frontier + 1;
+        put(other, railSpouseCol, parentRow, false);
+        partners.push([parentId, other]);
+        frontier = Math.max(frontier, railSpouseCol);
+      }
+      drops.push({ child: childId, parent: parentId }); // previous member, above
+    } else {
+      // Start a new descent rail: crossing a peak, or descending from a spouse.
+      railSpouseCol = null;
+      railSide = 1;
+      if (descentHead !== null && other && place.get(other)?.col === descentHead) {
+        // The peak's co-parent already heads this column, directly above.
+        railCol = descentHead;
+        put(steps[i].id, railCol, row, true);
+        drops.push({ child: childId, parent: other });
+      } else {
+        railCol = frontier + 1;
+        put(steps[i].id, railCol, row, true);
+        if (other) {
+          put(other, railCol, parentRow, false); // directly above the child
+          partners.push([parentId, other]);
+          drops.push({ child: childId, parent: other });
+        } else {
+          drops.push({ child: childId, parent: parentId }); // elbow from the parent
+        }
+      }
+      descentHead = null;
+      frontier = Math.max(frontier, railCol);
     }
-    dropChildren.push(childId);
   }
 
   // 4. Coordinates, normalized so the leftmost column is 0. PAD-relative (like
@@ -188,12 +249,16 @@ export function buildRelationshipChart(
     links.push({ id: `p~${key}`, d, kind: "partner", marriage: coupleMarriage(ds, a, b), mid });
   };
   for (const [a, b] of partners) addPartner(a, b);
-  for (const childId of dropChildren) {
-    const c = coordOf(place.get(childId)!);
+  for (const { child, parent } of drops) {
+    const c = coordOf(place.get(child)!);
+    const p = coordOf(place.get(parent)!);
+    // Orthogonal drop from the parent to the child, jogging across at the midway
+    // gap when they sit in different columns — and collapsing to a straight line
+    // when aligned. Along the depth axis the parent always precedes the child.
     const d = lr
-      ? `M${c.x - ROW_GAP_TD},${c.y + nodeH / 2} H${c.x}`
-      : `M${c.x + NODE_W / 2},${c.y - ROW_GAP_TD} V${c.y}`;
-    links.push({ id: `c~${childId}`, d, kind: "parent" });
+      ? `M${p.x + NODE_W},${p.y + nodeH / 2} H${(p.x + NODE_W + c.x) / 2} V${c.y + nodeH / 2} H${c.x}`
+      : `M${p.x + NODE_W / 2},${p.y + nodeH} V${(p.y + nodeH + c.y) / 2} H${c.x + NODE_W / 2} V${c.y}`;
+    links.push({ id: `c~${child}`, d, kind: "parent" });
   }
 
   const width = Math.max(0, ...boxes.map((b) => b.x + NODE_W)) + PAD * 2;
