@@ -181,6 +181,7 @@ export const en = {
   "tools.geocode.countryMeta": "{{count}} places · imported {{date}}",
   "tools.geocode.deleteCountry": "Remove this country's gazetteer",
   "tools.geocode.importing": "Importing gazetteer…",
+  "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
   "tools.geocode.importBtn": "Import GeoNames file…",
   "tools.geocode.importHint": "Download a country extract (e.g. SI.zip) from",
   "tools.geocode.importHint2": "and pick the .zip or unpacked .txt here. The data (CC-BY GeoNames) is stored in your browser only — nothing is sent anywhere.",
