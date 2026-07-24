@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildRelationshipChart } from "./relationshipLayout";
+import { NODE_H, NODE_W } from "./treeLayout";
 import { bloodPath, shortestPath } from "../match/relationshipPath";
 
 function dataset(text: string) {
@@ -49,6 +50,20 @@ const TREE = `0 HEAD
 1 NAME Cousin /Test/
 1 SEX M
 1 FAMC @F3@
+1 FAMS @F6@
+0 @I20@ INDI
+1 NAME CousinWife /Test/
+1 SEX F
+1 FAMC @F7@
+1 FAMS @F6@
+0 @I21@ INDI
+1 NAME CousinWifeFather /Test/
+1 SEX M
+1 FAMS @F7@
+0 @I22@ INDI
+1 NAME CousinWifeMother /Test/
+1 SEX F
+1 FAMS @F7@
 0 @I9@ INDI
 1 NAME Spouse /Test/
 1 SEX F
@@ -85,6 +100,13 @@ const TREE = `0 HEAD
 1 HUSB @I10@
 1 WIFE @I11@
 1 CHIL @I9@
+0 @F6@ FAM
+1 HUSB @I8@
+1 WIFE @I20@
+0 @F7@ FAM
+1 HUSB @I21@
+1 WIFE @I22@
+1 CHIL @I20@
 0 TRLR
 `;
 
@@ -134,6 +156,35 @@ describe("relationshipChartLayout", () => {
     // Spouse link (I1~I9) + couple link (I10~I11) = 2 partner lines; 1 parent drop.
     expect(chart.links.filter((l) => l.kind === "partner")).toHaveLength(2);
     expect(chart.links.filter((l) => l.kind === "parent")).toHaveLength(1);
+  });
+
+  it("keeps rails from overlapping when the path turns more than once", () => {
+    // Ego → grandfather (apex) → cousin → cousin's wife (a marriage) → her
+    // father. The second ascent (into the wife's family) must not collide with
+    // the first descent (the cousin's line): every box gets its own cell, and
+    // every parent drop connects a real box directly above its child.
+    const chart = buildRelationshipChart(ds, shortestPath(ds, "@I1@", "@I21@")!);
+
+    // No two boxes share a coordinate cell (the multi-apex overlap bug).
+    const cells = chart.boxes.map((b) => `${b.x},${b.y}`);
+    expect(new Set(cells).size).toBe(chart.boxes.length);
+
+    // The cousin's wife's other parent is drawn, not dropped or buried.
+    expect(chart.boxes.some((b) => b.id === "@I22@")).toBe(true);
+
+    // Every parent drop starts on a real parent box's bottom edge — not dangling
+    // into an empty cell (the old fixed stub started wherever the child's column
+    // happened to be, so a column-shifted parent left it hanging in blank space).
+    const box = (id: string) => chart.boxes.find((b) => b.id === id);
+    for (const link of chart.links.filter((l) => l.kind === "parent")) {
+      const [, sx, sy] = link.d.match(/^M([\d.-]+),([\d.-]+)/)!;
+      const onABox = chart.boxes.some(
+        (b) => Math.abs(b.x + NODE_W / 2 - Number(sx)) < 0.5 && Math.abs(b.y + NODE_H - Number(sy)) < 0.5,
+      );
+      expect(onABox).toBe(true);
+    }
+    expect(box("@I1@")!.role).toBe("start");
+    expect(box("@I21@")!.role).toBe("target");
   });
 
   it("carries the couple's marriage (year + place) on the partner link", () => {
