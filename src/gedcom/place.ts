@@ -208,6 +208,13 @@ export function addressStreetName(addrRaw: string | undefined): string | undefin
 }
 /** Street-type words: a segment with one is an address, even without a number. */
 const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
+
+/** Whether a segment names a street rather than a settlement ("Kidričeva cesta",
+ *  "Trg svobode"). Distinguishes the two things a house number can sit on: a
+ *  street in a town, or the settlement itself in village numbering. */
+export function looksLikeStreet(segment: string): boolean {
+  return STREET_WORDS.test(segment);
+}
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;
