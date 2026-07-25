@@ -877,11 +877,28 @@
               split, and the correction is rescanned for matches immediately). What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
               their results joining the row's candidates and map pins. <strong>Search online</strong> uses OpenStreetMap
-              (Nominatim) — best for street addresses. <strong>Search GOV</strong> uses the
+              (Nominatim) — best for street addresses. <strong>Search address register</strong> appears on values that name a
+              house number (<em>Šentvid pri Stični 23</em>) and looks it up in Slovenia's official register (GURS), giving
+              the coordinate of that building rather than the middle of the settlement. <strong>Search GOV</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
               entries carry historical, multilingual place names and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV
               record for other genealogy software. Accepted matches are cached, so other files resolve instantly.
+            </p>
+            <p>
+              Below the place list, <strong>Addresses with a house number</strong> covers the other shape: events whose place
+              names only the settlement (<em>Kranj</em>) while the event's own <strong>address</strong> names the street or
+              number (<em>Kidričeva cesta 38</em>). These are grouped by place + address, so one review covers every event at
+              that house, and looked up in the same register. Their coordinate is stored <em>on the address</em> rather than
+              on the place — a place value is shared by every event naming it, so a single house's position must not be
+              written there (it would later be copied onto the settlement's other addresses by the
+              <a href="#tools">Health check</a>'s coordinate fix). Where the place value already names the house itself,
+              the ordinary <code>PLAC</code> <code>MAP</code> is used, exactly as before.
+            </p>
+            <p>
+              On every map, an event is drawn at its <strong>address</strong> coordinate when it has one and falls back to its
+              place coordinate otherwise, so precise and settlement-level records mix freely; the pin's label names the
+              address when that is what was pinned.
             </p>
           </section>
 

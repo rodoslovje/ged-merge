@@ -883,12 +883,29 @@
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
               kliku na gumb, njuni zadetki pa se pridružijo kandidatom in bucikam na zemljevidu. <strong>Išči na
-              spletu</strong> uporablja OpenStreetMap (Nominatim) — najbolje za ulične naslove. <strong>Išči v GOV</strong>
+              spletu</strong> uporablja OpenStreetMap (Nominatim) — najbolje za ulične naslove. <strong>Išči v registru
+              naslovov</strong> se pojavi pri vrednostih s hišno številko (<em>Šentvid pri Stični 23</em>) in jo poišče v
+              uradnem slovenskem registru (GURS), kar da koordinato prav te stavbe in ne središča naselja.
+              <strong>Išči v GOV</strong>
               uporablja <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealoški imenik krajev
               (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev in stalni identifikator GOV; ob
               potrditvi zadetka GOV se ta identifikator zapiše tudi v datoteko kot <code>_GOV</code> (ob <code>MAP</code>),
               kar je trajna povezava nazaj na zapis GOV za druge rodoslovne programe. Sprejeta ujemanja se predpomnijo,
               tako da se druge datoteke razrešijo v hipu.
+            </p>
+            <p>
+              Pod seznamom krajev razdelek <strong>Naslovi s hišno številko</strong> pokriva drugo obliko: dogodke, pri katerih
+              kraj navaja samo naselje (<em>Kranj</em>), ulico ali številko pa navaja <strong>naslov</strong> dogodka
+              (<em>Kidričeva cesta 38</em>). Ti so združeni po kraju in naslovu, tako da en pregled zajame vse dogodke pri
+              tej hiši, poiščejo pa se v istem registru. Njihova koordinata se shrani <em>k naslovu</em> in ne h kraju —
+              vrednost kraja je skupna vsem dogodkom, ki jo navajajo, zato lege posamezne hiše ne smemo zapisati tja (pozneje
+              bi jo popravek koordinat v <a href="#tools">Pregledu zdravja</a> prekopiral na druge naslove istega naselja).
+              Kadar vrednost kraja že sama navaja hišo, se uporabi običajni <code>MAP</code> pod <code>PLAC</code>, tako kot
+              doslej.
+            </p>
+            <p>
+              Na vseh zemljevidih je dogodek izrisan na koordinati <strong>naslova</strong>, če jo ima, sicer pa na koordinati
+              kraja, zato se natančni in naselju zapisi prosto mešajo; oznaka bucike navede naslov, kadar je bil zabeležen ta.
             </p>
           </section>
 
