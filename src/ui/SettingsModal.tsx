@@ -202,7 +202,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     layers: "SI.GURS.RPE:OBCINE",
     attribution: "© Geodetska uprava RS · CC BY 4.0",
   },
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
