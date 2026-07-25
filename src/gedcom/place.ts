@@ -40,6 +40,18 @@ export function parseCoordPair(lati: string, long: string): GeoCoord | undefined
   return { lat, lon };
 }
 
+/**
+ * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580", or
+ * the GEDCOM hemisphere form "N46.24137 E14.3558" — into decimal degrees.
+ * Returns undefined unless exactly two parseable values are present, so a
+ * half-typed entry simply isn't offered yet.
+ */
+export function parseCoordInput(raw: string): GeoCoord | undefined {
+  const parts = raw.split(/[,;\s]+/).filter(Boolean);
+  if (parts.length !== 2) return undefined;
+  return parseCoordPair(parts[0], parts[1]);
+}
+
 /** One LATI/LONG value to signed decimal degrees; `negative` names the
  *  hemisphere letter that flips the sign (S for latitude, W for longitude). */
 function parseCoordValue(raw: string, negative: "S" | "W"): number | undefined {

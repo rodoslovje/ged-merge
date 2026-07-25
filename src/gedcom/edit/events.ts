@@ -1,7 +1,8 @@
 import { INDI_EVENT_TAGS } from "../eventTags";
 import { childrenByTag, firstChild, hasChild, removeChildren } from "../node";
 import { isPointer } from "../uri";
-import type { Family, GedNode, Individual } from "../types";
+import type { Family, GedNode, GeoCoord, Individual } from "../types";
+import { setPlaceCoord } from "./geo";
 import {
   EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
   insertOrdered, markEventTouched, setOrRemoveValue,
@@ -18,6 +19,11 @@ export interface EventFieldUpdate {
   place?: string;
   /** New ADDR value, or `""` to remove the address. Omit to leave unchanged. */
   address?: string;
+  /** Coordinates for this event's place (standard `PLAC`.`MAP`), or `null` to
+   *  remove them. Omit to leave unchanged. Per event, because the same place
+   *  value may be coordinated on one event and not another — and, once an
+   *  address is resolved, at the house rather than the settlement. */
+  coord?: GeoCoord | null;
   /** New NOTE value, or `""` to remove the first inline note. Omit to leave unchanged. */
   note?: string;
   /** New AGNC value (recording agency, e.g. parish), or `""` to remove it. Omit to leave unchanged. */
@@ -74,6 +80,15 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
+  if (update.coord !== undefined) {
+    // The place has to exist to hang a MAP on; a coordinate with no place is
+    // dropped rather than inventing a PLAC line.
+    const plac = eventNode.children.find((c) => c.tag === "PLAC" && c.value?.trim());
+    if (plac) {
+      if (update.coord === null) removeChildren(plac, "MAP");
+      else setPlaceCoord(plac, update.coord);
+    }
+  }
   if (update.note !== undefined) applyEventNote(eventNode, update.note, notes);
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);

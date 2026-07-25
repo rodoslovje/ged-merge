@@ -7,6 +7,7 @@ import { SourceRefs } from "../SourceRef";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
 import { placeCombosOf, placeKey } from "./placeSuggestions";
@@ -544,19 +545,20 @@ export function EventFieldsRow({
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
           />
-          {/* This event's own coordinate, when it has one — a pin so it's
-           *  visible here rather than only on a map, since the same place value
-           *  may be coordinated on one event and not another. The tooltip gives
-           *  the numbers; the pin is decorative, so it stays out of the tab
-           *  order and is hidden from screen readers by the title text. */}
-          {coord && (
-            <span
-              className="edit-event-coord"
-              title={t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })}
-            >
-              📍
-            </span>
-          )}
+          {/* This event's own coordinate: a pin showing whether it has one, and
+           *  opening the per-event picker. Here rather than only in the Tools
+           *  list because the same place value may be coordinated on one event
+           *  and not another — and because the Tools list only offers places
+           *  *missing* a coordinate, so a settlement-pinned place whose address
+           *  could be pinned at the house has no row there. */}
+          <EventCoordPicker
+            place={placeField.value}
+            address={addrField.value}
+            coord={coord}
+            title={label}
+            onPick={(c) => commitAll({ coord: c })}
+            onClear={() => commitAll({ coord: null })}
+          />
         </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, pickCombo)}
         {extraText(

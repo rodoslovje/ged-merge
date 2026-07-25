@@ -1,7 +1,6 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 import { decomposePlace } from "../gedcom/place";
-import { sameCoord } from "../geo/points";
 import { rnQueryFrom, type RnQuery } from "../geo/rn";
 import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "./geocode";
 
@@ -39,31 +38,41 @@ export interface AddressRow {
  *
  * Included when the ADDR yields a query and the events' coordinate is either
  * missing or no finer than the settlement's — the latter so an address can still
- * be sharpened after the place flow has filled in a settlement coordinate.
- * "The settlement's" is judged from the coordinates the bare place value carries
- * on events with no address at all.
+ * be sharpened after the place flow has filled in a settlement coordinate (the
+ * Geocode-places list only offers places missing one outright, so without this
+ * such an address would have nowhere to be resolved). Which coordinates count as
+ * settlement-precise is worked out in pass 1 below.
  *
  * Excluded when the PLAC itself names a house number: that value is already
  * house-specific, so the Geocode-places row resolves it against the register
  * directly and listing it here would ask the same question twice.
  */
 export function scanAddresses(dataset: Dataset): AddressRow[] {
-  // Pass 1: what coordinate does each bare place value carry where no address
-  // is involved? Those are settlement-precise by construction.
-  const settlementCoords = new Map<string, GeoCoord[]>();
+  // Pass 1: which coordinates are only settlement-precise? Two tells, because a
+  // house coordinate is by definition unique to its address:
+  //   - it sits on an event that names no address at all, or
+  //   - the same coordinate is shared by two *different* addresses — so it
+  //     cannot be either house, only the settlement they share.
+  // Checking just the first would miss a file where every event has an address
+  // (a gazetteer fill would then look house-precise and never be offered).
+  const addressesPerCoord = new Map<string, Set<string>>();
   const collect = (raw: GedNode) =>
     walkPlaceAddr(raw, (plac, addr) => {
-      if (addr) return;
       const coord = coordOf(plac);
       if (!coord) return;
-      const key = plac.value!.trim();
-      const list = settlementCoords.get(key);
-      if (list) {
-        if (!list.some((c) => sameCoord(c, coord))) list.push(coord);
-      } else settlementCoords.set(key, [coord]);
+      const key = `${plac.value!.trim()} ${coord.lat}:${coord.lon}`;
+      const seen = addressesPerCoord.get(key);
+      if (seen) seen.add(addr);
+      else addressesPerCoord.set(key, new Set([addr]));
     });
   for (const indi of dataset.individuals.values()) collect(indi.raw);
   for (const fam of dataset.families.values()) collect(fam.raw);
+
+  /** True when this coordinate is no finer than the settlement. */
+  const isSettlementCoord = (place: string, coord: GeoCoord): boolean => {
+    const seen = addressesPerCoord.get(`${place} ${coord.lat}:${coord.lon}`);
+    return !!seen && (seen.has("") || seen.size > 1);
+  };
 
   const groups = new Map<
     string,
@@ -77,7 +86,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       if (decomposePlace(place).houseNumber) return;
       const coord = coordOf(plac);
       // Already sharper than the settlement — nothing left to improve.
-      if (coord && !(settlementCoords.get(place) ?? []).some((c) => sameCoord(c, coord))) return;
+      if (coord && !isSettlementCoord(place, coord)) return;
       const query = rnQueryFrom(place || undefined, address);
       if (!query) return;
       const key = placeAddrKey(place, address);

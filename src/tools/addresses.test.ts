@@ -99,3 +99,38 @@ describe("applyAddressCoords", () => {
     expect(applyAddressCoords(ds, new Map([[placeAddrKey("Bled", "Bled 1"), HOUSE]]))).toEqual([]);
   });
 });
+
+describe("scanAddresses and existing coordinates", () => {
+  /** One person, two Kranj addresses, both already carrying `coord`. */
+  const withCoords = (coordA: string, coordB: string) => `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI ${coordA}
+4 LONG E14.35561
+2 ADDR Kidričeva cesta 38
+1 CENS
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI ${coordB}
+4 LONG E14.35561
+2 ADDR Koroška cesta 1
+0 TRLR`;
+
+  it("still offers an address whose coordinate is only the settlement's", () => {
+    // Both addresses share one coordinate, so it cannot be either house — it is
+    // the settlement's (a gazetteer fill). Both remain worth sharpening, even
+    // though no address-less event exists to reveal the settlement value.
+    const rows = scanAddresses(build(withCoords("N46.23887", "N46.23887")));
+    expect(rows.map((r) => r.address).sort()).toEqual(["Kidričeva cesta 38", "Koroška cesta 1"]);
+    expect(rows.every((r) => r.covered === 1)).toBe(true);
+  });
+
+  it("leaves an address alone once it has its own house coordinate", () => {
+    // Distinct coordinates per address: each is house-precise, nothing to do.
+    expect(scanAddresses(build(withCoords("N46.24137", "N46.23887")))).toEqual([]);
+  });
+});
