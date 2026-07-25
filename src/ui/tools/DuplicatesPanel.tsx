@@ -9,6 +9,7 @@ import {
   type DuplicateCluster,
 } from "../../tools/duplicates";
 import { categorize, DEFAULT_CONFIG, type MatchCategory } from "../../match/types";
+import { xrefLabel } from "../../gedcom/nameDisplay";
 import { individualFieldRows } from "../../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
@@ -205,12 +206,18 @@ export function DuplicatesPanel({
     setExpanded((cur) => (cur && openKeys.has(cur) ? null : cur));
   }
 
-  // Expanding a cluster inserts its pair rows below the header; scroll the
-  // header to the top of the viewport so the newly-revealed pairs are in view
-  // rather than pushed off-screen. The scroll runs from an effect once the rows
-  // (and the virtual model) have updated — see below.
-  const expandTargetRow = useRef(0);
-  const [expandTick, setExpandTick] = useState(0);
+  // Unfolding anything — a cluster's pair rows, or a pair's side-by-side
+  // comparison — pushes the newly-revealed content below the row that opened it.
+  // Scroll that row to the top of the viewport so what just opened is in view.
+  // The scroll runs from an effect, once the rows (and the virtual model's
+  // measurements) have updated — see below.
+  const pinTargetRow = useRef(0);
+  const [pinTick, setPinTick] = useState(0);
+  const pinRowToTop = useCallback((rowIndex: number) => {
+    pinTargetRow.current = rowIndex;
+    setPinTick((t) => t + 1);
+  }, []);
+
   // Stable identity so the keydown handler (subscribed once per `active`) can
   // call it without re-subscribing; the live set is read through a mirror ref.
   const expandedClustersRef = useRef(expandedClusters);
@@ -223,11 +230,15 @@ export function DuplicatesPanel({
       else next.add(id);
       return next;
     });
-    if (willExpand && rowIndex !== undefined) {
-      expandTargetRow.current = rowIndex;
-      setExpandTick((t) => t + 1);
-    }
-  }, []);
+    if (willExpand && rowIndex !== undefined) pinRowToTop(rowIndex);
+  }, [pinRowToTop]);
+
+  // Same for a single pair's comparison: opening it pins its row to the top.
+  const togglePair = useCallback((key: string, rowIndex?: number) => {
+    const willOpen = expandedRef.current !== key;
+    setExpanded(willOpen ? key : null);
+    if (willOpen && rowIndex !== undefined) pinRowToTop(rowIndex);
+  }, [pinRowToTop]);
 
   // Open a related pair surfaced from inside an open comparison (a spouse/parent
   // that is a separate record on each side). Reuse the pair if it's already in
@@ -271,11 +282,11 @@ export function DuplicatesPanel({
     scrollToIndex(selected);
   }, [selected, scrollToIndex]);
 
-  // After a cluster is unfolded, pin its header to the top of the viewport.
+  // After a cluster or a pair comparison is unfolded, pin its row to the top.
   useEffect(() => {
-    if (expandTick === 0) return;
-    scrollToIndex(expandTargetRow.current, "start");
-  }, [expandTick, scrollToIndex]);
+    if (pinTick === 0) return;
+    scrollToIndex(pinTargetRow.current, "start");
+  }, [pinTick, scrollToIndex]);
 
   // Left/Right step the highlight between rows; Enter toggles the selected row
   // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
@@ -303,7 +314,7 @@ export function DuplicatesPanel({
         if (!row) return;
         e.preventDefault();
         if (row.kind === "cluster") toggleCluster(row.cluster.id, selectedRef.current);
-        else setExpanded((cur) => (cur === row.key ? null : row.key));
+        else togglePair(row.key, selectedRef.current);
         return;
       }
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -315,7 +326,7 @@ export function DuplicatesPanel({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, toggleCluster]);
+  }, [active, toggleCluster, togglePair]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -417,7 +428,14 @@ export function DuplicatesPanel({
                         <span className={`tools-cat cat-${categorize(Math.round(c.maxScore) / 100, DEFAULT_CONFIG)}`}>
                           {Math.round(c.maxScore)}
                         </span>
-                        <span className="tools-dup-cluster-label">{c.pairs[0].aLabel}</span>
+                        <span
+                          className="tools-dup-cluster-label"
+                          title={t("tools.duplicates.cluster.recordIds", {
+                            ids: c.memberIds.map(xrefLabel).join(", "),
+                          })}
+                        >
+                          {c.pairs[0].aLabel}
+                        </span>
                         <span className="tools-dup-cluster-meta">
                           {t("tools.duplicates.cluster.records", { count: c.memberIds.length })}
                           {" · "}
@@ -425,10 +443,10 @@ export function DuplicatesPanel({
                         </span>
                         <button
                           className="tools-issue-link tools-dup-cluster-dismiss"
-                          title={t("tools.duplicates.cluster.dismissAllTitle")}
+                          title={t("tools.duplicates.cluster.rejectAllTitle")}
                           onClick={() => dismissCluster(c)}
                         >
-                          {t("tools.duplicates.cluster.dismissAll")}
+                          {t("tools.duplicates.cluster.rejectAll")}
                         </button>
                       </div>
                     </li>
@@ -448,7 +466,7 @@ export function DuplicatesPanel({
                       ) : (
                         <button
                           className={`tools-pair-toggle ${open ? "open" : ""}`}
-                          onClick={() => setExpanded(open ? null : key)}
+                          onClick={() => togglePair(key, i)}
                           title={open ? t("tools.duplicates.hideCompare") : t("tools.duplicates.showCompare")}
                           aria-expanded={open}
                         >
@@ -456,9 +474,11 @@ export function DuplicatesPanel({
                         </button>
                       )}
                       <span className={`tools-cat cat-${categorize(Math.round(p.score) / 100, DEFAULT_CONFIG)}`}>{Math.round(p.score)}</span>
-                      <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} />
+                      {/* Record ids always show here: telling two look-alike
+                          records apart is this tool's whole job. */}
+                      <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} forceXref />
                       <span className="tools-pair-sep">↔</span>
-                      <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} />
+                      <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} forceXref />
                       {showRejected && (
                         <button
                           className="tools-issue-link tools-pair-unreject"
