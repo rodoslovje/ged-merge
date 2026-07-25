@@ -24,6 +24,7 @@ import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
 import { useChartSettings } from "../ChartSettingsContext";
 import { overlayDisplayName, useNameOf, useSettings } from "../SettingsContext";
+import { resolveOverlay } from "./overlayPresets";
 import { sexClass } from "../sex";
 import { ChartRootTitle } from "../ChartRootTitle";
 import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
@@ -170,7 +171,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const [panel, setPanel] = useState<MapCluster | null>(null);
   // Historical overlay layers (configured in Settings → Advanced): which are
   // shown and how opaque — session state; the layer definitions persist.
-  const overlays = appSettings.mapOverlays;
+  // Preset-added overlays reflect the live preset definition; custom ones pass
+  // through unchanged. Resolving here keeps the renderer/picker/click in sync.
+  const overlays = useMemo(() => appSettings.mapOverlays.map(resolveOverlay), [appSettings.mapOverlays]);
   const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(new Set());
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
