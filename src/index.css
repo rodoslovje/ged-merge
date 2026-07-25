@@ -6669,6 +6669,7 @@ kbd {
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
 .tools-reshape-badge.remove { color: var(--danger); border-color: var(--danger); }
+.tools-reshape-badge.official { color: var(--status-import); border-color: var(--status-import); }
 /* Format tab: compact grouped rows — label left, override select right,
    the explanation lives in the row's hover tooltip. */
 .settings-format-group { padding-bottom: 4px; }

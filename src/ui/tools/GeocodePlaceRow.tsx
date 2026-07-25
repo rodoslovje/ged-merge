@@ -1,10 +1,11 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
+import { rnQueryFrom, searchAddress, type RnResult } from "../../geo/rn";
 import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
@@ -128,6 +129,24 @@ export function GeocodePlaceRow({
     searchGov(row.key, i18n.language).then(
       (results) => setGov({ state: "done", results }),
       () => setGov({ state: "error", results: [] }),
+    );
+  };
+
+  // GURS address register — the official Slovenian house-number gazetteer. Only
+  // offered when this row's place value actually carries a house number, since
+  // that is what the register resolves; the settlement alone is the offline
+  // gazetteer's job. Same online opt-in and explicit-button model as the others.
+  const rnQuery = useMemo(() => rnQueryFrom(row.key, undefined), [row.key]);
+  const [rn, setRn] = useState<{ state: "idle" | "loading" | "error" | "done"; results: RnResult[] }>({
+    state: "idle",
+    results: [],
+  });
+  const runRnSearch = () => {
+    if (!rnQuery) return;
+    setRn({ state: "loading", results: [] });
+    searchAddress(rnQuery).then(
+      (results) => setRn({ state: "done", results }),
+      () => setRn({ state: "error", results: [] }),
     );
   };
 
@@ -330,7 +349,15 @@ export function GeocodePlaceRow({
           {(() => {
             // Cheap gates first — under "Expand all" most rows render
             // the claim link, and must not build throwaway pin arrays.
-            if (!row.candidates.length && !c && !draftCoord && !online.results.length && !gov.results.length && !fileCoords.length)
+            if (
+              !row.candidates.length &&
+              !c &&
+              !draftCoord &&
+              !online.results.length &&
+              !gov.results.length &&
+              !rn.results.length &&
+              !fileCoords.length
+            )
               return null;
             if (!hasMap)
               return (
@@ -365,6 +392,15 @@ export function GeocodePlaceRow({
                 label: `${r.name} · GOV`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 onPick: () => onPickCoord(row, r.coord, r.name, r.govId),
+              });
+            }
+            for (const r of rn.results) {
+              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
+              pins.push({
+                coord: r.coord,
+                label: `${r.address} · GURS`,
+                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                onPick: () => onPickCoord(row, r.coord, r.address),
               });
             }
             if (c && !pins.some((p) => sameCoord(p.coord, c.coord)))
@@ -481,6 +517,23 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             ))}
+            {rn.results.map((r, i) => (
+              <li key={`rn-${i}`}>
+                <label title={r.label}>
+                  <input
+                    type="radio"
+                    name={`geo-${row.key}`}
+                    checked={sameCoord(c?.coord, r.coord)}
+                    onChange={() => onPickCoord(row, r.coord, r.address)}
+                  />
+                  <span className="tools-geo-cand-name">{r.label}</span>
+                  <span className="gm-data">
+                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                  </span>
+                  <span className="tools-reshape-badge official">GURS</span>
+                </label>
+              </li>
+            ))}
             {/* Online (Nominatim) search for what the offline gazetteer
                 can't resolve — above all street addresses. Explicit per-row
                 action behind the online opt-in: the text leaves the device. */}
@@ -509,6 +562,24 @@ export function GeocodePlaceRow({
                 {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
                 {gov.state === "done" && !gov.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
+                )}
+                {/* Only for a value that names a house number — the register
+                    resolves houses, not settlements. */}
+                {rnQuery && (
+                  <>
+                    <button
+                      className="tools-issue-link"
+                      disabled={rn.state === "loading"}
+                      title={t("tools.geocode.rn.tooltip")}
+                      onClick={runRnSearch}
+                    >
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
+                    {rn.state === "done" && !rn.results.length && (
+                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                    )}
+                  </>
                 )}
               </li>
             )}
