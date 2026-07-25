@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
@@ -205,13 +205,29 @@ export function DuplicatesPanel({
     setExpanded((cur) => (cur && openKeys.has(cur) ? null : cur));
   }
 
-  const toggleCluster = (id: string) =>
+  // Expanding a cluster inserts its pair rows below the header; scroll the
+  // header to the top of the viewport so the newly-revealed pairs are in view
+  // rather than pushed off-screen. The scroll runs from an effect once the rows
+  // (and the virtual model) have updated — see below.
+  const expandTargetRow = useRef(0);
+  const [expandTick, setExpandTick] = useState(0);
+  // Stable identity so the keydown handler (subscribed once per `active`) can
+  // call it without re-subscribing; the live set is read through a mirror ref.
+  const expandedClustersRef = useRef(expandedClusters);
+  expandedClustersRef.current = expandedClusters;
+  const toggleCluster = useCallback((id: string, rowIndex?: number) => {
+    const willExpand = !expandedClustersRef.current.has(id);
     setExpandedClusters((s) => {
       const next = new Set(s);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    if (willExpand && rowIndex !== undefined) {
+      expandTargetRow.current = rowIndex;
+      setExpandTick((t) => t + 1);
+    }
+  }, []);
 
   // Open a related pair surfaced from inside an open comparison (a spouse/parent
   // that is a separate record on each side). Reuse the pair if it's already in
@@ -255,6 +271,12 @@ export function DuplicatesPanel({
     scrollToIndex(selected);
   }, [selected, scrollToIndex]);
 
+  // After a cluster is unfolded, pin its header to the top of the viewport.
+  useEffect(() => {
+    if (expandTick === 0) return;
+    scrollToIndex(expandTargetRow.current, "start");
+  }, [expandTick, scrollToIndex]);
+
   // Left/Right step the highlight between rows; Enter toggles the selected row
   // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
   // surrounding list. Mirrors the Merge view's compare-panel shortcuts.
@@ -280,7 +302,7 @@ export function DuplicatesPanel({
         const row = list[selectedRef.current];
         if (!row) return;
         e.preventDefault();
-        if (row.kind === "cluster") toggleCluster(row.cluster.id);
+        if (row.kind === "cluster") toggleCluster(row.cluster.id, selectedRef.current);
         else setExpanded((cur) => (cur === row.key ? null : row.key));
         return;
       }
@@ -293,7 +315,7 @@ export function DuplicatesPanel({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active]);
+  }, [active, toggleCluster]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -354,7 +376,11 @@ export function DuplicatesPanel({
               {!showRejected && hiddenByScore > 0 && (
                 <>
                   {" · "}
-                  <button className="tools-issue-link" onClick={() => setMinScore(50)}>
+                  <button
+                    className="tools-issue-link"
+                    title={t("tools.duplicates.hiddenByScoreTip")}
+                    onClick={() => setMinScore(50)}
+                  >
                     {t("tools.duplicates.hiddenByScore", { count: hiddenByScore })}
                   </button>
                 </>
@@ -382,13 +408,13 @@ export function DuplicatesPanel({
                       <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                         <button
                           className={`tools-pair-toggle ${unfolded ? "open" : ""}`}
-                          onClick={() => toggleCluster(c.id)}
+                          onClick={() => toggleCluster(c.id, i)}
                           title={unfolded ? t("tools.duplicates.cluster.collapse") : t("tools.duplicates.cluster.expand")}
                           aria-expanded={unfolded}
                         >
                           ▶
                         </button>
-                        <span className={`tools-cat cat-${categorize(c.maxScore / 100, DEFAULT_CONFIG)}`}>
+                        <span className={`tools-cat cat-${categorize(Math.round(c.maxScore) / 100, DEFAULT_CONFIG)}`}>
                           {Math.round(c.maxScore)}
                         </span>
                         <span className="tools-dup-cluster-label">{c.pairs[0].aLabel}</span>
@@ -429,7 +455,7 @@ export function DuplicatesPanel({
                           ▶
                         </button>
                       )}
-                      <span className={`tools-cat cat-${p.category}`}>{Math.round(p.score)}</span>
+                      <span className={`tools-cat cat-${categorize(Math.round(p.score) / 100, DEFAULT_CONFIG)}`}>{Math.round(p.score)}</span>
                       <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} />
                       <span className="tools-pair-sep">↔</span>
                       <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} />
