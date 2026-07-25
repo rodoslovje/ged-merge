@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  HIGH_CONFIDENCE,
   buildGazetteerIndex,
   lookupPlace,
   overpassToEntries,
@@ -189,6 +190,37 @@ describe("rpeNaseljaToEntries", () => {
     expect(entries.map((e) => e.name)).toEqual(["Črta"]);
     expect(entries[0].lon).toBeCloseTo(15, 6);
     expect(entries[0].lat).toBeCloseTo(46.75, 6);
+  });
+});
+
+describe("two gazetteers loaded for one country", () => {
+  const osm = (name: string, lat: number, lon: number, population = 5000): GazEntry => ({
+    name, ascii: "", alt: [], lat, lon, fclass: "P", country: "SI", admin1: "", population,
+  });
+
+  it("collapses the same settlement seen by both, keeping the authoritative coordinate", () => {
+    // An OpenStreetMap "SI" import and the GURS register both carry Bled.
+    const gurs = rpeNaseljaToEntries({
+      features: [
+        {
+          properties: { NAZIV: "Bled" },
+          geometry: { type: "Polygon", coordinates: [[[14.09, 46.36], [14.11, 46.36], [14.11, 46.38], [14.09, 46.38], [14.09, 46.36]]] },
+        },
+      ],
+    });
+    const index = buildGazetteerIndex([osm("Bled", 46.3683, 14.1132, 5181), ...gurs]);
+    const hits = lookupPlace(index, "Bled");
+    // One candidate, not two near-identical twins — otherwise the tied scores
+    // make the row look ambiguous and bulk-accept skips it.
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entry.authoritative).toBe(true);
+    expect(hits[0].entry.lon).toBeCloseTo(14.1, 6);
+    expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
+  });
+
+  it("keeps same-named places that are genuinely far apart", () => {
+    const index = buildGazetteerIndex([osm("Log", 46.05, 14.3), osm("Log", 46.5, 15.6)]);
+    expect(lookupPlace(index, "Log")).toHaveLength(2);
   });
 });
 

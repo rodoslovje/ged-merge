@@ -15,6 +15,10 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 // each country into the gedmerge-geo IndexedDB. Progress is reported by
 // input bytes so a 100 MB extract shows movement immediately.
 
+/** Storage key for the GURS settlements import — deliberately not a bare ISO
+ *  code, so it coexists with a GeoNames/OpenStreetMap "SI" gazetteer. */
+const RPE_STORE_CODE = "SI-GURS";
+
 function post(msg: GeoWorkerResponse): void {
   (self as unknown as Worker).postMessage(msg);
 }
@@ -52,8 +56,13 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     if (msg.format === "rpe") {
       const entries = rpeNaseljaToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as RpeNaseljaJson);
       if (!entries.length) throw new Error("no settlements in the GURS result");
-      await putCountry({ code: "SI", count: entries.length, importedAt: Date.now(), entries });
-      post({ type: "result", requestId, countries: [{ code: "SI", count: entries.length }] });
+      // Stored under its own key so it sits alongside a GeoNames/OpenStreetMap
+      // "SI" import instead of replacing it — the two complement each other
+      // (GURS has the official settlements and bilingual names, OSM the hamlet
+      // tail). The key is a storage label only: the entries themselves stay
+      // country "SI", which is what lookupPlace's country gate compares.
+      await putCountry({ code: RPE_STORE_CODE, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code: RPE_STORE_CODE, count: entries.length }] });
       return;
     }
     if (msg.format === "overpass") {

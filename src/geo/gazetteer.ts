@@ -25,6 +25,11 @@ export interface GazEntry {
   /** Admin1 code (region), informational only. */
   admin1: string;
   population: number;
+  /** Set when the entry comes from an official national register (GURS) rather
+   *  than a crowd-sourced or aggregated one. Used only to break score ties, so
+   *  the authoritative coordinate is the one kept when two loaded gazetteers
+   *  describe the same settlement. */
+  authoritative?: boolean;
 }
 
 /** Feature classes worth importing: settlements and admin divisions. */
@@ -216,6 +221,7 @@ export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
       country: "SI",
       admin1: "",
       population: 0,
+      authoritative: true,
     });
   }
   return entries;
@@ -275,6 +281,10 @@ const MIN_FUZZY = 0.87;
 
 const MAX_CANDIDATES = 6;
 
+/** Same-named entries closer than this (degrees, ≈5 km at Slovenian latitudes)
+ *  are the same settlement described by two gazetteers, not two places. */
+const DUPLICATE_DEG = 0.05;
+
 /**
  * Candidates for one raw place string: the locality part is matched exactly
  * (primary/ascii/alternate names), then fuzzily within its 2-char bucket;
@@ -331,6 +341,28 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     score = Math.min(1, score + Math.min(e.population, 500_000) / 500_000 / 50);
     candidates.push({ entry: e, score });
   }
-  candidates.sort((a, b) => b.score - a.score || b.entry.population - a.entry.population);
-  return candidates.slice(0, MAX_CANDIDATES);
+  candidates.sort(
+    (a, b) =>
+      b.score - a.score ||
+      Number(b.entry.authoritative ?? false) - Number(a.entry.authoritative ?? false) ||
+      b.entry.population - a.entry.population,
+  );
+  // With two gazetteers loaded for one country (the official register plus an
+  // OpenStreetMap or GeoNames import) the same settlement appears twice, at
+  // near-identical scores. Left alone those twins crowd out real alternatives
+  // and, because the scores tie, make every such place look ambiguous to the
+  // bulk-accept gate — so collapse each cluster to its best (authoritative)
+  // entry. Same-named places genuinely far apart stay separate.
+  const merged: GazCandidate[] = [];
+  for (const c of candidates) {
+    const folded = foldToken(c.entry.name);
+    const twin = merged.some(
+      (k) =>
+        foldToken(k.entry.name) === folded &&
+        Math.abs(k.entry.lat - c.entry.lat) < DUPLICATE_DEG &&
+        Math.abs(k.entry.lon - c.entry.lon) < DUPLICATE_DEG,
+    );
+    if (!twin) merged.push(c);
+  }
+  return merged.slice(0, MAX_CANDIDATES);
 }
