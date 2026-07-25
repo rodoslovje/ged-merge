@@ -209,7 +209,7 @@ export function AddressCoordsSection({
                 );
               })()}
               {isOpen && (
-                <ul className="tools-geo-addr-list tools-tree-children">
+                <ul className="tools-tree-children tools-geo-addr-sublist">
                   {group.rows.map((row) => {
                     const search = searches.get(row.key) ?? IDLE;
                     const chosen = picked.get(row.key);

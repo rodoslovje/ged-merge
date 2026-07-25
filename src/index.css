@@ -6960,5 +6960,11 @@ kbd {
 /* Address rows grouped under their place: one collapsible group per place, so a
    file with hundreds of addresses is worked through a place at a time. */
 .tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }
+/* The addresses (and the map) line up under their place name. Deliberately no
+   padding/margin of its own: .tools-tree-children owns the indent, and setting
+   them here would override it — .tools-geo-addr-list's `padding: 0` did exactly
+   that while it was on this element. */
+.tools-geo-addr-sublist { list-style: none; }
+.tools-geo-addr-group > .tools-geo-minimap { margin-left: 26px; }
 .tools-geo-addr-group:last-child { border-bottom: none; }
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }
