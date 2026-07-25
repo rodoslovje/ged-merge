@@ -1160,6 +1160,8 @@ export const en = {
   "settings.map.overlays.wmsUrl.hint": "The WMS service base endpoint, e.g. https://…/wms — no query string; the map appends the GetMap request itself.",
   "settings.map.overlays.wmsLayers": "WMS layer(s), comma-separated",
   "settings.map.overlays.wmsLayers.hint": "The WMS layer name(s) to draw, exactly as published in the service's GetCapabilities (comma-separated for several).",
+  "settings.map.overlays.wmsParams": "Extra WMS params (optional)",
+  "settings.map.overlays.wmsParams.hint": "Extra GetMap query params as KEY=value&KEY=value — e.g. TIME=2011-01-01T00:00:00.000Z to pick the year of a time-enabled layer, or a CQL_FILTER.",
   "settings.map.overlays.remove": "Remove layer",
   "settings.data.title": "Locally stored data",
   "settings.data.persist": "Remember my work in this browser",

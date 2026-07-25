@@ -1261,6 +1261,8 @@ export const sl = {
   "settings.map.overlays.wmsUrl.hint": "Osnovni naslov storitve WMS, npr. https://…/wms — brez poizvedbe; zahtevo GetMap doda zemljevid sam.",
   "settings.map.overlays.wmsLayers": "Sloj(i) WMS, ločeni z vejico",
   "settings.map.overlays.wmsLayers.hint": "Ime sloja WMS za izris, natanko kot je objavljeno v GetCapabilities storitve (za več slojev ločite z vejico).",
+  "settings.map.overlays.wmsParams": "Dodatni parametri WMS (izbirno)",
+  "settings.map.overlays.wmsParams.hint": "Dodatni parametri GetMap v obliki KLJUČ=vrednost&KLJUČ=vrednost — npr. TIME=2011-01-01T00:00:00.000Z za izbiro leta časovnega sloja ali CQL_FILTER.",
   "settings.map.overlays.remove": "Odstrani sloj",
   "settings.data.title": "Lokalno hranjeni podatki",
   "settings.data.persist": "Zapomni si moje delo v tem brskalniku",

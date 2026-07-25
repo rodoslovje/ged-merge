@@ -150,10 +150,14 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
   // served in Web Mercator on demand. Reference (present-day) layers useful for
   // locating an ancestral place; no validity period, so never era-suggested.
   {
-    name: "Slovenia · Historical orthophoto (GURS)",
+    // Time-enabled layer: DOF5 historical aerial survey. TIME picks the year
+    // (1990–2025 available); coverage is patchy per year since the survey is
+    // cyclic — change the year on the layer in Settings if a spot is blank.
+    name: "Slovenia · Historical orthophoto 2011 (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF050_Z",
+    params: "TIME=2011-01-01T00:00:00.000Z",
     attribution: "© Geodetska uprava RS · CC BY 4.0",
   },
   {
@@ -168,13 +172,6 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.DK:DTK50",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
-  },
-  {
-    name: "Slovenia · Base topographic plan 1:5 000/10 000 (GURS)",
-    wms: true,
-    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
-    layers: "SI.GURS.DK:TTN5_TTN10",
     attribution: "© Geodetska uprava RS · CC BY 4.0",
   },
   {
@@ -646,14 +643,24 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     </label>
                   </div>
                   {layer.wms && (
-                    <input
-                      type="text"
-                      className="settings-text-input"
-                      value={layer.layers ?? ""}
-                      placeholder={t("settings.map.overlays.wmsLayers")}
-                      title={t("settings.map.overlays.wmsLayers.hint")}
-                      onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
-                    />
+                    <>
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.layers ?? ""}
+                        placeholder={t("settings.map.overlays.wmsLayers")}
+                        title={t("settings.map.overlays.wmsLayers.hint")}
+                        onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.params ?? ""}
+                        placeholder={t("settings.map.overlays.wmsParams")}
+                        title={t("settings.map.overlays.wmsParams.hint")}
+                        onChange={(e) => update({ params: e.target.value.trim() || undefined })}
+                      />
+                    </>
                   )}
                   <div className="settings-overlay-line">
                     <input

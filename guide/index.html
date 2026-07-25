@@ -495,10 +495,14 @@
                 <strong>Settings → Map → Historical overlay layers</strong>: a name, a tile URL template
                 with <code>{z}/{x}/{y}</code>, the years the map depicts, and its required attribution (subscription
                 sources such as Arcanum/Mapire work with the tile URL from your account). Tick <strong>WMS</strong>
-                for an OGC&nbsp;WMS service instead — then the URL is the service endpoint (…/wms) and you name the
-                layer(s) to draw. The <em>Add a free preset…</em> menu includes Slovenia's national
-                <strong>GURS</strong> maps (historical and current orthophoto, topographic and base plans, cadastral
-                parcels, house numbers, settlements, municipalities). The map's
+                for an OGC&nbsp;WMS service instead — then the URL is the service endpoint (…/wms), you name the
+                layer(s) to draw, and an optional extra-params box carries things like a time-enabled layer's
+                <code>TIME=</code> year. The <em>Add a free preset…</em> menu includes Slovenia's national
+                <strong>GURS</strong> maps (historical and current orthophoto, topographic map, cadastral
+                parcels, house numbers, settlements, municipalities). Some layers only draw at certain zooms — the
+                cadastre and house numbers when you zoom in close, settlement and municipality outlines when zoomed
+                out; the historical orthophoto shows one survey year (change it in the layer's extra params if a
+                spot is blank). The map's
                 <strong>Overlays</strong> chip then lists your layers with an opacity slider each, and highlights the
                 ones whose period matches the selected year window — the map of your ancestor's own time.</li>
               <li><strong>Privacy</strong> — the base street map is <em>opt-in</em>: until you allow tiles (one click on

@@ -70,6 +70,21 @@ const OVERLAY_DEFAULT_OPACITY = 0.7;
 /** Leaflet z-index for overlay tile layers — above the base (1). */
 const OVERLAY_Z = 5;
 
+/** Parse a WMS overlay's raw `KEY=value&KEY=value` extra-params string into an
+ *  object Leaflet folds into the GetMap query (e.g. a time-enabled layer's
+ *  `TIME`, or a `CQL_FILTER`). Malformed pairs are skipped. */
+function parseWmsParams(raw: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw) return out;
+  for (const pair of raw.split("&")) {
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const key = pair.slice(0, eq).trim();
+    if (key) out[key] = pair.slice(eq + 1).trim();
+  }
+  return out;
+}
+
 /** Stacked-layers glyph for the historical-overlays picker chip. */
 function LayersIcon() {
   return (
@@ -191,7 +206,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
   const overlayLayersRef = useRef<
-    Map<string, { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string; wms?: boolean; layers?: string }>
+    Map<
+      string,
+      { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string; wms?: boolean; layers?: string; params?: string }
+    >
   >(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
@@ -257,7 +275,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         o.maxZoom !== entry.maxZoom ||
         o.attribution !== entry.attribution ||
         !!o.wms !== !!entry.wms ||
-        o.layers !== entry.layers;
+        o.layers !== entry.layers ||
+        o.params !== entry.params;
       if (stale) {
         entry.layer.remove();
         live.delete(id);
@@ -274,6 +293,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       }
       const layer: L.TileLayer = o.wms
         ? L.tileLayer.wms(o.url, {
+            // Extra params first so the fixed ones below can't be overridden.
+            ...parseWmsParams(o.params),
             layers: o.layers ?? "",
             format: "image/png",
             transparent: true,
@@ -294,7 +315,15 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             zIndex: OVERLAY_Z,
           });
       layer.addTo(map);
-      live.set(o.id, { layer, url: o.url, maxZoom: o.maxZoom, attribution: o.attribution, wms: o.wms, layers: o.layers });
+      live.set(o.id, {
+        layer,
+        url: o.url,
+        maxZoom: o.maxZoom,
+        attribution: o.attribution,
+        wms: o.wms,
+        layers: o.layers,
+        params: o.params,
+      });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
 

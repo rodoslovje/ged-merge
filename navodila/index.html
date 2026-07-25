@@ -498,10 +498,14 @@
                 <strong>Nastavitve → Zemljevid → Zgodovinski sloji zemljevida</strong>: ime, predloga URL ploščic
                 z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
                 (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Za storitev
-                OGC&nbsp;WMS obkljukajte <strong>WMS</strong> — takrat je URL naslov storitve (…/wms), vi pa navedete
-                sloj(e) za izris. Meni <em>Dodaj brezplačen sloj…</em> vključuje slovenske državne karte
-                <strong>GURS</strong> (zgodovinski in aktualni ortofoto, topografske in temeljne načrte, katastrske
-                parcele, hišne številke, naselja, občine). Značka
+                OGC&nbsp;WMS obkljukajte <strong>WMS</strong> — takrat je URL naslov storitve (…/wms), navedete
+                sloj(e) za izris, izbirno polje z dodatnimi parametri pa prenese npr. <code>TIME=</code> leto
+                časovnega sloja. Meni <em>Dodaj brezplačen sloj…</em> vključuje slovenske državne karte
+                <strong>GURS</strong> (zgodovinski in aktualni ortofoto, topografsko karto, katastrske
+                parcele, hišne številke, naselja, občine). Nekateri sloji se izrišejo le pri določenih povečavah —
+                kataster in hišne številke pri bližnji povečavi, obrisi naselij in občin pri oddaljeni; zgodovinski
+                ortofoto prikaže eno leto snemanja (če je mesto prazno, ga spremenite v dodatnih parametrih sloja).
+                Značka
                 <strong>Sloji</strong> na zemljevidu nato našteje vaše sloje, vsakega s svojim drsnikom prosojnosti, in
                 označi tiste, katerih obdobje ustreza izbranemu oknu let — karta iz časa vašega prednika.</li>
               <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
