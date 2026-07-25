@@ -95,6 +95,49 @@ describe("coordinate lifting (builder)", () => {
   });
 });
 
+describe("projectPoints address preference", () => {
+  // Two RESI events in the same settlement: one has a house coordinate from the
+  // address register under ADDR._MAP, the other only the settlement's PLAC.MAP.
+  const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 RESI
+2 DATE 1890
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.2389
+4 LONG E14.3556
+2 ADDR Kidričeva cesta 38
+3 _MAP
+4 LATI N46.24137
+4 LONG E14.35580
+1 RESI
+2 DATE 1900
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.2389
+4 LONG E14.3556
+0 TRLR`);
+  const points = projectPoints(ds);
+
+  it("pins the house coordinate when the address has one", () => {
+    const p = points.find((x) => x.year === 1890)!;
+    expect(p.coord.lat).toBeCloseTo(46.24137, 5);
+    expect(p.coord.lon).toBeCloseTo(14.3558, 4);
+    // The address is reported so the popup can name what was pinned.
+    expect(p.address).toBe("Kidričeva cesta 38");
+    expect(p.place).toBe("Kranj, Slovenija");
+  });
+
+  it("falls back to the place coordinate when the address has none", () => {
+    const p = points.find((x) => x.year === 1900)!;
+    expect(p.coord.lat).toBeCloseTo(46.2389, 4);
+    expect(p.address).toBeUndefined();
+  });
+});
+
 describe("projectPoints", () => {
   const ds = buildFromText(SAMPLE);
   const points = projectPoints(ds);

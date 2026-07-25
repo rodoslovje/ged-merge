@@ -51,3 +51,49 @@ export function setPlaceCoord(placNode: GedNode, coord: GeoCoord, govId?: string
     }
   }
 }
+
+/**
+ * Write a house-precise coordinate from the address register onto one event.
+ *
+ * Which tag it lands in depends on whether PLAC can legitimately hold it:
+ *
+ *  - **PLAC names the house** (`PLAC Šentvid pri Stični 23`) — the place string
+ *    identifies that house, so every occurrence of it shares this coordinate.
+ *    Written as the standard `PLAC.MAP`, which every other program reads.
+ *  - **PLAC names only the settlement** and the number is in ADDR — the place
+ *    string is shared by every event in that settlement, so a house coordinate
+ *    must not go there: `scanSplitCoordPlaces` would later offer to copy it onto
+ *    the settlement's other, differently-addressed events. It goes under ADDR as
+ *    `_MAP` instead. GEDCOM defines `MAP` under `PLAC` only, so there is no
+ *    standard alternative; the `_` prefix marks it a vendor extension (as with
+ *    `_GOV` above), which readers skip rather than misinterpret.
+ *
+ * Returns the tag written, or undefined when the event has neither node.
+ */
+export function setAddressCoord(eventNode: GedNode, coord: GeoCoord, placeNamesHouse: boolean): "PLAC" | "_MAP" | undefined {
+  const plac = eventNode.children.find((c) => c.tag === "PLAC");
+  if (placeNamesHouse && plac) {
+    setPlaceCoord(plac, coord);
+    return "PLAC";
+  }
+  const addr = eventNode.children.find((c) => c.tag === "ADDR");
+  if (!addr) {
+    // No ADDR to hang it on: fall back to PLAC rather than dropping the pick.
+    if (!plac) return undefined;
+    setPlaceCoord(plac, coord);
+    return "PLAC";
+  }
+  const level = addr.level + 1;
+  let map = addr.children.find((c) => c.tag === "_MAP");
+  if (!map) {
+    map = { level, tag: "_MAP", children: [] };
+    // After the structured address parts (ADR1/CITY/POST/…), so a reader that
+    // walks them in order is unaffected.
+    addr.children.push(map);
+  }
+  map.children = [
+    { level: level + 1, tag: "LATI", value: formatCoordValue(coord.lat, "lat"), children: [] },
+    { level: level + 1, tag: "LONG", value: formatCoordValue(coord.lon, "lon"), children: [] },
+  ];
+  return "_MAP";
+}

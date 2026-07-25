@@ -53,19 +53,27 @@ export interface MapPoint {
   year?: number;
   /** Place display text (the raw PLAC value). */
   place: string;
+  /** Raw ADDR value, set only when `coord` is the address's own house-precise
+   *  coordinate rather than the place's — so the popup can show what was
+   *  actually pinned. */
+  address?: string;
   coord: GeoCoord;
 }
 
 function pointFrom(event: GedEvent, personIds: string[], familyId?: string): MapPoint | undefined {
-  const coord = event.place?.coord;
+  // The address coordinate wins where there is one: it locates the actual house
+  // (from the address register), while the place coordinate is the settlement it
+  // stands in. The place remains the fallback, and stays the display text.
+  const coord = event.address?.coord ?? event.place?.coord;
   if (!coord) return undefined;
   const point: MapPoint = {
     personIds,
     tag: event.tag,
     kind: eventKindOf(event.tag),
-    place: event.place!.raw,
+    place: event.place?.raw ?? event.address!.raw,
     coord,
   };
+  if (event.address?.coord) point.address = event.address.raw;
   if (familyId) point.familyId = familyId;
   if (event.date?.year !== undefined) point.year = event.date.year;
   return point;
