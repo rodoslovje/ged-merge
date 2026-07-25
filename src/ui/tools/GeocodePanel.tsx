@@ -56,7 +56,10 @@ interface Props {
   startId?: string;
 }
 
-/** Read a response body with byte progress (falls back to one shot). */
+/** Read a response body with byte progress (falls back to one shot). `total` is
+ *  0 when the server announced no Content-Length — chunked transfer, which both
+ *  Overpass and the GURS endpoint use — and the caller shows bytes instead of a
+ *  percentage in that case. */
 async function readWithProgress(
   res: Response,
   onProgress: (done: number, total: number) => void,
@@ -71,7 +74,7 @@ async function readWithProgress(
     if (end) break;
     chunks.push(value);
     done += value.byteLength;
-    onProgress(done, Math.max(total, done));
+    onProgress(done, total);
   }
   const out = new Uint8Array(done);
   let off = 0;
@@ -148,7 +151,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     fileName: string,
     extra?: { format: "overpass"; country: string } | { format: "rpe" },
   ) => {
-    setImportState({ phase: "running", done: 0, total: buffer.byteLength });
+    // Only the GeoNames dump path reports parse progress by chunk; the Overpass
+    // and GURS payloads are converted in one shot, so leave their total at 0 and
+    // show a bare spinner rather than a 0 % that never moves.
+    setImportState({ phase: "running", done: 0, total: extra ? 0 : buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
     const fail = (message: string) => {
@@ -481,41 +487,42 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
         {importState?.phase === "running" ? (
           <ToolsLoading
             label={t("tools.geocode.importing")}
-            progress={importState.total > 0 ? importState : undefined}
+            progress={importState}
+            bytes
             onCancel={cancelImport}
           />
         ) : (
           <div className="tools-geo-acquire">
             {appSettings.allowLinkFetch && (
-              <span className="tools-geo-download">
-                <input
-                  type="text"
-                  maxLength={2}
-                  placeholder={t("tools.geocode.countryCodePlaceholder")}
-                  title={t("tools.geocode.countryCodeTooltip")}
-                  value={countryDraft}
-                  onChange={(e) => setCountryDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void downloadCountry();
-                  }}
-                />
+              <>
                 <button
                   className="nav-btn tools-run"
-                  onClick={() => void downloadCountry()}
-                  disabled={!/^[A-Za-z]{2}$/.test(countryDraft.trim())}
+                  onClick={() => void downloadSlovenia()}
+                  title={t("tools.geocode.gursTooltip")}
                 >
-                  {t("tools.geocode.downloadBtn")}
+                  {t("tools.geocode.gursBtn")}
                 </button>
-              </span>
-            )}
-            {appSettings.allowLinkFetch && (
-              <button
-                className="nav-btn tools-run"
-                onClick={() => void downloadSlovenia()}
-                title={t("tools.geocode.gursTooltip")}
-              >
-                {t("tools.geocode.gursBtn")}
-              </button>
+                <span className="tools-geo-download">
+                  <input
+                    type="text"
+                    maxLength={2}
+                    placeholder={t("tools.geocode.countryCodePlaceholder")}
+                    title={t("tools.geocode.countryCodeTooltip")}
+                    value={countryDraft}
+                    onChange={(e) => setCountryDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void downloadCountry();
+                    }}
+                  />
+                  <button
+                    className="nav-btn tools-run"
+                    onClick={() => void downloadCountry()}
+                    disabled={!/^[A-Za-z]{2}$/.test(countryDraft.trim())}
+                  >
+                    {t("tools.geocode.downloadBtn")}
+                  </button>
+                </span>
+              </>
             )}
             <label className="nav-btn tools-geo-import">
               {t("tools.geocode.importBtn")}
