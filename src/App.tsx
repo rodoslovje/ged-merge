@@ -19,10 +19,11 @@ import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
 import { sortEventsByDate } from "./merge/applyFields";
+import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { findDanglingXrefs } from "./tools/structure";
 import { downloadText, baseStem, savedName } from "./ui/download";
@@ -47,7 +48,7 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { mergeDuplicate } from "./tools/mergeDuplicate";
-import { duplicatePairKey } from "./tools/duplicates";
+import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
@@ -319,8 +320,8 @@ function AppContent() {
           const restoredRejected = persistence.pendingSessionRef.current?.rejectedDuplicates;
           if (restoredRejected?.length && persistence.pendingSessionRef.current?.mainFileName === msg.fileName) {
             const valid = restoredRejected.filter((key) => {
-              const [a, b] = key.split("|");
-              return !!a && !!b && file.dataset.individuals.has(a) && file.dataset.individuals.has(b);
+              const pair = parseDuplicatePairKey(key);
+              return !!pair && file.dataset.individuals.has(pair.aId) && file.dataset.individuals.has(pair.bId);
             });
             if (valid.length) dispatch({ type: "rejectedDuplicatesSet", pairs: new Set(valid) });
           }
@@ -896,7 +897,9 @@ function AppContent() {
   // matching the decision's own main id against the person on screen), so
   // it passes that key explicitly instead of relying on `current`.
   function updateDecisionForKey(key: string, next: CandidateDecision) {
-    const [, mainId, compareId] = key.split(":");
+    const parsed = parseDecisionKey(key);
+    if (!parsed) return;
+    const { mainId, compareId } = parsed;
     const before = new Map(decisions);
     const after = new Map(decisions).set(key, stampMainFp(next, mainId));
     undoRedo.push({ mode: "merge", before, after, mainId, compareId });
@@ -986,8 +989,9 @@ function AppContent() {
     const m = new Map<string, MatchDecisionStatus>();
     for (const [key, d] of decisions) {
       if (d.status === "undecided") continue;
-      const mainId = key.split(":")[1];
-      if (!m.has(mainId)) m.set(mainId, d.status);
+      const parsed = parseDecisionKey(key);
+      if (!parsed) continue;
+      if (!m.has(parsed.mainId)) m.set(parsed.mainId, d.status);
     }
     return m;
   }, [decisions]);
@@ -1098,22 +1102,21 @@ function AppContent() {
   // Edit mode after being confirmed can't be merged (mergeDecisions skips it),
   // so it must not count toward the Save badge either. Depends on editVersion:
   // deletions mutate the dataset in place.
-  const confirmedCount = useMemo(() => {
-    let n = 0;
+  // One pass over the decisions yields both: `count` is confirmed *entries*
+  // (what the merge engine will apply, and so what the Save badge reports),
+  // `mainIds` the distinct people they touch. These differ only when a main id
+  // carries more than one confirmed entry — see `findConfirmedDecision`.
+  const { count: confirmedCount, mainIds: confirmedMainIds } = useMemo(() => {
+    let count = 0;
+    const mainIds = new Set<string>();
     for (const [key, d] of decisions) {
-      if (d.status === "confirmed" && mainDataset?.individuals.has(key.split(":")[1])) n++;
+      if (d.status !== "confirmed") continue;
+      const parsed = parseDecisionKey(key);
+      if (!parsed || !mainDataset?.individuals.has(parsed.mainId)) continue;
+      count++;
+      mainIds.add(parsed.mainId);
     }
-    return n;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decisions, mainDataset, editVersion]);
-
-  const confirmedMainIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const [key, d] of decisions) {
-      const mainId = key.split(":")[1];
-      if (d.status === "confirmed" && mainDataset?.individuals.has(mainId)) ids.add(mainId);
-    }
-    return ids;
+    return { count, mainIds };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, mainDataset, editVersion]);
 
@@ -1140,6 +1143,24 @@ function AppContent() {
     // Pass the reload as the dialog's synchronous confirm action; the awaited
     // result is only used to no-op on cancel.
     await confirmDialog(t("app.reloadConfirm"), t("confirm.reload"), discardAndReload);
+  }
+
+  /** An individual whose events the save may reorder — see `buildEditSaveRecords`. */
+  function isSortEligible(xref: string) {
+    return changedPersonIds.has(xref) && sortEligiblePersonIdsRef.current.has(xref);
+  }
+
+  /** Ensure canonical event order on every edited record already in `records`
+   *  (the merge path, whose records `mergeDecisions` has already cloned). */
+  function sortEditedEvents(records: GedNode[]) {
+    for (const r of records) {
+      if (r.tag === "INDI" && r.xref && isSortEligible(r.xref)) sortEventsByDate(r);
+    }
+  }
+
+  /** The cloned, event-sorted record forest an edit-only save writes. */
+  function editSaveRecords(): GedNode[] {
+    return buildEditSaveRecords(mainDataset?.records ?? [], isSortEligible);
   }
 
   function handleSave() {
@@ -1170,18 +1191,15 @@ function AppContent() {
       report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
       mainRecordCount = mainDataset.individuals.size + mainDataset.families.size;
     } else {
-      records = mainDataset.records;
+      records = editSaveRecords();
       report = editReport!;
     }
 
-    // Ensure canonical event order (BIRT → lifespan → DEAT/BURI) for all
-    // edited records. Merge-only targets are already sorted inside mergeDecisions;
-    // edited records that had no confirmed merge decision are not, so sort them here.
-    // Only sort individuals that went through structural edits (date/tag changes via
-    // the edit UI) — bulk operations like place rename mutate values in-place and
-    // must not silently reorder events that were already in a non-canonical position.
-    for (const r of records) {
-      if (r.tag === "INDI" && r.xref && changedPersonIds.has(r.xref) && sortEligiblePersonIdsRef.current.has(r.xref)) sortEventsByDate(r);
+    if (isMerge) {
+      // Merge-only targets are already sorted inside mergeDecisions; edited
+      // records that had no confirmed merge decision are not, so sort them here.
+      // (The edit-only branch already did this inside `editSaveRecords`.)
+      sortEditedEvents(records);
     }
 
     // Consistency gate: a pointer in the output referencing a record that
@@ -1201,8 +1219,9 @@ function AppContent() {
     const decisionWarnings: string[] = [];
     for (const [key, d] of decisions) {
       if (d.status !== "confirmed") continue;
-      const [kind, mainId] = key.split(":");
-      if (kind !== "individual") continue;
+      const parsed = parseDecisionKey(key);
+      if (parsed?.kind !== "individual") continue;
+      const { mainId } = parsed;
       const indi = mainDataset.individuals.get(mainId);
       if (!indi) {
         decisionWarnings.push(t("save.preview.orphanedDecision", { xref: xrefLabel(mainId) }));
@@ -1390,13 +1409,28 @@ function AppContent() {
       bumpEdit();
     }
 
+    // The revert above mutated the live dataset, not the preview's records (an
+    // independent clone) — re-derive them so the download actually drops what
+    // the user just removed from the save. `id` is excluded from the event sort:
+    // it has been restored to its pre-edit snapshot, so reordering it now would
+    // write a change the user just asked to leave out. (`changedPersonIds` still
+    // lists it here — `dirty.removeDirty` above only queued a state update.)
+    // Built outside the updater below so it runs exactly once.
+    const revertedRecords = buildEditSaveRecords(
+      mainDataset.records,
+      (xref) => xref !== id && isSortEligible(xref),
+    );
+
     setPreview((prev) => {
       if (!prev) return null;
       const newReport = removeRecordFromReport(prev.report, id);
       if (newReport.changes.length === 0) return null;
       const newEditRecordIds = new Set(prev.editRecordIds);
       newEditRecordIds.delete(id);
-      return { ...prev, report: newReport, editRecordIds: newEditRecordIds };
+      // A merge preview is the output of `mergeDecisions` and can't be rebuilt
+      // here, so it keeps its records — unchanged from before this clone existed.
+      const records = prev.isMerge ? prev.records : revertedRecords;
+      return { ...prev, records, report: newReport, editRecordIds: newEditRecordIds };
     });
   }
 

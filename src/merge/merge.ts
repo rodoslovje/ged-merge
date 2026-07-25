@@ -3,7 +3,7 @@ import type { MatchResult } from "../match/types";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
+import { decisionKey, parseDecisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 import type { Translate } from "../locales/i18n";
 import {
   applyRows,
@@ -191,15 +191,16 @@ export function mergeDecisions(
   const rejectedPairs = new Set<string>();
   for (const [key, decision] of decisions) {
     if (decision.status !== "rejected") continue;
-    const { kind, mainId, compareId } = parseKey(key);
-    if (kind === "individual") rejectedPairs.add(`${mainId}|${compareId}`);
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind === "individual") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
   }
   const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
-    const { kind, mainId, compareId } = parseKey(key);
-    if (kind !== "individual") continue; // families are merged via their spouses
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind !== "individual") continue; // families are merged via their spouses
+    const { mainId, compareId } = parsed;
 
     const target = indiNodes.get(mainId);
     const mainIndi = main.individuals.get(mainId);
@@ -359,11 +360,6 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   }
 
   return lines.join("\n");
-}
-
-function parseKey(key: string): { kind: string; mainId: string; compareId: string } {
-  const [kind, mainId, compareId] = key.split(":");
-  return { kind, mainId, compareId };
 }
 
 // Re-export so callers can build the decision key consistently.

@@ -147,8 +147,6 @@ export interface MatchConfig {
   /** Category cut-offs on the 0..1 scale. */
   strongThreshold: number;
   probableThreshold: number;
-  /** Cap candidates kept per compare record. */
-  maxPerRecord: number;
 }
 
 export const DEFAULT_CONFIG: MatchConfig = {
@@ -182,7 +180,6 @@ export const DEFAULT_CONFIG: MatchConfig = {
   minScore: 0.45,
   strongThreshold: 0.85,
   probableThreshold: 0.65,
-  maxPerRecord: 5,
 };
 
 export function categorize(score01: number, config: MatchConfig): MatchCategory {

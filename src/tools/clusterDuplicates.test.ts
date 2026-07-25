@@ -1,9 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { clusterDuplicates, type DuplicatePair } from "./duplicates";
+import { clusterDuplicates, duplicatePairKey, parseDuplicatePairKey, type DuplicatePair } from "./duplicates";
 
 function pair(aId: string, bId: string, score: number): DuplicatePair {
   return { aId, bId, aLabel: aId, bLabel: bId, score, category: "strong" };
 }
+
+describe("duplicatePairKey / parseDuplicatePairKey", () => {
+  it("is order-independent, so a flipped orientation keys the same pair", () => {
+    expect(duplicatePairKey("@I2@", "@I1@")).toBe(duplicatePairKey("@I1@", "@I2@"));
+  });
+
+  it("round-trips both ids regardless of the order they were built from", () => {
+    for (const [a, b] of [["@I1@", "@I2@"], ["@I2@", "@I1@"]]) {
+      expect(parseDuplicatePairKey(duplicatePairKey(a, b))).toEqual({ aId: "@I1@", bId: "@I2@" });
+    }
+  });
+
+  it.each([
+    ["empty", ""],
+    ["no separator", "@I1@"],
+    ["too many parts", "@I1@|@I2@|@I3@"],
+    ["blank first id", "|@I2@"],
+    ["blank second id", "@I1@|"],
+  ])("rejects a malformed key (%s)", (_case, key) => {
+    expect(parseDuplicatePairKey(key)).toBeUndefined();
+  });
+});
 
 describe("clusterDuplicates", () => {
   it("keeps a lone pair as a one-pair cluster", () => {
