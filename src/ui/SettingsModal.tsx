@@ -205,14 +205,20 @@ const OVERLAY_PRESETS: OverlayPreset[] = [
     key: "settings.map.overlays.preset.gurs.settlements",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
-    layers: "SI.GURS.RPE:NASELJA",
+    // Boundaries + the name-label style, so settlement names show on the areas.
+    // A large tile keeps labels from clipping at tile seams.
+    layers: "SI.GURS.RPE:NASELJA,SI.GURS.RPE:NASELJA",
+    styles: "nep_rpe_na,nep_rpe_na_lbl",
+    tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
   },
   {
     key: "settings.map.overlays.preset.gurs.municipalities",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
-    layers: "SI.GURS.RPE:OBCINE",
+    layers: "SI.GURS.RPE:OBCINE,SI.GURS.RPE:OBCINE",
+    styles: "nep_rpe_obcine,nep_rpe_obcine_lbl",
+    tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
   },
 ];
@@ -675,6 +681,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                         placeholder={t("settings.map.overlays.wmsLayers")}
                         title={t("settings.map.overlays.wmsLayers.hint")}
                         onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.styles ?? ""}
+                        placeholder={t("settings.map.overlays.wmsStyles")}
+                        title={t("settings.map.overlays.wmsStyles.hint")}
+                        onChange={(e) => update({ styles: e.target.value.trim() || undefined })}
                       />
                       <input
                         type="text"

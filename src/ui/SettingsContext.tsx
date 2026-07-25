@@ -33,8 +33,15 @@ export interface MapOverlay {
   /** When set, the overlay is an OGC WMS layer drawn via `L.tileLayer.wms`:
    *  {@link url} is the service endpoint and {@link layers} names the layers. */
   wms?: boolean;
-  /** Comma-separated WMS layer name(s) — only used when {@link wms} is set. */
+  /** Comma-separated WMS layer name(s) — only used when {@link wms} is set.
+   *  A layer may be repeated to stack styles (e.g. boundaries + name labels). */
   layers?: string;
+  /** Comma-separated WMS `STYLES`, aligned 1:1 with {@link layers}. Empty means
+   *  each layer's default style. Used to add a label style over a geometry one. */
+  styles?: string;
+  /** WMS tile size in px (default 256). Label styles are rendered per tile and
+   *  clip at seams, so label overlays use a large tile to stay near-untiled. */
+  tileSize?: number;
   /** When set (WMS only), the overlay is click-queryable: a map click fires a
    *  WMS GetFeatureInfo against these `QUERY_LAYERS` and shows the returned
    *  attributes in a popup. Often the same as {@link layers}, but may name a
@@ -133,6 +140,8 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
     if (typeof o.presetKey === "string" && o.presetKey) layer.presetKey = o.presetKey;
     if (o.wms === true) layer.wms = true;
     if (typeof o.layers === "string" && o.layers) layer.layers = o.layers;
+    if (typeof o.styles === "string" && o.styles) layer.styles = o.styles;
+    if (typeof o.tileSize === "number" && Number.isFinite(o.tileSize)) layer.tileSize = o.tileSize;
     if (typeof o.queryLayers === "string" && o.queryLayers) layer.queryLayers = o.queryLayers;
     if (typeof o.params === "string" && o.params) layer.params = o.params;
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;

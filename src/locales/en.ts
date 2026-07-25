@@ -1171,6 +1171,8 @@ export const en = {
   "settings.map.overlays.wmsUrl.hint": "The WMS service base endpoint, e.g. https://…/wms — no query string; the map appends the GetMap request itself.",
   "settings.map.overlays.wmsLayers": "WMS layer(s), comma-separated",
   "settings.map.overlays.wmsLayers.hint": "The WMS layer name(s) to draw, exactly as published in the service's GetCapabilities (comma-separated for several).",
+  "settings.map.overlays.wmsStyles": "WMS styles (optional)",
+  "settings.map.overlays.wmsStyles.hint": "Comma-separated WMS STYLES, one per layer above. Leave blank for each layer's default. Repeat a layer with two styles to stack them — e.g. boundaries plus a name-label style.",
   "settings.map.overlays.wmsQuery": "Clickable info layer(s) (optional)",
   "settings.map.overlays.wmsQuery.hint": "WMS layer name(s) to query on a map click (GetFeatureInfo) — clicking the map shows their attributes in a popup. Often the same as the drawn layer; may name a richer sibling (e.g. draw house-number symbols, query the address).",
   "settings.map.overlays.wmsParams": "Extra WMS params (optional)",

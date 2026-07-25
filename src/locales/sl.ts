@@ -1272,6 +1272,8 @@ export const sl = {
   "settings.map.overlays.wmsUrl.hint": "Osnovni naslov storitve WMS, npr. https://…/wms — brez poizvedbe; zahtevo GetMap doda zemljevid sam.",
   "settings.map.overlays.wmsLayers": "Sloj(i) WMS, ločeni z vejico",
   "settings.map.overlays.wmsLayers.hint": "Ime sloja WMS za izris, natanko kot je objavljeno v GetCapabilities storitve (za več slojev ločite z vejico).",
+  "settings.map.overlays.wmsStyles": "Slogi WMS (izbirno)",
+  "settings.map.overlays.wmsStyles.hint": "Slogi WMS (STYLES), ločeni z vejico, po eden za vsak sloj zgoraj. Pustite prazno za privzeti slog. Sloj ponovite z dvema slogoma, da ju zložite — npr. meje in slog z imeni.",
   "settings.map.overlays.wmsQuery": "Klikni za podatke – sloj(i) (izbirno)",
   "settings.map.overlays.wmsQuery.hint": "Ime sloja WMS za poizvedbo ob kliku na zemljevid (GetFeatureInfo) — klik pokaže njegove atribute v pojavnem oknu. Pogosto enak izrisanemu sloju; lahko navede bogatejšega (npr. izriše simbole hišnih številk, poizveduje naslov).",
   "settings.map.overlays.wmsParams": "Dodatni parametri WMS (izbirno)",

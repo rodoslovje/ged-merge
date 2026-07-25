@@ -240,7 +240,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const overlayLayersRef = useRef<
     Map<
       string,
-      { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string; wms?: boolean; layers?: string; params?: string }
+      {
+        layer: L.TileLayer;
+        url: string;
+        maxZoom?: number;
+        attribution?: string;
+        wms?: boolean;
+        layers?: string;
+        styles?: string;
+        tileSize?: number;
+        params?: string;
+      }
     >
   >(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
@@ -311,6 +321,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         o.attribution !== entry.attribution ||
         !!o.wms !== !!entry.wms ||
         o.layers !== entry.layers ||
+        o.styles !== entry.styles ||
+        o.tileSize !== entry.tileSize ||
         o.params !== entry.params;
       if (stale) {
         entry.layer.remove();
@@ -331,6 +343,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             // Extra params first so the fixed ones below can't be overridden.
             ...parseWmsParams(o.params),
             layers: o.layers ?? "",
+            styles: o.styles ?? "",
             format: "image/png",
             transparent: true,
             opacity,
@@ -338,6 +351,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             crossOrigin: "anonymous",
             // WMS renders any bbox on demand, so it scales to any zoom itself.
             maxZoom: 18,
+            // Label styles clip at tile seams — a large tile keeps them whole.
+            tileSize: o.tileSize ?? 256,
             zIndex: OVERLAY_Z,
           })
         : L.tileLayer(o.url, {
@@ -357,6 +372,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         attribution: o.attribution,
         wms: o.wms,
         layers: o.layers,
+        styles: o.styles,
+        tileSize: o.tileSize,
         params: o.params,
       });
     }
