@@ -6834,6 +6834,12 @@ kbd {
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+/* Address rows: house coordinates from the address register (ADDR._MAP). */
+.tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
+.tools-geo-addr-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.tools-geo-addr-row:last-child { border-bottom: none; }
+.tools-geo-addr-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.9rem; }
+.tools-geo-addr-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .tools-geo-minimap {
   height: 220px;
   max-width: 560px;

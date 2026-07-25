@@ -64,8 +64,9 @@ export function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedN
 
 /** Run `apply` over every INDI/FAM record, rebuilding the changed ones and
  *  collecting the before/after RecordPatch pairs for the unified undo stack —
- *  the shared tail of every whole-file place edit here. */
-function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): RecordPatch[] {
+ *  the shared tail of every whole-file place edit here (and of the address
+ *  coordinates in ./addresses.ts). */
+export function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const indi of dataset.individuals.values()) {
     const before = cloneRaw(indi.raw);
