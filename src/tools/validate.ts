@@ -1,5 +1,5 @@
-import type { Dataset, GedNode, Individual } from "../gedcom/types";
-import { birthYear, deathYear } from "../gedcom/lifespan";
+import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
+import { birthDateOf, birthYear, deathYear } from "../gedcom/lifespan";
 import { isSameSexCouple } from "../gedcom/couple";
 
 /**
@@ -15,6 +15,14 @@ export const AGE_LIMITS = {
   motherAtBirth: { min: 14, max: 50 },
   spouseGap: { max: 32 },
 } as const;
+
+/**
+ * Shortest plausible interval between two births by the same mother, in months
+ * (roughly one gestation). Doubles as the safety margin for the parallel-families
+ * check, so a child recorded only by year can't be "inside" another family's
+ * birth span by a rounding artefact.
+ */
+export const MIN_BIRTH_INTERVAL_MONTHS = 9;
 
 /**
  * Main-file health check.
@@ -42,6 +50,7 @@ export type IssueCategory =
   | "ageAtDeath"
   | "ageAtMarriage"
   | "parentAge"
+  | "parallelFamilies"
   | "spouseAgeGap"
   | "futureDate";
 
@@ -83,6 +92,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   ageAtDeath: 0,
   ageAtMarriage: 0,
   parentAge: 0,
+  parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
 };
@@ -181,6 +191,111 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
     }
   }
   return inLoop;
+}
+
+/** A dated birth of one child, as a month index so partial dates still compare. */
+interface ChildBirth {
+  indi: Individual;
+  /** year * 12 + month − 1; an unrecorded month counts as mid-year. */
+  month: number;
+  year: number;
+}
+
+/** PEDI / _MREL values that still mean "this child was born to this mother". */
+const BIOLOGICAL_PEDI = new Set(["birth", "natural", ""]);
+
+/**
+ * The children of `fam` that carry a birth (or christening) date and are linked
+ * to it as births — an adopted or foster child legitimately overlaps a mother's
+ * own children, so PEDI/_MREL on the child's FAMC excludes them here.
+ */
+function datedBirthChildren(fam: Family, ds: Dataset): ChildBirth[] {
+  const out: ChildBirth[] = [];
+  for (const childId of fam.children) {
+    const child = ds.individuals.get(childId);
+    if (!child) continue;
+    const famc = child.raw.children.find((c) => c.tag === "FAMC" && c.value === fam.id);
+    const pedi = famc?.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
+    if (pedi !== undefined && !BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase())) continue;
+    const d = birthDateOf(child);
+    if (d?.year === undefined) continue;
+    out.push({ indi: child, month: d.year * 12 + ((d.month ?? 6) - 1), year: d.year });
+  }
+  return out.sort((a, b) => a.month - b.month);
+}
+
+/** One mother whose children by two different partners are interleaved in time. */
+interface ParallelFamilies {
+  mother: Individual;
+  /** The partner whose run of children brackets the child below. */
+  partnerA: Individual;
+  /** First and last birth year of the children with `partnerA`. */
+  spanA: [number, number];
+  /** The partner the bracketed child belongs to. */
+  partnerB: Individual;
+  /** A child by `partnerB` born in the middle of `partnerA`'s run. */
+  child: ChildBirth;
+}
+
+/**
+ * Mothers who bear children by two different fathers in the same years.
+ *
+ * Remarriage is normal and produces two *consecutive* runs of children; what is
+ * impossible is an interleaved one — a child by the second partner born between
+ * the first and last child of the other partner. That pattern means a child (or
+ * a whole sibling set) hangs off the wrong family, or the same woman was merged
+ * from two people.
+ *
+ * Only the mother side is checked: a father can genuinely have children by two
+ * women at once. Both partners must be recorded and different, and the outside
+ * child must clear both ends of the other run by at least one gestation, so
+ * year-only dates and a posthumous last child don't trip it.
+ */
+function findParallelFamilies(ds: Dataset): ParallelFamilies[] {
+  const found: ParallelFamilies[] = [];
+  const TOL = MIN_BIRTH_INTERVAL_MONTHS;
+
+  for (const mother of ds.individuals.values()) {
+    if (mother.spouseOf.length < 2) continue;
+    const runs: { partner: Individual; births: ChildBirth[] }[] = [];
+    for (const famId of mother.spouseOf) {
+      const fam = ds.families.get(famId);
+      if (!fam || fam.wife !== mother.id) continue; // mother role only
+      const partner = fam.husband ? ds.individuals.get(fam.husband) : undefined;
+      if (!partner) continue; // an unknown father may well be the same man
+      const births = datedBirthChildren(fam, ds);
+      if (births.length) runs.push({ partner, births });
+    }
+
+    for (let i = 0; i < runs.length; i++) {
+      for (let j = i + 1; j < runs.length; j++) {
+        if (runs[i].partner.id === runs[j].partner.id) continue; // one couple, two family records
+        // Either run can be the bracketing one; report the first hit.
+        const hit =
+          bracketed(runs[i], runs[j]) ?? bracketed(runs[j], runs[i]);
+        if (hit) found.push({ mother, ...hit });
+      }
+    }
+  }
+  return found;
+
+  /** A child of `outer.partner`'s counterpart born well inside `inner`'s run. */
+  function bracketed(
+    inner: { partner: Individual; births: ChildBirth[] },
+    outer: { partner: Individual; births: ChildBirth[] },
+  ): Omit<ParallelFamilies, "mother"> | undefined {
+    const from = inner.births[0].month;
+    const to = inner.births[inner.births.length - 1].month;
+    if (to - from < 2 * TOL) return undefined;
+    const child = outer.births.find((b) => b.month >= from + TOL && b.month <= to - TOL);
+    if (!child) return undefined;
+    return {
+      partnerA: inner.partner,
+      spanA: [inner.births[0].year, inner.births[inner.births.length - 1].year],
+      partnerB: outer.partner,
+      child,
+    };
+  }
 }
 
 export function validateDataset(ds: Dataset, currentYear: number = new Date().getFullYear()): ValidationReport {
@@ -359,6 +474,20 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         });
       }
     }
+  }
+
+  // Children by two different fathers born in the same years — reported on the mother.
+  for (const p of findParallelFamilies(ds)) {
+    push({
+      scope: "individual", id: p.mother.id, category: "parallelFamilies", severity: "warning",
+      subject: subjectOf(p.mother), messageKey: "tools.validate.issue.parallelFamilies",
+      messageVars: {
+        partnerA: subjectOf(p.partnerA),
+        partnerB: subjectOf(p.partnerB),
+        spanA: `${p.spanA[0]}–${p.spanA[1]}`,
+        child: subjectOf(p.child.indi),
+      },
+    });
   }
 
   // Broken pointers from the family side.
