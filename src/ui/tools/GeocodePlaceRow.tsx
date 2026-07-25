@@ -434,7 +434,10 @@ export function GeocodePlaceRow({
                     checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
                     onChange={() => pickCandidate(cand)}
                   />
-                  <span className="gm-data">{cand.entry.country}</span>
+                  {/* The register code when the entry is from an official one
+                      (SI-GURS), so its source is visible; otherwise the plain
+                      country code, which is all a crowd-sourced entry knows. */}
+                  <span className="gm-data">{cand.entry.register ?? cand.entry.country}</span>
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
                   <span className="gm-data">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}

@@ -1,4 +1,5 @@
 import {
+  GURS_REGISTER,
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
@@ -14,10 +15,6 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 // GeoNames dump streaming line-by-line, group entries by country, and write
 // each country into the gedmerge-geo IndexedDB. Progress is reported by
 // input bytes so a 100 MB extract shows movement immediately.
-
-/** Storage key for the GURS settlements import — deliberately not a bare ISO
- *  code, so it coexists with a GeoNames/OpenStreetMap "SI" gazetteer. */
-const RPE_STORE_CODE = "SI-GURS";
 
 function post(msg: GeoWorkerResponse): void {
   (self as unknown as Worker).postMessage(msg);
@@ -61,8 +58,8 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       // (GURS has the official settlements and bilingual names, OSM the hamlet
       // tail). The key is a storage label only: the entries themselves stay
       // country "SI", which is what lookupPlace's country gate compares.
-      await putCountry({ code: RPE_STORE_CODE, count: entries.length, importedAt: Date.now(), entries });
-      post({ type: "result", requestId, countries: [{ code: RPE_STORE_CODE, count: entries.length }] });
+      await putCountry({ code: GURS_REGISTER, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code: GURS_REGISTER, count: entries.length }] });
       return;
     }
     if (msg.format === "overpass") {

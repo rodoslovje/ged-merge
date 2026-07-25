@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GURS_REGISTER,
   HIGH_CONFIDENCE,
   buildGazetteerIndex,
   lookupPlace,
@@ -213,7 +214,7 @@ describe("two gazetteers loaded for one country", () => {
     // One candidate, not two near-identical twins — otherwise the tied scores
     // make the row look ambiguous and bulk-accept skips it.
     expect(hits).toHaveLength(1);
-    expect(hits[0].entry.authoritative).toBe(true);
+    expect(hits[0].entry.register).toBe(GURS_REGISTER);
     expect(hits[0].entry.lon).toBeCloseTo(14.1, 6);
     expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
   });

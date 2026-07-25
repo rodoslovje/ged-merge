@@ -25,12 +25,18 @@ export interface GazEntry {
   /** Admin1 code (region), informational only. */
   admin1: string;
   population: number;
-  /** Set when the entry comes from an official national register (GURS) rather
-   *  than a crowd-sourced or aggregated one. Used only to break score ties, so
-   *  the authoritative coordinate is the one kept when two loaded gazetteers
-   *  describe the same settlement. */
-  authoritative?: boolean;
+  /** Storage code of the official national register this entry came from, e.g.
+   *  {@link GURS_REGISTER}; absent for crowd-sourced or aggregated gazetteers
+   *  (OpenStreetMap, GeoNames). Its presence marks the entry as authoritative,
+   *  which breaks score ties so the official coordinate wins when two loaded
+   *  gazetteers describe the same settlement; the code itself labels the
+   *  candidate in the UI, since `country` stays a plain ISO code for matching. */
+  register?: string;
 }
+
+/** Storage key of the GURS settlements import — deliberately not a bare ISO
+ *  code, so it coexists with a GeoNames/OpenStreetMap "SI" gazetteer. */
+export const GURS_REGISTER = "SI-GURS";
 
 /** Feature classes worth importing: settlements and admin divisions. */
 const KEEP_CLASSES = new Set(["P", "A"]);
@@ -221,7 +227,7 @@ export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
       country: "SI",
       admin1: "",
       population: 0,
-      authoritative: true,
+      register: GURS_REGISTER,
     });
   }
   return entries;
@@ -344,7 +350,7 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
   candidates.sort(
     (a, b) =>
       b.score - a.score ||
-      Number(b.entry.authoritative ?? false) - Number(a.entry.authoritative ?? false) ||
+      Number(!!b.entry.register) - Number(!!a.entry.register) ||
       b.entry.population - a.entry.population,
   );
   // With two gazetteers loaded for one country (the official register plus an
