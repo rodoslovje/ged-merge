@@ -1,7 +1,8 @@
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
+import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -103,51 +104,6 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
 
-/** Verified free overlay sources offered as one-click presets: open license,
- *  no API key, CORS-enabled tiles (all three checked live 2026-07-18). The
- *  max zoom is each source's deepest native level — deeper views scale it.
- *  Subscription/keyed sources (Arcanum, David Rumsey, NLS…) are deliberately
- *  not bundled — their per-account tile URLs paste into a custom layer. */
-const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
-  {
-    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 165 PD/CC0
-    // Third-Military-Survey sheets (dLib.si + NYPL + IOS/GeoPortOst scans)
-    // covering Slovenia, Croatia, Bosnia-Herzegovina, coastal Montenegro and
-    // the southern Austrian / SW Hungarian border, built with
-    // scripts/overlay-tiles.py.
-    name: "Slovenia, Croatia & Bosnia · Spezialkarte 1:75 000 (1877–1918)",
-    url: "https://tiles.gedmerge.com/spezialkarte-se-europe/{z}/{x}/{y}.png",
-    yearFrom: 1877,
-    yearTo: 1918,
-    attribution: "Spezialkarte 1:75.000 · PD/CC0 (dLib.si, NYPL, IOS)",
-    maxZoom: 14,
-  },
-  {
-    name: "France · Carte de l'État-major (1820–1866)",
-    url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}",
-    yearFrom: 1820,
-    yearTo: 1866,
-    attribution: "© IGN",
-    maxZoom: 15,
-  },
-  {
-    name: "Switzerland · Dufour Map (1845–1865)",
-    url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-dufour/default/current/3857/{z}/{x}/{y}.png",
-    yearFrom: 1845,
-    yearTo: 1865,
-    attribution: "© swisstopo",
-    maxZoom: 14,
-  },
-  {
-    name: "Switzerland · Siegfried Map (1870–1926)",
-    url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-siegfried/default/current/3857/{z}/{x}/{y}.png",
-    yearFrom: 1870,
-    yearTo: 1926,
-    attribution: "© swisstopo",
-    maxZoom: 13,
-  },
-];
-
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
 
@@ -177,6 +133,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // re-renders the whole mounted app, seconds on an index-scale file — runs
   // in an interruptible transition, so rapid changes coalesce instead of
   // each blocking the select.
+  // Preset names resolved to the current language and sorted by that label.
+  const presets = useMemo(
+    () => OVERLAY_PRESETS.map((p) => ({ preset: p, label: t(p.key) })).sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
+    [t, i18n.language],
+  );
+
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
   const overrides = pendingOverrides ?? settings.formatOverrides;
@@ -494,15 +456,20 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   value=""
                   aria-label={t("settings.map.overlays.preset")}
                   onChange={(e) => {
-                    const preset = OVERLAY_PRESETS[Number(e.target.value)];
-                    if (preset)
-                      set({ mapOverlays: [...settings.mapOverlays, { ...preset, id: crypto.randomUUID() }] });
+                    const entry = presets[Number(e.target.value)];
+                    if (!entry) return;
+                    const { key, ...rest } = entry.preset;
+                    // name stays empty so the layer's display name tracks the
+                    // language via presetKey; renaming it later overrides that.
+                    set({
+                      mapOverlays: [...settings.mapOverlays, { ...rest, presetKey: key, name: "", id: crypto.randomUUID() }],
+                    });
                   }}
                 >
                   <option value="">{t("settings.map.overlays.preset")}</option>
-                  {OVERLAY_PRESETS.map((p, i) => (
-                    <option key={p.name} value={i}>
-                      {p.name}
+                  {presets.map((p, i) => (
+                    <option key={p.preset.key} value={i}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
@@ -522,11 +489,17 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </button>
               </span>
             </div>
-            {settings.mapOverlays.map((layer) => {
+            {settings.mapOverlays.map((stored) => {
+              // Show the resolved config (a preset layer reflects the live
+              // preset). Renaming keeps the preset link; editing any technical
+              // field detaches — it captures the current config and drops the
+              // presetKey so the edit sticks and the layer stops auto-tracking.
+              const layer = resolveOverlay(stored);
+              const replace = (next: MapOverlay) =>
+                set({ mapOverlays: settings.mapOverlays.map((o) => (o.id === stored.id ? next : o)) });
+              const updateName = (name: string) => replace({ ...stored, name });
               const update = (patch: Partial<MapOverlay>) =>
-                set({
-                  mapOverlays: settings.mapOverlays.map((o) => (o.id === layer.id ? { ...o, ...patch } : o)),
-                });
+                replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined });
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
                 const n = Number(raw);
                 return { [key]: raw.trim() && Number.isFinite(n) ? n : undefined };
@@ -537,9 +510,9 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     <input
                       type="text"
                       className="settings-text-input settings-overlay-name"
-                      value={layer.name}
+                      value={layer.name || (layer.presetKey ? t(layer.presetKey) : "")}
                       placeholder={t("settings.map.overlays.name")}
-                      onChange={(e) => update({ name: e.target.value })}
+                      onChange={(e) => updateName(e.target.value)}
                     />
                     <input
                       type="number"
@@ -568,14 +541,60 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       🗑
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    className="settings-text-input"
-                    value={layer.url}
-                    placeholder={t("settings.map.overlays.url")}
-                    title={t("settings.map.overlays.url.hint")}
-                    onChange={(e) => update({ url: e.target.value.trim() })}
-                  />
+                  <div className="settings-overlay-line">
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      value={layer.url}
+                      placeholder={layer.wms ? t("settings.map.overlays.wmsUrl") : t("settings.map.overlays.url")}
+                      title={layer.wms ? t("settings.map.overlays.wmsUrl.hint") : t("settings.map.overlays.url.hint")}
+                      onChange={(e) => update({ url: e.target.value.trim() })}
+                    />
+                    <label className="settings-overlay-wms" title={t("settings.map.overlays.wms.hint")}>
+                      <input
+                        type="checkbox"
+                        checked={!!layer.wms}
+                        onChange={(e) => update({ wms: e.target.checked || undefined })}
+                      />
+                      {t("settings.map.overlays.wms")}
+                    </label>
+                  </div>
+                  {layer.wms && (
+                    <>
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.layers ?? ""}
+                        placeholder={t("settings.map.overlays.wmsLayers")}
+                        title={t("settings.map.overlays.wmsLayers.hint")}
+                        onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.styles ?? ""}
+                        placeholder={t("settings.map.overlays.wmsStyles")}
+                        title={t("settings.map.overlays.wmsStyles.hint")}
+                        onChange={(e) => update({ styles: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.queryLayers ?? ""}
+                        placeholder={t("settings.map.overlays.wmsQuery")}
+                        title={t("settings.map.overlays.wmsQuery.hint")}
+                        onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.params ?? ""}
+                        placeholder={t("settings.map.overlays.wmsParams")}
+                        title={t("settings.map.overlays.wmsParams.hint")}
+                        onChange={(e) => update({ params: e.target.value.trim() || undefined })}
+                      />
+                    </>
+                  )}
                   <div className="settings-overlay-line">
                     <input
                       type="text"
@@ -585,17 +604,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.attribution.hint")}
                       onChange={(e) => update({ attribution: e.target.value || undefined })}
                     />
-                    <input
-                      type="number"
-                      className="settings-overlay-year"
-                      value={layer.maxZoom ?? ""}
-                      placeholder={t("settings.map.overlays.maxZoom")}
-                      title={t("settings.map.overlays.maxZoom.hint")}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
-                      }}
-                    />
+                    {!layer.wms && (
+                      <input
+                        type="number"
+                        className="settings-overlay-year"
+                        value={layer.maxZoom ?? ""}
+                        placeholder={t("settings.map.overlays.maxZoom")}
+                        title={t("settings.map.overlays.maxZoom.hint")}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
               );

@@ -6699,6 +6699,33 @@ kbd {
 .settings-overlay-dash {
   color: var(--muted);
 }
+.settings-overlay-wms {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.settings-overlay-wms input {
+  margin: 0;
+}
+/* Click-to-identify popup (WMS GetFeatureInfo results). */
+.map-info-block + .map-info-block {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.map-info-block strong {
+  font-size: 0.95rem;
+}
+.map-info-block em {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 2px;
+}
 /* A group marked "remove references": its links get stripped on apply. */
 .tools-tree-label.tools-reshape-removed { text-decoration: line-through; opacity: 0.75; }
 /* Per-reference QUAY override on a member row — compact when closed. */

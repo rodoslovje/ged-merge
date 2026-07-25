@@ -243,7 +243,7 @@
               <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji; <em>Prikaži starosti</em> doda starosti za razponi let in ob datumih dogodkov; <em>Zemljevid osebe v urejanju</em> pa preklopi mali zemljevid geokodiranih dogodkov osebe pod njenim seznamom dogodkov.</li>
               <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
               <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam: obliko datumov, neznane dele datuma, obliko krajev, dodatna imena, oznako za neznano ime, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, oznako zasebnosti ter jezike povezav Matricula/Geneanet. Vsako privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#tools">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§7</a> in <a href="#sources">§13</a>.</li>
-              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Zgodovinski sloji zemljevida</em> nastavi georeferencirane stare karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj ali dodajte svojega (ime, URL XYZ/WMTS z <code>{z}/{x}/{y}</code>, veljavna leta, navedba vira, najv. povečava). Glejte <a href="#map">§9</a>.</li>
+              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Zgodovinski sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§9</a>.</li>
               <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenos imenika z OpenStreetMap z enim klikom in spletni iskanji po vrsticah (OpenStreetMap in GOV), ki ju uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To sta edini funkciji, ki karkoli pošljeta z vaše naprave, in sta privzeto izklopljeni.</strong></li>
             </ul>
 
@@ -494,10 +494,19 @@
                 postanke, povezane s črto in puščicami v smeri selitve. Klik na pot (ali gumb
                 <span class="gm-glyph">〰</span> ob osebi v podoknu dogodkov) jo osami — ostale zbledijo, odseki se
                 oštevilčijo, nad zemljevidom pa se pokaže značka z imenom.</li>
-              <li><strong>Sloji</strong> — zgodovinske karte, izrisane čez osnovni zemljevid. Nastavite jih enkrat v
+              <li><strong>Sloji</strong> — dodatne karte, izrisane čez osnovni zemljevid. Nastavite jih enkrat v
                 <strong>Nastavitve → Zemljevid → Zgodovinski sloji zemljevida</strong>: ime, predloga URL ploščic
-                XYZ/WMTS z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
-                (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Značka
+                z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
+                (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Za storitev
+                OGC&nbsp;WMS obkljukajte <strong>WMS</strong> — takrat je URL naslov storitve (…/wms), navedete
+                sloj(e) za izris, izbirno polje z dodatnimi parametri pa prenese npr. <code>TIME=</code> leto
+                časovnega sloja. Meni <em>Dodaj brezplačen sloj…</em> vključuje slovenske državne karte
+                <strong>GURS</strong> (zgodovinski in aktualni ortofoto, topografsko karto, katastrske
+                parcele, hišne številke, naselja, občine). Nekateri sloji se izrišejo le pri določenih povečavah —
+                kataster in hišne številke pri bližnji povečavi, imena in obrisi naselij in občin pri oddaljeni; zgodovinski
+                ortofoto prikaže eno leto snemanja (če je mesto prazno, ga spremenite v dodatnih parametrih sloja).
+                Ob vklopljenem sloju hišnih številk GURS <strong>klik na zemljevid</strong> prikaže celoten uradni
+                naslov (ulica, številka, naselje, poštna številka) za tisto mesto. Značka
                 <strong>Sloji</strong> na zemljevidu nato našteje vaše sloje, vsakega s svojim drsnikom prosojnosti, in
                 označi tiste, katerih obdobje ustreza izbranemu oknu let — karta iz časa vašega prednika.</li>
               <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
@@ -513,6 +522,20 @@
               v <span class="gm-pill">Urejanju</span> — skrijete ga z gumbom ob njem ali z nastavitvijo prikaza
               <em>Zemljevid osebe v urejanju</em>.
             </p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Viri podatkov in licence</span>
+              <p>
+              Podatki zemljevida prihajajo od tretjih oseb in vsak ohranja svojo licenco — zahtevana navedba vira je
+              prikazana na zemljevidu in vžgana v izvoze PNG. Osnovna ulična karta je
+              © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
+              (ODbL) prek <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>.
+              Prekrivni sloji: slovenske karte <strong>GURS</strong> © Geodetska uprava Republike Slovenije, pod licenco
+              <a href="https://creativecommons.org/licenses/by/4.0/deed.sl" target="_blank" rel="noopener noreferrer">CC&nbsp;BY&nbsp;4.0</a>;
+              francoski état-major © IGN, Licence Ouverte 2.0; švicarska Dufour/Siegfried © swisstopo; Spezialkarte je
+              v javni lasti / CC0. Vsi so na voljo »kot so«, brez jamstva glede točnosti ali dostopnosti. Če dodate
+              svoj sloj, ste za spoštovanje njegove licence odgovorni sami.
+              </p>
+            </div>
             <h3 id="reports">Poročila</h3>
             <p>
               Vrsta <strong>Poročilo</strong> namesto diagrama izriše besedilno, oštevilčeno poročilo — isti preklop

@@ -23,7 +23,8 @@ import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
 import { useChartSettings } from "../ChartSettingsContext";
-import { useNameOf, useSettings } from "../SettingsContext";
+import { overlayDisplayName, useNameOf, useSettings } from "../SettingsContext";
+import { resolveOverlay } from "./overlayPresets";
 import { sexClass } from "../sex";
 import { ChartRootTitle } from "../ChartRootTitle";
 import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
@@ -69,6 +70,53 @@ const OVERLAY_DEFAULT_OPACITY = 0.7;
 
 /** Leaflet z-index for overlay tile layers — above the base (1). */
 const OVERLAY_Z = 5;
+
+/** Parse a WMS overlay's raw `KEY=value&KEY=value` extra-params string into an
+ *  object Leaflet folds into the GetMap query (e.g. a time-enabled layer's
+ *  `TIME`, or a `CQL_FILTER`). Malformed pairs are skipped. */
+function parseWmsParams(raw: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw) return out;
+  for (const pair of raw.split("&")) {
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const key = pair.slice(0, eq).trim();
+    if (key) out[key] = pair.slice(eq + 1).trim();
+  }
+  return out;
+}
+
+/** Escape a string for safe interpolation into a Leaflet popup's innerHTML. */
+function escHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"));
+}
+
+const NULLISH = (v: unknown): v is null | undefined | "" => v == null || v === "" || v === "null";
+
+/** Turn one GetFeatureInfo feature's properties into a popup HTML block. GURS
+ *  address features get a formatted "Street 12a, 4000 Town" line; anything else
+ *  falls back to its readable fields (raw *_SIFRA / EID_ / geometry dropped). */
+function formatFeatureInfo(props: Record<string, unknown> | undefined, layerName: string): string {
+  if (!props) return "";
+  // Address / house-number feature (SI.GURS.KN:NASLOVI_HS et al.).
+  if (!NULLISH(props.HS_STEVILKA) && (!NULLISH(props.ULICA_NAZIV) || !NULLISH(props.NASELJE_NAZIV))) {
+    const num = `${props.HS_STEVILKA}${NULLISH(props.HS_DODATEK) ? "" : String(props.HS_DODATEK)}`;
+    const street = NULLISH(props.ULICA_NAZIV) ? String(props.NASELJE_NAZIV) : String(props.ULICA_NAZIV);
+    const town = NULLISH(props.POSTNI_OKOLIS_NAZIV) ? props.NASELJE_NAZIV : props.POSTNI_OKOLIS_NAZIV;
+    const post = [props.POSTNI_OKOLIS_SIFRA, town].filter((v) => !NULLISH(v)).map(String).join(" ");
+    return `<div class="map-info-block"><strong>${escHtml(`${street} ${num}`.trim())}</strong>${
+      post ? `<br>${escHtml(post)}` : ""
+    }</div>`;
+  }
+  // Generic fallback: a few readable attributes.
+  const skip = (k: string) => /^EID_/.test(k) || /_SIFRA$/.test(k) || /_DJ$/.test(k) || k === "GEOM" || /^DATUM/.test(k);
+  const rows = Object.entries(props)
+    .filter(([k, v]) => !NULLISH(v) && !skip(k))
+    .slice(0, 6)
+    .map(([k, v]) => `<div>${escHtml(k)}: ${escHtml(String(v))}</div>`)
+    .join("");
+  return rows ? `<div class="map-info-block"><em>${escHtml(layerName)}</em>${rows}</div>` : "";
+}
 
 /** Stacked-layers glyph for the historical-overlays picker chip. */
 function LayersIcon() {
@@ -123,7 +171,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const [panel, setPanel] = useState<MapCluster | null>(null);
   // Historical overlay layers (configured in Settings → Advanced): which are
   // shown and how opaque — session state; the layer definitions persist.
-  const overlays = appSettings.mapOverlays;
+  // Preset-added overlays reflect the live preset definition; custom ones pass
+  // through unchanged. Resolving here keeps the renderer/picker/click in sync.
+  const overlays = useMemo(() => appSettings.mapOverlays.map(resolveOverlay), [appSettings.mapOverlays]);
   const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(new Set());
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
@@ -190,11 +240,27 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
-  const overlayLayersRef = useRef<Map<string, { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string }>>(
-    new Map(),
-  );
+  const overlayLayersRef = useRef<
+    Map<
+      string,
+      {
+        layer: L.TileLayer;
+        url: string;
+        maxZoom?: number;
+        attribution?: string;
+        wms?: boolean;
+        layers?: string;
+        styles?: string;
+        tileSize?: number;
+        params?: string;
+      }
+    >
+  >(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
+  /** Bumped on each identify click so a slow GetFeatureInfo response that
+   *  resolves after a newer click is ignored instead of clobbering the popup. */
+  const infoSeqRef = useRef(0);
   const pathRendererRef = useRef<L.Renderer | null>(null);
   const clustersRef = useRef<MapCluster[]>([]);
   const didFitRef = useRef(false);
@@ -255,7 +321,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         !overlayOn.has(id) ||
         o.url !== entry.url ||
         o.maxZoom !== entry.maxZoom ||
-        o.attribution !== entry.attribution;
+        o.attribution !== entry.attribution ||
+        !!o.wms !== !!entry.wms ||
+        o.layers !== entry.layers ||
+        o.styles !== entry.styles ||
+        o.tileSize !== entry.tileSize ||
+        o.params !== entry.params;
       if (stale) {
         entry.layer.remove();
         live.delete(id);
@@ -270,18 +341,115 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         entry.layer.setOpacity(opacity);
         continue;
       }
-      const layer = L.tileLayer(o.url, {
-        opacity,
-        attribution: o.attribution ?? "",
-        crossOrigin: "anonymous",
-        maxZoom: 18,
-        // Sources that stop at a lower zoom get their deepest tiles scaled.
-        maxNativeZoom: o.maxZoom ?? 18,
-        zIndex: OVERLAY_Z,
-      }).addTo(map);
-      live.set(o.id, { layer, url: o.url, maxZoom: o.maxZoom, attribution: o.attribution });
+      const layer: L.TileLayer = o.wms
+        ? L.tileLayer.wms(o.url, {
+            // Extra params first so the fixed ones below can't be overridden.
+            ...parseWmsParams(o.params),
+            layers: o.layers ?? "",
+            styles: o.styles ?? "",
+            format: "image/png",
+            transparent: true,
+            opacity,
+            attribution: o.attribution ?? "",
+            crossOrigin: "anonymous",
+            // WMS renders any bbox on demand, so it scales to any zoom itself.
+            maxZoom: 18,
+            // Label styles clip at tile seams — a large tile keeps them whole.
+            tileSize: o.tileSize ?? 256,
+            zIndex: OVERLAY_Z,
+          })
+        : L.tileLayer(o.url, {
+            opacity,
+            attribution: o.attribution ?? "",
+            crossOrigin: "anonymous",
+            maxZoom: 18,
+            // Sources that stop at a lower zoom get their deepest tiles scaled.
+            maxNativeZoom: o.maxZoom ?? 18,
+            zIndex: OVERLAY_Z,
+          });
+      layer.addTo(map);
+      live.set(o.id, {
+        layer,
+        url: o.url,
+        maxZoom: o.maxZoom,
+        attribution: o.attribution,
+        wms: o.wms,
+        layers: o.layers,
+        styles: o.styles,
+        tileSize: o.tileSize,
+        params: o.params,
+      });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // Click-to-identify: with a queryable WMS overlay on, a map click fires a
+  // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the
+  // GURS address layer, a formatted street/number) in a popup.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targets = appSettings.allowMapTiles
+      ? overlays.filter((o) => o.wms && o.queryLayers && overlayOn.has(o.id))
+      : [];
+    if (!targets.length) return;
+
+    const onClick = async (e: L.LeafletMouseEvent) => {
+      const seq = ++infoSeqRef.current;
+      const size = map.getSize();
+      const b = map.getBounds();
+      const sw = map.options.crs!.project(b.getSouthWest());
+      const ne = map.options.crs!.project(b.getNorthEast());
+      const pt = map.latLngToContainerPoint(e.latlng);
+      const i = Math.max(0, Math.min(size.x - 1, Math.round(pt.x)));
+      const j = Math.max(0, Math.min(size.y - 1, Math.round(pt.y)));
+
+      const blocks: string[] = [];
+      for (const o of targets) {
+        const params = new URLSearchParams({
+          SERVICE: "WMS",
+          VERSION: "1.3.0",
+          REQUEST: "GetFeatureInfo",
+          // GeoServer requires QUERY_LAYERS ⊆ LAYERS, so query against the
+          // info layer itself (which may differ from the drawn `layers`).
+          LAYERS: o.queryLayers!,
+          QUERY_LAYERS: o.queryLayers!,
+          CRS: "EPSG:3857",
+          BBOX: `${sw.x},${sw.y},${ne.x},${ne.y}`,
+          WIDTH: String(size.x),
+          HEIGHT: String(size.y),
+          I: String(i),
+          J: String(j),
+          INFO_FORMAT: "application/json",
+          FEATURE_COUNT: "5",
+          // Pixel tolerance so a click near a point symbol still hits it.
+          BUFFER: "12",
+          ...parseWmsParams(o.params),
+        });
+        try {
+          const res = await fetch(`${o.url}?${params.toString()}`);
+          const data = (await res.json()) as { features?: { properties?: Record<string, unknown> }[] };
+          for (const f of data.features ?? []) {
+            const html = formatFeatureInfo(f.properties, overlayDisplayName(o, t));
+            if (html) blocks.push(html);
+          }
+        } catch {
+          // Network/parse failure — skip this layer; others may still answer.
+        }
+      }
+      // A newer click superseded this one. Only pop up on an actual hit — a
+      // click on empty ground (no house point under the cursor) stays silent.
+      if (seq !== infoSeqRef.current || !blocks.length) return;
+      L.popup({ className: "map-info-popup" })
+        .setLatLng(e.latlng)
+        .setContent(`<div class="map-info">${blocks.join("")}</div>`)
+        .openOn(map);
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [overlays, overlayOn, appSettings.allowMapTiles, t]);
 
   // Era suggestion: overlays whose validity period intersects the selected
   // year window (layers with no period at all are never highlighted).
@@ -666,7 +834,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                     >
                       <label className="map-overlay-pick">
                         <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
-                        <span className="map-overlay-name">{o.name || o.url}</span>
+                        <span className="map-overlay-name">{overlayDisplayName(o, t)}</span>
                         {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
                           <span className="gm-data map-overlay-years">
                             {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}

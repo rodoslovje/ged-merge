@@ -20,15 +20,44 @@ import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/form
 export interface MapOverlay {
   /** Stable identity (generated on add) — the picker's on/off key. */
   id: string;
+  /** User-visible name. Empty for a preset-added layer (its display name comes
+   *  from {@link presetKey} via i18n); a non-empty value is a manual override. */
   name: string;
-  /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders. */
+  /** i18n key of the preset this layer was added from — resolved to the
+   *  localized name for display unless {@link name} overrides it. */
+  presetKey?: string;
+  /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders — or, when
+   *  {@link wms} is set, the OGC WMS service base endpoint (Leaflet appends the
+   *  GetMap query itself). */
   url: string;
+  /** When set, the overlay is an OGC WMS layer drawn via `L.tileLayer.wms`:
+   *  {@link url} is the service endpoint and {@link layers} names the layers. */
+  wms?: boolean;
+  /** Comma-separated WMS layer name(s) — only used when {@link wms} is set.
+   *  A layer may be repeated to stack styles (e.g. boundaries + name labels). */
+  layers?: string;
+  /** Comma-separated WMS `STYLES`, aligned 1:1 with {@link layers}. Empty means
+   *  each layer's default style. Used to add a label style over a geometry one. */
+  styles?: string;
+  /** WMS tile size in px (default 256). Label styles are rendered per tile and
+   *  clip at seams, so label overlays use a large tile to stay near-untiled. */
+  tileSize?: number;
+  /** When set (WMS only), the overlay is click-queryable: a map click fires a
+   *  WMS GetFeatureInfo against these `QUERY_LAYERS` and shows the returned
+   *  attributes in a popup. Often the same as {@link layers}, but may name a
+   *  richer sibling (e.g. display house-number symbols, query the address). */
+  queryLayers?: string;
+  /** Extra WMS GetMap query params as a raw `KEY=value&KEY=value` string
+   *  (e.g. `TIME=2011-01-01T00:00:00.000Z` for a time-enabled layer, or a
+   *  `CQL_FILTER`). Only used when {@link wms} is set. */
+  params?: string;
   /** Validity period (either end open) — drives the era suggestion. */
   yearFrom?: number;
   yearTo?: number;
   /** Attribution required by the layer's source, shown on map + PNG export. */
   attribution?: string;
-  /** Highest zoom the source provides; deeper views scale those tiles. */
+  /** Highest zoom the source provides; deeper views scale those tiles.
+   *  Ignored for WMS layers, which render at any zoom. */
   maxZoom?: number;
 }
 
@@ -93,6 +122,14 @@ export const SettingsContext = createContext<SettingsCtx>({
   set: () => {},
 });
 
+/** The overlay's localized display name: a manual {@link MapOverlay.name}
+ *  override wins; otherwise a preset resolves through i18n; else the URL. */
+export function overlayDisplayName(o: MapOverlay, translate: (key: string) => string): string {
+  if (o.name) return o.name;
+  if (o.presetKey) return translate(o.presetKey);
+  return o.url;
+}
+
 /** Keep only well-formed overlay entries from a stored blob. */
 function sanitizeOverlays(v: unknown): MapOverlay[] {
   if (!Array.isArray(v)) return [];
@@ -100,6 +137,13 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
   for (const o of v as Partial<MapOverlay>[]) {
     if (!o || typeof o.id !== "string" || typeof o.name !== "string" || typeof o.url !== "string") continue;
     const layer: MapOverlay = { id: o.id, name: o.name, url: o.url };
+    if (typeof o.presetKey === "string" && o.presetKey) layer.presetKey = o.presetKey;
+    if (o.wms === true) layer.wms = true;
+    if (typeof o.layers === "string" && o.layers) layer.layers = o.layers;
+    if (typeof o.styles === "string" && o.styles) layer.styles = o.styles;
+    if (typeof o.tileSize === "number" && Number.isFinite(o.tileSize)) layer.tileSize = o.tileSize;
+    if (typeof o.queryLayers === "string" && o.queryLayers) layer.queryLayers = o.queryLayers;
+    if (typeof o.params === "string" && o.params) layer.params = o.params;
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
     if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;
     if (typeof o.attribution === "string" && o.attribution) layer.attribution = o.attribution;
