@@ -934,10 +934,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                 <li key={i}>
                   <span className="map-panel-fact">
                     <span className="map-kind-dot" style={{ background: `var(--map-${p.kind})` }} />
-                    {/* When the pin is the address's own coordinate, name the
-                        address — that, not the settlement, is what was pinned. */}
-                    <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} ·{" "}
-                    {p.address ? `${p.address}, ${p.place}` : p.place}
+                    <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
                   </span>
                   <span className="map-panel-people">
                     {p.personIds.map((id) => {

@@ -238,8 +238,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   return fam;
 }
 
-/** Read a MAP-shaped `LATI`/`LONG` pair from a child of `parent` — the standard
- *  `MAP` under PLAC, or the custom `_MAP` under ADDR. */
+/** Read the `MAP` structure's `LATI`/`LONG` pair from a PLAC node. */
 function mapCoordUnder(parent: GedNode, mapTag: string): GeoCoord | undefined {
   const mapNode = firstChild(parent, mapTag);
   const lati = mapNode && firstChild(mapNode, "LATI")?.value;
@@ -266,12 +265,6 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (addrNode?.value) {
     event.address = parsePlace(addrNode.value);
     if (addrNode.reshapedFrom) event.address.originalRaw = addrNode.reshapedFrom;
-    // House-precise coordinate from the address register. GEDCOM gives MAP to
-    // PLAC only, so an address coordinate has no standard home; it lives under
-    // ADDR as the custom `_MAP` and is only written when PLAC alone could not
-    // hold it (see setAddressCoord).
-    const coord = mapCoordUnder(addrNode, "_MAP");
-    if (coord) event.address.coord = coord;
   }
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();

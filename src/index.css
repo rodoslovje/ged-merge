@@ -6833,8 +6833,10 @@ kbd {
 /* Drop .tools-run's bottom margin for every button in the row — whether it sits
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }
+/* Pin marking an event whose place carries coordinates (tooltip has the numbers). */
+.edit-event-coord { font-size: 0.8em; opacity: 0.75; cursor: help; margin-left: 2px; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
-/* Address rows: house coordinates from the address register (ADDR._MAP). */
+/* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
 .tools-geo-addr-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
 .tools-geo-addr-row:last-child { border-bottom: none; }

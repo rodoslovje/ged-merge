@@ -136,6 +136,9 @@ export function EventFieldsRow({
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
+  // The coordinate this event actually carries (PLAC.MAP). Read from the model,
+  // not the edited text, so it reflects what is in the file.
+  const coord = ev?.place?.coord;
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
 
   // Known place+address pairs for the place field's combo suggestions —
@@ -541,6 +544,19 @@ export function EventFieldsRow({
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
           />
+          {/* This event's own coordinate, when it has one — a pin so it's
+           *  visible here rather than only on a map, since the same place value
+           *  may be coordinated on one event and not another. The tooltip gives
+           *  the numbers; the pin is decorative, so it stays out of the tab
+           *  order and is hidden from screen readers by the title text. */}
+          {coord && (
+            <span
+              className="edit-event-coord"
+              title={t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })}
+            >
+              📍
+            </span>
+          )}
         </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, pickCombo)}
         {extraText(

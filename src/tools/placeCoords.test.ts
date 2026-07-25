@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeDataset } from "../gedcom/serialize";
-import { countSplitCoordFills, fillPlaceCoordsFromFile, scanSplitCoordPlaces } from "./placeCoords";
+import { countSplitCoordFills, fillPlaceCoordsFromFile, scanPlaceCoords } from "./placeCoords";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -48,18 +48,18 @@ const SAMPLE = `0 HEAD
 0 TRLR
 `;
 
-describe("scanSplitCoordPlaces", () => {
+describe("scanPlaceCoords", () => {
   it("reports only values coordinated on some occurrences but not others", () => {
     const ds = buildFromText(SAMPLE);
-    const found = scanSplitCoordPlaces(ds);
+    const found = scanPlaceCoords(ds).fills;
     expect(found).toEqual([
-      { value: "Stražišče,Kranj,Slovenia", coord: { lat: 46.2331, lon: 14.3308 }, covered: 1, missing: 1 },
+      { value: "Stražišče,Kranj,Slovenia", address: "", coord: { lat: 46.2331, lon: 14.3308 }, covered: 1, missing: 1 },
     ]);
     expect(countSplitCoordFills(found)).toBe(1);
   });
 
-  it("prefers the most frequent coordinate when a value carries several", () => {
-    // Three occurrences: two at one coordinate, one at another, one missing.
+  it("reports a value carrying two genuinely different coordinates, and offers no fill", () => {
+    // Three occurrences: two at one coordinate, one 40 km away, one missing.
     const text = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -84,8 +84,90 @@ describe("scanSplitCoordPlaces", () => {
 2 PLAC Bled
 0 TRLR
 `;
-    const found = scanSplitCoordPlaces(buildFromText(text));
-    expect(found).toEqual([{ value: "Bled", coord: { lat: 46.3683, lon: 14.1136 }, covered: 3, missing: 1 }]);
+    const { fills, conflicts } = scanPlaceCoords(buildFromText(text));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].value).toBe("Bled");
+    // Most-used spot first, so the likely-correct one leads.
+    expect(conflicts[0].coords.map((c) => c.coord)).toEqual([
+      { lat: 46.3683, lon: 14.1136 },
+      { lat: 46, lon: 14 },
+    ]);
+    // Which one to copy is unresolved, so nothing is offered for bulk filling.
+    expect(fills).toEqual([]);
+  });
+
+  it("treats rounding variants as one spot and still fills from them", () => {
+    // N46.3683 vs N46.36832 is ~2 m apart — a re-geocode, not a contradiction.
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Bled
+3 MAP
+4 LATI N46.3683
+4 LONG E14.1136
+1 DEAT
+2 PLAC Bled
+3 MAP
+4 LATI N46.36832
+4 LONG E14.11361
+1 RESI
+2 PLAC Bled
+0 TRLR
+`;
+    const { fills, conflicts } = scanPlaceCoords(buildFromText(text));
+    expect(conflicts).toEqual([]);
+    expect(fills).toHaveLength(1);
+    expect(fills[0].missing).toBe(1);
+  });
+
+  it("lets one settlement hold different coordinates for different addresses", () => {
+    // The whole point of grouping by place + address: two houses in Kranj are
+    // different locations, so this is not an inconsistency to report or "fix".
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.24137
+4 LONG E14.35580
+2 ADDR Kidričeva cesta 38
+1 CENS
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+2 ADDR Koroška cesta 1
+0 TRLR
+`;
+    expect(scanPlaceCoords(buildFromText(text))).toEqual({ fills: [], conflicts: [] });
+  });
+
+  it("reports two coordinates for the *same* address", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.24137
+4 LONG E14.35580
+2 ADDR Kidričeva cesta 38
+1 CENS
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.05108
+4 LONG E14.50513
+2 ADDR Kidričeva cesta 38
+0 TRLR
+`;
+    const { conflicts } = scanPlaceCoords(buildFromText(text));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({ value: "Kranj, Slovenija", address: "Kidričeva cesta 38" });
   });
 
   it("is empty when nothing is split", () => {
@@ -97,7 +179,7 @@ describe("scanSplitCoordPlaces", () => {
 2 PLAC Kranj
 0 TRLR
 `;
-    expect(scanSplitCoordPlaces(buildFromText(text))).toEqual([]);
+    expect(scanPlaceCoords(buildFromText(text))).toEqual({ fills: [], conflicts: [] });
   });
 });
 
@@ -113,6 +195,6 @@ describe("fillPlaceCoordsFromFile", () => {
     const text = serializeDataset(ds);
     expect(text).not.toContain("3 MAP\n4 LATI N46.23887");
     // A rescan finds nothing left to fill.
-    expect(scanSplitCoordPlaces(ds)).toEqual([]);
+    expect(scanPlaceCoords(ds).fills).toEqual([]);
   });
 });

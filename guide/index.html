@@ -889,16 +889,19 @@
               Below the place list, <strong>Addresses with a house number</strong> covers the other shape: events whose place
               names only the settlement (<em>Kranj</em>) while the event's own <strong>address</strong> names the street or
               number (<em>Kidričeva cesta 38</em>). These are grouped by place + address, so one review covers every event at
-              that house, and looked up in the same register. Their coordinate is stored <em>on the address</em> rather than
-              on the place — a place value is shared by every event naming it, so a single house's position must not be
-              written there (it would later be copied onto the settlement's other addresses by the
-              <a href="#tools">Health check</a>'s coordinate fix). Where the place value already names the house itself,
-              the ordinary <code>PLAC</code> <code>MAP</code> is used, exactly as before.
+              that house, and looked up in the same register. The coordinate is written as ordinary
+              <code>PLAC</code> <code>MAP</code> on those events — nothing non-standard, so every other program reads it.
             </p>
             <p>
-              On every map, an event is drawn at its <strong>address</strong> coordinate when it has one and falls back to its
-              place coordinate otherwise, so precise and settlement-level records mix freely; the pin's label names the
-              address when that is what was pinned.
+              That means one settlement can hold different coordinates on different events, which is correct: two addresses in
+              Kranj are two places. The <a href="#tools">Health check</a> understands this — it judges coordinates per
+              <em>place + address</em>, so differing addresses are never reported, and it flags the real error instead: the
+              <strong>same place and the same address</strong> carrying two different coordinates. Its coordinate fill also
+              copies only within one address, so a house's position can never spread across a settlement.
+            </p>
+            <p>
+              In <a href="#edit">Edit</a>, an event whose place carries coordinates shows a small
+              <span class="gm-glyph">📍</span> after the place; hover it for the numbers.
             </p>
           </section>
 

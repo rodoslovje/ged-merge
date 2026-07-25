@@ -49,8 +49,8 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
-  /** Write accepted house coordinates onto event addresses (`ADDR._MAP`);
-   *  returns the number of records changed. */
+  /** Write accepted house coordinates onto the events at each place+address pair
+   *  (standard `PLAC`/`MAP`); returns the number of records changed. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   /** Return to the Places tree (the panel hosting this view). */
   onBack: () => void;

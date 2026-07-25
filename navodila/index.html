@@ -897,15 +897,19 @@
               Pod seznamom krajev razdelek <strong>Naslovi s hišno številko</strong> pokriva drugo obliko: dogodke, pri katerih
               kraj navaja samo naselje (<em>Kranj</em>), ulico ali številko pa navaja <strong>naslov</strong> dogodka
               (<em>Kidričeva cesta 38</em>). Ti so združeni po kraju in naslovu, tako da en pregled zajame vse dogodke pri
-              tej hiši, poiščejo pa se v istem registru. Njihova koordinata se shrani <em>k naslovu</em> in ne h kraju —
-              vrednost kraja je skupna vsem dogodkom, ki jo navajajo, zato lege posamezne hiše ne smemo zapisati tja (pozneje
-              bi jo popravek koordinat v <a href="#tools">Pregledu zdravja</a> prekopiral na druge naslove istega naselja).
-              Kadar vrednost kraja že sama navaja hišo, se uporabi običajni <code>MAP</code> pod <code>PLAC</code>, tako kot
-              doslej.
+              tej hiši, poiščejo pa se v istem registru. Koordinata se pri teh dogodkih zapiše kot običajni
+              <code>MAP</code> pod <code>PLAC</code> — nič nestandardnega, zato jo preberejo vsi drugi programi.
             </p>
             <p>
-              Na vseh zemljevidih je dogodek izrisan na koordinati <strong>naslova</strong>, če jo ima, sicer pa na koordinati
-              kraja, zato se natančni in naselju zapisi prosto mešajo; oznaka bucike navede naslov, kadar je bil zabeležen ta.
+              To pomeni, da ima lahko eno naselje pri različnih dogodkih različne koordinate, kar je pravilno: dva naslova v
+              Kranju sta dva kraja. <a href="#tools">Pregled zdravja</a> to upošteva — koordinate presoja po
+              <em>kraju in naslovu</em>, zato različnih naslovov nikoli ne prijavi, opozori pa na pravo napako: <strong>isti
+              kraj in isti naslov</strong> z dvema različnima koordinatama. Tudi njegovo dopolnjevanje koordinat kopira samo
+              znotraj enega naslova, zato se lega hiše ne more razširiti po naselju.
+            </p>
+            <p>
+              V <a href="#edit">Urejanju</a> ima dogodek, katerega kraj nosi koordinate, za krajem majhno
+              <span class="gm-glyph">📍</span>; ob prehodu z miško se pokažejo številke.
             </p>
           </section>
 
