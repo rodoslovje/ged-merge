@@ -108,6 +108,11 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
  *  max zoom is each source's deepest native level — deeper views scale it.
  *  Subscription/keyed sources (Arcanum, David Rumsey, NLS…) are deliberately
  *  not bundled — their per-account tile URLs paste into a custom layer. */
+/** GURS asks for the source credit "Geodetska uprava Republike Slovenije, …"
+ *  under CC BY 4.0 — shared by every GURS preset below and shown on the map +
+ *  burned into PNG exports. */
+const GURS_ATTRIBUTION = "© Geodetska uprava Republike Slovenije (GURS), CC BY 4.0";
+
 const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
   {
     // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 165 PD/CC0
@@ -119,7 +124,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     url: "https://tiles.gedmerge.com/spezialkarte-se-europe/{z}/{x}/{y}.png",
     yearFrom: 1877,
     yearTo: 1918,
-    attribution: "Spezialkarte 1:75.000 · PD/CC0 (dLib.si, NYPL, IOS)",
+    attribution: "Spezialkarte 1:75.000 · public domain / CC0 (dLib.si, NYPL, IOS)",
     maxZoom: 14,
   },
   {
@@ -127,7 +132,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}",
     yearFrom: 1820,
     yearTo: 1866,
-    attribution: "© IGN",
+    attribution: "© IGN, Licence Ouverte 2.0 (Etalab)",
     maxZoom: 15,
   },
   {
@@ -158,28 +163,28 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF050_Z",
     params: "TIME=2011-01-01T00:00:00.000Z",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · Orthophoto (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF025",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · Topographic map 1:50 000 (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.DK:DTK50",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · Cadastral parcels (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:PARCELE",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · House numbers (GURS)",
@@ -189,21 +194,21 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     // Display the number symbols, but query the address layer on click so the
     // popup can show the full street/number/settlement instead of raw IDs.
     queryLayers: "SI.GURS.KN:NASLOVI_HS",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · Settlements (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
     layers: "SI.GURS.RPE:NASELJA",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
   {
     name: "Slovenia · Municipalities (GURS)",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
     layers: "SI.GURS.RPE:OBCINE",
-    attribution: "© Geodetska uprava RS · CC BY 4.0",
+    attribution: GURS_ATTRIBUTION,
   },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
