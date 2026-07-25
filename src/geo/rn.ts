@@ -58,6 +58,10 @@ export interface RnResult {
   /** Full pick line: address, settlement when it differs, and the post office. */
   label: string;
   settlement: string;
+  /** House number this result is, for matching a batch back to its rows. */
+  number: number;
+  /** Its letter suffix, lowercased; absent when the register records none. */
+  suffix?: string;
 }
 
 /** Leading house number plus an optional letter suffix: "23", "12a", "38/a". */
@@ -194,7 +198,7 @@ function str(value: unknown): string {
  * building at one coordinate (`ST_STANOVANJA` differing), so rows are collapsed
  * by coordinate; rows whose E/N is missing or implausible are dropped.
  */
-export function rnFeaturesToResults(data: RnFeatureCollection): RnResult[] {
+export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS): RnResult[] {
   const byCoord = new Map<string, RnResult>();
   for (const feature of data.features ?? []) {
     const props = feature.properties;
@@ -217,11 +221,18 @@ export function rnFeaturesToResults(data: RnFeatureCollection): RnResult[] {
     const parts = [address];
     if (street && settlement) parts.push(settlement);
     if (post) parts.push(post);
-    const result: RnResult = { coord, address, label: parts.join(", "), settlement };
+    const result: RnResult = {
+      coord,
+      address,
+      label: parts.join(", "),
+      settlement,
+      number: Number(str(props.HS_STEVILKA)),
+      ...(str(props.HS_DODATEK) ? { suffix: str(props.HS_DODATEK).toLowerCase() } : {}),
+    };
     if (post) result.post = post;
     byCoord.set(key, result);
   }
-  return [...byCoord.values()].slice(0, MAX_RESULTS);
+  return [...byCoord.values()].slice(0, max);
 }
 
 // One shared queue so concurrent rows still space their requests out.
@@ -229,7 +240,7 @@ let queueTail: Promise<unknown> = Promise.resolve();
 let lastStart = 0;
 
 /** Run one throttled register request and return the parsed response. */
-function rnFetch(filter: string, signal?: AbortSignal): Promise<RnFeatureCollection> {
+function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Promise<RnFeatureCollection> {
   const run = async (): Promise<RnFeatureCollection> => {
     if (signal?.aborted) throw new DOMException("aborted", "AbortError");
     const wait = lastStart + INTERVAL_MS - Date.now();
@@ -237,7 +248,7 @@ function rnFetch(filter: string, signal?: AbortSignal): Promise<RnFeatureCollect
     lastStart = Date.now();
     const url =
       `${ENDPOINT}?f=${encodeURIComponent("application/geo+json")}` +
-      `&filter-lang=cql-text&limit=${FETCH_LIMIT}&filter=${encodeURIComponent(filter)}`;
+      `&filter-lang=cql-text&limit=${limit}&filter=${encodeURIComponent(filter)}`;
     const res = await fetch(url, signal ? { signal } : {});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as RnFeatureCollection;
@@ -305,4 +316,64 @@ export async function searchAddresses(queries: readonly RnQuery[], signal?: Abor
     }
   }
   return merged;
+}
+
+/** Numbers per batched request — keeps the filter (and the URL) a sane length. */
+const BATCH_NUMBERS = 80;
+/** Rows a batched request may return: one number can be many apartments. */
+const BATCH_LIMIT = 1000;
+
+/**
+ * Resolve many house numbers of one place in as few requests as possible.
+ *
+ * The register accepts `HS_STEVILKA IN (…)`, so a village's whole address list
+ * is one request rather than one per address — which matters a great deal: the
+ * per-address path costs up to four throttled requests each, so a place with 37
+ * addresses took over a minute and looked hung.
+ *
+ * Queries are grouped by settlement and street (the parts that must match
+ * exactly), and the pooled results are handed back for {@link resultsForQuery} to
+ * distribute. Suffixes are deliberately *not* constrained here — asking for "4"
+ * also returns 4a/4b, which is what lets a row whose file says "4a" find the
+ * register's plain 4 without a second request.
+ */
+export async function searchAddressBatch(queries: readonly RnQuery[], signal?: AbortSignal): Promise<RnResult[]> {
+  const byPlace = new Map<string, { settlement: string; street?: string; numbers: Set<number> }>();
+  for (const q of queries) {
+    const key = `${q.settlement} ${q.street ?? ""}`;
+    const g = byPlace.get(key);
+    if (g) g.numbers.add(q.number);
+    else byPlace.set(key, { settlement: q.settlement, street: q.street, numbers: new Set([q.number]) });
+  }
+
+  const pool: RnResult[] = [];
+  for (const g of byPlace.values()) {
+    const numbers = [...g.numbers].sort((a, b) => a - b);
+    for (let i = 0; i < numbers.length; i += BATCH_NUMBERS) {
+      const chunk = numbers.slice(i, i + BATCH_NUMBERS);
+      const clauses = [`NASELJE_NAZIV=${cqlString(g.settlement)}`, `HS_STEVILKA IN (${chunk.join(",")})`];
+      if (g.street) clauses.push(`ULICA_NAZIV LIKE ${cqlString(`${g.street}%`)}`);
+      else clauses.push("ULICA_NAZIV IS NULL");
+      pool.push(...rnFeaturesToResults(await rnFetch(clauses.join(" AND "), signal, BATCH_LIMIT), Infinity));
+    }
+  }
+  return pool;
+}
+
+/**
+ * The batch results that answer one row: an exact number+suffix match, or — when
+ * the file records a suffix the register does not — the bare number, mirroring
+ * the single-address ladder's own retry.
+ */
+export function resultsForQuery(queries: readonly RnQuery[], pool: readonly RnResult[]): RnResult[] {
+  const out: RnResult[] = [];
+  for (const q of queries) {
+    const exact = pool.filter((r) => r.number === q.number && r.suffix === q.suffix);
+    // A suffix the register doesn't record falls back to the bare number.
+    const matches = exact.length || !q.suffix ? exact : pool.filter((r) => r.number === q.number && !r.suffix);
+    for (const r of matches) {
+      if (!out.some((o) => o.coord.lat === r.coord.lat && o.coord.lon === r.coord.lon)) out.push(r);
+    }
+  }
+  return out.slice(0, MAX_RESULTS);
 }

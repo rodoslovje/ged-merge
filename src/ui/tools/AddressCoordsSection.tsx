@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
-import { searchAddresses, type RnResult } from "../../geo/rn";
+import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
 import { scanAddresses, type AddressRow } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
@@ -71,11 +71,38 @@ export function AddressCoordsSection({
     );
   };
 
-  /** Look up every address of one place — bounded work, unlike the whole file. */
+  /**
+   * Look up every address of one place in one request. The register accepts
+   * `HS_STEVILKA IN (…)`, so a place's whole list costs a single round trip
+   * instead of up to four per address — 37 addresses used to mean well over a
+   * hundred throttled requests, which took more than a minute and read as hung.
+   *
+   * A row the batch cannot answer is marked "no match"; its own button still
+   * offers the full per-address ladder (suffix retry, any street, the outer
+   * settlements), which is more than a batch can express.
+   */
   const searchGroup = (group: PlaceGroup) => {
-    for (const row of group.rows) {
-      if ((searches.get(row.key) ?? IDLE).state === "idle") runSearch(row);
-    }
+    const pending = group.rows.filter((row) => (searches.get(row.key) ?? IDLE).state === "idle");
+    if (!pending.length) return;
+    setSearches((prev) => {
+      const next = new Map(prev);
+      for (const row of pending) next.set(row.key, { state: "loading", results: [] });
+      return next;
+    });
+    searchAddressBatch(pending.flatMap((row) => row.queries)).then(
+      (pool) =>
+        setSearches((prev) => {
+          const next = new Map(prev);
+          for (const row of pending) next.set(row.key, { state: "done", results: resultsForQuery(row.queries, pool) });
+          return next;
+        }),
+      () =>
+        setSearches((prev) => {
+          const next = new Map(prev);
+          for (const row of pending) next.set(row.key, { state: "error", results: [] });
+          return next;
+        }),
+    );
   };
 
   const toggle = (place: string) =>

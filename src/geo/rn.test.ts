@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRnFilter, parseHouseNumbers, rnFeaturesToResults, rnQueriesFrom } from "./rn";
+import { buildRnFilter, parseHouseNumbers, resultsForQuery, rnFeaturesToResults, rnQueriesFrom } from "./rn";
 
 describe("rnQueriesFrom", () => {
   it("reads village numbering out of PLAC alone", () => {
@@ -176,5 +176,54 @@ describe("rnFeaturesToResults", () => {
         ],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("resultsForQuery", () => {
+  /** A pooled batch result, as rnFeaturesToResults produces them. */
+  const hit = (number: number, suffix: string | undefined, lat: number) => ({
+    coord: { lat, lon: 14.3 },
+    address: `Srednje Bitnje ${number}${suffix ?? ""}`,
+    label: `Srednje Bitnje ${number}${suffix ?? ""}, 4000 Kranj`,
+    settlement: "Srednje Bitnje",
+    number,
+    ...(suffix ? { suffix } : {}),
+  });
+
+  // One batched request answers the whole place, so asking for "4" also brings
+  // back 4a/4b — each row must take only the houses that are its own.
+  const pool = [hit(2, undefined, 46.21), hit(4, undefined, 46.22), hit(4, "a", 46.23), hit(5, "b", 46.24)];
+
+  it("gives a row only the number and suffix it asked for", () => {
+    expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 4 }], pool).map((r) => r.address)).toEqual([
+      "Srednje Bitnje 4",
+    ]);
+    expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 4, suffix: "a" }], pool).map((r) => r.address)).toEqual([
+      "Srednje Bitnje 4a",
+    ]);
+  });
+
+  it("falls back to the bare number for a suffix the register lacks", () => {
+    // The file says "2b"; the register knows only 2. Same retry the per-address
+    // ladder makes, but without another request.
+    expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 2, suffix: "b" }], pool).map((r) => r.address)).toEqual([
+      "Srednje Bitnje 2",
+    ]);
+  });
+
+  it("returns both houses of a renumbered address, deduplicated", () => {
+    const rows = resultsForQuery(
+      [
+        { settlement: "Srednje Bitnje", number: 4 },
+        { settlement: "Srednje Bitnje", number: 5, suffix: "b" },
+        { settlement: "Srednje Bitnje", number: 4 },
+      ],
+      pool,
+    );
+    expect(rows.map((r) => r.address)).toEqual(["Srednje Bitnje 4", "Srednje Bitnje 5b"]);
+  });
+
+  it("returns nothing when the batch cannot answer the row", () => {
+    expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 99 }], pool)).toEqual([]);
   });
 });
