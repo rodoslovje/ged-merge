@@ -83,6 +83,9 @@ export function DuplicatesPanel({
   // every open/close) can read the live value.
   const expandedRef = useRef<string | null>(null);
   expandedRef.current = expanded;
+  // Row key of a pair opened from a related-records hint, until the rows
+  // recompute and it can be scrolled into view (see the effect below).
+  const pendingOpenKey = useRef<string | null>(null);
   // Field choices of expanded comparisons, keyed "aId-bId". Kept up here so
   // they survive the row scrolling out of the virtual window, which unmounts
   // its DuplicateCompare.
@@ -97,6 +100,7 @@ export function DuplicatesPanel({
     setExpandedClusters(new Set());
     setSelected(0);
     setShowRejected(false);
+    pendingOpenKey.current = null;
     fieldsCache.current.clear();
   }, [dataset]);
 
@@ -235,6 +239,8 @@ export function DuplicatesPanel({
 
   // Same for a single pair's comparison: opening it pins its row to the top.
   const togglePair = useCallback((key: string, rowIndex?: number) => {
+    // A manual open takes the selection back from any pending open-pair jump.
+    pendingOpenKey.current = null;
     const willOpen = expandedRef.current !== key;
     setExpanded(willOpen ? key : null);
     if (willOpen && rowIndex !== undefined) pinRowToTop(rowIndex);
@@ -242,26 +248,27 @@ export function DuplicatesPanel({
 
   // Open a related pair surfaced from inside an open comparison (a spouse/parent
   // that is a separate record on each side). Reuse the pair if it's already in
-  // the list, otherwise synthesize and prepend it, then clear the filters and
-  // expand it so the user can complete that merge too.
+  // the list, otherwise synthesize and prepend it, then lift whatever filter
+  // hides it and expand it so the user can complete that merge too.
   function openPair(aId: string, bId: string) {
     if (state.status !== "done") return;
     const key = duplicatePairKey(aId, bId);
-    setQuery("");
-    setMinScore(DEFAULT_MIN_SCORE);
-    const pair = state.result.find((p) => duplicatePairKey(p.aId, p.bId) === key);
-    if (!pair) {
-      const made = makeDuplicatePair(dataset, aId, bId);
-      if (!made) return;
-      // If it scores below the current floor, still show it by not raising the
-      // floor above it.
-      setMinScore((s) => Math.min(s, Math.floor(made.score)));
-      scans.updateDuplicates((pairs) => [made, ...pairs]);
-      setExpanded(`${made.aId}-${made.bId}`);
-      return;
-    }
-    setMinScore((s) => Math.min(s, Math.floor(pair.score)));
-    setExpanded(`${pair.aId}-${pair.bId}`);
+    const existing = state.result.find((p) => duplicatePairKey(p.aId, p.bId) === key);
+    const pair = existing ?? makeDuplicatePair(dataset, aId, bId);
+    if (!pair) return;
+    if (!existing) scans.updateDuplicates((pairs) => [pair, ...pairs]);
+    // Only lift the filters that would actually hide this pair: each one that
+    // changes resets the row selection, which would fight the scroll below.
+    if (rejectedDuplicates.has(key)) onUnrejectDuplicate(pair.aId, pair.bId);
+    if (showRejected) setShowRejected(false);
+    if (q && !someMatch(q, pair.aLabel, pair.bLabel)) setQuery("");
+    if (pair.score < minScore) setMinScore(Math.floor(pair.score));
+    const rowKey = `${pair.aId}-${pair.bId}`;
+    setExpanded(rowKey);
+    // The pair can sit anywhere in the (virtualized) list, and inside a
+    // collapsed cluster — without scrolling to it the click looks like it did
+    // nothing. The effect below jumps there once the rows have recomputed.
+    pendingOpenKey.current = rowKey;
   }
 
   // An index-scale file produces six-figure pair counts — only the rows near
@@ -270,8 +277,12 @@ export function DuplicatesPanel({
   const virtual = useVirtualList({ count: rows.length, estimate: 34, itemsKey: rows });
 
   // A new filter/search starts the highlight at the top; a shrinking list
-  // clamps it to the last remaining row.
-  useEffect(() => { setSelected(0); }, [q, minScore, showRejected]);
+  // clamps it to the last remaining row. A pending open-pair jump owns the
+  // selection instead — its own filter changes must not send the list home.
+  useEffect(() => {
+    if (pendingOpenKey.current) return;
+    setSelected(0);
+  }, [q, minScore, showRejected]);
   useEffect(() => {
     setSelected((i) => (rows.length === 0 ? 0 : Math.min(i, rows.length - 1)));
   }, [rows.length]);
@@ -287,6 +298,19 @@ export function DuplicatesPanel({
     if (pinTick === 0) return;
     scrollToIndex(pinTargetRow.current, "start");
   }, [pinTick, scrollToIndex]);
+
+  // A pair opened from a related-records hint: as soon as the rows include it
+  // (the search box clears on a debounce, so that can take a beat), highlight
+  // it and pin it to the top of the viewport.
+  useEffect(() => {
+    const key = pendingOpenKey.current;
+    if (!key) return;
+    const idx = rows.findIndex((r) => r.kind === "pair" && r.key === key);
+    if (idx < 0) return;
+    pendingOpenKey.current = null;
+    setSelected(idx);
+    pinRowToTop(idx);
+  }, [rows, pinRowToTop]);
 
   // Left/Right step the highlight between rows; Enter toggles the selected row
   // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
@@ -428,15 +452,24 @@ export function DuplicatesPanel({
                         <span className={`tools-cat cat-${categorize(Math.round(c.maxScore) / 100, DEFAULT_CONFIG)}`}>
                           {Math.round(c.maxScore)}
                         </span>
+                        {/* The cluster's representative record, rendered like
+                            every other person reference (name-order preference,
+                            record id, lifespan). */}
+                        <span className="tools-dup-cluster-label">
+                          <PersonLink
+                            dataset={dataset}
+                            id={c.pairs[0].aId}
+                            fallback={c.pairs[0].aLabel}
+                            onNavigate={onNavigate}
+                            forceXref
+                          />
+                        </span>
                         <span
-                          className="tools-dup-cluster-label"
+                          className="tools-dup-cluster-meta"
                           title={t("tools.duplicates.cluster.recordIds", {
                             ids: c.memberIds.map(xrefLabel).join(", "),
                           })}
                         >
-                          {c.pairs[0].aLabel}
-                        </span>
-                        <span className="tools-dup-cluster-meta">
                           {t("tools.duplicates.cluster.records", { count: c.memberIds.length })}
                           {" · "}
                           {t("tools.duplicates.cluster.pairs", { count: c.pairs.length })}
