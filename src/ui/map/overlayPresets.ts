@@ -81,15 +81,9 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.ZPDZ:DOF025",
     attribution: GURS_ATTRIBUTION,
   },
-  {
-    // The coarser cyclic survey, covering the ground DOF025 and the year-picked
-    // DOF050_Z leave blank — a fallback when a spot renders empty in those.
-    key: "settings.map.overlays.preset.gurs.ortho50",
-    wms: true,
-    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
-    layers: "SI.GURS.ZPDZ:DOF050",
-    attribution: GURS_ATTRIBUTION,
-  },
+  // No preset for SI.GURS.ZPDZ:DOF050: it is the same survey as DOF025 at half
+  // the source resolution — same coverage, same scale range, visibly softer.
+  // Where one is blank so is the other, so it makes no fallback (2026-07-25).
   {
     key: "settings.map.overlays.preset.gurs.topo50",
     wms: true,
