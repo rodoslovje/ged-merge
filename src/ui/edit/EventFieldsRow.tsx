@@ -146,6 +146,13 @@ export function EventFieldsRow({
   // The coordinate this event actually carries (PLAC.MAP). Read from the model,
   // not the edited text, so it reflects what is in the file.
   const coord = ev?.place?.coord;
+  // Whether the file uses coordinates at all: between them the two maps cover
+  // every PLAC that carries a MAP (one for events with an address, one for those
+  // without), so both empty means the file has none anywhere. A file that does
+  // not use locations should not carry a pin on every event row — coordinates
+  // are introduced there through Tools → Geocode places, and once the first one
+  // lands the pins appear and can refine the rest.
+  const fileUsesCoords = placeCoords.size > 0 || pairCoords.size > 0;
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
 
   // Known place+address pairs for the place field's combo suggestions —
@@ -586,6 +593,7 @@ export function EventFieldsRow({
            *  and not another — and because the Tools list only offers places
            *  *missing* a coordinate, so a settlement-pinned place whose address
            *  could be pinned at the house has no row there. */}
+          {(fileUsesCoords || coord) && (
           <EventCoordPicker
             place={placeField.value}
             address={addrField.value}
@@ -600,6 +608,7 @@ export function EventFieldsRow({
             onPick={(c) => commitAll({ coord: c })}
             onClear={() => commitAll({ coord: null })}
           />
+          )}
         </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => {
           const known = knownCoord(placeField.value, val);

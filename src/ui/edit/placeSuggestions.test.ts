@@ -84,3 +84,46 @@ describe("buildPlaceSuggestions coordinates", () => {
     expect(buildPlaceSuggestions(ds).pairCoords.size).toBe(0);
   });
 });
+
+describe("coordinate maps as the \"file uses locations\" signal", () => {
+  // The Edit pin renders only when the file uses coordinates somewhere; between
+  // them these two maps cover every PLAC that carries a MAP, so both being empty
+  // is that test. Guarding it here keeps the pin from reappearing on files that
+  // have no locations at all.
+  it("is empty for a file with places but no coordinates", () => {
+    const sug = buildPlaceSuggestions(
+      build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+1 RESI
+2 PLAC Kranj, Slovenija
+2 ADDR Kidričeva cesta 38
+0 TRLR
+`),
+    );
+    expect(sug.placeCoords.size + sug.pairCoords.size).toBe(0);
+  });
+
+  it("is non-empty as soon as one coordinate exists, whether or not it has an address", () => {
+    const onlyAddressed = buildPlaceSuggestions(
+      build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.24137
+4 LONG E14.35580
+2 ADDR Kidričeva cesta 38
+0 TRLR
+`),
+    );
+    // Covered by pairCoords alone — placeCoords ignores addressed events.
+    expect(onlyAddressed.placeCoords.size).toBe(0);
+    expect(onlyAddressed.placeCoords.size + onlyAddressed.pairCoords.size).toBe(1);
+  });
+});
