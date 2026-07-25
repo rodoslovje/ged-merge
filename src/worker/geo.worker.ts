@@ -1,4 +1,12 @@
-import { overpassToEntries, parseGeoNamesLine, type GazEntry, type OverpassJson } from "../geo/gazetteer";
+import {
+  GURS_REGISTER,
+  overpassToEntries,
+  parseGeoNamesLine,
+  rpeNaseljaToEntries,
+  type GazEntry,
+  type OverpassJson,
+  type RpeNaseljaJson,
+} from "../geo/gazetteer";
 import { extractZipTxt } from "../geo/zip";
 import { putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
@@ -42,6 +50,18 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   if (msg.type !== "importGazetteer") return;
   const { requestId } = msg;
   try {
+    if (msg.format === "rpe") {
+      const entries = rpeNaseljaToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as RpeNaseljaJson);
+      if (!entries.length) throw new Error("no settlements in the GURS result");
+      // Stored under its own key so it sits alongside a GeoNames/OpenStreetMap
+      // "SI" import instead of replacing it — the two complement each other
+      // (GURS has the official settlements and bilingual names, OSM the hamlet
+      // tail). The key is a storage label only: the entries themselves stay
+      // country "SI", which is what lookupPlace's country gate compares.
+      await putCountry({ code: GURS_REGISTER, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code: GURS_REGISTER, count: entries.length }] });
+      return;
+    }
     if (msg.format === "overpass") {
       const country = msg.country ?? "??";
       const entries = overpassToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson, country);

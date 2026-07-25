@@ -6829,7 +6829,9 @@ kbd {
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.9rem;
 }
 .tools-geo-download input:focus { outline: none; border-color: var(--accent); }
-.tools-geo-download .tools-run { margin: 0; }
+/* Drop .tools-run's bottom margin for every button in the row — whether it sits
+   in the country-code wrapper or directly in the flex row — so they align. */
+.tools-geo-acquire .tools-run { margin: 0; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
 .tools-geo-minimap {
   height: 220px;

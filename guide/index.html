@@ -243,7 +243,7 @@
               <li><strong>Data</strong> — <em>Remember my work in this browser</em> (see <em>Keeping your work</em> below).</li>
               <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect: date format, unknown date parts, place format, alternate names, the unknown-name marker, source and citation layout, page links, baptism citations, doubled links, privacy tag, and the Matricula/Geneanet link languages. Each defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§7</a> and <a href="#sources">§13</a>.</li>
               <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to the CARTO street background for the <a href="#map">Places map</a> (tile requests reveal the viewed region; off = a built-in offline outline), with an optional custom tile-URL template. <em>Historical overlay layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§9</a>.</li>
-              <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. It also powers the one-click OpenStreetMap gazetteer download and the per-row online searches (OpenStreetMap and GOV) used by <a href="#tools">Geocode places</a>. <strong>These are the only features that send anything off your device, and they are off by default.</strong></li>
+              <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. It also powers the one-click OpenStreetMap and GURS gazetteer downloads and the per-row online searches (OpenStreetMap and GOV) used by <a href="#tools">Geocode places</a>. <strong>These are the only features that send anything off your device, and they are off by default.</strong></li>
             </ul>
 
             <h3>Keeping your work &amp; working offline</h3>
@@ -851,8 +851,15 @@
               is reviewed by you and undoable.
             </p>
             <p>
-              Load the gazetteer either with one click from <strong>OpenStreetMap</strong> (country code + Download, needs
-              the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>) or by importing a
+              Load the gazetteer with one click from <strong>OpenStreetMap</strong> (country code + Download, needs
+              the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>); with
+              <strong>Download Slovenia (GURS)</strong> — all 6035 settlements from Slovenia's national register of
+              spatial units, the authoritative choice for Slovenian research, and it brings the bilingual Italian and
+              Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. It is listed on its own as
+              <span class="gm-data">SI-GURS</span>, so it sits <em>alongside</em> an OpenStreetMap or GeoNames
+              <span class="gm-data">SI</span> import instead of replacing it — the official settlements and the hamlets
+              only OpenStreetMap knows then both count, and a settlement both describe is offered once, at its official
+              coordinate. Or load a gazetteer by importing a
               <strong>GeoNames</strong> country file (<em>.zip</em> or <em>.txt</em>) — the loaded gazetteers are listed
               under their own heading, and the data stays in your browser. Proposals are ranked: coordinates other
               occurrences of the same place already carry come first, then exact and historical-name matches

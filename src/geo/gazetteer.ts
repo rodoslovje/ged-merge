@@ -25,7 +25,18 @@ export interface GazEntry {
   /** Admin1 code (region), informational only. */
   admin1: string;
   population: number;
+  /** Storage code of the official national register this entry came from, e.g.
+   *  {@link GURS_REGISTER}; absent for crowd-sourced or aggregated gazetteers
+   *  (OpenStreetMap, GeoNames). Its presence marks the entry as authoritative,
+   *  which breaks score ties so the official coordinate wins when two loaded
+   *  gazetteers describe the same settlement; the code itself labels the
+   *  candidate in the UI, since `country` stays a plain ISO code for matching. */
+  register?: string;
 }
+
+/** Storage key of the GURS settlements import — deliberately not a bare ISO
+ *  code, so it coexists with a GeoNames/OpenStreetMap "SI" gazetteer. */
+export const GURS_REGISTER = "SI-GURS";
 
 /** Feature classes worth importing: settlements and admin divisions. */
 const KEEP_CLASSES = new Set(["P", "A"]);
@@ -101,6 +112,127 @@ export function overpassToEntries(data: OverpassJson, country: string): GazEntry
   return entries;
 }
 
+/** GeoJSON from the GURS RPE "NASELJA" (settlements) collection, reduced to
+ *  what we read. Geometry arrives already in WGS84 (CRS84), so no projection
+ *  step is needed — unlike the RN address register, whose features carry no
+ *  geometry at all and expose D96/TM easting/northing as properties. */
+export interface RpeNaseljaJson {
+  features?: {
+    properties?: { NAZIV?: unknown; NAZIV_DJ?: unknown } | null;
+    geometry?: { type?: unknown; coordinates?: unknown } | null;
+  }[];
+}
+
+/** A closed lon/lat ring. */
+type Ring = [number, number][];
+
+/** Read one GeoJSON ring, rejecting anything that isn't a list of finite
+ *  lon/lat pairs (the payload is untyped JSON off the network). */
+function toRing(value: unknown): Ring | undefined {
+  if (!Array.isArray(value) || value.length < 3) return undefined;
+  const ring: Ring = [];
+  for (const point of value) {
+    if (!Array.isArray(point) || point.length < 2) return undefined;
+    const lon = Number(point[0]);
+    const lat = Number(point[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return undefined;
+    ring.push([lon, lat]);
+  }
+  return ring;
+}
+
+/**
+ * Area-weighted centroid of one ring, plus its unsigned area — the area is
+ * what picks the main body of a multi-part settlement. A vertex mean would
+ * drift towards whichever edge happens to carry more points, so use the
+ * shoelace centroid.
+ */
+function ringCentroid(ring: Ring): { lat: number; lon: number; area: number } {
+  let twiceArea = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [x1, y1] = ring[j];
+    const [x2, y2] = ring[i];
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    cx += (x1 + x2) * cross;
+    cy += (y1 + y2) * cross;
+  }
+  // A degenerate ring (zero area: collinear or repeated points) would divide
+  // by zero — fall back to the vertex mean so the settlement is still placed.
+  if (twiceArea === 0) {
+    const n = ring.length;
+    let sx = 0;
+    let sy = 0;
+    for (const [x, y] of ring) {
+      sx += x;
+      sy += y;
+    }
+    return { lon: sx / n, lat: sy / n, area: 0 };
+  }
+  return { lon: cx / (3 * twiceArea), lat: cy / (3 * twiceArea), area: Math.abs(twiceArea / 2) };
+}
+
+/** Outer ring of the largest part: `coordinates[0]` for a Polygon, and for a
+ *  MultiPolygon the part with the biggest outer ring. Holes are ignored — the
+ *  outer ring alone is what a settlement's label point follows. */
+function outerRings(type: unknown, coordinates: unknown): Ring[] {
+  if (!Array.isArray(coordinates)) return [];
+  if (type === "Polygon") {
+    const ring = toRing(coordinates[0]);
+    return ring ? [ring] : [];
+  }
+  if (type === "MultiPolygon") {
+    const rings: Ring[] = [];
+    for (const part of coordinates) {
+      if (!Array.isArray(part)) continue;
+      const ring = toRing(part[0]);
+      if (ring) rings.push(ring);
+    }
+    return rings;
+  }
+  return [];
+}
+
+/**
+ * Convert the GURS RPE settlements collection into gazetteer entries — the
+ * authoritative Slovenian alternative to a GeoNames extract or an Overpass
+ * download. Each settlement polygon is reduced to its centroid; the bilingual
+ * (Italian / Hungarian) `NAZIV_DJ` name becomes an alternate name so the
+ * Italian and Hungarian forms in older records still match.
+ *
+ * Data: Geodetska uprava Republike Slovenije, CC BY 4.0.
+ */
+export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
+  const entries: GazEntry[] = [];
+  for (const feature of data.features ?? []) {
+    const name = typeof feature.properties?.NAZIV === "string" ? feature.properties.NAZIV.trim() : "";
+    if (!name) continue;
+    const rings = outerRings(feature.geometry?.type, feature.geometry?.coordinates);
+    if (!rings.length) continue;
+    let best = ringCentroid(rings[0]);
+    for (let i = 1; i < rings.length; i++) {
+      const c = ringCentroid(rings[i]);
+      if (c.area > best.area) best = c;
+    }
+    const bilingual = typeof feature.properties?.NAZIV_DJ === "string" ? feature.properties.NAZIV_DJ.trim() : "";
+    entries.push({
+      name,
+      ascii: "",
+      alt: bilingual && bilingual !== name ? [bilingual] : [],
+      lat: best.lat,
+      lon: best.lon,
+      fclass: "P",
+      country: "SI",
+      admin1: "",
+      population: 0,
+      register: GURS_REGISTER,
+    });
+  }
+  return entries;
+}
+
 /** Fuzzy-match bucket key: first two folded characters. */
 function bucketKey(folded: string): string {
   return folded.slice(0, 2);
@@ -154,6 +286,10 @@ export const HIGH_CONFIDENCE = 0.95;
 const MIN_FUZZY = 0.87;
 
 const MAX_CANDIDATES = 6;
+
+/** Same-named entries closer than this (degrees, ≈5 km at Slovenian latitudes)
+ *  are the same settlement described by two gazetteers, not two places. */
+const DUPLICATE_DEG = 0.05;
 
 /**
  * Candidates for one raw place string: the locality part is matched exactly
@@ -211,6 +347,28 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     score = Math.min(1, score + Math.min(e.population, 500_000) / 500_000 / 50);
     candidates.push({ entry: e, score });
   }
-  candidates.sort((a, b) => b.score - a.score || b.entry.population - a.entry.population);
-  return candidates.slice(0, MAX_CANDIDATES);
+  candidates.sort(
+    (a, b) =>
+      b.score - a.score ||
+      Number(!!b.entry.register) - Number(!!a.entry.register) ||
+      b.entry.population - a.entry.population,
+  );
+  // With two gazetteers loaded for one country (the official register plus an
+  // OpenStreetMap or GeoNames import) the same settlement appears twice, at
+  // near-identical scores. Left alone those twins crowd out real alternatives
+  // and, because the scores tie, make every such place look ambiguous to the
+  // bulk-accept gate — so collapse each cluster to its best (authoritative)
+  // entry. Same-named places genuinely far apart stay separate.
+  const merged: GazCandidate[] = [];
+  for (const c of candidates) {
+    const folded = foldToken(c.entry.name);
+    const twin = merged.some(
+      (k) =>
+        foldToken(k.entry.name) === folded &&
+        Math.abs(k.entry.lat - c.entry.lat) < DUPLICATE_DEG &&
+        Math.abs(k.entry.lon - c.entry.lon) < DUPLICATE_DEG,
+    );
+    if (!twin) merged.push(c);
+  }
+  return merged.slice(0, MAX_CANDIDATES);
 }

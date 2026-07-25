@@ -56,7 +56,10 @@ interface Props {
   startId?: string;
 }
 
-/** Read a response body with byte progress (falls back to one shot). */
+/** Read a response body with byte progress (falls back to one shot). `total` is
+ *  0 when the server announced no Content-Length — chunked transfer, which both
+ *  Overpass and the GURS endpoint use — and the caller shows bytes instead of a
+ *  percentage in that case. */
 async function readWithProgress(
   res: Response,
   onProgress: (done: number, total: number) => void,
@@ -71,7 +74,7 @@ async function readWithProgress(
     if (end) break;
     chunks.push(value);
     done += value.byteLength;
-    onProgress(done, Math.max(total, done));
+    onProgress(done, total);
   }
   const out = new Uint8Array(done);
   let off = 0;
@@ -87,6 +90,14 @@ async function readWithProgress(
  *  no CORS headers and blocks the public relays' addresses, so the one-click
  *  path uses OSM; GeoNames stays available via the manual file import. */
 const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+
+/** GURS RPE settlements ("naselja") — the authoritative Slovenian register,
+ *  served as GeoJSON in WGS84 with CORS open, so the browser fetches it
+ *  directly. All 6035 settlements come in one response (the service ignores
+ *  `properties=`, so the ~45 MB of polygons is unavoidable); the worker keeps
+ *  only each polygon's centroid. Data © Geodetska uprava RS, CC BY 4.0. */
+const GURS_NASELJA_URL =
+  "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:NASELJA/items?f=application%2Fgeo%2Bjson&limit=10000";
 
 /** Every place node in the country: settlements down to isolated dwellings. */
 function overpassQuery(code: string): string {
@@ -135,8 +146,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     return () => workerRef.current?.terminate();
   }, []);
 
-  const runImport = (buffer: ArrayBuffer, fileName: string, extra?: { format: "overpass"; country: string }) => {
-    setImportState({ phase: "running", done: 0, total: buffer.byteLength });
+  const runImport = (
+    buffer: ArrayBuffer,
+    fileName: string,
+    extra?: { format: "overpass"; country: string } | { format: "rpe" },
+  ) => {
+    // Only the GeoNames dump path reports parse progress by chunk; the Overpass
+    // and GURS payloads are converted in one shot, so leave their total at 0 and
+    // show a bare spinner rather than a 0 % that never moves.
+    setImportState({ phase: "running", done: 0, total: extra ? 0 : buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
     const fail = (message: string) => {
@@ -202,6 +220,30 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
         return;
       }
       runImport(buffer, `${code}.osm.json`, { format: "overpass", country: code });
+    } finally {
+      fetchAbortRef.current = null;
+    }
+  };
+
+  // One-click Slovenian gazetteer from GURS. Same opt-in gate and progress
+  // handling as the Overpass download, but a single known endpoint — a failure
+  // here is a real outage, so there is no fallback list to walk.
+  const downloadSlovenia = async () => {
+    const abort = new AbortController();
+    fetchAbortRef.current = abort;
+    setImportState({ phase: "running", done: 0, total: 0 });
+    try {
+      const res = await fetch(GURS_NASELJA_URL, { signal: abort.signal });
+      if (!res.ok) {
+        setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
+        return;
+      }
+      const buffer = await readWithProgress(res, (done, total) => setImportState({ phase: "running", done, total }));
+      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe" });
+    } catch (e) {
+      if (abort.signal.aborted) return;
+      void e;
+      setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
     } finally {
       fetchAbortRef.current = null;
     }
@@ -445,32 +487,42 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
         {importState?.phase === "running" ? (
           <ToolsLoading
             label={t("tools.geocode.importing")}
-            progress={importState.total > 0 ? importState : undefined}
+            progress={importState}
+            bytes
             onCancel={cancelImport}
           />
         ) : (
           <div className="tools-geo-acquire">
             {appSettings.allowLinkFetch && (
-              <span className="tools-geo-download">
-                <input
-                  type="text"
-                  maxLength={2}
-                  placeholder={t("tools.geocode.countryCodePlaceholder")}
-                  title={t("tools.geocode.countryCodeTooltip")}
-                  value={countryDraft}
-                  onChange={(e) => setCountryDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void downloadCountry();
-                  }}
-                />
+              <>
                 <button
                   className="nav-btn tools-run"
-                  onClick={() => void downloadCountry()}
-                  disabled={!/^[A-Za-z]{2}$/.test(countryDraft.trim())}
+                  onClick={() => void downloadSlovenia()}
+                  title={t("tools.geocode.gursTooltip")}
                 >
-                  {t("tools.geocode.downloadBtn")}
+                  {t("tools.geocode.gursBtn")}
                 </button>
-              </span>
+                <span className="tools-geo-download">
+                  <input
+                    type="text"
+                    maxLength={2}
+                    placeholder={t("tools.geocode.countryCodePlaceholder")}
+                    title={t("tools.geocode.countryCodeTooltip")}
+                    value={countryDraft}
+                    onChange={(e) => setCountryDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void downloadCountry();
+                    }}
+                  />
+                  <button
+                    className="nav-btn tools-run"
+                    onClick={() => void downloadCountry()}
+                    disabled={!/^[A-Za-z]{2}$/.test(countryDraft.trim())}
+                  >
+                    {t("tools.geocode.downloadBtn")}
+                  </button>
+                </span>
+              </>
             )}
             <label className="nav-btn tools-geo-import">
               {t("tools.geocode.importBtn")}
@@ -493,7 +545,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
             download.geonames.org/export/dump
           </a>{" "}
-          {t("tools.geocode.importHint2")}
+          {t("tools.geocode.importHint2")}{" "}
+          {t("tools.geocode.gursCredit")}{" "}
+          <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
+            e-prostor.gov.si
+          </a>
           {!appSettings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
         </p>
       </div>

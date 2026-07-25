@@ -10,19 +10,27 @@ import { PersonLink } from "../PersonLink";
 export function ToolsLoading({
   label,
   progress,
+  bytes,
   onCancel,
 }: {
   label: string;
   progress?: { done: number; total: number };
+  /** Treat `progress` as byte counts, so a download whose length the server
+   *  never announced (chunked transfer, no Content-Length) can still show how
+   *  much has arrived. A percentage there would read 100 % from the first
+   *  chunk onwards and look stuck. */
+  bytes?: boolean;
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
+  const known = progress && progress.total > 0;
   return (
     <div className="tools-loading">
       <div className="parsing-status">
         <span className="spinner" aria-hidden="true" />
         {label}
-        {progress && ` ${Math.round((progress.done / Math.max(1, progress.total)) * 100)} %`}
+        {known && ` ${Math.round((progress.done / progress.total) * 100)} %`}
+        {!known && bytes && progress && progress.done > 0 && ` ${(progress.done / 1048576).toFixed(1)} MB`}
       </div>
       {onCancel && (
         <button className="nav-btn tools-run" onClick={onCancel}>
