@@ -163,15 +163,18 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   // Detected on the raw file, so the summary reports the placeholder the incoming
   // file actually used (before it's reshaped to the main's convention).
   const unknownNameStyle = detectUnknownNameToken(rawDataset);
+  // Counted on the raw file: whether the *incoming* side brings coordinates is
+  // what matters when deciding a merge, and normalizing does not add any.
+  const coordUsage = detectCoordUsage(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle };
+    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
     post({ type: "parsed", role: "compare", dataset: rawDataset, ...lastCompareMeta });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle };
+  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
   post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
 }
 
