@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { makeDuplicatePair, duplicatePairKey, type DuplicatePair } from "../../tools/duplicates";
+import {
+  makeDuplicatePair,
+  duplicatePairKey,
+  clusterDuplicates,
+  type DuplicatePair,
+  type DuplicateCluster,
+} from "../../tools/duplicates";
+import { categorize, DEFAULT_CONFIG, type MatchCategory } from "../../match/types";
 import { individualFieldRows } from "../../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";

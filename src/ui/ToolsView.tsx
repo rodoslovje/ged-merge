@@ -58,11 +58,13 @@ interface Props {
   rejectedDuplicates: Set<string>;
   /** Dismiss a pair as not-a-duplicate; persisted across scan re-runs. */
   onRejectDuplicate: (aId: string, bId: string) => void;
+  /** Dismiss a whole cluster of pairs at once, as a single undoable step. */
+  onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
   /** Undo a previous reject, so the pair reappears in the active list. */
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onRenamePlaceValue, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onRenamePlaceValue, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   // One shared worker runs the heavy whole-file scans off the main thread;
@@ -103,7 +105,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFillPlaceCoords={onFillPlaceCoords} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onUnrejectDuplicate={onUnrejectDuplicate} />
+          <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
           <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} />

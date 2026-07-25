@@ -1898,6 +1898,13 @@ function AppContent() {
                 undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
+              onRejectDuplicatesBulk={(pairs) => {
+                const next = new Set(rejectedDuplicates);
+                for (const { aId, bId } of pairs) next.add(duplicatePairKey(aId, bId));
+                if (next.size === rejectedDuplicates.size) return;
+                undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
+                dispatch({ type: "rejectedDuplicatesSet", pairs: next });
+              }}
               onUnrejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
                 next.delete(duplicatePairKey(aId, bId));
