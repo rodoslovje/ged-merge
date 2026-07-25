@@ -6957,3 +6957,9 @@ kbd {
 }
 .tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+/* Address rows grouped under their place: one collapsible group per place, so a
+   file with hundreds of addresses is worked through a place at a time. */
+.tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }
+.tools-geo-addr-group:last-child { border-bottom: none; }
+.tools-geo-addr-group > .tools-geo-addr-head { font-weight: 500; }
+.tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }

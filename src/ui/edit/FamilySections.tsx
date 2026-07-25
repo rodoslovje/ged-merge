@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { Dataset, Family, SourceCitation } from "../../gedcom/types";
+import type { Dataset, Family, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
@@ -283,6 +283,10 @@ interface FamilySectionProps extends SharedSectionProps {
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  /** Coordinate the file already uses for a place (settlement-level). */
+  placeCoords: Map<string, GeoCoord>;
+  /** Coordinate for a specific place+address pair (the house). */
+  pairCoords: Map<string, GeoCoord>;
   pendingFocusFamEventKey: string | null;
   setPendingFocusFamEventKey: (key: string | null) => void;
   famNoteAddCount: number | undefined;
@@ -328,6 +332,8 @@ export const FamilySection = memo(function FamilySection({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  placeCoords,
+  pairCoords,
   pendingFocusFamEventKey,
   setPendingFocusFamEventKey,
   famNoteAddCount,
@@ -468,6 +474,8 @@ export const FamilySection = memo(function FamilySection({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             famMergeKeyBase={famMergeKeyBase}
@@ -499,6 +507,8 @@ export const FamilySection = memo(function FamilySection({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             famMergeKeyBase={famMergeKeyBase}

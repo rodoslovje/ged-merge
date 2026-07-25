@@ -8,7 +8,7 @@ import { detectFormatDefaults } from "../normalize/formatDefaults";
 import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { Dataset, Individual } from "../gedcom/types";
 import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
-import { collectLayoutValues, dateLayoutFromValues, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
+import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasets } from "../match/engine";
@@ -117,6 +117,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           nameLayout: (detectedFormats.names as NameLayout | undefined) ?? "none",
           unknownNameStyle: detectedFormats.unknownName === "blank" ? undefined : detectedFormats.unknownName,
           marriedNameTag: profile.nameVariants.married.form === "tag",
+          coordUsage: detectCoordUsage(dataset),
         });
       }
       // A compare loaded earlier can now be normalized against this main.

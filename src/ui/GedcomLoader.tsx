@@ -244,7 +244,7 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage } = state.file;
   // Each row is one "Label: value" line; format rows carry a tooltip explaining
   // the (deliberately short) format label in detail.
   const info: { text: string; tooltip?: string }[] = [
@@ -278,6 +278,18 @@ function renderSummary(
   }
   if (placeLayout && placeLayout !== "unknown") {
     info.push({ text: t("loader.placeFormat", { format: t(`settings.format.place.${placeLayout}`) }), tooltip: t(`placeLayout.${placeLayout}.tip`) });
+  }
+  // Whether the file uses coordinates at all, and how far they reach — the
+  // signal for whether a geocoding pass is worth making.
+  if (coordUsage && coordUsage.total > 0) {
+    const { withCoord, total } = coordUsage;
+    info.push({
+      text:
+        withCoord === 0
+          ? t("loader.coords.none")
+          : t("loader.coords", { withCoord, total, percent: Math.round((withCoord / total) * 100) }),
+      tooltip: t("loader.coords.tip"),
+    });
   }
   if (sourceLayout && sourceLayout !== "unknown") {
     // The page-media placement rides along when the file has page images at

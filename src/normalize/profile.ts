@@ -1,4 +1,4 @@
-import { addressStreetName, decomposePlace, parsePlace, stripHouseNumber } from "../gedcom/place";
+import { addressStreetName, decomposePlace, parseCoordPair, parsePlace, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import { detectPrivacyStyleIfAny } from "../gedcom/private";
@@ -189,6 +189,33 @@ export function inferDateLayout(dataset: Dataset): string | undefined {
 /** Detect a dataset's unknown-date placeholder marker ("_"/"?"), or undefined. */
 export function inferDatePlaceholder(dataset: Dataset): string | undefined {
   return detectDatePlaceholder(collectDateValues(dataset));
+}
+
+/** How much of a file's places carry coordinates — the "location used" signal
+ *  for the loader card. `withCoord` counts PLAC lines with a usable `MAP`. */
+export interface CoordUsage {
+  withCoord: number;
+  total: number;
+}
+
+/**
+ * Count PLAC lines and how many of them carry a parseable coordinate. Reported
+ * on load so it is obvious whether a file uses coordinates at all — and, when it
+ * does, how far the coverage goes, which is what decides whether geocoding is
+ * worth a pass.
+ */
+export function detectCoordUsage(dataset: Dataset): CoordUsage {
+  let withCoord = 0;
+  let total = 0;
+  walkNodes(dataset.records, (node) => {
+    if (node.tag !== "PLAC" || !node.value?.trim()) return;
+    total++;
+    const map = node.children.find((c) => c.tag === "MAP");
+    const lati = map?.children.find((c) => c.tag === "LATI")?.value;
+    const long = map?.children.find((c) => c.tag === "LONG")?.value;
+    if (lati && long && parseCoordPair(lati, long)) withCoord++;
+  });
+  return { withCoord, total };
 }
 
 /** Pure: describe a date layout from already-collected DATE values (undefined when there are none). */
