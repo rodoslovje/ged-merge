@@ -146,6 +146,65 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     attribution: "© swisstopo",
     maxZoom: 13,
   },
+  // Slovenia · GURS public WMS (Geodetska uprava RS), CC BY 4.0, CORS-enabled,
+  // served in Web Mercator on demand. Reference (present-day) layers useful for
+  // locating an ancestral place; no validity period, so never era-suggested.
+  {
+    name: "Slovenia · Historical orthophoto (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.ZPDZ:DOF050_Z",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Orthophoto (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.ZPDZ:DOF025",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Topographic map 1:50 000 (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.DK:DTK50",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Base topographic plan 1:5 000/10 000 (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.DK:TTN5_TTN10",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Cadastral parcels (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
+    layers: "SI.GURS.KN:PARCELE",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · House numbers (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
+    layers: "SI.GURS.KN:HISNE_STEVILKE",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Settlements (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
+    layers: "SI.GURS.RPE:NASELJA",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
+  {
+    name: "Slovenia · Municipalities (GURS)",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
+    layers: "SI.GURS.RPE:OBCINE",
+    attribution: "© Geodetska uprava RS · CC BY 4.0",
+  },
 ];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
@@ -568,14 +627,34 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       🗑
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    className="settings-text-input"
-                    value={layer.url}
-                    placeholder={t("settings.map.overlays.url")}
-                    title={t("settings.map.overlays.url.hint")}
-                    onChange={(e) => update({ url: e.target.value.trim() })}
-                  />
+                  <div className="settings-overlay-line">
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      value={layer.url}
+                      placeholder={layer.wms ? t("settings.map.overlays.wmsUrl") : t("settings.map.overlays.url")}
+                      title={layer.wms ? t("settings.map.overlays.wmsUrl.hint") : t("settings.map.overlays.url.hint")}
+                      onChange={(e) => update({ url: e.target.value.trim() })}
+                    />
+                    <label className="settings-overlay-wms" title={t("settings.map.overlays.wms.hint")}>
+                      <input
+                        type="checkbox"
+                        checked={!!layer.wms}
+                        onChange={(e) => update({ wms: e.target.checked || undefined })}
+                      />
+                      {t("settings.map.overlays.wms")}
+                    </label>
+                  </div>
+                  {layer.wms && (
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      value={layer.layers ?? ""}
+                      placeholder={t("settings.map.overlays.wmsLayers")}
+                      title={t("settings.map.overlays.wmsLayers.hint")}
+                      onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                    />
+                  )}
                   <div className="settings-overlay-line">
                     <input
                       type="text"
@@ -585,17 +664,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.attribution.hint")}
                       onChange={(e) => update({ attribution: e.target.value || undefined })}
                     />
-                    <input
-                      type="number"
-                      className="settings-overlay-year"
-                      value={layer.maxZoom ?? ""}
-                      placeholder={t("settings.map.overlays.maxZoom")}
-                      title={t("settings.map.overlays.maxZoom.hint")}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
-                      }}
-                    />
+                    {!layer.wms && (
+                      <input
+                        type="number"
+                        className="settings-overlay-year"
+                        value={layer.maxZoom ?? ""}
+                        placeholder={t("settings.map.overlays.maxZoom")}
+                        title={t("settings.map.overlays.maxZoom.hint")}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
               );

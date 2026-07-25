@@ -21,14 +21,22 @@ export interface MapOverlay {
   /** Stable identity (generated on add) — the picker's on/off key. */
   id: string;
   name: string;
-  /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders. */
+  /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders — or, when
+   *  {@link wms} is set, the OGC WMS service base endpoint (Leaflet appends the
+   *  GetMap query itself). */
   url: string;
+  /** When set, the overlay is an OGC WMS layer drawn via `L.tileLayer.wms`:
+   *  {@link url} is the service endpoint and {@link layers} names the layers. */
+  wms?: boolean;
+  /** Comma-separated WMS layer name(s) — only used when {@link wms} is set. */
+  layers?: string;
   /** Validity period (either end open) — drives the era suggestion. */
   yearFrom?: number;
   yearTo?: number;
   /** Attribution required by the layer's source, shown on map + PNG export. */
   attribution?: string;
-  /** Highest zoom the source provides; deeper views scale those tiles. */
+  /** Highest zoom the source provides; deeper views scale those tiles.
+   *  Ignored for WMS layers, which render at any zoom. */
   maxZoom?: number;
 }
 
@@ -100,6 +108,8 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
   for (const o of v as Partial<MapOverlay>[]) {
     if (!o || typeof o.id !== "string" || typeof o.name !== "string" || typeof o.url !== "string") continue;
     const layer: MapOverlay = { id: o.id, name: o.name, url: o.url };
+    if (o.wms === true) layer.wms = true;
+    if (typeof o.layers === "string" && o.layers) layer.layers = o.layers;
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
     if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;
     if (typeof o.attribution === "string" && o.attribution) layer.attribution = o.attribution;

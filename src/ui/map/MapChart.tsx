@@ -190,9 +190,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
-  const overlayLayersRef = useRef<Map<string, { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string }>>(
-    new Map(),
-  );
+  const overlayLayersRef = useRef<
+    Map<string, { layer: L.TileLayer; url: string; maxZoom?: number; attribution?: string; wms?: boolean; layers?: string }>
+  >(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   const pathRendererRef = useRef<L.Renderer | null>(null);
@@ -255,7 +255,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         !overlayOn.has(id) ||
         o.url !== entry.url ||
         o.maxZoom !== entry.maxZoom ||
-        o.attribution !== entry.attribution;
+        o.attribution !== entry.attribution ||
+        !!o.wms !== !!entry.wms ||
+        o.layers !== entry.layers;
       if (stale) {
         entry.layer.remove();
         live.delete(id);
@@ -270,16 +272,29 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         entry.layer.setOpacity(opacity);
         continue;
       }
-      const layer = L.tileLayer(o.url, {
-        opacity,
-        attribution: o.attribution ?? "",
-        crossOrigin: "anonymous",
-        maxZoom: 18,
-        // Sources that stop at a lower zoom get their deepest tiles scaled.
-        maxNativeZoom: o.maxZoom ?? 18,
-        zIndex: OVERLAY_Z,
-      }).addTo(map);
-      live.set(o.id, { layer, url: o.url, maxZoom: o.maxZoom, attribution: o.attribution });
+      const layer: L.TileLayer = o.wms
+        ? L.tileLayer.wms(o.url, {
+            layers: o.layers ?? "",
+            format: "image/png",
+            transparent: true,
+            opacity,
+            attribution: o.attribution ?? "",
+            crossOrigin: "anonymous",
+            // WMS renders any bbox on demand, so it scales to any zoom itself.
+            maxZoom: 18,
+            zIndex: OVERLAY_Z,
+          })
+        : L.tileLayer(o.url, {
+            opacity,
+            attribution: o.attribution ?? "",
+            crossOrigin: "anonymous",
+            maxZoom: 18,
+            // Sources that stop at a lower zoom get their deepest tiles scaled.
+            maxNativeZoom: o.maxZoom ?? 18,
+            zIndex: OVERLAY_Z,
+          });
+      layer.addTo(map);
+      live.set(o.id, { layer, url: o.url, maxZoom: o.maxZoom, attribution: o.attribution, wms: o.wms, layers: o.layers });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
 
