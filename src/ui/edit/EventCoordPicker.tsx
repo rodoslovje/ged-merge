@@ -112,19 +112,39 @@ export function EventCoordPicker({
     setDraft("");
   };
 
-  // Candidate pins plus whatever is currently chosen, for the mini map.
+  // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
+  // the map renders its detail panel (house, post office, coordinate, source,
+  // and that a click takes it) rather than a bare one-line tooltip — with several
+  // numbers of one renumbered house on screen, the panel is what tells them apart.
+  const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
   const pins: MiniMapPin[] = [];
   for (const r of rn.results) {
-    pins.push({ coord: r.coord, label: `${r.address} · GURS`, kind: "candidate", onPick: () => take(r.coord) });
+    pins.push({
+      coord: r.coord,
+      label: r.address,
+      lines: [r.label === r.address ? "" : r.label, at(r.coord), t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(
+        Boolean,
+      ),
+      kind: "candidate",
+      onPick: () => take(r.coord),
+    });
   }
   for (const r of osm.results) {
     if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
-    pins.push({ coord: r.coord, label: `${r.name} · OSM`, kind: "candidate", onPick: () => take(r.coord) });
+    pins.push({
+      coord: r.coord,
+      label: r.name,
+      lines: [r.label === r.name ? "" : r.label, at(r.coord), t("event.coord.source.osm"), t("event.coord.pinPick")].filter(
+        Boolean,
+      ),
+      kind: "candidate",
+      onPick: () => take(r.coord),
+    });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
-    pins.push({ coord: draftCoord, label: t("event.coord.manual"), kind: "chosen" });
+    pins.push({ coord: draftCoord, label: t("event.coord.manual"), lines: [at(draftCoord)], kind: "chosen" });
   } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: t("event.coord.current"), kind: "chosen" });
+    pins.push({ coord, label: t("event.coord.current"), lines: [at(coord)], kind: "chosen" });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names
