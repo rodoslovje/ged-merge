@@ -6481,6 +6481,9 @@ kbd {
   font-weight: 600; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The header's person link keeps the cluster's heavier name weight (the shared
+   .person-ref rule resets it to 400 for ordinary pair rows). */
+.tools-dup-cluster-label .person-name { font-weight: 600; }
 .tools-dup-cluster-meta { flex: none; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 .tools-dup-cluster-dismiss { flex: none; margin-left: auto; }
 /* Member pairs of an unfolded cluster sit indented under their header. */

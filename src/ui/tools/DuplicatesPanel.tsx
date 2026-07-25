@@ -428,15 +428,24 @@ export function DuplicatesPanel({
                         <span className={`tools-cat cat-${categorize(Math.round(c.maxScore) / 100, DEFAULT_CONFIG)}`}>
                           {Math.round(c.maxScore)}
                         </span>
+                        {/* The cluster's representative record, rendered like
+                            every other person reference (name-order preference,
+                            record id, lifespan). */}
+                        <span className="tools-dup-cluster-label">
+                          <PersonLink
+                            dataset={dataset}
+                            id={c.pairs[0].aId}
+                            fallback={c.pairs[0].aLabel}
+                            onNavigate={onNavigate}
+                            forceXref
+                          />
+                        </span>
                         <span
-                          className="tools-dup-cluster-label"
+                          className="tools-dup-cluster-meta"
                           title={t("tools.duplicates.cluster.recordIds", {
                             ids: c.memberIds.map(xrefLabel).join(", "),
                           })}
                         >
-                          {c.pairs[0].aLabel}
-                        </span>
-                        <span className="tools-dup-cluster-meta">
                           {t("tools.duplicates.cluster.records", { count: c.memberIds.length })}
                           {" · "}
                           {t("tools.duplicates.cluster.pairs", { count: c.pairs.length })}
