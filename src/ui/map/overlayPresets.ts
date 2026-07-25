@@ -81,6 +81,9 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.ZPDZ:DOF025",
     attribution: GURS_ATTRIBUTION,
   },
+  // No preset for SI.GURS.ZPDZ:DOF050: it is the same survey as DOF025 at half
+  // the source resolution — same coverage, same scale range, visibly softer.
+  // Where one is blank so is the other, so it makes no fallback (2026-07-25).
   {
     key: "settings.map.overlays.preset.gurs.topo50",
     wms: true,
@@ -88,11 +91,34 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.DK:DTK50",
     attribution: GURS_ATTRIBUTION,
   },
+  // No preset for SI.GURS.DK:TTN5_TTN10 (Temeljni topografski načrt 1:5000):
+  // GURS cannot reproject that coverage to Web Mercator. Inside its published
+  // scale range every EPSG:3857 GetMap returns a ServiceException ("Error
+  // rendering coverage on the fast path", NPE) and outside it a blank tile,
+  // while the same request in native EPSG:3794 draws fine (checked 2026-07-25).
+  // Revisit if GURS fixes the reprojection.
   {
     key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:PARCELE",
+    // Click a parcel for its number, cadastral municipality and area — the
+    // parcel labels are only drawn at the very closest zooms, so the popup is
+    // how you read the id most of the time.
+    queryLayers: "SI.GURS.KN:PARCELE",
+    attribution: GURS_ATTRIBUTION,
+  },
+  {
+    // Cadastral municipality (katastrska občina) boundaries + names. Parish and
+    // land records are filed by k.o., so a click — which reports the name and
+    // its number — turns a place into the unit an archive index is keyed on.
+    key: "settings.map.overlays.preset.gurs.cadastralMunicipalities",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
+    layers: "SI.GURS.KN:KATASTRSKE_OBCINE,SI.GURS.KN:KATASTRSKE_OBCINE",
+    styles: "nep_kn_katastrske_obcine,nep_kn_katastrske_obcine_lbl",
+    queryLayers: "SI.GURS.KN:KATASTRSKE_OBCINE",
+    tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
   },
   {

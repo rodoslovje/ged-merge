@@ -94,9 +94,14 @@ function escHtml(s: string): string {
 const NULLISH = (v: unknown): v is null | undefined | "" => v == null || v === "" || v === "null";
 
 /** Turn one GetFeatureInfo feature's properties into a popup HTML block. GURS
- *  address features get a formatted "Street 12a, 4000 Town" line; anything else
- *  falls back to its readable fields (raw *_SIFRA / EID_ / geometry dropped). */
-function formatFeatureInfo(props: Record<string, unknown> | undefined, layerName: string): string {
+ *  address, parcel and cadastral-municipality features get a formatted line;
+ *  anything else falls back to its readable fields (raw *_SIFRA / EID_ /
+ *  geometry dropped). */
+function formatFeatureInfo(
+  props: Record<string, unknown> | undefined,
+  layerName: string,
+  translate: (key: string) => string,
+): string {
   if (!props) return "";
   // Address / house-number feature (SI.GURS.KN:NASLOVI_HS et al.).
   if (!NULLISH(props.HS_STEVILKA) && (!NULLISH(props.ULICA_NAZIV) || !NULLISH(props.NASELJE_NAZIV))) {
@@ -107,6 +112,24 @@ function formatFeatureInfo(props: Record<string, unknown> | undefined, layerName
     return `<div class="map-info-block"><strong>${escHtml(`${street} ${num}`.trim())}</strong>${
       post ? `<br>${escHtml(post)}` : ""
     }</div>`;
+  }
+  // Cadastral parcel (SI.GURS.KN:PARCELE): the id a land record is filed under
+  // is the parcel number plus its cadastral municipality — NAZIV already reads
+  // "1791 ŽALNA", so it needs no assembling.
+  if (!NULLISH(props.ST_PARCELE)) {
+    const lines = [
+      NULLISH(props.NAZIV) ? "" : `${translate("map.info.cadastralMunicipality")}: ${props.NAZIV}`,
+      NULLISH(props.POVRSINA) ? "" : `${translate("map.info.area")}: ${props.POVRSINA} m²`,
+    ].filter(Boolean);
+    return `<div class="map-info-block"><strong>${escHtml(
+      `${translate("map.info.parcel")} ${props.ST_PARCELE}`,
+    )}</strong>${lines.map((l) => `<br>${escHtml(l)}`).join("")}</div>`;
+  }
+  // Cadastral municipality (SI.GURS.KN:KATASTRSKE_OBCINE) — number + name.
+  if (!NULLISH(props.SIFKO) && !NULLISH(props.NAZIV)) {
+    return `<div class="map-info-block"><strong>${escHtml(
+      `${props.SIFKO} ${props.NAZIV}`,
+    )}</strong><br>${escHtml(translate("map.info.cadastralMunicipality"))}</div>`;
   }
   // Generic fallback: a few readable attributes.
   const skip = (k: string) => /^EID_/.test(k) || /_SIFRA$/.test(k) || /_DJ$/.test(k) || k === "GEOM" || /^DATUM/.test(k);
@@ -429,7 +452,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           const res = await fetch(`${o.url}?${params.toString()}`);
           const data = (await res.json()) as { features?: { properties?: Record<string, unknown> }[] };
           for (const f of data.features ?? []) {
-            const html = formatFeatureInfo(f.properties, overlayDisplayName(o, t));
+            const html = formatFeatureInfo(f.properties, overlayDisplayName(o, t), t);
             if (html) blocks.push(html);
           }
         } catch {
