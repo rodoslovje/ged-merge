@@ -344,7 +344,13 @@ export function EventFieldsRow({
     if (override.note === undefined && !noteField.isMerge && noteField.value === noteField.initial) {
       delete merged.note;
     }
+    // Fields with no text input behind them have no `initial` to compare against,
+    // so an override carrying one is a change by definition. Without this, picking
+    // a coordinate while every text field stays as it was reads as "unchanged" and
+    // is silently dropped.
+    const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined;
     const unchanged =
+      !nonTextChange &&
       (merged.date ?? "") === dateField.initial &&
       (merged.value ?? "") === valueField.initial &&
       (merged.place ?? "") === placeField.initial &&

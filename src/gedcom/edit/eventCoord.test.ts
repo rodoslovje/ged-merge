@@ -3,7 +3,7 @@ import { buildDataset } from "../builder";
 import { parseGedcom } from "../parser";
 import { serializeGedcom } from "../serialize";
 import { parseCoordInput } from "../place";
-import { setEventField } from "../edit";
+import { setEventField, setEventFieldAtIndex } from "../edit";
 
 function build(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -76,5 +76,51 @@ describe("parseCoordInput", () => {
     expect(parseCoordInput("here, there")).toBeUndefined();
     // Out of range is rejected by parseCoordPair.
     expect(parseCoordInput("95, 14")).toBeUndefined();
+  });
+});
+
+describe("repeated events", () => {
+  // Three RESI events at one place, as a residence history looks. Editing one
+  // must not touch the others — setEventField would hit the first every time.
+  const THREE = [
+    "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Novak/",
+    "1 RESI", "2 DATE OCT 1997", "2 PLAC Ljubljana,Ljubljana,Slovenia",
+    "3 MAP", "4 LATI N46.0543", "4 LONG E14.505", "2 ADDR Cesta v Pecale 50",
+    "1 RESI", "2 DATE JUN 2004", "2 PLAC Ljubljana,Ljubljana,Slovenia",
+    "1 RESI", "2 DATE JUN 2014", "2 PLAC Ljubljana,Ljubljana,Slovenia",
+    "0 TRLR",
+  ].join("\n");
+
+  it("replaces the coordinate of the edited event only", () => {
+    const ds = build(THREE);
+    const indi = ds.individuals.get("@I1@")!;
+    // The house found in the register, replacing the settlement coordinate.
+    setEventFieldAtIndex(indi, 0, {
+      date: "OCT 1997", place: "Ljubljana,Ljubljana,Slovenia", address: "Cesta v Pecale 50",
+      coord: { lat: 46.1098, lon: 14.5321 },
+    });
+
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("4 LATI N46.1098");
+    // The old settlement coordinate is replaced, not kept alongside.
+    expect(out).not.toContain("N46.0543");
+    expect(out.split("\n").filter((l) => l === "3 MAP")).toHaveLength(1);
+
+    const events = build(out).individuals.get("@I1@")!.events.filter((e) => e.tag === "RESI");
+    expect(events[0].place?.coord?.lat).toBeCloseTo(46.1098, 4);
+    expect(events[1].place?.coord).toBeUndefined();
+    expect(events[2].place?.coord).toBeUndefined();
+  });
+
+  it("writes onto a later event without disturbing the first", () => {
+    const ds = build(THREE);
+    const indi = ds.individuals.get("@I1@")!;
+    setEventFieldAtIndex(indi, 2, { place: "Ljubljana,Ljubljana,Slovenia", coord: { lat: 46.2, lon: 14.6 } });
+
+    const events = build(serializeGedcom(ds.records)).individuals.get("@I1@")!.events.filter((e) => e.tag === "RESI");
+    expect(events[0].place?.coord?.lat).toBeCloseTo(46.0543, 4);
+    expect(events[1].place?.coord).toBeUndefined();
+    expect(events[2].place?.coord?.lat).toBeCloseTo(46.2, 4);
   });
 });
