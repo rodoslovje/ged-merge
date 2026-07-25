@@ -538,7 +538,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
             download.geonames.org/export/dump
           </a>{" "}
-          {t("tools.geocode.importHint2")}
+          {t("tools.geocode.importHint2")}{" "}
+          {t("tools.geocode.gursCredit")}{" "}
+          <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
+            e-prostor.gov.si
+          </a>
           {!appSettings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
         </p>
       </div>
