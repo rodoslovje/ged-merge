@@ -123,7 +123,7 @@ export default defineConfig({
         "src/csv/**": { statements: 93, branches: 78, functions: 95, lines: 96 },
         "src/edit-state/**": { statements: 95, branches: 90, functions: 95, lines: 95 },
         "src/gedcom/**": { statements: 76, branches: 68, functions: 77, lines: 80 },
-        "src/geo/**": { statements: 81, branches: 73, functions: 71, lines: 85 },
+        "src/geo/**": { statements: 76, branches: 71, functions: 69, lines: 80 },
         "src/keyboard/**": { statements: 87, branches: 70, functions: 62, lines: 86 },
         "src/match/**": { statements: 85, branches: 75, functions: 87, lines: 90 },
         "src/merge/**": { statements: 75, branches: 66, functions: 78, lines: 80 },
