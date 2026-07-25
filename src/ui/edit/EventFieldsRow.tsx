@@ -591,6 +591,12 @@ export function EventFieldsRow({
             address={addrField.value}
             coord={coord}
             title={label}
+            // What the file already knows for this place / this exact address,
+            // so the picker can propose it without any lookup.
+            fileCoord={placeCoords.get(placeKey(placeField.value))}
+            filePairCoord={
+              addrField.value.trim() ? pairCoords.get(placeAddrCoordKey(placeField.value, addrField.value)) : undefined
+            }
             onPick={(c) => commitAll({ coord: c })}
             onClear={() => commitAll({ coord: null })}
           />

@@ -34,6 +34,8 @@ export function EventCoordPicker({
   address,
   coord,
   title,
+  fileCoord,
+  filePairCoord,
   onPick,
   onClear,
 }: {
@@ -45,6 +47,13 @@ export function EventCoordPicker({
   coord: GeoCoord | undefined;
   /** Tooltip for the pin, naming the event. */
   title: string;
+  /** Coordinate this place already carries elsewhere in the file (settlement
+   *  level), when it has one. Offline, already reviewed by the user — so it is
+   *  offered first, ahead of any lookup. */
+  fileCoord?: GeoCoord;
+  /** Coordinate this exact place+address already carries elsewhere in the file —
+   *  the same house, so better still. */
+  filePairCoord?: GeoCoord;
   onPick: (coord: GeoCoord) => void;
   onClear: () => void;
 }) {
@@ -63,6 +72,8 @@ export function EventCoordPicker({
     return !named || countryCode(named)?.toUpperCase() === "SI";
   }, [place, address]);
   const draftCoord = parseCoordInput(draft);
+  /** One coordinate, as the panel and the pin panels print it. */
+  const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
 
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
   useEffect(() => {
@@ -104,6 +115,16 @@ export function EventCoordPicker({
     );
   };
 
+  /** What the file itself already knows about this address / place. Anything
+   *  equal to the current coordinate is left out — it would propose a no-op. */
+  const fromFile: { coord: GeoCoord; label: string }[] = [];
+  if (filePairCoord && !sameCoord(filePairCoord, coord)) {
+    fromFile.push({ coord: filePairCoord, label: t("event.coord.fromFile.address") });
+  }
+  if (fileCoord && !sameCoord(fileCoord, coord) && !sameCoord(fileCoord, filePairCoord)) {
+    fromFile.push({ coord: fileCoord, label: t("event.coord.fromFile.place") });
+  }
+
   const take = (c: GeoCoord) => {
     onPick(c);
     setOpen(false);
@@ -116,8 +137,16 @@ export function EventCoordPicker({
   // the map renders its detail panel (house, post office, coordinate, source,
   // and that a click takes it) rather than a bare one-line tooltip — with several
   // numbers of one renumbered house on screen, the panel is what tells them apart.
-  const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
   const pins: MiniMapPin[] = [];
+  for (const f of fromFile) {
+    pins.push({
+      coord: f.coord,
+      label: f.label,
+      lines: [at(f.coord), t("event.coord.source.file"), t("event.coord.pinPick")],
+      kind: "candidate",
+      onPick: () => take(f.coord),
+    });
+  }
   for (const r of rn.results) {
     pins.push({
       coord: r.coord,
@@ -181,6 +210,19 @@ export function EventCoordPicker({
             </div>
           )}
 
+          {fromFile.length > 0 && (
+            <ul className="edit-coord-results">
+              {fromFile.map((f, i) => (
+                <li key={`file-${i}`}>
+                  <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
+                    {f.label}
+                  </button>
+                  <span className="gm-data">{at(f.coord)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {settings.allowLinkFetch ? (
             <div className="edit-coord-actions">
               {queries.length > 0 && (
@@ -240,7 +282,7 @@ export function EventCoordPicker({
               <div className="edit-coord-map">
                 <MiniPlaceMap
                   pins={pins}
-                  title={t("tools.geocode.mapPickHint")}
+                  title={t("event.coord.mapHint")}
                   // Keyed on the found coordinates, so each new result set
                   // re-frames the map around all of them — a renumbered house
                   // can be two addresses a kilometre apart. The typed draft is
