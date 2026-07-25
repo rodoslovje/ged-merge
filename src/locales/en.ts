@@ -237,6 +237,7 @@ export const en = {
   "tools.geocode.addr.groupMeta": "{{count}} addresses · {{events}} events",
   "tools.geocode.addr.searchGroup": "Look up all {{count}} here",
   "tools.geocode.addr.noPlace": "(no place)",
+  "tools.geocode.addr.mapHint": "Houses found for this place — click a pin to choose it for its address.",
   "tools.geocode.addr.intro": "These events name a street or house number in their address while the place names only the settlement. The address register can pin the building itself; the coordinate is stored on the address, so the settlement's own coordinate stays untouched. The map then shows the house and falls back to the settlement where there is none.",
   "tools.geocode.addr.uses": "{{count}} event",
   "tools.geocode.addr.uses_other": "{{count}} events",

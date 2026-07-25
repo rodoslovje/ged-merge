@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { searchAddresses, type RnResult } from "../../geo/rn";
 import { scanAddresses, type AddressRow } from "../../tools/addresses";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -16,6 +17,8 @@ import { useSettings } from "../SettingsContext";
 // fire that many throttled requests. Work proceeds one place at a time instead.
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnResult[] };
+
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
 
@@ -86,6 +89,31 @@ export function AddressCoordsSection({
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
+  /**
+   * Every house found for this place, on one map — the point of grouping: the
+   * addresses of a village are neighbours, so seeing them together shows at a
+   * glance which candidates are plausible and which one is the odd one out.
+   * Clicking a pin picks that candidate for its own row.
+   */
+  const groupPins = (group: PlaceGroup): MiniMapPin[] => {
+    const pins: MiniMapPin[] = [];
+    for (const row of group.rows) {
+      const chosen = picked.get(row.key);
+      for (const r of (searches.get(row.key) ?? IDLE).results) {
+        pins.push({
+          coord: r.coord,
+          label: r.label,
+          // Which of the place's addresses this pin answers, and how much of the
+          // file rides on it.
+          lines: [row.address, t("tools.geocode.addr.uses", { count: row.count })],
+          kind: sameCoord(chosen?.coord, r.coord) ? "chosen" : "candidate",
+          onPick: () => pick(row.key, r),
+        });
+      }
+    }
+    return pins;
+  };
+
   const apply = () => {
     const assignments = new Map([...picked].map(([key, v]) => [key, v.coord] as const));
     const changed = onApply(assignments);
@@ -112,15 +140,18 @@ export function AddressCoordsSection({
           return (
             <li key={group.place} className="tools-geo-addr-group">
               <div className="tools-geo-addr-head">
+                {/* Same caret as the place rows above — one rotating ▶, not a
+                    boxed button, so the two lists read as one tool. */}
                 <button
-                  className="tools-tree-toggle"
+                  className={`tools-pair-toggle ${isOpen ? "open" : ""}`}
                   aria-expanded={isOpen}
                   onClick={() => toggle(group.place)}
-                  title={t(isOpen ? "tools.sources.collapseAll" : "tools.sources.expandAll")}
                 >
-                  {isOpen ? "▼" : "▶"}
+                  ▶
                 </button>
-                <span className="tools-geo-cand-name">{group.place || t("tools.geocode.addr.noPlace")}</span>
+                <span className="tools-tree-label clickable" onClick={() => toggle(group.place)}>
+                  {group.place || t("tools.geocode.addr.noPlace")}
+                </span>
                 <span className="tools-geo-count">
                   {t("tools.geocode.addr.groupMeta", { count: group.rows.length, events: group.events })}
                 </span>
@@ -130,6 +161,21 @@ export function AddressCoordsSection({
                   </button>
                 )}
               </div>
+              {isOpen && (() => {
+                const pins = groupPins(group);
+                if (!pins.length) return null;
+                return (
+                  <Suspense fallback={<div className="tools-geo-minimap" />}>
+                    <MiniPlaceMap
+                      pins={pins}
+                      title={t("tools.geocode.addr.mapHint")}
+                      // Re-frame as each lookup lands, so the view always holds
+                      // every house found so far for this place.
+                      fitKey={`${group.place} ${pins.map((p) => `${p.coord.lat},${p.coord.lon}`).join("|")}`}
+                    />
+                  </Suspense>
+                );
+              })()}
               {isOpen && (
                 <ul className="tools-geo-addr-list tools-tree-children">
                   {group.rows.map((row) => {
@@ -137,30 +183,33 @@ export function AddressCoordsSection({
                     const chosen = picked.get(row.key);
                     return (
                       <li key={row.key} className="tools-geo-addr-row">
+                        {/* Address, usage and its own lookup on one line — with a
+                            hundred-odd addresses under a place, a second line per
+                            row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
                           <span className="tools-geo-cand-name">{row.address}</span>
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
+                          {settings.allowLinkFetch ? (
+                            <>
+                              <button
+                                className="tools-issue-link"
+                                disabled={search.state === "loading"}
+                                onClick={() => runSearch(row)}
+                              >
+                                {search.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                              </button>
+                              {search.state === "error" && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
+                              )}
+                              {search.state === "done" && !search.results.length && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
+                          )}
                           {chosen && <span className="tools-reshape-badge official">{chosen.label}</span>}
                         </div>
-                        {settings.allowLinkFetch ? (
-                          <div className="tools-geo-addr-actions">
-                            <button
-                              className="tools-issue-link"
-                              disabled={search.state === "loading"}
-                              onClick={() => runSearch(row)}
-                            >
-                              {search.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                            </button>
-                            {search.state === "error" && (
-                              <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
-                            )}
-                            {search.state === "done" && !search.results.length && (
-                              <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
-                        )}
                         {search.results.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {search.results.map((r, i) => (
