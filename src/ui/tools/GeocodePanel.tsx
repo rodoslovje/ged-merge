@@ -88,6 +88,14 @@ async function readWithProgress(
  *  path uses OSM; GeoNames stays available via the manual file import. */
 const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 
+/** GURS RPE settlements ("naselja") — the authoritative Slovenian register,
+ *  served as GeoJSON in WGS84 with CORS open, so the browser fetches it
+ *  directly. All 6035 settlements come in one response (the service ignores
+ *  `properties=`, so the ~45 MB of polygons is unavoidable); the worker keeps
+ *  only each polygon's centroid. Data © Geodetska uprava RS, CC BY 4.0. */
+const GURS_NASELJA_URL =
+  "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:NASELJA/items?f=application%2Fgeo%2Bjson&limit=10000";
+
 /** Every place node in the country: settlements down to isolated dwellings. */
 function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
@@ -135,7 +143,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
     return () => workerRef.current?.terminate();
   }, []);
 
-  const runImport = (buffer: ArrayBuffer, fileName: string, extra?: { format: "overpass"; country: string }) => {
+  const runImport = (
+    buffer: ArrayBuffer,
+    fileName: string,
+    extra?: { format: "overpass"; country: string } | { format: "rpe" },
+  ) => {
     setImportState({ phase: "running", done: 0, total: buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
@@ -202,6 +214,30 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
         return;
       }
       runImport(buffer, `${code}.osm.json`, { format: "overpass", country: code });
+    } finally {
+      fetchAbortRef.current = null;
+    }
+  };
+
+  // One-click Slovenian gazetteer from GURS. Same opt-in gate and progress
+  // handling as the Overpass download, but a single known endpoint — a failure
+  // here is a real outage, so there is no fallback list to walk.
+  const downloadSlovenia = async () => {
+    const abort = new AbortController();
+    fetchAbortRef.current = abort;
+    setImportState({ phase: "running", done: 0, total: 0 });
+    try {
+      const res = await fetch(GURS_NASELJA_URL, { signal: abort.signal });
+      if (!res.ok) {
+        setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
+        return;
+      }
+      const buffer = await readWithProgress(res, (done, total) => setImportState({ phase: "running", done, total }));
+      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe" });
+    } catch (e) {
+      if (abort.signal.aborted) return;
+      void e;
+      setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
     } finally {
       fetchAbortRef.current = null;
     }
@@ -471,6 +507,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
                   {t("tools.geocode.downloadBtn")}
                 </button>
               </span>
+            )}
+            {appSettings.allowLinkFetch && (
+              <button
+                className="nav-btn tools-run"
+                onClick={() => void downloadSlovenia()}
+                title={t("tools.geocode.gursTooltip")}
+              >
+                {t("tools.geocode.gursBtn")}
+              </button>
             )}
             <label className="nav-btn tools-geo-import">
               {t("tools.geocode.importBtn")}

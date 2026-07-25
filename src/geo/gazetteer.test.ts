@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildGazetteerIndex, lookupPlace, overpassToEntries, parseGeoNamesLine, type GazEntry } from "./gazetteer";
+import {
+  buildGazetteerIndex,
+  lookupPlace,
+  overpassToEntries,
+  parseGeoNamesLine,
+  rpeNaseljaToEntries,
+  type GazEntry,
+} from "./gazetteer";
 import { formatCoordValue } from "../gedcom/edit";
 
 // A few realistic GeoNames rows (19 tab-separated columns).
@@ -111,6 +118,77 @@ describe("overpassToEntries", () => {
     // The converted entries match through the shared index like GeoNames rows.
     const index = buildGazetteerIndex(entries);
     expect(lookupPlace(index, "Bischoflack")[0].entry.name).toBe("Škofja Loka");
+  });
+});
+
+describe("rpeNaseljaToEntries", () => {
+  /** Closed ring of an axis-aligned box, in GeoJSON lon/lat order. */
+  const box = (lon: number, lat: number, size: number) => [
+    [lon, lat],
+    [lon + size, lat],
+    [lon + size, lat + size],
+    [lon, lat + size],
+    [lon, lat],
+  ];
+
+  it("reduces settlement polygons to their centroid and keeps the bilingual name", () => {
+    const entries = rpeNaseljaToEntries({
+      features: [
+        { properties: { NAZIV: "Izola", NAZIV_DJ: "Isola" }, geometry: { type: "Polygon", coordinates: [box(13.6, 45.5, 0.2)] } },
+        { properties: { NAZIV: "Bled", NAZIV_DJ: null }, geometry: { type: "Polygon", coordinates: [box(14.0, 46.3, 0.1)] } },
+      ],
+    });
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ name: "Izola", alt: ["Isola"], country: "SI", fclass: "P", population: 0 });
+    expect(entries[0].lon).toBeCloseTo(13.7, 6);
+    expect(entries[0].lat).toBeCloseTo(45.6, 6);
+    expect(entries[1].alt).toEqual([]);
+    // The bilingual name resolves through the shared index, so an Italian
+    // place string in an older record still finds the Slovenian settlement.
+    expect(lookupPlace(buildGazetteerIndex(entries), "Isola")[0].entry.name).toBe("Izola");
+  });
+
+  it("ignores holes and picks the largest part of a multi-part settlement", () => {
+    const [withHole, multi] = rpeNaseljaToEntries({
+      features: [
+        {
+          properties: { NAZIV: "Luknja" },
+          // Outer box plus an inner ring: the hole must not shift the centroid.
+          geometry: { type: "Polygon", coordinates: [box(15.0, 46.0, 1), box(15.4, 46.4, 0.2)] },
+        },
+        {
+          properties: { NAZIV: "Dvodelno" },
+          geometry: {
+            type: "MultiPolygon",
+            coordinates: [[box(15.0, 46.0, 0.1)], [box(16.0, 46.0, 0.5)]],
+          },
+        },
+      ],
+    });
+    expect(withHole.lon).toBeCloseTo(15.5, 6);
+    expect(withHole.lat).toBeCloseTo(46.5, 6);
+    // Centre of the bigger (0.5°) part, not of the small one or of both.
+    expect(multi.lon).toBeCloseTo(16.25, 6);
+    expect(multi.lat).toBeCloseTo(46.25, 6);
+  });
+
+  it("skips features without a usable name or geometry, and survives a degenerate ring", () => {
+    const entries = rpeNaseljaToEntries({
+      features: [
+        { properties: { NAZIV: "  " }, geometry: { type: "Polygon", coordinates: [box(15, 46, 1)] } },
+        { properties: { NAZIV: "Brez oblike" }, geometry: null },
+        { properties: { NAZIV: "Točka" }, geometry: { type: "Point", coordinates: [15, 46] } },
+        { properties: { NAZIV: "Pokvarjeno" }, geometry: { type: "Polygon", coordinates: [[[15, 46], ["x", 46], [15, 47]]] } },
+        // Zero-area ring (collinear points) falls back to the vertex mean.
+        {
+          properties: { NAZIV: "Črta" },
+          geometry: { type: "Polygon", coordinates: [[[15, 46], [15, 47], [15, 48], [15, 46]]] },
+        },
+      ],
+    });
+    expect(entries.map((e) => e.name)).toEqual(["Črta"]);
+    expect(entries[0].lon).toBeCloseTo(15, 6);
+    expect(entries[0].lat).toBeCloseTo(46.75, 6);
   });
 });
 

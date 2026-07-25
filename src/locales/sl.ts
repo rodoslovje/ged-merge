@@ -232,6 +232,8 @@ export const sl = {
   "tools.geocode.countryCodePlaceholder": "SI",
   "tools.geocode.countryCodeTooltip": "Dvočrkovna koda države (SI, AT, HR, DE, …) — kraje države prenese iz OpenStreetMap (Overpass API, © sodelavci OpenStreetMap)",
   "tools.geocode.downloadFailed": "Prenos ni uspel — poskusite čez minuto (strežniki Overpass omejujejo zahteve) ali pa datoteko GeoNames prenesite s spodnje strani in jo uvozite tu.",
+  "tools.geocode.gursBtn": "Prenesi Slovenijo (GURS)",
+  "tools.geocode.gursTooltip": "Vseh 6035 slovenskih naselij iz registra prostorskih enot (Geodetska uprava RS, CC BY 4.0), vključno z dvojezičnimi italijanskimi in madžarskimi imeni. Prenos je velik približno 45 MB; shranijo se samo središča naselij.",
   "tools.geocode.downloadNeedsOptIn": "Neposredni prenos iz OpenStreetMap se pokaže, ko so v Nastavitve → Napredno dovoljene spletne poizvedbe.",
   "tools.geocode.more": "…in še {{count}} vrstic — seznam zožite z iskalnikom.",
   "tools.geocode.morePeople": "…in še {{count}} oseb.",

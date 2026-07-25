@@ -101,6 +101,126 @@ export function overpassToEntries(data: OverpassJson, country: string): GazEntry
   return entries;
 }
 
+/** GeoJSON from the GURS RPE "NASELJA" (settlements) collection, reduced to
+ *  what we read. Geometry arrives already in WGS84 (CRS84), so no projection
+ *  step is needed — unlike the RN address register, whose features carry no
+ *  geometry at all and expose D96/TM easting/northing as properties. */
+export interface RpeNaseljaJson {
+  features?: {
+    properties?: { NAZIV?: unknown; NAZIV_DJ?: unknown } | null;
+    geometry?: { type?: unknown; coordinates?: unknown } | null;
+  }[];
+}
+
+/** A closed lon/lat ring. */
+type Ring = [number, number][];
+
+/** Read one GeoJSON ring, rejecting anything that isn't a list of finite
+ *  lon/lat pairs (the payload is untyped JSON off the network). */
+function toRing(value: unknown): Ring | undefined {
+  if (!Array.isArray(value) || value.length < 3) return undefined;
+  const ring: Ring = [];
+  for (const point of value) {
+    if (!Array.isArray(point) || point.length < 2) return undefined;
+    const lon = Number(point[0]);
+    const lat = Number(point[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return undefined;
+    ring.push([lon, lat]);
+  }
+  return ring;
+}
+
+/**
+ * Area-weighted centroid of one ring, plus its unsigned area — the area is
+ * what picks the main body of a multi-part settlement. A vertex mean would
+ * drift towards whichever edge happens to carry more points, so use the
+ * shoelace centroid.
+ */
+function ringCentroid(ring: Ring): { lat: number; lon: number; area: number } {
+  let twiceArea = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [x1, y1] = ring[j];
+    const [x2, y2] = ring[i];
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    cx += (x1 + x2) * cross;
+    cy += (y1 + y2) * cross;
+  }
+  // A degenerate ring (zero area: collinear or repeated points) would divide
+  // by zero — fall back to the vertex mean so the settlement is still placed.
+  if (twiceArea === 0) {
+    const n = ring.length;
+    let sx = 0;
+    let sy = 0;
+    for (const [x, y] of ring) {
+      sx += x;
+      sy += y;
+    }
+    return { lon: sx / n, lat: sy / n, area: 0 };
+  }
+  return { lon: cx / (3 * twiceArea), lat: cy / (3 * twiceArea), area: Math.abs(twiceArea / 2) };
+}
+
+/** Outer ring of the largest part: `coordinates[0]` for a Polygon, and for a
+ *  MultiPolygon the part with the biggest outer ring. Holes are ignored — the
+ *  outer ring alone is what a settlement's label point follows. */
+function outerRings(type: unknown, coordinates: unknown): Ring[] {
+  if (!Array.isArray(coordinates)) return [];
+  if (type === "Polygon") {
+    const ring = toRing(coordinates[0]);
+    return ring ? [ring] : [];
+  }
+  if (type === "MultiPolygon") {
+    const rings: Ring[] = [];
+    for (const part of coordinates) {
+      if (!Array.isArray(part)) continue;
+      const ring = toRing(part[0]);
+      if (ring) rings.push(ring);
+    }
+    return rings;
+  }
+  return [];
+}
+
+/**
+ * Convert the GURS RPE settlements collection into gazetteer entries — the
+ * authoritative Slovenian alternative to a GeoNames extract or an Overpass
+ * download. Each settlement polygon is reduced to its centroid; the bilingual
+ * (Italian / Hungarian) `NAZIV_DJ` name becomes an alternate name so the
+ * Italian and Hungarian forms in older records still match.
+ *
+ * Data: Geodetska uprava Republike Slovenije, CC BY 4.0.
+ */
+export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
+  const entries: GazEntry[] = [];
+  for (const feature of data.features ?? []) {
+    const name = typeof feature.properties?.NAZIV === "string" ? feature.properties.NAZIV.trim() : "";
+    if (!name) continue;
+    const rings = outerRings(feature.geometry?.type, feature.geometry?.coordinates);
+    if (!rings.length) continue;
+    let best = ringCentroid(rings[0]);
+    for (let i = 1; i < rings.length; i++) {
+      const c = ringCentroid(rings[i]);
+      if (c.area > best.area) best = c;
+    }
+    const bilingual = typeof feature.properties?.NAZIV_DJ === "string" ? feature.properties.NAZIV_DJ.trim() : "";
+    entries.push({
+      name,
+      ascii: "",
+      alt: bilingual && bilingual !== name ? [bilingual] : [],
+      lat: best.lat,
+      lon: best.lon,
+      fclass: "P",
+      country: "SI",
+      admin1: "",
+      population: 0,
+    });
+  }
+  return entries;
+}
+
 /** Fuzzy-match bucket key: first two folded characters. */
 function bucketKey(folded: string): string {
   return folded.slice(0, 2);
