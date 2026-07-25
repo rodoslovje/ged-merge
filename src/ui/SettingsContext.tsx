@@ -30,6 +30,11 @@ export interface MapOverlay {
   wms?: boolean;
   /** Comma-separated WMS layer name(s) — only used when {@link wms} is set. */
   layers?: string;
+  /** When set (WMS only), the overlay is click-queryable: a map click fires a
+   *  WMS GetFeatureInfo against these `QUERY_LAYERS` and shows the returned
+   *  attributes in a popup. Often the same as {@link layers}, but may name a
+   *  richer sibling (e.g. display house-number symbols, query the address). */
+  queryLayers?: string;
   /** Extra WMS GetMap query params as a raw `KEY=value&KEY=value` string
    *  (e.g. `TIME=2011-01-01T00:00:00.000Z` for a time-enabled layer, or a
    *  `CQL_FILTER`). Only used when {@link wms} is set. */
@@ -114,6 +119,7 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
     const layer: MapOverlay = { id: o.id, name: o.name, url: o.url };
     if (o.wms === true) layer.wms = true;
     if (typeof o.layers === "string" && o.layers) layer.layers = o.layers;
+    if (typeof o.queryLayers === "string" && o.queryLayers) layer.queryLayers = o.queryLayers;
     if (typeof o.params === "string" && o.params) layer.params = o.params;
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
     if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;

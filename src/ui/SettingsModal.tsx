@@ -186,6 +186,9 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:HISNE_STEVILKE",
+    // Display the number symbols, but query the address layer on click so the
+    // popup can show the full street/number/settlement instead of raw IDs.
+    queryLayers: "SI.GURS.KN:NASLOVI_HS",
     attribution: "© Geodetska uprava RS · CC BY 4.0",
   },
   {
@@ -651,6 +654,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                         placeholder={t("settings.map.overlays.wmsLayers")}
                         title={t("settings.map.overlays.wmsLayers.hint")}
                         onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                      />
+                      <input
+                        type="text"
+                        className="settings-text-input"
+                        value={layer.queryLayers ?? ""}
+                        placeholder={t("settings.map.overlays.wmsQuery")}
+                        title={t("settings.map.overlays.wmsQuery.hint")}
+                        onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined })}
                       />
                       <input
                         type="text"

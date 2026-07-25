@@ -85,6 +85,38 @@ function parseWmsParams(raw: string | undefined): Record<string, string> {
   return out;
 }
 
+/** Escape a string for safe interpolation into a Leaflet popup's innerHTML. */
+function escHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"));
+}
+
+const NULLISH = (v: unknown): v is null | undefined | "" => v == null || v === "" || v === "null";
+
+/** Turn one GetFeatureInfo feature's properties into a popup HTML block. GURS
+ *  address features get a formatted "Street 12a, 4000 Town" line; anything else
+ *  falls back to its readable fields (raw *_SIFRA / EID_ / geometry dropped). */
+function formatFeatureInfo(props: Record<string, unknown> | undefined, layerName: string): string {
+  if (!props) return "";
+  // Address / house-number feature (SI.GURS.KN:NASLOVI_HS et al.).
+  if (!NULLISH(props.HS_STEVILKA) && (!NULLISH(props.ULICA_NAZIV) || !NULLISH(props.NASELJE_NAZIV))) {
+    const num = `${props.HS_STEVILKA}${NULLISH(props.HS_DODATEK) ? "" : String(props.HS_DODATEK)}`;
+    const street = NULLISH(props.ULICA_NAZIV) ? String(props.NASELJE_NAZIV) : String(props.ULICA_NAZIV);
+    const town = NULLISH(props.POSTNI_OKOLIS_NAZIV) ? props.NASELJE_NAZIV : props.POSTNI_OKOLIS_NAZIV;
+    const post = [props.POSTNI_OKOLIS_SIFRA, town].filter((v) => !NULLISH(v)).map(String).join(" ");
+    return `<div class="map-info-block"><strong>${escHtml(`${street} ${num}`.trim())}</strong>${
+      post ? `<br>${escHtml(post)}` : ""
+    }</div>`;
+  }
+  // Generic fallback: a few readable attributes.
+  const skip = (k: string) => /^EID_/.test(k) || /_SIFRA$/.test(k) || /_DJ$/.test(k) || k === "GEOM" || /^DATUM/.test(k);
+  const rows = Object.entries(props)
+    .filter(([k, v]) => !NULLISH(v) && !skip(k))
+    .slice(0, 6)
+    .map(([k, v]) => `<div>${escHtml(k)}: ${escHtml(String(v))}</div>`)
+    .join("");
+  return rows ? `<div class="map-info-block"><em>${escHtml(layerName)}</em>${rows}</div>` : "";
+}
+
 /** Stacked-layers glyph for the historical-overlays picker chip. */
 function LayersIcon() {
   return (
@@ -213,6 +245,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   >(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
+  /** Bumped on each identify click so a slow GetFeatureInfo response that
+   *  resolves after a newer click is ignored instead of clobbering the popup. */
+  const infoSeqRef = useRef(0);
   const pathRendererRef = useRef<L.Renderer | null>(null);
   const clustersRef = useRef<MapCluster[]>([]);
   const didFitRef = useRef(false);
@@ -326,6 +361,74 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // Click-to-identify: with a queryable WMS overlay on, a map click fires a
+  // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the
+  // GURS address layer, a formatted street/number) in a popup.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targets = appSettings.allowMapTiles
+      ? overlays.filter((o) => o.wms && o.queryLayers && overlayOn.has(o.id))
+      : [];
+    if (!targets.length) return;
+
+    const onClick = async (e: L.LeafletMouseEvent) => {
+      const seq = ++infoSeqRef.current;
+      const size = map.getSize();
+      const b = map.getBounds();
+      const sw = map.options.crs!.project(b.getSouthWest());
+      const ne = map.options.crs!.project(b.getNorthEast());
+      const pt = map.latLngToContainerPoint(e.latlng);
+      const i = Math.max(0, Math.min(size.x - 1, Math.round(pt.x)));
+      const j = Math.max(0, Math.min(size.y - 1, Math.round(pt.y)));
+      const popup = L.popup({ className: "map-info-popup" })
+        .setLatLng(e.latlng)
+        .setContent(`<div class="map-info-loading">${escHtml(t("map.info.loading"))}</div>`)
+        .openOn(map);
+
+      const blocks: string[] = [];
+      for (const o of targets) {
+        const params = new URLSearchParams({
+          SERVICE: "WMS",
+          VERSION: "1.3.0",
+          REQUEST: "GetFeatureInfo",
+          LAYERS: o.layers || o.queryLayers!,
+          QUERY_LAYERS: o.queryLayers!,
+          CRS: "EPSG:3857",
+          BBOX: `${sw.x},${sw.y},${ne.x},${ne.y}`,
+          WIDTH: String(size.x),
+          HEIGHT: String(size.y),
+          I: String(i),
+          J: String(j),
+          INFO_FORMAT: "application/json",
+          FEATURE_COUNT: "5",
+          BUFFER: "8",
+          ...parseWmsParams(o.params),
+        });
+        try {
+          const res = await fetch(`${o.url}?${params.toString()}`);
+          const data = (await res.json()) as { features?: { properties?: Record<string, unknown> }[] };
+          for (const f of data.features ?? []) {
+            const html = formatFeatureInfo(f.properties, o.name);
+            if (html) blocks.push(html);
+          }
+        } catch {
+          // Network/parse failure — skip this layer; others may still answer.
+        }
+      }
+      // A newer click superseded this one, or the popup was dismissed.
+      if (seq !== infoSeqRef.current) return;
+      popup.setContent(
+        blocks.length ? `<div class="map-info">${blocks.join("")}</div>` : `<div class="map-info-empty">${escHtml(t("map.info.none"))}</div>`,
+      );
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [overlays, overlayOn, appSettings.allowMapTiles, t]);
 
   // Era suggestion: overlays whose validity period intersects the selected
   // year window (layers with no period at all are never highlighted).
