@@ -178,8 +178,11 @@ export interface VirtualSlice {
   topRef: (el: HTMLElement | null) => void;
   /** Ref for the spacer element rendered immediately after the rows. */
   bottomRef: (el: HTMLElement | null) => void;
-  /** Scroll the container the minimal amount to bring row `i` into view. */
-  scrollToIndex: (i: number) => void;
+  /**
+   * Scroll to row `i`. `align: "auto"` (default) moves the minimal amount to
+   * bring it into view; `align: "start"` positions it at the top.
+   */
+  scrollToIndex: (i: number, align?: "auto" | "start") => void;
 }
 
 /** Nearest self-or-ancestor that scrolls vertically. */
@@ -329,12 +332,16 @@ export function useVirtualList({
   const scrollMarginRef = useRef(scrollMargin);
   scrollMarginRef.current = scrollMargin;
   const scrollToIndex = useCallback(
-    (i: number) => {
+    (i: number, align: "auto" | "start" = "auto") => {
       const sc = scroller.current;
       const tp = top.current;
       if (!sc || !tp || i < 0 || i >= m.count) return;
       const listStart = tp.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
       const rowTop = listStart + m.offsetOf(i);
+      if (align === "start") {
+        sc.scrollTop = rowTop - scrollMarginRef.current;
+        return;
+      }
       const rowBottom = rowTop + m.heightOf(i);
       if (rowTop < sc.scrollTop + scrollMarginRef.current) {
         sc.scrollTop = rowTop - scrollMarginRef.current;

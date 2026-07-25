@@ -46,6 +46,33 @@ button:focus-visible {
   flex: 0 0 auto;
 }
 
+/* Error-boundary fallback — a recoverable in-place message shown when a view
+   throws, instead of the app tearing down to a blank page. */
+.error-fallback {
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 24px 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+}
+.error-fallback h2 { margin: 0 0 8px; }
+.error-fallback p { margin: 0 0 16px; color: var(--muted); }
+.error-fallback-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.error-fallback-details { margin-top: 16px; }
+.error-fallback-details summary { cursor: pointer; color: var(--muted); }
+.error-fallback-details pre {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: var(--danger-soft);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+}
+
 .app h1 {
   font-size: 1.4rem;
   margin: 0;
@@ -6309,6 +6336,7 @@ kbd {
   margin: 0 0 14px;
 }
 .tools-filter-row .tools-search { flex: 1 1 200px; margin: 0; }
+.tools-dup-score { display: inline-flex; align-items: center; }
 .tools-filter-row .tools-chips { margin: 0; margin-left: auto; }
 .tools-filter-row .tools-summary { margin: 0; margin-left: auto; }
 /* Sources tree row: search on the left, the sub-tool chips loosely centered,
@@ -6412,8 +6440,21 @@ kbd {
 .tools-issue-detail { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }
 .tools-pair.selected { box-shadow: inset 0 0 0 1px var(--accent); }
-.tools-pair-row { display: flex; gap: 10px; align-items: center; }
-.tools-pair-sep { color: var(--muted); }
+/* Collapsed pair and cluster-header rows MUST measure the same height: the
+   virtual list assumes one common row height, and mixed heights (wrapped long
+   names, or cluster headers vs lone pairs) make its rebase thrash into an
+   infinite render loop when scrolled across a height boundary. Keep every
+   collapsed row to a single, uniform line — long names clip with an ellipsis
+   (the person link keeps its full-name tooltip). */
+.tools-pair-row {
+  display: flex; gap: 10px; align-items: center;
+  min-height: 22px; flex-wrap: nowrap; overflow: hidden;
+}
+.tools-pairs .person-ref { min-width: 0; }
+.tools-pairs .person-ref .person-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tools-pair-sep { flex: none; color: var(--muted); }
 .tools-pair-toggle {
   flex: none; width: 18px; height: 18px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -6425,6 +6466,25 @@ kbd {
 .tools-pair-toggle.open { transform: rotate(90deg); }
 .tools-pair-toggle-spacer { flex: none; width: 18px; height: 18px; }
 .tools-pair-unreject { margin-left: auto; }
+
+/* Cluster header — a same-name blob folded into one row with a bulk action.
+   Same padding as .tools-pair so its measured height matches (see the
+   min-height note above). */
+.tools-dup-cluster-head {
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tools-dup-cluster-head.selected { box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-dup-cluster-label {
+  font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tools-dup-cluster-meta { flex: none; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+.tools-dup-cluster-dismiss { flex: none; margin-left: auto; }
+/* Member pairs of an unfolded cluster sit indented under their header. */
+.tools-pair-clustered { margin-left: 18px; }
 .tools-pair-compare { margin: 8px 0 4px; overflow-x: auto; }
 .tools-related-hint {
   margin: 10px 0 0; padding: 8px 10px; border-radius: 7px;

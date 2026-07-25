@@ -36,6 +36,8 @@ import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView } from "./ui/ToolsView";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { applyGeocode, renamePlaceValue } from "./tools/geocode";
 import { fixBrokenLinks } from "./tools/fixLinks";
@@ -1795,6 +1797,7 @@ function AppContent() {
       {lastMainFile && mainDataset && (
         <>
           <div style={mode === "merge" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <MergeView
               matches={matches}
               sort={sort}
@@ -1824,8 +1827,10 @@ function AppContent() {
               compareRef={compareRef}
               active={mode === "merge" && !overlayOpen}
             />
+            </ErrorBoundary>
           </div>
           <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <EditView
               // Remount on every main (re)load: Edit keeps per-person input
               // state keyed by xref, and a different file can reuse the same
@@ -1854,8 +1859,10 @@ function AppContent() {
               onApplied={() => setPendingEditApply(null)}
               active={mode === "edit" && !overlayOpen}
             />
+            </ErrorBoundary>
           </div>
           <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>
+            <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <ToolsView
               // Same remount-on-load rule as EditView: tool results (validation
               // report, duplicate pairs) computed from the previous dataset must
@@ -1891,6 +1898,13 @@ function AppContent() {
                 undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
+              onRejectDuplicatesBulk={(pairs) => {
+                const next = new Set(rejectedDuplicates);
+                for (const { aId, bId } of pairs) next.add(duplicatePairKey(aId, bId));
+                if (next.size === rejectedDuplicates.size) return;
+                undoRedo.push({ mode: "rejectDup", before: new Set(rejectedDuplicates), after: next });
+                dispatch({ type: "rejectedDuplicatesSet", pairs: next });
+              }}
               onUnrejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);
                 next.delete(duplicatePairKey(aId, bId));
@@ -1898,6 +1912,7 @@ function AppContent() {
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
             />
+            </ErrorBoundary>
           </div>
         </>
       )}

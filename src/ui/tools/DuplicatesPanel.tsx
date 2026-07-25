@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { makeDuplicatePair, duplicatePairKey, type DuplicatePair } from "../../tools/duplicates";
+import {
+  makeDuplicatePair,
+  duplicatePairKey,
+  clusterDuplicates,
+  type DuplicatePair,
+  type DuplicateCluster,
+} from "../../tools/duplicates";
+import { categorize, DEFAULT_CONFIG, type MatchCategory } from "../../match/types";
+import { xrefLabel } from "../../gedcom/nameDisplay";
 import { individualFieldRows } from "../../review/fields";
 import { duplicateDefaults, relatedSeparateRecords } from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
@@ -15,6 +23,22 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
 
+/** Default score floor for the duplicates list. Index-scale files produce
+ *  thousands of weak pairs; starting high keeps the list actionable, and the
+ *  score picker reveals the rest on demand. */
+const DEFAULT_MIN_SCORE = 85;
+const SCORE_STEPS = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
+const CAT_COLOR: Record<MatchCategory, string> = {
+  strong: "var(--state-match)",
+  probable: "var(--state-minor)",
+  weak: "var(--muted)",
+};
+
+/** A flattened list row: either a cluster header or a duplicate pair. */
+type Row =
+  | { kind: "cluster"; cluster: DuplicateCluster; key: string }
+  | { kind: "pair"; pair: DuplicatePair; key: string; clustered: boolean };
+
 export function DuplicatesPanel({
   dataset,
   scans,
@@ -23,6 +47,7 @@ export function DuplicatesPanel({
   onMergeDuplicate,
   rejectedDuplicates,
   onRejectDuplicate,
+  onRejectDuplicatesBulk,
   onUnrejectDuplicate,
 }: {
   dataset: Dataset;
@@ -32,6 +57,7 @@ export function DuplicatesPanel({
   onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
   rejectedDuplicates: Set<string>;
   onRejectDuplicate: (aId: string, bId: string) => void;
+  onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -41,9 +67,14 @@ export function DuplicatesPanel({
   // Pair whose side-by-side comparison is expanded inline, keyed "aId-bId".
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Only pairs scoring at least this show; index-scale files start high.
+  const [minScore, setMinScore] = useState(DEFAULT_MIN_SCORE);
+  // Multi-pair clusters whose member pairs are currently unfolded. Empty by
+  // default → blobs start collapsed to one header row each.
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   // Toggles the list between active candidates and previously-rejected pairs.
   const [showRejected, setShowRejected] = useState(false);
-  // Keyboard-highlighted pair (index into the currently shown list).
+  // Keyboard-highlighted row (index into the flattened display list).
   const [selected, setSelected] = useState(0);
   const selectedRef = useRef(0);
   selectedRef.current = selected;
@@ -57,80 +88,13 @@ export function DuplicatesPanel({
   // its DuplicateCompare.
   const fieldsCache = useRef(new Map<string, Record<string, FieldChoice>>());
 
-  // Apply a merge, then drop from the list the merged pair and any other pair
-  // that referenced the now-removed record (it no longer exists). Jumps to
-  // whatever takes the merged pair's old place in the (pre-merge) shown list —
-  // same auto-advance as rejecting a pair — so the panel doesn't just go blank.
-  function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
-    if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    const idx = shown.findIndex((p) => p.aId === survivorId && p.bId === removedId);
-    const remaining = shown.filter((p) => p.aId !== removedId && p.bId !== removedId);
-    scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
-    if (remaining.length === 0) {
-      setExpanded(null);
-      return;
-    }
-    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
-    const next = remaining[nextIdx];
-    setSelected(nextIdx);
-    setExpanded(`${next.aId}-${next.bId}`);
-  }
-
-  // Dismiss a pair as not-a-duplicate: persisted via the parent, so it won't
-  // resurface next time the scan runs. The pair itself stays in `state.result`
-  // (unlike a merge, nothing about the dataset changed) — it just moves from
-  // the active list into the rejected one via the `rejectedDuplicates` filter.
-  // Jumps to whatever takes its old place in the (pre-reject) shown list —
-  // same auto-advance behavior as rejecting a match in Merge — so the panel
-  // doesn't just go blank.
-  function handleReject(aId: string, bId: string) {
-    const idx = shown.findIndex((p) => p.aId === aId && p.bId === bId);
-    onRejectDuplicate(aId, bId);
-    const remaining = shown.filter((p) => !(p.aId === aId && p.bId === bId));
-    if (remaining.length === 0) {
-      setExpanded(null);
-      return;
-    }
-    const nextIdx = Math.min(idx < 0 ? 0 : idx, remaining.length - 1);
-    const next = remaining[nextIdx];
-    setSelected(nextIdx);
-    setExpanded(`${next.aId}-${next.bId}`);
-  }
-
-  // Open a related pair surfaced from inside an open comparison (a spouse/parent
-  // that is a separate record on each side). Reuse the pair if it's already in
-  // the list, otherwise synthesize and prepend it, then clear any filter and
-  // expand it so the user can complete that merge too.
-  function openPair(aId: string, bId: string) {
-    if (state.status !== "done") return;
-    const pair = state.result.find(
-      (p) => (p.aId === aId && p.bId === bId) || (p.aId === bId && p.bId === aId),
-    );
-    if (!pair) {
-      const made = makeDuplicatePair(dataset, aId, bId);
-      if (!made) return;
-      scans.updateDuplicates((pairs) => [made, ...pairs]);
-      setQuery("");
-      setSelected(0); // prepended → top of the (unfiltered) list
-      setExpanded(`${made.aId}-${made.bId}`);
-      return;
-    }
-    setQuery("");
-    const idx = shown.indexOf(pair);
-    if (idx >= 0) {
-      setSelected(idx);
-    } else {
-      // Filtered out by the (just-cleared) search — move it to the front so
-      // the opened comparison is actually on screen.
-      scans.updateDuplicates((pairs) => [pair, ...pairs.filter((p) => p !== pair)]);
-      setSelected(0);
-    }
-    setExpanded(`${pair.aId}-${pair.bId}`);
-  }
+  const pk = (p: DuplicatePair) => duplicatePairKey(p.aId, p.bId);
 
   useEffect(() => {
     setExpanded(null);
     setQuery("");
+    setMinScore(DEFAULT_MIN_SCORE);
+    setExpandedClusters(new Set());
     setSelected(0);
     setShowRejected(false);
     fieldsCache.current.clear();
@@ -149,58 +113,208 @@ export function DuplicatesPanel({
     () => (pairs ?? []).filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId))).length,
     [pairs, rejectedDuplicates],
   );
-  const shown = useMemo(() => {
+  // Active/rejected split + text search, before the score filter (so we can
+  // count what the score filter hides).
+  const searched = useMemo(() => {
     if (!pairs) return [];
     const base = pairs.filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected);
     return q ? base.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : base;
   }, [pairs, q, rejectedDuplicates, showRejected]);
+  const shown = useMemo(() => searched.filter((p) => p.score >= minScore), [searched, minScore]);
+  const hiddenByScore = searched.length - shown.length;
+
+  // Group the visible pairs into connected clusters (skipped for the flat
+  // rejected list). A multi-pair cluster is a same-name blob the user can fold
+  // away or dismiss wholesale; a lone pair stays a plain row.
+  const clusters = useMemo(
+    () => (showRejected ? [] : clusterDuplicates(shown)),
+    [shown, showRejected],
+  );
+
+  // Flatten clusters → display rows. A collapsed multi-pair cluster still shows
+  // the one pair whose comparison is open, so the open compare is never hidden.
+  const rows = useMemo<Row[]>(() => {
+    if (showRejected) return shown.map((p) => ({ kind: "pair", pair: p, key: `${p.aId}-${p.bId}`, clustered: false }));
+    const out: Row[] = [];
+    for (const c of clusters) {
+      if (c.pairs.length === 1) {
+        const p = c.pairs[0];
+        out.push({ kind: "pair", pair: p, key: `${p.aId}-${p.bId}`, clustered: false });
+        continue;
+      }
+      out.push({ kind: "cluster", cluster: c, key: `cluster-${c.id}` });
+      const unfolded = expandedClusters.has(c.id);
+      for (const p of c.pairs) {
+        if (unfolded || `${p.aId}-${p.bId}` === expanded) {
+          out.push({ kind: "pair", pair: p, key: `${p.aId}-${p.bId}`, clustered: true });
+        }
+      }
+    }
+    return out;
+  }, [showRejected, shown, clusters, expandedClusters, expanded]);
+  const rowsRef = useRef<Row[]>(rows);
+  rowsRef.current = rows;
+
+  // The pairs in display order, for the auto-advance after merge/reject.
+  const orderedPairs = useMemo(
+    () => rows.filter((r): r is Extract<Row, { kind: "pair" }> => r.kind === "pair").map((r) => r.pair),
+    [rows],
+  );
+  const orderedPairsRef = useRef(orderedPairs);
+  orderedPairsRef.current = orderedPairs;
+
+  // After a pair leaves the active list (merged away or rejected), open and
+  // highlight whatever takes its place, so the panel keeps flowing rather than
+  // going blank. Content-keyed (by pair), so it survives the rows recomputing.
+  const advancePast = (isRemoved: (p: DuplicatePair) => boolean) => {
+    const list = orderedPairsRef.current;
+    const removedAt = list.findIndex(isRemoved);
+    const remaining = list.filter((p) => !isRemoved(p));
+    if (remaining.length === 0) {
+      setExpanded(null);
+      return;
+    }
+    const next = remaining[Math.min(removedAt < 0 ? 0 : removedAt, remaining.length - 1)];
+    setExpanded(`${next.aId}-${next.bId}`);
+    const rowIdx = rowsRef.current.findIndex((r) => r.kind === "pair" && r.key === `${next.aId}-${next.bId}`);
+    if (rowIdx >= 0) setSelected(rowIdx);
+  };
+
+  // Apply a merge, drop the merged pair and any other pair referencing the
+  // now-removed record, then advance to the next pair.
+  function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
+    if (!onMergeDuplicate(survivorId, removedId, decision)) return;
+    scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
+    advancePast((p) => p.aId === removedId || p.bId === removedId);
+  }
+
+  // Dismiss a pair as not-a-duplicate: persisted via the parent so it won't
+  // resurface on a re-scan. The pair stays in `state.result` (nothing about the
+  // dataset changed) — it just moves into the rejected list — and we advance to
+  // the next active pair.
+  function handleReject(aId: string, bId: string) {
+    const key = duplicatePairKey(aId, bId);
+    onRejectDuplicate(aId, bId);
+    advancePast((p) => pk(p) === key);
+  }
+
+  // Dismiss every pair in a cluster at once (one undoable step). Close the open
+  // compare if it belonged to this blob.
+  function dismissCluster(cluster: DuplicateCluster) {
+    const openKeys = new Set(cluster.pairs.map((p) => `${p.aId}-${p.bId}`));
+    onRejectDuplicatesBulk(cluster.pairs.map((p) => ({ aId: p.aId, bId: p.bId })));
+    setExpanded((cur) => (cur && openKeys.has(cur) ? null : cur));
+  }
+
+  // Unfolding anything — a cluster's pair rows, or a pair's side-by-side
+  // comparison — pushes the newly-revealed content below the row that opened it.
+  // Scroll that row to the top of the viewport so what just opened is in view.
+  // The scroll runs from an effect, once the rows (and the virtual model's
+  // measurements) have updated — see below.
+  const pinTargetRow = useRef(0);
+  const [pinTick, setPinTick] = useState(0);
+  const pinRowToTop = useCallback((rowIndex: number) => {
+    pinTargetRow.current = rowIndex;
+    setPinTick((t) => t + 1);
+  }, []);
+
+  // Stable identity so the keydown handler (subscribed once per `active`) can
+  // call it without re-subscribing; the live set is read through a mirror ref.
+  const expandedClustersRef = useRef(expandedClusters);
+  expandedClustersRef.current = expandedClusters;
+  const toggleCluster = useCallback((id: string, rowIndex?: number) => {
+    const willExpand = !expandedClustersRef.current.has(id);
+    setExpandedClusters((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    if (willExpand && rowIndex !== undefined) pinRowToTop(rowIndex);
+  }, [pinRowToTop]);
+
+  // Same for a single pair's comparison: opening it pins its row to the top.
+  const togglePair = useCallback((key: string, rowIndex?: number) => {
+    const willOpen = expandedRef.current !== key;
+    setExpanded(willOpen ? key : null);
+    if (willOpen && rowIndex !== undefined) pinRowToTop(rowIndex);
+  }, [pinRowToTop]);
+
+  // Open a related pair surfaced from inside an open comparison (a spouse/parent
+  // that is a separate record on each side). Reuse the pair if it's already in
+  // the list, otherwise synthesize and prepend it, then clear the filters and
+  // expand it so the user can complete that merge too.
+  function openPair(aId: string, bId: string) {
+    if (state.status !== "done") return;
+    const key = duplicatePairKey(aId, bId);
+    setQuery("");
+    setMinScore(DEFAULT_MIN_SCORE);
+    const pair = state.result.find((p) => duplicatePairKey(p.aId, p.bId) === key);
+    if (!pair) {
+      const made = makeDuplicatePair(dataset, aId, bId);
+      if (!made) return;
+      // If it scores below the current floor, still show it by not raising the
+      // floor above it.
+      setMinScore((s) => Math.min(s, Math.floor(made.score)));
+      scans.updateDuplicates((pairs) => [made, ...pairs]);
+      setExpanded(`${made.aId}-${made.bId}`);
+      return;
+    }
+    setMinScore((s) => Math.min(s, Math.floor(pair.score)));
+    setExpanded(`${pair.aId}-${pair.bId}`);
+  }
 
   // An index-scale file produces six-figure pair counts — only the rows near
   // the viewport are mounted, so the whole score-sorted list stays browsable.
   // The scroll container is the ancestor `.tools-view`.
-  const virtual = useVirtualList({ count: shown.length, estimate: 34, itemsKey: shown });
+  const virtual = useVirtualList({ count: rows.length, estimate: 34, itemsKey: rows });
 
-  // Keep the highlight inside the (re)filtered list: a new filter starts at the
-  // top; merging out a pair clamps to the last remaining one.
-  useEffect(() => { setSelected(0); }, [q]);
+  // A new filter/search starts the highlight at the top; a shrinking list
+  // clamps it to the last remaining row.
+  useEffect(() => { setSelected(0); }, [q, minScore, showRejected]);
   useEffect(() => {
-    setSelected((i) => (shown.length === 0 ? 0 : Math.min(i, shown.length - 1)));
-  }, [shown.length]);
+    setSelected((i) => (rows.length === 0 ? 0 : Math.min(i, rows.length - 1)));
+  }, [rows.length]);
 
-  // Bring the keyboard-highlighted pair into view as it moves.
+  // Bring the keyboard-highlighted row into view as it moves.
   const { scrollToIndex } = virtual;
   useEffect(() => {
     scrollToIndex(selected);
   }, [selected, scrollToIndex]);
 
-  // Left/Right step the highlight between candidate pairs; Up/Down scroll the
-  // surrounding list (when it overflows) so a long list can be read without
-  // moving the selection. Mirrors the Merge view's compare-panel shortcuts.
+  // After a cluster or a pair comparison is unfolded, pin its row to the top.
   useEffect(() => {
-    if (!active || shown.length === 0) return;
+    if (pinTick === 0) return;
+    scrollToIndex(pinTargetRow.current, "start");
+  }, [pinTick, scrollToIndex]);
+
+  // Left/Right step the highlight between rows; Enter toggles the selected row
+  // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
+  // surrounding list. Mirrors the Merge view's compare-panel shortcuts.
+  useEffect(() => {
+    if (!active) return;
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Step the highlight; if a candidate is already open, keep the compare
-      // open and stick it to the one we land on.
+      const list = rowsRef.current;
+      if (list.length === 0) return;
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         e.preventDefault();
         const next = e.key === "ArrowLeft"
           ? Math.max(0, selectedRef.current - 1)
-          : Math.min(shown.length - 1, selectedRef.current + 1);
+          : Math.min(list.length - 1, selectedRef.current + 1);
         setSelected(next);
-        if (expandedRef.current !== null) {
-          const p = shown[next];
-          if (p) setExpanded(`${p.aId}-${p.bId}`);
-        }
+        // If a comparison is already open, stick it to the pair we land on.
+        const row = list[next];
+        if (expandedRef.current !== null && row?.kind === "pair") setExpanded(row.key);
         return;
       }
       if (e.key === "Enter") {
-        const p = shown[selectedRef.current];
-        if (!p) return;
+        const row = list[selectedRef.current];
+        if (!row) return;
         e.preventDefault();
-        const key = `${p.aId}-${p.bId}`;
-        setExpanded((cur) => (cur === key ? null : key));
+        if (row.kind === "cluster") toggleCluster(row.cluster.id, selectedRef.current);
+        else togglePair(row.key, selectedRef.current);
         return;
       }
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -212,7 +326,7 @@ export function DuplicatesPanel({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, shown]);
+  }, [active, toggleCluster, togglePair]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -243,6 +357,22 @@ export function DuplicatesPanel({
         <>
           <div className="tools-filter-row">
             <TreeSearch value={query} onChange={setQuery} />
+            {!showRejected && (
+              <label className="tools-dup-score" title={t("tools.duplicates.scoreFilter")}>
+                <select
+                  className="score-select"
+                  value={minScore}
+                  style={{ color: CAT_COLOR[categorize(minScore / 100, DEFAULT_CONFIG)] }}
+                  onChange={(e) => setMinScore(Number(e.target.value))}
+                >
+                  {SCORE_STEPS.map((v) => (
+                    <option key={v} value={v} style={{ color: "var(--text)" }}>
+                      {v === 100 ? "100" : `≥ ${v}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {rejectedCount > 0 && (
               <button className="tools-chip tools-dup-toggle" onClick={() => setShowRejected((v) => !v)}>
                 {showRejected ? t("tools.duplicates.showActive") : (
@@ -254,11 +384,23 @@ export function DuplicatesPanel({
               {showRejected
                 ? t("tools.duplicates.rejectedCount", { count: rejectedCount })
                 : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
+              {!showRejected && hiddenByScore > 0 && (
+                <>
+                  {" · "}
+                  <button
+                    className="tools-issue-link"
+                    title={t("tools.duplicates.hiddenByScoreTip")}
+                    onClick={() => setMinScore(50)}
+                  >
+                    {t("tools.duplicates.hiddenByScore", { count: hiddenByScore })}
+                  </button>
+                </>
+              )}
             </p>
           </div>
-          {shown.length === 0 ? (
+          {rows.length === 0 ? (
             <p className="tools-clean">
-              {q
+              {q || hiddenByScore > 0
                 ? t("tools.search.noMatch")
                 : showRejected
                   ? t("tools.duplicates.noneRejected")
@@ -267,29 +409,76 @@ export function DuplicatesPanel({
           ) : (
             <ul className="tools-pairs" ref={listRef}>
               <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
-              {shown.slice(virtual.start, virtual.end).map((p, j) => {
+              {rows.slice(virtual.start, virtual.end).map((row, j) => {
                 const i = virtual.start + j;
-                const key = `${p.aId}-${p.bId}`;
+                if (row.kind === "cluster") {
+                  const c = row.cluster;
+                  const unfolded = expandedClusters.has(c.id);
+                  return (
+                    <li key={row.key} className={`tools-dup-cluster-head ${i === selected ? "selected" : ""}`}>
+                      <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
+                        <button
+                          className={`tools-pair-toggle ${unfolded ? "open" : ""}`}
+                          onClick={() => toggleCluster(c.id, i)}
+                          title={unfolded ? t("tools.duplicates.cluster.collapse") : t("tools.duplicates.cluster.expand")}
+                          aria-expanded={unfolded}
+                        >
+                          ▶
+                        </button>
+                        <span className={`tools-cat cat-${categorize(Math.round(c.maxScore) / 100, DEFAULT_CONFIG)}`}>
+                          {Math.round(c.maxScore)}
+                        </span>
+                        <span
+                          className="tools-dup-cluster-label"
+                          title={t("tools.duplicates.cluster.recordIds", {
+                            ids: c.memberIds.map(xrefLabel).join(", "),
+                          })}
+                        >
+                          {c.pairs[0].aLabel}
+                        </span>
+                        <span className="tools-dup-cluster-meta">
+                          {t("tools.duplicates.cluster.records", { count: c.memberIds.length })}
+                          {" · "}
+                          {t("tools.duplicates.cluster.pairs", { count: c.pairs.length })}
+                        </span>
+                        <button
+                          className="tools-issue-link tools-dup-cluster-dismiss"
+                          title={t("tools.duplicates.cluster.rejectAllTitle")}
+                          onClick={() => dismissCluster(c)}
+                        >
+                          {t("tools.duplicates.cluster.rejectAll")}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
+                const p = row.pair;
+                const key = row.key;
                 const open = !showRejected && expanded === key;
                 return (
-                  <li key={key} className={`tools-pair ${i === selected ? "selected" : ""}${i % 2 ? " zebra" : ""}`}>
+                  <li
+                    key={key}
+                    className={`tools-pair ${row.clustered ? "tools-pair-clustered" : ""} ${i === selected ? "selected" : ""}${i % 2 ? " zebra" : ""}`}
+                  >
                     <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                       {showRejected ? (
                         <span className="tools-pair-toggle-spacer" aria-hidden="true" />
                       ) : (
                         <button
                           className={`tools-pair-toggle ${open ? "open" : ""}`}
-                          onClick={() => setExpanded(open ? null : key)}
+                          onClick={() => togglePair(key, i)}
                           title={open ? t("tools.duplicates.hideCompare") : t("tools.duplicates.showCompare")}
                           aria-expanded={open}
                         >
                           ▶
                         </button>
                       )}
-                      <span className={`tools-cat cat-${p.category}`}>{Math.round(p.score)}</span>
-                      <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} />
+                      <span className={`tools-cat cat-${categorize(Math.round(p.score) / 100, DEFAULT_CONFIG)}`}>{Math.round(p.score)}</span>
+                      {/* Record ids always show here: telling two look-alike
+                          records apart is this tool's whole job. */}
+                      <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} forceXref />
                       <span className="tools-pair-sep">↔</span>
-                      <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} />
+                      <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} forceXref />
                       {showRejected && (
                         <button
                           className="tools-issue-link tools-pair-unreject"

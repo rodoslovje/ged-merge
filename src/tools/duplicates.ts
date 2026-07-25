@@ -44,6 +44,75 @@ export function duplicatePairKey(aId: string, bId: string): string {
   return aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
 }
 
+/** A connected group of duplicate pairs — every record reachable from another
+ *  through a chain of flagged pairs. A clean two-person duplicate is a cluster
+ *  of one pair; a same-name "parallel branch" collapses into one big cluster the
+ *  user can review or dismiss wholesale instead of pair by pair. */
+export interface DuplicateCluster {
+  /** Stable id: the lexicographically smallest member id. */
+  id: string;
+  /** All distinct record ids in the cluster, sorted. */
+  memberIds: string[];
+  /** The cluster's pairs, sorted by score descending. */
+  pairs: DuplicatePair[];
+  /** Highest pair score in the cluster (its sort rank). */
+  maxScore: number;
+}
+
+/**
+ * Group duplicate pairs into connected clusters via union-find. Two pairs join
+ * the same cluster when they share a record. Clusters are returned sorted so
+ * the messiest blobs surface first: by pair count descending, then by top
+ * score — a 20-pair same-name tangle outranks a lone high-confidence pair.
+ */
+export function clusterDuplicates(pairs: DuplicatePair[]): DuplicateCluster[] {
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    let root = x;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    // Path compression.
+    let cur = x;
+    while (parent.get(cur) !== root) {
+      const next = parent.get(cur)!;
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  const union = (a: string, b: string) => {
+    if (!parent.has(a)) parent.set(a, a);
+    if (!parent.has(b)) parent.set(b, b);
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const p of pairs) union(p.aId, p.bId);
+
+  const byRoot = new Map<string, { members: Set<string>; pairs: DuplicatePair[] }>();
+  for (const p of pairs) {
+    const root = find(p.aId);
+    let g = byRoot.get(root);
+    if (!g) byRoot.set(root, (g = { members: new Set(), pairs: [] }));
+    g.members.add(p.aId);
+    g.members.add(p.bId);
+    g.pairs.push(p);
+  }
+
+  const clusters: DuplicateCluster[] = [];
+  for (const g of byRoot.values()) {
+    const memberIds = [...g.members].sort();
+    const pairsSorted = [...g.pairs].sort((x, y) => y.score - x.score);
+    clusters.push({
+      id: memberIds[0],
+      memberIds,
+      pairs: pairsSorted,
+      maxScore: pairsSorted[0]?.score ?? 0,
+    });
+  }
+  clusters.sort((a, b) => b.pairs.length - a.pairs.length || b.maxScore - a.maxScore);
+  return clusters;
+}
+
 /** How many individuals the scan processes between `onProgress` calls. */
 const PROGRESS_EVERY = 256;
 
