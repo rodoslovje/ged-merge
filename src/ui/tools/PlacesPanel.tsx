@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import { GeocodePanel } from "./GeocodePanel";
@@ -48,6 +48,7 @@ export function PlacesPanel({
   active,
   onApplyPlaceRename,
   onApplyGeocode,
+  onApplyAddressCoords,
   onRenamePlaceValue,
   startId,
 }: {
@@ -56,6 +57,7 @@ export function PlacesPanel({
   active: boolean;
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   startId?: string;
 }) {
@@ -169,6 +171,7 @@ export function PlacesPanel({
         dataset={dataset}
         active={active}
         onApplyGeocode={onApplyGeocode}
+        onApplyAddressCoords={onApplyAddressCoords}
         onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}

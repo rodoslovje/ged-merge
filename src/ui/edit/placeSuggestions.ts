@@ -1,4 +1,4 @@
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 
 export interface PlaceSuggestions {
   placeSuggestions: string[];
@@ -6,6 +6,25 @@ export interface PlaceSuggestions {
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  /**
+   * The coordinate the file already uses for a place, keyed by {@link placeKey}
+   * (the most frequent one when occurrences disagree). Only coordinates from
+   * events with *no* address count, so this is the settlement's position rather
+   * than one particular house's — picking a place from the suggestions should
+   * not inherit a neighbour's front door.
+   */
+  placeCoords: Map<string, GeoCoord>;
+  /**
+   * The coordinate for a specific place+address pair, keyed
+   * `placeKey(place) + NUL + lowercased address` — the house itself, used when a
+   * combo pick supplies both fields at once.
+   */
+  pairCoords: Map<string, GeoCoord>;
+}
+
+/** Key for the {@link PlaceSuggestions.pairCoords} map. */
+export function placeAddrCoordKey(place: string, addr: string): string {
+  return `${placeKey(place)} ${addr.trim().toLowerCase()}`;
 }
 
 export function placeKey(raw: string): string {
@@ -19,6 +38,18 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   const addrForms = new Map<string, Map<string, number>>();
   // placeKey → addrRaw → count
   const placeAddrForms = new Map<string, Map<string, number>>();
+  // Coordinate tallies, so the most frequently used wins when they disagree.
+  const placeCoordCounts = new Map<string, Map<string, { coord: GeoCoord; n: number }>>();
+  const pairCoordCounts = new Map<string, Map<string, { coord: GeoCoord; n: number }>>();
+
+  function addCoord(counts: Map<string, Map<string, { coord: GeoCoord; n: number }>>, key: string, coord: GeoCoord) {
+    const ck = `${coord.lat}:${coord.lon}`;
+    const m = counts.get(key) ?? new Map<string, { coord: GeoCoord; n: number }>();
+    const hit = m.get(ck);
+    if (hit) hit.n++;
+    else m.set(ck, { coord, n: 1 });
+    counts.set(key, m);
+  }
 
   function addValue(forms: Map<string, Map<string, number>>, raw: string) {
     const r = raw.trim();
@@ -29,7 +60,14 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     forms.set(key, m);
   }
 
-  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined) {
+  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined, coord?: GeoCoord) {
+    if (placeRaw && coord) {
+      const ar = addrRaw?.trim();
+      // With an address the coordinate describes that house; without one it is
+      // the place's own position. Only the latter is offered for a place pick.
+      if (ar) addCoord(pairCoordCounts, placeAddrCoordKey(placeRaw, ar), coord);
+      else addCoord(placeCoordCounts, placeKey(placeRaw), coord);
+    }
     if (placeRaw) addValue(placeForms, placeRaw);
     if (addrRaw) addValue(addrForms, addrRaw);
     if (placeRaw && addrRaw) {
@@ -44,10 +82,10 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   }
 
   for (const indi of dataset.individuals.values()) {
-    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw);
+    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord);
   }
   for (const fam of dataset.families.values()) {
-    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw);
+    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord);
   }
 
   function build(forms: Map<string, Map<string, number>>): { suggestions: string[]; canonical: Map<string, string> } {
@@ -74,11 +112,23 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     placeToAddrs.set(pk, [...m.keys()].sort());
   }
 
+  /** Most frequently used coordinate per key. */
+  function pickCoords(counts: Map<string, Map<string, { coord: GeoCoord; n: number }>>): Map<string, GeoCoord> {
+    const out = new Map<string, GeoCoord>();
+    for (const [key, m] of counts) {
+      const best = [...m.values()].sort((a, b) => b.n - a.n)[0];
+      if (best) out.set(key, best.coord);
+    }
+    return out;
+  }
+
   return {
     placeSuggestions: place.suggestions,
     placeToAddrs,
     placeCanonical: place.canonical,
     addrCanonical: addr.canonical,
+    placeCoords: pickCoords(placeCoordCounts),
+    pairCoords: pickCoords(pairCoordCounts),
   };
 }
 

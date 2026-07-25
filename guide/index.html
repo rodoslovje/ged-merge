@@ -880,11 +880,49 @@
               split, and the correction is rescanned for matches immediately). What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
               their results joining the row's candidates and map pins. <strong>Search online</strong> uses OpenStreetMap
-              (Nominatim) — best for street addresses. <strong>Search GOV</strong> uses the
+              (Nominatim) — best for street addresses. <strong>Search address register (GURS)</strong> appears on values that name a
+              house number (<em>Šentvid pri Stični 23</em>) and looks it up in Slovenia's official register, giving the
+              coordinate of that building rather than the middle of the settlement. When an old record keeps more than one
+              number because the numbering changed (<em>Hafnarjeva pot 21a / 53</em>), every number is looked up and both
+              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search GOV</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
               entries carry historical, multilingual place names and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV
               record for other genealogy software. Accepted matches are cached, so other files resolve instantly.
+            </p>
+            <p>
+              Below the place list, <strong>Addresses with a house number</strong> covers the other shape: events whose place
+              names only the settlement (<em>Kranj</em>) while the event's own <strong>address</strong> names the street or
+              number (<em>Kidričeva cesta 38</em>). These are grouped by place + address, so one review covers every event at
+              that house, and looked up in the same register. The coordinate is written as ordinary
+              <code>PLAC</code> <code>MAP</code> on those events — nothing non-standard, so every other program reads it.
+              The list is grouped by place and collapsed, busiest first, because a real file holds hundreds of addresses:
+              open a place to see its own addresses, look them all up in one go, and read them off a small map of every
+              house found there — neighbours on one map make an odd result obvious at a glance.
+            </p>
+            <p>
+              That means one settlement can hold different coordinates on different events, which is correct: two addresses in
+              Kranj are two places. The <a href="#tools">Health check</a> understands this — it judges coordinates per
+              <em>place + address</em>, so differing addresses are never reported, and it flags the real error instead: the
+              <strong>same place and the same address</strong> carrying two different coordinates. Its coordinate fill also
+              copies only within one address, so a house's position can never spread across a settlement.
+            </p>
+            <p>
+              In <a href="#edit">Edit</a>, an event with a place shows a <span class="gm-glyph">📍</span> after it — solid
+              when the event carries coordinates (hover for the numbers), faded when it does not. (A file that records no
+              coordinates at all shows no pins; coordinates are introduced through the tool above, and the pins follow.)
+              Click it to place that one event, on its own small map: take a coordinate the file already uses for this
+              address or place, look the house up in the register, <strong>search online</strong> (OpenStreetMap — for an
+              address outside Slovenia, which the register does not cover), type or paste a coordinate, or remove the one
+              it has. This is where to sharpen an address whose settlement is already pinned, since the Tools list only
+              offers places missing a coordinate altogether.
+            </p>
+            <p>
+              Choosing a place or address that the file already knows brings its coordinate along, so a newly typed event
+              is placed in one step — the house's own coordinate when you pick a place + address pair, the settlement's
+              otherwise, and never overwriting a coordinate the event already has. The file-info card reports how far
+              coordinates reach (<em>Coordinates: 16 548 of 17 195 places</em>), which is the quickest way to see whether a
+              geocoding pass is worth making.
             </p>
           </section>
 

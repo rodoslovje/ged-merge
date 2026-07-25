@@ -1,4 +1,4 @@
-import type { Individual, GedEvent, GedNode, SourceCitation } from "../../gedcom/types";
+import type { Individual, GedEvent, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
@@ -34,6 +34,8 @@ export const EventList = memo(function EventList({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  placeCoords,
+  pairCoords,
   mergeHighlight,
   mergeIncomingSources,
   mainMergeKeyBases,
@@ -60,6 +62,10 @@ export const EventList = memo(function EventList({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  /** Coordinate the file already uses for a place (settlement-level). */
+  placeCoords: Map<string, GeoCoord>;
+  /** Coordinate for a specific place+address pair (the house). */
+  pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
@@ -211,6 +217,8 @@ export const EventList = memo(function EventList({
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
         mergeHighlight={mergeHighlight}
         mergeIncomingSources={mergeIncomingSources}
         mergeKeyBase={birtMergeKeyBase}
@@ -248,6 +256,8 @@ export const EventList = memo(function EventList({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.mergeKeyBase}
@@ -289,6 +299,8 @@ export const EventList = memo(function EventList({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
             mergeKeyBase={row.keyBase}

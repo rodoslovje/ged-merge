@@ -22,6 +22,7 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessag
 import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
+import { AddressCoordsSection } from "./AddressCoordsSection";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -48,6 +49,9 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** Write accepted house coordinates onto the events at each place+address pair
+   *  (standard `PLAC`/`MAP`); returns the number of records changed. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   /** Return to the Places tree (the panel hosting this view). */
   onBack: () => void;
   /** Jump to a person in Edit mode (the expanded row's people list). */
@@ -104,7 +108,7 @@ function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onBack, onNavigate, startId }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -618,6 +622,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onRenamePlaceValue, onBa
       {rows.length > SHOW_LIMIT && <p className="tools-geo-more">{t("tools.geocode.more", { count: rows.length - SHOW_LIMIT })}</p>}
       </section>
       )}
+
+      {/* Addresses whose house coordinate the register can supply, for events
+          whose PLAC names only the settlement. Renders nothing when there are
+          none, so files without ADDR lines see no change. */}
+      <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} />
     </div>
   );
 }

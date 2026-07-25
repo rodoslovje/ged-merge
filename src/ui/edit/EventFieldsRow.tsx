@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { GedEvent, SourceCitation } from "../../gedcom/types";
+import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
@@ -7,9 +7,10 @@ import { SourceRefs } from "../SourceRef";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
-import { placeCombosOf, placeKey } from "./placeSuggestions";
+import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
@@ -36,6 +37,8 @@ export function EventFieldsRow({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  placeCoords,
+  pairCoords,
   mergeHighlight,
   mergeIncomingSources,
   mergeKeyBase,
@@ -67,6 +70,10 @@ export function EventFieldsRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  /** Coordinate the file already uses for a place (settlement-level). */
+  placeCoords: Map<string, GeoCoord>;
+  /** Coordinate for a specific place+address pair (the house). */
+  pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
@@ -136,16 +143,44 @@ export function EventFieldsRow({
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
+  // The coordinate this event actually carries (PLAC.MAP). Read from the model,
+  // not the edited text, so it reflects what is in the file.
+  const coord = ev?.place?.coord;
+  // Whether the file uses coordinates at all: between them the two maps cover
+  // every PLAC that carries a MAP (one for events with an address, one for those
+  // without), so both empty means the file has none anywhere. A file that does
+  // not use locations should not carry a pin on every event row — coordinates
+  // are introduced there through Tools → Geocode places, and once the first one
+  // lands the pins appear and can refine the rest.
+  const fileUsesCoords = placeCoords.size > 0 || pairCoords.size > 0;
   const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
 
   // Known place+address pairs for the place field's combo suggestions —
   // typing an address there fills both fields in one go.
   const placeCombos = useMemo(() => placeCombosOf(placeToAddrs, placeCanonical), [placeToAddrs, placeCanonical]);
+
+  /**
+   * The coordinate the file already uses for a place (and address), so choosing
+   * an existing value brings its position along instead of leaving the new event
+   * unplaced. The pair's own house coordinate wins over the settlement's.
+   *
+   * Only offered when this event has none: a coordinate already here may be more
+   * precise than the file's general one for that place, and picking the same
+   * value from the list must never quietly coarsen it.
+   */
+  const knownCoord = (place: string, addr: string): GeoCoord | undefined => {
+    if (coord) return undefined;
+    const trimmed = place.trim();
+    if (!trimmed) return undefined;
+    return (addr.trim() ? pairCoords.get(placeAddrCoordKey(trimmed, addr)) : undefined) ?? placeCoords.get(placeKey(trimmed));
+  };
+
   /** Combo pick fills both fields in one commit — shared by both hosts. */
   const pickCombo = (place: string, addr: string) => {
     placeField.set(place);
     addrField.set(addr);
-    commitAll({ place, address: addr });
+    const known = knownCoord(place, addr);
+    commitAll({ place, address: addr, ...(known ? { coord: known } : {}) });
   };
   // The address field's combos: pairs at other places (this place's own
   // addresses are already its plain suggestions), so an address lookup there
@@ -340,7 +375,13 @@ export function EventFieldsRow({
     if (override.note === undefined && !noteField.isMerge && noteField.value === noteField.initial) {
       delete merged.note;
     }
+    // Fields with no text input behind them have no `initial` to compare against,
+    // so an override carrying one is a change by definition. Without this, picking
+    // a coordinate while every text field stays as it was reads as "unchanged" and
+    // is silently dropped.
+    const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined;
     const unchanged =
+      !nonTextChange &&
       (merged.date ?? "") === dateField.initial &&
       (merged.value ?? "") === valueField.initial &&
       (merged.place ?? "") === placeField.initial &&
@@ -537,12 +578,42 @@ export function EventFieldsRow({
             wrapStyle={chW(placeField.value, 60)}
             title={t("event.place", { event: label })}
             onChange={placeField.set}
-            onCommit={(val) => commitAll({ place: val })}
+            onCommit={(val) => {
+              // Picking (or typing) a place the file already knows brings its
+              // coordinate along, so the event is placed without a second step.
+              const known = knownCoord(val, addrField.value);
+              commitAll({ place: val, ...(known ? { coord: known } : {}) });
+            }}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
           />
+          {/* This event's own coordinate: a pin showing whether it has one, and
+           *  opening the per-event picker. Here rather than only in the Tools
+           *  list because the same place value may be coordinated on one event
+           *  and not another — and because the Tools list only offers places
+           *  *missing* a coordinate, so a settlement-pinned place whose address
+           *  could be pinned at the house has no row there. */}
+          {(fileUsesCoords || coord) && (
+          <EventCoordPicker
+            place={placeField.value}
+            address={addrField.value}
+            coord={coord}
+            title={label}
+            // What the file already knows for this place / this exact address,
+            // so the picker can propose it without any lookup.
+            fileCoord={placeCoords.get(placeKey(placeField.value))}
+            filePairCoord={
+              addrField.value.trim() ? pairCoords.get(placeAddrCoordKey(placeField.value, addrField.value)) : undefined
+            }
+            onPick={(c) => commitAll({ coord: c })}
+            onClear={() => commitAll({ coord: null })}
+          />
+          )}
         </span>
-        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => commitAll({ address: val }), addrCombos, pickCombo)}
+        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => {
+          const known = knownCoord(placeField.value, val);
+          commitAll({ address: val, ...(known ? { coord: known } : {}) });
+        }, addrCombos, pickCombo)}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),

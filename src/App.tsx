@@ -41,6 +41,7 @@ import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { applyGeocode, renamePlaceValue } from "./tools/geocode";
+import { applyAddressCoords } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
@@ -295,6 +296,7 @@ function AppContent() {
         if (msg.nameLayout) file.nameLayout = msg.nameLayout;
         if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
         if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
+        if (msg.coordUsage) file.coordUsage = msg.coordUsage;
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
@@ -1916,6 +1918,7 @@ function AppContent() {
               active={mode === "tools"}
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
+              onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
               startId={startId}
               onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
