@@ -102,6 +102,123 @@ describe("validateDataset", () => {
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
   });
 
+  it("flags a mother with children by two fathers in the same years", () => {
+    // Marija has Kotnik children 1862–1872 and, in the middle of that run, a
+    // Žnidar child in 1866 — impossible for one mother.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Remec/
+1 SEX F
+1 BIRT
+2 DATE 01.10.1843
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Jožef /Kotnik/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Anton /Žnidar/
+1 SEX M
+1 FAMS @F2@
+0 @I4@ INDI
+1 NAME Jakob /Kotnik/
+1 BIRT
+2 DATE 11.07.1862
+1 FAMC @F1@
+0 @I5@ INDI
+1 NAME Ana /Kotnik/
+1 BIRT
+2 DATE 12.03.1872
+1 FAMC @F1@
+0 @I6@ INDI
+1 NAME Neža /Žnidar/
+1 BIRT
+2 DATE 04.05.1866
+1 FAMC @F2@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I1@
+1 CHIL @I4@
+1 CHIL @I5@
+0 @F2@ FAM
+1 HUSB @I3@
+1 WIFE @I1@
+1 CHIL @I6@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const issue = report.issues.find((i) => i.category === "parallelFamilies");
+    expect(issue?.id).toBe("@I1@"); // reported on the mother
+    expect(issue?.messageVars?.child).toContain("Neža Žnidar");
+    expect(issue?.messageVars?.spanA).toBe("1862–1872");
+    expect(report.counts.parallelFamilies).toBe(1);
+  });
+
+  it("leaves consecutive marriages, adopted children and the father side alone", () => {
+    // Ana's Novak children (1860, 1864) all precede her Kovač child (1870);
+    // Jože fathers children with two women at once (possible); the child that
+    // does fall inside another run is adopted.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Jože /Novak/
+1 SEX M
+1 FAMS @F1@
+1 FAMS @F3@
+0 @I3@ INDI
+1 NAME Franc /Kovač/
+1 SEX M
+1 FAMS @F2@
+0 @I4@ INDI
+1 NAME Micka /Zupan/
+1 SEX F
+1 FAMS @F3@
+0 @I5@ INDI
+1 BIRT
+2 DATE 1860
+1 FAMC @F1@
+0 @I6@ INDI
+1 BIRT
+2 DATE 1864
+1 FAMC @F1@
+0 @I7@ INDI
+1 BIRT
+2 DATE 1870
+1 FAMC @F2@
+0 @I8@ INDI
+1 BIRT
+2 DATE 1862
+1 FAMC @F3@
+0 @I9@ INDI
+1 BIRT
+2 DATE 1863
+1 FAMC @F2@
+2 PEDI adopted
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I1@
+1 CHIL @I5@
+1 CHIL @I6@
+0 @F2@ FAM
+1 HUSB @I3@
+1 WIFE @I1@
+1 CHIL @I7@
+1 CHIL @I9@
+0 @F3@ FAM
+1 HUSB @I2@
+1 WIFE @I4@
+1 CHIL @I8@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.parallelFamilies).toBe(0);
+  });
+
   it("detects broken and non-reciprocal family links", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

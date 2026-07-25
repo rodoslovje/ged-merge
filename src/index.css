@@ -6388,12 +6388,19 @@ kbd {
 .v-spacer { flex: none; margin: 0; padding: 0; border: none; list-style: none; }
 .tools-issue {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: baseline;
   padding: 7px 10px;
   border-radius: 7px;
   border-left: 3px solid transparent;
 }
+/* The subject stays one unbroken column: squeezed by a long message it would
+   otherwise wrap mid-name ("Marij / a / Rem / ec"). The message takes the rest
+   and wraps over as many lines as it needs — dropping to its own full-width
+   line once the row gets too narrow for it. */
+.tools-issue > .tools-issue-link { flex: none; }
+.tools-issue .person-name { white-space: nowrap; }
 /* Striping keys on a class set from the row's absolute index, not :nth-child —
    the long lists mount only a window of rows, so DOM parity shifts as the
    window moves. */
@@ -6435,7 +6442,7 @@ kbd {
   display: inline-flex; align-items: baseline; gap: 6px;
   font-weight: 400;
 }
-.tools-issue-msg { color: var(--muted); font-size: 0.88rem; }
+.tools-issue-msg { flex: 1 1 260px; color: var(--muted); font-size: 0.88rem; }
 /* The "via father X (b. 1910)" derivation behind a "from relatives" flag. */
 .tools-issue-detail { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }
