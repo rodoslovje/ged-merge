@@ -6679,6 +6679,7 @@ kbd {
 .tools-reshape-badge.new { color: var(--status-new); border-color: var(--status-new); }
 .tools-reshape-badge.reuse { color: var(--status-link); border-color: var(--status-link); }
 .tools-reshape-badge.remove { color: var(--danger); border-color: var(--danger); }
+.tools-reshape-badge.official { color: var(--status-import); border-color: var(--status-import); }
 /* Format tab: compact grouped rows — label left, override select right,
    the explanation lives in the row's hover tooltip. */
 .settings-format-group { padding-bottom: 4px; }
@@ -6842,7 +6843,44 @@ kbd {
 /* Drop .tools-run's bottom margin for every button in the row — whether it sits
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }
+/* Per-event coordinate pin + its picker panel (EventCoordPicker). */
+.edit-event-coord-wrap { position: relative; display: inline-flex; }
+.edit-event-coord {
+  font-size: 0.8em; line-height: 1; padding: 2px; margin-left: 2px;
+  background: none; border: none; cursor: pointer; opacity: 0.8;
+}
+.edit-event-coord:hover { opacity: 1; }
+/* No coordinate yet: present but clearly inactive, so a pin always means "here
+   is where coordinates live" rather than "this one is placed". */
+.edit-event-coord--empty { opacity: 0.28; filter: grayscale(1); }
+.edit-event-coord--empty:hover { opacity: 0.7; filter: grayscale(0.3); }
+.edit-coord-pop {
+  position: absolute; top: 100%; left: 0; z-index: 30; min-width: 260px; max-width: 340px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; margin-top: 4px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
+  font-size: 0.85rem; font-weight: 400;
+}
+.edit-coord-current { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.edit-coord-note { color: var(--muted); margin: 0; }
+.edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.edit-coord-results li { display: flex; flex-direction: column; }
+.edit-coord-results .tools-issue-link { text-align: left; }
+.edit-coord-manual { display: flex; align-items: center; gap: 6px; }
+.edit-coord-manual input {
+  flex: 1; min-width: 0; padding: 4px 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--panel); color: var(--text); font: inherit; font-size: 0.85rem;
+}
+.edit-coord-manual input:focus { outline: none; border-color: var(--accent); }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+/* Address rows: house coordinates from the address register. */
+.tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
+.tools-geo-addr-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.tools-geo-addr-row:last-child { border-bottom: none; }
+.tools-geo-addr-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.9rem; }
+.tools-geo-addr-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .tools-geo-minimap {
   height: 220px;
   max-width: 560px;
@@ -6929,3 +6967,14 @@ kbd {
 }
 .tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+/* Address rows grouped under their place: one collapsible group per place, so a
+   file with hundreds of addresses is worked through a place at a time. */
+.tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }
+/* The addresses (and the map) line up under their place name. Deliberately no
+   padding/margin of its own: .tools-tree-children owns the indent, and setting
+   them here would override it — .tools-geo-addr-list's `padding: 0` did exactly
+   that while it was on this element. */
+.tools-geo-addr-sublist { list-style: none; }
+.tools-geo-addr-group > .tools-geo-minimap { margin-left: 26px; }
+.tools-geo-addr-group:last-child { border-bottom: none; }
+.tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }

@@ -32,6 +32,8 @@ export interface LoadedFile {
   nameLayout?: NameLayout;
   unknownNameStyle?: string;
   marriedNameTag?: boolean;
+  /** How many of the file's places carry coordinates ("location used"). */
+  coordUsage?: { withCoord: number; total: number };
 }
 
 /** One file slot's lifecycle: empty → loading → loaded | error. */

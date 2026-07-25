@@ -73,6 +73,9 @@ export interface ParseSuccess {
   /** Main only: true when married surnames are stored inline as `_MARNM`, so
    * the name editor folds an added "married" name into that tag. */
   marriedNameTag?: boolean;
+  /** How many of the file's places carry coordinates, for the loader's
+   *  "Coordinates" line. Absent for a file with no places at all. */
+  coordUsage?: { withCoord: number; total: number };
 }
 
 export interface ParseFailure {

@@ -14,6 +14,7 @@ import type {
   Family,
   GedEvent,
   GedNode,
+  GeoCoord,
   Individual,
   NoteRef,
   ParseResult,
@@ -237,6 +238,14 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   return fam;
 }
 
+/** Read the `MAP` structure's `LATI`/`LONG` pair from a PLAC node. */
+function mapCoordUnder(parent: GedNode, mapTag: string): GeoCoord | undefined {
+  const mapNode = firstChild(parent, mapTag);
+  const lati = mapNode && firstChild(mapNode, "LATI")?.value;
+  const long = mapNode && firstChild(mapNode, "LONG")?.value;
+  return lati && long ? parseCoordPair(lati, long) : undefined;
+}
+
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
@@ -250,13 +259,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
-    const mapNode = firstChild(placeNode, "MAP");
-    const lati = mapNode && firstChild(mapNode, "LATI")?.value;
-    const long = mapNode && firstChild(mapNode, "LONG")?.value;
-    if (lati && long) {
-      const coord = parseCoordPair(lati, long);
-      if (coord) event.place.coord = coord;
-    }
+    const coord = mapCoordUnder(placeNode, "MAP");
+    if (coord) event.place.coord = coord;
   }
   if (addrNode?.value) {
     event.address = parsePlace(addrNode.value);

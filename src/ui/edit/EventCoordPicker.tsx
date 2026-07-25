@@ -1,0 +1,323 @@
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { GeoCoord } from "../../gedcom/types";
+import { countryCode } from "../../gedcom/countryCode";
+import { decomposePlace, parseCoordInput } from "../../gedcom/place";
+import { sameCoord } from "../../geo/points";
+import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { useSettings } from "../SettingsContext";
+
+// Per-event coordinate control in the Edit view: the pin beside a place, and the
+// small panel it opens.
+//
+// The Tools list only offers places that are *missing* coordinates, which leaves
+// the case this covers — a place already pinned at its settlement, whose address
+// could be pinned at the actual house. That refinement is per event (one Kranj
+// event may name a different address than the next), which is exactly the grain
+// the Edit view works at.
+//
+// Two lookups, because the address register is Slovenia-only: GURS for a
+// Slovenian house number (exact, official), and Nominatim for anywhere else —
+// so a Vienna or Chicago address is served too. Both sit behind the same
+// online-lookups opt-in and only run on their button.
+
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
+
+type Search<T> = { state: "idle" | "loading" | "error" | "done"; results: T[] };
+
+const IDLE = { state: "idle" as const, results: [] };
+
+export function EventCoordPicker({
+  place,
+  address,
+  coord,
+  title,
+  fileCoord,
+  filePairCoord,
+  onPick,
+  onClear,
+}: {
+  /** The event's current place text (as edited). */
+  place: string;
+  /** The event's current address text (as edited). */
+  address: string;
+  /** Coordinate the event carries, when it has one. */
+  coord: GeoCoord | undefined;
+  /** Tooltip for the pin, naming the event. */
+  title: string;
+  /** Coordinate this place already carries elsewhere in the file (settlement
+   *  level), when it has one. Offline, already reviewed by the user — so it is
+   *  offered first, ahead of any lookup. */
+  fileCoord?: GeoCoord;
+  /** Coordinate this exact place+address already carries elsewhere in the file —
+   *  the same house, so better still. */
+  filePairCoord?: GeoCoord;
+  onPick: (coord: GeoCoord) => void;
+  onClear: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { settings } = useSettings();
+  const [open, setOpen] = useState(false);
+  const [rn, setRn] = useState<Search<RnResult>>(IDLE);
+  const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
+  const [draft, setDraft] = useState("");
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
+  /** Whether the register could ever apply here — Slovenia, or no country named. */
+  const inSlovenia = useMemo(() => {
+    const named = decomposePlace(address || place).country ?? decomposePlace(place).country;
+    return !named || countryCode(named)?.toUpperCase() === "SI";
+  }, [place, address]);
+  const draftCoord = parseCoordInput(draft);
+  /** One coordinate, as the panel and the pin panels print it. */
+  const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
+
+  // Close on Escape or a click elsewhere, like the other inline Edit pickers.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [open]);
+
+  const runRegister = () => {
+    if (!queries.length) return;
+    setRn({ state: "loading", results: [] });
+    searchAddresses(queries).then(
+      (results) => setRn({ state: "done", results }),
+      () => setRn({ state: "error", results: [] }),
+    );
+  };
+
+  const runOnline = () => {
+    // Address first, then the place, which is how Nominatim reads best.
+    const text = [address, place].map((s) => s.trim()).filter(Boolean).join(", ");
+    if (!text) return;
+    setOsm({ state: "loading", results: [] });
+    searchNominatim(text, i18n.language).then(
+      (results) => setOsm({ state: "done", results }),
+      () => setOsm({ state: "error", results: [] }),
+    );
+  };
+
+  /** What the file itself already knows about this address / place. Anything
+   *  equal to the current coordinate is left out — it would propose a no-op. */
+  const fromFile: { coord: GeoCoord; label: string }[] = [];
+  if (filePairCoord && !sameCoord(filePairCoord, coord)) {
+    fromFile.push({ coord: filePairCoord, label: t("event.coord.fromFile.address") });
+  }
+  if (fileCoord && !sameCoord(fileCoord, coord) && !sameCoord(fileCoord, filePairCoord)) {
+    fromFile.push({ coord: fileCoord, label: t("event.coord.fromFile.place") });
+  }
+
+  const take = (c: GeoCoord) => {
+    onPick(c);
+    setOpen(false);
+    setRn(IDLE);
+    setOsm(IDLE);
+    setDraft("");
+  };
+
+  // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
+  // the map renders its detail panel (house, post office, coordinate, source,
+  // and that a click takes it) rather than a bare one-line tooltip — with several
+  // numbers of one renumbered house on screen, the panel is what tells them apart.
+  const pins: MiniMapPin[] = [];
+  for (const f of fromFile) {
+    pins.push({
+      coord: f.coord,
+      label: f.label,
+      lines: [at(f.coord), t("event.coord.source.file"), t("event.coord.pinPick")],
+      kind: "candidate",
+      onPick: () => take(f.coord),
+    });
+  }
+  for (const r of rn.results) {
+    pins.push({
+      coord: r.coord,
+      label: r.address,
+      lines: [r.label === r.address ? "" : r.label, at(r.coord), t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(
+        Boolean,
+      ),
+      kind: "candidate",
+      onPick: () => take(r.coord),
+    });
+  }
+  for (const r of osm.results) {
+    if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
+    pins.push({
+      coord: r.coord,
+      label: r.name,
+      lines: [r.label === r.name ? "" : r.label, at(r.coord), t("event.coord.source.osm"), t("event.coord.pinPick")].filter(
+        Boolean,
+      ),
+      kind: "candidate",
+      onPick: () => take(r.coord),
+    });
+  }
+  if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
+    pins.push({ coord: draftCoord, label: t("event.coord.manual"), lines: [at(draftCoord)], kind: "chosen" });
+  } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
+    pins.push({ coord, label: t("event.coord.current"), lines: [at(coord)], kind: "chosen" });
+  }
+
+  // Nothing to place and nothing to show: no pin at all, so an event that names
+  // no place stays visually quiet.
+  if (!coord && !place) return null;
+
+  const busy = rn.state === "loading" || osm.state === "loading";
+
+  return (
+    <span className="edit-event-coord-wrap" ref={boxRef}>
+      <button
+        type="button"
+        className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+        title={
+          coord
+            ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
+            : t("event.coord.none", { event: title })
+        }
+        aria-label={t("event.coord.open", { event: title })}
+        onClick={() => setOpen((v) => !v)}
+      >
+        📍
+      </button>
+      {open && (
+        <div className="edit-coord-pop">
+          {coord && (
+            <div className="edit-coord-current">
+              <span className="gm-data">
+                {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
+              </span>
+              <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
+                {t("event.coord.clear")}
+              </button>
+            </div>
+          )}
+
+          {fromFile.length > 0 && (
+            <ul className="edit-coord-results">
+              {fromFile.map((f, i) => (
+                <li key={`file-${i}`}>
+                  <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
+                    {f.label}
+                  </button>
+                  <span className="gm-data">{at(f.coord)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {settings.allowLinkFetch ? (
+            <div className="edit-coord-actions">
+              {queries.length > 0 && (
+                <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
+                  {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                </button>
+              )}
+              <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+              </button>
+            </div>
+          ) : (
+            <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+          )}
+          {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
+          {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
+          {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
+          {osm.state === "done" && !osm.results.length && <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>}
+          {/* Why the register isn't on offer: outside Slovenia it cannot help,
+              and inside it needs a house number to look up. */}
+          {settings.allowLinkFetch && !queries.length && (
+            <p className="edit-coord-note">
+              {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
+            </p>
+          )}
+
+          {(rn.results.length > 0 || osm.results.length > 0) && (
+            <ul className="edit-coord-results">
+              {rn.results.map((r, i) => (
+                <li key={`rn-${i}`}>
+                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                    {r.label}
+                  </button>
+                  <span className="gm-data">
+                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge official">GURS</span>
+                  </span>
+                </li>
+              ))}
+              {osm.results.map((r, i) => (
+                <li key={`osm-${i}`}>
+                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                    {r.label}
+                  </button>
+                  <span className="gm-data">
+                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge reuse">OSM</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* The map: candidate pins are clickable, and a click on the background
+              fills the manual field rather than writing straight away — in Edit
+              a pick is a file change, so it stays one deliberate confirmation. */}
+          {(pins.length > 0 || coord) && (
+            <Suspense fallback={<div className="edit-coord-map" />}>
+              <div className="edit-coord-map">
+                <MiniPlaceMap
+                  pins={pins}
+                  title={t("event.coord.mapHint")}
+                  // Keyed on the found coordinates, so each new result set
+                  // re-frames the map around all of them — a renumbered house
+                  // can be two addresses a kilometre apart. The typed draft is
+                  // deliberately left out: re-fitting on every keystroke would
+                  // make the map jump while someone is still typing.
+                  fitKey={
+                    [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
+                    `${place} ${address}`
+                  }
+                  onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
+                />
+              </div>
+            </Suspense>
+          )}
+
+          <div className="edit-coord-manual">
+            <input
+              type="text"
+              value={draft}
+              placeholder={t("event.coord.manualPlaceholder")}
+              title={t("event.coord.manual")}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && draftCoord) {
+                  e.preventDefault();
+                  take(draftCoord);
+                }
+              }}
+            />
+            <button type="button" className="tools-issue-link" disabled={!draftCoord} onClick={() => draftCoord && take(draftCoord)}>
+              {t("event.coord.set")}
+            </button>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}

@@ -40,6 +40,18 @@ export function parseCoordPair(lati: string, long: string): GeoCoord | undefined
   return { lat, lon };
 }
 
+/**
+ * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580", or
+ * the GEDCOM hemisphere form "N46.24137 E14.3558" — into decimal degrees.
+ * Returns undefined unless exactly two parseable values are present, so a
+ * half-typed entry simply isn't offered yet.
+ */
+export function parseCoordInput(raw: string): GeoCoord | undefined {
+  const parts = raw.split(/[,;\s]+/).filter(Boolean);
+  if (parts.length !== 2) return undefined;
+  return parseCoordPair(parts[0], parts[1]);
+}
+
 /** One LATI/LONG value to signed decimal degrees; `negative` names the
  *  hemisphere letter that flips the sign (S for latitude, W for longitude). */
 function parseCoordValue(raw: string, negative: "S" | "W"): number | undefined {
@@ -208,6 +220,13 @@ export function addressStreetName(addrRaw: string | undefined): string | undefin
 }
 /** Street-type words: a segment with one is an address, even without a number. */
 const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
+
+/** Whether a segment names a street rather than a settlement ("Kidričeva cesta",
+ *  "Trg svobode"). Distinguishes the two things a house number can sit on: a
+ *  street in a town, or the settlement itself in village numbering. */
+export function looksLikeStreet(segment: string): boolean {
+  return STREET_WORDS.test(segment);
+}
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;

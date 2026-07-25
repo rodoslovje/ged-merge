@@ -1,4 +1,4 @@
-import type { Family, Individual, SourceCitation } from "../../gedcom/types";
+import type { Family, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
 import { firstChild } from "../../gedcom/node";
@@ -12,7 +12,7 @@ import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onRetag, autoFocusDate,
-  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords,
   mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
@@ -28,6 +28,10 @@ export function FamilyEventRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  /** Coordinate the file already uses for a place (settlement-level). */
+  placeCoords: Map<string, GeoCoord>;
+  /** Coordinate for a specific place+address pair (the house). */
+  pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
   mergeIncomingSources?: Map<string, SourceCitation[]>;
   /** `fam.<id>` key base resolved against the incoming pairing (see
@@ -83,6 +87,8 @@ export function FamilyEventRow({
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
+            placeCoords={placeCoords}
+            pairCoords={pairCoords}
       mergeHighlight={mergeHighlight}
       mergeIncomingSources={mergeIncomingSources}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
