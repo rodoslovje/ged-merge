@@ -97,22 +97,21 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.DK:DTK50",
     attribution: GURS_ATTRIBUTION,
   },
-  {
-    // Large-scale plan drawing individual buildings — the closest thing to
-    // seeing an ancestral house on the map. Like the parcel layer it is
-    // published only for close zooms (above ~1:11 000 the tiles come back
-    // blank), so zoom in on the place before switching it on.
-    key: "settings.map.overlays.preset.gurs.topo5",
-    wms: true,
-    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
-    layers: "SI.GURS.DK:TTN5_TTN10",
-    attribution: GURS_ATTRIBUTION,
-  },
+  // No preset for SI.GURS.DK:TTN5_TTN10 (Temeljni topografski načrt 1:5000):
+  // GURS cannot reproject that coverage to Web Mercator. Inside its published
+  // scale range every EPSG:3857 GetMap returns a ServiceException ("Error
+  // rendering coverage on the fast path", NPE) and outside it a blank tile,
+  // while the same request in native EPSG:3794 draws fine (checked 2026-07-25).
+  // Revisit if GURS fixes the reprojection.
   {
     key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:PARCELE",
+    // Click a parcel for its number, cadastral municipality and area — the
+    // parcel labels are only drawn at the very closest zooms, so the popup is
+    // how you read the id most of the time.
+    queryLayers: "SI.GURS.KN:PARCELE",
     attribution: GURS_ATTRIBUTION,
   },
   {
