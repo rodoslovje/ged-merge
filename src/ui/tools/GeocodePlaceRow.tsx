@@ -5,7 +5,7 @@ import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
-import { rnQueryFrom, searchAddress, type RnResult } from "../../geo/rn";
+import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
@@ -136,15 +136,15 @@ export function GeocodePlaceRow({
   // offered when this row's place value actually carries a house number, since
   // that is what the register resolves; the settlement alone is the offline
   // gazetteer's job. Same online opt-in and explicit-button model as the others.
-  const rnQuery = useMemo(() => rnQueryFrom(row.key, undefined), [row.key]);
+  const rnQueries = useMemo(() => rnQueriesFrom(row.key, undefined), [row.key]);
   const [rn, setRn] = useState<{ state: "idle" | "loading" | "error" | "done"; results: RnResult[] }>({
     state: "idle",
     results: [],
   });
   const runRnSearch = () => {
-    if (!rnQuery) return;
+    if (!rnQueries.length) return;
     setRn({ state: "loading", results: [] });
-    searchAddress(rnQuery).then(
+    searchAddresses(rnQueries).then(
       (results) => setRn({ state: "done", results }),
       () => setRn({ state: "error", results: [] }),
     );
@@ -413,6 +413,14 @@ export function GeocodePlaceRow({
                   pins={pins}
                   context={fileCoords}
                   title={t("tools.geocode.mapPickHint")}
+                  // Re-frame when an online lookup brings in new coordinates —
+                  // otherwise the map keeps the view it fitted on open and the
+                  // fresh candidates can sit outside it entirely.
+                  fitKey={
+                    [...rn.results, ...online.results, ...gov.results]
+                      .map((r) => `${r.coord.lat},${r.coord.lon}`)
+                      .join("|") || row.key
+                  }
                   onPickCoord={(coord) => {
                     // A background click is a hand-picked coordinate:
                     // fill the manual field and select it.
@@ -565,7 +573,7 @@ export function GeocodePlaceRow({
                 )}
                 {/* Only for a value that names a house number — the register
                     resolves houses, not settlements. */}
-                {rnQuery && (
+                {rnQueries.length > 0 && (
                   <>
                     <button
                       className="tools-issue-link"

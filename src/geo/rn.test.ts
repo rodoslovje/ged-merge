@@ -1,53 +1,91 @@
 import { describe, expect, it } from "vitest";
-import { buildRnFilter, rnFeaturesToResults, rnQueryFrom } from "./rn";
+import { buildRnFilter, parseHouseNumbers, rnFeaturesToResults, rnQueriesFrom } from "./rn";
 
-describe("rnQueryFrom", () => {
+describe("rnQueriesFrom", () => {
   it("reads village numbering out of PLAC alone", () => {
     // The common Slovenian shape: the hišna številka is in PLAC, no ADDR at all.
     // No street — the register hangs such numbers off the settlement.
-    expect(rnQueryFrom("Šentvid pri Stični 23, Slovenija", undefined)).toEqual({
+    expect(rnQueriesFrom("Šentvid pri Stični 23, Slovenija", undefined)).toEqual([{
       settlement: "Šentvid pri Stični",
       number: 23,
-    });
-    expect(rnQueryFrom("Bled 4a", undefined)).toEqual({ settlement: "Bled", number: 4, suffix: "a" });
+    }]);
+    expect(rnQueriesFrom("Bled 4a", undefined)).toEqual([{ settlement: "Bled", number: 4, suffix: "a" }]);
   });
 
   it("combines a settlement from PLAC with a street from ADDR", () => {
-    expect(rnQueryFrom("Kranj, Slovenija", "Kidričeva cesta 38/a")).toEqual({
+    expect(rnQueriesFrom("Kranj, Slovenija", "Kidričeva cesta 38/a")).toEqual([{
       settlement: "Kranj",
       street: "Kidričeva cesta",
       number: 38,
       suffix: "a",
-    });
+    }]);
     // A bare number in ADDR still resolves against PLAC's settlement.
-    expect(rnQueryFrom("Šentvid pri Stični, Slovenija", "23")).toEqual({
+    expect(rnQueriesFrom("Šentvid pri Stični, Slovenija", "23")).toEqual([{
       settlement: "Šentvid pri Stični",
       number: 23,
-    });
+    }]);
   });
 
   it("separates street from settlement however they are packed", () => {
     // Brother's Keeper packed form: street lands in `.street`.
-    expect(rnQueryFrom("Kranj (Slovenija), Kidričeva 38/a", undefined)).toEqual({
+    expect(rnQueriesFrom("Kranj (Slovenija), Kidričeva 38/a", undefined)).toEqual([{
       settlement: "Kranj",
       street: "Kidričeva",
       number: 38,
       suffix: "a",
-    });
+    }]);
     // Street first, town second: the street-shaped level must not become the
     // settlement, or the query matches every number 38 in the country.
-    expect(rnQueryFrom("Kidričeva cesta 38, Kranj, Slovenija", undefined)).toEqual({
+    expect(rnQueriesFrom("Kidričeva cesta 38, Kranj, Slovenija", undefined)).toEqual([{
       settlement: "Kranj",
       street: "Kidričeva cesta",
       number: 38,
-    });
+    }]);
+    // Only jurisdiction levels beyond the first become fallbacks; the country is
+    // never one of them.
+    expect(rnQueriesFrom("Bled, Gorenjska, Slovenija", "Mlinska cesta 4")).toEqual([
+      { settlement: "Bled", street: "Mlinska cesta", number: 4, altSettlements: ["Gorenjska"] },
+    ]);
+  });
+
+  it("returns one query per number for a renumbered house", () => {
+    // "Hafnarjeva pot 21a / 53" in Stražišče: both houses are offered, and the
+    // researcher picks. The street is shared by both queries.
+    // Kranj rides along as a fallback: the register files Hafnarjeva pot under
+    // naselje Kranj, not the historical village Stražišče the record names.
+    expect(rnQueriesFrom("Stražišče,Kranj,Slovenia", "Hafnarjeva pot 21a / 53")).toEqual([
+      { settlement: "Stražišče", street: "Hafnarjeva pot", number: 21, suffix: "a", altSettlements: ["Kranj"] },
+      { settlement: "Stražišče", street: "Hafnarjeva pot", number: 53, altSettlements: ["Kranj"] },
+    ]);
   });
 
   it("declines when it cannot form a sound query", () => {
-    expect(rnQueryFrom("Bled, Slovenija", undefined)).toBeUndefined(); // no house number
-    expect(rnQueryFrom("Slovenska cesta 9", undefined)).toBeUndefined(); // street but no town
-    expect(rnQueryFrom("Wien, Austria", "Ringstrasse 1")).toBeUndefined(); // not Slovenia
-    expect(rnQueryFrom(undefined, undefined)).toBeUndefined();
+    expect(rnQueriesFrom("Bled, Slovenija", undefined)).toEqual([]); // no house number
+    expect(rnQueriesFrom("Slovenska cesta 9", undefined)).toEqual([]); // street but no town
+    expect(rnQueriesFrom("Wien, Austria", "Ringstrasse 1")).toEqual([]); // not Slovenia
+    expect(rnQueriesFrom(undefined, undefined)).toEqual([]);
+  });
+});
+
+describe("parseHouseNumbers", () => {
+  it("splits a renumbered house into every number it names", () => {
+    // The numbering changed over the years and the record keeps both; which is
+    // which isn't recorded, so both are looked up.
+    expect(parseHouseNumbers("21a / 53")).toEqual([{ number: 21, suffix: "a" }, { number: 53 }]);
+    expect(parseHouseNumbers("82 / 63 / 11")).toEqual([{ number: 82 }, { number: 63 }, { number: 11 }]);
+  });
+
+  it("keeps a subdivision suffix with its own number", () => {
+    // A slash before a letter is part of the number, not a separator.
+    expect(parseHouseNumbers("38/a")).toEqual([{ number: 38, suffix: "a" }]);
+    expect(parseHouseNumbers("23")).toEqual([{ number: 23 }]);
+    expect(parseHouseNumbers("12a")).toEqual([{ number: 12, suffix: "a" }]);
+  });
+
+  it("drops duplicates and unusable values", () => {
+    expect(parseHouseNumbers("7 / 7")).toEqual([{ number: 7 }]);
+    expect(parseHouseNumbers("")).toEqual([]);
+    expect(parseHouseNumbers("brez")).toEqual([]);
   });
 });
 

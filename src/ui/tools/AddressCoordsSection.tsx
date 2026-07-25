@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
-import { searchAddress, type RnResult } from "../../geo/rn";
+import { searchAddresses, type RnResult } from "../../geo/rn";
 import { scanAddresses } from "../../tools/addresses";
 import { useSettings } from "../SettingsContext";
 
@@ -40,7 +40,7 @@ export function AddressCoordsSection({
     const row = rows.find((r) => r.key === key);
     if (!row) return;
     setSearch(key, { state: "loading", results: [] });
-    searchAddress(row.query).then(
+    searchAddresses(row.queries).then(
       (results) => setSearch(key, { state: "done", results }),
       () => setSearch(key, { state: "error", results: [] }),
     );

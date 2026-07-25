@@ -1,7 +1,7 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 import { decomposePlace } from "../gedcom/place";
-import { rnQueryFrom, type RnQuery } from "../geo/rn";
+import { rnQueriesFrom, type RnQuery } from "../geo/rn";
 import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "./geocode";
 
 // Geocoding the ADDR side of an event, as opposed to its PLAC.
@@ -22,8 +22,9 @@ export interface AddressRow {
   place: string;
   /** Raw ADDR value. */
   address: string;
-  /** The register query this row would run. */
-  query: RnQuery;
+  /** The register queries this row would run — one per house number the address
+   *  names, since old records often keep both an older and a newer number. */
+  queries: RnQuery[];
   /** Events carrying this pair. */
   count: number;
   /** How many of them already have a coordinate (the settlement's, which a
@@ -76,7 +77,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
 
   const groups = new Map<
     string,
-    { place: string; address: string; query: RnQuery; count: number; covered: number; people: Set<string> }
+    { place: string; address: string; queries: RnQuery[]; count: number; covered: number; people: Set<string> }
   >();
   const visit = (raw: GedNode, personIds: string[]) => {
     walkPlaceAddr(raw, (plac, address) => {
@@ -87,12 +88,12 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       const coord = coordOf(plac);
       // Already sharper than the settlement — nothing left to improve.
       if (coord && !isSettlementCoord(place, coord)) return;
-      const query = rnQueryFrom(place || undefined, address);
-      if (!query) return;
+      const queries = rnQueriesFrom(place || undefined, address);
+      if (!queries.length) return;
       const key = placeAddrKey(place, address);
       let g = groups.get(key);
       if (!g) {
-        g = { place, address, query, count: 0, covered: 0, people: new Set() };
+        g = { place, address, queries, count: 0, covered: 0, people: new Set() };
         groups.set(key, g);
       }
       g.count++;
@@ -109,7 +110,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       key,
       place: g.place,
       address: g.address,
-      query: g.query,
+      queries: g.queries,
       count: g.count,
       covered: g.covered,
       people: [...g.people],

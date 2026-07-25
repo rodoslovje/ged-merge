@@ -40,6 +40,12 @@ export interface RnQuery {
   number: number;
   /** Single-letter subdivision suffix (HS_DODATEK), e.g. the "a" of "38/a". */
   suffix?: string;
+  /** Further settlement names to try if `settlement` finds nothing, outward
+   *  through the place's jurisdictions. A file may name the historical village
+   *  ("Stražišče, Kranj") while the register files that street under the town it
+   *  was absorbed into — Hafnarjeva pot is naselje Kranj, not Stražišče, even
+   *  though Stražišče is itself a naselje. */
+  altSettlements?: string[];
 }
 
 /** One register address resolved to what the review UI needs. */
@@ -56,6 +62,30 @@ export interface RnResult {
 
 /** Leading house number plus an optional letter suffix: "23", "12a", "38/a". */
 const NUMBER_SUFFIX = /^(\d{1,5})\s*\/?\s*([a-zA-Z])?/;
+
+/**
+ * Every house number a value names. Genealogical records often carry more than
+ * one because the numbering changed over the years — "Hafnarjeva pot 21a / 53"
+ * is one house that was 21a and later 53 — and which is which is not recorded,
+ * so all of them are looked up and the choice is left to the researcher.
+ *
+ * A slash before a digit separates two numbers; a slash before a letter is a
+ * subdivision suffix belonging to its number ("38/a"), which is the same
+ * distinction `normNum` makes when formatting these values.
+ */
+export function parseHouseNumbers(raw: string): { number: number; suffix?: string }[] {
+  const out: { number: number; suffix?: string }[] = [];
+  for (const part of raw.split(/\s*\/\s*(?=\d)/)) {
+    const m = NUMBER_SUFFIX.exec(part.trim());
+    if (!m) continue;
+    const number = Number(m[1]);
+    if (!Number.isFinite(number) || number <= 0) continue;
+    const suffix = m[2]?.toLowerCase();
+    if (out.some((n) => n.number === number && n.suffix === suffix)) continue;
+    out.push(suffix ? { number, suffix } : { number });
+  }
+  return out;
+}
 
 /** A CQL string literal — single quotes double up. */
 function cqlString(value: string): string {
@@ -77,28 +107,28 @@ const sameName = (a: string | undefined, b: string | undefined): boolean =>
  * `addressStreetName` already yields "the name the number sits on" for either
  * shape, so the only question left is whether that name *is* the settlement.
  *
- * Returns undefined when there is no house number to look up, when no settlement
- * can be identified (a bare "Slovenska cesta 9" names no town), or when either
- * value names a country other than Slovenia — the register covers only Slovenia,
- * so querying it would be pointless traffic.
+ * Returns one query per house number the value names — several when the numbering
+ * changed over time ("21a / 53"), so every candidate house can be offered. Empty
+ * when there is no house number to look up, when no settlement can be identified
+ * (a bare "Slovenska cesta 9" names no town), or when either value names a country
+ * other than Slovenia — the register covers only Slovenia, so querying it would be
+ * pointless traffic.
  */
-export function rnQueryFrom(place: string | undefined, address: string | undefined): RnQuery | undefined {
+export function rnQueriesFrom(place: string | undefined, address: string | undefined): RnQuery[] {
   const p = place?.trim() ? decomposePlace(place) : undefined;
   const a = address?.trim() ? decomposePlace(address) : undefined;
 
   // A country either side names must be Slovenia; an unnamed country is fine
   // (most files leave it implicit) and still worth trying.
   for (const country of [p?.country, a?.country]) {
-    if (country && countryCode(country)?.toUpperCase() !== "SI") return undefined;
+    if (country && countryCode(country)?.toUpperCase() !== "SI") return [];
   }
 
-  // The house number: ADDR is the more specific field, so it wins.
+  // The house number(s): ADDR is the more specific field, so it wins.
   const rawNumber = a?.houseNumber ?? p?.houseNumber;
-  if (!rawNumber) return undefined;
-  const m = NUMBER_SUFFIX.exec(rawNumber);
-  if (!m) return undefined;
-  const number = Number(m[1]);
-  if (!Number.isFinite(number) || number <= 0) return undefined;
+  if (!rawNumber) return [];
+  const numbers = parseHouseNumbers(rawNumber);
+  if (!numbers.length) return [];
 
   // Whatever the number hangs off — a street in town, or the settlement itself.
   const host = addressStreetName(address) ?? addressStreetName(place);
@@ -106,24 +136,27 @@ export function rnQueryFrom(place: string | undefined, address: string | undefin
   // The settlement: the outermost-first jurisdiction levels of PLAC (then ADDR),
   // skipping the country and any level that is really a street name — a packed
   // "Kidričeva cesta 38, Kranj" puts the street in locality and the town next.
-  const settlement = [...(p?.jurisdiction ?? []), a?.locality]
+  const candidates = [...(p?.jurisdiction ?? []), a?.locality]
     .map((s) => s?.trim())
     .filter((s): s is string => !!s)
-    .find(
-      (s) =>
-        !sameName(s, p?.country) &&
-        !sameName(s, a?.country) &&
-        !looksLikeStreet(s) &&
-        !(looksLikeStreet(host ?? "") && sameName(s, host)),
-    );
-  if (!settlement) return undefined;
+    .filter((s) => !sameName(s, p?.country) && !sameName(s, a?.country) && !looksLikeStreet(s));
+  if (!candidates.length) return [];
 
-  const query: RnQuery = { settlement, number };
-  // A host that isn't the settlement is the street; when it *is* the settlement
-  // this is village numbering and the register wants no street at all.
-  if (host && !sameName(host, settlement)) query.street = host;
-  if (m[2]) query.suffix = m[2].toLowerCase();
-  return query;
+  // A host that isn't the most specific place named is the street; when it *is*
+  // that place this is village numbering and the register wants no street at all.
+  const street = host && !sameName(host, candidates[0]) ? host : undefined;
+
+  // Drop the street from the settlement candidates. Identity, not vocabulary:
+  // "Hafnarjeva pot" is a street but carries none of the words looksLikeStreet
+  // knows, and left in it would become a bogus NASELJE_NAZIV='Hafnarjeva pot'.
+  const [settlement, ...altSettlements] = street ? candidates.filter((s) => !sameName(s, street)) : candidates;
+  if (!settlement) return [];
+  return numbers.map((n) => ({
+    settlement,
+    ...(street ? { street } : {}),
+    ...n,
+    ...(altSettlements.length ? { altSettlements } : {}),
+  }));
 }
 
 /**
@@ -218,12 +251,14 @@ function rnFetch(filter: string, signal?: AbortSignal): Promise<RnFeatureCollect
  * Look one address up in the register, narrowest reading first and widening only
  * when that finds nothing:
  *   1. exactly as written;
- *   2. without the letter suffix, for a file that records "23a" where the
- *      register has plain 23;
+ *   2. without the letter suffix, for a file that records "21a" where the
+ *      register has plain 21;
  *   3. for a street-less address, across every street in the settlement — a file
  *      writing "Bled 4" village-style when Bled in fact has streets. These come
  *      back as several candidates for the user to choose between, which is
  *      honest: the file does not say which street, so neither can we.
+ * That ladder is then repeated for each of `altSettlements`, since the settlement
+ * the file names may not be the one the register files the street under.
  *
  * Resolves to [] when nothing matches at all — including a settlement spelled
  * differently from the register (it matches case- and diacritic-sensitively),
@@ -231,6 +266,15 @@ function rnFetch(filter: string, signal?: AbortSignal): Promise<RnFeatureCollect
  * manual pick.
  */
 export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+  for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
+    const hits = await searchInSettlement({ ...query, settlement }, signal);
+    if (hits.length) return hits;
+  }
+  return [];
+}
+
+/** The widening ladder within one settlement. */
+async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
   const exact = rnFeaturesToResults(await rnFetch(buildRnFilter(query), signal));
   if (exact.length) return exact;
 
@@ -244,4 +288,21 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
     return rnFeaturesToResults(await rnFetch(buildRnFilter(query, { anyStreet: true }), signal));
   }
   return [];
+}
+
+/**
+ * Look up every number a value names ({@link rnQueriesFrom}) and merge the hits,
+ * deduplicated by coordinate. Each result's label carries its own house number,
+ * so a value recorded as "21a / 53" comes back as both houses for the researcher
+ * to choose between. Queries run through the shared throttle, in order.
+ */
+export async function searchAddresses(queries: readonly RnQuery[], signal?: AbortSignal): Promise<RnResult[]> {
+  const merged: RnResult[] = [];
+  for (const query of queries) {
+    for (const hit of await searchAddress(query, signal)) {
+      if (merged.some((m) => m.coord.lat === hit.coord.lat && m.coord.lon === hit.coord.lon)) continue;
+      merged.push(hit);
+    }
+  }
+  return merged;
 }
