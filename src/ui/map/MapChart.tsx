@@ -23,7 +23,7 @@ import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
 import { useChartSettings } from "../ChartSettingsContext";
-import { useNameOf, useSettings } from "../SettingsContext";
+import { overlayDisplayName, useNameOf, useSettings } from "../SettingsContext";
 import { sexClass } from "../sex";
 import { ChartRootTitle } from "../ChartRootTitle";
 import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
@@ -393,7 +393,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           SERVICE: "WMS",
           VERSION: "1.3.0",
           REQUEST: "GetFeatureInfo",
-          LAYERS: o.layers || o.queryLayers!,
+          // GeoServer requires QUERY_LAYERS ⊆ LAYERS, so query against the
+          // info layer itself (which may differ from the drawn `layers`).
+          LAYERS: o.queryLayers!,
           QUERY_LAYERS: o.queryLayers!,
           CRS: "EPSG:3857",
           BBOX: `${sw.x},${sw.y},${ne.x},${ne.y}`,
@@ -403,14 +405,15 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           J: String(j),
           INFO_FORMAT: "application/json",
           FEATURE_COUNT: "5",
-          BUFFER: "8",
+          // Pixel tolerance so a click near a point symbol still hits it.
+          BUFFER: "12",
           ...parseWmsParams(o.params),
         });
         try {
           const res = await fetch(`${o.url}?${params.toString()}`);
           const data = (await res.json()) as { features?: { properties?: Record<string, unknown> }[] };
           for (const f of data.features ?? []) {
-            const html = formatFeatureInfo(f.properties, o.name);
+            const html = formatFeatureInfo(f.properties, overlayDisplayName(o, t));
             if (html) blocks.push(html);
           }
         } catch {
@@ -813,7 +816,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                     >
                       <label className="map-overlay-pick">
                         <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
-                        <span className="map-overlay-name">{o.name || o.url}</span>
+                        <span className="map-overlay-name">{overlayDisplayName(o, t)}</span>
                         {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
                           <span className="gm-data map-overlay-years">
                             {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}

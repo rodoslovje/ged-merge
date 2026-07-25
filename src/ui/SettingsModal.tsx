@@ -1,4 +1,4 @@
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
@@ -113,14 +113,19 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
  *  burned into PNG exports. */
 const GURS_ATTRIBUTION = "© Geodetska uprava Republike Slovenije (GURS), CC BY 4.0";
 
-const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
+/** A preset carries an i18n `key` for its localized name instead of a literal;
+ *  the component resolves it with `t()` and stores it as the layer's presetKey
+ *  so added layers stay localized (until manually renamed). */
+type OverlayPreset = Omit<MapOverlay, "id" | "name"> & { key: string };
+
+const OVERLAY_PRESETS: OverlayPreset[] = [
   {
     // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 165 PD/CC0
     // Third-Military-Survey sheets (dLib.si + NYPL + IOS/GeoPortOst scans)
     // covering Slovenia, Croatia, Bosnia-Herzegovina, coastal Montenegro and
     // the southern Austrian / SW Hungarian border, built with
     // scripts/overlay-tiles.py.
-    name: "Slovenia, Croatia & Bosnia · Spezialkarte 1:75 000 (1877–1918)",
+    key: "settings.map.overlays.preset.spezialkarte",
     url: "https://tiles.gedmerge.com/spezialkarte-se-europe/{z}/{x}/{y}.png",
     yearFrom: 1877,
     yearTo: 1918,
@@ -128,7 +133,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     maxZoom: 14,
   },
   {
-    name: "France · Carte de l'État-major (1820–1866)",
+    key: "settings.map.overlays.preset.france.etatmajor",
     url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}",
     yearFrom: 1820,
     yearTo: 1866,
@@ -136,7 +141,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     maxZoom: 15,
   },
   {
-    name: "Switzerland · Dufour Map (1845–1865)",
+    key: "settings.map.overlays.preset.swiss.dufour",
     url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-dufour/default/current/3857/{z}/{x}/{y}.png",
     yearFrom: 1845,
     yearTo: 1865,
@@ -144,7 +149,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     maxZoom: 14,
   },
   {
-    name: "Switzerland · Siegfried Map (1870–1926)",
+    key: "settings.map.overlays.preset.swiss.siegfried",
     url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.hiks-siegfried/default/current/3857/{z}/{x}/{y}.png",
     yearFrom: 1870,
     yearTo: 1926,
@@ -158,7 +163,7 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     // Time-enabled layer: DOF5 historical aerial survey. TIME picks the year
     // (1990–2025 available); coverage is patchy per year since the survey is
     // cyclic — change the year on the layer in Settings if a spot is blank.
-    name: "Slovenia · Historical orthophoto 2011 (GURS)",
+    key: "settings.map.overlays.preset.gurs.orthoHist",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF050_Z",
@@ -166,28 +171,28 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · Orthophoto (GURS)",
+    key: "settings.map.overlays.preset.gurs.ortho",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF025",
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · Topographic map 1:50 000 (GURS)",
+    key: "settings.map.overlays.preset.gurs.topo50",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.DK:DTK50",
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · Cadastral parcels (GURS)",
+    key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:PARCELE",
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · House numbers (GURS)",
+    key: "settings.map.overlays.preset.gurs.houseNumbers",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:HISNE_STEVILKE",
@@ -197,20 +202,20 @@ const OVERLAY_PRESETS: Omit<MapOverlay, "id">[] = [
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · Settlements (GURS)",
+    key: "settings.map.overlays.preset.gurs.settlements",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
     layers: "SI.GURS.RPE:NASELJA",
     attribution: GURS_ATTRIBUTION,
   },
   {
-    name: "Slovenia · Municipalities (GURS)",
+    key: "settings.map.overlays.preset.gurs.municipalities",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-rpe/wms",
     layers: "SI.GURS.RPE:OBCINE",
     attribution: GURS_ATTRIBUTION,
   },
-].sort((a, b) => a.name.localeCompare(b.name));
+];
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
@@ -241,6 +246,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // re-renders the whole mounted app, seconds on an index-scale file — runs
   // in an interruptible transition, so rapid changes coalesce instead of
   // each blocking the select.
+  // Preset names resolved to the current language and sorted by that label.
+  const presets = useMemo(
+    () => OVERLAY_PRESETS.map((p) => ({ preset: p, label: t(p.key) })).sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
+    [t, i18n.language],
+  );
+
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
   const overrides = pendingOverrides ?? settings.formatOverrides;
@@ -558,15 +569,20 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   value=""
                   aria-label={t("settings.map.overlays.preset")}
                   onChange={(e) => {
-                    const preset = OVERLAY_PRESETS[Number(e.target.value)];
-                    if (preset)
-                      set({ mapOverlays: [...settings.mapOverlays, { ...preset, id: crypto.randomUUID() }] });
+                    const entry = presets[Number(e.target.value)];
+                    if (!entry) return;
+                    const { key, ...rest } = entry.preset;
+                    // name stays empty so the layer's display name tracks the
+                    // language via presetKey; renaming it later overrides that.
+                    set({
+                      mapOverlays: [...settings.mapOverlays, { ...rest, presetKey: key, name: "", id: crypto.randomUUID() }],
+                    });
                   }}
                 >
                   <option value="">{t("settings.map.overlays.preset")}</option>
-                  {OVERLAY_PRESETS.map((p, i) => (
-                    <option key={p.name} value={i}>
-                      {p.name}
+                  {presets.map((p, i) => (
+                    <option key={p.preset.key} value={i}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
@@ -601,7 +617,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     <input
                       type="text"
                       className="settings-text-input settings-overlay-name"
-                      value={layer.name}
+                      value={layer.name || (layer.presetKey ? t(layer.presetKey) : "")}
                       placeholder={t("settings.map.overlays.name")}
                       onChange={(e) => update({ name: e.target.value })}
                     />

@@ -20,7 +20,12 @@ import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/form
 export interface MapOverlay {
   /** Stable identity (generated on add) — the picker's on/off key. */
   id: string;
+  /** User-visible name. Empty for a preset-added layer (its display name comes
+   *  from {@link presetKey} via i18n); a non-empty value is a manual override. */
   name: string;
+  /** i18n key of the preset this layer was added from — resolved to the
+   *  localized name for display unless {@link name} overrides it. */
+  presetKey?: string;
   /** XYZ / WMTS-REST tile URL template with {z}/{x}/{y} placeholders — or, when
    *  {@link wms} is set, the OGC WMS service base endpoint (Leaflet appends the
    *  GetMap query itself). */
@@ -110,6 +115,14 @@ export const SettingsContext = createContext<SettingsCtx>({
   set: () => {},
 });
 
+/** The overlay's localized display name: a manual {@link MapOverlay.name}
+ *  override wins; otherwise a preset resolves through i18n; else the URL. */
+export function overlayDisplayName(o: MapOverlay, translate: (key: string) => string): string {
+  if (o.name) return o.name;
+  if (o.presetKey) return translate(o.presetKey);
+  return o.url;
+}
+
 /** Keep only well-formed overlay entries from a stored blob. */
 function sanitizeOverlays(v: unknown): MapOverlay[] {
   if (!Array.isArray(v)) return [];
@@ -117,6 +130,7 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
   for (const o of v as Partial<MapOverlay>[]) {
     if (!o || typeof o.id !== "string" || typeof o.name !== "string" || typeof o.url !== "string") continue;
     const layer: MapOverlay = { id: o.id, name: o.name, url: o.url };
+    if (typeof o.presetKey === "string" && o.presetKey) layer.presetKey = o.presetKey;
     if (o.wms === true) layer.wms = true;
     if (typeof o.layers === "string" && o.layers) layer.layers = o.layers;
     if (typeof o.queryLayers === "string" && o.queryLayers) layer.queryLayers = o.queryLayers;
