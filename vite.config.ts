@@ -89,30 +89,49 @@ export default defineConfig({
       // Measure only the pure-logic layers. The UI / worker / persistence
       // layers are exercised by the Playwright e2e suite, not unit tests, so
       // instrumenting them here would just report misleading zeros.
+      // Keep this list in sync with the pure-logic directories under src/ —
+      // a renamed directory left behind here silently drops it from the gate
+      // (as `src/tree/**` did after it became `src/chart/**`).
       include: [
+        "src/chart/**/*.ts",
+        "src/csv/**/*.ts",
+        "src/edit-state/**/*.ts",
         "src/gedcom/**/*.ts",
+        "src/geo/**/*.ts",
+        "src/keyboard/**/*.ts",
         "src/match/**/*.ts",
         "src/merge/**/*.ts",
         "src/normalize/**/*.ts",
-        "src/tools/**/*.ts",
+        "src/report/**/*.ts",
         "src/review/**/*.ts",
-        "src/tree/**/*.ts",
-        "src/csv/**/*.ts",
+        "src/state/**/*.ts",
+        "src/tools/**/*.ts",
       ],
-      exclude: ["**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts"],
-      reporter: ["text-summary", "html"],
+      // `use*.ts` are React hooks living beside the pure modules they wrap
+      // (e.g. edit-state/useDirtyTracking over edit-state/dirty) — same
+      // rationale as the UI layer above: e2e covers them, unit coverage
+      // would report misleading zeros.
+      exclude: ["**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts", "src/**/use*.ts"],
+      // `text` (per-file) alongside the summary, so a gap in one module is
+      // visible in CI output instead of being averaged away by its directory.
+      reporter: ["text", "text-summary", "html"],
       // Per-directory floors — a regression ratchet, set a few points below the
       // current numbers so a genuine drop fails CI without flaking on small
       // edits. Re-run `npm run test:coverage` and raise these as coverage grows.
       thresholds: {
+        "src/chart/**": { statements: 86, branches: 73, functions: 89, lines: 88 },
+        "src/csv/**": { statements: 93, branches: 78, functions: 95, lines: 96 },
+        "src/edit-state/**": { statements: 95, branches: 90, functions: 95, lines: 95 },
         "src/gedcom/**": { statements: 76, branches: 68, functions: 77, lines: 80 },
+        "src/geo/**": { statements: 81, branches: 73, functions: 71, lines: 85 },
+        "src/keyboard/**": { statements: 87, branches: 70, functions: 62, lines: 86 },
         "src/match/**": { statements: 85, branches: 75, functions: 87, lines: 90 },
         "src/merge/**": { statements: 75, branches: 66, functions: 78, lines: 80 },
         "src/normalize/**": { statements: 90, branches: 81, functions: 87, lines: 92 },
-        "src/tools/**": { statements: 77, branches: 69, functions: 81, lines: 83 },
+        "src/report/**": { statements: 88, branches: 78, functions: 92, lines: 92 },
         "src/review/**": { statements: 83, branches: 79, functions: 80, lines: 87 },
-        "src/tree/**": { statements: 67, branches: 65, functions: 70, lines: 70 },
-        "src/csv/**": { statements: 93, branches: 78, functions: 95, lines: 96 },
+        "src/state/**": { statements: 85, branches: 71, functions: 95, lines: 84 },
+        "src/tools/**": { statements: 77, branches: 69, functions: 81, lines: 83 },
       },
     },
   },

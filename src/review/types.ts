@@ -155,6 +155,59 @@ export function decisionKey(kind: MatchKind, mainId: string, compareId: string):
   return `${kind}:${mainId}:${compareId}`;
 }
 
+/** A {@link decisionKey} split back into its parts. */
+export interface ParsedDecisionKey {
+  kind: MatchKind;
+  mainId: string;
+  compareId: string;
+}
+
+/**
+ * Inverse of {@link decisionKey}; undefined for a malformed key (wrong arity,
+ * unknown kind, or an empty id). Every reader should go through this rather
+ * than open-coding `key.split(":")` — the split arity and the `kind` check then
+ * live in one place alongside the constructor.
+ */
+export function parseDecisionKey(key: string): ParsedDecisionKey | undefined {
+  const parts = key.split(":");
+  if (parts.length !== 3) return undefined;
+  const [kind, mainId, compareId] = parts;
+  if (kind !== "individual" && kind !== "family") return undefined;
+  if (!mainId || !compareId) return undefined;
+  return { kind, mainId, compareId };
+}
+
+/**
+ * The confirmed individual decision recorded against `mainId`, if any.
+ *
+ * A main id can carry more than one decision entry — the compare tree can set a
+ * status on an arbitrary pair, and entries survive a re-match that pairs the
+ * person with a different incoming record. Every caller must therefore agree on
+ * *which* entry wins, or one part of the UI previews one incoming record while
+ * another writes to a different one. The rule: prefer an entry whose incoming
+ * record still resolves in `compare`, falling back to the first confirmed entry
+ * so callers that don't need the incoming record still find the key to update.
+ */
+export function findConfirmedDecision(
+  decisions: Map<string, CandidateDecision> | undefined,
+  mainId: string,
+  /** Resolves an incoming id to its record; omit when the caller only needs the key. */
+  resolveIncoming?: (compareId: string) => unknown,
+): { key: string; decision: CandidateDecision; compareId: string } | undefined {
+  if (!decisions) return undefined;
+  let fallback: { key: string; decision: CandidateDecision; compareId: string } | undefined;
+  for (const [key, decision] of decisions) {
+    if (decision.status !== "confirmed") continue;
+    const parsed = parseDecisionKey(key);
+    if (!parsed || parsed.kind !== "individual" || parsed.mainId !== mainId) continue;
+    const hit = { key, decision, compareId: parsed.compareId };
+    if (!resolveIncoming) return hit;
+    if (resolveIncoming(parsed.compareId) != null) return hit;
+    fallback ??= hit;
+  }
+  return fallback;
+}
+
 /** Which way a "bring in this branch" request fans out from its anchor person. */
 export type ImportDirection = "ancestors" | "descendants";
 
@@ -189,9 +242,9 @@ export function decisionStatusByMainId(
   if (!decisions) return map;
   for (const [key, dec] of decisions) {
     if (dec.status === "undecided") continue;
-    const parts = key.split(":");
-    if (parts.length !== 3 || parts[0] !== "individual") continue;
-    if (map.get(parts[1]) !== "confirmed") map.set(parts[1], dec.status);
+    const parsed = parseDecisionKey(key);
+    if (!parsed || parsed.kind !== "individual") continue;
+    if (map.get(parsed.mainId) !== "confirmed") map.set(parsed.mainId, dec.status);
   }
   return map;
 }

@@ -44,6 +44,20 @@ export function duplicatePairKey(aId: string, bId: string): string {
   return aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
 }
 
+/**
+ * Inverse of {@link duplicatePairKey}; undefined for a malformed key. The two
+ * ids come back in the key's own (sorted) order, not the orientation they were
+ * built from — that orientation is not recoverable and callers must not rely
+ * on it. Used when validating a persisted reject list against a dataset.
+ */
+export function parseDuplicatePairKey(key: string): { aId: string; bId: string } | undefined {
+  const parts = key.split("|");
+  if (parts.length !== 2) return undefined;
+  const [aId, bId] = parts;
+  if (!aId || !bId) return undefined;
+  return { aId, bId };
+}
+
 /** A connected group of duplicate pairs — every record reachable from another
  *  through a chain of flagged pairs. A clean two-person duplicate is a cluster
  *  of one pair; a same-name "parallel branch" collapses into one big cluster the

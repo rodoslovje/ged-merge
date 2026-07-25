@@ -14,7 +14,7 @@ import { ChartIcon } from "./icons/ChartIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../review/fields";
 import { materializeEventSources } from "../merge/merge";
-import { decisionKey, decisionStatusByMainId, defaultChoice, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMainId, defaultChoice, findConfirmedDecision, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addChild,
   addEventNode,
@@ -514,12 +514,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   /** Merge preview data for the currently selected person's confirmed match. */
   const mergeData = useMemo(() => {
     if (!decisions || !compareDataset || !person) return EMPTY_MERGE_DATA;
-    for (const [key, dec] of decisions) {
-      if (dec.status !== "confirmed") continue;
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      const incoming = compareDataset.individuals.get(parts[2]);
-      if (!incoming) continue;
+    // Same selection rule as every write path below (see `confirmedFor`), so
+    // the preview and the handlers can never target different incoming records.
+    const found = findConfirmedDecision(decisions, person.id, (id) => compareDataset.individuals.get(id));
+    if (found) {
+      const dec = found.decision;
+      const incoming = compareDataset.individuals.get(found.compareId);
+      if (!incoming) return EMPTY_MERGE_DATA;
       const rejectedEvents = dec.rejectedEvents?.length ? new Set(dec.rejectedEvents) : undefined;
 
       // Field key → incoming value for all fields the merge will add/change.
@@ -624,6 +625,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   }, [hasMergeDecision]);
 
   /**
+   * The confirmed decision the merge UI on this screen is acting on. Every
+   * write path below goes through this, and `mergeData` above resolves it the
+   * same way — so what the preview shows and what the handlers mutate are
+   * always the same decision entry, even when a main id happens to carry more
+   * than one (see `findConfirmedDecision`).
+   */
+  const confirmedFor = useStableHandler(() =>
+    person
+      ? findConfirmedDecision(decisions, person.id, (id) => compareDataset?.individuals.get(id))
+      : undefined,
+  );
+
+  /**
    * Reject an incoming individual event outright — called when the user
    * deletes its paired main event, deletes/dismisses an unmatched "extra"
    * suggestion row, or edits an extra row's field (materializing a new main
@@ -633,16 +647,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * session, regardless of how main/incoming pairing reshuffles afterward.
    */
   const rejectIncomingEvent = useStableHandler((tag: string, compareIdx: number) => {
-    if (!decisions || !person || !onUpdateDecision || compareIdx < 0) return;
+    if (!onUpdateDecision || compareIdx < 0) return;
+    const found = confirmedFor();
+    if (!found) return;
+    const { key, decision: dec } = found;
     const eventKey = `${tag}:${compareIdx}`;
-    for (const [key, dec] of decisions) {
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      if (dec.status !== "confirmed") continue;
-      if (dec.rejectedEvents?.includes(eventKey)) break;
-      onUpdateDecision(key, { ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
-      break;
-    }
+    if (dec.rejectedEvents?.includes(eventKey)) return;
+    onUpdateDecision(key, { ...dec, rejectedEvents: [...(dec.rejectedEvents ?? []), eventKey] });
   });
 
   /**
@@ -653,41 +664,34 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
    * on Save. Returns undo patches for any `SOUR`/`REPO` records it imported.
    */
   const materializeMergeEventSources = useStableHandler((eventNode: GedNode, tag: string, compareIdx: number): RecordPatch[] => {
-    if (!decisions || !person || !compareDataset || compareIdx < 0) return [];
-    for (const [key, dec] of decisions) {
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      if (dec.status !== "confirmed") continue;
-      const incoming = compareDataset.individuals.get(parts[2]);
-      if (!incoming) break;
-      const incEvent = childrenByTag(incoming.raw, tag)[compareIdx];
-      if (!incEvent) break;
-      const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
-      return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
-    }
-    return [];
+    if (!compareDataset || compareIdx < 0) return [];
+    const found = confirmedFor();
+    if (!found) return [];
+    const incoming = compareDataset.individuals.get(found.compareId);
+    if (!incoming) return [];
+    const incEvent = childrenByTag(incoming.raw, tag)[compareIdx];
+    if (!incEvent) return [];
+    const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
+    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
   });
 
   const dismissExtraEvent = useStableHandler((keyBase: string) => {
-    if (!decisions || !person || !onUpdateDecision) return;
-    for (const [key, dec] of decisions) {
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      if (dec.status !== "confirmed") continue;
-      const updatedFields = { ...dec.fields };
-      for (const fkey of Object.keys(updatedFields)) {
-        if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
-      }
-      // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
-      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
-      for (const sub of EVENT_SUBS) {
-        const fkey = `${keyBase}.${sub}`;
-        if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";
-      }
-      if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "main";
-      onUpdateDecision(key, { ...dec, fields: updatedFields });
-      break;
+    if (!onUpdateDecision) return;
+    const found = confirmedFor();
+    if (!found) return;
+    const { key, decision: dec } = found;
+    const updatedFields = { ...dec.fields };
+    for (const fkey of Object.keys(updatedFields)) {
+      if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
     }
+    // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
+    const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
+    for (const sub of EVENT_SUBS) {
+      const fkey = `${keyBase}.${sub}`;
+      if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";
+    }
+    if (mergeIncomingSources?.has(`${keyBase}.sources`)) updatedFields[`${keyBase}.sources`] = "main";
+    onUpdateDecision(key, { ...dec, fields: updatedFields });
   });
 
   /**
@@ -718,23 +722,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         return next;
       });
     }
-    if (!decisions || !person || !onUpdateDecision) return;
-    for (const [key, dec] of decisions) {
-      const parts = key.split(":");
-      if (parts.length !== 3 || parts[0] !== "individual" || parts[1] !== person.id) continue;
-      if (dec.status !== "confirmed") continue;
-      const updatedFields = { ...dec.fields };
-      let changed = false;
-      for (const sub of incomingSubs) {
-        const fkey = `${keyBase}.${sub}`;
-        if (updatedFields[fkey] !== "main") {
-          updatedFields[fkey] = "main";
-          changed = true;
-        }
+    if (!onUpdateDecision) return;
+    const found = confirmedFor();
+    if (!found) return;
+    const { key, decision: dec } = found;
+    const updatedFields = { ...dec.fields };
+    let changed = false;
+    for (const sub of incomingSubs) {
+      const fkey = `${keyBase}.${sub}`;
+      if (updatedFields[fkey] !== "main") {
+        updatedFields[fkey] = "main";
+        changed = true;
       }
-      if (changed) onUpdateDecision(key, { ...dec, fields: updatedFields });
-      break;
     }
+    if (changed) onUpdateDecision(key, { ...dec, fields: updatedFields });
   });
 
   /**

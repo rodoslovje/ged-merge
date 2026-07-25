@@ -23,7 +23,7 @@ import {
  * Two stages keep this from being O(n²): a cheap **blocking** pass groups
  * records by phonetic/decade keys so only plausible pairs get the (more
  * expensive) weighted **scoring** pass. Results are filtered to `minScore`,
- * capped per compare record, and returned sorted by score descending.
+ * reduced to a one-to-one assignment, and returned sorted by score descending.
  */
 export function matchDatasets(
   mainDs: Dataset,

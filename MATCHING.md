@@ -210,8 +210,9 @@ its matched family.
 ### 7. Categories
 
 On the 0..1 scale: **strong** ≥ 0.85, **probable** ≥ 0.65, else **weak**;
-pairs below `minScore` 0.45 are discarded. (`maxPerRecord` exists in the
-config but is currently unused — assignment is 1:1 anyway.)
+pairs below `minScore` 0.45 are discarded. There is no per-record candidate
+cap — the greedy pass assigns 1:1, so at most one pair survives per record
+anyway.
 
 ### 8. Incoming-duplicate consolidation (`findIncomingDuplicateClusters`)
 
