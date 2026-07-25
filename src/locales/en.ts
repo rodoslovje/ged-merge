@@ -731,8 +731,6 @@ export const en = {
   "map.overlays.tooltip": "Historical map overlays — configure the layers in Settings → Map",
   "map.overlays.suggested": "This layer's period matches the selected years",
   "map.overlays.opacity": "Overlay opacity",
-  "map.info.loading": "Looking up…",
-  "map.info.none": "Nothing here to identify.",
   "map.clusterTooltip": "{{count}} events — click to zoom in",
   "map.panelTitle": "{{count}} events here",
   "map.panelMore": "…and {{count}} more — zoom in to split this group",

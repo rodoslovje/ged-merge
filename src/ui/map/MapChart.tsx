@@ -382,10 +382,6 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       const pt = map.latLngToContainerPoint(e.latlng);
       const i = Math.max(0, Math.min(size.x - 1, Math.round(pt.x)));
       const j = Math.max(0, Math.min(size.y - 1, Math.round(pt.y)));
-      const popup = L.popup({ className: "map-info-popup" })
-        .setLatLng(e.latlng)
-        .setContent(`<div class="map-info-loading">${escHtml(t("map.info.loading"))}</div>`)
-        .openOn(map);
 
       const blocks: string[] = [];
       for (const o of targets) {
@@ -420,11 +416,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           // Network/parse failure — skip this layer; others may still answer.
         }
       }
-      // A newer click superseded this one, or the popup was dismissed.
-      if (seq !== infoSeqRef.current) return;
-      popup.setContent(
-        blocks.length ? `<div class="map-info">${blocks.join("")}</div>` : `<div class="map-info-empty">${escHtml(t("map.info.none"))}</div>`,
-      );
+      // A newer click superseded this one. Only pop up on an actual hit — a
+      // click on empty ground (no house point under the cursor) stays silent.
+      if (seq !== infoSeqRef.current || !blocks.length) return;
+      L.popup({ className: "map-info-popup" })
+        .setLatLng(e.latlng)
+        .setContent(`<div class="map-info">${blocks.join("")}</div>`)
+        .openOn(map);
     };
 
     map.on("click", onClick);

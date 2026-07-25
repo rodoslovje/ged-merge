@@ -743,8 +743,6 @@ export const sl = {
   "map.overlays.tooltip": "Zgodovinski sloji zemljevida — nastavite jih v Nastavitve → Zemljevid",
   "map.overlays.suggested": "Obdobje tega sloja ustreza izbranim letom",
   "map.overlays.opacity": "Prosojnost sloja",
-  "map.info.loading": "Poizvedujem…",
-  "map.info.none": "Tukaj ni ničesar za prikaz.",
   "map.clusterTooltip": "Dogodkov: {{count}} — klik za približanje",
   "map.panelTitle": "Dogodkov tukaj: {{count}}",
   "map.panelMore": "…in še {{count}} — približajte za razdelitev skupine",
