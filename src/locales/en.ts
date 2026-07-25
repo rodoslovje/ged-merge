@@ -87,7 +87,7 @@ export const en = {
   "tools.validate.issue.ageAtMarriage": "Married at age {{age}} (expected {{min}}–{{max}})",
   "tools.validate.issue.fatherAge": "Father was {{age}} at this child's birth (expected {{min}}–{{max}})",
   "tools.validate.issue.motherAge": "Mother was {{age}} at this child's birth (expected {{min}}–{{max}})",
-  "tools.validate.issue.parallelFamilies": "Bore children by two fathers at the same time — {{child}}, with {{partnerB}}, was born in the middle of the children with {{partnerA}} ({{spanA}}). One of the children is probably in the wrong family.",
+  "tools.validate.issue.parallelFamilies": "Bore children by two fathers at the same time — {{child}}, a child with {{partnerB}}, was born in the middle of the {{spanA}} run of children with {{partnerA}}. One of the children is probably in the wrong family.",
   "tools.validate.issue.spouseAgeGap": "Age gap with spouse is {{gap}} years (over {{max}})",
   "tools.validate.issue.futureDate": "Has a future-dated event ({{year}})",
   "tools.validate.issue.famcMissing": "Listed as child of missing family {{fam}}",

@@ -87,7 +87,7 @@ export const sl = {
   "tools.validate.issue.ageAtMarriage": "Poročen(a) pri starosti {{age}} (pričakovano {{min}}–{{max}})",
   "tools.validate.issue.fatherAge": "Oče je bil ob rojstvu tega otroka star {{age}} (pričakovano {{min}}–{{max}})",
   "tools.validate.issue.motherAge": "Mati je bila ob rojstvu tega otroka stara {{age}} (pričakovano {{min}}–{{max}})",
-  "tools.validate.issue.parallelFamilies": "Ima otroke z dvema očetoma hkrati — {{child}}, otrok osebe {{partnerB}}, je rojen sredi otrok z osebo {{partnerA}} ({{spanA}}). Eden od otrok je najbrž v napačni družini.",
+  "tools.validate.issue.parallelFamilies": "Ima otroke z dvema očetoma hkrati — {{child}}, otrok z osebo {{partnerB}}, je rojen sredi otrok iz let {{spanA}} z osebo {{partnerA}}. Eden od otrok je najbrž v napačni družini.",
   "tools.validate.issue.spouseAgeGap": "Starostna razlika z zakoncem je {{gap}} let (nad {{max}})",
   "tools.validate.issue.futureDate": "Ima dogodek z datumom v prihodnosti ({{year}})",
   "tools.validate.issue.famcMissing": "Naveden(a) kot otrok neobstoječe družine {{fam}}",
