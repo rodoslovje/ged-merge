@@ -82,6 +82,15 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: GURS_ATTRIBUTION,
   },
   {
+    // The coarser cyclic survey, covering the ground DOF025 and the year-picked
+    // DOF050_Z leave blank — a fallback when a spot renders empty in those.
+    key: "settings.map.overlays.preset.gurs.ortho50",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.ZPDZ:DOF050",
+    attribution: GURS_ATTRIBUTION,
+  },
+  {
     key: "settings.map.overlays.preset.gurs.topo50",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
@@ -89,10 +98,34 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: GURS_ATTRIBUTION,
   },
   {
+    // Large-scale plan drawing individual buildings — the closest thing to
+    // seeing an ancestral house on the map. Like the parcel layer it is
+    // published only for close zooms (above ~1:11 000 the tiles come back
+    // blank), so zoom in on the place before switching it on.
+    key: "settings.map.overlays.preset.gurs.topo5",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.DK:TTN5_TTN10",
+    attribution: GURS_ATTRIBUTION,
+  },
+  {
     key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
     layers: "SI.GURS.KN:PARCELE",
+    attribution: GURS_ATTRIBUTION,
+  },
+  {
+    // Cadastral municipality (katastrska občina) boundaries + names. Parish and
+    // land records are filed by k.o., so a click — which reports the name and
+    // its number — turns a place into the unit an archive index is keyed on.
+    key: "settings.map.overlays.preset.gurs.cadastralMunicipalities",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-kn/wms",
+    layers: "SI.GURS.KN:KATASTRSKE_OBCINE,SI.GURS.KN:KATASTRSKE_OBCINE",
+    styles: "nep_kn_katastrske_obcine,nep_kn_katastrske_obcine_lbl",
+    queryLayers: "SI.GURS.KN:KATASTRSKE_OBCINE",
+    tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
   },
   {
