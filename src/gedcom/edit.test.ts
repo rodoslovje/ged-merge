@@ -27,6 +27,8 @@ import {
   changeEventTagAtIndex,
   changeFamilyEventTag,
   connectExistingChild,
+  connectExistingParent,
+  connectExistingPartner,
   createSourceRecord,
   detachChildFromFamily,
   detachSpouseRole,
@@ -1659,5 +1661,164 @@ describe("pruneUnreferencedSource cascade", () => {
     attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
     pruneUnreferencedSource(ds, source.xref!);
     expect(ds.records.some((r) => r.tag === "SOUR" && r.xref === source.xref)).toBe(true);
+  });
+});
+
+// ─── connecting an existing person as a relative ────────────────────────────
+
+describe("connectExistingParent", () => {
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n" +
+    "0 @P1@ INDI\n1 SEX M\n" +
+    "0 @P2@ INDI\n1 SEX F\n";
+  /** A child who already has a parent family holding only a mother. */
+  const WITH_FAM = TEXT + "0 @F1@ FAM\n1 WIFE @P2@\n1 CHIL @I1@\n";
+
+  it("fills the empty HUSB slot of an existing parent family", () => {
+    const ds = buildFromText(WITH_FAM);
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P1@", ds.families.get("@F1@")!, "father");
+
+    const fam = rebuildFamily(ds, ds.families.get("@F1@")!);
+    expect(fam.husband).toBe("@P1@");
+    expect(fam.wife).toBe("@P2@");
+    expect(rebuildIndividual(ds, ds.individuals.get("@P1@")!).spouseOf).toContain("@F1@");
+  });
+
+  it("uses WIFE for a mother", () => {
+    const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 HUSB @P1@\n1 CHIL @I1@\n");
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P2@", ds.families.get("@F1@")!, "mother");
+
+    expect(rebuildFamily(ds, ds.families.get("@F1@")!).wife).toBe("@P2@");
+  });
+
+  it("creates a parent family when the child has none, linking both sides", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I1@")!;
+    connectExistingParent(ds, person, "@P1@", undefined, "father");
+
+    const child = rebuildIndividual(ds, person);
+    expect(child.childOf).toHaveLength(1);
+    const fam = rebuildFamily(ds, ds.families.get(child.childOf[0])!);
+    expect(fam.husband).toBe("@P1@");
+    expect(fam.children).toEqual(["@I1@"]);
+    expect(rebuildIndividual(ds, ds.individuals.get("@P1@")!).spouseOf).toContain(fam.id);
+  });
+
+  it("does nothing when the parent id does not resolve", () => {
+    const ds = buildFromText(TEXT);
+    const before = serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@NOPE@", undefined, "father");
+
+    expect(serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })).toBe(before);
+  });
+
+  it("does not duplicate a FAMS link the parent already carries", () => {
+    const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 CHIL @I1@\n");
+    const fam = ds.families.get("@F1@")!;
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P1@", fam, "father");
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P1@", fam, "father");
+
+    const fams = ds.individuals.get("@P1@")!.raw.children.filter((c) => c.tag === "FAMS");
+    expect(fams).toHaveLength(1);
+  });
+});
+
+describe("connectExistingPartner", () => {
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n" +
+    "0 @W1@ INDI\n1 SEX F\n" +
+    "0 @I2@ INDI\n1 SEX F\n";
+
+  it("fills the empty slot of an existing spouse family", () => {
+    const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 HUSB @I1@\n");
+    connectExistingPartner(ds, ds.individuals.get("@I1@")!, "@W1@", ds.families.get("@F1@")!);
+
+    const fam = rebuildFamily(ds, ds.families.get("@F1@")!);
+    expect(fam.husband).toBe("@I1@");
+    expect(fam.wife).toBe("@W1@");
+  });
+
+  it("puts the partner opposite the person, whichever slot the person holds", () => {
+    const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 WIFE @I2@\n");
+    connectExistingPartner(ds, ds.individuals.get("@I2@")!, "@I1@", ds.families.get("@F1@")!);
+
+    const fam = rebuildFamily(ds, ds.families.get("@F1@")!);
+    expect(fam.wife).toBe("@I2@");
+    expect(fam.husband).toBe("@I1@");
+  });
+
+  it("creates a family, seating a male person as HUSB", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I1@")!;
+    connectExistingPartner(ds, person, "@W1@", undefined);
+
+    const spouseOf = rebuildIndividual(ds, person).spouseOf;
+    expect(spouseOf).toHaveLength(1);
+    const fam = rebuildFamily(ds, ds.families.get(spouseOf[0])!);
+    expect(fam.husband).toBe("@I1@");
+    expect(fam.wife).toBe("@W1@");
+  });
+
+  it("creates a family, seating a female person as WIFE", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I2@")!;
+    connectExistingPartner(ds, person, "@I1@", undefined);
+
+    const fam = rebuildFamily(ds, ds.families.get(rebuildIndividual(ds, person).spouseOf[0])!);
+    expect(fam.wife).toBe("@I2@");
+    expect(fam.husband).toBe("@I1@");
+  });
+
+  it("does nothing when the partner id does not resolve", () => {
+    const ds = buildFromText(TEXT);
+    const before = serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+    connectExistingPartner(ds, ds.individuals.get("@I1@")!, "@NOPE@", undefined);
+
+    expect(serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })).toBe(before);
+  });
+});
+
+describe("connectExistingChild (family creation)", () => {
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n" +
+    "0 @M1@ INDI\n1 SEX F\n" +
+    "0 @C1@ INDI\n1 BIRT\n2 DATE 1900\n";
+
+  it("creates a spouse family for the person when none is given", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@I1@")!;
+    connectExistingChild(ds, person, "@C1@", undefined);
+
+    const spouseOf = rebuildIndividual(ds, person).spouseOf;
+    expect(spouseOf).toHaveLength(1);
+    const fam = rebuildFamily(ds, ds.families.get(spouseOf[0])!);
+    expect(fam.husband).toBe("@I1@");
+    expect(fam.children).toEqual(["@C1@"]);
+    expect(rebuildIndividual(ds, ds.individuals.get("@C1@")!).childOf).toContain(fam.id);
+  });
+
+  it("seats a female person as WIFE of the family it creates", () => {
+    const ds = buildFromText(TEXT);
+    const person = ds.individuals.get("@M1@")!;
+    connectExistingChild(ds, person, "@C1@", undefined);
+
+    const fam = rebuildFamily(ds, ds.families.get(rebuildIndividual(ds, person).spouseOf[0])!);
+    expect(fam.wife).toBe("@M1@");
+  });
+
+  it("does not add a child the family already lists", () => {
+    const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 HUSB @I1@\n1 CHIL @C1@\n");
+    const fam = ds.families.get("@F1@")!;
+    connectExistingChild(ds, ds.individuals.get("@I1@")!, "@C1@", fam);
+
+    expect(rebuildFamily(ds, fam).children).toEqual(["@C1@"]);
+  });
+
+  it("does nothing when the child id does not resolve", () => {
+    const ds = buildFromText(TEXT);
+    const before = serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+    connectExistingChild(ds, ds.individuals.get("@I1@")!, "@NOPE@", undefined);
+
+    expect(serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })).toBe(before);
   });
 });
