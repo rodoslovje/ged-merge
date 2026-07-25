@@ -242,7 +242,7 @@
               <li><strong>Display</strong> — <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (§6) throughout the app; <em>Show ages</em> adds ages after lifespans and beside event dates; and <em>Person map in Edit view</em> toggles the small map of a person's geocoded events under their event list.</li>
               <li><strong>Data</strong> — <em>Remember my work in this browser</em> (see <em>Keeping your work</em> below).</li>
               <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect: date format, unknown date parts, place format, alternate names, the unknown-name marker, source and citation layout, page links, baptism citations, doubled links, privacy tag, and the Matricula/Geneanet link languages. Each defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§7</a> and <a href="#sources">§13</a>.</li>
-              <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to the CARTO street background for the <a href="#map">Places map</a> (tile requests reveal the viewed region; off = a built-in offline outline), with an optional custom tile-URL template. <em>Historical overlay layers</em> configures georeferenced old maps drawn over the base — pick a bundled free preset, or add your own (name, XYZ/WMTS <code>{z}/{x}/{y}</code> URL, valid years, attribution, max zoom). See <a href="#map">§9</a>.</li>
+              <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to the CARTO street background for the <a href="#map">Places map</a> (tile requests reveal the viewed region; off = a built-in offline outline), with an optional custom tile-URL template. <em>Historical overlay layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§9</a>.</li>
               <li><strong>Advanced › Links</strong> — <em>Look up link details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. It also powers the one-click OpenStreetMap gazetteer download and the per-row online searches (OpenStreetMap and GOV) used by <a href="#tools">Geocode places</a>. <strong>These are the only features that send anything off your device, and they are off by default.</strong></li>
             </ul>
 
@@ -491,10 +491,14 @@
                 joined by a line with direction arrows. Click a path (or a person's <span class="gm-glyph">〰</span>
                 button in the event panel) to single it out — the rest dim, the legs get numbered, and a name chip
                 appears over the map.</li>
-              <li><strong>Overlays</strong> — historical map layers drawn over the base map. Configure them once in
-                <strong>Settings → Map → Historical overlay layers</strong>: a name, an XYZ/WMTS tile URL template
+              <li><strong>Overlays</strong> — extra map layers drawn over the base map. Configure them once in
+                <strong>Settings → Map → Historical overlay layers</strong>: a name, a tile URL template
                 with <code>{z}/{x}/{y}</code>, the years the map depicts, and its required attribution (subscription
-                sources such as Arcanum/Mapire work with the tile URL from your account). The map's
+                sources such as Arcanum/Mapire work with the tile URL from your account). Tick <strong>WMS</strong>
+                for an OGC&nbsp;WMS service instead — then the URL is the service endpoint (…/wms) and you name the
+                layer(s) to draw. The <em>Add a free preset…</em> menu includes Slovenia's national
+                <strong>GURS</strong> maps (historical and current orthophoto, topographic and base plans, cadastral
+                parcels, house numbers, settlements, municipalities). The map's
                 <strong>Overlays</strong> chip then lists your layers with an opacity slider each, and highlights the
                 ones whose period matches the selected year window — the map of your ancestor's own time.</li>
               <li><strong>Privacy</strong> — the base street map is <em>opt-in</em>: until you allow tiles (one click on
