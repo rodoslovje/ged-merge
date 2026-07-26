@@ -9,24 +9,24 @@ import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
-import { initialWorkspace, workspaceReducer, type LoadedFile, type SlotState } from "./state/workspace";
+import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
+import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
-import type { GedNode } from "./gedcom/types";
+import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
-import { mergeDecisions, formatReport, type ChangeReport, type ImportBranchRequest } from "./merge/merge";
-import { sortEventsByDate } from "./merge/applyFields";
+import { formatReport, type ImportBranchRequest } from "./merge/merge";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
-import { buildEditReport, enrichEditReport, combineReports, removeRecordFromReport } from "./gedcom/editReport";
+import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
+import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
-import { findDanglingXrefs } from "./tools/structure";
-import { downloadText, baseStem, savedName } from "./ui/download";
+import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
@@ -53,6 +53,7 @@ import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
+import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
@@ -107,7 +108,7 @@ const modeLayerHiddenStyle: CSSProperties = { display: "none" };
 // Map<string,File> that can't be persisted to IndexedDB, so a remount there
 // would silently lose it and force the user to re-pick the folder.
 function AppContent() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings } = useSettings();
   // Chart kind (tree / fan / … / relationship) — read to route chart deep-links,
   // set when an entry point asks for a specific diagram.
@@ -195,22 +196,8 @@ function AppContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [preview, setPreview] = useState<{
-    records: GedNode[];
-    report: ChangeReport;
-    title: string;
-    files: string[];
-    downloadLabel: string;
-    /** For the merge "total records" line. */
-    mainRecordCount?: number;
-    base: string;
-    /** Record IDs from edit mode — show navigate/remove buttons for these. */
-    editRecordIds: Set<string>;
-    /** Whether this save includes confirmed merge matches (vs. edits only). */
-    isMerge: boolean;
-    /** Dangling-pointer findings on the output — shown as a warning strip. */
-    integrityWarnings: string[];
-  } | null>(null);
+  // The pending save dialog's payload — see `SavePreview` for the field docs.
+  const [preview, setPreview] = useState<SavePreview | null>(null);
   const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
@@ -285,18 +272,7 @@ function AppContent() {
         return;
       }
       if (msg.type === "parsed") {
-        const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
-        if (msg.report) file.report = msg.report;
-        if (msg.placeLayout) file.placeLayout = msg.placeLayout;
-        if (msg.dateFormat) file.dateFormat = msg.dateFormat;
-        if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
-        if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
-        if (msg.detectedFormats) file.detectedFormats = msg.detectedFormats;
-        if (msg.pageMediaStyle) file.pageMediaStyle = msg.pageMediaStyle;
-        if (msg.nameLayout) file.nameLayout = msg.nameLayout;
-        if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
-        if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
-        if (msg.coordUsage) file.coordUsage = msg.coordUsage;
+        const file = loadedFileFromParsed(msg);
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
@@ -1150,104 +1126,35 @@ function AppContent() {
     return changedPersonIds.has(xref) && sortEligiblePersonIdsRef.current.has(xref);
   }
 
-  /** Ensure canonical event order on every edited record already in `records`
-   *  (the merge path, whose records `mergeDecisions` has already cloned). */
-  function sortEditedEvents(records: GedNode[]) {
-    for (const r of records) {
-      if (r.tag === "INDI" && r.xref && isSortEligible(r.xref)) sortEventsByDate(r);
-    }
-  }
-
-  /** The cloned, event-sorted record forest an edit-only save writes. */
-  function editSaveRecords(): GedNode[] {
-    return buildEditSaveRecords(mainDataset?.records ?? [], isSortEligible);
+  /** Gather the live workspace state `buildSavePreview` reads. Kept as its own
+   *  function so the wiring stays readable next to the one-line `handleSave`. */
+  function savePreviewInput(mainDs: Dataset, fileName: string) {
+    return {
+      main: mainDs,
+      mainFileName: fileName,
+      compare: compareDataset,
+      decisions,
+      matches,
+      importRequests,
+      confirmedCount,
+      importCount,
+      changedPersonIds,
+      changedFamilyIds,
+      loadedPersonIds: dirty.loadedPersonIds.current,
+      loadedFamilyIds: dirty.loadedFamilyIds.current,
+      personSnapshots: dirty.personSnapshots.current,
+      familySnapshots: dirty.familySnapshots.current,
+      isSortEligible,
+      now: new Date(),
+      t,
+      nameOf,
+    };
   }
 
   function handleSave() {
     if (!mainDataset || main.status !== "loaded") return;
-    const base = baseStem(main.file.fileName);
-    const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
-    // Merge only with an incoming file actually loaded — a hydrated session can
-    // in principle carry decisions whose compare failed to restore.
-    const isMerge = (confirmedCount > 0 || importCount > 0) && !!compareDataset;
-    if (!isMerge && changedCount === 0) return;
-
-    const editReport = changedCount > 0
-      ? enrichEditReport(
-          buildEditReport(changedPersonIds, changedFamilyIds, mainDataset, dirty.loadedPersonIds.current, dirty.loadedFamilyIds.current, dirty.personSnapshots.current, dirty.familySnapshots.current),
-          mainDataset, dirty.personSnapshots.current, dirty.familySnapshots.current, t,
-        )
-      : null;
-
-    let records: GedNode[];
-    let report: ChangeReport;
-    let mainRecordCount: number | undefined;
-    if (isMerge) {
-      const compareDs = compareDataset!;
-      const { records: mergedRecords, report: mergeReport } = mergeDecisions(
-        mainDataset, compareDs, decisions, matches ?? { individuals: [] }, t, importRequests,
-      );
-      records = mergedRecords;
-      report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
-      mainRecordCount = mainDataset.individuals.size + mainDataset.families.size;
-    } else {
-      records = editSaveRecords();
-      report = editReport!;
-    }
-
-    if (isMerge) {
-      // Merge-only targets are already sorted inside mergeDecisions; edited
-      // records that had no confirmed merge decision are not, so sort them here.
-      // (The edit-only branch already did this inside `editSaveRecords`.)
-      sortEditedEvents(records);
-    }
-
-    // Consistency gate: a pointer in the output referencing a record that
-    // doesn't exist would corrupt the file for other software — surface it in
-    // the preview before the user confirms (capped so a systemic problem
-    // doesn't flood the dialog).
-    const dangling = findDanglingXrefs(records);
-    const integrityWarnings = dangling.slice(0, 8).map((d) =>
-      t("save.preview.dangling", { tag: d.tag, xref: d.xref, count: d.count }),
-    );
-    if (dangling.length > 8) integrityWarnings.push(t("save.preview.danglingMore", { count: dangling.length - 8 }));
-
-    // Confirmed matches that no longer apply cleanly: the main person was
-    // deleted after confirming (the merge skips them entirely), or edited after
-    // confirming (the field choices were made against values that have since
-    // changed). Capped like the dangling list so a bulk edit can't flood the dialog.
-    const decisionWarnings: string[] = [];
-    for (const [key, d] of decisions) {
-      if (d.status !== "confirmed") continue;
-      const parsed = parseDecisionKey(key);
-      if (parsed?.kind !== "individual") continue;
-      const { mainId } = parsed;
-      const indi = mainDataset.individuals.get(mainId);
-      if (!indi) {
-        decisionWarnings.push(t("save.preview.orphanedDecision", { xref: xrefLabel(mainId) }));
-      } else if (isMerge && d.mainFp && d.mainFp !== nodeFingerprint(indi.raw)) {
-        decisionWarnings.push(t("save.preview.staleDecision", { name: nameOf(indi) }));
-      }
-    }
-    integrityWarnings.push(...decisionWarnings.slice(0, 8));
-    if (decisionWarnings.length > 8) integrityWarnings.push(t("save.preview.decisionWarningsMore", { count: decisionWarnings.length - 8 }));
-
-    setPreview({
-      records,
-      report,
-      title: t("save.preview.title"),
-      files: (() => {
-        // One shared stamp so the .ged and its report sort together in Downloads.
-        const d = new Date();
-        return [savedName(base, "ged", d), savedName(base, "report.txt", d)];
-      })(),
-      downloadLabel: t("save.preview.download"),
-      mainRecordCount,
-      base,
-      editRecordIds,
-      isMerge,
-      integrityWarnings,
-    });
+    const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
+    if (next) setPreview(next);
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
@@ -1464,52 +1371,7 @@ function AppContent() {
     </>
   );
 
-  const appFooter = (
-    <footer className="app-footer">
-      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
-        © 2026 Luka Renko
-      </a>
-      <span className="app-footer-sep">·</span>
-      <a
-        href={i18n.language === "sl" ? "posodobitve/" : "changelog/"}
-        className="app-footer-link"
-        target="_blank"
-        rel="noopener noreferrer"
-        title={t("footer.changelog")}
-      >
-        v{__APP_VERSION__}
-      </a>
-      <span className="app-footer-sep">·</span>
-      <a
-        href={i18n.language === "sl" ? "navodila/" : "guide/"}
-        className="app-footer-link"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {t("help.title")}
-      </a>
-      <span className="app-footer-sep">·</span>
-      <button className="app-footer-link" onClick={() => setShowShortcuts(true)}>
-        {t("shortcuts.title")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <button
-        className="app-footer-link"
-        onClick={() => openLegal("privacy")}
-      >
-        {t("footer.privacy")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <button
-        className="app-footer-link"
-        onClick={() => openLegal("terms")}
-      >
-        {t("footer.terms")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
-    </footer>
-  );
+  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} onLegal={openLegal} />;
 
   // Full-page tree views (Compare / Edit) keep the app brand title and footer
   // around the tree so the page never feels detached from the rest of the app.
