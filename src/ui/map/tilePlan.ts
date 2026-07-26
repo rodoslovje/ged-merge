@@ -33,6 +33,10 @@ const EDGE_PAD_PX = 1;
  *  away — this keeps a zoomed-right-out map from asking for absurd extents. */
 const MAX_TILE_SPAN = 300000;
 
+/** Sanity cap on the source tiles composed into one output tile (a matched
+ *  level normally needs 4, at most 9). */
+const MAX_SOURCE_TILES = 25;
+
 /** WGS84 → native grid, per supported CRS. Only the Slovenian grid is wired up;
  *  another national layer is one entry plus its projection in `src/geo`. */
 const PROJECTORS: Record<string, (lat: number, lon: number) => { x: number; y: number } | undefined> = {
@@ -53,27 +57,79 @@ export function nativeProjector(crs: string): ((lat: number, lon: number) => Nat
   return PROJECTORS[crs];
 }
 
-/** One zoom band of a multi-scale overlay: which WMS layer to draw from the
- *  given zoom inwards. Lets a single overlay follow the map's scale the way a
- *  paper atlas changes sheet — e.g. a 1:50 000 map when zoomed out and a
- *  1:5000 plan once close enough for it to be legible. */
-export interface ZoomBand {
-  /** Lowest zoom this band covers; the deepest matching band wins. */
-  minZoom: number;
-  /** Comma-separated WMS layer name(s) for this band. */
-  layers: string;
-  /** The band's coarsest usable scale, if its source publishes one. */
-  maxScaleDenominator?: number;
+/** A pre-cut tile pyramid in the native grid — a WMTS tile-matrix set. Some
+ *  layers are published only this way (a tile cache, no free-form GetMap), and
+ *  a pyramid is the better source anyway: the tiles are already rendered and
+ *  cached, and its levels span every scale in one layer. */
+export interface NativePyramid {
+  /** WMTS `LAYER`. */
+  layer: string;
+  /** WMTS `TILEMATRIXSET`. Level ids are `${tileMatrixSet}:${index}`, which is
+   *  how this service names them — index into {@link scaleDenominators}. */
+  tileMatrixSet: string;
+  /** Each level's scale denominator, coarsest first. */
+  scaleDenominators: number[];
+  /** The grid's top-left corner in native units, `[x, y]`. */
+  origin: [number, number];
+  /** Tile edge in pixels (square). */
+  tileSize: number;
+  /** Image format to request (default `image/png`). */
+  format?: string;
 }
 
-/** The band to draw at a zoom — the deepest one the view has reached — or
- *  undefined when no band covers it (the tile stays blank). */
-export function pickZoomBand(bands: readonly ZoomBand[] | undefined, zoom: number): ZoomBand | undefined {
-  let best: ZoomBand | undefined;
-  for (const band of bands ?? []) {
-    if (band.minZoom <= zoom && (!best || band.minZoom > best.minZoom)) best = band;
+/** One source tile to fetch and where it sits in the native grid. */
+export interface PyramidTile {
+  level: string;
+  col: number;
+  row: number;
+  bbox: [number, number, number, number];
+}
+
+/**
+ * The pyramid tiles covering a native bbox, at the level closest to (and no
+ * coarser than) the resolution asked for — so imagery is downsampled into the
+ * map rather than blown up. Past the pyramid's deepest level it clamps there
+ * and the tiles are magnified, which is what the source's own viewer does.
+ */
+export function pyramidTiles(
+  bbox: readonly [number, number, number, number],
+  grid: NativePyramid,
+  targetRes: number,
+): PyramidTile[] {
+  const [minX, minY, maxX, maxY] = bbox;
+  let index = grid.scaleDenominators.findIndex((sd) => sd * OGC_PIXEL_M <= targetRes);
+  if (index < 0) index = grid.scaleDenominators.length - 1;
+  const res = grid.scaleDenominators[index] * OGC_PIXEL_M;
+  if (!(res > 0)) return [];
+  const span = grid.tileSize * res;
+  const [ox, oy] = grid.origin;
+
+  const colFrom = Math.floor((minX - ox) / span);
+  const colTo = Math.floor((maxX - ox) / span);
+  // Rows run south from the grid's top-left corner.
+  const rowFrom = Math.floor((oy - maxY) / span);
+  const rowTo = Math.floor((oy - minY) / span);
+  if (!Number.isFinite(colFrom) || !Number.isFinite(rowFrom)) return [];
+
+  const out: PyramidTile[] = [];
+  for (let col = colFrom; col <= colTo; col++) {
+    for (let row = rowFrom; row <= rowTo; row++) {
+      if (col < 0 || row < 0) continue;
+      const x0 = ox + col * span;
+      const y1 = oy - row * span;
+      out.push({
+        level: `${grid.tileMatrixSet}:${index}`,
+        col,
+        row,
+        bbox: [x0, y1 - span, x0 + span, y1],
+      });
+      // A single output tile should never need a wall of source tiles; if the
+      // arithmetic ever says so, something is wrong upstream — bail out rather
+      // than firing hundreds of requests.
+      if (out.length > MAX_SOURCE_TILES) return [];
+    }
   }
-  return best;
+  return out;
 }
 
 /** A point in the native grid. */
@@ -96,8 +152,34 @@ export interface TilePlan {
   bbox: [number, number, number, number];
   width: number;
   height: number;
+  /** Native resolution the output tile wants, in units per pixel — what a
+   *  pyramid level is matched against. */
+  resolution: number;
   /** Canvas transform mapping the fetched image's pixels onto the tile. */
   transform: [number, number, number, number, number, number];
+  /** The affine taking native coordinates to tile pixels, `[a, b, c, d, tx,
+   *  ty]` — compose it with any source image's own extent via
+   *  {@link imageTransform}. */
+  nativeToTile: [number, number, number, number, number, number];
+}
+
+/**
+ * The canvas transform that paints one source image onto the tile: the
+ * native→tile affine composed with that image's own extent. Lets a tile be
+ * assembled from several source images (pyramid tiles) as easily as from one.
+ */
+export function imageTransform(
+  nativeToTile: readonly [number, number, number, number, number, number],
+  bbox: readonly [number, number, number, number],
+  width: number,
+  height: number,
+): [number, number, number, number, number, number] {
+  const [a, b, c, d, tx, ty] = nativeToTile;
+  const [minX, minY, maxX, maxY] = bbox;
+  // Image pixel → native (rows run north to south), then native → tile.
+  const sx = (maxX - minX) / width;
+  const sy = (maxY - minY) / height;
+  return [a * sx, c * sx, -b * sy, -d * sy, a * minX + b * maxY + tx, c * minX + d * maxY + ty];
 }
 
 /**
@@ -170,21 +252,14 @@ export function planTile(
   const tx = -(a * nw.x + bb * nw.y);
   const ty = -(c * nw.x + d * nw.y);
 
-  // …composed with image pixel → native (the image spans the padded bbox, with
-  // its rows running north to south).
-  const sx = (maxX - minX) / width;
-  const sy = (maxY - minY) / height;
+  const nativeToTile: [number, number, number, number, number, number] = [a, bb, c, d, tx, ty];
+  const bbox: [number, number, number, number] = [minX, minY, maxX, maxY];
   return {
-    bbox: [minX, minY, maxX, maxY],
+    bbox,
     width,
     height,
-    transform: [
-      a * sx,
-      c * sx,
-      -bb * sy,
-      -d * sy,
-      a * minX + bb * maxY + tx,
-      c * minX + d * maxY + ty,
-    ],
+    resolution: res,
+    nativeToTile,
+    transform: imageTransform(nativeToTile, bbox, width, height),
   };
 }

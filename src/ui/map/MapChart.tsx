@@ -44,7 +44,7 @@ import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { reprojectedWmsLayer } from "./reprojectedWmsLayer";
-import { canReproject, type ZoomBand } from "./tilePlan";
+import { canReproject, type NativePyramid } from "./tilePlan";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -280,7 +280,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         tileSize?: number;
         params?: string;
         nativeCrs?: string;
-        zoomBands?: ZoomBand[];
+        pyramid?: NativePyramid;
       }
     >
   >(new Map());
@@ -357,7 +357,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         o.tileSize !== entry.tileSize ||
         o.params !== entry.params ||
         o.nativeCrs !== entry.nativeCrs ||
-        JSON.stringify(o.zoomBands) !== JSON.stringify(entry.zoomBands);
+        JSON.stringify(o.pyramid) !== JSON.stringify(entry.pyramid);
       if (stale) {
         entry.layer.remove();
         live.delete(id);
@@ -380,7 +380,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               layers: o.layers ?? "",
               styles: o.styles ?? "",
               nativeCrs: o.nativeCrs!,
-              zoomBands: o.zoomBands,
+              pyramid: o.pyramid,
               extraParams: parseWmsParams(o.params),
               nativeBounds: o.nativeBounds,
               maxScaleDenominator: o.maxScaleDenominator,
@@ -432,7 +432,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         tileSize: o.tileSize,
         params: o.params,
         nativeCrs: o.nativeCrs,
-        zoomBands: o.zoomBands,
+        pyramid: o.pyramid,
       });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);

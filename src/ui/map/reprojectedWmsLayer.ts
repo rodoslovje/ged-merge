@@ -1,5 +1,17 @@
 import L from "leaflet";
-import { nativeProjector, pickZoomBand, planTile, type TilePlan, type ZoomBand } from "./tilePlan";
+import {
+  imageTransform,
+  nativeProjector,
+  planTile,
+  pyramidTiles,
+  type NativePyramid,
+} from "./tilePlan";
+
+/** One source image composed into an output tile. */
+interface TileSource {
+  url: string;
+  transform: [number, number, number, number, number, number];
+}
 
 // A WMS overlay for layers the server will only draw in its own national grid.
 //
@@ -19,13 +31,12 @@ import { nativeProjector, pickZoomBand, planTile, type TilePlan, type ZoomBand }
 // canvas per tile instead of a plain <img>.
 
 export interface ReprojectedWmsOptions extends L.GridLayerOptions {
-  /** Comma-separated WMS layer name(s). Ignored where a {@link zoomBands} entry
-   *  applies. */
+  /** Comma-separated WMS layer name(s), for a free-form GetMap source.
+   *  Ignored when {@link pyramid} is set. */
   layers: string;
-  /** Zoom-banded sources: one overlay that changes sheet as the map zooms (see
-   *  {@link pickZoomBand}). Each band brings its own layer name and scale
-   *  limit; zooms no band covers stay blank. */
-  zoomBands?: readonly ZoomBand[];
+  /** Take the imagery from a pre-cut WMTS pyramid instead of GetMap — for
+   *  layers published only through a tile cache. */
+  pyramid?: NativePyramid;
   /** Comma-separated `STYLES`, aligned 1:1 with {@link layers}. */
   styles?: string;
   /** The CRS to request in — one {@link nativeProjector} knows. */
@@ -54,42 +65,55 @@ const ReprojectedWmsLayer = L.GridLayer.extend({
     canvas.width = size.x;
     canvas.height = size.y;
 
-    const plan = (this as unknown as { _planTile(c: L.Coords, s: L.Point): { url: string } & TilePlan | undefined })
-      ._planTile(coords, size);
-    if (!plan) {
+    const sources = (this as unknown as { _planTile(c: L.Coords, s: L.Point): TileSource[] })._planTile(coords, size);
+    if (!sources.length) {
       // Outside the coverage, or too coarse for the source to draw: an empty
       // tile, reported ready so Leaflet stops waiting on it.
       L.Util.requestAnimFrame(() => done(undefined, canvas));
       return canvas;
     }
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.setTransform(...plan.transform);
-        try {
-          ctx.drawImage(img, 0, 0);
-        } catch {
-          // A decode failure leaves the tile blank rather than breaking the map.
-        }
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-      done(undefined, canvas);
+    // One output tile may be assembled from several cached source tiles; it is
+    // ready once they all are, and a single failure only costs its own patch.
+    let pending = sources.length;
+    let failed = false;
+    const finish = () => {
+      if (--pending > 0) return;
+      done(failed && !canvas.dataset.drawn ? new Error("tile request failed") : undefined, canvas);
     };
-    img.onerror = () => done(new Error("WMS tile request failed"), canvas);
-    img.src = plan.url;
+    for (const source of sources) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.setTransform(...source.transform);
+          try {
+            ctx.drawImage(img, 0, 0);
+            canvas.dataset.drawn = "1";
+          } catch {
+            // A decode failure leaves this patch blank rather than breaking the map.
+          }
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        finish();
+      };
+      img.onerror = () => {
+        failed = true;
+        finish();
+      };
+      img.src = source.url;
+    }
     return canvas;
   },
 
-  /** Project the tile's footprint into the native grid, plan the request and
-   *  build its URL — or undefined when the tile should stay blank. */
-  _planTile(this: L.GridLayer, coords: L.Coords, size: L.Point): ({ url: string } & TilePlan) | undefined {
+  /** Project the tile's footprint into the native grid and work out the source
+   *  images that cover it — empty when the tile should stay blank. */
+  _planTile(this: L.GridLayer, coords: L.Coords, size: L.Point): TileSource[] {
     const map = this._map;
     const opts = this.options as ReprojectedWmsOptions;
     const project = nativeProjector(opts.nativeCrs);
-    if (!map || !project) return undefined;
+    if (!map || !project) return [];
 
     // Tile corners: Web Mercator pixel space → WGS84 → the native grid.
     const corner = (dx: number, dy: number) => {
@@ -101,37 +125,58 @@ const ReprojectedWmsLayer = L.GridLayer.extend({
     const ne = corner(1, 0);
     const sw = corner(0, 1);
     const se = corner(1, 1);
-    if (!nw || !ne || !sw || !se) return undefined;
+    if (!nw || !ne || !sw || !se) return [];
 
-    // Which sheet this zoom draws from, and the scale limit that comes with it.
-    const band = opts.zoomBands ? pickZoomBand(opts.zoomBands, coords.z) : undefined;
-    if (opts.zoomBands && !band) return undefined;
-    const layers = band?.layers ?? opts.layers;
-    const maxScaleDenominator = band ? band.maxScaleDenominator : opts.maxScaleDenominator;
-
-    const plan = planTile({ nw, ne, sw, se }, size, { nativeBounds: opts.nativeBounds, maxScaleDenominator });
-    if (!plan) return undefined;
-
-    const params: Record<string, string> = {
-      // Extra params first so the fixed ones below can't be overridden.
-      ...opts.extraParams,
-      SERVICE: "WMS",
-      // 1.1.1 on purpose: its BBOX is always x,y, sidestepping the axis-order
-      // ambiguity 1.3.0 introduced for projected CRSs like this one.
-      VERSION: "1.1.1",
-      REQUEST: "GetMap",
-      LAYERS: layers,
-      STYLES: opts.styles ?? "",
-      SRS: opts.nativeCrs,
-      BBOX: plan.bbox.join(","),
-      WIDTH: String(plan.width),
-      HEIGHT: String(plan.height),
-      FORMAT: "image/png",
-      TRANSPARENT: "true",
-    };
+    const plan = planTile({ nw, ne, sw, se }, size, opts);
+    if (!plan) return [];
     const base = (this as unknown as { _wmsUrl: string })._wmsUrl;
-    const url = `${base}${base.includes("?") ? "&" : "?"}${new URLSearchParams(params)}`;
-    return { ...plan, url };
+    const join = (params: Record<string, string>) =>
+      `${base}${base.includes("?") ? "&" : "?"}${new URLSearchParams(params)}`;
+
+    // A pre-cut pyramid: fetch the cached tiles covering the footprint, each
+    // painted through its own extent.
+    if (opts.pyramid) {
+      const grid = opts.pyramid;
+      return pyramidTiles(plan.bbox, grid, plan.resolution).map((tile) => ({
+        url: join({
+          ...opts.extraParams,
+          SERVICE: "WMTS",
+          VERSION: "1.0.0",
+          REQUEST: "GetTile",
+          LAYER: grid.layer,
+          STYLE: opts.styles ?? "",
+          TILEMATRIXSET: grid.tileMatrixSet,
+          TILEMATRIX: tile.level,
+          TILEROW: String(tile.row),
+          TILECOL: String(tile.col),
+          FORMAT: grid.format ?? "image/png",
+        }),
+        transform: imageTransform(plan.nativeToTile, tile.bbox, grid.tileSize, grid.tileSize),
+      }));
+    }
+
+    return [
+      {
+        url: join({
+          // Extra params first so the fixed ones below can't be overridden.
+          ...opts.extraParams,
+          SERVICE: "WMS",
+          // 1.1.1 on purpose: its BBOX is always x,y, sidestepping the axis-order
+          // ambiguity 1.3.0 introduced for projected CRSs like this one.
+          VERSION: "1.1.1",
+          REQUEST: "GetMap",
+          LAYERS: opts.layers,
+          STYLES: opts.styles ?? "",
+          SRS: opts.nativeCrs,
+          BBOX: plan.bbox.join(","),
+          WIDTH: String(plan.width),
+          HEIGHT: String(plan.height),
+          FORMAT: "image/png",
+          TRANSPARENT: "true",
+        }),
+        transform: plan.transform,
+      },
+    ];
   },
 });
 

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { wgs84ToD96 } from "../../geo/d96";
-import { canReproject, pickZoomBand, planTile, type TileCorners } from "./tilePlan";
+import {
+  canReproject,
+  imageTransform,
+  planTile,
+  pyramidTiles,
+  type NativePyramid,
+  type TileCorners,
+} from "./tilePlan";
 
 const SIZE = { x: 256, y: 256 };
 /** GURS's published extent + coarsest usable scale for the TTN layer. */
@@ -155,34 +162,95 @@ describe("planTile", () => {
   });
 });
 
-describe("pickZoomBand", () => {
-  // The merged GURS topographic preset: the 1:50 000 sheet until zoom 15, the
-  // 1:5000 plan from there in.
-  const bands = [
-    { minZoom: 0, layers: "SI.GURS.DK:DTK50" },
-    { minZoom: 15, layers: "SI.GURS.DK:TTN5_TTN10", maxScaleDenominator: 11000 },
-  ];
+describe("pyramidTiles", () => {
+  // GURS's Osnovna karta cache, as published in its WMTS capabilities.
+  const OSK: NativePyramid = {
+    layer: "SI.GURS.DK:OSK",
+    tileMatrixSet: "EPSG:3794_ATL_OSK",
+    scaleDenominators: [
+      2500000, 1500000, 1000000, 750000, 500000, 350000, 250000, 175000, 100000, 50000, 40000, 25000, 10000, 5000, 2500,
+    ],
+    origin: [293225, 249475],
+    tileSize: 256,
+  };
+  /** Native resolution (units/px) of a pyramid level. */
+  const levelRes = (i: number) => OSK.scaleDenominators[i] * 0.00028;
 
-  it("draws the coarse sheet until the detailed one takes over", () => {
-    expect(pickZoomBand(bands, 9)?.layers).toBe("SI.GURS.DK:DTK50");
-    expect(pickZoomBand(bands, 14)?.layers).toBe("SI.GURS.DK:DTK50");
-    expect(pickZoomBand(bands, 15)?.layers).toBe("SI.GURS.DK:TTN5_TTN10");
-    expect(pickZoomBand(bands, 18)?.layers).toBe("SI.GURS.DK:TTN5_TTN10");
+  it("picks the level that is detailed enough without overshooting", () => {
+    // Exactly a level's own resolution takes that level, not the one below.
+    expect(pyramidTiles([462000, 101000, 462100, 101100], OSK, levelRes(13))[0].level).toBe("EPSG:3794_ATL_OSK:13");
+    // Between two levels, take the finer one and downsample into the tile.
+    const between = (levelRes(13) + levelRes(14)) / 2;
+    expect(pyramidTiles([462000, 101000, 462100, 101100], OSK, between)[0].level).toBe("EPSG:3794_ATL_OSK:14");
   });
 
-  it("carries the band's own scale limit", () => {
-    expect(pickZoomBand(bands, 14)?.maxScaleDenominator).toBeUndefined();
-    expect(pickZoomBand(bands, 16)?.maxScaleDenominator).toBe(11000);
+  it("clamps at the deepest level instead of running out", () => {
+    // Zoomed past 1:2500 the source has nothing finer — magnify level 14.
+    const tiles = pyramidTiles([462000, 101000, 462050, 101050], OSK, levelRes(14) / 8);
+    expect(tiles[0].level).toBe("EPSG:3794_ATL_OSK:14");
   });
 
-  it("picks the deepest match regardless of the order bands are listed in", () => {
-    expect(pickZoomBand([...bands].reverse(), 16)?.layers).toBe("SI.GURS.DK:TTN5_TTN10");
+  it("covers the whole bbox with correctly placed tiles", () => {
+    const bbox: [number, number, number, number] = [462000, 101000, 462400, 101400];
+    const tiles = pyramidTiles(bbox, OSK, levelRes(14));
+    expect(tiles.length).toBeGreaterThan(1);
+    // The tiles' union must contain the bbox…
+    expect(Math.min(...tiles.map((t) => t.bbox[0]))).toBeLessThanOrEqual(bbox[0]);
+    expect(Math.min(...tiles.map((t) => t.bbox[1]))).toBeLessThanOrEqual(bbox[1]);
+    expect(Math.max(...tiles.map((t) => t.bbox[2]))).toBeGreaterThanOrEqual(bbox[2]);
+    expect(Math.max(...tiles.map((t) => t.bbox[3]))).toBeGreaterThanOrEqual(bbox[3]);
+    // …and each tile's extent must match what its row/col addresses, or the
+    // imagery would be painted in the wrong place.
+    const span = OSK.tileSize * levelRes(14);
+    for (const t of tiles) {
+      expect(t.bbox[0]).toBeCloseTo(OSK.origin[0] + t.col * span, 6);
+      expect(t.bbox[3]).toBeCloseTo(OSK.origin[1] - t.row * span, 6);
+      expect(t.bbox[2] - t.bbox[0]).toBeCloseTo(span, 6);
+      expect(t.bbox[3] - t.bbox[1]).toBeCloseTo(span, 6);
+    }
   });
 
-  it("has nothing to draw below the first band", () => {
-    expect(pickZoomBand([{ minZoom: 15, layers: "x" }], 14)).toBeUndefined();
-    expect(pickZoomBand([], 15)).toBeUndefined();
-    expect(pickZoomBand(undefined, 15)).toBeUndefined();
+  it("asks for a handful of tiles, not a wall of them", () => {
+    // A tile-sized footprint at a matched level is 1–4 source tiles.
+    const span = OSK.tileSize * levelRes(14);
+    const tiles = pyramidTiles([462000, 101000, 462000 + span, 101000 + span], OSK, levelRes(14));
+    expect(tiles.length).toBeLessThanOrEqual(4);
+  });
+
+  it("places each pyramid tile's imagery where the grid says it belongs", () => {
+    // The end-to-end check for the cached-pyramid path: compose a real output
+    // tile's plan with each source tile's own extent, and every source pixel
+    // must land where projecting its native coordinate directly would put it.
+    const z = 17;
+    const { x, y } = tileAt(z, LAT, LON);
+    const plan = planTile(cornersOf(z, x, y), SIZE, { nativeBounds: TTN.nativeBounds })!;
+    const tiles = pyramidTiles(plan.bbox, OSK, plan.resolution);
+    expect(tiles.length).toBeGreaterThan(0);
+
+    for (const tile of tiles) {
+      const t = imageTransform(plan.nativeToTile, tile.bbox, OSK.tileSize, OSK.tileSize);
+      const [a, b, c, d, tx, ty] = plan.nativeToTile;
+      // Corners and centre of this source image, in its own pixel space.
+      for (const [u, v] of [
+        [0, 0],
+        [OSK.tileSize, 0],
+        [0, OSK.tileSize],
+        [OSK.tileSize / 2, OSK.tileSize / 2],
+      ]) {
+        const got = apply(t, u, v);
+        // The same pixel's native coordinate, projected straight to tile pixels.
+        const nx = tile.bbox[0] + (u / OSK.tileSize) * (tile.bbox[2] - tile.bbox[0]);
+        const ny = tile.bbox[3] - (v / OSK.tileSize) * (tile.bbox[3] - tile.bbox[1]);
+        expect(got.x).toBeCloseTo(a * nx + b * ny + tx, 6);
+        expect(got.y).toBeCloseTo(c * nx + d * ny + ty, 6);
+      }
+    }
+  });
+
+  it("refuses a footprint that would need an unreasonable number of tiles", () => {
+    // A whole-country bbox at the deepest level: bail out rather than fire
+    // thousands of requests.
+    expect(pyramidTiles([373627, 28484, 625632, 193784], OSK, levelRes(14))).toEqual([]);
   });
 });
 
