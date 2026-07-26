@@ -1315,6 +1315,9 @@ export const sl = {
   "settings.map.overlays.preset.swiss.siegfried": "Švica · Karta Siegfried (1870–1926)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenija · Zgodovinski ortofoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenija · Ortofoto (GURS)",
+  "settings.map.overlays.preset.gurs.topo": "Slovenija · Topografska karta 1:50 000 → 1:5000 (GURS)",
+  // Umaknjena prednastavitev (združena v gurs.topo) — ime ostane za sloje,
+  // dodane pred združitvijo.
   "settings.map.overlays.preset.gurs.topo50": "Slovenija · Topografska karta 1:50 000 (GURS)",
   "settings.map.overlays.preset.gurs.parcels": "Slovenija · Katastrske parcele (GURS)",
   "settings.map.overlays.preset.gurs.cadastralMunicipalities": "Slovenija · Katastrske občine (GURS)",

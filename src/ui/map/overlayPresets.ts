@@ -85,18 +85,38 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   // the source resolution — same coverage, same scale range, visibly softer.
   // Where one is blank so is the other, so it makes no fallback (2026-07-25).
   {
-    key: "settings.map.overlays.preset.gurs.topo50",
+    // One topographic overlay that changes sheet with the zoom, the way an
+    // atlas does: the 1:50 000 state map (DTK50) while you're finding the
+    // area, and from zoom 15 in the Temeljni topografski načrt 1:5000/1:10000
+    // — the largest-scale map GURS publishes, and the only one showing
+    // individual buildings, field boundaries, paths and toponyms.
+    //
+    // Both sheets are fetched in the service's native EPSG:3794 and warped per
+    // tile in the browser (see reprojectedWmsLayer). DTK50 alone would render
+    // in Web Mercator, but TTN will not — GURS cannot reproject that coverage
+    // (an EPSG:3857 GetMap comes back empty; it used to throw an exception) —
+    // and one layer, one pipeline is simpler than splitting them by band.
+    key: "settings.map.overlays.preset.gurs.topo",
     wms: true,
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.DK:DTK50",
+    nativeCrs: "EPSG:3794",
+    zoomBands: [
+      { minZoom: 0, layers: "SI.GURS.DK:DTK50" },
+      // TTN's published MaxScaleDenominator: above it the service returns a
+      // blank image, so the layer asks for a larger image over the same ground
+      // to get under the limit. That stretches to zoom 15; zoom 14 would need
+      // more than the 2× oversampling cap, which is where the band starts.
+      { minZoom: 15, layers: "SI.GURS.DK:TTN5_TTN10", maxScaleDenominator: 11000 },
+    ],
+    // The TTN layer's own EPSG:3794 bounding box, from GetCapabilities; DTK50
+    // covers the same country.
+    nativeBounds: [373627, 28484, 625632, 193784],
+    // Reprojection fits one affine per tile, so it needs tiles that aren't
+    // continent-sized; below this the country is a speck anyway.
+    minZoom: 9,
     attribution: GURS_ATTRIBUTION,
   },
-  // No preset for SI.GURS.DK:TTN5_TTN10 (Temeljni topografski načrt 1:5000):
-  // GURS cannot reproject that coverage to Web Mercator. Inside its published
-  // scale range every EPSG:3857 GetMap returns a ServiceException ("Error
-  // rendering coverage on the fast path", NPE) and outside it a blank tile,
-  // while the same request in native EPSG:3794 draws fine (checked 2026-07-25).
-  // Revisit if GURS fixes the reprojection.
   {
     key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,

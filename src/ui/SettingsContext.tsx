@@ -8,6 +8,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import type { ZoomBand } from "./map/tilePlan";
 
 // App-wide user preferences, persisted to localStorage so they stick across
 // sessions. Follows the same shape as ChartSettingsContext: one provider near
@@ -51,11 +52,29 @@ export interface MapOverlay {
    *  (e.g. `TIME=2011-01-01T00:00:00.000Z` for a time-enabled layer, or a
    *  `CQL_FILTER`). Only used when {@link wms} is set. */
   params?: string;
+  /** When set (WMS only), the service will not draw this layer in Web Mercator,
+   *  so tiles are requested in this CRS and reprojected in the browser (see
+   *  reprojectedWmsLayer). Only CRSs with a bundled projection work. */
+  nativeCrs?: string;
+  /** The layer's extent in {@link nativeCrs} units, `[minX, minY, maxX, maxY]`
+   *  — tiles outside it are skipped instead of requested. */
+  nativeBounds?: [number, number, number, number];
+  /** The layer's coarsest usable scale denominator (its WMS
+   *  `MaxScaleDenominator`): above it the service returns a blank image, so a
+   *  reprojected layer asks for a larger image to get under it. */
+  maxScaleDenominator?: number;
+  /** Zoom-banded sources for one overlay that changes sheet as the map zooms
+   *  (a 1:50 000 map far out, a 1:5000 plan up close). Reprojected layers only
+   *  — see {@link ZoomBand}. */
+  zoomBands?: ZoomBand[];
   /** Validity period (either end open) — drives the era suggestion. */
   yearFrom?: number;
   yearTo?: number;
   /** Attribution required by the layer's source, shown on map + PNG export. */
   attribution?: string;
+  /** Lowest zoom the layer is drawn at. Used by detailed sources that render
+   *  nothing (or nothing legible) when zoomed out. */
+  minZoom?: number;
   /** Highest zoom the source provides; deeper views scale those tiles.
    *  Ignored for WMS layers, which render at any zoom. */
   maxZoom?: number;
