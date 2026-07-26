@@ -492,31 +492,27 @@ function birthSortKey(indi: Individual): number {
   return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
 
-/** The parent (father via HUSB, mother via WIFE) from the first family this
- * person is a child in, as an alignable relative. */
+/** {@link parentIndi} wrapped as an alignable relative list (empty when the
+ *  person, or that parent, is absent). */
 function parentRelative(
   indi: Individual | undefined,
   ds: Dataset,
   role: "husband" | "wife",
   showAge = false,
 ): Relative[] {
-  if (!indi) return [];
-  for (const famId of indi.childOf) {
-    const id = ds.families.get(famId)?.[role];
-    const parent = id ? ds.individuals.get(id) : undefined;
-    if (parent) return [{
-      id: parent.id,
-      name: parent.names[0],
-      text: lifespanLabel(parent),
-      full: fullDatesLabel(parent),
-      birthYear: findEvent(parent, "BIRT")?.date?.year,
-      birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
-      displayName: displayName(parent.names[0]),
-      years: relativeYears(parent, showAge),
-      sex: parent.sex,
-    }];
-  }
-  return [];
+  const parent = indi ? parentIndi(indi, ds, role) : undefined;
+  if (!parent) return [];
+  return [{
+    id: parent.id,
+    name: parent.names[0],
+    text: lifespanLabel(parent),
+    full: fullDatesLabel(parent),
+    birthYear: findEvent(parent, "BIRT")?.date?.year,
+    birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
+    displayName: displayName(parent.names[0]),
+    years: relativeYears(parent, showAge),
+    sex: parent.sex,
+  }];
 }
 
 interface Relative {
@@ -596,7 +592,8 @@ function attachAges(
 }
 
 /** The parent (father via HUSB, mother via WIFE) from the first family this
- *  person is a child in — for the parents' ages on a birth row. */
+ *  person is a child in. The single lookup behind both the parent rows
+ *  ({@link parentRelative}) and the parents' ages on a birth row. */
 function parentIndi(indi: Individual, ds: Dataset, role: "husband" | "wife"): Individual | undefined {
   for (const famId of indi.childOf) {
     const id = ds.families.get(famId)?.[role];
