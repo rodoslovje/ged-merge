@@ -9,7 +9,8 @@ import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
-import { initialWorkspace, workspaceReducer, type LoadedFile, type SlotState } from "./state/workspace";
+import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
+import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
@@ -52,6 +53,7 @@ import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
+import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
@@ -106,7 +108,7 @@ const modeLayerHiddenStyle: CSSProperties = { display: "none" };
 // Map<string,File> that can't be persisted to IndexedDB, so a remount there
 // would silently lose it and force the user to re-pick the folder.
 function AppContent() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings } = useSettings();
   // Chart kind (tree / fan / … / relationship) — read to route chart deep-links,
   // set when an entry point asks for a specific diagram.
@@ -270,18 +272,7 @@ function AppContent() {
         return;
       }
       if (msg.type === "parsed") {
-        const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
-        if (msg.report) file.report = msg.report;
-        if (msg.placeLayout) file.placeLayout = msg.placeLayout;
-        if (msg.dateFormat) file.dateFormat = msg.dateFormat;
-        if (msg.datePlaceholder) file.datePlaceholder = msg.datePlaceholder;
-        if (msg.sourceLayout) file.sourceLayout = msg.sourceLayout;
-        if (msg.detectedFormats) file.detectedFormats = msg.detectedFormats;
-        if (msg.pageMediaStyle) file.pageMediaStyle = msg.pageMediaStyle;
-        if (msg.nameLayout) file.nameLayout = msg.nameLayout;
-        if (msg.unknownNameStyle) file.unknownNameStyle = msg.unknownNameStyle;
-        if (msg.marriedNameTag) file.marriedNameTag = msg.marriedNameTag;
-        if (msg.coordUsage) file.coordUsage = msg.coordUsage;
+        const file = loadedFileFromParsed(msg);
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
@@ -1380,52 +1371,7 @@ function AppContent() {
     </>
   );
 
-  const appFooter = (
-    <footer className="app-footer">
-      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">
-        © 2026 Luka Renko
-      </a>
-      <span className="app-footer-sep">·</span>
-      <a
-        href={i18n.language === "sl" ? "posodobitve/" : "changelog/"}
-        className="app-footer-link"
-        target="_blank"
-        rel="noopener noreferrer"
-        title={t("footer.changelog")}
-      >
-        v{__APP_VERSION__}
-      </a>
-      <span className="app-footer-sep">·</span>
-      <a
-        href={i18n.language === "sl" ? "navodila/" : "guide/"}
-        className="app-footer-link"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {t("help.title")}
-      </a>
-      <span className="app-footer-sep">·</span>
-      <button className="app-footer-link" onClick={() => setShowShortcuts(true)}>
-        {t("shortcuts.title")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <button
-        className="app-footer-link"
-        onClick={() => openLegal("privacy")}
-      >
-        {t("footer.privacy")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <button
-        className="app-footer-link"
-        onClick={() => openLegal("terms")}
-      >
-        {t("footer.terms")}
-      </button>
-      <span className="app-footer-sep">·</span>
-      <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
-    </footer>
-  );
+  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} onLegal={openLegal} />;
 
   // Full-page tree views (Compare / Edit) keep the app brand title and footer
   // around the tree so the page never feels detached from the rest of the app.
