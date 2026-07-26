@@ -85,18 +85,61 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   // the source resolution — same coverage, same scale range, visibly softer.
   // Where one is blank so is the other, so it makes no fallback (2026-07-25).
   {
-    key: "settings.map.overlays.preset.gurs.topo50",
+    // Osnovna karta — the colour base map GURS's own Javni vpogled viewer
+    // draws, and the one topographic layer worth having: a single cached
+    // pyramid whose fifteen levels run from 1:2 500 000 down to 1:2500, so it
+    // stays legible at every zoom and ends up finer than any other GURS map.
+    // At the deep end it shows individual buildings, contours, field
+    // boundaries, paths and toponyms — usually what settles which house an
+    // ancestor lived in.
+    //
+    // It exists only as a tile cache in EPSG:3794 (the plain WMS endpoint does
+    // not publish it, and the cache has no Web Mercator grid), so the tiles are
+    // warped per output tile in the browser — see reprojectedWmsLayer.
+    key: "settings.map.overlays.preset.gurs.topo",
     wms: true,
-    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
-    layers: "SI.GURS.DK:DTK50",
+    url: "https://ipi.eprostor.gov.si/gwc-si-gurs-dts/service/wmts",
+    layers: "SI.GURS.DK:OSK",
+    nativeCrs: "EPSG:3794",
+    pyramid: {
+      layer: "SI.GURS.DK:OSK",
+      tileMatrixSet: "EPSG:3794_ATL_OSK",
+      // The cache's published levels, coarsest first (GetCapabilities). Level
+      // 15 (1:1000) is advertised but errors, so the pyramid stops at 1:2500.
+      scaleDenominators: [
+        2500000, 1500000, 1000000, 750000, 500000, 350000, 250000, 175000, 100000, 50000, 40000, 25000, 10000, 5000,
+        2500,
+      ],
+      origin: [293225, 249475],
+      tileSize: 256,
+    },
+    nativeBounds: [373627, 28484, 625632, 193784],
+    // Reprojection fits one affine per tile, so it needs tiles that aren't
+    // continent-sized; below this the country is a speck anyway.
+    minZoom: 9,
     attribution: GURS_ATTRIBUTION,
   },
-  // No preset for SI.GURS.DK:TTN5_TTN10 (Temeljni topografski načrt 1:5000):
-  // GURS cannot reproject that coverage to Web Mercator. Inside its published
-  // scale range every EPSG:3857 GetMap returns a ServiceException ("Error
-  // rendering coverage on the fast path", NPE) and outside it a blank tile,
-  // while the same request in native EPSG:3794 draws fine (checked 2026-07-25).
-  // Revisit if GURS fixes the reprojection.
+  {
+    // Temeljni topografski načrt 1:5000/1:10000 — the older black-and-white
+    // survey drawing. Superseded by the colour Osnovna karta above for finding
+    // a place, but kept because it is a different document: it records the
+    // building footprints, field patterns and paths of its own survey period.
+    //
+    // GURS cannot reproject this coverage to Web Mercator (an EPSG:3857 GetMap
+    // comes back empty; it used to throw), so it is fetched in native EPSG:3794
+    // per tile. Its published MaxScaleDenominator is 11 000 — above that the
+    // service returns a blank image, so the layer oversamples the request to
+    // get under the limit, which stretches to zoom 15 but no further.
+    key: "settings.map.overlays.preset.gurs.ttn",
+    wms: true,
+    url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
+    layers: "SI.GURS.DK:TTN5_TTN10",
+    nativeCrs: "EPSG:3794",
+    nativeBounds: [373627, 28484, 625632, 193784],
+    maxScaleDenominator: 11000,
+    minZoom: 15,
+    attribution: GURS_ATTRIBUTION,
+  },
   {
     key: "settings.map.overlays.preset.gurs.parcels",
     wms: true,

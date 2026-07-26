@@ -43,6 +43,8 @@ import {
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
+import { reprojectedWmsLayer } from "./reprojectedWmsLayer";
+import { canReproject, type NativePyramid } from "./tilePlan";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -267,8 +269,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     Map<
       string,
       {
-        layer: L.TileLayer;
+        layer: L.GridLayer;
         url: string;
+        minZoom?: number;
         maxZoom?: number;
         attribution?: string;
         wms?: boolean;
@@ -276,6 +279,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         styles?: string;
         tileSize?: number;
         params?: string;
+        nativeCrs?: string;
+        pyramid?: NativePyramid;
       }
     >
   >(new Map());
@@ -343,13 +348,16 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         !o ||
         !overlayOn.has(id) ||
         o.url !== entry.url ||
+        o.minZoom !== entry.minZoom ||
         o.maxZoom !== entry.maxZoom ||
         o.attribution !== entry.attribution ||
         !!o.wms !== !!entry.wms ||
         o.layers !== entry.layers ||
         o.styles !== entry.styles ||
         o.tileSize !== entry.tileSize ||
-        o.params !== entry.params;
+        o.params !== entry.params ||
+        o.nativeCrs !== entry.nativeCrs ||
+        JSON.stringify(o.pyramid) !== JSON.stringify(entry.pyramid);
       if (stale) {
         entry.layer.remove();
         live.delete(id);
@@ -364,36 +372,58 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         entry.layer.setOpacity(opacity);
         continue;
       }
-      const layer: L.TileLayer = o.wms
-        ? L.tileLayer.wms(o.url, {
-            // Extra params first so the fixed ones below can't be overridden.
-            ...parseWmsParams(o.params),
-            layers: o.layers ?? "",
-            styles: o.styles ?? "",
-            format: "image/png",
-            transparent: true,
-            opacity,
-            attribution: o.attribution ?? "",
-            crossOrigin: "anonymous",
-            // WMS renders any bbox on demand, so it scales to any zoom itself.
-            maxZoom: 18,
-            // Label styles clip at tile seams — a large tile keeps them whole.
-            tileSize: o.tileSize ?? 256,
-            zIndex: OVERLAY_Z,
-          })
-        : L.tileLayer(o.url, {
-            opacity,
-            attribution: o.attribution ?? "",
-            crossOrigin: "anonymous",
-            maxZoom: 18,
-            // Sources that stop at a lower zoom get their deepest tiles scaled.
-            maxNativeZoom: o.maxZoom ?? 18,
-            zIndex: OVERLAY_Z,
-          });
+      const layer: L.GridLayer =
+        o.wms && canReproject(o.nativeCrs)
+          ? // A service that won't reproject this layer itself: fetch it in its
+            // own CRS and warp each tile in the browser.
+            reprojectedWmsLayer(o.url, {
+              layers: o.layers ?? "",
+              styles: o.styles ?? "",
+              nativeCrs: o.nativeCrs!,
+              pyramid: o.pyramid,
+              extraParams: parseWmsParams(o.params),
+              nativeBounds: o.nativeBounds,
+              maxScaleDenominator: o.maxScaleDenominator,
+              opacity,
+              attribution: o.attribution ?? "",
+              minZoom: o.minZoom ?? 0,
+              maxZoom: 18,
+              tileSize: o.tileSize ?? 256,
+              zIndex: OVERLAY_Z,
+            })
+          : o.wms
+            ? L.tileLayer.wms(o.url, {
+                // Extra params first so the fixed ones below can't be overridden.
+                ...parseWmsParams(o.params),
+                layers: o.layers ?? "",
+                styles: o.styles ?? "",
+                format: "image/png",
+                transparent: true,
+                opacity,
+                attribution: o.attribution ?? "",
+                crossOrigin: "anonymous",
+                minZoom: o.minZoom ?? 0,
+                // WMS renders any bbox on demand, so it scales to any zoom itself.
+                maxZoom: 18,
+                // Label styles clip at tile seams — a large tile keeps them whole.
+                tileSize: o.tileSize ?? 256,
+                zIndex: OVERLAY_Z,
+              })
+            : L.tileLayer(o.url, {
+                opacity,
+                attribution: o.attribution ?? "",
+                crossOrigin: "anonymous",
+                minZoom: o.minZoom ?? 0,
+                maxZoom: 18,
+                // Sources that stop at a lower zoom get their deepest tiles scaled.
+                maxNativeZoom: o.maxZoom ?? 18,
+                zIndex: OVERLAY_Z,
+              });
       layer.addTo(map);
       live.set(o.id, {
         layer,
         url: o.url,
+        minZoom: o.minZoom,
         maxZoom: o.maxZoom,
         attribution: o.attribution,
         wms: o.wms,
@@ -401,6 +431,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         styles: o.styles,
         tileSize: o.tileSize,
         params: o.params,
+        nativeCrs: o.nativeCrs,
+        pyramid: o.pyramid,
       });
     }
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
@@ -411,8 +443,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    // The request below describes the view in Web Mercator, which a layer that
+    // has to be reprojected client-side cannot answer — those are not queried.
     const targets = appSettings.allowMapTiles
-      ? overlays.filter((o) => o.wms && o.queryLayers && overlayOn.has(o.id))
+      ? overlays.filter((o) => o.wms && o.queryLayers && !o.nativeCrs && overlayOn.has(o.id))
       : [];
     if (!targets.length) return;
 

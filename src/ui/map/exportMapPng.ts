@@ -140,7 +140,11 @@ export function exportMapPng(
 
   const drawTileImages = (root: HTMLElement, opacity: number) => {
     ctx.globalAlpha = opacity;
-    for (const img of root.querySelectorAll<HTMLImageElement>("img.leaflet-tile-loaded")) {
+    // Most tiles are <img>; a layer reprojected in the browser paints its tiles
+    // onto <canvas> instead (see reprojectedWmsLayer) — both draw the same way.
+    for (const img of root.querySelectorAll<HTMLImageElement | HTMLCanvasElement>(
+      "img.leaflet-tile-loaded, canvas.leaflet-tile-loaded",
+    )) {
       const r = img.getBoundingClientRect();
       try {
         ctx.drawImage(img, r.left - rect.left, r.top - rect.top, r.width, r.height);

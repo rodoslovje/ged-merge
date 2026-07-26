@@ -8,6 +8,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import type { NativePyramid } from "./map/tilePlan";
 
 // App-wide user preferences, persisted to localStorage so they stick across
 // sessions. Follows the same shape as ChartSettingsContext: one provider near
@@ -51,11 +52,29 @@ export interface MapOverlay {
    *  (e.g. `TIME=2011-01-01T00:00:00.000Z` for a time-enabled layer, or a
    *  `CQL_FILTER`). Only used when {@link wms} is set. */
   params?: string;
+  /** When set (WMS only), the service will not draw this layer in Web Mercator,
+   *  so tiles are requested in this CRS and reprojected in the browser (see
+   *  reprojectedWmsLayer). Only CRSs with a bundled projection work. */
+  nativeCrs?: string;
+  /** The layer's extent in {@link nativeCrs} units, `[minX, minY, maxX, maxY]`
+   *  — tiles outside it are skipped instead of requested. */
+  nativeBounds?: [number, number, number, number];
+  /** The layer's coarsest usable scale denominator (its WMS
+   *  `MaxScaleDenominator`): above it the service returns a blank image, so a
+   *  reprojected layer asks for a larger image to get under it. */
+  maxScaleDenominator?: number;
+  /** Take the imagery from a pre-cut WMTS tile pyramid rather than a free-form
+   *  GetMap — some layers are published only through a tile cache. Reprojected
+   *  layers only; see {@link NativePyramid}. */
+  pyramid?: NativePyramid;
   /** Validity period (either end open) — drives the era suggestion. */
   yearFrom?: number;
   yearTo?: number;
   /** Attribution required by the layer's source, shown on map + PNG export. */
   attribution?: string;
+  /** Lowest zoom the layer is drawn at. Used by detailed sources that render
+   *  nothing (or nothing legible) when zoomed out. */
+  minZoom?: number;
   /** Highest zoom the source provides; deeper views scale those tiles.
    *  Ignored for WMS layers, which render at any zoom. */
   maxZoom?: number;
@@ -130,6 +149,33 @@ export function overlayDisplayName(o: MapOverlay, translate: (key: string) => st
   return o.url;
 }
 
+/** True for an array of exactly `n` finite numbers. */
+function isFiniteTuple(v: unknown, n: number): v is number[] {
+  return Array.isArray(v) && v.length === n && v.every((x) => typeof x === "number" && Number.isFinite(x));
+}
+
+/** Keep a stored tile-pyramid definition only if every field it needs is there
+ *  — a half-read pyramid would request nonsense tiles. */
+function sanitizePyramid(v: unknown): NativePyramid | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const p = v as Partial<NativePyramid>;
+  if (typeof p.layer !== "string" || !p.layer) return undefined;
+  if (typeof p.tileMatrixSet !== "string" || !p.tileMatrixSet) return undefined;
+  if (typeof p.tileSize !== "number" || !Number.isFinite(p.tileSize) || p.tileSize <= 0) return undefined;
+  if (!isFiniteTuple(p.origin, 2)) return undefined;
+  if (!Array.isArray(p.scaleDenominators) || !p.scaleDenominators.length) return undefined;
+  if (!p.scaleDenominators.every((s) => typeof s === "number" && Number.isFinite(s) && s > 0)) return undefined;
+  const out: NativePyramid = {
+    layer: p.layer,
+    tileMatrixSet: p.tileMatrixSet,
+    scaleDenominators: [...p.scaleDenominators],
+    origin: [p.origin[0], p.origin[1]],
+    tileSize: p.tileSize,
+  };
+  if (typeof p.format === "string" && p.format) out.format = p.format;
+  return out;
+}
+
 /** Keep only well-formed overlay entries from a stored blob. */
 function sanitizeOverlays(v: unknown): MapOverlay[] {
   if (!Array.isArray(v)) return [];
@@ -147,7 +193,19 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
     if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;
     if (typeof o.attribution === "string" && o.attribution) layer.attribution = o.attribution;
+    if (typeof o.minZoom === "number" && Number.isFinite(o.minZoom)) layer.minZoom = o.minZoom;
     if (typeof o.maxZoom === "number" && Number.isFinite(o.maxZoom)) layer.maxZoom = o.maxZoom;
+    // Reprojection config. A preset layer gets this back from the preset, but a
+    // layer the user has edited is detached and carries its own — drop it here
+    // and that layer would come back as a plain Web Mercator request, which is
+    // exactly what the service can't answer.
+    if (typeof o.nativeCrs === "string" && o.nativeCrs) layer.nativeCrs = o.nativeCrs;
+    if (isFiniteTuple(o.nativeBounds, 4)) layer.nativeBounds = [...o.nativeBounds] as [number, number, number, number];
+    if (typeof o.maxScaleDenominator === "number" && Number.isFinite(o.maxScaleDenominator)) {
+      layer.maxScaleDenominator = o.maxScaleDenominator;
+    }
+    const pyramid = sanitizePyramid(o.pyramid);
+    if (pyramid) layer.pyramid = pyramid;
     out.push(layer);
   }
   return out;

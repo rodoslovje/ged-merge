@@ -1211,6 +1211,10 @@ export const en = {
   "settings.map.overlays.preset.swiss.siegfried": "Switzerland · Siegfried Map (1870–1926)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenia · Historical orthophoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenia · Orthophoto (GURS)",
+  "settings.map.overlays.preset.gurs.topo": "Slovenia · Topographic map, to 1:2500 (GURS)",
+  "settings.map.overlays.preset.gurs.ttn": "Slovenia · Base topographic plan 1:5000, older survey (GURS)",
+  // Retired preset (folded into gurs.topo), kept so a layer added from it
+  // before the merge still shows a name instead of a raw key.
   "settings.map.overlays.preset.gurs.topo50": "Slovenia · Topographic map 1:50 000 (GURS)",
   "settings.map.overlays.preset.gurs.parcels": "Slovenia · Cadastral parcels (GURS)",
   "settings.map.overlays.preset.gurs.cadastralMunicipalities": "Slovenia · Cadastral municipalities (GURS)",
