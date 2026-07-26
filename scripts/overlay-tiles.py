@@ -25,6 +25,11 @@ Usage — mosaic:
   # sheets.json: {"sheets": [{"image": "a.jpg", "bbox": [W,S,E,N],
   #                           "frame": "auto" | [8 corner pixels]}, …]}
 
+A wall map engraved as one continuous projection has no per-sheet graticule,
+so its manifest carries a top-level "conic" block instead of per-sheet bboxes
+and lists panes of the one scan by pixel origin (see scripts/manifests/
+README.md). Each pane is then warped through that shared projection.
+
   --bbox W,S,E,N   geographic coordinates of the neatline (map frame) corners
   --frame          'auto' (default) finds each neatline corner locally: the
                    innermost long rule line with paper on its outer side, per
@@ -102,6 +107,57 @@ def solve_homography(src, dst):
 def apply_h(h, x, y):
     w = h[6] * x + h[7] * y + 1.0
     return (h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w
+
+
+# ── Conic projection (lon/lat → scan pixel) ──────────────────────────────────
+
+class Conic:
+    """Equidistant-conic geo→pixel model, for a map drawn on one continuous
+    projection rather than on a per-sheet graticule.
+
+    Meridians are straight lines through an apex, parallels are concentric
+    circles about it and are evenly spaced — the standard 18th-century
+    "Delisle" construction. The parameters are recovered from the map's own
+    printed border graduation (see the manifest's `source` notes), so the
+    overlay reproduces the map's own coordinate system; whatever the engraver
+    got wrong stays wrong, which is the honest result.
+
+        theta = n * (lon - prime_meridian - lam0)      degrees east of the apex axis
+        rho   = rho0 - k * lat                         pixels from the apex
+        x, y  = apex + rho * (sin theta, cos theta)    plus a constant fit shift
+    """
+
+    def __init__(self, n, lam0, rho0, k, cx, cy, prime_meridian=0.0, shift=(0.0, 0.0)):
+        self.n, self.lam0, self.rho0, self.k = n, lam0, rho0, k
+        self.cx, self.cy = cx, cy
+        self.pm = prime_meridian
+        self.dx, self.dy = shift
+
+    def geo_to_px(self, lon, lat):
+        th = math.radians(self.n * ((lon - self.pm) - self.lam0))
+        rho = self.rho0 - self.k * lat
+        return (self.cx + rho * math.sin(th) + self.dx,
+                self.cy + rho * math.cos(th) + self.dy)
+
+    def px_to_geo(self, x, y):
+        dx, dy = x - self.dx - self.cx, y - self.dy - self.cy
+        rho = math.hypot(dx, dy)
+        return (self.pm + self.lam0 + math.degrees(math.atan2(dx, dy)) / self.n,
+                (self.rho0 - rho) / self.k)
+
+    def geo_bounds(self, x0, y0, x1, y1, steps=64):
+        """lon/lat bounding box of a pixel rectangle. The rectangle's edges are
+        straight in projected space but curved in lon/lat, so the border is
+        sampled rather than taking the four corners."""
+        lons, lats = [], []
+        for i in range(steps + 1):
+            fx = x0 + (x1 - x0) * i / steps
+            fy = y0 + (y1 - y0) * i / steps
+            for px, py in ((fx, y0), (fx, y1), (x0, fy), (x1, fy)):
+                lon, lat = self.px_to_geo(px, py)
+                lons.append(lon)
+                lats.append(lat)
+        return min(lons), min(lats), max(lons), max(lats)
 
 
 # ── Neatline detection ───────────────────────────────────────────────────────
@@ -215,11 +271,23 @@ class Sheet:
     """One sheet: geometry up front, pixels loaded lazily — a large mosaic
     holds only the sheet currently being rendered in memory."""
 
-    def __init__(self, image_path, bbox, frame, rotate=0):
+    def __init__(self, image_path, bbox, frame, rotate=0, conic=None, origin=(0, 0)):
         self.path = image_path
         self.bbox = bbox  # (west, south, east, north)
         self.rotate = rotate
         self._im = None
+        # A conic sheet is one pane of a single large scan: it carries the
+        # whole map's projection plus its own pixel origin within that scan,
+        # so panes need no per-sheet geometry of their own.
+        self.conic = conic
+        self.origin = origin
+        if conic is not None:
+            self.corners = None
+            with Image.open(image_path) as probe:
+                self.frame_px_w = probe.size[0]
+            print(f"{os.path.basename(image_path)}: conic pane at {tuple(origin)}, "
+                  f"bbox {tuple(round(v, 3) for v in bbox)}", flush=True)
+            return
         if frame == "auto":
             nw, ne, se, sw = detect_frame(self.load())
         else:
@@ -247,6 +315,13 @@ class Sheet:
     def unload(self):
         self._im = None
 
+    def geo_to_px(self, lon, lat):
+        """lon/lat → pixel in this sheet's own image."""
+        if self.conic is None:
+            return apply_h(self.h, lon, lat)
+        x, y = self.conic.geo_to_px(lon, lat)
+        return x - self.origin[0], y - self.origin[1]
+
     def natural_zoom(self):
         west, _s, east, _n = self.bbox
         z = 7
@@ -267,7 +342,7 @@ class Sheet:
         lat_n, lat_s = y_to_lat(ty, z), y_to_lat(ty + 1, z)
         quad = []
         for lon, lat in ((lon_w, lat_n), (lon_w, lat_s), (lon_e, lat_s), (lon_e, lat_n)):
-            quad.extend(apply_h(self.h, lon, lat))
+            quad.extend(self.geo_to_px(lon, lat))
         part = self.load().transform((TILE, TILE), Image.Transform.QUAD, quad,
                                      resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
         # Mask to the sheet's bbox: in mercator tile space the lon/lat box is
@@ -278,6 +353,8 @@ class Sheet:
         px_e = min(TILE, round((lon_to_x(east, z) - tx) * TILE))
         px_n = max(0, round((lat_to_y(north, z) - ty) * TILE))
         px_s = min(TILE, round((lat_to_y(south, z) - ty) * TILE))
+        if px_e <= px_w or px_s <= px_n:
+            return  # tile touches this sheet's bbox only on the boundary
         if px_w > 0 or px_e < TILE or px_n > 0 or px_s < TILE:
             mask = Image.new("L", (TILE, TILE), 0)
             ImageDraw.Draw(mask).rectangle((px_w, px_n, px_e - 1, px_s - 1), fill=255)
@@ -382,12 +459,25 @@ def main():
     if args.manifest:
         spec = json.load(open(args.manifest))
         base = os.path.dirname(os.path.abspath(args.manifest))
+        c = spec.get("conic")
+        conic = Conic(c["n"], c["lam0"], c["rho0"], c["k"], c["cx"], c["cy"],
+                      prime_meridian=c.get("primeMeridian", 0.0),
+                      shift=tuple(c.get("shift", (0.0, 0.0)))) if c else None
         for entry in spec["sheets"]:
             path = entry["image"]
             if not os.path.isabs(path):
                 path = os.path.join(base, path)
             frame = entry.get("frame", "auto")
-            sheets.append(Sheet(path, tuple(entry["bbox"]), frame, rotate=entry.get("rotate", 0)))
+            if conic is not None:
+                # One pane of a single conic-projected scan: its bbox follows
+                # from the projection, so the manifest only pins its origin.
+                ox, oy = entry["origin"]
+                with Image.open(path) as probe:
+                    w, h = probe.size
+                bbox = conic.geo_bounds(ox, oy, ox + w, oy + h)
+                sheets.append(Sheet(path, bbox, frame, conic=conic, origin=(ox, oy)))
+            else:
+                sheets.append(Sheet(path, tuple(entry["bbox"]), frame, rotate=entry.get("rotate", 0)))
     else:
         if not args.image or not args.bbox:
             raise SystemExit("either --manifest, or an image plus --bbox, is required")
