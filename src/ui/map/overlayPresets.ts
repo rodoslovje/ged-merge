@@ -37,6 +37,23 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     maxZoom: 14,
   },
   {
+    // Self-hosted pyramid: Schraembl's Neueste Generalkarte von Deutschland
+    // (Vienna 1797), the Holy Roman Empire's last years, built from the David
+    // Rumsey composite scan with scripts/overlay-tiles.py. Placed by the map's
+    // own printed graticule (an equidistant conic, longitudes east of Paris),
+    // so it sits ~6 km rms from modern coordinates — that residual is the
+    // engraver's compilation error, not the registration's, and is deliberately
+    // not rubber-sheeted away. Reads as period context (territories, borders,
+    // German place spellings), not as a survey: base zoom 11 is the scan's own
+    // resolution, so deeper zooms only enlarge it.
+    key: "settings.map.overlays.preset.schraembl",
+    url: "https://tiles.gedmerge.com/schraembl-1797/{z}/{x}/{y}.png",
+    yearFrom: 1797,
+    yearTo: 1806,
+    attribution: "David Rumsey Map Collection, Stanford Libraries · CC BY-NC-SA 3.0",
+    maxZoom: 11,
+  },
+  {
     key: "settings.map.overlays.preset.france.etatmajor",
     url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILECOL={x}&TILEROW={y}",
     yearFrom: 1820,

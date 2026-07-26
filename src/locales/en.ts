@@ -1206,6 +1206,7 @@ export const en = {
   "settings.map.overlays.add": "+ Add layer",
   "settings.map.overlays.preset": "Add a free preset…",
   "settings.map.overlays.preset.spezialkarte": "Slovenia, Croatia & Bosnia · Spezialkarte 1:75 000 (1877–1918)",
+  "settings.map.overlays.preset.schraembl": "Germany & Central Europe · Schraembl 1:530 000 (1797)",
   "settings.map.overlays.preset.france.etatmajor": "France · Carte de l'État-major (1820–1866)",
   "settings.map.overlays.preset.swiss.dufour": "Switzerland · Dufour Map (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Switzerland · Siegfried Map (1870–1926)",

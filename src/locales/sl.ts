@@ -1310,6 +1310,7 @@ export const sl = {
   "settings.map.overlays.add": "+ Dodaj sloj",
   "settings.map.overlays.preset": "Dodaj brezplačen sloj…",
   "settings.map.overlays.preset.spezialkarte": "Slovenija, Hrvaška in Bosna · Spezialkarte 1:75 000 (1877–1918)",
+  "settings.map.overlays.preset.schraembl": "Nemčija in srednja Evropa · Schraembl 1:530 000 (1797)",
   "settings.map.overlays.preset.france.etatmajor": "Francija · Carte de l'État-major (1820–1866)",
   "settings.map.overlays.preset.swiss.dufour": "Švica · Karta Dufour (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Švica · Karta Siegfried (1870–1926)",
