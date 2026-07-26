@@ -73,6 +73,24 @@ describe("mergeDecisions", () => {
     expect(out).not.toContain("1 _UID AAAABBBBCCCCDDDD\n");
   });
 
+  it("places a carried _UID beside the existing one, ahead of the CHAN audit stamp", () => {
+    const mainUid = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _UID {AAAABBBBCCCCDDDD}\n1 BIRT\n2 DATE 1850\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    ));
+    const compareUid = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _UID 1111222233334444\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    ));
+    const { records } = mergeDecisions(mainUid, compareUid, confirmed(), NO_MATCHES, tr);
+    const lines = serializeGedcom(records).split("\n");
+
+    const firstUid = lines.findIndex((l) => l.startsWith("1 _UID {AAAA"));
+    const carried = lines.findIndex((l) => l === "1 _UID 1111222233334444");
+    const chan = lines.findIndex((l) => l === "1 CHAN");
+    // Grouped with its sibling, and never stranded after the record's audit tags.
+    expect(carried).toBe(firstUid + 1);
+    expect(carried).toBeLessThan(chan);
+  });
+
   it("does not touch _UID on a confirmed match that took no fields (minimal diff)", () => {
     const mainUid = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",

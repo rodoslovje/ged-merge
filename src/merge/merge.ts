@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
+import { insertGrouped } from "../gedcom/edit";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { individualFieldRows } from "../review/fields";
@@ -266,11 +267,20 @@ export function mergeDecisions(
 /** Unique-id tags carried across on merge (vendor `_UID` + GEDCOM 7 `UID`). */
 const UID_TAGS = new Set(["_UID", "UID"]);
 
+/** Trailing record-audit tags a carried UID must land *before*, so the
+ *  bookkeeping stays at the end of the record where every writer puts it. */
+const UID_BEFORE_TAGS = ["CHAN", "CREA"] as const;
+
 /**
- * Copy the incoming record's unique ids onto the merged main record (appended,
- * skipping values the main already carries in any brace/dash spelling). A
- * record may legitimately hold several — GEDCOM 7 explicitly allows multiple
- * UIDs, one per lineage the record has lived in.
+ * Copy the incoming record's unique ids onto the merged main record, skipping
+ * values the main already carries in any brace/dash spelling. A record may
+ * legitimately hold several — GEDCOM 7 explicitly allows multiple UIDs, one per
+ * lineage the record has lived in.
+ *
+ * Placed with {@link insertGrouped} rather than appended: `_UID`/`UID` are not
+ * in `INDI_CHILD_ORDER`, so a plain push would drop them after any trailing
+ * CHAN/CREA. This keeps a second UID next to the first and both ahead of the
+ * audit stamps, matching how the rest of the edit layer writes.
  */
 function carryUids(target: GedNode, incoming: GedNode): void {
   const canon = (v: string) => v.replace(/[{}\s-]/g, "").toUpperCase();
@@ -281,7 +291,7 @@ function carryUids(target: GedNode, incoming: GedNode): void {
     if (!UID_TAGS.has(child.tag) || !child.value?.trim()) continue;
     if (existing.has(canon(child.value))) continue;
     existing.add(canon(child.value));
-    target.children.push({ level: 0, tag: child.tag, value: child.value.trim(), children: [] });
+    insertGrouped(target, { level: 0, tag: child.tag, value: child.value.trim(), children: [] }, UID_BEFORE_TAGS);
   }
 }
 
