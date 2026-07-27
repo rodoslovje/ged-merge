@@ -70,6 +70,7 @@ import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
+import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
@@ -1280,6 +1281,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     () => buildPlaceSuggestions(dataset),
     [dataset],
   );
+  // The registers behind the place fields: what completes a place this file has
+  // never written, in the layout this file writes places in.
+  const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
   // How many events carry each place+address pair, and how many of those
@@ -1451,6 +1455,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   return (
     <CoordShareProvider value={coordShare}>
+    <PlaceLookupProvider value={placeLookup}>
     <div className="section open edit-view">
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
@@ -1774,6 +1779,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         />
       )}
     </div>
+    </PlaceLookupProvider>
     </CoordShareProvider>
   );
 }

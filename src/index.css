@@ -3082,6 +3082,26 @@ button:focus-visible {
 }
 /* The address part of a place+address combo suggestion. */
 .place-suggestion-addr { color: var(--muted); }
+/* A register's offer for a place the file doesn't have: separated from the
+   file's own values above it, and carrying its source badge. */
+.place-suggestion--register {
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.place-suggestion--register + .place-suggestion--register { border-top: none; }
+/* The lookup row itself — not an option, so it doesn't highlight or select. */
+.place-suggestion-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 5px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.place-suggestion-note { color: var(--muted); }
 
 /* Record-level links and notes sections (individual and family) */
 .edit-record-section {

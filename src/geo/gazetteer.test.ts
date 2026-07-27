@@ -8,6 +8,7 @@ import {
   parseGeoNamesLine,
   rpeNaseljaToEntries,
   rpeObcinaNames,
+  searchGazetteer,
   type GazEntry,
 } from "./gazetteer";
 import { formatCoordValue } from "../gedcom/edit";
@@ -258,6 +259,54 @@ describe("municipalities from the RPE join", () => {
   it("leaves the tie alone when the place names neither municipality", () => {
     const hits = lookupPlace(buildGazetteerIndex(soteska(names)), "Soteska, Šentjakob ob Savi, Slovenija");
     expect(hits[0].score).toBeCloseTo(hits[1].score, 6);
+  });
+});
+
+describe("searchGazetteer", () => {
+  const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
+    name, ascii: "", alt: [], lat: 46, lon: 14, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
+  });
+
+  it("offers prefix matches before merely contained ones", () => {
+    const index = buildGazetteerIndex([
+      entry("Spodnje Zabukovje"),
+      entry("Zabukovje pri Sevnici"),
+      entry("Zabukovje"),
+    ]);
+    // Exact first, then the prefix, then the name that only contains the text.
+    expect(searchGazetteer(index, "Zabukovje").map((e) => e.name)).toEqual([
+      "Zabukovje",
+      "Zabukovje pri Sevnici",
+      "Spodnje Zabukovje",
+    ]);
+  });
+
+  it("matches diacritics and alternate names, and honours the limit", () => {
+    const index = buildGazetteerIndex([
+      entry("Škofja Loka", { alt: ["Bischoflack"] }),
+      entry("Škocjan"),
+      entry("Škale"),
+    ]);
+    expect(searchGazetteer(index, "skofja").map((e) => e.name)).toEqual(["Škofja Loka"]);
+    expect(searchGazetteer(index, "Bischoflack").map((e) => e.name)).toEqual(["Škofja Loka"]);
+    expect(searchGazetteer(index, "Šk", 2)).toHaveLength(2);
+  });
+
+  it("ranks the official register above a crowd-sourced twin and drops the duplicate", () => {
+    const index = buildGazetteerIndex([
+      entry("Bled", { lat: 46.368, lon: 14.108 }),
+      entry("Bled", { lat: 46.369, lon: 14.109, register: GURS_REGISTER, admin: "Bled" }),
+    ]);
+    const hits = searchGazetteer(index, "Bled");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].register).toBe(GURS_REGISTER);
+  });
+
+  it("keeps a named country out of another country's gazetteer, and ignores one-letter queries", () => {
+    const index = buildGazetteerIndex([entry("Bela"), entry("Bela pri Ločah")]);
+    expect(searchGazetteer(index, "Bela, Austria")).toHaveLength(0);
+    expect(searchGazetteer(index, "Bela, Slovenija")).toHaveLength(2);
+    expect(searchGazetteer(index, "B")).toHaveLength(0);
   });
 });
 

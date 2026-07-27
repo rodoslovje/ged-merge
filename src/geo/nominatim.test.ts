@@ -24,6 +24,39 @@ describe("parseNominatimResponse", () => {
     expect(parseNominatimResponse(rows).map((r) => r.admin)).toEqual([undefined, undefined]);
   });
 
+  it("reads the structured address parts when the row carries them", () => {
+    const rows = [
+      {
+        lat: "46.2456",
+        lon: "14.3312",
+        name: "21",
+        display_name: "21, Hafnarjeva pot, Stražišče, Kranj, 4000 Kranj, Slovenija",
+        type: "house",
+        address: {
+          house_number: "21",
+          road: "Hafnarjeva pot",
+          village: "Stražišče",
+          municipality: "Kranj",
+          postcode: "4000",
+          country: "Slovenija",
+          country_code: "si",
+        },
+      },
+    ];
+    expect(parseNominatimResponse(rows)[0].parts).toEqual({
+      house: "21",
+      road: "Hafnarjeva pot",
+      locality: "Stražišče",
+      admin: "Kranj",
+      country: "Slovenija",
+    });
+  });
+
+  it("leaves the parts off entirely when the row has no address block", () => {
+    const rows = [{ lat: "46", lon: "14", name: "Kranj", display_name: "Kranj, Slovenija" }];
+    expect(parseNominatimResponse(rows)[0].parts).toBeUndefined();
+  });
+
   it("drops malformed rows and tolerates a non-array body", () => {
     expect(
       parseNominatimResponse([

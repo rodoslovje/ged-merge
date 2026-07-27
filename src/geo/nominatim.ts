@@ -24,6 +24,25 @@ export interface NominatimResult {
   admin?: string;
   /** Feature type ("house", "village", …), informational. */
   kind?: string;
+  /**
+   * The row's structured address, when the service returned one. The display
+   * line alone cannot be read as a place: it mixes postcodes, roads and
+   * administrative units of every rank in one comma chain, and which segment is
+   * which differs per country. These named parts are what lets a hit become a
+   * place (and, for a house, an address) rather than a coordinate with a label.
+   */
+  parts?: {
+    /** House number ("21", "38a"). */
+    house?: string;
+    /** Street name, absent where a village numbers its houses directly. */
+    road?: string;
+    /** The settlement itself (village/town/city/suburb). */
+    locality?: string;
+    /** The administrative parent — municipality, else county/state. */
+    admin?: string;
+    /** Country name, in the language the search asked for. */
+    country?: string;
+  };
 }
 
 /** One raw jsonv2 row, reduced to what we read. */
@@ -33,6 +52,22 @@ interface RawResult {
   name?: string;
   display_name?: string;
   type?: string;
+  address?: Record<string, string | undefined>;
+}
+
+/** `{key: value}` when the value is set, nothing when it isn't — so absent
+ *  parts stay absent instead of becoming explicit undefined. */
+function opt(key: string, value: string | undefined): Record<string, string> {
+  return value ? { [key]: value } : {};
+}
+
+/** First of these keys the row's address carries. */
+function pick(address: Record<string, string | undefined>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = address[key]?.trim();
+    if (value) return value;
+  }
+  return undefined;
 }
 
 /** Pure mapping of a jsonv2 response body to results (exported for tests). */
@@ -51,6 +86,18 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     const parent = label.split(",")[1]?.trim();
     if (parent && parent !== name) result.admin = parent;
     if (row.type) result.kind = row.type;
+    if (row.address) {
+      const parts = {
+        ...opt("house", pick(row.address, ["house_number"])),
+        ...opt("road", pick(row.address, ["road", "pedestrian", "footway"])),
+        // Outward from the smallest: a hamlet is the place a house belongs to,
+        // and the town it is administered from comes next, not instead.
+        ...opt("locality", pick(row.address, ["hamlet", "village", "suburb", "town", "city", "municipality"])),
+        ...opt("admin", pick(row.address, ["municipality", "county", "state"])),
+        ...opt("country", pick(row.address, ["country"])),
+      };
+      if (Object.keys(parts).length) result.parts = parts;
+    }
     out.push(result);
   }
   return out;
@@ -70,7 +117,9 @@ export function searchNominatim(query: string, language: string): Promise<Nomina
     const wait = lastStart + INTERVAL_MS - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     lastStart = Date.now();
-    const url = `${ENDPOINT}?format=jsonv2&limit=5&q=${encodeURIComponent(query)}&accept-language=${encodeURIComponent(language)}`;
+    // addressdetails: the named parts a hit needs to become a place or an
+    // address, rather than only the coordinate its display line carries.
+    const url = `${ENDPOINT}?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}&accept-language=${encodeURIComponent(language)}`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return parseNominatimResponse(await res.json());
