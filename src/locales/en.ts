@@ -1227,6 +1227,8 @@ export const en = {
   "settings.map.overlays.from": "From",
   "settings.map.overlays.to": "To",
   "settings.map.overlays.years.hint": "The years this map depicts — the Map chart highlights era-matching layers.",
+  "settings.map.overlays.default": "Default",
+  "settings.map.overlays.default.hint": "Show this layer on every map: the Map chart opens with it switched on (untick it there for that map only), and the small place maps draw it too.",
   "settings.map.overlays.url": "Tile URL template with {z}/{x}/{y}",
   "settings.map.overlays.url.hint": "An XYZ or WMTS-REST tile URL template; {z}/{x}/{y} (and optionally {s}) placeholders.",
   "settings.map.overlays.attribution": "Attribution",

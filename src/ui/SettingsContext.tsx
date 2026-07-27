@@ -67,6 +67,10 @@ export interface MapOverlay {
    *  GetMap — some layers are published only through a tile cache. Reprojected
    *  layers only; see {@link NativePyramid}. */
   pyramid?: NativePyramid;
+  /** Switch this layer on wherever a map is drawn — the Map chart opens with
+   *  it already ticked, and the small place maps show it too. A per-map picker
+   *  toggle still wins for that map's session. */
+  defaultOn?: boolean;
   /** Validity period (either end open) — drives the era suggestion. */
   yearFrom?: number;
   yearTo?: number;
@@ -190,6 +194,7 @@ function sanitizeOverlays(v: unknown): MapOverlay[] {
     if (typeof o.tileSize === "number" && Number.isFinite(o.tileSize)) layer.tileSize = o.tileSize;
     if (typeof o.queryLayers === "string" && o.queryLayers) layer.queryLayers = o.queryLayers;
     if (typeof o.params === "string" && o.params) layer.params = o.params;
+    if (o.defaultOn === true) layer.defaultOn = true;
     if (typeof o.yearFrom === "number" && Number.isFinite(o.yearFrom)) layer.yearFrom = o.yearFrom;
     if (typeof o.yearTo === "number" && Number.isFinite(o.yearTo)) layer.yearTo = o.yearTo;
     if (typeof o.attribution === "string" && o.attribution) layer.attribution = o.attribution;

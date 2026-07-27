@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { GeoCoord } from "../../gedcom/types";
 import { useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
+import { resolveOverlay } from "./overlayPresets";
+import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
@@ -120,6 +122,8 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
+  /** Live overlay tile layers, keyed by overlay id (see syncOverlayLayers). */
+  const overlayLayersRef = useRef<LiveOverlays>(new Map());
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const pathLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
@@ -174,6 +178,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     });
     ro.observe(el);
     mapRef.current = map;
+    const overlayLayers = overlayLayersRef.current;
     return () => {
       ro.disconnect();
       el.removeEventListener("pointerdown", markUser);
@@ -182,6 +187,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       map.remove();
       mapRef.current = null;
       baseLayerRef.current = null;
+      overlayLayers.clear();
       pinsLayerRef.current = null;
       pathLayerRef.current = null;
     };
@@ -197,6 +203,22 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     if (base instanceof L.GeoJSON) base.bringToBack();
     baseLayerRef.current = base;
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+
+  // Historical overlays: these small maps have no picker, so they draw exactly
+  // the layers marked "show by default" in Settings, at the standard overlay
+  // opacity. Remote tiles, so the same opt-in as the base gates them.
+  const defaultOverlays = useMemo(
+    () => appSettings.mapOverlays.map(resolveOverlay).filter((o) => o.defaultOn),
+    [appSettings.mapOverlays],
+  );
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    syncOverlayLayers(map, overlayLayersRef.current, defaultOverlays, {
+      enabled: appSettings.allowMapTiles,
+      isOn: () => true,
+    });
+  }, [defaultOverlays, appSettings.allowMapTiles]);
 
   // A new subject on the same map instance: forget the previous fit and any
   // user pan/zoom so the next pin pass frames the new pins. Declared before

@@ -497,7 +497,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               const layer = resolveOverlay(stored);
               const replace = (next: MapOverlay) =>
                 set({ mapOverlays: settings.mapOverlays.map((o) => (o.id === stored.id ? next : o)) });
+              // Name and "show by default" are preferences, not config — they
+              // patch the stored layer directly and keep the preset link.
               const updateName = (name: string) => replace({ ...stored, name });
+              const updateDefaultOn = (defaultOn: boolean) =>
+                replace({ ...stored, defaultOn: defaultOn || undefined });
               const update = (patch: Partial<MapOverlay>) =>
                 replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined });
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
@@ -509,11 +513,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   <div className="settings-overlay-line">
                     <input
                       type="text"
-                      className="settings-text-input settings-overlay-name"
+                      className="settings-text-input settings-overlay-name settings-overlay-title"
                       value={layer.name || (layer.presetKey ? t(layer.presetKey) : "")}
                       placeholder={t("settings.map.overlays.name")}
                       onChange={(e) => updateName(e.target.value)}
                     />
+                    <label className="settings-overlay-wms" title={t("settings.map.overlays.default.hint")}>
+                      <input
+                        type="checkbox"
+                        checked={!!layer.defaultOn}
+                        onChange={(e) => updateDefaultOn(e.target.checked)}
+                      />
+                      {t("settings.map.overlays.default")}
+                    </label>
                     <input
                       type="number"
                       className="settings-overlay-year"

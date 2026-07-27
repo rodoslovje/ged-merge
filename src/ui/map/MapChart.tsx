@@ -43,8 +43,8 @@ import {
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
-import { reprojectedWmsLayer } from "./reprojectedWmsLayer";
-import { canReproject, type NativePyramid } from "./tilePlan";
+import { OVERLAY_DEFAULT_OPACITY, parseWmsParams } from "./overlayConfig";
+import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -66,27 +66,6 @@ const PANEL_MAX_ROWS = 150;
 
 /** At most this many life paths drawn at once (a selected one always is). */
 const PATHS_MAX = 300;
-
-/** Historical overlays start at this opacity; the picker's slider adjusts. */
-const OVERLAY_DEFAULT_OPACITY = 0.7;
-
-/** Leaflet z-index for overlay tile layers — above the base (1). */
-const OVERLAY_Z = 5;
-
-/** Parse a WMS overlay's raw `KEY=value&KEY=value` extra-params string into an
- *  object Leaflet folds into the GetMap query (e.g. a time-enabled layer's
- *  `TIME`, or a `CQL_FILTER`). Malformed pairs are skipped. */
-function parseWmsParams(raw: string | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!raw) return out;
-  for (const pair of raw.split("&")) {
-    const eq = pair.indexOf("=");
-    if (eq <= 0) continue;
-    const key = pair.slice(0, eq).trim();
-    if (key) out[key] = pair.slice(eq + 1).trim();
-  }
-  return out;
-}
 
 /** Escape a string for safe interpolation into a Leaflet popup's innerHTML. */
 function escHtml(s: string): string {
@@ -199,7 +178,11 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   // Preset-added overlays reflect the live preset definition; custom ones pass
   // through unchanged. Resolving here keeps the renderer/picker/click in sync.
   const overlays = useMemo(() => appSettings.mapOverlays.map(resolveOverlay), [appSettings.mapOverlays]);
-  const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(new Set());
+  // Layers marked "show by default" in Settings start switched on; unticking
+  // one here only affects this map's session.
+  const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(
+    () => new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id)),
+  );
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
   // Bumped on every pan/zoom so the marker pass re-runs against the new view.
@@ -265,25 +248,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
-  const overlayLayersRef = useRef<
-    Map<
-      string,
-      {
-        layer: L.GridLayer;
-        url: string;
-        minZoom?: number;
-        maxZoom?: number;
-        attribution?: string;
-        wms?: boolean;
-        layers?: string;
-        styles?: string;
-        tileSize?: number;
-        params?: string;
-        nativeCrs?: string;
-        pyramid?: NativePyramid;
-      }
-    >
-  >(new Map());
+  const overlayLayersRef = useRef<LiveOverlays>(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   /** Bumped on each identify click so a slow GetFeatureInfo response that
@@ -340,102 +305,25 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const live = overlayLayersRef.current;
-    for (const [id, entry] of [...live]) {
-      const o = overlays.find((ov) => ov.id === id);
-      const stale =
-        !appSettings.allowMapTiles ||
-        !o ||
-        !overlayOn.has(id) ||
-        o.url !== entry.url ||
-        o.minZoom !== entry.minZoom ||
-        o.maxZoom !== entry.maxZoom ||
-        o.attribution !== entry.attribution ||
-        !!o.wms !== !!entry.wms ||
-        o.layers !== entry.layers ||
-        o.styles !== entry.styles ||
-        o.tileSize !== entry.tileSize ||
-        o.params !== entry.params ||
-        o.nativeCrs !== entry.nativeCrs ||
-        JSON.stringify(o.pyramid) !== JSON.stringify(entry.pyramid);
-      if (stale) {
-        entry.layer.remove();
-        live.delete(id);
-      }
-    }
-    if (!appSettings.allowMapTiles) return;
-    for (const o of overlays) {
-      if (!overlayOn.has(o.id) || !o.url) continue;
-      const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
-      const entry = live.get(o.id);
-      if (entry) {
-        entry.layer.setOpacity(opacity);
-        continue;
-      }
-      const layer: L.GridLayer =
-        o.wms && canReproject(o.nativeCrs)
-          ? // A service that won't reproject this layer itself: fetch it in its
-            // own CRS and warp each tile in the browser.
-            reprojectedWmsLayer(o.url, {
-              layers: o.layers ?? "",
-              styles: o.styles ?? "",
-              nativeCrs: o.nativeCrs!,
-              pyramid: o.pyramid,
-              extraParams: parseWmsParams(o.params),
-              nativeBounds: o.nativeBounds,
-              maxScaleDenominator: o.maxScaleDenominator,
-              opacity,
-              attribution: o.attribution ?? "",
-              minZoom: o.minZoom ?? 0,
-              maxZoom: 18,
-              tileSize: o.tileSize ?? 256,
-              zIndex: OVERLAY_Z,
-            })
-          : o.wms
-            ? L.tileLayer.wms(o.url, {
-                // Extra params first so the fixed ones below can't be overridden.
-                ...parseWmsParams(o.params),
-                layers: o.layers ?? "",
-                styles: o.styles ?? "",
-                format: "image/png",
-                transparent: true,
-                opacity,
-                attribution: o.attribution ?? "",
-                crossOrigin: "anonymous",
-                minZoom: o.minZoom ?? 0,
-                // WMS renders any bbox on demand, so it scales to any zoom itself.
-                maxZoom: 18,
-                // Label styles clip at tile seams — a large tile keeps them whole.
-                tileSize: o.tileSize ?? 256,
-                zIndex: OVERLAY_Z,
-              })
-            : L.tileLayer(o.url, {
-                opacity,
-                attribution: o.attribution ?? "",
-                crossOrigin: "anonymous",
-                minZoom: o.minZoom ?? 0,
-                maxZoom: 18,
-                // Sources that stop at a lower zoom get their deepest tiles scaled.
-                maxNativeZoom: o.maxZoom ?? 18,
-                zIndex: OVERLAY_Z,
-              });
-      layer.addTo(map);
-      live.set(o.id, {
-        layer,
-        url: o.url,
-        minZoom: o.minZoom,
-        maxZoom: o.maxZoom,
-        attribution: o.attribution,
-        wms: o.wms,
-        layers: o.layers,
-        styles: o.styles,
-        tileSize: o.tileSize,
-        params: o.params,
-        nativeCrs: o.nativeCrs,
-        pyramid: o.pyramid,
-      });
-    }
+    syncOverlayLayers(map, overlayLayersRef.current, overlays, {
+      enabled: appSettings.allowMapTiles,
+      isOn: (o) => overlayOn.has(o.id),
+      opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
+    });
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // A layer newly marked "show by default" in Settings (reachable from the
+  // chart) switches itself on here; one the user unticked in the picker stays
+  // off — only the transition to default counts.
+  const seenDefaultsRef = useRef<ReadonlySet<string>>(
+    new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id)),
+  );
+  useEffect(() => {
+    const now = new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id));
+    const fresh = [...now].filter((id) => !seenDefaultsRef.current.has(id));
+    seenDefaultsRef.current = now;
+    if (fresh.length) setOverlayOn((prev) => new Set([...prev, ...fresh]));
+  }, [appSettings.mapOverlays]);
 
   // Click-to-identify: with a queryable WMS overlay on, a map click fires a
   // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the

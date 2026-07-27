@@ -1331,6 +1331,8 @@ export const sl = {
   "settings.map.overlays.from": "Od",
   "settings.map.overlays.to": "Do",
   "settings.map.overlays.years.hint": "Leta, ki jih ta karta prikazuje — zemljevid označi sloje, ki ustrezajo obdobju.",
+  "settings.map.overlays.default": "Privzeto",
+  "settings.map.overlays.default.hint": "Ta sloj prikaži na vseh zemljevidih: zemljevid se odpre z vklopljenim slojem (tam ga lahko za tisti zemljevid odkljukate), izrišejo pa ga tudi mali zemljevidi krajev.",
   "settings.map.overlays.url": "Predloga URL ploščic z {z}/{x}/{y}",
   "settings.map.overlays.url.hint": "Predloga URL ploščic XYZ ali WMTS-REST; nadomestki {z}/{x}/{y} (in po želji {s}).",
   "settings.map.overlays.attribution": "Navedba vira",

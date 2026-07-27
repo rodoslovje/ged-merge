@@ -6763,6 +6763,12 @@ kbd {
 .settings-overlay-name {
   flex: 1 1 auto;
 }
+/* The layer's name heads its card — read first, so it carries the weight. */
+.settings-overlay-row .settings-overlay-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
 .settings-overlay-year {
   width: 5.2em;
   flex: 0 0 auto;
