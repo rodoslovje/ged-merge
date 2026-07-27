@@ -193,6 +193,18 @@ function findScroller(el: HTMLElement | null): HTMLElement | null {
   return (document.scrollingElement as HTMLElement | null) ?? null;
 }
 
+/**
+ * Top edge of the scrollport in viewport coordinates. For an element scroller
+ * that is its own box top — but the document scroller's box top is `-scrollY`,
+ * while the edge you actually see through is always 0. Using the box top there
+ * makes the visible window drift by a full scroll offset, so the list renders
+ * rows nowhere near the ones on screen (blank page at the bottom of a long
+ * list). The phone layout scrolls the document, so this path is live.
+ */
+function scrollportTop(sc: HTMLElement): number {
+  return sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top;
+}
+
 /** How many rows to render on the very first pass, before the viewport is known. */
 const INITIAL_WINDOW = 40;
 
@@ -233,7 +245,7 @@ export function useVirtualList({
       return { start: 0, end, padTop: 0, padBottom: Math.max(0, m.totalHeight() - m.offsetOf(end)) };
     }
     // Viewport top in list coordinates (0 = top of virtual row 0).
-    const y0 = sc.getBoundingClientRect().top - tp.getBoundingClientRect().top;
+    const y0 = scrollportTop(sc) - tp.getBoundingClientRect().top;
     const vh = sc.clientHeight || window.innerHeight;
     const { start, end } = m.range(y0, y0 + vh, overscan);
     return {
@@ -336,7 +348,7 @@ export function useVirtualList({
       const sc = scroller.current;
       const tp = top.current;
       if (!sc || !tp || i < 0 || i >= m.count) return;
-      const listStart = tp.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
+      const listStart = tp.getBoundingClientRect().top - scrollportTop(sc) + sc.scrollTop;
       const rowTop = listStart + m.offsetOf(i);
       if (align === "start") {
         sc.scrollTop = rowTop - scrollMarginRef.current;

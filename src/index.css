@@ -330,6 +330,19 @@ button:focus-visible {
   padding-top: 16px;
 }
 
+/* Edit / Merge / Tools each stay mounted and are toggled with `display`, so a
+   mode switch doesn't remount their large lists. The visible one fills the
+   shell below the header. */
+.mode-layer {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.mode-layer--hidden {
+  display: none;
+}
+
 /* --- two-column main layout: matches (left) + compare (right) --- */
 .main-split {
   flex: 1 1 0; /* fill the remaining vertical space below the header/Load */
@@ -7172,9 +7185,44 @@ kbd {
     margin-bottom: 8px;
   }
   .app-footer {
-    padding: 6px 12px 2px;
+    padding: 10px 12px 8px;
     gap: 3px 5px;
     font-size: 0.72rem;
+  }
+  /* One page scroll. The shell was a fixed frame around an inner scrollport, so
+     the footer sat pinned over the list — a permanent 50px band that content
+     slid under. Release the inner scrollers and let the document scroll: the
+     footer lands at the end of the content, where it belongs, and the header
+     stays put on its own via `sticky`. Charts keep the framed layout — their
+     canvas needs a viewport-sized box to pan inside. */
+  /* `overflow` must go fully visible: any non-visible value here (even
+     `clip` on one axis) makes this the sticky header's scrollport, and the
+     header scrolls away with the page. */
+  .app:not(.tree-shell) {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+  .app:not(.tree-shell) > .app-head {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: var(--bg);
+  }
+  .app:not(.tree-shell) .mode-layer,
+  .app:not(.tree-shell) .tools-view,
+  .app:not(.tree-shell) .edit-view,
+  .app:not(.tree-shell) .edit-view > .section-body,
+  .app:not(.tree-shell) .split-pane > .section > .section-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  /* Now that it is the page and not a scrollport, the footer needs the divider
+     the scrollport's edge used to imply. */
+  .app:not(.tree-shell) > .app-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
   }
   /* A full-page chart/map is all content; the same footer is one Back away on
      the shell underneath, so it doesn't need to hold 50px here. */
@@ -7227,6 +7275,26 @@ kbd {
   .tools-filter-row {
     gap: 8px;
     margin-bottom: 10px;
+  }
+  /* Places / Sources: filter, geocoding chip and summary each claimed a row of
+     their own. The chip and the summary are both fixed-width text and can't
+     share one (~480px of label in Slovenian), but the filter box is elastic —
+     so pair it with the chip and give the summary the second row. Scoped to
+     `:has(.tools-chip-group)` so the Health check's chip cloud, which needs the
+     full width to wrap into, keeps its own layout. */
+  .tools-filter-row:has(.tools-chip-group) .tools-search,
+  .tools-filter-row:has(.tools-search):has(.tools-chip-group) .tools-search {
+    flex: 1 1 96px;
+    min-width: 0;
+  }
+  .tools-filter-row:has(.tools-chip-group) .tools-chip-group {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+  .tools-filter-row:has(.tools-chip-group) .tools-summary {
+    flex: 1 1 100%;
+    margin-left: 0;
+    text-align: right;
   }
 
   /* --- Charts: toolbar, kind switcher --- */
