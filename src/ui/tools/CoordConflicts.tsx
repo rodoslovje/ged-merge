@@ -6,6 +6,7 @@ import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import { parseManualCoord } from "./GeocodePlaceRow";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { GeoRowHeader, MapToggle } from "./shared";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -43,6 +44,8 @@ export function CoordConflicts({
   // Re-scanned whenever the dataset object changes, so a settled row disappears.
   const conflicts = useMemo(() => scanPlaceCoords(dataset).conflicts, [dataset]);
   const [open, setOpen] = useState<string | null>(null);
+  /** The row whose map is drawn — one at a time, and only on request. */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
   const [picked, setPicked] = useState<Map<string, GeoCoord>>(new Map());
   /** Free "lat, lon" text per row, for a coordinate that is in neither list. */
   const [manual, setManual] = useState<Map<string, string>>(new Map());
@@ -64,21 +67,13 @@ export function CoordConflicts({
     pick(key, coord);
   };
 
-  const apply = (c: CoordConflict) => {
-    const key = keyOf(c);
-    const coord = picked.get(key);
-    if (!coord) return;
-    const changed = onApply(new Map([[key, coord]]));
-    setPicked((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
-    setManual((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
+  /** Settle every row that has a pick, in one undoable step — the same shape as
+   *  the two lists above, which also collect picks and write them together. */
+  const apply = () => {
+    if (!picked.size) return;
+    const changed = onApply(new Map(picked));
+    setPicked(new Map());
+    setManual(new Map());
     setOpen(null);
     setApplied(changed);
   };
@@ -87,6 +82,11 @@ export function CoordConflicts({
     <section className="tools-cleanup-section">
       <div className="tools-dup-kind-head">{t("tools.validate.coordConflict.title")}</div>
       <p className="tools-intro">{t("tools.validate.coordConflict.hint", { count: conflicts.length })}</p>
+      <div className="tools-reshape-options">
+        <button className="nav-btn tools-run" onClick={apply} disabled={!picked.size}>
+          {t("tools.validate.coordConflict.apply", { count: picked.size })}
+        </button>
+      </div>
       {applied !== null && (
         <p className="tools-clean tools-clean--ok">{t("tools.validate.coordConflict.applied", { count: applied })}</p>
       )}
@@ -95,29 +95,22 @@ export function CoordConflicts({
           const key = keyOf(c);
           const isOpen = open === key;
           const chosen = picked.get(key);
-          const events = c.coords.reduce((n, x) => n + x.n, 0);
           const manualText = manual.get(key) ?? "";
           const manualCoord = parseManualCoord(manualText);
           const manualChosen = !!manualCoord && sameCoord(chosen, manualCoord);
           return (
             <li key={key} className={`tools-issue tools-geo-conflict-row sev-warning${i % 2 ? " zebra" : ""}`}>
-              <div className="tools-geo-addr-head">
-                <button
-                  className={`tools-pair-toggle ${isOpen ? "open" : ""}`}
-                  aria-expanded={isOpen}
-                  onClick={() => toggle(key)}
-                >
-                  ▶
-                </button>
-                <span className="tools-issue-msg clickable" onClick={() => toggle(key)}>
-                  {c.address ? `${c.value} · ${c.address}` : c.value}
-                </span>
+              <GeoRowHeader open={isOpen} onToggle={() => toggle(key)} place={c.value} address={c.address}>
                 <span className="gm-data">
                   {c.coords.map((x) => `${x.coord.lat.toFixed(4)}, ${x.coord.lon.toFixed(4)} (${x.n})`).join("  ·  ")}
                 </span>
-              </div>
+              </GeoRowHeader>
               {isOpen && (
                 <div className="tools-geo-conflict-body">
+                  <div className="tools-geo-actions">
+                    <MapToggle open={mapOpen === key} onToggle={() => setMapOpen(mapOpen === key ? null : key)} />
+                  </div>
+                  {mapOpen === key && (
                   <Suspense fallback={<div className="tools-geo-minimap" />}>
                     <MiniPlaceMap
                       pins={[
@@ -149,6 +142,7 @@ export function CoordConflicts({
                       fitKey={key}
                     />
                   </Suspense>
+                  )}
                   <ul className="tools-geo-candidates">
                     {c.coords.map((x, j) => (
                       <li key={j}>
@@ -193,9 +187,6 @@ export function CoordConflicts({
                       />
                     </li>
                   </ul>
-                  <button className="nav-btn tools-run" onClick={() => apply(c)} disabled={!chosen}>
-                    {t("tools.validate.coordConflict.apply", { count: events })}
-                  </button>
                 </div>
               )}
             </li>

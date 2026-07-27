@@ -406,9 +406,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       else next.delete(key);
       return next;
     });
-    // The map follows the row being opened; closing it frees the map.
-    if (willOpen) setMapKey(key);
-    else if (mapKey === key) setMapKey(null);
+    // The map is never opened for you — it is asked for, like everywhere else
+    // on this page. Closing the row does free it.
+    if (!willOpen && mapKey === key) setMapKey(null);
   };
 
   const renameValue = (from: string, to: string, addr?: string) => {
@@ -667,7 +667,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             missingInTitle={missingInTitles.get(row.key)}
             onToggleChecked={toggleChecked}
             onToggleOpen={toggleOpen}
-            onClaimMap={setMapKey}
+            onClaimMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
             onPickCoord={pickCoord}
             onToggleNoMatch={toggleNoMatch}
             onRename={renameValue}

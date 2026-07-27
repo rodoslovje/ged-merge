@@ -8,6 +8,7 @@ import { collectPlaceValues } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
+import { GeoRowHeader, MapToggle } from "./shared";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
 // for events whose PLAC names only the settlement. Kept apart from the place
@@ -135,6 +136,8 @@ export function AddressCoordsSection({
   const placeValues = useMemo(() => collectPlaceValues(dataset), [dataset]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
+  /** Groups whose map is drawn — never on open, always on request. */
+  const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
   const [applied, setApplied] = useState<number | null>(null);
@@ -189,6 +192,14 @@ export function AddressCoordsSection({
         }),
     );
   };
+
+  const toggleMap = (place: string) =>
+    setMapOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(place)) next.delete(place);
+      else next.add(place);
+      return next;
+    });
 
   const toggle = (place: string) =>
     setOpen((prev) => {
@@ -293,37 +304,36 @@ export function AddressCoordsSection({
           const isOpen = open.has(group.place);
           return (
             <li key={group.place} className="tools-geo-addr-group">
-              <div className="tools-geo-addr-head">
-                {/* Same caret as the place rows above — one rotating ▶, not a
-                    boxed button, so the two lists read as one tool. */}
-                <button
-                  className={`tools-pair-toggle ${isOpen ? "open" : ""}`}
-                  aria-expanded={isOpen}
-                  onClick={() => toggle(group.place)}
-                >
-                  ▶
-                </button>
-                <span className="tools-tree-label clickable" onClick={() => toggle(group.place)}>
-                  {group.place || t("tools.geocode.addr.noPlace")}
-                </span>
+              <GeoRowHeader
+                open={isOpen}
+                onToggle={() => toggle(group.place)}
+                place={group.place || t("tools.geocode.addr.noPlace")}
+              >
                 <span className="tools-geo-count">
                   {t("tools.geocode.addr.groupMeta", { count: group.rows.length, events: group.events })}
                 </span>
-                {settings.allowLinkFetch && isOpen && group.rows.length > 1 && (
-                  <button className="tools-issue-link" onClick={() => searchGroup(group)}>
-                    {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
-                  </button>
-                )}
-                {isOpen && group.place && moveGroup !== group.place && (
-                  <button
-                    className="tools-issue-link"
-                    title={t("tools.geocode.addr.moveHint")}
-                    onClick={() => startMove(group)}
-                  >
-                    {t("tools.geocode.addr.move")}
-                  </button>
-                )}
-              </div>
+              </GeoRowHeader>
+              {isOpen && (
+                <div className="tools-geo-actions">
+                  {/* The place's houses on one map — asked for, like every other
+                      map on this page, and drawn above the addresses it is about. */}
+                  <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
+                  {settings.allowLinkFetch && group.rows.length > 1 && (
+                    <button className="tools-issue-link" onClick={() => searchGroup(group)}>
+                      {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
+                    </button>
+                  )}
+                  {group.place && moveGroup !== group.place && (
+                    <button
+                      className="tools-issue-link"
+                      title={t("tools.geocode.addr.moveHint")}
+                      onClick={() => startMove(group)}
+                    >
+                      {t("tools.geocode.addr.move")}
+                    </button>
+                  )}
+                </div>
+              )}
               {isOpen && moveGroup !== group.place &&
                 registerSplits(group, searches).map((split) => (
                   <p key={split.settlement} className="tools-geo-addr-split">
@@ -354,7 +364,7 @@ export function AddressCoordsSection({
                   onCancel={closeMove}
                 />
               )}
-              {isOpen && (() => {
+              {isOpen && mapOpen.has(group.place) && (() => {
                 const pins = groupPins(group);
                 if (!pins.length) return null;
                 return (

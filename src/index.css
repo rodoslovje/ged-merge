@@ -7046,6 +7046,9 @@ kbd {
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
+/* The address beside a place in a row header — the second half of the pair the
+   row is about, muted so the place still reads as the row's name. */
+.tools-geo-row-addr { color: var(--muted); font-weight: normal; }
 /* A conflict row keeps the issue-row look but stacks: the header line, and —
    when expanded — the map, the pick list and the button that settles it. */
 .tools-geo-conflict-row { flex-direction: column; align-items: stretch; }

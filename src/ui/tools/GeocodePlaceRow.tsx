@@ -14,6 +14,7 @@ import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettings } from "../SettingsContext";
+import { GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -249,23 +250,20 @@ export function GeocodePlaceRow({
 
   return (
     <li className="tools-tree-node">
-      <div className="tools-tree-row">
-        <input
-          type="checkbox"
-          className="tools-dup-check"
-          checked={isChecked}
-          disabled={!c || marked}
-          onChange={(e) => onToggleChecked(row.key, e.target.checked)}
-        />
-        <button className={`tools-pair-toggle ${isOpen ? "open" : ""}`} onClick={() => onToggleOpen(row.key)} aria-expanded={isOpen}>
-          ▶
-        </button>
-        <span
-          className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
-          onClick={() => onToggleOpen(row.key)}
-        >
-          {row.key}
-        </span>
+      <GeoRowHeader
+        open={isOpen}
+        onToggle={() => onToggleOpen(row.key)}
+        place={<span className={marked ? "tools-reshape-removed" : undefined}>{row.key}</span>}
+        before={
+          <input
+            type="checkbox"
+            className="tools-dup-check"
+            checked={isChecked}
+            disabled={!c || marked}
+            onChange={(e) => onToggleChecked(row.key, e.target.checked)}
+          />
+        }
+      >
         {renameOpen ? (
           <button
             className="tools-place-edit-btn tools-place-edit-cancel"
@@ -335,7 +333,7 @@ export function GeocodePlaceRow({
           {marked ? "↩" : "🗑"}
         </button>
         <span className="tools-chip-count" title={missingInTitle}>{row.missing}</span>
-      </div>
+      </GeoRowHeader>
       {renameOpen && (
         <div
           className="tools-place-rename"
@@ -413,11 +411,7 @@ export function GeocodePlaceRow({
             if (!hasMap || !plottable)
               return (
                 <div className="tools-geo-actions">
-                  {plottable && (
-                    <button className="tools-issue-link" onClick={() => onClaimMap(row.key)}>
-                      {t("tools.geocode.showMap")}
-                    </button>
-                  )}
+                  {plottable && <MapToggle open={false} onToggle={() => onClaimMap(row.key)} />}
                   {searchActions}
                 </div>
               );
@@ -486,7 +480,10 @@ export function GeocodePlaceRow({
                 />
                 {/* Open: the searches move under the map, where their results
                     land as new pins. */}
-                <div className="tools-geo-actions">{searchActions}</div>
+                <div className="tools-geo-actions">
+                  <MapToggle open onToggle={() => onClaimMap(row.key)} />
+                  {searchActions}
+                </div>
               </Suspense>
             );
           })()}
