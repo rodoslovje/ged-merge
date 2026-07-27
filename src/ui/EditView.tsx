@@ -1522,6 +1522,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               kinship={kinship}
               kinshipLineage={kinshipLineage}
               kinshipTooltip={kinshipTooltip}
+              modified={changedPersonIds.has(person.id)}
               controls={
                 <button
                   type="button"

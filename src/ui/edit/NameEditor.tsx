@@ -4,6 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { lifespanTooltipOf } from "../../gedcom/age";
 import { primaryName } from "../../match/relatives";
+import { xrefLabel } from "../../gedcom/nameDisplay";
 import { sexClass } from "../sex";
 import { useSettings } from "../SettingsContext";
 import { setName } from "../../gedcom/edit";
@@ -26,6 +27,7 @@ export function NameEditor({
   kinship,
   kinshipLineage,
   kinshipTooltip,
+  modified,
   controls,
 }: {
   person: Individual;
@@ -44,6 +46,9 @@ export function NameEditor({
   /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-maternal"). */
   kinshipLineage?: string;
   kinshipTooltip?: string;
+  /** True when this person's record has unsaved edits — shows the same "modified"
+   *  chip the relative cards and tree nodes use. */
+  modified?: boolean;
   /** Delete control, placed at the far right of the decision row (or the name row if no match). */
   controls?: ReactNode;
 }) {
@@ -96,12 +101,19 @@ export function NameEditor({
           onBlur={() => commitName(given, surname)}
           onClear={() => { setSurname(""); commitName(given, ""); }}
         />
+        {/* Record id and lifespan, in the same order the relative cards use. */}
+        {settings.showXref && <span className="person-xref gm-data">{xrefLabel(person.id)}</span>}
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
       </div>
       {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
       {matchStatus && matchStatus !== "undecided" && (
         <span className={`status-chip ${matchStatus}`} title={t(`status.${matchStatus}`)}>
           {t(`status.${matchStatus}`).charAt(0)}
+        </span>
+      )}
+      {modified && (
+        <span className="status-chip modified" title={t("edit.tree.modified")}>
+          {t("edit.tree.modified").charAt(0)}
         </span>
       )}
       {hasMatch ? (
