@@ -72,8 +72,10 @@ export function EventCoordPicker({
    *  absolutely positioned panel was cut off at either edge. */
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   /** Whether the next pick is copied to the file's other events at this exact
-   *  place and address (see the offer in the panel head). */
-  const [shareAll, setShareAll] = useState(false);
+   *  place and address (see the offer in the panel head). On by default: the
+   *  same place and address is the same house, so one position is what those
+   *  events should all have — unticking is the exception. */
+  const [shareAll, setShareAll] = useState(true);
   const share = useCoordShare();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
