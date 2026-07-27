@@ -6763,6 +6763,23 @@ kbd {
 .settings-overlay-name {
   flex: 1 1 auto;
 }
+/* Reorder arrows: the list order is the map's stacking order. */
+.settings-overlay-move {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 3px 2px;
+}
+.settings-overlay-move:hover:not(:disabled) {
+  color: var(--text);
+}
+.settings-overlay-move:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
 /* The layer's name heads its card — read first, so it carries the weight. */
 .settings-overlay-row .settings-overlay-title {
   font-size: 1rem;

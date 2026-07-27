@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapOverlay } from "../SettingsContext";
-import { overlaySignature, parseWmsParams } from "./overlayConfig";
+import { overlaySignature, overlayZIndex, parseWmsParams } from "./overlayConfig";
 import { OVERLAY_PRESETS, resolveOverlay } from "./overlayPresets";
 
 const base: MapOverlay = { id: "a", name: "", url: "https://tiles.example/{z}/{x}/{y}.png" };
@@ -27,6 +27,20 @@ describe("overlaySignature", () => {
     // Name and the show-by-default flag are UI-only: neither may force the
     // live layer to be torn down and rebuilt (opacity is set in place).
     expect(overlaySignature({ ...base, name: "Renamed", defaultOn: true })).toBe(overlaySignature(base));
+  });
+});
+
+describe("overlayZIndex", () => {
+  it("stacks the list first-on-top, all above the base layer", () => {
+    const z = [0, 1, 2].map((i) => overlayZIndex(i, 3));
+    expect(z[0]).toBeGreaterThan(z[1]!);
+    expect(z[1]).toBeGreaterThan(z[2]!);
+    // The base tile layer sits at 1 — every overlay must clear it.
+    expect(Math.min(...z)).toBeGreaterThan(1);
+  });
+
+  it("gives a lone layer the bottom slot", () => {
+    expect(overlayZIndex(0, 1)).toBe(overlayZIndex(2, 3));
   });
 });
 

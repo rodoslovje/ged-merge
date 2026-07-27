@@ -1,6 +1,6 @@
 import L from "leaflet";
 import type { MapOverlay } from "../SettingsContext";
-import { OVERLAY_DEFAULT_OPACITY, overlaySignature, parseWmsParams } from "./overlayConfig";
+import { OVERLAY_DEFAULT_OPACITY, OVERLAY_Z, overlaySignature, overlayZIndex, parseWmsParams } from "./overlayConfig";
 import { reprojectedWmsLayer } from "./reprojectedWmsLayer";
 import { canReproject } from "./tilePlan";
 
@@ -9,11 +9,8 @@ import { canReproject } from "./tilePlan";
 // draw the layers flagged "show by default" in Settings). Keeping it here means
 // one definition of how an XYZ / WMS / reprojected-WMS overlay is requested.
 
-/** Leaflet z-index for overlay tile layers — above the base (1). */
-const OVERLAY_Z = 5;
-
-/** The Leaflet layer for one overlay definition, at `opacity`. */
-export function createOverlayLayer(o: MapOverlay, opacity: number): L.GridLayer {
+/** The Leaflet layer for one overlay definition, at `opacity` and `zIndex`. */
+export function createOverlayLayer(o: MapOverlay, opacity: number, zIndex: number = OVERLAY_Z): L.GridLayer {
   if (o.wms && canReproject(o.nativeCrs)) {
     // A service that won't reproject this layer itself: fetch it in its own
     // CRS and warp each tile in the browser.
@@ -30,7 +27,7 @@ export function createOverlayLayer(o: MapOverlay, opacity: number): L.GridLayer 
       minZoom: o.minZoom ?? 0,
       maxZoom: 18,
       tileSize: o.tileSize ?? 256,
-      zIndex: OVERLAY_Z,
+      zIndex,
     });
   }
   if (o.wms) {
@@ -49,7 +46,7 @@ export function createOverlayLayer(o: MapOverlay, opacity: number): L.GridLayer 
       maxZoom: 18,
       // Label styles clip at tile seams — a large tile keeps them whole.
       tileSize: o.tileSize ?? 256,
-      zIndex: OVERLAY_Z,
+      zIndex,
     });
   }
   return L.tileLayer(o.url, {
@@ -60,7 +57,7 @@ export function createOverlayLayer(o: MapOverlay, opacity: number): L.GridLayer 
     maxZoom: 18,
     // Sources that stop at a lower zoom get their deepest tiles scaled.
     maxNativeZoom: o.maxZoom ?? 18,
-    zIndex: OVERLAY_Z,
+    zIndex,
   });
 }
 
@@ -81,24 +78,31 @@ export function syncOverlayLayers(
     opacityOf?: (o: MapOverlay) => number;
   },
 ): void {
+  // The z-index comes from the layer's place in the configured list, not from
+  // the order it happened to be switched on in.
   const wanted = new Map(
-    opts.enabled ? overlays.filter((o) => o.url && opts.isOn(o)).map((o) => [o.id, o] as const) : [],
+    (opts.enabled ? overlays : [])
+      .map((o, i) => [o, overlayZIndex(i, overlays.length)] as const)
+      .filter(([o]) => o.url && opts.isOn(o))
+      .map(([o, z]) => [o.id, { o, z }] as const),
   );
   for (const [id, entry] of [...live]) {
-    const o = wanted.get(id);
-    if (!o || overlaySignature(o) !== entry.sig) {
+    const want = wanted.get(id);
+    if (!want || overlaySignature(want.o) !== entry.sig) {
       entry.layer.remove();
       live.delete(id);
     }
   }
-  for (const [id, o] of wanted) {
+  for (const [id, { o, z }] of wanted) {
     const opacity = opts.opacityOf?.(o) ?? OVERLAY_DEFAULT_OPACITY;
     const entry = live.get(id);
     if (entry) {
       entry.layer.setOpacity(opacity);
+      // A layer added or removed in Settings shifts everyone else's place.
+      entry.layer.setZIndex(z);
       continue;
     }
-    const layer = createOverlayLayer(o, opacity);
+    const layer = createOverlayLayer(o, opacity, z);
     layer.addTo(map);
     live.set(id, { layer, sig: overlaySignature(o) });
   }

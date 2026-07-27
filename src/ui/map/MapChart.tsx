@@ -624,7 +624,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                 // Compose per layer (base, then overlays) so stacking and
                 // opacity match the screen even after a base-layer rebuild.
                 const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
-                const overlayTiles = overlays
+                // Painted bottom-up, so the list is walked in reverse: first
+                // listed is topmost on screen (see overlayZIndex).
+                const overlayTiles = [...overlays]
+                  .reverse()
                   .filter((o) => overlayOn.has(o.id))
                   .flatMap((o) => {
                     const entry = overlayLayersRef.current.get(o.id);

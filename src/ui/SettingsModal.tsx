@@ -489,7 +489,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </button>
               </span>
             </div>
-            {settings.mapOverlays.map((stored) => {
+            {settings.mapOverlays.map((stored, index) => {
               // Show the resolved config (a preset layer reflects the live
               // preset). Renaming keeps the preset link; editing any technical
               // field detaches — it captures the current config and drops the
@@ -507,6 +507,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
                 const n = Number(raw);
                 return { [key]: raw.trim() && Number.isFinite(n) ? n : undefined };
+              };
+              // The list order is the stacking order on the map (first = on
+              // top), so moving a row is how a thin reference layer is put
+              // above a full-page historical map.
+              const move = (delta: number) => {
+                const next = [...settings.mapOverlays];
+                const [row] = next.splice(index, 1);
+                next.splice(index + delta, 0, row!);
+                set({ mapOverlays: next });
               };
               return (
                 <div key={layer.id} className="settings-overlay-row">
@@ -543,6 +552,26 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.years.hint")}
                       onChange={(e) => update(yearPatch("yearTo", e.target.value))}
                     />
+                    <button
+                      type="button"
+                      className="settings-overlay-move"
+                      disabled={index === 0}
+                      onClick={() => move(-1)}
+                      title={t("settings.map.overlays.moveUp")}
+                      aria-label={t("settings.map.overlays.moveUp")}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="settings-overlay-move"
+                      disabled={index === settings.mapOverlays.length - 1}
+                      onClick={() => move(1)}
+                      title={t("settings.map.overlays.moveDown")}
+                      aria-label={t("settings.map.overlays.moveDown")}
+                    >
+                      ▼
+                    </button>
                     <button
                       type="button"
                       className="tools-geo-delete"
