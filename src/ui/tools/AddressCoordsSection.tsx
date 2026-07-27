@@ -25,6 +25,9 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
 
+/** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
+const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
 /** Addresses of one place, with the totals its header shows. */
 interface PlaceGroup {
   place: string;
@@ -126,7 +129,12 @@ export function AddressCoordsSection({
         g.events += row.count;
       } else byPlace.set(row.place, { place: row.place, rows: [row], events: row.count });
     }
-    for (const g of byPlace.values()) g.suggestion = groupSuggestion(g.place, g.rows);
+    for (const g of byPlace.values()) {
+      g.suggestion = groupSuggestion(g.place, g.rows);
+      // Inside a place, the addresses are that village's numbering — read in
+      // order, not ranked by how often the file happens to name each house.
+      g.rows.sort((a, b) => BY_NUMBER.compare(a.address, b.address));
+    }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
   }, [rows]);
