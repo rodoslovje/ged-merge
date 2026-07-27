@@ -30,7 +30,7 @@ describe("parseSearchIds", () => {
 });
 
 describe("parseObject", () => {
-  it("reads id, position, names and type code", () => {
+  it("reads id, position, names, type code and the superordinate refs", () => {
     const obj = parseObject(OBJECT_RESPONSE);
     expect(obj).toEqual<GovObject>({
       id: "object_310010",
@@ -40,7 +40,19 @@ describe("parseObject", () => {
         { lang: "slo", value: "Kranj" },
       ],
       typeCode: "146",
+      // The parent is what tells same-named places apart; only the first is
+      // ever resolved, but all of them are read.
+      partOf: ["object_310001"],
     });
+  });
+
+  it("reads every part-of in order, and none when there are none", () => {
+    const twoParents = OBJECT_RESPONSE.replace(
+      '<ns2:part-of ref="object_310001"/>',
+      '<ns2:part-of ref="object_1123972"/><ns2:part-of ref="object_310011"/>',
+    );
+    expect(parseObject(twoParents)?.partOf).toEqual(["object_1123972", "object_310011"]);
+    expect(parseObject(OBJECT_RESPONSE.replace('<ns2:part-of ref="object_310001"/>', ""))?.partOf).toEqual([]);
   });
 
   it("returns undefined when there is no object (fault body)", () => {

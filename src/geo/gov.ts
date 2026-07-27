@@ -37,6 +37,10 @@ export interface GovResult {
   govId: string;
   /** GOV numeric type code, informational. */
   kind?: string;
+  /** The place this one is part of — the municipality, resolved from the
+   *  object's first `part-of` ref. What tells four same-named Osredek apart;
+   *  absent when the object names no parent or the lookup failed. */
+  admin?: string;
 }
 
 /** A GOV name entry: a value in one language. */
@@ -51,6 +55,10 @@ export interface GovObject {
   coord?: GeoCoord;
   names: GovName[];
   typeCode?: string;
+  /** Ids of the superordinate objects, outermost last as GOV lists them. Only
+   *  the first is ever resolved: it is the immediate parent (the municipality),
+   *  and each one costs its own request. */
+  partOf?: string[];
 }
 
 /** ISO-639-1 UI language → the 3-letter code GOV tags names with. GOV follows
@@ -97,7 +105,7 @@ export function parseObject(xml: string): GovObject | undefined {
   const id = attr(outTag[1], "id");
   if (!id) return undefined;
 
-  const obj: GovObject = { id, names: [] };
+  const obj: GovObject = { id, names: [], partOf: [] };
 
   const posTag = /<(?:\w+:)?position\b([^>]*)\/?>/.exec(xml);
   if (posTag) {
@@ -112,6 +120,13 @@ export function parseObject(xml: string): GovObject | undefined {
     const value = attr(nm[1], "value").trim();
     if (!value) continue;
     obj.names.push({ lang: attr(nm[1], "lang").trim(), value });
+  }
+
+  const partRe = /<(?:\w+:)?part-of\b([^>]*?)\/?>/g;
+  let pm: RegExpExecArray | null;
+  while ((pm = partRe.exec(xml))) {
+    const ref = attr(pm[1], "ref").trim();
+    if (ref) obj.partOf!.push(ref);
   }
 
   const typeTag = /<(?:\w+:)?type\b([^>]*)>/.exec(xml);
@@ -182,6 +197,50 @@ function govCall(operation: string, inner: string): Promise<string> {
 }
 
 /**
+ * Parent names resolved this session, by GOV id. GOV has no municipality table
+ * the way GURS does — every parent is its own object, one request each — but
+ * they repeat heavily: the candidates of one query often share a district, and
+ * across a file the same dozen municipalities recur, so after the first few
+ * searches most parents are already here. `undefined` is cached too, so a
+ * parent that could not be resolved is not asked for again.
+ */
+const parentNames = new Map<string, string | undefined>();
+
+/** Best display name of a parent object for the UI language. */
+function parentName(obj: GovObject, language: string): string | undefined {
+  if (!obj.names.length) return undefined;
+  const wantLang = LANG_MAP[language] ?? language;
+  return (obj.names.find((n) => n.lang === wantLang) ?? obj.names[0]).value;
+}
+
+/**
+ * The immediate parent's name for each result, fetched once per distinct id and
+ * remembered for the session. Only the first `part-of` is followed — the
+ * municipality — since the outer levels add requests without adding much: what
+ * separates two same-named villages is which municipality they are in.
+ */
+async function attachParents(
+  results: (GovResult & { score: number })[],
+  parents: ReadonlyMap<string, string | undefined>,
+  language: string,
+): Promise<void> {
+  const wanted = [...new Set([...parents.values()].filter((id): id is string => !!id && !parentNames.has(id)))];
+  await Promise.all(
+    wanted.map(async (id) => {
+      const obj = await govCall("getObject", `<itemId>${xmlEscape(id)}</itemId>`).then(parseObject, () => undefined);
+      parentNames.set(id, obj ? parentName(obj, language) : undefined);
+    }),
+  );
+  for (const r of results) {
+    const parentId = parents.get(r.govId);
+    const name = parentId ? parentNames.get(parentId) : undefined;
+    // A parent repeating the place's own name says nothing (a village inside
+    // the municipality it is named after), so it is left off.
+    if (name && foldToken(name) !== foldToken(r.name)) r.admin = name;
+  }
+}
+
+/**
  * Search GOV for a place string: resolve the top name matches to full objects,
  * keep those with a coordinate and a plausible name, and rank them. The caller
  * gates this behind the online opt-in (the query text leaves the device).
@@ -202,15 +261,26 @@ export async function searchGov(query: string, language: string): Promise<GovRes
   );
 
   const results: (GovResult & { score: number })[] = [];
+  const parents = new Map<string, string | undefined>();
   const seen = new Set<string>();
   for (const obj of objects) {
     if (!obj || seen.has(obj.id)) continue;
     seen.add(obj.id);
     const scored = scoreObject(obj, foldedLocality, language);
-    if (scored) results.push(scored);
+    if (!scored) continue;
+    results.push(scored);
+    parents.set(obj.id, obj.partOf?.[0]);
   }
   results.sort((a, b) => b.score - a.score);
-  return results.slice(0, MAX_RESULTS).map(({ score, ...r }) => {
+  const top = results.slice(0, MAX_RESULTS);
+  // Only the results actually shown are worth a parent lookup. A failure here
+  // costs the labels, not the search — the coordinates are already in hand.
+  try {
+    await attachParents(top, parents, language);
+  } catch {
+    // Leave the results unlabelled.
+  }
+  return top.map(({ score, ...r }) => {
     void score;
     return r;
   });

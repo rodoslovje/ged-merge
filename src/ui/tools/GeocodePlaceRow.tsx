@@ -521,6 +521,9 @@ export function GeocodePlaceRow({
                     onChange={() => onPickCoord(row, r.coord, r.name, r.govId)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
+                  {/* The place it is part of, like the register candidates —
+                      four same-named Osredek differ only in this. */}
+                  {r.admin && <span className="tools-geo-count">({r.admin})</span>}
                   <span className="gm-data">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
