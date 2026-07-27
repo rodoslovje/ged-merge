@@ -8,7 +8,7 @@ import { collectPlaceValues } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
-import { GeoRowHeader, MapToggle } from "./shared";
+import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
 // for events whose PLAC names only the settlement. Kept apart from the place
@@ -148,6 +148,8 @@ export function AddressCoordsSection({
   const [moved, setMoved] = useState<number | null>(null);
 
   if (!rows.length) return null;
+
+  const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
 
   const setSearch = (key: string, next: SearchState) => setSearches((prev) => new Map(prev).set(key, next));
 
@@ -315,6 +317,15 @@ export function AddressCoordsSection({
           <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
             {t("tools.sources.dupSelectNone")}
           </button>
+          <ExpandAllToggle
+            allOpen={allOpen}
+            onToggle={() => {
+              if (allOpen) {
+                setOpen(new Set());
+                setMapOpen(new Set());
+              } else setOpen(new Set(groups.map((g) => g.place)));
+            }}
+          />
         </div>
       </div>
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>

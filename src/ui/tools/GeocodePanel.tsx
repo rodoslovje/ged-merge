@@ -19,7 +19,7 @@ import {
   type GeocodeDecision,
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
-import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { ExpandAllToggle, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { AddressCoordsSection } from "./AddressCoordsSection";
@@ -642,18 +642,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
               {t("tools.sources.dupSelectNone")}
             </button>
-            <button className="tools-issue-link" onClick={() => setExpanded(new Set(rows.map((r) => r.key)))}>
-              {t("tools.sources.expandAll")}
-            </button>
-            <button
-              className="tools-issue-link"
-              onClick={() => {
-                setExpanded(new Set());
-                setMapKey(null);
+            <ExpandAllToggle
+              allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
+              onToggle={() => {
+                if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
+                  setExpanded(new Set());
+                  setMapKey(null);
+                } else setExpanded(new Set(rows.map((r) => r.key)));
               }}
-            >
-              {t("tools.sources.collapseAll")}
-            </button>
+            />
           </div>
         </div>
         <div className="tools-reshape-options">

@@ -6,7 +6,7 @@ import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import { parseManualCoord } from "./GeocodePlaceRow";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
-import { GeoRowHeader, MapToggle } from "./shared";
+import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -43,7 +43,7 @@ export function CoordConflicts({
   const { t } = useTranslation();
   // Re-scanned whenever the dataset object changes, so a settled row disappears.
   const conflicts = useMemo(() => scanPlaceCoords(dataset).conflicts, [dataset]);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
   /** The row whose map is drawn — one at a time, and only on request. */
   const [mapOpen, setMapOpen] = useState<string | null>(null);
   const [picked, setPicked] = useState<Map<string, GeoCoord>>(new Map());
@@ -53,8 +53,17 @@ export function CoordConflicts({
 
   if (!conflicts.length) return null;
 
+  // Only the rows actually rendered can be opened, so they are what "all" means.
+  const shown = conflicts.slice(0, 200);
+  const allOpen = shown.every((c) => open.has(keyOf(c)));
+
   const toggle = (key: string) => {
-    setOpen((prev) => (prev === key ? null : key));
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
     setApplied(null);
   };
 
@@ -83,7 +92,8 @@ export function CoordConflicts({
     const changed = onApply(new Map(picked));
     setPicked(new Map());
     setManual(new Map());
-    setOpen(null);
+    setOpen(new Set());
+    setMapOpen(null);
     setApplied(changed);
   };
 
@@ -99,6 +109,15 @@ export function CoordConflicts({
           <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={!picked.size}>
             {t("tools.sources.dupSelectNone")}
           </button>
+          <ExpandAllToggle
+            allOpen={allOpen}
+            onToggle={() => {
+              if (allOpen) {
+                setOpen(new Set());
+                setMapOpen(null);
+              } else setOpen(new Set(shown.map(keyOf)));
+            }}
+          />
         </div>
       </div>
       <p className="tools-intro">{t("tools.validate.coordConflict.hint", { count: conflicts.length })}</p>
@@ -106,9 +125,9 @@ export function CoordConflicts({
         <p className="tools-clean tools-clean--ok">{t("tools.validate.coordConflict.applied", { count: applied })}</p>
       )}
       <ul className="tools-tree">
-        {conflicts.slice(0, 200).map((c) => {
+        {shown.map((c) => {
           const key = keyOf(c);
-          const isOpen = open === key;
+          const isOpen = open.has(key);
           const chosen = picked.get(key);
           const manualText = manual.get(key) ?? "";
           const manualCoord = parseManualCoord(manualText);

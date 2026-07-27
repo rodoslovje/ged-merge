@@ -163,3 +163,18 @@ export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => v
     </button>
   );
 }
+
+/**
+ * Open or close every row of a list, as one control rather than two: it offers
+ * "expand all" whenever anything is still closed, and "collapse all" only once
+ * everything is open. There is no state in which the other action is wanted, so
+ * the pair was always one dead button.
+ */
+export function ExpandAllToggle({ allOpen, onToggle }: { allOpen: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button className="tools-issue-link" onClick={onToggle}>
+      {t(allOpen ? "tools.sources.collapseAll" : "tools.sources.expandAll")}
+    </button>
+  );
+}
