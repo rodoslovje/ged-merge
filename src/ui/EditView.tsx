@@ -7,6 +7,8 @@ import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { isSameSexCouple } from "../gedcom/couple";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
+import { splitFullName } from "../gedcom/name";
+import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
@@ -16,6 +18,7 @@ import { decisionKey, decisionStatusByMainId, type CandidateDecision, type Match
 import {
   addChild,
   addEventNode,
+  addIndividual,
   addObjeToSource,
   addParent,
   addPartner,
@@ -150,6 +153,11 @@ interface Props {
   pendingApply: PendingEditApply | null;
   /** Called after pendingApply has been processed. */
   onApplied: () => void;
+  /** A request to create a new, unattached person (the header button, the `N`
+   * shortcut, the global search's create row). `nonce` increments per request —
+   * each value is honoured exactly once — and `name` pre-fills the name from
+   * whatever the user had already typed. */
+  addPersonRequest?: { nonce: number; name?: string };
   /** False when Edit is mounted but hidden behind Merge mode — kept mounted
    * across mode switches so toggling modes with a large match list doesn't
    * re-render the whole tab from scratch. Gates the global keydown shortcut
@@ -167,7 +175,7 @@ interface Props {
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const { settings, set: setSettings } = useSettings();
@@ -1103,6 +1111,42 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     navigate(added.id);
   });
 
+  /**
+   * Create a new person attached to nobody — the start of a new branch, or the
+   * very first person in an empty file. Unlike `addRelative` this touches no
+   * family at all: one new INDI, and Edit lands on it with the name focused.
+   * `name` pre-fills from text the user already typed (the search query).
+   */
+  const addStandalonePerson = useStableHandler((name?: string) => {
+    const added = addIndividual(dataset, "U");
+    const parts = name ? splitFullName(name, settings.order) : undefined;
+    if (parts?.given || parts?.surname) {
+      setName(added, parts);
+      rebuildIndividual(dataset, added);
+    }
+    // Undo removes the person and returns to whoever was shown before (nobody,
+    // when this was the first person in an empty file).
+    onPushEdit(
+      [{ type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) }],
+      selectedId,
+      added.id,
+    );
+    onDirty("individual", added.id);
+    relationsGenRef.current += 1;
+    focusNextName.current = true;
+    navigate(added.id);
+  });
+
+  // Honour each add-person request from the host (header button, `N` shortcut,
+  // global search) exactly once — the nonce is the signal, and it only grows.
+  const addPersonNonceRef = useRef(0);
+  useEffect(() => {
+    if (!addPersonRequest || addPersonRequest.nonce === addPersonNonceRef.current) return;
+    addPersonNonceRef.current = addPersonRequest.nonce;
+    addStandalonePerson(addPersonRequest.name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addPersonRequest]);
+
   const connectRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", existingId: string, fam?: Family) => {
     if (!person) return;
     const existing = dataset.individuals.get(existingId);
@@ -1427,6 +1471,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         <div className="section-body">
           <p className="gm-file main gm-data" title={`${t("tree.main")}: ${fileName}`}>{fileName}</p>
           <p className="muted">{t("edit.empty")}</p>
+          <button className="tree-open-btn edit-empty-add" onClick={() => addStandalonePerson()}>
+            <AddPersonIcon size={15} /> {t("edit.addNewPerson")}
+          </button>
         </div>
       </div>
     );

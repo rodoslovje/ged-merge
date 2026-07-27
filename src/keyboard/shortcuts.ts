@@ -25,6 +25,8 @@ export const KEY = {
   home: "h",
   /** Merge mode: focus the match-list name filter (global search is `/`). */
   filter: "f",
+  /** Add a new person attached to nobody, from any mode. */
+  addPerson: "n",
   confirm: "c",
   reject: "r",
   defer: "d",
@@ -129,6 +131,14 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
       { keys: [["⌫"]], descKey: "shortcuts.item.back" },
       { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filterMatches" },
+    ],
+  },
+  {
+    titleKey: "shortcuts.group.editing",
+    category: "app",
+    column: "left",
+    items: [
+      { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
     ],
   },
   {

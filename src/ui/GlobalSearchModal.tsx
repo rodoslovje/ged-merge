@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { Sex } from "../gedcom/types";
 import type { MatchDecisionStatus } from "../review/types";
+import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 import { sexClass } from "./sex";
 import {
@@ -43,6 +44,10 @@ interface Props {
   startId?: string;
   /** Whether any merge decisions exist — gates the decision facet. */
   hasDecisions: boolean;
+  /** Create a new, unattached person named after the current query — offered
+   *  when the search comes up empty, which is exactly when the person the user
+   *  is looking for turns out not to be in the file yet. */
+  onCreatePerson: (name: string) => void;
 }
 
 /** Relationship-hop presets for the kinship facet (hops from the start person).
@@ -66,7 +71,7 @@ function toYear(value: string): number | undefined {
  * the host, which decides whether to land it in Merge (a match candidate) or
  * Edit. Enter opens; Shift+Enter opens the tree.
  */
-export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext, metaOf, startId, hasDecisions }: Props) {
+export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext, metaOf, startId, hasDecisions, onCreatePerson }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +114,17 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
     onClose();
   }
 
+  // Nothing found and something typed to name them by: the search doubles as
+  // the way to add the person who turned out to be missing.
+  const createName = query.trim();
+  const canCreate = results.length === 0 && createName.length > 0;
+
+  function create() {
+    if (!canCreate) return;
+    onCreatePerson(createName);
+    onClose();
+  }
+
   function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -118,7 +134,9 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
       setActiveIndex((i) => Math.max(0, i - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      choose(results[activeIndex], e.shiftKey ? "tree" : "open");
+      // With no results, Enter takes the only action left: create the person.
+      if (canCreate) create();
+      else choose(results[activeIndex], e.shiftKey ? "tree" : "open");
     }
   }
 
@@ -305,11 +323,21 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
               </li>
             );
           })}
-          {results.length === 0 && <li className="muted global-search-empty">{t("globalSearch.empty")}</li>}
+          {results.length === 0 && (
+            <li className="global-search-empty">
+              <span className="muted">{t("globalSearch.empty")}</span>
+              {canCreate && (
+                <button type="button" className="global-search-create" onClick={create}>
+                  <AddPersonIcon size={14} />
+                  {t("globalSearch.create", { name: createName })}
+                </button>
+              )}
+            </li>
+          )}
         </ul>
         <div className="global-search-footer">
           <span>{t("globalSearch.count", { count: results.length })}</span>
-          <span className="global-search-hints">{t("globalSearch.hints")}</span>
+          <span className="global-search-hints">{canCreate ? t("globalSearch.hints.create") : t("globalSearch.hints")}</span>
         </div>
       </div>
     </div>

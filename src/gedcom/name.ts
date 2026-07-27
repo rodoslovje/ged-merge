@@ -1,3 +1,4 @@
+import type { NameOrder } from "./nameDisplay";
 import type { PersonName } from "./types";
 
 /**
@@ -18,6 +19,23 @@ const UNKNOWN_NAME_RE =
 export function isUnknownNameToken(text: string | undefined): boolean {
   const t = text?.trim();
   return !!t && UNKNOWN_NAME_RE.test(t);
+}
+
+/**
+ * Split a free-typed full name into given/surname parts — used when a person is
+ * created from text the user has already typed (the global search query). The
+ * surname sits where the display order puts it: last in "given-surname"
+ * ("Janez Novak"), first in "surname-given" ("Novak Janez"). Everything else
+ * becomes the given name. A single word is taken as a given name, since a lone
+ * word typed into a search box is more often a first name — and either way the
+ * new person's name field opens focused for correction.
+ */
+export function splitFullName(text: string, order: NameOrder = "given-surname"): { given?: string; surname?: string } {
+  const parts = text.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { given: parts[0] };
+  if (order === "surname-given") return { surname: parts[0], given: parts.slice(1).join(" ") };
+  return { given: parts.slice(0, -1).join(" "), surname: parts[parts.length - 1] };
 }
 
 /**

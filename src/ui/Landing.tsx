@@ -2,11 +2,15 @@ import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent 
 import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
 import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
+import { AddPersonIcon } from "./icons/AddPersonIcon";
 
 interface Props {
   mainState: SlotState;
   onLoadFile: (file: File, handle?: FileSystemFileHandle) => void;
   onLoadSample: (fileName: string) => void;
+  /** Begin with an empty GEDCOM instead of importing one — for a tree that
+   *  doesn't exist anywhere yet. */
+  onStartNew: () => void;
 }
 
 const MAIN_ACCEPT = { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
@@ -99,7 +103,7 @@ const TreeIcon = () => (
   </svg>
 );
 
-export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
+export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Props) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -194,6 +198,17 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
             <span className="lb-dz-title">{t("landing.dropzone.title")}</span>
             <span className="lb-dz-hint">{t("landing.dropzone.hint")}</span>
             <span className="lb-dz-accepts">{t("landing.dropzone.accepts")}</span>
+          </div>
+        )}
+
+        {/* Nothing to import: begin from an empty file and add the first person
+            by hand. Hidden while a file is parsing, like the sample tray. */}
+        {!loading && (
+          <div className="lb-start-new">
+            <button type="button" className="lb-start-new-btn" onClick={onStartNew}>
+              <AddPersonIcon size={15} /> {t("landing.startNew.button")}
+            </button>
+            <span className="lb-start-new-hint">{t("landing.startNew.hint")}</span>
           </div>
         )}
 
