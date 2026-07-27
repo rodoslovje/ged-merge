@@ -179,7 +179,7 @@ function AppContent() {
   const { canUndo, canRedo } = undoRedo;
   // ── Edit-mode dirty tracking (changed ids, pre-edit snapshots) ─────────────
   const dirty = useDirtyTracking();
-  const { changedPersonIds, changedFamilyIds } = dirty;
+  const { changedPersonIds, changedFamilyIds, changedRecordIds } = dirty;
   // Subset of changedPersonIds: individuals touched by structural edits (date/tag
   // changes via the edit UI) that may need chronological re-sorting on save.
   // Place renames mutate only PLAC values in-place and do NOT add here, so a bulk
@@ -933,7 +933,11 @@ function AppContent() {
     if (!mainDataset || patches.length === 0) return 0;
     handlePushEdit(patches);
     for (const p of patches) {
-      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
+      // A shared record edited on its own (no owner card behind it — e.g. the
+      // date repair rewriting a SOUR's DATE) is its own dirty subject; with an
+      // owner, the owner's patch in the same batch carries the flag.
+      if (p.type === "record") { if (!p.owner) dirty.markRecordDirty(p.id); }
+      else dirty.markDirty(p.type, p.id, mainDataset);
     }
     return patches.length;
   }
@@ -1060,7 +1064,7 @@ function AppContent() {
     }
   }
 
-  const changedCount = changedPersonIds.size + changedFamilyIds.size;
+  const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
 
   // Called by EditView after undo/redo patches have been applied to the dataset.
   // Delegates to useDirtyTracking which handles all the case logic as pure ops.
@@ -1140,10 +1144,12 @@ function AppContent() {
       importCount,
       changedPersonIds,
       changedFamilyIds,
+      changedRecordIds,
       loadedPersonIds: dirty.loadedPersonIds.current,
       loadedFamilyIds: dirty.loadedFamilyIds.current,
       personSnapshots: dirty.personSnapshots.current,
       familySnapshots: dirty.familySnapshots.current,
+      recordSnapshots: dirty.recordSnapshots.current,
       isSortEligible,
       now: new Date(),
       t,
@@ -1576,7 +1582,7 @@ function AppContent() {
                 >
                   <span className="export-btn-label-full">{t("save.gedcom")}</span>
                   <span className="export-btn-label-short">{t("save")}</span>
-                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...confirmedMainIds]).size + importCount})
+                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
                 </button>
               )}
               {lastMainFile && (canUndo || canRedo) && (

@@ -5,7 +5,8 @@ import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild } from "./node";
 import { parseName } from "./name";
 import { parseCoordPair } from "./place";
-import { buildObjeIndex, isPointer, objeInfoOf } from "./source";
+import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
+import { xrefLabel } from "./nameDisplay";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -568,6 +569,53 @@ export function enrichEditReport(
   return { ...report, changes: [...report.changes, ...extra] };
 }
 
+/**
+ * Heading for a top-level shared record in the report: its own title when it has
+ * one (a source's TITL, a media object's title), otherwise `TAG xref` — a SOUR
+ * or OBJE has no name to fall back on the way a person does.
+ */
+function sharedRecordLabel(id: string, node: GedNode | undefined): string {
+  if (!node) return xrefLabel(id);
+  const title = node.tag === "SOUR" ? sourceTitle(node) : node.tag === "OBJE" ? objeInfoOf(node).title : undefined;
+  return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
+}
+
+/**
+ * Value-level diff of a shared record (SOUR/OBJE/NOTE), which has no typed
+ * projection to compare the way individuals and families do. Both trees are
+ * flattened to `TAG.SUBTAG` → values in document order and compared position by
+ * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
+ */
+function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): FieldChange[] {
+  const flatten = (node: GedNode, prefix: string, out: Map<string, string[]>) => {
+    for (const child of node.children) {
+      const path = prefix ? `${prefix}.${child.tag}` : child.tag;
+      const value = child.value?.trim();
+      if (value) {
+        const list = out.get(path);
+        if (list) list.push(value);
+        else out.set(path, [value]);
+      }
+      flatten(child, path, out);
+    }
+  };
+  const beforeVals = new Map<string, string[]>();
+  const afterVals = new Map<string, string[]>();
+  flatten(before, "", beforeVals);
+  flatten(after, "", afterVals);
+
+  const changes: FieldChange[] = [];
+  for (const path of new Set([...beforeVals.keys(), ...afterVals.keys()])) {
+    const from = beforeVals.get(path) ?? [];
+    const to = afterVals.get(path) ?? [];
+    for (let i = 0; i < Math.max(from.length, to.length); i++) {
+      if (from[i] === to[i]) continue;
+      changes.push({ recordId: id, field: path, from: from[i] ?? "", to: to[i] ?? "", action: "incoming" });
+    }
+  }
+  return changes;
+}
+
 export function buildEditReport(
   changedPersonIds: Set<string>,
   changedFamilyIds: Set<string>,
@@ -576,10 +624,14 @@ export function buildEditReport(
   loadedFamilyIds: Set<string>,
   personSnapshots?: Map<string, GedNode>,
   familySnapshots?: Map<string, GedNode>,
+  /** Top-level shared records (SOUR/OBJE/NOTE) edited on their own, with their
+   *  pre-edit snapshots — no person or family carries these changes. */
+  changedRecordIds?: Set<string>,
+  recordSnapshots?: Map<string, { value: GedNode }>,
 ): ChangeReport {
   const changes: FieldChange[] = [];
   const recordLabels: Record<string, string> = {};
-  const recordKinds: Record<string, "individual" | "family"> = {};
+  const recordKinds: Record<string, "individual" | "family" | "record"> = {};
   const familySpouses: Record<string, FamilySpouseInfo[]> = {};
   let newPersons = 0;
   let newFamilies = 0;
@@ -630,10 +682,19 @@ export function buildEditReport(
     if (isNew) newFamilies++;
   }
 
+  for (const id of changedRecordIds ?? []) {
+    const current = dataset.records.find((r) => r.xref === id);
+    const snapshot = recordSnapshots?.get(id)?.value;
+    recordLabels[id] = sharedRecordLabel(id, current ?? snapshot);
+    recordKinds[id] = "record";
+    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", removedRecord: !current });
+    if (current && snapshot) changes.push(...diffSharedRecordNodes(id, snapshot, current));
+  }
+
   return {
     changes,
     deferred: [],
-    recordsChanged: changedPersonIds.size + changedFamilyIds.size,
+    recordsChanged: changedPersonIds.size + changedFamilyIds.size + (changedRecordIds?.size ?? 0),
     newPersons,
     newFamilies,
     recordLabels,

@@ -77,6 +77,8 @@ export interface StoredEditState {
   loadedFamilyIds: string[];
   changedPersonIds: string[];
   changedFamilyIds: string[];
+  /** Standalone shared-record (SOUR/OBJE) edits; absent in pre-existing caches. */
+  changedRecordIds?: string[];
   personSnapshots: [string, GedNode][];
   familySnapshots: [string, GedNode][];
   /** Shared-record (SOUR/OBJE) snapshots; absent in pre-existing caches. */

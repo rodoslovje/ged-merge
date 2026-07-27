@@ -277,7 +277,7 @@ export function ValidatePanel({
         <div className="tools-struct">
           <div className="tools-examples-title">{t("tools.validate.placeCoord.title")}</div>
           <p className="tools-fix-hint">{t("tools.validate.placeCoord.hint", { count: splitPlaces.length, fills: splitFills })}</p>
-          <button className="nav-btn tools-run" onClick={() => setPlaceCoordPending(true)}>
+          <button className="nav-btn primary tools-run" onClick={() => setPlaceCoordPending(true)}>
             {t("tools.validate.placeCoord.fix", { count: splitFills })}
           </button>
           <ul className="tools-issues">
@@ -318,7 +318,7 @@ export function ValidatePanel({
           )}
           {fixActions.map(({ kind, count }) => (
             <li key={kind} className="tools-fix-item">
-              <button className="nav-btn tools-run" onClick={() => requestFix(kind)}>
+              <button className="nav-btn primary tools-run" onClick={() => requestFix(kind)}>
                 {t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}
               </button>
               <span className="tools-fix-hint">{t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}</span>

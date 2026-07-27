@@ -187,7 +187,9 @@ export function SaveDialog({
                 const isEditRecord = editRecordIds?.has(g.id);
                 const kind = report.recordKinds[g.id];
                 const canNavigate = isEditRecord && kind === "individual" && !!onNavigate;
-                const canRemove = isEditRecord && !!onRemove;
+                // Records (SOUR/OBJE) aren't offered for removal — `onRemove`
+                // reverts a person/family snapshot, and they carry neither.
+                const canRemove = isEditRecord && !!onRemove && kind !== "record";
                 const fieldRows = g.changes.filter((c) => !c.newRecord && hasContent(c));
                 const indi = kind === "individual" ? dataset?.individuals.get(g.id) : undefined;
                 const lifespan = indi ? lifespanOf(indi) : undefined;

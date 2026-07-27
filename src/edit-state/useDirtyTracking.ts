@@ -22,6 +22,11 @@ export interface SharedRecordSnapshot {
 export function useDirtyTracking() {
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
   const [changedFamilyIds, setChangedFamilyIds] = useState<Set<string>>(new Set());
+  // Top-level shared records (SOUR/OBJE/NOTE) edited in their own right rather
+  // than through a person's card — a Tools fix repairing dates on SOUR records,
+  // say. Without this they'd change the file with nothing marked unsaved, so no
+  // Save would be offered. Owner-attributed edits stay on the owner's flag.
+  const [changedRecordIds, setChangedRecordIds] = useState<Set<string>>(new Set());
 
   // IDs present at load time — used to distinguish "modified existing" from
   // "newly added" when reverting via Remove from save.
@@ -45,7 +50,8 @@ export function useDirtyTracking() {
     return kind === "individual" ? loadedPersonIds : loadedFamilyIds;
   }
 
-  function setChangedFor(kind: RecordKind) {
+  function setChangedFor(kind: SnapshotKind) {
+    if (kind === "record") return setChangedRecordIds;
     return kind === "individual" ? setChangedPersonIds : setChangedFamilyIds;
   }
 
@@ -101,6 +107,13 @@ export function useDirtyTracking() {
       if (raw) snaps.current.set(id, cloneRaw(raw));
     }
     setChangedFor(kind)((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }
+
+  /** Mark a standalone shared record (SOUR/OBJE/NOTE) dirty. Its pre-edit
+   *  snapshot comes from the patch push (`captureSnapshotsForPush`), which every
+   *  such edit goes through, so there's no fallback capture to do here. */
+  function markRecordDirty(id: string) {
+    setChangedRecordIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }
 
   /** Capture first-dirty snapshots when an edit patch is pushed to the undo
@@ -163,6 +176,7 @@ export function useDirtyTracking() {
     recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+    setChangedRecordIds(new Set());
   }
 
   /** Reset all tracking state on main file load. */
@@ -174,6 +188,7 @@ export function useDirtyTracking() {
     recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+    setChangedRecordIds(new Set());
   }
 
   /** Restore tracking state cached from a previous session (IndexedDB hydrate).
@@ -184,6 +199,8 @@ export function useDirtyTracking() {
     loadedFamilyIds: string[];
     changedPersonIds: string[];
     changedFamilyIds: string[];
+    /** Standalone shared-record edits; absent in pre-existing caches. */
+    changedRecordIds?: string[];
     personSnapshots: [string, GedNode][];
     familySnapshots: [string, GedNode][];
     recordSnapshots?: [string, SharedRecordSnapshot][];
@@ -195,6 +212,7 @@ export function useDirtyTracking() {
     recordSnapshots.current = new Map(state.recordSnapshots ?? []);
     setChangedPersonIds(new Set(state.changedPersonIds));
     setChangedFamilyIds(new Set(state.changedFamilyIds));
+    setChangedRecordIds(new Set(state.changedRecordIds ?? []));
   }
 
   /** Snapshot the current tracking state for persistence. */
@@ -204,6 +222,7 @@ export function useDirtyTracking() {
       loadedFamilyIds: [...loadedFamilyIds.current],
       changedPersonIds: [...changedPersonIds],
       changedFamilyIds: [...changedFamilyIds],
+      changedRecordIds: [...changedRecordIds],
       personSnapshots: [...personSnapshots.current] as [string, GedNode][],
       familySnapshots: [...familySnapshots.current] as [string, GedNode][],
       recordSnapshots: [...recordSnapshots.current] as [string, SharedRecordSnapshot][],
@@ -220,19 +239,23 @@ export function useDirtyTracking() {
     recordSnapshots.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
+    setChangedRecordIds(new Set());
   }
 
   return {
     // state
     changedPersonIds,
     changedFamilyIds,
+    changedRecordIds,
     // refs (exposed for handleRemoveFromSave which needs to read/check them)
     loadedPersonIds,
     loadedFamilyIds,
     personSnapshots,
     familySnapshots,
+    recordSnapshots,
     // actions
     markDirty,
+    markRecordDirty,
     captureSnapshotsForPush,
     onPatchApplied,
     removeDirty,

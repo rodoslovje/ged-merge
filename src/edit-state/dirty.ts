@@ -8,8 +8,8 @@ export type RecordKind = "individual" | "family";
 export type SnapshotKind = RecordKind | "record";
 
 export type DirtyOp =
-  | { action: "add"; kind: RecordKind; id: string }
-  | { action: "remove"; kind: RecordKind; id: string };
+  | { action: "add"; kind: SnapshotKind; id: string }
+  | { action: "remove"; kind: SnapshotKind; id: string };
 
 export type SnapshotOp =
   | { action: "set"; kind: SnapshotKind; id: string; value: GedNode; owner?: { kind: RecordKind; id: string } }
@@ -48,8 +48,9 @@ export function nodesEqual(a: GedNode, b: GedNode): boolean {
  * owner's dirty flag instead: back to the record's pre-edit snapshot → clear the
  * owner (unless the owner has direct edits of its own, is a session-created
  * record with no snapshot, or still has another modified shared record);
- * otherwise keep/mark the owner dirty. Record patches without an owner don't
- * affect dirty state.
+ * otherwise keep/mark the owner dirty. A record patch *without* an owner (a
+ * Tools fix editing a SOUR/OBJE in its own right) carries its own dirty flag
+ * under the "record" kind, following the same C/D/E cases.
  */
 export function computePatchApplyOps(
   patches: RecordPatch[],
@@ -74,13 +75,29 @@ export function computePatchApplyOps(
       // same batch (the pointer add/remove), so nothing to decide here.
       if (appliedState === null) {
         snapshots.push({ action: "delete", kind: "record", id });
+        dirty.push({ action: "remove", kind: "record", id });
         continue;
       }
-      if (!owner) continue;
 
       const recSnapshot = getSnapshot("record", id);
       const recCurrent = getCurrentRaw("record", id);
       const reverted = recSnapshot !== undefined && recCurrent !== undefined && nodesEqual(recCurrent, recSnapshot);
+
+      if (!owner) {
+        // Standalone shared-record edit: the record is its own dirty subject.
+        if (reverted) {
+          snapshots.push({ action: "delete", kind: "record", id });
+          dirty.push({ action: "remove", kind: "record", id });
+        } else {
+          dirty.push({ action: "add", kind: "record", id });
+          // Mirror case D: restore a record snapshot a prior undo deleted.
+          if (direction === "redo" && recSnapshot === undefined && before !== null) {
+            snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before) });
+          }
+        }
+        continue;
+      }
+
       if (reverted) {
         snapshots.push({ action: "delete", kind: "record", id });
         // Clear the owner only when nothing else keeps it dirty: its own raw is
