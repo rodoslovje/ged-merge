@@ -11,6 +11,8 @@ import {
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
+import { normalizeDateString } from "../normalize/date";
+import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
 import type { SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
@@ -1698,6 +1700,26 @@ function fillField(rec: GedNode, tag: string, value: string | undefined): void {
   insertGrouped(rec, { level: rec.level + 1, tag, value, children: [] }, SOUR_FIELD_TRAILING);
 }
 
+/**
+ * Renders a fetched source date in the file's own date format, so a value
+ * scraped off a page doesn't land in the file in a foreign shape. Sites report
+ * dates however they please: "23 Jun 1998" (Ancestry prose), "Apr 12, 1979" (a
+ * Google Books newspaper heading — which the GEDCOM parser can't even read),
+ * "1784-1830" (a register's span). Readable values are re-rendered in the house
+ * style; unreadable ones go through the same repair the Health Check offers, so
+ * the tool can't create the very "unparseable date" that fix exists to clean up.
+ * Whatever survives neither is written as it came. The file's format is derived
+ * lazily (a full DATE walk) and reused — most groups carry no date at all.
+ */
+function houseDateFormatter(records: GedNode[]): (value: string | undefined) => string | undefined {
+  let ctx: DateFixContext | undefined;
+  return (value) => {
+    if (!value?.trim()) return value;
+    ctx ??= dateFixContext({ records });
+    return proposeDateFix(value, ctx) ?? normalizeDateString(value, ctx.profile, ctx.sourceOrder) ?? value;
+  };
+}
+
 /** Repository identity per site: how to spot an existing `REPO` (by its WWW
  *  host) and what to create when the file's convention hangs sources off
  *  repositories. Matricula derives name/WWW per archive instead. */
@@ -1780,7 +1802,7 @@ export function applySiteSourceExtras(
   opts: { sourceLayout?: SourceLayout | "auto" } = {},
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
-  fillField(sourceNode, "DATE", meta.dateRange);
+  fillField(sourceNode, "DATE", houseDateFormatter(records)(meta.dateRange));
   if (!site || firstChild(sourceNode, "REPO")) return undefined;
   const createRepos =
     opts.sourceLayout && opts.sourceLayout !== "auto"
@@ -1838,6 +1860,7 @@ export function reshapeSources(
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
   const ctx: RelocationContext = { byXref, urlOfObje };
   const { resolve: resolvePlace, structuredAddr } = buildPlaceResolver(clone);
+  const houseDate = houseDateFormatter(clone);
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -1885,7 +1908,7 @@ export function reshapeSources(
       // diacritic-less slug guess) lands in the established place format.
       place: resolvePlace(extra?.place ?? g.proposed.place),
       filingNumber: extra?.filingNumber ?? g.proposed.filingNumber,
-      dateRange: extra?.dateRange ?? g.proposed.dateRange,
+      dateRange: houseDate(extra?.dateRange ?? g.proposed.dateRange),
     };
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.

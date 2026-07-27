@@ -3,7 +3,7 @@ import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import { detectPrivacyStyleIfAny } from "../gedcom/private";
 import { firstChild } from "../gedcom/node";
-import type { Dataset, DateOrder } from "../gedcom/types";
+import type { Dataset, DateOrder, GedNode } from "../gedcom/types";
 import type {
   DateFormatProfile,
   MainProfile,
@@ -244,7 +244,7 @@ export interface LayoutValues {
  * the normalizer, the date values again to infer the source's numeric date
  * order — without walking the same tree three separate times.
  */
-export function collectLayoutValues(dataset: Dataset): LayoutValues {
+export function collectLayoutValues(dataset: { records: GedNode[] }): LayoutValues {
   const dateValues: string[] = [];
   const placeValues: string[] = [];
   let addrCount = 0;

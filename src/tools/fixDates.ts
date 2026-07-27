@@ -44,7 +44,7 @@ export interface DateFixContext {
   sourceOrder: DateOrder;
 }
 
-export function dateFixContext(dataset: Dataset): DateFixContext {
+export function dateFixContext(dataset: { records: GedNode[] }): DateFixContext {
   const { dateValues } = collectLayoutValues(dataset);
   const profile = inferDateProfile(dateValues);
   const sourceOrder = detectSourceOrder(dateValues, profile.numeric?.order);
