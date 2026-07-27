@@ -141,6 +141,30 @@ function datePrecision(d: GedDate): number {
 }
 
 /**
+ * Sort key for a single GedDate that is precision- and qualifier-aware:
+ *  - BEF Y  → just before year start (Y*10000 - 1), so it sorts before any Y date
+ *  - AFT Y  → after year end (Y*10000 + 9999)
+ *  - Full date Y-M-D → Y*10000 + M*100 + D
+ *  - Month-only Y-M  → mid-month (M*100 + 50), after same-month full dates
+ *  - Year-only Y     → Y*10000 + 9000, after all specific dates in that year
+ */
+export function dateToSortKey(d: GedDate | undefined): number {
+  if (!d || d.year == null) return 9_999_999;
+  if (d.qualifier === "before") return d.year * 10000 - 1;
+  if (d.qualifier === "after") return d.year * 10000 + 9999;
+  // FROM..TO periods (e.g. an occupation held over several years) sort by their
+  // end date, so they land next to whatever else was happening when they ended.
+  const useEnd = d.qualifier === "range" && d.year2 != null;
+  const year = useEnd ? d.year2! : d.year;
+  const m = useEnd ? d.month2 : d.month;
+  const day = useEnd ? d.day2 : d.day;
+  const base = year * 10000;
+  if (!m) return base + 9000;            // year-only → after any known date in year
+  if (!day) return base + m * 100 + 50;  // month-only → mid-month
+  return base + m * 100 + day;
+}
+
+/**
  * True when `incoming` is a strictly more precise version of `main` that
  * doesn't contradict it — e.g. main "1949" refined by incoming "12 MAR 1949".
  * Both must be single (non-range) dates sharing the same year, and every

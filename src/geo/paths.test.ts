@@ -33,6 +33,17 @@ describe("buildPersonPaths", () => {
     expect(path.stops.map((s) => s.kind)).toEqual(["birth", "death", "burial"]);
   });
 
+  it("orders same-year, same-stage stops by month and day", () => {
+    const points = [
+      // File order is the reverse of the calendar order.
+      pt({ personIds: ["I1"], year: 2026, dateKey: 20260706, coord: LJUBLJANA }),
+      pt({ personIds: ["I1"], year: 2026, dateKey: 20260227, coord: TRST }),
+      pt({ personIds: ["I1"], year: 1970, dateKey: 19709000, coord: KRANJ }),
+    ];
+    const [path] = buildPersonPaths(points);
+    expect(path.stops.map((s) => s.coord)).toEqual([KRANJ, TRST, LJUBLJANA]);
+  });
+
   it("anchors undated births at the start and undated deaths at the end", () => {
     const points = [
       pt({ personIds: ["I1"], year: 1920, coord: LJUBLJANA }),

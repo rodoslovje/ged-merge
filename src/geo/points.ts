@@ -1,4 +1,5 @@
 import type { Dataset, GedEvent, GeoCoord } from "../gedcom/types";
+import { dateToSortKey } from "../gedcom/date";
 
 // The map's data layer: one pass over the dataset projecting every event that
 // carries coordinates (PLAC.MAP lifted into GedPlace.coord by the builder)
@@ -51,6 +52,9 @@ export interface MapPoint {
   kind: MapEventKind;
   /** Primary year of the event's date, when dated. */
   year?: number;
+  /** Precision-aware ordering key of the same date (`dateToSortKey`), so a life
+   *  path can order events inside one year by month and day. */
+  dateKey?: number;
   /** Place display text (the raw PLAC value). */
   place: string;
   /** Street/house address (the raw ADDR value), when the event carries one —
@@ -71,7 +75,10 @@ function pointFrom(event: GedEvent, personIds: string[], familyId?: string): Map
   };
   if (event.address?.raw) point.address = event.address.raw;
   if (familyId) point.familyId = familyId;
-  if (event.date?.year !== undefined) point.year = event.date.year;
+  if (event.date?.year !== undefined) {
+    point.year = event.date.year;
+    point.dateKey = dateToSortKey(event.date);
+  }
   return point;
 }
 

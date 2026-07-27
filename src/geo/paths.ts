@@ -35,10 +35,12 @@ function stopYear(p: MapPoint): number {
 }
 
 /**
- * Group the points by person and order each person's stops chronologically
- * (stable, so same-year events keep their file order). Only persons whose
- * path actually moves — at least two stops at distinct coordinates — get a
- * path; a family event contributes a stop to both spouses' paths.
+ * Group the points by person and order each person's stops chronologically:
+ * by year, then by life stage, then by the full date within the year (so two
+ * residences in one year follow their months and days). Stable, so events that
+ * stay tied keep their file order. Only persons whose path actually moves — at
+ * least two stops at distinct coordinates — get a path; a family event
+ * contributes a stop to both spouses' paths.
  */
 export function buildPersonPaths(points: MapPoint[]): PersonPath[] {
   const byPerson = new Map<string, MapPoint[]>();
@@ -55,9 +57,12 @@ export function buildPersonPaths(points: MapPoint[]): PersonPath[] {
     const sorted = [...list].sort((a, b) => {
       const ya = stopYear(a);
       const yb = stopYear(b);
-      // Sort is stable, so same-year events keep their file order.
       if (ya !== yb) return ya < yb ? -1 : 1;
-      return STAGE_RANK[a.kind] - STAGE_RANK[b.kind];
+      // Same year: the life stage still leads (a birth opens the year, a burial
+      // closes it, whatever their precision), then the month/day inside it.
+      // Sort is stable, so events tied on all three keep their file order.
+      if (STAGE_RANK[a.kind] !== STAGE_RANK[b.kind]) return STAGE_RANK[a.kind] - STAGE_RANK[b.kind];
+      return (a.dateKey ?? 0) - (b.dateKey ?? 0);
     });
     const stops: MapPoint[] = [];
     for (const p of sorted) {
