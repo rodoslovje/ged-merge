@@ -6968,15 +6968,22 @@ kbd {
 .tools-geo-acquire .tools-run { margin: 0; }
 /* Per-event coordinate pin + its picker panel (EventCoordPicker). */
 .edit-event-coord-wrap { position: relative; display: inline-flex; }
+/* The pin is an inline SVG (PinIcon), not the 📍 emoji it replaced — the emoji
+   drew in its own red in both themes and could not be recoloured. Sized a
+   little larger than the 0.8em emoji, since a drawn glyph carries less weight
+   than an emoji at the same box. */
 .edit-event-coord {
-  font-size: 0.8em; line-height: 1; padding: 2px; margin-left: 2px;
-  background: none; border: none; cursor: pointer; opacity: 0.8;
+  line-height: 0; padding: 2px; margin-left: 2px;
+  background: none; border: none; cursor: pointer; opacity: 0.85;
+  color: var(--accent);
+  display: inline-flex; align-items: center; vertical-align: -2px;
 }
 .edit-event-coord:hover { opacity: 1; }
 /* No coordinate yet: present but clearly inactive, so a pin always means "here
-   is where coordinates live" rather than "this one is placed". */
-.edit-event-coord--empty { opacity: 0.28; filter: grayscale(1); }
-.edit-event-coord--empty:hover { opacity: 0.7; filter: grayscale(0.3); }
+   is where coordinates live" rather than "this one is placed". Muted rather
+   than greyscale-filtered — the glyph now takes a real colour. */
+.edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
+.edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
 /* Two-column popover: the value being edited across the top, then the map to
    pick on beside the candidates to pick from — a stacked layout pushed the map
    below the fold behind whatever the search returned. */
@@ -7209,10 +7216,18 @@ kbd {
     z-index: 60;
     background: var(--bg);
   }
+  /* Every box between the shell and the content must size to its content. One
+     left on `flex: 1 1 0` inside an auto-height column collapses to nothing and
+     lets its content paint outside it — which put the footer, laid out after
+     that empty box, on top of the matches list in Merge mode. */
   .app:not(.tree-shell) .mode-layer,
   .app:not(.tree-shell) .tools-view,
   .app:not(.tree-shell) .edit-view,
   .app:not(.tree-shell) .edit-view > .section-body,
+  .app:not(.tree-shell) .main-split,
+  .app:not(.tree-shell) .split-pane,
+  .app:not(.tree-shell) .split-pane > .section,
+  .app:not(.tree-shell) .split-pane > .section.open,
   .app:not(.tree-shell) .split-pane > .section > .section-body {
     flex: 0 0 auto;
     min-height: 0;
