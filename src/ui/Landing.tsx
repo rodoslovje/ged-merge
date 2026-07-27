@@ -201,17 +201,6 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
           </div>
         )}
 
-        {/* Nothing to import: begin from an empty file and add the first person
-            by hand. Hidden while a file is parsing, like the sample tray. */}
-        {!loading && (
-          <div className="lb-start-new">
-            <button type="button" className="lb-start-new-btn" onClick={onStartNew}>
-              <AddPersonIcon size={15} /> {t("landing.startNew.button")}
-            </button>
-            <span className="lb-start-new-hint">{t("landing.startNew.hint")}</span>
-          </div>
-        )}
-
         {mainState.status === "error" && (
           <p className="lb-error error">
             {t("loader.error", { fileName: mainState.fileName, message: mainState.message })}
@@ -257,6 +246,36 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
                   <span className="lb-s-load">{t("landing.samples.load")}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nothing to import: begin from an empty file and add the first person
+            by hand. Same tray shape as the samples above — it is the other way
+            to arrive at a tree without a file of your own. */}
+        {(mainState.status === "empty" || loading) && (
+          <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
+            <p className="lb-samples-h">
+              <AddPersonIcon size={14} />
+              {t("landing.startNew.header")}
+            </p>
+            <div className="lb-sample-rows">
+              <button
+                className="lb-sample-row"
+                onClick={onStartNew}
+                type="button"
+                disabled={loading}
+                tabIndex={loading ? -1 : undefined}
+              >
+                <span className="lb-s-ico">
+                  <AddPersonIcon />
+                </span>
+                <span className="lb-s-main">
+                  <span className="lb-s-name">{t("landing.startNew.name")}</span>
+                  <span className="lb-s-meta">{t("landing.startNew.meta")}</span>
+                </span>
+                <span className="lb-s-load">{t("landing.startNew.load")}</span>
+              </button>
             </div>
           </div>
         )}

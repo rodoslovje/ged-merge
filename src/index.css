@@ -624,39 +624,6 @@ button:focus-visible {
   font-size: 0.88rem;
 }
 
-/* "Start a new file" — the way in for a tree that isn't in any file yet. */
-.lb-start-new {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin-top: 12px;
-}
-
-.lb-start-new-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 13.5px;
-  padding: 7px 13px;
-  cursor: pointer;
-  flex: none;
-}
-
-.lb-start-new-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.lb-start-new-hint {
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
 /* Sample tray */
 .lb-samples {
   margin-top: 16px;
@@ -684,6 +651,7 @@ button:focus-visible {
 .lb-samples-h svg {
   color: var(--accent);
   flex: none;
+  stroke-width: 1.7;
 }
 
 .lb-sample-rows {
