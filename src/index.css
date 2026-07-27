@@ -5679,13 +5679,14 @@ kbd {
   margin-top: 2px;
   opacity: 0.75;
 }
-/* "Fit to data" button, stacked under the zoom control on every map. */
-.map-fit-control a {
+/* "Fit to data": the third button of the map's zoom bar. Leaflet sizes the
+   anchor; flex centres the glyph in it (the +/− are text, this is an icon). */
+.leaflet-bar a.map-fit-link {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.map-fit-control svg {
+.map-fit-link svg {
   width: 15px;
   height: 15px;
   fill: none;
