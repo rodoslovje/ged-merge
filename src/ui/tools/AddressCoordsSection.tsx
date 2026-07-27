@@ -512,7 +512,7 @@ function MovePanel({
         {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
       </button>
       <button className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={disabled}>
-        {t("tools.geocode.addr.moveApply")}
+        {t("tools.geocode.addr.moveApply", { count: selected.size })}
       </button>
       <button className="nav-btn" onClick={onCancel}>
         {t("tools.places.rename.cancel")}
