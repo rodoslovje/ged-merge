@@ -1,0 +1,186 @@
+import { canonicalPlaceToken, placeCompareKey } from "../match/place";
+import { reformatPlace } from "../normalize/placeReformat";
+import type { PlaceTargetFormat } from "../normalize/types";
+import type { GeoCoord } from "../gedcom/types";
+import type { GazEntry } from "./gazetteer";
+import type { GovResult } from "./gov";
+import type { NominatimResult } from "./nominatim";
+import type { RnResult } from "./rn";
+
+// Turning a register hit into a place the *file* would have written.
+//
+// The lookups already existed for coordinates: they answer "where is this place
+// the file names?". This module answers the other direction — "the file does not
+// name this place yet; write it the way this file writes places" — so a village
+// typed into an event can be completed from GURS/GOV/OpenStreetMap with its
+// jurisdiction chain, its house address and its coordinate in one pick.
+//
+// The shaping is not new: composing a raw place and running it through
+// `reformatPlace` is exactly what a merge does to an incoming event, so a
+// proposal lands in the main's own layout, separator and country spelling.
+
+/** One completed place a register offers for a partially typed one. */
+export interface PlaceProposal {
+  /** PLAC text, in the file's own layout. */
+  plac: string;
+  /** ADDR text, when the source named a house and the layout keeps it apart. */
+  addr?: string;
+  /** Where the register puts it — picked along with the text. */
+  coord: GeoCoord;
+  /** Badge text naming the answering register ("GURS", "GOV", "OSM", "SI"). */
+  source: string;
+  /** Whether that register is an official one (badge styling). */
+  official?: boolean;
+  /** The source's own full line, kept for the row's tooltip. */
+  detail?: string;
+  /** GOV id of the place, written back as `PLAC._GOV` when it has one. */
+  govId?: string;
+}
+
+/** How this file writes places, plus what the UI language can name. */
+export interface PlaceStyle {
+  /** The main's layout/separator/country spellings — {@link inferPlaceExportFormat}. */
+  fmt: PlaceTargetFormat;
+  /**
+   * How many jurisdiction levels the file's own places carry (modal comma-part
+   * count). A register knows more levels than most files use, and a proposal
+   * that spelled out every one of them would not look like its neighbours —
+   * so the chain is trimmed to what this file writes.
+   */
+  depth: number;
+  /** UI language, used to name a country the file has never written. */
+  language: string;
+}
+
+/** Modal number of comma-separated parts across the file's own PLAC values.
+ *  Falls back to 2 (locality + country) for a file with no places yet. */
+export function placeDepthOf(places: readonly string[]): number {
+  const counts = new Map<number, number>();
+  for (const p of places) {
+    const n = p.split(",").filter((s) => s.trim()).length;
+    if (n > 0) counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  let best = 0;
+  let bestCount = 0;
+  for (const [n, count] of counts) {
+    if (count > bestCount || (count === bestCount && n < best)) {
+      best = n;
+      bestCount = count;
+    }
+  }
+  return best || 2;
+}
+
+/** The country's name in the UI language ("SI" → "Slovenija"), or undefined
+ *  when the runtime cannot name it. */
+export function countryNameOf(code: string, language: string): string | undefined {
+  if (!code || code.length !== 2) return undefined;
+  try {
+    const name = new Intl.DisplayNames([language], { type: "region" }).of(code.toUpperCase());
+    return name && name !== code.toUpperCase() ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The file's own spelling of a country, when it writes that country at all.
+ *  `reformatPlace` does this for the layouts it reshapes; a pass-through layout
+ *  would otherwise keep the UI language's spelling. */
+function preferredCountry(name: string | undefined, fmt: PlaceTargetFormat): string | undefined {
+  if (!name || !fmt.countryPreferred) return name;
+  return fmt.countryPreferred.get(canonicalPlaceToken(name)) ?? name;
+}
+
+/**
+ * Compose the register's levels into a raw place string and reshape it into the
+ * file's layout. The chain is locality → administrative parent → country, cut
+ * to the file's own depth: the parent (občina/Kreis) is what a two-level file
+ * drops, since it is the disambiguator rather than the address.
+ */
+function shape(
+  parts: { locality: string; admin?: string; country?: string },
+  addrRaw: string | undefined,
+  style: PlaceStyle,
+): { plac: string; addr?: string } | undefined {
+  const locality = parts.locality.trim();
+  if (!locality) return undefined;
+  // A municipality named after its own seat is *not* collapsed: a three-level
+  // file writes exactly "Kranj,Kranj,Slovenija" for the town of Kranj, and a
+  // proposal that dropped the repetition would not match its neighbours.
+  const admin = parts.admin?.trim() || undefined;
+  const country = preferredCountry(parts.country?.trim() || undefined, style.fmt);
+
+  let chain: string[];
+  if (style.depth <= 1) chain = [locality];
+  else if (style.depth === 2) chain = [locality, country ?? admin].filter(Boolean) as string[];
+  else chain = [locality, admin, country].filter(Boolean) as string[];
+
+  const raw = chain.join(style.fmt.separator);
+  const out = reformatPlace(raw, addrRaw, style.fmt);
+  if (!out.plac) return undefined;
+  return { plac: out.plac, ...(out.addr ? { addr: out.addr } : {}) };
+}
+
+/** An offline gazetteer entry (GURS settlements, OpenStreetMap, GeoNames). */
+export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceProposal | undefined {
+  const shaped = shape(
+    { locality: entry.name, admin: entry.admin, country: countryNameOf(entry.country, style.language) },
+    undefined,
+    style,
+  );
+  if (!shaped) return undefined;
+  return {
+    ...shaped,
+    coord: { lat: entry.lat, lon: entry.lon },
+    // The register code when the entry came from an official one, otherwise the
+    // plain country code — all a crowd-sourced entry knows about its provenance.
+    source: entry.register ?? entry.country,
+    official: !!entry.register,
+    detail: [entry.name, entry.admin].filter(Boolean).join(", "),
+  };
+}
+
+/** A GURS address-register house: a full place *and* its address. */
+export function proposalFromRn(result: RnResult, style: PlaceStyle): PlaceProposal | undefined {
+  const shaped = shape(
+    {
+      locality: result.settlement,
+      admin: result.municipality,
+      country: countryNameOf("SI", style.language),
+    },
+    result.address,
+    style,
+  );
+  if (!shaped) return undefined;
+  return { ...shaped, coord: result.coord, source: "GURS", official: true, detail: result.label };
+}
+
+/** A GOV object. GOV names no country, so the chain stops at the parent — for
+ *  a historical place that is usually the level a file names anyway. */
+export function proposalFromGov(result: GovResult, style: PlaceStyle): PlaceProposal | undefined {
+  const shaped = shape({ locality: result.name, admin: result.admin }, undefined, style);
+  if (!shaped) return undefined;
+  return { ...shaped, coord: result.coord, source: "GOV", detail: result.label, govId: result.govId };
+}
+
+/** Segments of a Nominatim display line that are not jurisdiction levels. */
+const NOISE = /^\d[\d\s-]*$/;
+
+/** A Nominatim hit. Its display line mixes postcodes and administrative units
+ *  of every rank, so only the head (the feature), the level above it and the
+ *  tail (the country) are read — the rest would not survive a re-parse as a
+ *  jurisdiction chain anyway. */
+export function proposalFromNominatim(result: NominatimResult, style: PlaceStyle): PlaceProposal | undefined {
+  const segments = result.label.split(",").map((s) => s.trim()).filter((s) => s && !NOISE.test(s));
+  const country = segments.length > 1 ? segments[segments.length - 1] : undefined;
+  const admin = result.admin && result.admin !== country ? result.admin : undefined;
+  const shaped = shape({ locality: result.name, admin, country }, undefined, style);
+  if (!shaped) return undefined;
+  return { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
+}
+
+/** Stable identity of a proposal, for de-duplicating across registers — the
+ *  same village answered by GURS and by OpenStreetMap is one offer. */
+export function proposalKey(p: PlaceProposal): string {
+  return `${placeCompareKey(p.plac)} ${(p.addr ?? "").trim().toLowerCase()}`;
+}

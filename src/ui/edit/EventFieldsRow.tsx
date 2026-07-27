@@ -7,6 +7,7 @@ import { SourceRefs } from "../SourceRef";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import type { PlaceProposal } from "../../geo/placeProposal";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { VALUE_EVENT_TAGS } from "./editConstants";
@@ -181,6 +182,27 @@ export function EventFieldsRow({
     addrField.set(addr);
     const known = knownCoord(place, addr);
     commitAll({ place, address: addr, ...(known ? { coord: known } : {}) });
+  };
+  /**
+   * A register's offer for a place the file has never written: its jurisdiction
+   * chain (already shaped to this file's layout), the house address when the
+   * address register answered, and the coordinate the register puts it at —
+   * written in one commit, so it is a single undo step.
+   *
+   * The coordinate comes along unconditionally, unlike {@link knownCoord}'s: it
+   * is this place's own, not a neighbouring event's, so it cannot coarsen
+   * anything — and an event whose coordinate was already set is not the case
+   * that reaches here (the place is being typed).
+   */
+  const pickProposal = (proposal: PlaceProposal) => {
+    placeField.set(proposal.plac);
+    if (proposal.addr) addrField.set(proposal.addr);
+    commitAll({
+      place: proposal.plac,
+      ...(proposal.addr ? { address: proposal.addr } : {}),
+      coord: proposal.coord,
+      ...(proposal.govId ? { govId: proposal.govId } : {}),
+    });
   };
   // The address field's combos: pairs at other places (this place's own
   // addresses are already its plain suggestions), so an address lookup there
@@ -586,6 +608,7 @@ export function EventFieldsRow({
             }}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
+            onPickProposal={pickProposal}
           />
           {/* This event's own coordinate: a pin showing whether it has one, and
            *  opening the per-event picker. Here rather than only in the Tools

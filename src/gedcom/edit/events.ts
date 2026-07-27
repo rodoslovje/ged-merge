@@ -24,6 +24,10 @@ export interface EventFieldUpdate {
    *  value may be coordinated on one event and not another — and, once an
    *  address is resolved, at the house rather than the settlement. */
   coord?: GeoCoord | null;
+  /** GOV id of the place, written as the GEDCOM-L `PLAC._GOV` beside the
+   *  coordinate. Only read together with a `coord` — it identifies the place
+   *  that coordinate came from. */
+  govId?: string;
   /** New NOTE value, or `""` to remove the first inline note. Omit to leave unchanged. */
   note?: string;
   /** New AGNC value (recording agency, e.g. parish), or `""` to remove it. Omit to leave unchanged. */
@@ -86,7 +90,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
     const plac = eventNode.children.find((c) => c.tag === "PLAC" && c.value?.trim());
     if (plac) {
       if (update.coord === null) removeChildren(plac, "MAP");
-      else setPlaceCoord(plac, update.coord);
+      else setPlaceCoord(plac, update.coord, update.govId);
     }
   }
   if (update.note !== undefined) applyEventNote(eventNode, update.note, notes);
