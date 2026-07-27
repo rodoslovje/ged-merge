@@ -250,7 +250,7 @@ export const en = {
   "tools.geocode.rn.none": "Not in the address register — check the settlement's spelling, or pick a point on the map.",
   "tools.geocode.addr.heading": "Addresses with a house number ({{count}} in {{places}} places)",
   "tools.geocode.addr.groupMeta": "{{count}} addresses · {{events}} events",
-  "tools.geocode.addr.searchGroup": "Look up all here ({{count}})",
+  "tools.geocode.addr.searchGroup": "Look up all ({{count}})",
   "tools.geocode.addr.noPlace": "(no place)",
   "tools.geocode.addr.mapHint": "Houses found for this place — click a pin to choose it for its address.",
   "tools.geocode.addr.intro": "These events name a street or house number in their address while the place names only the settlement. The address register can pin the building itself; the coordinate is stored on the address, so the settlement's own coordinate stays untouched. The map then shows the house and falls back to the settlement where there is none.",

@@ -256,7 +256,7 @@ export const sl = {
   "tools.geocode.rn.none": "Ni v registru naslovov — preverite zapis naselja ali izberite točko na zemljevidu.",
   "tools.geocode.addr.heading": "Naslovi s hišno številko ({{count}} v {{places}} krajih)",
   "tools.geocode.addr.groupMeta": "{{count}} naslovov · {{events}} dogodkov",
-  "tools.geocode.addr.searchGroup": "Poišči vse tukaj ({{count}})",
+  "tools.geocode.addr.searchGroup": "Poišči vse ({{count}})",
   "tools.geocode.addr.noPlace": "(brez kraja)",
   "tools.geocode.addr.mapHint": "Najdene hiše za ta kraj — kliknite buciko, da jo izberete za njen naslov.",
   "tools.geocode.addr.intro": "Ti dogodki imajo v naslovu ulico ali hišno številko, kraj pa navaja samo naselje. Register naslovov lahko določi točno stavbo; koordinata se shrani k naslovu, zato koordinata naselja ostane nespremenjena. Zemljevid nato prikaže hišo, kjer je ni, pa se vrne na naselje.",
