@@ -90,8 +90,8 @@ export function CoordConflicts({
       {applied !== null && (
         <p className="tools-clean tools-clean--ok">{t("tools.validate.coordConflict.applied", { count: applied })}</p>
       )}
-      <ul className="tools-issues">
-        {conflicts.slice(0, 200).map((c, i) => {
+      <ul className="tools-tree">
+        {conflicts.slice(0, 200).map((c) => {
           const key = keyOf(c);
           const isOpen = open === key;
           const chosen = picked.get(key);
@@ -99,10 +99,15 @@ export function CoordConflicts({
           const manualCoord = parseManualCoord(manualText);
           const manualChosen = !!manualCoord && sameCoord(chosen, manualCoord);
           return (
-            <li key={key} className={`tools-issue tools-geo-conflict-row sev-warning${i % 2 ? " zebra" : ""}`}>
+            <li key={key} className="tools-tree-node">
+              {/* The coordinates themselves are the row's options, listed once
+                  it opens — repeating them here only crowds the name. */}
               <GeoRowHeader open={isOpen} onToggle={() => toggle(key)} place={c.value} address={c.address}>
-                <span className="gm-data">
-                  {c.coords.map((x) => `${x.coord.lat.toFixed(4)}, ${x.coord.lon.toFixed(4)} (${x.n})`).join("  ·  ")}
+                <span className="tools-geo-count">
+                  {t("tools.validate.coordConflict.rowMeta", {
+                    count: c.coords.length,
+                    events: c.coords.reduce((n, x) => n + x.n, 0),
+                  })}
                 </span>
               </GeoRowHeader>
               {isOpen && (

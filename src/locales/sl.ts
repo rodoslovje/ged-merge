@@ -128,6 +128,7 @@ export const sl = {
   "tools.validate.media.missing": "{{count}} od {{total}} navedenih medijskih datotek ni v mapi:",
   "tools.validate.coordConflict.title": "Isti kraj in naslov z različnimi koordinatami",
   "tools.validate.coordConflict.hint": "{{count}} kombinacij kraja in naslova nosi več kot eno koordinato. Isti kraj, isti naslov — torej opisujejo eno lego in ne morejo biti vse pravilne. Varnega samodejnega popravka ni: odprite dogodke in obdržite pravo. (Različni naslovi v istem naselju se seveda lahko razlikujejo in tu niso navedeni.)",
+  "tools.validate.coordConflict.rowMeta": "{{count}} koordinate · {{events}} dogodkov",
   "tools.validate.coordConflict.mapHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete.",
   "tools.validate.coordConflict.mapPickHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete, ali kamor koli drugam, da dogodke postavite tja.",
   "tools.validate.coordConflict.apply_one": "Poenoti {{count}} kraj",

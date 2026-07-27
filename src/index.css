@@ -7049,12 +7049,8 @@ kbd {
 /* The address beside a place in a row header — the second half of the pair the
    row is about, muted so the place still reads as the row's name. */
 .tools-geo-row-addr { color: var(--muted); font-weight: normal; }
-/* A conflict row keeps the issue-row look but stacks: the header line, and —
-   when expanded — the map, the pick list and the button that settles it. */
-.tools-geo-conflict-row { flex-direction: column; align-items: stretch; }
-.tools-geo-conflict-row .tools-issue-msg { flex: 1 1 auto; }
-.tools-geo-conflict-row .clickable { cursor: pointer; }
-.tools-geo-conflict-row .clickable:hover { color: var(--accent); }
+/* An expanded conflict row: the map and the pick list, indented to the row's
+   text the way the address rows are. */
 .tools-geo-conflict-body { padding: 6px 0 4px 26px; }
 .tools-geo-conflict-body .tools-geo-minimap { margin-top: 4px; }
 /* A mini-map pin carrying a count: the number of events sitting on that exact

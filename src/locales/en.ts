@@ -128,6 +128,7 @@ export const en = {
   "tools.validate.media.missing": "{{count}} of {{total}} referenced media files are not in the folder:",
   "tools.validate.coordConflict.title": "Same place and address with different coordinates",
   "tools.validate.coordConflict.hint": "{{count}} place and address combinations carry more than one coordinate. Same place, same address — so they describe one location and cannot both be right. There is no safe automatic fix: open the events and keep the correct one. (Different addresses within one settlement may of course differ, and are not listed here.)",
+  "tools.validate.coordConflict.rowMeta": "{{count}} coordinates · {{events}} events",
   "tools.validate.coordConflict.mapHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it.",
   "tools.validate.coordConflict.mapPickHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it, or click anywhere else to place the events there instead.",
   "tools.validate.coordConflict.apply": "Settle {{count}} place",
