@@ -22,8 +22,9 @@ export {
   applyEventNodeUpdate, setEventField, setEventFieldAtIndex, changeEventTagAtIndex,
   removeEventAtIndex, restoreEvent, addEventField, addEventNode,
   setFamilyEventField, changeFamilyEventTag, addFamilyEventNode, removeFamilyEvent,
+  copyEventToIndividual, copyEventToFamily, individualCopyBlock, familyCopyBlock,
 } from "./events";
-export type { EventFieldUpdate } from "./events";
+export type { EventFieldUpdate, CopyEventBlock } from "./events";
 
 export {
   setName, setNickname, setMarriedName, setAdditionalName,

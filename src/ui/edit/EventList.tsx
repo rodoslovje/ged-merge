@@ -52,6 +52,7 @@ export const EventList = memo(function EventList({
   undoVersion,
   mergeGen,
   birthParentAges,
+  onCopyEvent,
 }: {
   person: Individual;
   t: Translate;
@@ -114,6 +115,9 @@ export const EventList = memo(function EventList({
   /** Parents' ages at this person's birth ("♂32" "♀28" badges, each with a
    * full-precision tooltip), shown on the BIRT row when "Show ages" is on. */
   birthParentAges?: { text: string; title: string }[];
+  /** Open the "Copy event to…" picker for an existing event node of this
+   * person. Omitted rows (incoming-only merge suggestions) have no node yet. */
+  onCopyEvent?: (node: GedNode, label: string) => void;
 }) {
   const { settings } = useSettings();
   const birtEv = person.events.find((e) => e.tag === "BIRT");
@@ -210,6 +214,7 @@ export const EventList = memo(function EventList({
         }}
         forcedKeyBase={birtMergeKeyBase}
         onRemove={birtOriginalIdx >= 0 ? () => commit((indi) => removeEventAtIndex(indi, birtOriginalIdx)) : undefined}
+        onCopy={birtOriginalIdx >= 0 && onCopyEvent ? () => onCopyEvent(rawEventNodes[birtOriginalIdx], t("event.BIRT")) : undefined}
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
         onOpenSourceDialog={onOpenSourceDialog}
@@ -241,6 +246,7 @@ export const EventList = memo(function EventList({
             }}
             onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}
             tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? INDIVIDUAL_EVENT_GROUPS : undefined}
+            onCopy={onCopyEvent ? () => onCopyEvent(rawEventNodes[row.i], t(`event.${row.ev.tag}`)) : undefined}
             onRemove={() => {
               commit((indi) => removeEventAtIndex(indi, row.i));
               if (row.compareKey) {

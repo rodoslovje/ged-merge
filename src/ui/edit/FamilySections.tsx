@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { Dataset, Family, SourceCitation, GeoCoord } from "../../gedcom/types";
+import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
@@ -275,6 +275,8 @@ interface FamilySectionProps extends SharedSectionProps {
   mediaCtxFor: (owner: MediaOwner) => MediaRefContext;
   markFamilyTagRetagged: (keyBase: string, newTag: string) => void;
   dismissExtraEvent: (keyBase: string) => void;
+  /** Open the "Copy event to…" picker for one of this family's events. */
+  onCopyFamilyEvent: (fam: Family, node: GedNode, label: string) => void;
   famMergeKeyBase: string | undefined;
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
@@ -324,6 +326,7 @@ export const FamilySection = memo(function FamilySection({
   mediaCtxFor,
   markFamilyTagRetagged,
   dismissExtraEvent,
+  onCopyFamilyEvent,
   famMergeKeyBase,
   mergeHighlight,
   mergeIncomingSources,
@@ -469,6 +472,7 @@ export const FamilySection = memo(function FamilySection({
             openEditSource={openEditSource}
             onOpenSourceDialog={onOpenSourceDialog}
             onRemove={marrNode ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined}
+            onCopy={marrNode ? () => onCopyFamilyEvent(fam, marrNode, t("event.MARR")) : undefined}
             onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -502,6 +506,7 @@ export const FamilySection = memo(function FamilySection({
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
             onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
+            onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, t(`event.${tag}`)) : undefined}
             onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}

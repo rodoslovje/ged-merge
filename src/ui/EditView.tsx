@@ -26,6 +26,8 @@ import {
   connectExistingChild,
   connectExistingParent,
   connectExistingPartner,
+  copyEventToFamily,
+  copyEventToIndividual,
   createMediaRecord,
   createSourceRecord,
   findSharedMediaByFile,
@@ -79,6 +81,7 @@ import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventList } from "./edit/EventList";
+import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
 import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
 import { buildPersonPaths } from "../geo/paths";
@@ -202,6 +205,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
   useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void; danger?: boolean } | null>(null);
+  // The event whose "Copy event to…" picker is open (null = closed).
+  const [copyEventRequest, setCopyEventRequest] = useState<CopyEventRequest | null>(null);
 
   // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
 
@@ -1146,6 +1151,44 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     setTick((v) => v + 1);
   });
 
+  // Identity-stable so the memoized `EventList`/`FamilySection` don't re-render
+  // on every keystroke-commit (see `useStableHandler`).
+  const onCopyIndividualEvent = useStableHandler((node: GedNode, label: string) => {
+    if (person) setCopyEventRequest({ kind: "individual", node, sourceId: person.id, label });
+  });
+  const onCopyFamilyEvent = useStableHandler((fam: Family, node: GedNode, label: string) => {
+    setCopyEventRequest({ kind: "family", node, sourceId: fam.id, label });
+  });
+
+  /**
+   * Copy the picked event onto every chosen record, as one undoable step —
+   * so handing a new residence to the whole household is a single Ctrl+Z away.
+   * The source record is never a target (the picker excludes it), and a target
+   * that already carries the event is skipped by the copy helpers.
+   */
+  const applyCopyEvent = useStableHandler((request: CopyEventRequest, targetIds: string[]) => {
+    const isIndividual = request.kind === "individual";
+    const before = snapshotRecords(
+      dataset,
+      isIndividual ? targetIds : [],
+      isIndividual ? [] : targetIds,
+    );
+    for (const id of targetIds) {
+      if (isIndividual) {
+        const indi = dataset.individuals.get(id);
+        if (indi && copyEventToIndividual(indi, request.node)) rebuildIndividual(dataset, indi);
+      } else {
+        const fam = dataset.families.get(id);
+        if (fam && copyEventToFamily(fam, request.node)) rebuildFamily(dataset, fam);
+      }
+    }
+    const patches = patchesFromSnapshots(dataset, before);
+    if (patches.length === 0) return;
+    onPushEdit(patches, selectedId);
+    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+    setTick((v) => v + 1);
+  });
+
   // Member ids of a family, for snapshotting before a detach/delete — pruning a
   // family that drops below two members also unlinks its sole surviving member.
   function familyMemberIds(fam: Family): string[] {
@@ -1608,6 +1651,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             undoVersion={undoVersion}
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}
+            onCopyEvent={onCopyIndividualEvent}
           />
           {personMap && (
             <div className="edit-person-map">
@@ -1673,6 +1717,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               mediaCtxFor={mediaCtxFor}
               markFamilyTagRetagged={markFamilyTagRetagged}
               dismissExtraEvent={dismissExtraEvent}
+              onCopyFamilyEvent={onCopyFamilyEvent}
               famMergeKeyBase={fam ? familyKeyBaseById.get(fam.id) : undefined}
               mergeHighlight={mergeHighlight}
               mergeIncomingSources={mergeIncomingSources}
@@ -1710,6 +1755,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         dataset={dataset}
         t={t}
       />
+      {copyEventRequest && (
+        <CopyEventDialog
+          request={copyEventRequest}
+          dataset={dataset}
+          t={t}
+          onCancel={() => setCopyEventRequest(null)}
+          onConfirm={(ids) => { applyCopyEvent(copyEventRequest, ids); setCopyEventRequest(null); }}
+        />
+      )}
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
