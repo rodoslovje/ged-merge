@@ -1254,7 +1254,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     if (!person) return null;
     const points = personPoints(dataset, person.id);
     if (!points.length) return null;
-    const byCoord = new Map<string, { coord: GeoCoord; place: string; labels: string[]; kinds: Set<string> }>();
+    const byCoord = new Map<
+      string,
+      { coord: GeoCoord; place: string; addrs: Set<string>; labels: string[]; kinds: Set<string> }
+    >();
     for (const p of points) {
       const k = `${p.coord.lat}:${p.coord.lon}`;
       const label = `${t(`event.${p.tag}`, { defaultValue: p.tag })}${p.year !== undefined ? ` ${p.year}` : ""}`;
@@ -1262,13 +1265,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       if (hit) {
         hit.labels.push(label);
         hit.kinds.add(p.kind);
+        if (p.address) hit.addrs.add(p.address);
       } else {
-        byCoord.set(k, { coord: p.coord, place: p.place, labels: [label], kinds: new Set([p.kind]) });
+        byCoord.set(k, {
+          coord: p.coord,
+          place: p.place,
+          addrs: new Set(p.address ? [p.address] : []),
+          labels: [label],
+          kinds: new Set([p.kind]),
+        });
       }
     }
     const pins = [...byCoord.values()].map((g) => ({
       coord: g.coord,
       label: g.place,
+      // One address means this pin is that house; several events with
+      // different addresses landed on one coordinate, so name none.
+      ...(g.addrs.size === 1 ? { sub: [...g.addrs][0] } : {}),
       lines: g.labels,
       kind: "candidate" as const,
       colorVar: kindsColorVar(g.kinds),

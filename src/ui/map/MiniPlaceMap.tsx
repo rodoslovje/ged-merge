@@ -38,10 +38,12 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
 }
 
 /** Tooltip content as a DOM element — textContent, never HTML, because the
- *  labels carry file data (place names). Caps the detail lines at 8. */
-function tooltipEl(label: string, lines?: string[]): HTMLElement {
+ *  labels carry file data (place names). The street address, when the events
+ *  here name one, goes on its own row under the place, muted like the place
+ *  picker's suggestions. Caps the detail lines at 8. */
+function tooltipEl(label: string, lines?: string[], sub?: string): HTMLElement {
   const el = document.createElement("div");
-  if (!lines?.length) {
+  if (!lines?.length && !sub) {
     el.textContent = label;
     return el;
   }
@@ -49,15 +51,21 @@ function tooltipEl(label: string, lines?: string[]): HTMLElement {
   head.className = "minimap-tip-title";
   head.textContent = label;
   el.appendChild(head);
-  const shown = lines.slice(0, 8);
+  if (sub) {
+    const addr = document.createElement("div");
+    addr.className = "place-suggestion-addr";
+    addr.textContent = sub;
+    el.appendChild(addr);
+  }
+  const shown = (lines ?? []).slice(0, 8);
   for (const line of shown) {
     const row = document.createElement("div");
     row.textContent = line;
     el.appendChild(row);
   }
-  if (lines.length > shown.length) {
+  if ((lines?.length ?? 0) > shown.length) {
     const more = document.createElement("div");
-    more.textContent = `… +${lines.length - shown.length}`;
+    more.textContent = `… +${(lines?.length ?? 0) - shown.length}`;
     el.appendChild(more);
   }
   return el;
@@ -91,6 +99,9 @@ export interface MiniMapPin {
   /** Optional detail lines under the label (e.g. the events at this place),
    *  each rendered as its own row. */
   lines?: string[];
+  /** Street address of the events pinned here, shown as a muted row directly
+   *  under the label. */
+  sub?: string;
   kind: "candidate" | "chosen";
   /** CSS custom property naming this pin's colour (e.g. "--map-birth");
    *  defaults to the kind's standard colour. */
@@ -314,7 +325,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         // A pin click picks the pin — it must not double as a map click.
         bubblingMouseEvents: false,
       });
-      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines));
+      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
     });
