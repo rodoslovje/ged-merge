@@ -138,6 +138,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
   const [decisions, setDecisions] = useState<Map<string, GeocodeDecision> | null>(null);
   const [importState, setImportState] = useState<ImportState>(null);
+  // The gazetteer manager is one-time setup that outlives the file — it lives in
+  // IndexedDB, so it survives reloads and file switches — and folds away once
+  // something is loaded. It stays open when there is nothing loaded (it is the
+  // empty state, and the list below cannot work without it) and while an import
+  // runs or fails, since the progress and the error live inside it.
+  const [gazOpenPref, setGazOpen] = useState(false);
+  const gazOpen = gazOpenPref || countries?.length === 0 || importState !== null;
   const workerRef = useRef<Worker | null>(null);
 
   const refreshGazetteer = async () => {
@@ -475,8 +482,31 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       <div className="tools-geo-gazetteer">
         {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
         {countries.length > 0 && (
+          <div className="tools-geo-summary">
+            <button
+              className={`tools-pair-toggle ${gazOpen ? "open" : ""}`}
+              aria-expanded={gazOpen}
+              onClick={() => setGazOpen(!gazOpen)}
+            >
+              ▶
+            </button>
+            <span className="tools-geo-loaded clickable" onClick={() => setGazOpen(!gazOpen)}>
+              {t("tools.geocode.loadedCountries")}
+            </span>
+            {/* Collapsed, the heading carries the answer itself — which
+                gazetteers are in and how big — so the one-time setup takes one
+                line while still saying what the rankings below can draw on. */}
+            {!gazOpen &&
+              countries.map((c) => (
+                <span key={c.code} className="tools-geo-count">
+                  <span className="gm-data">{c.code}</span> {c.count.toLocaleString(i18n.language)}
+                </span>
+              ))}
+          </div>
+        )}
+        {gazOpen && (
           <>
-          <p className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</p>
+          {countries.length > 0 && (
           <ul className="tools-geo-countries">
             {countries.map((c) => (
               <li key={c.code}>
@@ -493,9 +523,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
               </li>
             ))}
           </ul>
-          </>
-        )}
-        {importState?.phase === "running" ? (
+          )}
+          {importState?.phase === "running" ? (
           <ToolsLoading
             label={t("tools.geocode.importing")}
             progress={importState}
@@ -563,6 +592,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           </a>
           {!appSettings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
         </p>
+          </>
+        )}
       </div>
 
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}

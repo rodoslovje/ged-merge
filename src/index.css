@@ -7044,6 +7044,12 @@ kbd {
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
+/* Collapsed, the gazetteer manager is one line: caret, heading, and each loaded
+   gazetteer's code and size. Expanded, the same row heads the full manager. */
+.tools-geo-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tools-geo-summary .tools-geo-loaded { margin: 0; }
+.tools-geo-summary .clickable { cursor: pointer; }
+.tools-geo-summary .clickable:hover { color: var(--accent); }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the
