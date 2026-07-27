@@ -493,8 +493,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
                 line while still saying what the rankings below can draw on. */}
             {!gazOpen &&
               countries.map((c) => (
-                <span key={c.code} className="tools-geo-count">
-                  <span className="gm-data">{c.code}</span> {c.count.toLocaleString(i18n.language)}
+                <span key={c.code} className="tools-geo-summary-entry">
+                  <span className="tools-geo-country gm-data">{c.code}</span>
+                  <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
                 </span>
               ))}
           </div>

@@ -7075,6 +7075,9 @@ kbd {
    gazetteer's code and size. Expanded, the same row heads the full manager. */
 .tools-geo-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .tools-geo-summary .tools-geo-loaded { margin: 0; }
+/* Each collapsed entry reads like its expanded row: the code carries the weight,
+   the size stays muted beside it. */
+.tools-geo-summary-entry { display: inline-flex; align-items: baseline; gap: 6px; }
 .tools-geo-summary .clickable { cursor: pointer; }
 .tools-geo-summary .clickable:hover { color: var(--accent); }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
