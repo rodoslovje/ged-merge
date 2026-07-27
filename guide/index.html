@@ -944,10 +944,14 @@
             </p>
             <p>
               That means one settlement can hold different coordinates on different events, which is correct: two addresses in
-              Kranj are two places. The <a href="#tools">Health check</a> understands this — it judges coordinates per
-              <em>place + address</em>, so differing addresses are never reported, and it flags the real error instead: the
-              <strong>same place and the same address</strong> carrying two different coordinates. Its coordinate fill also
-              copies only within one address, so a house's position can never spread across a settlement.
+              Kranj are two places. Differing addresses are therefore never reported; the real error is the
+              <strong>same place and the same address</strong> carrying two different coordinates, and
+              <strong>Same place and address, different coordinates</strong> lists those at the top of this page. Expand a
+              row for a map of its coordinates, each pin numbered with how many events sit on it — twelve on the church and
+              one two kilometres off is a typo, not a second church. Choose the right pin (or its radio button) and
+              <em>Use this coordinate for all N events</em> rewrites every event of that place and address to it, in one
+              undoable step. The <a href="#tools">Health check</a>'s coordinate fill likewise copies only within one address,
+              so a house's position can never spread across a settlement.
             </p>
             <p>
               In <a href="#edit">Edit</a>, an event with a place shows a <span class="gm-glyph">📍</span> after it — solid

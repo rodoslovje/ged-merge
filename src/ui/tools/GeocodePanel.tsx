@@ -594,7 +594,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       {/* Above the lists, below the gazetteer: it is the only outright error on
           the page — coordinates that contradict each other, which no lookup
           below can resolve — but it is a finding, not part of the setup. */}
-      <CoordConflicts dataset={dataset} />
+      <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} />
 
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
