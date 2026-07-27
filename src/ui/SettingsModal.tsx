@@ -531,14 +531,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   {/* The name gets the whole line above — preset names run long
                       and an <input> cuts what doesn't fit. */}
                   <div className="settings-overlay-line">
-                    <label className="settings-overlay-wms" title={t("settings.map.overlays.default.hint")}>
-                      <input
-                        type="checkbox"
-                        checked={!!layer.defaultOn}
-                        onChange={(e) => updateDefaultOn(e.target.checked)}
-                      />
-                      {t("settings.map.overlays.default")}
-                    </label>
                     <input
                       type="number"
                       className="settings-overlay-year"
@@ -556,9 +548,20 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.years.hint")}
                       onChange={(e) => update(yearPatch("yearTo", e.target.value))}
                     />
+                    <label
+                      className="settings-overlay-wms settings-overlay-tail"
+                      title={t("settings.map.overlays.default.hint")}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!layer.defaultOn}
+                        onChange={(e) => updateDefaultOn(e.target.checked)}
+                      />
+                      {t("settings.map.overlays.default")}
+                    </label>
                     <button
                       type="button"
-                      className="settings-overlay-move settings-overlay-tail"
+                      className="settings-overlay-move"
                       disabled={index === 0}
                       onClick={() => move(-1)}
                       title={t("settings.map.overlays.moveUp")}
