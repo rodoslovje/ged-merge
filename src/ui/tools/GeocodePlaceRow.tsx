@@ -478,10 +478,6 @@ export function GeocodePlaceRow({
                     checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
                     onChange={() => pickCandidate(cand)}
                   />
-                  {/* The register code when the entry is from an official one
-                      (SI-GURS), so its source is visible; otherwise the plain
-                      country code, which is all a crowd-sourced entry knows. */}
-                  <span className="gm-data">{cand.entry.register ?? cand.entry.country}</span>
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
                   {/* The municipality the register files it under — the only
                       thing that tells two same-named settlements apart. */}
@@ -491,6 +487,13 @@ export function GeocodePlaceRow({
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
                   <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                  {/* Source last, like the GOV/OSM/GURS rows below: the register
+                      code when the entry is from an official one (SI-GURS),
+                      otherwise the plain country code, which is all a
+                      crowd-sourced entry knows. */}
+                  <span className={`tools-reshape-badge ${cand.entry.register ? "official" : "reuse"}`}>
+                    {cand.entry.register ?? cand.entry.country}
+                  </span>
                 </label>
               </li>
             ))}
