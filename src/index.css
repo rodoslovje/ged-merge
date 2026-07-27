@@ -5039,7 +5039,8 @@ kbd {
   .edit-coord-body { flex-direction: column; }
   .edit-coord-map,
   .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
-  .edit-coord-share { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  /* Pushed right, ahead of the manual entry it belongs with. */
+.edit-coord-share { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
 .edit-coord-share input { margin: 0; }
 .edit-coord-head .edit-coord-manual { margin-left: 0; max-width: none; }
 }
@@ -6966,7 +6967,7 @@ kbd {
   display: flex; flex-direction: column; gap: 6px;
 }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }
-.edit-coord-head .edit-coord-manual { flex: 1 1 220px; max-width: 320px; margin-left: auto; }
+.edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
