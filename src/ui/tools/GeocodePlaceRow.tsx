@@ -286,7 +286,9 @@ export function GeocodePlaceRow({
             }}
             title={t("tools.geocode.renameOpen")}
           >
-            ✏︎
+            {/* ✎ (U+270E), the same edit mark the places tree and Organize
+                sources use — not the horizontal ✏ variant. */}
+            ✎
           </button>
         )}
         {c && (

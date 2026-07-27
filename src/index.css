@@ -5494,6 +5494,12 @@ kbd {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  /* Leaflet tooltips don't wrap, so a full place chain ("…Township,,Franklin,
+     Illinois,United States") grew wider than a phone-sized map and was clipped
+     at its edge. Cap the width against the viewport and wrap instead. */
+  max-width: min(280px, 78vw);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Cluster markers: one dot per grid cell, count inside when it merged some. */
@@ -6542,6 +6548,9 @@ kbd {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tools-pair-sep { flex: none; color: var(--muted); }
+/* Row break between the two people — only active on phones (see the phone
+   block at the end of this file). */
+.tools-pair-break { display: none; }
 .tools-pair-toggle {
   flex: none; width: 18px; height: 18px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -7396,6 +7405,30 @@ kbd {
   /* Clear the notice, which is much taller once its text wraps full-width. */
   .map-empty {
     padding: 0 16px 150px;
+  }
+
+  /* --- Duplicates --- */
+  /* One line could not hold two people: both names truncated to "Marija…",
+     which defeats the one job of a duplicate list — telling two look-alikes
+     apart. Give each person a full line, with the ↔ leading the second.
+     Both lines stay single-line (the names still ellipsis), so every collapsed
+     row keeps the same height the virtual list wants. */
+  .tools-pair-row {
+    flex-wrap: wrap;
+    row-gap: 1px;
+    overflow: visible;
+  }
+  .tools-pair-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .tools-pairs .person-ref {
+    flex: 1 1 auto;
+  }
+  /* Line 2 lines up under the names rather than under the expander. */
+  .tools-pair-break + .tools-pair-sep {
+    margin-left: 28px;
   }
 
   /* --- Report --- */
