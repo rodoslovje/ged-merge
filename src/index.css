@@ -4863,7 +4863,9 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .link-button:hover { color: var(--text); }
 
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
-.settings-modal { max-width: 624px; height: auto; max-height: 88vh; }
+/* One size for every tab: a short tab (Advanced) used to shrink the dialog,
+   so switching tabs resized the window under the pointer. */
+.settings-modal { max-width: 624px; height: 88vh; max-height: 88vh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -5481,6 +5483,15 @@ kbd {
   gap: 8px 14px;
   margin: 0 0 8px;
 }
+/* What the map shows (event kinds) stays left; how it is shown — year window,
+   paths, layers — collects on the right. */
+.map-filters-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-left: auto;
+}
 .map-kinds {
   display: flex;
   flex-wrap: wrap;
@@ -5615,7 +5626,9 @@ kbd {
   top: calc(100% + 6px);
   right: 0;
   min-width: 260px;
-  max-width: 340px;
+  /* Wide enough for the preset names, which run to "Slovenija · Topografska
+     karta, do 1:2500 (GURS)" — a narrow panel cut every one of them. */
+  max-width: min(420px, 80vw);
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--border-2);
@@ -5639,7 +5652,7 @@ kbd {
 }
 .map-overlay-pick {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 7px;
   cursor: pointer;
   min-width: 0;
@@ -5647,9 +5660,8 @@ kbd {
 .map-overlay-name {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* A name longer than the panel wraps rather than being cut off. */
+  overflow-wrap: anywhere;
   font-size: 12.5px;
 }
 .map-overlay-years {
@@ -6762,6 +6774,10 @@ kbd {
 }
 .settings-overlay-name {
   flex: 1 1 auto;
+}
+/* The name owns its line; the reorder/remove buttons close the next one. */
+.settings-overlay-tail {
+  margin-left: auto;
 }
 /* Reorder arrows: the list order is the map's stacking order. */
 .settings-overlay-move {

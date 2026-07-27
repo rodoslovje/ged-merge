@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { GeoCoord } from "../../gedcom/types";
-import { useSettings } from "../SettingsContext";
+import { overlayDisplayName, useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
 import { resolveOverlay } from "./overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
+import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
@@ -118,12 +120,16 @@ const NO_CONTEXT: NonNullable<Props["context"]> = [];
 
 export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title, fitKey }: Props) {
   const { settings: appSettings } = useSettings();
+  const { t } = useTranslation();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers, keyed by overlay id (see syncOverlayLayers). */
   const overlayLayersRef = useRef<LiveOverlays>(new Map());
+  /** Bumped on each identify click so a slow response that resolves after a
+   *  newer click is ignored instead of clobbering the popup. */
+  const infoSeqRef = useRef(0);
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const pathLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
@@ -219,6 +225,29 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       isOn: () => true,
     });
   }, [defaultOverlays, appSettings.allowMapTiles]);
+
+  // Click-to-identify, as on the full map: with a queryable overlay drawn (the
+  // GURS house numbers, say), a click asks it what is at that pixel. It runs
+  // alongside click-to-pick — the popup then names the point just picked.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targets = appSettings.allowMapTiles ? queryableOverlays(defaultOverlays) : [];
+    if (!targets.length) return;
+
+    const onClick = async (e: L.LeafletMouseEvent) => {
+      const seq = ++infoSeqRef.current;
+      const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
+      // A newer click superseded this one; a click on bare ground stays silent.
+      if (seq !== infoSeqRef.current || !blocks.length) return;
+      L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [defaultOverlays, appSettings.allowMapTiles, t]);
 
   // A new subject on the same map instance: forget the previous fit and any
   // user pan/zoom so the next pin pass frames the new pins. Declared before

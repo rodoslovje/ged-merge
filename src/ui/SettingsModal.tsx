@@ -527,6 +527,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       placeholder={t("settings.map.overlays.name")}
                       onChange={(e) => updateName(e.target.value)}
                     />
+                  </div>
+                  {/* The name gets the whole line above — preset names run long
+                      and an <input> cuts what doesn't fit. */}
+                  <div className="settings-overlay-line">
                     <label className="settings-overlay-wms" title={t("settings.map.overlays.default.hint")}>
                       <input
                         type="checkbox"
@@ -554,7 +558,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     />
                     <button
                       type="button"
-                      className="settings-overlay-move"
+                      className="settings-overlay-move settings-overlay-tail"
                       disabled={index === 0}
                       onClick={() => move(-1)}
                       title={t("settings.map.overlays.moveUp")}
