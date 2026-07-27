@@ -246,6 +246,15 @@ export function AddressCoordsSection({
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
+  /** Clicking the chosen option again drops the choice — a radio group has no
+   *  "none" of its own, and a row picked by mistake would otherwise be written. */
+  const unpick = (key: string) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+
   /**
    * Every house found for this place, on one map — the point of grouping: the
    * addresses of a village are neighbours, so seeing them together shows at a
@@ -288,15 +297,16 @@ export function AddressCoordsSection({
     <section className="tools-cleanup-section">
       <div className="tools-dup-kind-head">
         {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
+        <div className="tools-dup-bulk">
+          <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
+            {t("tools.geocode.addr.apply", { count: picked.size })}
+          </button>
+          <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
+            {t("tools.sources.dupSelectNone")}
+          </button>
+        </div>
       </div>
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
-      {/* Its own action row, like the place list above — in the heading the
-          button read as part of the title and sat off the text's baseline. */}
-      <div className="tools-reshape-options">
-        <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
-          {t("tools.geocode.addr.apply", { count: picked.size })}
-        </button>
-      </div>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <ul className="tools-geo-addr-list">
@@ -431,6 +441,7 @@ export function AddressCoordsSection({
                                     name={`addr-${row.key}`}
                                     checked={sameCoord(chosen?.coord, r.coord)}
                                     onChange={() => pick(row.key, r)}
+                                    onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
                                   <span className="tools-geo-cand-name">{r.label}</span>
                                   <span className="gm-data">

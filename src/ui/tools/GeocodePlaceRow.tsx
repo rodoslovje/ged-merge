@@ -65,6 +65,9 @@ interface Props {
   /** Choose a coordinate for the row; `govId` is set only for GOV picks and
    *  drives the `_GOV` write-back. */
   onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => void;
+  /** Clicking the chosen option again drops the pick — a radio group has no
+   *  "none" of its own, and a row picked by mistake would otherwise be written. */
+  onUnpickCoord: (row: GeocodeRow) => void;
   onToggleNoMatch: (key: string) => void;
   /** Rename all occurrences of the row's raw value (with an optional
    *  place/ADDR split); the panel applies it and rescans. */
@@ -89,6 +92,7 @@ export function GeocodePlaceRow({
   onToggleOpen,
   onClaimMap,
   onPickCoord,
+  onUnpickCoord,
   onToggleNoMatch,
   onRename,
   onNavigate,
@@ -497,6 +501,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, row.fileCoord)}
+                    onClick={() => sameCoord(c?.coord, row.fileCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
@@ -515,6 +520,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, cachedCoord)}
+                    onClick={() => sameCoord(c?.coord, cachedCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, cachedCoord, row.cached?.label ?? t("tools.geocode.cached"))}
                   />
                   <span className="tools-geo-cand-name">{row.cached?.label ?? t("tools.geocode.cached")}</span>
@@ -532,6 +538,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
+                    onClick={() => sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
                     onChange={() => pickCandidate(cand)}
                   />
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
@@ -560,6 +567,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.name)}
                   />
                   {/* Name and parent, like the register and GOV rows — the full
@@ -580,6 +588,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.name, r.govId)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
@@ -600,6 +609,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
@@ -618,6 +628,7 @@ export function GeocodePlaceRow({
                   type="radio"
                   name={`geo-${row.key}`}
                   checked={manualChosen}
+                  onClick={() => manualChosen && onUnpickCoord(row)}
                   disabled={!draftCoord}
                   onChange={setManual}
                 />

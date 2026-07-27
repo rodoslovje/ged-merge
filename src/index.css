@@ -6731,6 +6731,9 @@ kbd {
 /* Source cleanup (reshape + duplicates) */
 .tools-cleanup-section { margin: 0 0 26px; }
 .tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }
+/* The write button rides in the heading's action row, so it must not keep
+   the standalone bottom margin it has when it heads a section of its own. */
+.tools-dup-bulk .tools-run { margin: 0; }
 /* Group badge: will a new SOUR record be created, or an existing one reused? */
 .tools-reshape-badge {
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;

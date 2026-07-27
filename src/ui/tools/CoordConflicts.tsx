@@ -60,6 +60,15 @@ export function CoordConflicts({
 
   const pick = (key: string, coord: GeoCoord) => setPicked((prev) => new Map(prev).set(key, coord));
 
+  /** Clicking the chosen option again drops the choice — a radio group has no
+   *  "none" of its own, and a row picked by mistake would otherwise be written. */
+  const unpick = (key: string) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+
   /** A point off the map's own pins: remembered as text so the row shows what
    *  was picked, and chosen in the same move. */
   const pickPoint = (key: string, coord: GeoCoord) => {
@@ -80,13 +89,19 @@ export function CoordConflicts({
 
   return (
     <section className="tools-cleanup-section">
-      <div className="tools-dup-kind-head">{t("tools.validate.coordConflict.title")}</div>
-      <p className="tools-intro">{t("tools.validate.coordConflict.hint", { count: conflicts.length })}</p>
-      <div className="tools-reshape-options">
-        <button className="nav-btn primary tools-run" onClick={apply} disabled={!picked.size}>
-          {t("tools.validate.coordConflict.apply", { count: picked.size })}
-        </button>
+      <div className="tools-dup-kind-head">
+        {t("tools.validate.coordConflict.title")}
+        <span className="tools-chip-count">{conflicts.length}</span>
+        <div className="tools-dup-bulk">
+          <button className="nav-btn primary tools-run" onClick={apply} disabled={!picked.size}>
+            {t("tools.validate.coordConflict.apply", { count: picked.size })}
+          </button>
+          <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={!picked.size}>
+            {t("tools.sources.dupSelectNone")}
+          </button>
+        </div>
       </div>
+      <p className="tools-intro">{t("tools.validate.coordConflict.hint", { count: conflicts.length })}</p>
       {applied !== null && (
         <p className="tools-clean tools-clean--ok">{t("tools.validate.coordConflict.applied", { count: applied })}</p>
       )}
@@ -157,6 +172,7 @@ export function CoordConflicts({
                             name={`conflict-${key}`}
                             checked={sameCoord(chosen, x.coord)}
                             onChange={() => pick(key, x.coord)}
+                            onClick={() => sameCoord(chosen, x.coord) && unpick(key)}
                           />
                           <span className="gm-data">
                             {x.coord.lat.toFixed(5)}, {x.coord.lon.toFixed(5)}
@@ -175,6 +191,7 @@ export function CoordConflicts({
                           checked={manualChosen}
                           disabled={!manualCoord}
                           onChange={() => manualCoord && pick(key, manualCoord)}
+                          onClick={() => manualChosen && unpick(key)}
                         />
                         <span className="tools-geo-cand-name">{t("tools.geocode.manual")}</span>
                       </label>

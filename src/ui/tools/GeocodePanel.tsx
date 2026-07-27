@@ -398,6 +398,17 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     });
   };
 
+  /** Drop a row's pick: the coordinate goes back to whatever the row proposes by
+   *  default, and the row is unticked so nothing of it is written. */
+  const unpickCoord = (row: GeocodeRow) => {
+    setChosen((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+    toggleChecked(row.key, false);
+  };
+
   const toggleOpen = (key: string) => {
     const willOpen = !expanded.has(key);
     setExpanded((prev) => {
@@ -622,6 +633,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           {t("tools.geocode.heading")}
           <span className="tools-chip-count">{scan.rows.length}</span>
           <div className="tools-dup-bulk">
+            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
+              {t("tools.geocode.apply", { count: checked.size })}
+            </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
             </button>
@@ -644,9 +658,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         </div>
         <div className="tools-reshape-options">
           <TreeSearch value={search} onChange={setSearch} />
-          <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
-            {t("tools.geocode.apply", { count: checked.size })}
-          </button>
         </div>
 
       <ul className="tools-tree">
@@ -669,6 +680,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             onToggleOpen={toggleOpen}
             onClaimMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
             onPickCoord={pickCoord}
+            onUnpickCoord={unpickCoord}
             onToggleNoMatch={toggleNoMatch}
             onRename={renameValue}
             onNavigate={onNavigate}

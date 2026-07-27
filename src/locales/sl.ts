@@ -131,7 +131,7 @@ export const sl = {
   "tools.validate.coordConflict.rowMeta": "{{count}} koordinate · {{events}} dogodkov",
   "tools.validate.coordConflict.mapHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete.",
   "tools.validate.coordConflict.mapPickHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete, ali kamor koli drugam, da dogodke postavite tja.",
-  "tools.validate.coordConflict.apply": "Poenoti kraje ({{count}})",
+  "tools.validate.coordConflict.apply": "Poenoti koordinate ({{count}})",
   "tools.validate.coordConflict.applied_one": "Poenoteno — posodobljen {{count}} zapis.",
   "tools.validate.coordConflict.applied_two": "Poenoteno — posodobljena {{count}} zapisa.",
   "tools.validate.coordConflict.applied_few": "Poenoteno — posodobljeni {{count}} zapisi.",

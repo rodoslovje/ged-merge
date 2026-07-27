@@ -131,7 +131,7 @@ export const en = {
   "tools.validate.coordConflict.rowMeta": "{{count}} coordinates · {{events}} events",
   "tools.validate.coordConflict.mapHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it.",
   "tools.validate.coordConflict.mapPickHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it, or click anywhere else to place the events there instead.",
-  "tools.validate.coordConflict.apply": "Settle places ({{count}})",
+  "tools.validate.coordConflict.apply": "Settle coordinates ({{count}})",
   "tools.validate.coordConflict.applied": "Settled — {{count}} record updated.",
   "tools.validate.coordConflict.applied_other": "Settled — {{count}} records updated.",
   "tools.validate.placeCoord.title": "Places with coordinates in some records but not others",
