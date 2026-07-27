@@ -61,6 +61,24 @@ describe("buildSearchRows", () => {
     );
     expect(rows.map((r) => r.name)).toEqual(["Ana", "Marko", "Zora"]);
   });
+
+  it("orders namesakes by birth date, then death year, undated last", () => {
+    const rows = buildSearchRows(
+      toMap([
+        indi([{ full: "Ana Simonič" }]),
+        indi([{ full: "Ana Simonič" }], [death(1879)]),
+        indi([{ full: "Ana Simonič" }], [birth(1888)]),
+        indi(
+          [{ full: "Ana Simonič" }],
+          [{ tag: "BIRT", date: { raw: "3 MAR 1888", qualifier: "exact", year: 1888, month: 3, day: 3 } }],
+        ),
+      ]),
+      nameOf,
+    );
+    expect(rows.map((r) => r.span)).toEqual(["1888", "1888", "–1879", ""]);
+    // Same birth year: the dated-to-the-day record follows the year-only one.
+    expect(rows[1].birthKey).toBeGreaterThan(rows[0].birthKey);
+  });
 });
 
 describe("searchPeople — query", () => {
