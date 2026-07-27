@@ -644,7 +644,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         </div>
         <div className="tools-reshape-options">
           <TreeSearch value={search} onChange={setSearch} />
-          <button className="nav-btn tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
+          <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
             {t("tools.geocode.apply", { count: checked.size })}
           </button>
         </div>

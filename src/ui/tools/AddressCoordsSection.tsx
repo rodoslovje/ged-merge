@@ -293,7 +293,7 @@ export function AddressCoordsSection({
       {/* Its own action row, like the place list above — in the heading the
           button read as part of the title and sat off the text's baseline. */}
       <div className="tools-reshape-options">
-        <button className="nav-btn tools-run" onClick={apply} disabled={picked.size === 0}>
+        <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
           {t("tools.geocode.addr.apply", { count: picked.size })}
         </button>
       </div>

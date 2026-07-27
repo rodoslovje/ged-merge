@@ -83,7 +83,7 @@ export function CoordConflicts({
       <div className="tools-dup-kind-head">{t("tools.validate.coordConflict.title")}</div>
       <p className="tools-intro">{t("tools.validate.coordConflict.hint", { count: conflicts.length })}</p>
       <div className="tools-reshape-options">
-        <button className="nav-btn tools-run" onClick={apply} disabled={!picked.size}>
+        <button className="nav-btn primary tools-run" onClick={apply} disabled={!picked.size}>
           {t("tools.validate.coordConflict.apply", { count: picked.size })}
         </button>
       </div>
