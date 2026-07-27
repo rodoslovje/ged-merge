@@ -7,6 +7,7 @@ import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { dateCompareKey, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { dateToSortKey } from "../gedcom/date";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -1123,30 +1124,6 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
   if (tag === "_FNRL") return 99_999_996;
   if (tag === "DEAT") return 99_999_995;
   return a.midLifeKey + (pos === -1 ? 500 : pos * 1_000);
-}
-
-/**
- * Sort key for a single GedDate that is precision- and qualifier-aware:
- *  - BEF Y  → just before year start (Y*10000 - 1), so it sorts before any Y date
- *  - AFT Y  → after year end (Y*10000 + 9999)
- *  - Full date Y-M-D → Y*10000 + M*100 + D
- *  - Month-only Y-M  → mid-month (M*100 + 50), after same-month full dates
- *  - Year-only Y     → Y*10000 + 9000, after all specific dates in that year
- */
-export function dateToSortKey(d: GedDate | undefined): number {
-  if (!d || d.year == null) return 9_999_999;
-  if (d.qualifier === "before") return d.year * 10000 - 1;
-  if (d.qualifier === "after") return d.year * 10000 + 9999;
-  // FROM..TO periods (e.g. an occupation held over several years) sort by their
-  // end date, so they land next to whatever else was happening when they ended.
-  const useEnd = d.qualifier === "range" && d.year2 != null;
-  const year = useEnd ? d.year2! : d.year;
-  const m = useEnd ? d.month2 : d.month;
-  const day = useEnd ? d.day2 : d.day;
-  const base = year * 10000;
-  if (!m) return base + 9000;            // year-only → after any known date in year
-  if (!day) return base + m * 100 + 50;  // month-only → mid-month
-  return base + m * 100 + day;
 }
 
 
