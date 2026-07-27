@@ -134,6 +134,53 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.source).toBe("GOV");
   });
 
+  it("builds place and address from a Nominatim house, whose own name is the number", () => {
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 46.2456, lon: 14.3312 },
+        name: "21",
+        label: "21, Hafnarjeva pot, Stražišče, Kranj, 4000 Kranj, Slovenija",
+        admin: "Hafnarjeva pot",
+        kind: "house",
+        parts: { house: "21", road: "Hafnarjeva pot", locality: "Stražišče", admin: "Kranj", country: "Slovenija" },
+      },
+      style(),
+    )!;
+    expect(p.plac).toBe("Stražišče,Kranj,Slovenija");
+    expect(p.addr).toBe("Hafnarjeva pot 21");
+  });
+
+  it("numbers a house off its village where no street is named", () => {
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 46.05, lon: 15.31 },
+        name: "12",
+        label: "12, Zabukovje, Sevnica, Slovenija",
+        kind: "house",
+        parts: { house: "12", locality: "Zabukovje", admin: "Sevnica", country: "Slovenija" },
+      },
+      style(),
+    )!;
+    expect(p.plac).toBe("Zabukovje,Sevnica,Slovenija");
+    expect(p.addr).toBe("Zabukovje 12");
+  });
+
+  it("prefers the structured parts over the display chain for a settlement too", () => {
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 46.05, lon: 15.31 },
+        name: "Zabukovje",
+        label: "Zabukovje, Občina Sevnica, Spodnjeposavska, 8292, Slovenija",
+        admin: "Občina Sevnica",
+        kind: "village",
+        parts: { locality: "Zabukovje", admin: "Sevnica", country: "Slovenija" },
+      },
+      style(),
+    )!;
+    expect(p.plac).toBe("Zabukovje,Sevnica,Slovenija");
+    expect(p.addr).toBeUndefined();
+  });
+
   it("reads a Nominatim line as feature, parent and country — postcodes dropped", () => {
     const p = proposalFromNominatim(
       {

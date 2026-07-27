@@ -166,17 +166,45 @@ export function proposalFromGov(result: GovResult, style: PlaceStyle): PlaceProp
 /** Segments of a Nominatim display line that are not jurisdiction levels. */
 const NOISE = /^\d[\d\s-]*$/;
 
-/** A Nominatim hit. Its display line mixes postcodes and administrative units
- *  of every rank, so only the head (the feature), the level above it and the
- *  tail (the country) are read — the rest would not survive a re-parse as a
- *  jurisdiction chain anyway. */
+/**
+ * A Nominatim hit. Its structured parts are read where the service returned
+ * them; where it didn't, the display line's head (the feature), the level above
+ * it and its tail (the country) are — the rest of that line mixes postcodes and
+ * administrative units of every rank and would not survive a re-parse as a
+ * jurisdiction chain anyway.
+ *
+ * A hit on a house is the case the parts are indispensable for: there the
+ * feature's own "name" is the bare house number, and the settlement it belongs
+ * to is only ever a named part.
+ */
 export function proposalFromNominatim(result: NominatimResult, style: PlaceStyle): PlaceProposal | undefined {
   const segments = result.label.split(",").map((s) => s.trim()).filter((s) => s && !NOISE.test(s));
-  const country = segments.length > 1 ? segments[segments.length - 1] : undefined;
-  const admin = result.admin && result.admin !== country ? result.admin : undefined;
-  const shaped = shape({ locality: result.name, admin, country }, undefined, style);
+  const labelCountry = segments.length > 1 ? segments[segments.length - 1] : undefined;
+  const parts = result.parts;
+  const country = parts?.country ?? labelCountry;
+
+  // A house: "road number", or "settlement number" where a village numbers its
+  // houses directly — the two forms GEDCOM addresses take here.
+  if (parts?.house) {
+    const locality = parts.locality ?? result.admin;
+    if (!locality) return undefined;
+    const addr = `${parts.road ?? locality} ${parts.house}`;
+    const shaped = shape({ locality, admin: adminOf(parts.admin, country), country }, addr, style);
+    return shaped && { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
+  }
+
+  const locality = parts?.locality ?? result.name;
+  const admin = adminOf(parts?.admin ?? result.admin, country);
+  const shaped = shape({ locality, admin, country }, undefined, style);
   if (!shaped) return undefined;
   return { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
+}
+
+/** The administrative parent, unless it merely repeats the country — Nominatim
+ *  returns a state for city-states and small countries, and "Monaco,Monaco" is
+ *  a level, not a jurisdiction. */
+function adminOf(admin: string | undefined, country: string | undefined): string | undefined {
+  return admin && admin !== country ? admin : undefined;
 }
 
 /** Stable identity of a proposal, for de-duplicating across registers — the

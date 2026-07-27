@@ -7,6 +7,7 @@ import { SourceRefs } from "../SourceRef";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
@@ -141,6 +142,9 @@ export function EventFieldsRow({
   // tag having always been here — `markFamilyTagRetagged` flags it instead.
   const tagForced = resolvedSessionFields?.has(`${fBase}.tag`) ?? false;
 
+  // The registers behind the place and address fields; null outside the Edit
+  // view, where the fields stay file-only.
+  const lookup = usePlaceLookup();
   const valueField = useField(ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
@@ -461,6 +465,11 @@ export function EventFieldsRow({
     commit: (val: string) => void,
     combos?: { place: string; addr: string }[],
     onPickCombo?: (place: string, addr: string) => void,
+    lookupProps?: {
+      onLookup?: (query: string) => Promise<PlaceProposal[]>;
+      lookupNote?: string;
+      onPickProposal?: (proposal: PlaceProposal) => void;
+    },
   ) {
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
@@ -480,6 +489,7 @@ export function EventFieldsRow({
           onCommit={commit}
           onClear={() => { field.clear(); commit(""); }}
           onPickCombo={onPickCombo}
+          {...lookupProps}
         />
       </span>
     );
@@ -609,6 +619,10 @@ export function EventFieldsRow({
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
             onPickProposal={pickProposal}
+            // A place is looked up on its own; with online lookups off the
+            // imported gazetteer still answers, so the search stays offered.
+            onLookup={lookup ? (query) => lookup.search(query) : undefined}
+            lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
           />
           {/* This event's own coordinate: a pin showing whether it has one, and
            *  opening the per-event picker. Here rather than only in the Tools
@@ -636,7 +650,15 @@ export function EventFieldsRow({
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => {
           const known = knownCoord(placeField.value, val);
           commitAll({ address: val, ...(known ? { coord: known } : {}) });
-        }, addrCombos, pickCombo)}
+        }, addrCombos, pickCombo, {
+          // An address is looked up inside the event's place — and only online:
+          // house numbers are in the address registers, never in an imported
+          // gazetteer, so with the opt-in off the row says why instead of
+          // offering a search that could not answer.
+          onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
+          lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
+          onPickProposal: pickProposal,
+        })}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),

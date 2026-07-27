@@ -32,6 +32,15 @@ import { useSettings } from "../SettingsContext";
 export interface PlaceLookup {
   /** Registers matching the typed text, already written in the file's layout. */
   search: (query: string) => Promise<PlaceProposal[]>;
+  /**
+   * The same for an address being typed, which is looked up *within* the event's
+   * place: "21" or "Hafnarjeva pot 21" means nothing on its own, and the house
+   * the address register finds may well turn out to belong to a neighbouring
+   * settlement — so an offer carries the place it really is in, not the one that
+   * was typed. Only the online registers hold house numbers; an imported
+   * gazetteer stops at settlements.
+   */
+  searchAddress: (place: string, address: string) => Promise<PlaceProposal[]>;
   /** Whether the online registers may be queried at all (Settings → online
    *  lookups). When off, only an imported gazetteer answers — and the panel
    *  says so instead of silently returning less. */
@@ -78,19 +87,28 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
       language,
     };
 
+    /** Collector shared by both lookups: first offer for a place wins, so the
+     *  official register's wording outranks a later source's. */
+    const collector = () => {
+      const out: PlaceProposal[] = [];
+      const seen = new Set<string>();
+      return {
+        out,
+        add(proposal: PlaceProposal | undefined) {
+          if (!proposal) return;
+          const key = proposalKey(proposal);
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(proposal);
+        },
+      };
+    };
+
     const search = async (query: string): Promise<PlaceProposal[]> => {
       const text = query.trim();
       if (text.length < 2) return [];
 
-      const out: PlaceProposal[] = [];
-      const seen = new Set<string>();
-      const add = (proposal: PlaceProposal | undefined) => {
-        if (!proposal) return;
-        const key = proposalKey(proposal);
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(proposal);
-      };
+      const { out, add } = collector();
 
       // Offline first: an imported register answers instantly, is authoritative
       // for the country it covers, and costs no request.
@@ -119,6 +137,31 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
       return out.slice(0, MAX_RESULTS);
     };
 
-    return { search, online };
+    const searchAddress = async (place: string, address: string): Promise<PlaceProposal[]> => {
+      const text = address.trim();
+      // House numbers live only in the online registers, so with the opt-in off
+      // there is nothing to ask (the caller doesn't offer the search then).
+      if (!text || !online) return [];
+
+      const { out, add } = collector();
+      // The register reads the number against the event's place: which
+      // settlement, and whether the number hangs off a street or off the
+      // village itself. It also tries the wider jurisdictions the place names,
+      // since a street is often filed under the town that absorbed the village.
+      const rnQueries = rnQueriesFrom(place || undefined, text);
+      const [rn, osm] = await Promise.allSettled([
+        rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
+        // Address first, then the place — the order Nominatim reads best.
+        searchNominatim([text, place].map((s) => s.trim()).filter(Boolean).join(", "), language),
+      ]);
+      if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
+      if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
+      if (!out.length && rn.status === "rejected" && osm.status === "rejected") {
+        throw new Error("address lookup failed");
+      }
+      return out.slice(0, MAX_RESULTS);
+    };
+
+    return { search, searchAddress, online };
   }, [dataset, placeSuggestions, language, online]);
 }

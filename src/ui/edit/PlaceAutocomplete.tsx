@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
 import { applyCanonical } from "./placeSuggestions";
-import { usePlaceLookup } from "./PlaceLookupContext";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCompareKey } from "../../match/place";
 
@@ -44,6 +43,8 @@ export function PlaceAutocomplete({
   onClear,
   onPickCombo,
   onPickProposal,
+  onLookup,
+  lookupNote,
 }: {
   value: string;
   suggestions: string[];
@@ -62,26 +63,37 @@ export function PlaceAutocomplete({
   onCommit: (value: string) => void;
   onClear: () => void;
   onPickCombo?: (place: string, addr: string) => void;
-  /** Enables the register lookup: called with the offer the user picked. */
+  /** Called with the register offer the user picked. Required, with `onLookup`
+   *  or `lookupNote`, for the lookup row to appear at all. */
   onPickProposal?: (proposal: PlaceProposal) => void;
+  /** Runs the register search for the typed text. The host supplies it, since
+   *  what "look this up" means differs per field: a place is searched on its
+   *  own, an address within the event's place. */
+  onLookup?: (query: string) => Promise<PlaceProposal[]>;
+  /** Why the lookup can do less than usual (e.g. online lookups are off).
+   *  Shown in the lookup row; on its own it makes the row appear with no
+   *  button, which is how a field says the search is unavailable and why. */
+  lookupNote?: string;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [search, setSearch] = useState<SearchState>(IDLE);
   const containerRef = useRef<HTMLDivElement>(null);
-  const lookup = usePlaceLookup();
 
   /** Places the file already writes, so a register offer that only repeats one
    *  is left out — it is in the list above already, canonically spelled. An
    *  offer that adds an address still earns its row: it carries the house. */
   const known = useMemo(() => new Set(suggestions.map(placeCompareKey)), [suggestions]);
 
-  /** The lookup is offered for a place the file cannot answer itself: once the
-   *  text names a place the file already writes, the row would only be in the
-   *  way of the ordinary editing it interrupts. */
+  /** The lookup is offered for a value the file cannot answer itself: once the
+   *  text names one the file already writes, the row would only be in the way
+   *  of the ordinary editing it interrupts. */
   const canSearch =
-    !!lookup && !!onPickProposal && value.trim().length >= 2 && !known.has(placeCompareKey(value));
+    !!onPickProposal &&
+    (!!onLookup || !!lookupNote) &&
+    value.trim().length >= 2 &&
+    !known.has(placeCompareKey(value));
 
   const filtered = useMemo((): Item[] => {
     const q = value.trim().toLowerCase();
@@ -131,9 +143,9 @@ export function PlaceAutocomplete({
 
   function runSearch() {
     const query = value.trim();
-    if (!lookup || query.length < 2) return;
+    if (!onLookup || query.length < 2) return;
     setSearch({ state: "loading", query, results: [] });
-    lookup.search(query).then(
+    onLookup(query).then(
       (results) => setSearch({ state: "done", query, results }),
       () => setSearch({ state: "error", query, results: [] }),
     );
@@ -214,27 +226,27 @@ export function PlaceAutocomplete({
               limited, so they are never queried per keystroke. */}
           {canSearch && (
             <li className="place-suggestion-foot">
-              <button
-                type="button"
-                className="tools-issue-link"
-                disabled={search.state === "loading"}
-                // mousedown, not click: a click blurs the input first, and the
-                // wrapper's blur handler would have closed the dropdown.
-                onMouseDown={(e) => { e.preventDefault(); runSearch(); }}
-              >
-                {search.state === "loading" && searchedThis
-                  ? t("event.place.lookup.searching")
-                  : t("event.place.lookup.search")}
-              </button>
+              {onLookup && (
+                <button
+                  type="button"
+                  className="tools-issue-link"
+                  disabled={search.state === "loading"}
+                  // mousedown, not click: a click blurs the input first, and the
+                  // wrapper's blur handler would have closed the dropdown.
+                  onMouseDown={(e) => { e.preventDefault(); runSearch(); }}
+                >
+                  {search.state === "loading" && searchedThis
+                    ? t("event.place.lookup.searching")
+                    : t("event.place.lookup.search")}
+                </button>
+              )}
               {searchedThis && search.state === "error" && (
                 <span className="place-suggestion-note">{t("event.place.lookup.error")}</span>
               )}
               {searchedThis && search.state === "done" && !filtered.some((f) => f.proposal) && (
                 <span className="place-suggestion-note">{t("event.place.lookup.none")}</span>
               )}
-              {lookup && !lookup.online && (
-                <span className="place-suggestion-note">{t("event.place.lookup.offlineOnly")}</span>
-              )}
+              {lookupNote && <span className="place-suggestion-note">{lookupNote}</span>}
             </li>
           )}
         </ul>
