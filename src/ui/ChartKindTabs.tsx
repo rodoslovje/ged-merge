@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChartKind } from "./ChartSettingsContext";
 
@@ -19,6 +20,12 @@ interface Props {
 
 export function ChartKindTabs({ kinds, value, onChange }: Props) {
   const { t } = useTranslation();
+  // On a phone the row is too narrow for every kind and scrolls sideways, so the
+  // selected tab can sit off-screen after a re-entry. Bring it into view.
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [value]);
   const label = (k: ChartKind) =>
     k === "relationship" ? t("relpath.button")
       : k === "timeline" ? t("timeline.button")
@@ -30,6 +37,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
       {kinds.map((k) => (
         <button
           key={k}
+          ref={value === k ? activeRef : undefined}
           role="tab"
           aria-selected={value === k}
           className={value === k ? "active" : ""}
