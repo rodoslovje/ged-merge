@@ -5572,6 +5572,11 @@ kbd {
   max-width: min(280px, 78vw);
   white-space: normal;
   overflow-wrap: anywhere;
+  /* The tooltip pane it sits in has no width of its own, so with wrapping
+     turned on the box would shrink to its min-content width — one character
+     per line ("r/o/č/n/o" down the map). Size it to the text and let the
+     max-width above do the wrapping. */
+  width: max-content;
 }
 
 /* Cluster markers: one dot per grid cell, count inside when it merged some. */
