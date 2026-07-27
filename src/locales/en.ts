@@ -185,6 +185,7 @@ export const en = {
   "tools.tool.places": "Places",
   "tools.tool.places.desc": "Browse the places used across the file",
   "tools.places.geocodeToggle": "Geocode places",
+  "tools.places.geocodeToggleShort": "Geocoding",
   "tools.places.geocodeChipHint": "{{count}} distinct place names without coordinates",
   "tools.places.geocodeChipPlaces": "{{count}} place",
   "tools.places.geocodeChipPlaces_other": "{{count}} places",

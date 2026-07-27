@@ -185,6 +185,7 @@ export const sl = {
   "tools.tool.places": "Kraji",
   "tools.tool.places.desc": "Pregled krajev, uporabljenih v datoteki",
   "tools.places.geocodeToggle": "Geokodiranje krajev",
+  "tools.places.geocodeToggleShort": "Geokodiranje",
   "tools.places.geocodeChipHint": "{{count}} različnih imen krajev brez koordinat",
   "tools.places.geocodeChipPlaces_one": "{{count}} kraj",
   "tools.places.geocodeChipPlaces_two": "{{count}} kraja",

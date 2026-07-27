@@ -208,7 +208,10 @@ export function PlacesPanel({
               .join(" · ")}
             onClick={() => setView("geocode")}
           >
-            {t("tools.places.geocodeToggle")}{" "}
+            {/* The counts name what they count, so the label drops "places" when
+                either is shown — "Geocoding 55 places · 995 addresses", not
+                "Geocode places 55 places". With neither, the full name stands. */}
+            {t(geocodePending > 0 || addressPending > 0 ? "tools.places.geocodeToggleShort" : "tools.places.geocodeToggle")}{" "}
             {geocodePending > 0 && (
               <span className="tools-chip-count">{t("tools.places.geocodeChipPlaces", { count: geocodePending })}</span>
             )}
