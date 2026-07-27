@@ -593,7 +593,7 @@ function AppContent() {
   // The merge "match list" view-model (ranked/filtered lists, selection, index
   // maps) — pure derivation, extracted to a hook. The stateful setters
   // (sort/filters) and navigation callbacks stay here.
-  const { allSorted, visible, visibleMainOrder, current, visibleIndex, allSortedIndex, indexByMain, indexByCompare } =
+  const { allSorted, visible, visibleMainOrder, current, visibleIndex, indexByMain, indexByCompare } =
     useMatchList({ matches, sort, filters, decisions, selectedId });
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
@@ -1708,8 +1708,7 @@ function AppContent() {
               setFilters={handleFilters}
               visible={visible}
               visibleIndex={visibleIndex}
-              allSortedIndex={allSortedIndex}
-              allSortedCount={allSorted.length}
+              visibleCount={visible.length}
               onSelectPrev={onSelectPrev}
               onSelectNext={onSelectNext}
               onSelect={select}

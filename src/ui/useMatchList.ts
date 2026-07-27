@@ -30,7 +30,6 @@ export interface MatchListView {
   /** Index of `current` in `visible`, or -1 when filtered out. */
   visibleIndex: number;
   /** Index of `current` in `allSorted` — navigation bounds. */
-  allSortedIndex: number;
   /** Main id → first (highest-ranked) candidate, for jumping to a relative. */
   indexByMain: Map<string, Candidate>;
   /** Compare id → first candidate. */
@@ -104,12 +103,6 @@ export function useMatchList(params: {
     return visibleMap.get(`${current.mainId}|${current.compareId}`) ?? -1;
   }, [visibleMap, current]);
 
-  // Index of current in allSorted — used for prev/next navigation bounds.
-  const allSortedIndex = useMemo(() => {
-    if (!current) return 0;
-    return allSortedMap.get(`${current.mainId}|${current.compareId}`) ?? 0;
-  }, [allSortedMap, current]);
-
   // Person id -> candidate, so a relative's name can jump to their own match.
   // A person with several candidates resolves to the first (highest-ranked) one.
   // Built over allSorted so navigation works regardless of the active filter.
@@ -130,7 +123,6 @@ export function useMatchList(params: {
     visibleMainOrder,
     current,
     visibleIndex,
-    allSortedIndex,
     indexByMain,
     indexByCompare,
   };

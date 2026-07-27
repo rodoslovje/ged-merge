@@ -31,8 +31,8 @@ interface Props {
   /** Index of current in visible; -1 when current is filtered out. */
   visibleIndex: number;
   /** Position of current in the full sorted list (for prev/next nav). */
-  allSortedIndex: number;
-  allSortedCount: number;
+  /** Total in the filtered list — prev/next walk that, so the counter shows it. */
+  visibleCount: number;
   onSelectPrev: () => void;
   onSelectNext: () => void;
   onSelect: (index: number) => void;
@@ -70,8 +70,7 @@ export function MergeView({
   setFilters,
   visible,
   visibleIndex,
-  allSortedIndex,
-  allSortedCount,
+  visibleCount,
   onSelectPrev,
   onSelectNext,
   onSelect,
@@ -241,21 +240,25 @@ export function MergeView({
         {kinship && <span className={`person-kinship ${kinshipLineage}`} title={kinshipTooltip}>{kinship}</span>}
       </div>
       <div className="compare-nav-header">
+        {/* Prev/next step through the FILTERED list, so the counter and the
+            disabled bounds have to come from it too. Reading the unfiltered
+            total here meant a filter that hid everything still showed
+            "1 of 34" beside two live-looking buttons that did nothing. */}
         <button
           className="nav-btn icon-only"
           onClick={onSelectPrev}
-          disabled={allSortedIndex <= 0}
+          disabled={visibleIndex <= 0}
           title={t("nav.prev")}
         >
           ‹
         </button>
         <span className="nav-pos gm-data">
-          {t("nav.pos", { current: allSortedIndex + 1, total: allSortedCount })}
+          {t("nav.pos", { current: Math.max(0, visibleIndex + 1), total: visibleCount })}
         </span>
         <button
           className="nav-btn icon-only"
           onClick={onSelectNext}
-          disabled={allSortedIndex >= allSortedCount - 1}
+          disabled={visibleIndex < 0 || visibleIndex >= visibleCount - 1}
           title={t("nav.next")}
         >
           ›

@@ -262,6 +262,14 @@
   line-height: 1;
   vertical-align: text-bottom;
 }
+/* The map-pin marker. The app draws it in the accent green (PinIcon), so the
+   guide shows the same shape and colour rather than the red 📍 emoji it
+   replaced. */
+.guide-body .gm-glyph.pin {
+  color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+.guide-body .gm-glyph svg { width: 1em; height: 1em; }
 .guide-body .gm-glyph.danger {
   border-color: color-mix(in oklch, var(--danger) 45%, transparent);
   background: var(--danger-soft);
