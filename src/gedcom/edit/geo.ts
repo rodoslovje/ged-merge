@@ -17,6 +17,19 @@ export function formatCoordValue(value: number, axis: "lat" | "lon"): string {
 }
 
 /**
+ * Remove a `PLAC` node's `_GOV` identity, leaving the `MAP` coordinate alone.
+ * Used when an event moves to a different place: a coordinate is a position and
+ * stays roughly true (or is replaced by the new place's), while a GOV id names
+ * one specific place and would be a plain untruth under the new name. Returns
+ * whether anything was removed.
+ */
+export function clearPlaceGov(placNode: GedNode): boolean {
+  const before = placNode.children.length;
+  placNode.children = placNode.children.filter((c) => c.tag !== "_GOV");
+  return placNode.children.length !== before;
+}
+
+/**
  * Set (insert or replace) the `MAP` coordinates on a `PLAC` node, and — when a
  * GOV id is given — the GEDCOM-L `_GOV` identity tag alongside it:
  *   3 MAP
@@ -28,18 +41,6 @@ export function formatCoordValue(value: number, axis: "lat" | "lon"): string {
  * right after MAP or, if already present, rewritten; without a govId any
  * existing `_GOV` is left untouched.
  */
-/**
- * Remove a `PLAC` node's coordinate — both the `MAP` block and the `_GOV`
- * identity beside it, since a GOV id names the very place the coordinate does.
- * Used when an event is moved to a different place: the old coordinate no
- * longer describes where it says it is. Returns whether anything was removed.
- */
-export function clearPlaceCoord(placNode: GedNode): boolean {
-  const before = placNode.children.length;
-  placNode.children = placNode.children.filter((c) => c.tag !== "MAP" && c.tag !== "_GOV");
-  return placNode.children.length !== before;
-}
-
 export function setPlaceCoord(placNode: GedNode, coord: GeoCoord, govId?: string): void {
   const level = placNode.level + 1;
   let map = placNode.children.find((c) => c.tag === "MAP");

@@ -261,7 +261,7 @@ export const en = {
   "tools.geocode.addr.applied_other": "Written to {{count}} records.",
   "tools.geocode.addr.move": "Move to another place…",
   "tools.geocode.addr.moveHint": "Move only these addresses to a different place — for a hamlet the file records under its neighbour.",
-  "tools.geocode.addr.moveIntro": "The ticked addresses get the new place; their address lines stay as they are, and their old settlement coordinate is dropped so they can be placed again.",
+  "tools.geocode.addr.moveIntro": "The ticked addresses get the new place; their address lines stay as they are, and their coordinate becomes the one the file records for the new place — or stays as it was when the file has none.",
   "tools.geocode.addr.movePlaceholder": "New place, e.g. Klošter, Metlika, Slovenia",
   "tools.geocode.addr.moveCount": "{{count}} address · {{events}} events",
   "tools.geocode.addr.moveCount_other": "{{count}} addresses · {{events}} events",

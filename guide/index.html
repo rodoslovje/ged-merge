@@ -967,9 +967,11 @@
               every <em>Klošter 12</em> under <em>Gradac, Metlika, Slovenia</em>, often because that is the post office.
               Renaming the place would move the genuine Gradac events too, so each place group offers
               <strong>Move to another place…</strong> instead: tick the addresses that belong elsewhere, type or pick the
-              destination place, and only those events are moved. Their address lines stay as they are, and the old
-              settlement's coordinate is dropped so they can be placed again — one undoable step, like every other tool
-              edit. The panel opens pre-filled with what the addresses themselves suggest.
+              destination place, and only those events are moved. Their address lines stay as they are, and a coordinate
+              they already carried becomes the one the file records for the destination — or, when the file does not yet
+              place the destination, stays as it was, so a move never leaves an event without a position. Only the
+              <code>_GOV</code> id is dropped, because it names the place they just left. One undoable step, like every
+              other tool edit. The panel opens pre-filled with what the addresses themselves suggest.
             </p>
             <p>
               For Slovenian places the register settles it. When a house number is not found under the settlement the
