@@ -946,7 +946,12 @@
               tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko.
               Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako „ni ujemanja“, ter gumb
               <span class="gm-glyph">✎</span> za <strong>preimenovanje</strong> surove vrednosti kraja (vseh navedb hkrati,
-              z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Kar imenik brez
+              z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Polje za
+              preimenovanje je isto polje za kraj kot v <a href="#edit">Urejanju</a> (§9): dopolnjuje se iz krajev, ki jih
+              datoteka že piše, pri kraju, ki ga še ni zapisala, pa se seznam konča s <strong>Poišči ta kraj v
+              registrih</strong>. Z izbiro registrske ponudbe se izpolni celotna veriga kraja in zapiše koordinata, ki mu
+              jo pripisuje register — napačno zapisana ali nikoli razrešena vrednost je tako popravljena in umeščena v
+              enem koraku. Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
               kliku na gumb, njuni zadetki pa se pridružijo kandidatom in bucikam na zemljevidu. <strong>Išči na
               OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. <strong>Išči v registru
@@ -976,9 +981,14 @@
               <em>Klošter 12</em> pod <em>Gradac, Metlika, Slovenija</em>, pogosto zato, ker je tam pošta.
               Preimenovanje celega kraja bi premaknilo tudi dogodke, ki tja res spadajo, zato vsaka skupina kraja ponuja
               <strong>Premakni v drug kraj…</strong>: označite naslove, ki spadajo drugam, vnesete ali izberete ciljni
-              kraj, premaknejo pa se samo ti dogodki. Naslovne vrstice ostanejo nespremenjene, koordinata starega
-              naselja se odstrani, da jih lahko znova umestite — en korak, ki ga je mogoče razveljaviti, tako kot vsak
-              drug poseg orodij. Okno se odpre že izpolnjeno s tem, kar predlagajo naslovi sami.
+              kraj, premaknejo pa se samo ti dogodki. Polje za ciljni kraj je isto polje za kraj kot povsod drugod, zato
+              lahko zaselek, ki ga vaša datoteka še ni nikoli izpisala, poiščete v registrih in ga prevzamete v celoti, z
+              vso verigo vred. Naslovne vrstice ostanejo nespremenjene, premaknjeni dogodki pa se umestijo na lastno
+              koordinato ciljnega kraja — na tisto iz registrske ponudbe ali na tisto, ki jo datoteka pri tem kraju že
+              vodi. Če je ne pozna ne ena ne druga, obdržijo koordinato, ki so jo imeli, tako da premik nikoli ne pusti
+              dogodka brez položaja. Odstrani se le oznaka <code>_GOV</code>, ker imenuje kraj, ki so ga dogodki pravkar
+              zapustili. En korak, ki ga je mogoče razveljaviti, tako kot vsak drug poseg orodij. Okno se odpre že
+              izpolnjeno s tem, kar predlagajo naslovi sami.
             </p>
             <p>
               Pri slovenskih krajih odloči register. Kadar hišne številke pod navedenim naseljem ni, se poišče še kot

@@ -223,14 +223,57 @@ describe("movePlaceForAddresses", () => {
     expect(text).toContain("2 ADDR Klošter 12");
   });
 
-  it("drops the old settlement's coordinate and GOV id", () => {
+  it("keeps the coordinate but drops the old GOV id when the target is unplaced", () => {
     const ds = buildFromText(SPLIT);
     movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia");
     const text = serializeDataset(ds);
-    expect(text).not.toContain("LATI N45.6667");
+    // Nothing in the file places Klošter, so the old position is better than none.
+    expect(text).toContain("LATI N45.6667");
+    // The GOV id named Gradac, so it cannot follow the events out of it.
     expect(text).not.toContain("_GOV");
     // And the typed model agrees, without a reload.
-    expect(ds.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toBeUndefined();
+    expect(ds.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual({
+      lat: 45.6667,
+      lon: 15.2833,
+    });
+  });
+
+  it("takes the target place's own coordinate when the file has one", () => {
+    const ds = buildFromText(`${SPLIT.slice(0, SPLIT.indexOf("0 TRLR"))}0 @I3@ INDI
+1 BIRT
+2 PLAC Klošter, Metlika, Slovenia
+3 MAP
+4 LATI N45.7
+4 LONG E15.3
+3 _GOV object_111
+0 TRLR
+`);
+    movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia");
+    const moved = ds.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(moved.place?.coord).toEqual({ lat: 45.7, lon: 15.3 });
+    expect(serializeDataset(ds)).toContain("2 PLAC Klošter, Metlika, Slovenia\n3 MAP\n4 LATI N45.7\n4 LONG E15.3\n3 _GOV object_111\n2 ADDR Klošter 12");
+    // The event that had no coordinate is placed there too — the destination is
+    // where it says it is, whether or not it was placed before.
+    expect(ds.individuals.get("@I2@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual({
+      lat: 45.7,
+      lon: 15.3,
+    });
+  });
+
+  it("prefers a coordinate the caller supplies (a register pick) over the file's", () => {
+    const ds = buildFromText(SPLIT);
+    movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia", {
+      coord: { lat: 45.71, lon: 15.31 },
+      govId: "object_222",
+    });
+    const text = serializeDataset(ds);
+    expect(text).toContain("4 LATI N45.71\n4 LONG E15.31\n3 _GOV object_222");
+    // The events that stayed in Gradac keep the old coordinate and its GOV id.
+    expect(text).toContain("2 PLAC Gradac, Metlika, Slovenia");
+    expect(ds.individuals.get("@I2@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual({
+      lat: 45.71,
+      lon: 15.31,
+    });
   });
 
   it("is a no-op without a target, without keys, or when already there", () => {

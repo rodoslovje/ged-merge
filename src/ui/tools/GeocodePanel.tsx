@@ -5,6 +5,7 @@ import { buildGazetteerIndex, type GazetteerIndex } from "../../geo/gazetteer";
 import {
   chosenCoordFor,
   collectFileCoords,
+  placeAddrKey,
   scanGeocode,
   type ChosenCoord,
   type GeoAssignment,
@@ -22,6 +23,7 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessag
 import { ExpandAllToggle, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
+import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
@@ -50,7 +52,9 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
-  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
+  /** Move the events at these place+address pairs to `toPlace`; `coord` is the
+   *  destination's position when it came from a register pick. */
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** Write accepted house coordinates onto the events at each place+address pair
    *  (standard `PLAC`/`MAP`); returns the number of records changed. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
@@ -314,6 +318,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // removable chip next to the input).
   const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);
 
+  // The register lookup behind those inputs — the same one the Edit view builds,
+  // so a place the file has never written can be completed (chain, address,
+  // coordinate) here too instead of being typed out by hand.
+  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
     () => collectFileCoords(dataset),
@@ -422,8 +431,21 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     if (!willOpen && mapKey === key) setMapKey(null);
   };
 
-  const renameValue = (from: string, to: string, addr?: string) => {
-    setLastApplied(onRenamePlaceValue(from, to, addr));
+  const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {
+    const renamed = onRenamePlaceValue(from, to, addr);
+    // A register pick brings the place's coordinate with it, so the row is
+    // resolved in the same step rather than sent back to the list to be
+    // matched again. A house coordinate (the offer named an address) reaches
+    // only the events at that address; a settlement's goes to the value —
+    // where, like any geocode write, it fills the gaps and overwrites nothing.
+    const placed = !coord
+      ? 0
+      : addr
+        ? onApplyAddressCoords(new Map([[placeAddrKey(to, addr), coord.coord]]))
+        : onApplyGeocode(new Map([[to, coord]]));
+    // The two passes touch overlapping records, so the larger count is the
+    // honest "records changed", not the sum.
+    setLastApplied(Math.max(renamed, placed));
     setScanGen((g) => g + 1);
   };
 
@@ -488,6 +510,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const dateFmt = new Intl.DateTimeFormat(i18n.language);
 
   return (
+    // The registers behind every place field on this page: the rename row and
+    // the move panel below complete a place the file has never written, exactly
+    // as the Edit view's event fields do.
+    <PlaceLookupProvider value={placeLookup}>
     <div className="tools-geocode">
       <div className="tools-filter-row">
         <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
@@ -693,5 +719,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           none, so files without ADDR lines see no change. */}
       <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} onMove={onMovePlaceForAddresses} />
     </div>
+    </PlaceLookupProvider>
   );
 }

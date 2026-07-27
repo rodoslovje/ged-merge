@@ -269,7 +269,7 @@ export const sl = {
   "tools.geocode.addr.applied_other": "Zapisano v {{count}} zapisov.",
   "tools.geocode.addr.move": "Premakni v drug kraj…",
   "tools.geocode.addr.moveHint": "Premakne samo te naslove v drug kraj — za zaselek, ki ga datoteka vodi pod sosednjim naseljem.",
-  "tools.geocode.addr.moveIntro": "Označeni naslovi dobijo nov kraj; naslovne vrstice ostanejo nespremenjene, koordinata starega naselja pa se odstrani, da jih lahko znova umestite.",
+  "tools.geocode.addr.moveIntro": "Označeni naslovi dobijo nov kraj; naslovne vrstice ostanejo nespremenjene, koordinata pa postane tista, ki jo datoteka vodi pri novem kraju — če je datoteka nima, ostane nespremenjena.",
   "tools.geocode.addr.movePlaceholder": "Nov kraj, npr. Klošter, Metlika, Slovenija",
   "tools.geocode.addr.moveCount_one": "{{count}} naslov · {{events}} dogodkov",
   "tools.geocode.addr.moveCount_two": "{{count}} naslova · {{events}} dogodkov",
