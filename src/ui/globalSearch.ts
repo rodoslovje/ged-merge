@@ -1,5 +1,5 @@
 import type { Individual, Sex } from "../gedcom/types";
-import { lifespanOf, birthYear } from "../gedcom/lifespan";
+import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
 import type { MatchDecisionStatus } from "../review/types";
 
@@ -21,6 +21,10 @@ export interface SearchRow {
   searchText: string;
   sex: Sex;
   birthYear?: number;
+  /** Sort keys behind the display name: full birth date, then death year, both
+   *  `Infinity` when unknown so undated people sort last within a name. */
+  birthKey: number;
+  deathKey: number;
   /** Lower-cased text of every event place/address, for the place facet. */
   placeText: string;
   hasLinks: boolean;
@@ -64,7 +68,8 @@ function placeText(indi: Individual): string {
 /**
  * Build the search index for a dataset. `nameOf` is the caller's name-display
  * formatter (from `useNameOf`) so results read the same as everywhere else; the
- * rows are re-sorted by display name for a stable, scannable list.
+ * rows are re-sorted by display name and then by birth date (death year as a
+ * fallback) so namesakes read oldest-first instead of in file order.
  */
 export function buildSearchRows(
   individuals: Map<string, Individual>,
@@ -82,13 +87,21 @@ export function buildSearchRows(
       searchText,
       sex: indi.sex,
       birthYear: birthYear(indi),
+      birthKey: birthSortKey(indi),
+      deathKey: deathYear(indi) ?? Infinity,
       placeText: placeText(indi),
       hasLinks: anyLinks(indi),
       hasNotes: anyNotes(indi),
       hasSources: anySources(indi),
     });
   }
-  rows.sort((a, b) => a.name.localeCompare(b.name));
+  rows.sort(
+    (a, b) =>
+      a.name.localeCompare(b.name) ||
+      a.birthKey - b.birthKey ||
+      a.deathKey - b.deathKey ||
+      a.id.localeCompare(b.id),
+  );
   return rows;
 }
 
@@ -173,7 +186,7 @@ function matchesFilters(row: SearchRow, f: GlobalFilters, ctx: FilterContext): b
  * {@link MAX_RESULTS}. Every whitespace-separated query term must appear in the
  * row's search text (any order) — so "kov marija" finds "Marija Kovačič". Facets
  * then narrow by sex, birth-year range, place, attachments, edit and decision
- * status. An empty query with no facets returns the (name-sorted) list.
+ * status. An empty query with no facets returns the (name/birth-sorted) list.
  */
 export function searchPeople(
   rows: SearchRow[],
