@@ -17,6 +17,11 @@ export interface NominatimResult {
   name: string;
   /** Full display line ("Cesta 1, Kranj, Slovenija…"). */
   label: string;
+  /** The place this one sits in — the display line's next level up. Shown
+   *  beside the name the way the register's občina and GOV's parent are, so a
+   *  row says which of several same-named places it is without spelling out the
+   *  whole chain (the full line stays in the row's tooltip). */
+  admin?: string;
   /** Feature type ("house", "village", …), informational. */
   kind?: string;
 }
@@ -42,6 +47,9 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     const name = row.name?.trim() || label.split(",")[0].trim();
     if (!name) continue;
     const result: NominatimResult = { coord: { lat, lon }, name, label: label || name };
+    // The chain's next level up, unless it merely repeats the name.
+    const parent = label.split(",")[1]?.trim();
+    if (parent && parent !== name) result.admin = parent;
     if (row.type) result.kind = row.type;
     out.push(result);
   }

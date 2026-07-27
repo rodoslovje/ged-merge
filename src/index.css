@@ -7039,7 +7039,9 @@ kbd {
 }
 .edit-person-map-toggle:hover { color: var(--accent); }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
-.tools-geo-showmap { display: block; margin: 0 0 6px; padding-left: 0; }
+/* One action row per candidate list: "show on map" and the online searches
+   together while the map is closed, the searches alone under it when open. */
+.tools-geo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 6px; }
 /* The geocode row's people list: breathing room between the person link,
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }
@@ -7096,8 +7098,6 @@ kbd {
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
-/* The per-row online (Nominatim) search action under the candidate radios. */
-.tools-geo-online { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */
