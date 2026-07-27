@@ -1963,7 +1963,8 @@ button:focus-visible {
   text-align: center;
   color: var(--muted);
 }
-.add-media-footer {
+.add-media-footer,
+.copy-event-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -2032,6 +2033,57 @@ button:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Copy-event target picker: a checkbox list of the records the event can be
+ * handed to (people for an individual event, families for a family one). */
+.copy-event-dialog { width: min(560px, 92vw); }
+.copy-event-search { margin: 0 16px; max-width: 260px; }
+/* Fill the modal's height (the .modal base is a 90vh flex column) so the list
+ * scrolls and the footer stays put — same as the add-media body. */
+.copy-event-body { flex: 1; min-height: 0; }
+/* What the event carries, so the user can confirm they picked the right row. */
+.copy-event-summary {
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.95em;
+}
+.copy-event-empty { color: var(--muted); }
+.copy-event-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 14px 0 4px;
+}
+.copy-event-section:first-child { margin-top: 0; }
+.copy-event-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.copy-event-list { list-style: none; margin: 0; padding: 0; }
+.copy-event-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.95em;
+}
+.copy-event-row:hover { background: var(--panel); }
+.copy-event-row--blocked { cursor: default; opacity: 0.55; }
+.copy-event-row--blocked:hover { background: none; }
+.copy-event-name { color: var(--text); }
+.copy-event-detail { color: var(--muted); font-size: 0.88em; }
+.copy-event-blocked { color: var(--muted); font-size: 0.82em; margin-left: auto; font-style: italic; }
+
 .person-media-overlay {
   position: fixed;
   inset: 0;

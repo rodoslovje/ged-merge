@@ -14,8 +14,9 @@ import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
 
-/** Sentinel `<option>` value for the "Remove this event" entry at the end of
- * the event-type dropdown (distinct from any real tag). */
+/** Sentinel `<option>` values for the action entries at the end of the
+ * event-type dropdown (distinct from any real tag). */
+const COPY_OPTION = "__copy_event__";
 const REMOVE_OPTION = "__remove_event__";
 
 /** Editable date/place/address/links for a single event (individual or
@@ -27,6 +28,7 @@ export function EventFieldsRow({
   t,
   commitField,
   onRemove,
+  onCopy,
   onChangeTag,
   tagGroups,
   onAddSource,
@@ -54,6 +56,10 @@ export function EventFieldsRow({
   t: Translate;
   commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void;
   onRemove?: () => void;
+  /** When set, the dropdown offers "Copy event to…" above the remove entry —
+   * opening the target picker for this event. Only rows backed by a real event
+   * node get it (there's nothing to copy from a merge suggestion). */
+  onCopy?: () => void;
   /** When set (together with `tagGroups`), the type label becomes a dropdown
    * so the user can change this event's tag in place (e.g. turn an
    * Occupation into an Education event). */
@@ -307,9 +313,9 @@ export function EventFieldsRow({
   }, [focusKey]);
 
   // The event-type label becomes a dropdown when the tag can be reassigned
-  // and/or the event removed — the latter via a "Remove this event" entry
-  // appended to the end of the list.
-  const showSelect = Boolean(tag) && (Boolean(onChangeTag && tagGroups) || Boolean(onRemove));
+  // and/or the event copied or removed — the latter two via "Copy event to…" /
+  // "Remove this event" entries appended to the end of the list.
+  const showSelect = Boolean(tag) && (Boolean(onChangeTag && tagGroups) || Boolean(onCopy) || Boolean(onRemove));
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -485,11 +491,12 @@ export function EventFieldsRow({
               <select
                 className="edit-event-type-select"
                 value={tag}
-                title={onChangeTag ? t("edit.changeEventType") : t("edit.removeEvent")}
+                title={onChangeTag ? t("edit.changeEventType") : onCopy ? t("edit.copyEvent") : t("edit.removeEvent")}
                 onKeyDown={openPickerOnEnter}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (v === REMOVE_OPTION) onRemove?.();
+                  if (v === COPY_OPTION) onCopy?.();
+                  else if (v === REMOVE_OPTION) onRemove?.();
                   else if (onChangeTag && v !== tag) onChangeTag(v);
                 }}
               >
@@ -509,6 +516,9 @@ export function EventFieldsRow({
                   )
                 ) : (
                   <option value={tag}>{label}</option>
+                )}
+                {onCopy && (
+                  <option value={COPY_OPTION}>{t("edit.copyEvent")}</option>
                 )}
                 {onRemove && (
                   <option value={REMOVE_OPTION}>{t("edit.removeEvent")}</option>

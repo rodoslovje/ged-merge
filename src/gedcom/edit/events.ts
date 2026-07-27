@@ -1,5 +1,5 @@
 import { INDI_EVENT_TAGS } from "../eventTags";
-import { childrenByTag, firstChild, hasChild, removeChildren } from "../node";
+import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
 import type { Family, GedNode, GeoCoord, Individual } from "../types";
 import { setPlaceCoord } from "./geo";
@@ -223,6 +223,71 @@ export function addEventNode(indi: Individual, tag: string): void {
   } else {
     insertOrdered(indi.raw, event, INDI_CHILD_ORDER);
   }
+}
+
+/**
+ * Why a record can't take a copy of `source` — `undefined` when it can.
+ * `"duplicate"`: it already carries an identical event. `"tagTaken"`: it
+ * already has an event with this tag, and this record kind only supports one
+ * per tag (families — the editor addresses their events by tag).
+ */
+export type CopyEventBlock = "duplicate" | "tagTaken";
+
+function copyEventBlock(targetRaw: GedNode, source: GedNode, onePerTag: boolean): CopyEventBlock | undefined {
+  const same = childrenByTag(targetRaw, source.tag);
+  if (!same.length) return undefined;
+  if (onePerTag) return "tagTaken";
+  // `nodeFingerprint` ignores the audit marker, so an event already copied here
+  // (and thus stamped "new") still reads as identical to its origin.
+  const fp = nodeFingerprint(source);
+  return same.some((c) => nodeFingerprint(c) === fp) ? "duplicate" : undefined;
+}
+
+/** Whether `indi` can take a copy of the individual event `source` — see `CopyEventBlock`. */
+export function individualCopyBlock(indi: Individual, source: GedNode): CopyEventBlock | undefined {
+  return copyEventBlock(indi.raw, source, false);
+}
+
+/** Whether `fam` can take a copy of the family event `source` — see `CopyEventBlock`. */
+export function familyCopyBlock(fam: Family, source: GedNode): CopyEventBlock | undefined {
+  return copyEventBlock(fam.raw, source, true);
+}
+
+/**
+ * Copy a whole event subtree onto another record of the same kind — date,
+ * place (with its coordinate), address, type, cause, notes, media and source
+ * citations all come along, so a residence typed once can be handed to the
+ * rest of the household. Pointer children (`SOUR`/`OBJE`/`NOTE` xrefs) stay
+ * valid as-is: they address top-level records both records already share, and
+ * both sides sit at the same level, so the clone needs no re-levelling.
+ *
+ * Refuses (returns `undefined`) whenever `copyEventBlock` says so, so copying
+ * the same event twice can't stack duplicates.
+ */
+function copyRecordEvent(targetRaw: GedNode, source: GedNode, order: string[], onePerTag: boolean): GedNode | undefined {
+  if (copyEventBlock(targetRaw, source, onePerTag)) return undefined;
+  const copy = cloneNode(source);
+  copy.auditStamp = undefined;
+  markEventTouched(copy, "new");
+  const same = childrenByTag(targetRaw, copy.tag);
+  if (same.length > 0) {
+    targetRaw.children.splice(targetRaw.children.indexOf(same[same.length - 1]) + 1, 0, copy);
+  } else {
+    insertOrdered(targetRaw, copy, order);
+  }
+  return copy;
+}
+
+/** Copy an individual event onto another individual — see `copyRecordEvent`. */
+export function copyEventToIndividual(indi: Individual, source: GedNode): GedNode | undefined {
+  return copyRecordEvent(indi.raw, source, INDI_CHILD_ORDER, false);
+}
+
+/** Copy a family event onto another family — see `copyRecordEvent`. Families
+ * hold at most one event per tag (the editor addresses them by tag), so a
+ * target that already has one is left alone. */
+export function copyEventToFamily(fam: Family, source: GedNode): GedNode | undefined {
+  return copyRecordEvent(fam.raw, source, FAM_CHILD_ORDER, true);
 }
 
 /** Update a family event's (e.g. `1 MARR`) date, place, address and/or

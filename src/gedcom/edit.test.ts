@@ -35,6 +35,8 @@ import {
   foldAdditionalNameToMarnm,
   INDI_CHILD_ORDER,
   insertRecord,
+  copyEventToFamily,
+  copyEventToIndividual,
   rebuildFamily,
   rebuildIndividual,
   removeAdditionalName,
@@ -302,6 +304,125 @@ describe("addEventField", () => {
     const indi = ds.individuals.get("@I1@")!;
     expect(addEventField(indi, "RESI", {})).toBeUndefined();
     expect(serializeGedcom(ds.records)).toBe(BASE);
+  });
+});
+
+// ─── copyEventToIndividual / copyEventToFamily ───────────────────────────────
+
+describe("copyEventToIndividual", () => {
+  const HOUSEHOLD = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 RESI",
+    "2 DATE 1920",
+    "2 PLAC Kranj, Slovenija",
+    "3 MAP",
+    "4 LATI N46.239",
+    "4 LONG E14.355",
+    "2 ADDR Koroška cesta 14",
+    "2 NOTE Preselil se je po poroki",
+    "2 SOUR @S1@",
+    "3 PAGE 12",
+    "0 @I2@ INDI",
+    "1 NAME Ana /Kos/",
+    "0 @S1@ SOUR",
+    "1 TITL Popis 1920",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  it("brings the whole event subtree — place coordinate, address, note and citation — to the target", () => {
+    const ds = buildFromText(HOUSEHOLD);
+    const source = ds.individuals.get("@I1@")!;
+    const target = ds.individuals.get("@I2@")!;
+    const resiNode = source.raw.children.find((c) => c.tag === "RESI")!;
+
+    expect(copyEventToIndividual(target, resiNode)).toBeDefined();
+
+    const updated = rebuildIndividual(ds, target);
+    const resi = updated.events.find((e) => e.tag === "RESI")!;
+    expect(resi.date?.raw).toBe("1920");
+    expect(resi.place?.raw).toBe("Kranj, Slovenija");
+    expect(resi.place?.coord).toEqual({ lat: 46.239, lon: 14.355 });
+    expect(resi.address?.raw).toBe("Koroška cesta 14");
+    expect(resi.note).toContain("Preselil se je po poroki");
+    expect(resi.sources?.[0]?.page).toBe("12");
+  });
+
+  it("leaves the source record untouched", () => {
+    const ds = buildFromText(HOUSEHOLD);
+    const source = ds.individuals.get("@I1@")!;
+    const before = clone(source.raw);
+    copyEventToIndividual(ds.individuals.get("@I2@")!, source.raw.children.find((c) => c.tag === "RESI")!);
+    expect(source.raw).toEqual(before);
+  });
+
+  it("refuses a second identical copy, so re-running the same copy adds nothing", () => {
+    const ds = buildFromText(HOUSEHOLD);
+    const resiNode = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "RESI")!;
+    const target = ds.individuals.get("@I2@")!;
+
+    copyEventToIndividual(target, resiNode);
+    expect(copyEventToIndividual(target, resiNode)).toBeUndefined();
+    expect(rebuildIndividual(ds, target).events.filter((e) => e.tag === "RESI")).toHaveLength(1);
+  });
+
+  it("still copies a different event of a tag the target already uses", () => {
+    const ds = buildFromText(HOUSEHOLD);
+    const resiNode = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "RESI")!;
+    const target = ds.individuals.get("@I2@")!;
+    setEventField(target, "RESI", { date: "1899", place: "Ljubljana" });
+
+    expect(copyEventToIndividual(target, resiNode)).toBeDefined();
+    expect(rebuildIndividual(ds, target).events.filter((e) => e.tag === "RESI")).toHaveLength(2);
+  });
+
+  it("marks the copy as new, so save-time audit stamping treats it as added", () => {
+    const ds = buildFromText(HOUSEHOLD);
+    const resiNode = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "RESI")!;
+    const copy = copyEventToIndividual(ds.individuals.get("@I2@")!, resiNode)!;
+    expect(copy.auditStamp).toBe("new");
+    expect(resiNode.auditStamp).toBeUndefined();
+  });
+});
+
+describe("copyEventToFamily", () => {
+  const TWO_FAMILIES = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @F1@ FAM",
+    "1 MARR",
+    "2 DATE 4 MAY 1901",
+    "2 PLAC Kranj, Slovenija",
+    "0 @F2@ FAM",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  it("copies the event onto another family", () => {
+    const ds = buildFromText(TWO_FAMILIES);
+    const marr = ds.families.get("@F1@")!.raw.children.find((c) => c.tag === "MARR")!;
+    const target = ds.families.get("@F2@")!;
+
+    expect(copyEventToFamily(target, marr)).toBeDefined();
+    const updated = rebuildFamily(ds, target);
+    expect(updated.events.find((e) => e.tag === "MARR")?.date?.raw).toBe("4 MAY 1901");
+  });
+
+  it("leaves a family that already has an event of this tag alone — the editor holds one per tag", () => {
+    const ds = buildFromText(TWO_FAMILIES);
+    const marr = ds.families.get("@F1@")!.raw.children.find((c) => c.tag === "MARR")!;
+    const target = ds.families.get("@F2@")!;
+    setFamilyEventField(target, "MARR", { date: "1899" });
+
+    expect(copyEventToFamily(target, marr)).toBeUndefined();
+    const updated = rebuildFamily(ds, target);
+    expect(updated.events.filter((e) => e.tag === "MARR")).toHaveLength(1);
+    expect(updated.events[0].date?.raw).toBe("1899");
   });
 });
 

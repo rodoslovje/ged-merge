@@ -11,7 +11,7 @@ import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
-  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onRetag, autoFocusDate,
+  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusDate,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords,
   mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
@@ -19,6 +19,8 @@ export function FamilyEventRow({
   openEditSource: OpenEditSource;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   onRemove?: () => void;
+  /** Open the "Copy event to…" picker for this event — see `EventFieldsRow`. */
+  onCopy?: () => void;
   /** Called (with the new tag) right after a type-change commit, so the
    * caller can flag the now-occupied slot as session-dirty — see
    * `resolvedSessionFields`. */
@@ -74,6 +76,7 @@ export function FamilyEventRow({
       t={t}
       commitField={(update, extraPatches) => commit(fam, (f, notes) => setFamilyEventField(f, tag, update, notes), extraPatches)}
       onRemove={onRemove}
+      onCopy={eventNode ? onCopy : undefined}
       onChangeTag={tagChoices.length > 1 ? (newTag) => {
         commit(fam, (f) => changeFamilyEventTag(f, tag, newTag));
         onRetag?.(newTag);
