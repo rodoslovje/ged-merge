@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
@@ -99,8 +99,12 @@ const MIN_MATCHING_DISPLAY_MS = 300;
 // min-height: 0` column sizing its content (`.edit-view`/`.main-split`)
 // expects from a direct child of `.app` — `hidden` alone would collapse the
 // wrapper to auto height and break the layout.
-const modeLayerStyle: CSSProperties = { display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 };
-const modeLayerHiddenStyle: CSSProperties = { display: "none" };
+// Class rather than an inline style so the phone layout can release the
+// `flex: 1 1 0` cap — on a narrow screen the shell scrolls as one document and
+// this layer has to grow with its content, not sit at the shell's height.
+// See `.mode-layer` in index.css.
+const modeLayerClass = "mode-layer";
+const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -589,7 +593,7 @@ function AppContent() {
   // The merge "match list" view-model (ranked/filtered lists, selection, index
   // maps) — pure derivation, extracted to a hook. The stateful setters
   // (sort/filters) and navigation callbacks stay here.
-  const { allSorted, visible, visibleMainOrder, current, visibleIndex, allSortedIndex, indexByMain, indexByCompare } =
+  const { allSorted, visible, visibleMainOrder, current, visibleIndex, indexByMain, indexByCompare } =
     useMatchList({ matches, sort, filters, decisions, selectedId });
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
@@ -1694,7 +1698,7 @@ function AppContent() {
           `hidden` div would collapse to auto height and break the layout. */}
       {lastMainFile && mainDataset && (
         <>
-          <div style={mode === "merge" ? modeLayerStyle : modeLayerHiddenStyle}>
+          <div className={mode === "merge" ? modeLayerClass : modeLayerHiddenClass}>
             <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <MergeView
               matches={matches}
@@ -1704,8 +1708,7 @@ function AppContent() {
               setFilters={handleFilters}
               visible={visible}
               visibleIndex={visibleIndex}
-              allSortedIndex={allSortedIndex}
-              allSortedCount={allSorted.length}
+              visibleCount={visible.length}
               onSelectPrev={onSelectPrev}
               onSelectNext={onSelectNext}
               onSelect={select}
@@ -1727,7 +1730,7 @@ function AppContent() {
             />
             </ErrorBoundary>
           </div>
-          <div style={mode === "edit" ? modeLayerStyle : modeLayerHiddenStyle}>
+          <div className={mode === "edit" ? modeLayerClass : modeLayerHiddenClass}>
             <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <EditView
               // Remount on every main (re)load: Edit keeps per-person input
@@ -1759,7 +1762,7 @@ function AppContent() {
             />
             </ErrorBoundary>
           </div>
-          <div style={mode === "tools" ? modeLayerStyle : modeLayerHiddenStyle}>
+          <div className={mode === "tools" ? modeLayerClass : modeLayerHiddenClass}>
             <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
             <ToolsView
               // Same remount-on-load rule as EditView: tool results (validation

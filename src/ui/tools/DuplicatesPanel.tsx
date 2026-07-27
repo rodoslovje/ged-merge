@@ -510,6 +510,10 @@ export function DuplicatesPanel({
                       {/* Record ids always show here: telling two look-alike
                           records apart is this tool's whole job. */}
                       <PersonLink dataset={dataset} id={p.aId} fallback={p.aLabel} onNavigate={onNavigate} forceXref />
+                      {/* Phone layout breaks the row here, so each person gets
+                          a full line and the ↔ leads the second one (see
+                          `.tools-pair-break`). Inert on wider screens. */}
+                      <span className="tools-pair-break" aria-hidden="true" />
                       <span className="tools-pair-sep">↔</span>
                       <PersonLink dataset={dataset} id={p.bId} fallback={p.bLabel} onNavigate={onNavigate} forceXref />
                       {showRejected && (

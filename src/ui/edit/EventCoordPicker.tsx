@@ -7,6 +7,7 @@ import { sameCoord } from "../../geo/points";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { PinIcon } from "../icons/PinIcon";
 import { useSettings } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
 
@@ -249,7 +250,7 @@ export function EventCoordPicker({
         aria-label={t("event.coord.open", { event: title })}
         onClick={() => setOpen((v) => !v)}
       >
-        📍
+        <PinIcon />
       </button>
       {open && (
         <div

@@ -193,6 +193,18 @@ function findScroller(el: HTMLElement | null): HTMLElement | null {
   return (document.scrollingElement as HTMLElement | null) ?? null;
 }
 
+/**
+ * Top edge of the scrollport in viewport coordinates. For an element scroller
+ * that is its own box top — but the document scroller's box top is `-scrollY`,
+ * while the edge you actually see through is always 0. Using the box top there
+ * makes the visible window drift by a full scroll offset, so the list renders
+ * rows nowhere near the ones on screen (blank page at the bottom of a long
+ * list). The phone layout scrolls the document, so this path is live.
+ */
+function scrollportTop(sc: HTMLElement): number {
+  return sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top;
+}
+
 /** How many rows to render on the very first pass, before the viewport is known. */
 const INITIAL_WINDOW = 40;
 
@@ -216,6 +228,9 @@ export function useVirtualList({
 
   // Measurements are keyed by index, so they die with the array they measured.
   const keyRef = useRef<unknown>(Symbol());
+  // Data set + list width the common row height was last adopted for; see the
+  // rebase guard in `measureRendered`.
+  const rebasedAt = useRef<{ key: unknown; width: number } | null>(null);
   if (keyRef.current !== itemsKey || m.count !== count) {
     keyRef.current = itemsKey;
     m.clear();
@@ -233,7 +248,7 @@ export function useVirtualList({
       return { start: 0, end, padTop: 0, padBottom: Math.max(0, m.totalHeight() - m.offsetOf(end)) };
     }
     // Viewport top in list coordinates (0 = top of virtual row 0).
-    const y0 = sc.getBoundingClientRect().top - tp.getBoundingClientRect().top;
+    const y0 = scrollportTop(sc) - tp.getBoundingClientRect().top;
     const vh = sc.clientHeight || window.innerHeight;
     const { start, end } = m.range(y0, y0 + vh, overscan);
     return {
@@ -283,7 +298,31 @@ export function useVirtualList({
         bestN = n;
       }
     }
-    let changed = bestN >= 3 ? m.rebase(best) : false;
+    // Rebasing discards every measurement taken so far, so it must not be a
+    // per-scroll decision. Findings are grouped by category, so a long list has
+    // homogeneous BANDS of differing row height (short one-line messages in one
+    // region, ones that wrap at phone width in another). Scrolling across a
+    // boundary changes which height dominates the window; the rebase then
+    // swings totalHeight by thousands of pixels, which moves the scroll offset
+    // (forcibly at the list's end, where it is pinned to the content height),
+    // which selects a window back in the previous band. Instrumenting a real
+    // 4 MB file showed base flipping 62 -> 80 -> 62 without end, until React
+    // bailed out with "Maximum update depth exceeded".
+    //
+    // Note both sides of that flip were >85% majorities, so a share threshold
+    // alone does NOT break the cycle — the load-bearing guard is `layoutChanged`:
+    // adopt a base once per data set, and again only when the list's width
+    // really changed, which is the layout switch rebasing exists for. Mixed
+    // rows still land exactly; that is what the per-row deviation table is for.
+    const width = tp.parentElement?.getBoundingClientRect().width ?? 0;
+    const prev = rebasedAt.current;
+    const layoutChanged =
+      prev === null || prev.key !== keyRef.current || Math.abs(prev.width - width) > 0.5;
+    let changed = false;
+    if (bestN >= 3 && bestN / found.length >= 0.6 && layoutChanged && m.rebase(best)) {
+      rebasedAt.current = { key: keyRef.current, width };
+      changed = true;
+    }
     for (const [idx, h] of found) changed = m.measure(idx, h) || changed;
     return changed;
   }, [m]);
@@ -296,22 +335,36 @@ export function useVirtualList({
 
   // Attach the scroll listener / resize observer to the (possibly changing)
   // scroll container, and re-measure after every commit.
-  const attached = useRef<{ el: HTMLElement; target: HTMLElement | Window; ro: ResizeObserver } | null>(null);
+  const attached = useRef<{ el: HTMLElement; target: HTMLElement | Window; ro: ResizeObserver | null } | null>(null);
   useLayoutEffect(() => {
     const sc = scroller.current;
     if (attached.current && attached.current.el !== sc) {
       attached.current.target.removeEventListener("scroll", onScrollOrResize);
-      attached.current.ro.disconnect();
+      attached.current.target.removeEventListener("resize", onScrollOrResize);
+      attached.current.ro?.disconnect();
       attached.current = null;
     }
     if (sc && !attached.current) {
-      const target: HTMLElement | Window = sc === document.scrollingElement ? window : sc;
+      const isDoc = sc === document.scrollingElement;
+      const target: HTMLElement | Window = isDoc ? window : sc;
       target.addEventListener("scroll", onScrollOrResize, { passive: true });
-      const ro = new ResizeObserver(() => {
-        if (measureRendered()) bump();
-        else onScrollOrResize();
-      });
-      ro.observe(sc);
+      let ro: ResizeObserver | null = null;
+      if (isDoc) {
+        // Never observe the document scroller: its height IS this list's own
+        // output (the spacers), so every re-render would come straight back in
+        // as a resize — re-render, resize, re-render, until React gives up with
+        // "Maximum update depth exceeded". An element scrollport is safe to
+        // observe because its box is fixed by layout, independent of content.
+        // What the window scroller actually needs to hear about is the viewport
+        // changing size, which is what `resize` reports.
+        window.addEventListener("resize", onScrollOrResize);
+      } else {
+        ro = new ResizeObserver(() => {
+          if (measureRendered()) bump();
+          else onScrollOrResize();
+        });
+        ro.observe(sc);
+      }
       attached.current = { el: sc, target, ro };
     }
     // Real row heights arrived (or changed) — re-render with corrected spacers.
@@ -322,7 +375,8 @@ export function useVirtualList({
     () => () => {
       if (attached.current) {
         attached.current.target.removeEventListener("scroll", onScrollOrResize);
-        attached.current.ro.disconnect();
+        attached.current.target.removeEventListener("resize", onScrollOrResize);
+        attached.current.ro?.disconnect();
         attached.current = null;
       }
     },
@@ -336,7 +390,7 @@ export function useVirtualList({
       const sc = scroller.current;
       const tp = top.current;
       if (!sc || !tp || i < 0 || i >= m.count) return;
-      const listStart = tp.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
+      const listStart = tp.getBoundingClientRect().top - scrollportTop(sc) + sc.scrollTop;
       const rowTop = listStart + m.offsetOf(i);
       if (align === "start") {
         sc.scrollTop = rowTop - scrollMarginRef.current;
