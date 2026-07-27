@@ -528,6 +528,10 @@
                 Places map opens with it on (untick it in the Overlays list for that map only), and the small
                 per-person and geocoding maps show it too — clicking those small maps answers with the layer's
                 details as well, so a house number can be read without leaving the person.</li>
+              <li><strong>Fit</strong> — the third button under the map's zoom controls frames everything currently
+                plotted, on the Places map and on the small per-person and geocoding maps alike; after following an
+                overlay across the country it brings the whole set back in one click. Hovering a marker names the place
+                it stands for (a single event also shows its street address).</li>
               <li><strong>Privacy</strong> — the base street map is <em>opt-in</em>: until you allow tiles (one click on
                 the map, or Settings → Map), the map draws on a built-in offline world outline and nothing leaves
                 your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
@@ -937,7 +941,10 @@
               address or place, look the house up in the register, <strong>search online</strong> (OpenStreetMap — for an
               address outside Slovenia, which the register does not cover), type or paste a coordinate, or remove the one
               it has. This is where to sharpen an address whose settlement is already pinned, since the Tools list only
-              offers places missing a coordinate altogether.
+              offers places missing a coordinate altogether. When the file holds other events at the same place
+              <em>and</em> address, the panel offers — ticked by default — to write the pick onto all of them, since one
+              house has one position; unticking keeps the coordinate on this event alone. (The copy is its own undo step,
+              so one undo takes the other events back and a second undo this one.)
             </p>
             <p>
               Choosing a place or address that the file already knows brings its coordinate along, so a newly typed event

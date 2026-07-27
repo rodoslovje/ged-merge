@@ -533,6 +533,10 @@
                 vsak Zemljevid krajev se odpre z njim (na seznamu Sloji ga lahko za tisti zemljevid odkljukate),
                 prikažeta pa ga tudi mali zemljevid osebe in zemljevid pri geokodiranju — tudi na teh dveh klik
                 izpiše podatke sloja, tako da hišno številko preberete, ne da bi zapustili osebo.</li>
+              <li><strong>Prilagodi pogled</strong> — tretji gumb pod merilom zemljevida uokviri vse trenutno prikazano,
+                tako na Zemljevidu krajev kot na malih zemljevidih osebe in geokodiranja; ko se izgubite ob sledenju
+                sloju, z enim klikom vrne celotno sliko. Ob prehodu z miško oznaka izpiše kraj, ki ga predstavlja (pri
+                enem samem dogodku tudi ulični naslov).</li>
               <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
                 dovolite (en klik na zemljevidu ali Nastavitve → Zemljevid), se zemljevid riše na vgrajenem obrisu sveta
                 in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
@@ -946,7 +950,10 @@
               naslov ali kraj že uporablja, hišo poiščete v registru, <strong>iščete na spletu</strong> (OpenStreetMap — za
               naslov zunaj Slovenije, ki ga register ne pokriva), koordinato vnesete ali prilepite, ali pa obstoječo
               odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam v Orodjih ponuja le kraje, ki
-              koordinate sploh nimajo.
+              koordinate sploh nimajo. Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
+              ponudi — privzeto obkljukano — da se izbrana koordinata zapiše na vse te dogodke, saj ima ena hiša en
+              položaj; če kljukico odstranite, koordinato dobi samo ta dogodek. (Prenos je svoj korak razveljavitve: prva
+              razveljavitev vrne druge dogodke, druga pa tega.)
             </p>
             <p>
               Izbira kraja ali naslova, ki ga datoteka že pozna, s seboj prinese njegovo koordinato, zato je na novo vnesen
