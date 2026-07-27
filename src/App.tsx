@@ -40,7 +40,7 @@ import { ToolsView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
-import { applyGeocode, renamePlaceValue } from "./tools/geocode";
+import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/geocode";
 import { applyAddressCoords } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
@@ -1782,6 +1782,7 @@ function AppContent() {
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
+              onMovePlaceForAddresses={(keys, toPlace) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace))}
               startId={startId}
               onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}

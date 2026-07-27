@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { applyAddressCoords, scanAddresses } from "./addresses";
+import { applyAddressCoords, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
 import { placeAddrKey } from "./geocode";
 import { scanPlaceCoords } from "./placeCoords";
 
@@ -97,6 +97,36 @@ describe("applyAddressCoords", () => {
   it("is a no-op for an unmatched assignment", () => {
     const ds = build(FILE);
     expect(applyAddressCoords(ds, new Map([[placeAddrKey("Bled", "Bled 1"), HOUSE]]))).toEqual([]);
+  });
+});
+
+describe("replaceLocality", () => {
+  it("swaps the settlement and keeps the file's own outer levels", () => {
+    expect(replaceLocality("Gradac, Metlika, Slovenia", "Klošter")).toBe("Klošter, Metlika, Slovenia");
+    expect(replaceLocality("Gradac,Metlika,Slovenija", "Klošter")).toBe("Klošter,Metlika,Slovenija");
+  });
+
+  it("declines what it cannot substitute safely", () => {
+    // Already there.
+    expect(replaceLocality("Klošter, Metlika, Slovenia", "Klošter")).toBeUndefined();
+    // Packed form: the leading segment is not the bare settlement.
+    expect(replaceLocality("Kranj (Slovenija), Kidričeva 38", "Klošter")).toBeUndefined();
+    expect(replaceLocality("Gradac, Metlika", "  ")).toBeUndefined();
+  });
+});
+
+describe("suggestMovedPlace", () => {
+  it("reads a house number hanging off a name that is not the settlement", () => {
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Klošter 12")).toBe("Klošter, Metlika, Slovenia");
+  });
+
+  it("stays quiet when the address is an ordinary street or the place itself", () => {
+    // A street word: "Kidričeva cesta" is a street in Kranj, not a settlement.
+    expect(suggestMovedPlace("Kranj, Slovenija", "Kidričeva cesta 38")).toBeUndefined();
+    // Village numbering — the number already hangs off the place named.
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Gradac 12")).toBeUndefined();
+    // No house number at all.
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Klošter")).toBeUndefined();
   });
 });
 

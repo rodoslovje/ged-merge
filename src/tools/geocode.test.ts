@@ -3,7 +3,16 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeDataset } from "../gedcom/serialize";
 import { buildGazetteerIndex, parseGeoNamesLine, type GazEntry } from "../geo/gazetteer";
-import { applyGeocode, chosenCoordFor, renamePlaceValue, scanGeocode, type GeocodeRow } from "./geocode";
+import {
+  applyGeocode,
+  chosenCoordFor,
+  collectPlaceValues,
+  movePlaceForAddresses,
+  placeAddrKey,
+  renamePlaceValue,
+  scanGeocode,
+  type GeocodeRow,
+} from "./geocode";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -171,6 +180,75 @@ describe("renamePlaceValue", () => {
     renamePlaceValue(ds, "Stražišče,Kranj,Slovenia", "Stražišče, Kranj, Slovenija");
     const text = serializeDataset(ds);
     expect(text).toContain("2 PLAC Stražišče, Kranj, Slovenija\n3 MAP\n4 LATI N46.2331\n4 LONG E14.3308");
+  });
+});
+
+describe("movePlaceForAddresses", () => {
+  /** Two hamlets filed under one village, the way a post office groups them. */
+  const SPLIT = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Gradac, Metlika, Slovenia
+3 MAP
+4 LATI N45.6667
+4 LONG E15.2833
+3 _GOV object_999
+2 ADDR Klošter 12
+1 DEAT
+2 PLAC Gradac, Metlika, Slovenia
+2 ADDR Gradac 4
+0 @I2@ INDI
+1 BIRT
+2 PLAC Gradac, Metlika, Slovenia
+2 ADDR Klošter 12
+1 RESI
+2 PLAC Gradac, Metlika, Slovenia
+0 TRLR
+`;
+
+  const KLOSTER = placeAddrKey("Gradac, Metlika, Slovenia", "Klošter 12");
+
+  it("moves only the events at the given pairs", () => {
+    const ds = buildFromText(SPLIT);
+    const patches = movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia");
+    expect(patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I2@"]);
+    const text = serializeDataset(ds);
+    // Both Klošter events moved; the Gradac address and the address-less RESI
+    // stayed — the whole point of keying the edit by place *and* address.
+    expect(text.split("\n").filter((l) => l === "2 PLAC Klošter, Metlika, Slovenia")).toHaveLength(2);
+    expect(text.split("\n").filter((l) => l === "2 PLAC Gradac, Metlika, Slovenia")).toHaveLength(2);
+    // The address line is untouched — it still names the house.
+    expect(text).toContain("2 ADDR Klošter 12");
+  });
+
+  it("drops the old settlement's coordinate and GOV id", () => {
+    const ds = buildFromText(SPLIT);
+    movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia");
+    const text = serializeDataset(ds);
+    expect(text).not.toContain("LATI N45.6667");
+    expect(text).not.toContain("_GOV");
+    // And the typed model agrees, without a reload.
+    expect(ds.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toBeUndefined();
+  });
+
+  it("is a no-op without a target, without keys, or when already there", () => {
+    const ds = buildFromText(SPLIT);
+    expect(movePlaceForAddresses(ds, new Set([KLOSTER]), "  ")).toEqual([]);
+    expect(movePlaceForAddresses(ds, new Set(), "Klošter, Metlika, Slovenia")).toEqual([]);
+    expect(movePlaceForAddresses(ds, new Set([KLOSTER]), "Gradac, Metlika, Slovenia")).toEqual([]);
+  });
+});
+
+describe("collectPlaceValues", () => {
+  it("lists each distinct raw PLAC once, sorted", () => {
+    expect(collectPlaceValues(buildFromText(SAMPLE))).toEqual([
+      "Kranj, Slovenija",
+      "Ljubljana, Slovenija",
+      "Neznani Kraj XY",
+      "Stražišče,Kranj,Slovenia",
+    ]);
   });
 });
 

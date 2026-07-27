@@ -50,6 +50,7 @@ export function PlacesPanel({
   onApplyGeocode,
   onApplyAddressCoords,
   onRenamePlaceValue,
+  onMovePlaceForAddresses,
   startId,
 }: {
   dataset: Dataset;
@@ -59,6 +60,7 @@ export function PlacesPanel({
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   startId?: string;
 }) {
   const { t } = useTranslation();
@@ -173,6 +175,7 @@ export function PlacesPanel({
         onApplyGeocode={onApplyGeocode}
         onApplyAddressCoords={onApplyAddressCoords}
         onRenamePlaceValue={onRenamePlaceValue}
+        onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}
         startId={startId}
         // Applied coordinates changed the dataset in place — drop the cached

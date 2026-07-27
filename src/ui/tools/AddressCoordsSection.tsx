@@ -1,9 +1,10 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
-import { scanAddresses, type AddressRow } from "../../tools/addresses";
+import { scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { collectPlaceValues } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
 
@@ -27,17 +28,41 @@ interface PlaceGroup {
   place: string;
   rows: AddressRow[];
   events: number;
+  /** Where these addresses suggest they belong, when they agree on one — the
+   *  place with its settlement swapped for the name the house numbers hang off
+   *  ({@link suggestMovedPlace}), and the rows that say so. */
+  suggestion?: { place: string; keys: string[] };
+}
+
+/** The place the most of a group's addresses point at, with those rows. */
+function groupSuggestion(place: string, rows: AddressRow[]): PlaceGroup["suggestion"] {
+  const byPlace = new Map<string, string[]>();
+  for (const row of rows) {
+    const target = suggestMovedPlace(place, row.address);
+    if (!target) continue;
+    const keys = byPlace.get(target);
+    if (keys) keys.push(row.key);
+    else byPlace.set(target, [row.key]);
+  }
+  let best: PlaceGroup["suggestion"];
+  for (const [target, keys] of byPlace) {
+    if (!best || keys.length > best.keys.length) best = { place: target, keys };
+  }
+  return best;
 }
 
 export function AddressCoordsSection({
   dataset,
   onApply,
+  onMove,
 }: {
   dataset: Dataset;
   onApply: (assignments: Map<string, GeoCoord>) => number;
+  onMove: (keys: Set<string>, toPlace: string) => number;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
+  const uid = useId();
   // Re-scanned whenever the dataset object changes (applying replaces it), so
   // rows that were just written disappear on their own.
   const rows = useMemo(() => scanAddresses(dataset), [dataset]);
@@ -50,14 +75,24 @@ export function AddressCoordsSection({
         g.events += row.count;
       } else byPlace.set(row.place, { place: row.place, rows: [row], events: row.count });
     }
+    for (const g of byPlace.values()) g.suggestion = groupSuggestion(g.place, g.rows);
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
   }, [rows]);
+
+  // Existing place values for the move target's autocomplete, so a split lands
+  // on the file's own spelling of the destination when it already has one.
+  const placeValues = useMemo(() => collectPlaceValues(dataset), [dataset]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
   const [applied, setApplied] = useState<number | null>(null);
+  // The move panel: which group's is open, where to, and which of its rows go.
+  const [moveGroup, setMoveGroup] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState("");
+  const [moveSel, setMoveSel] = useState<Set<string>>(new Set());
+  const [moved, setMoved] = useState<number | null>(null);
 
   if (!rows.length) return null;
 
@@ -113,6 +148,35 @@ export function AddressCoordsSection({
       return next;
     });
 
+  /** Open the move panel for a group, pre-filled with what its addresses
+   *  suggest — the whole group when they suggest nothing. */
+  const startMove = (group: PlaceGroup) => {
+    setMoveGroup(group.place);
+    setMoved(null);
+    setMoveTarget(group.suggestion?.place ?? "");
+    setMoveSel(new Set(group.suggestion?.keys ?? group.rows.map((r) => r.key)));
+  };
+
+  const closeMove = () => {
+    setMoveGroup(null);
+    setMoveTarget("");
+    setMoveSel(new Set());
+  };
+
+  const toggleMoveRow = (key: string) =>
+    setMoveSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const applyMove = () => {
+    const changed = onMove(moveSel, moveTarget);
+    closeMove();
+    setMoved(changed);
+  };
+
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
@@ -166,6 +230,7 @@ export function AddressCoordsSection({
       </div>
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
+      {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <ul className="tools-geo-addr-list">
         {groups.map((group) => {
           const isOpen = open.has(group.place);
@@ -192,7 +257,29 @@ export function AddressCoordsSection({
                     {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
                   </button>
                 )}
+                {isOpen && group.place && moveGroup !== group.place && (
+                  <button
+                    className="tools-issue-link"
+                    title={t("tools.geocode.addr.moveHint")}
+                    onClick={() => startMove(group)}
+                  >
+                    {t("tools.geocode.addr.move")}
+                  </button>
+                )}
               </div>
+              {isOpen && moveGroup === group.place && (
+                <MovePanel
+                  group={group}
+                  target={moveTarget}
+                  selected={moveSel}
+                  placeValues={placeValues}
+                  listId={`addr-move-${uid}`}
+                  onTarget={setMoveTarget}
+                  onSelectAll={(all) => setMoveSel(new Set(all ? group.rows.map((r) => r.key) : []))}
+                  onApply={applyMove}
+                  onCancel={closeMove}
+                />
+              )}
               {isOpen && (() => {
                 const pins = groupPins(group);
                 if (!pins.length) return null;
@@ -219,6 +306,14 @@ export function AddressCoordsSection({
                             hundred-odd addresses under a place, a second line per
                             row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
+                          {moveGroup === group.place && (
+                            <input
+                              type="checkbox"
+                              aria-label={row.address}
+                              checked={moveSel.has(row.key)}
+                              onChange={() => toggleMoveRow(row.key)}
+                            />
+                          )}
                           <span className="tools-geo-cand-name">{row.address}</span>
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
                           {settings.allowLinkFetch ? (
@@ -273,5 +368,71 @@ export function AddressCoordsSection({
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Move the ticked addresses of one place to another place. The destination is a
+ * whole PLAC value, autocompleted from the ones the file already uses so a split
+ * lands on an existing spelling rather than a near-duplicate.
+ */
+function MovePanel({
+  group,
+  target,
+  selected,
+  placeValues,
+  listId,
+  onTarget,
+  onSelectAll,
+  onApply,
+  onCancel,
+}: {
+  group: PlaceGroup;
+  target: string;
+  selected: ReadonlySet<string>;
+  placeValues: string[];
+  listId: string;
+  onTarget: (value: string) => void;
+  onSelectAll: (all: boolean) => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const trimmed = target.trim();
+  const events = group.rows.filter((r) => selected.has(r.key)).reduce((n, r) => n + r.count, 0);
+  const disabled = !trimmed || trimmed === group.place || selected.size === 0;
+
+  return (
+    <div className="tools-place-rename tools-geo-addr-move">
+      <p className="tools-intro">{t("tools.geocode.addr.moveIntro")}</p>
+      <datalist id={listId}>
+        {placeValues.map((v) => <option key={v} value={v} />)}
+      </datalist>
+      <input
+        type="text"
+        className="tools-place-rename-input"
+        value={target}
+        list={listId}
+        autoFocus
+        placeholder={t("tools.geocode.addr.movePlaceholder")}
+        onChange={(e) => onTarget(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !disabled) onApply();
+          if (e.key === "Escape") onCancel();
+        }}
+      />
+      <span className="tools-place-rename-hint">
+        {t("tools.geocode.addr.moveCount", { count: selected.size, events })}
+      </span>
+      <button className="tools-issue-link" onClick={() => onSelectAll(selected.size < group.rows.length)}>
+        {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
+      </button>
+      <button className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={disabled}>
+        {t("tools.geocode.addr.moveApply")}
+      </button>
+      <button className="nav-btn" onClick={onCancel}>
+        {t("tools.places.rename.cancel")}
+      </button>
+    </div>
   );
 }

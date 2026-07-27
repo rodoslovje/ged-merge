@@ -7082,4 +7082,7 @@ kbd {
 .tools-geo-addr-sublist { list-style: none; }
 .tools-geo-addr-group > .tools-geo-minimap { margin-left: 26px; }
 .tools-geo-addr-group:last-child { border-bottom: none; }
+/* The move panel reuses the rename row; its explanation takes a line of its own
+   above the controls rather than competing with them for the flex track. */
+.tools-geo-addr-move .tools-intro { flex: 1 0 100%; margin: 0; }
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }

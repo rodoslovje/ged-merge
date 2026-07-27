@@ -28,6 +28,18 @@ export function formatCoordValue(value: number, axis: "lat" | "lon"): string {
  * right after MAP or, if already present, rewritten; without a govId any
  * existing `_GOV` is left untouched.
  */
+/**
+ * Remove a `PLAC` node's coordinate — both the `MAP` block and the `_GOV`
+ * identity beside it, since a GOV id names the very place the coordinate does.
+ * Used when an event is moved to a different place: the old coordinate no
+ * longer describes where it says it is. Returns whether anything was removed.
+ */
+export function clearPlaceCoord(placNode: GedNode): boolean {
+  const before = placNode.children.length;
+  placNode.children = placNode.children.filter((c) => c.tag !== "MAP" && c.tag !== "_GOV");
+  return placNode.children.length !== before;
+}
+
 export function setPlaceCoord(placNode: GedNode, coord: GeoCoord, govId?: string): void {
   const level = placNode.level + 1;
   let map = placNode.children.find((c) => c.tag === "MAP");
