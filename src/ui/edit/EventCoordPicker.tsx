@@ -164,7 +164,7 @@ export function EventCoordPicker({
 
   // Other events in the file at this very place and address: their coordinate
   // should be the same one, so picking here offers to set theirs too.
-  const others = share ? share.countOthers(place, address, coord) : 0;
+  const others = share ? share.countOthers(place, address) : 0;
 
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op. */

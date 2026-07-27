@@ -9,8 +9,10 @@ import type { GeoCoord } from "../../gedcom/types";
 
 export interface CoordShare {
   /** Events elsewhere in the file carrying this exact place + address, not
-   *  counting the one being edited. Zero means there is nothing to offer. */
-  countOthers: (place: string, address: string, coord: GeoCoord | undefined) => number;
+   *  counting the one being edited. Zero means there is nothing to offer.
+   *  Whatever coordinate those events hold is irrelevant — re-pinning an
+   *  address they all already share is the main reason to copy a pick. */
+  countOthers: (place: string, address: string) => number;
   /** Write `coord` onto every event at this place + address (one undo step). */
   applyToAll: (place: string, address: string, coord: GeoCoord) => void;
 }

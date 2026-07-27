@@ -71,7 +71,7 @@ import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
-import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
+import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
@@ -1286,37 +1286,31 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
-  // How many events carry each place+address pair, and how many of those
-  // already sit at a given coordinate — what the coordinate picker needs to
-  // offer "copy this pick to the file's other events at this address".
+  // How many events carry each place+address pair — what the coordinate picker
+  // needs to offer "copy this pick to the file's other events at this address".
   const pairUses = useMemo(() => {
-    const counts = new Map<string, { total: number; coords: Map<string, number> }>();
+    const counts = new Map<string, number>();
     const visit = (raw: GedNode) =>
       walkPlaceAddr(raw, (plac, addr) => {
         const key = placeAddrKey(plac.value!.trim(), addr);
-        const hit = counts.get(key) ?? { total: 0, coords: new Map<string, number>() };
-        hit.total++;
-        const c = coordOf(plac);
-        if (c) hit.coords.set(`${c.lat}:${c.lon}`, (hit.coords.get(`${c.lat}:${c.lon}`) ?? 0) + 1);
-        counts.set(key, hit);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
       });
     for (const indi of dataset.individuals.values()) visit(indi.raw);
     for (const fam of dataset.families.values()) visit(fam.raw);
     return counts;
-    // tick/undoVersion: a place, address or coordinate edit changes these counts.
+    // tick/undoVersion: a place or address edit changes these counts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataset, tick, undoVersion]);
 
   const coordShare = useMemo<CoordShare>(
     () => ({
-      countOthers: (place, address, coord) => {
-        const hit = pairUses.get(placeAddrKey(place.trim(), address.trim()));
-        if (!hit) return 0;
-        // The event being edited is one of the uses; those already sitting at
-        // this very coordinate would be a no-op.
-        const atCoord = coord ? (hit.coords.get(`${coord.lat}:${coord.lon}`) ?? 0) : 0;
-        return Math.max(0, hit.total - Math.max(1, atCoord));
-      },
+      // Every event at the pair except the one being edited. Deliberately blind
+      // to what those events currently hold: the coordinate they already share
+      // is exactly the one being corrected here, and counting that as "nothing
+      // to copy" is what used to hide the offer whenever a pinned address was
+      // re-pinned. A pick equal to what they hold simply produces no patch.
+      countOthers: (place, address) =>
+        Math.max(0, (pairUses.get(placeAddrKey(place.trim(), address.trim())) ?? 0) - 1),
       applyToAll: (place, address, coord) => {
         const key = placeAddrKey(place.trim(), address.trim());
         const patches = applyGeocodeByAddress(dataset, new Map([[key, { coord }]]), true);
