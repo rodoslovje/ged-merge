@@ -61,7 +61,7 @@ export function PlacesPanel({
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
-  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
 }) {
   const { t } = useTranslation();

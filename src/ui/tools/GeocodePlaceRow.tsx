@@ -6,12 +6,13 @@ import type { GazCandidate } from "../../geo/gazetteer";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
-import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeocodeRow } from "../../tools/geocode";
+import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { lineageClass } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettings } from "../SettingsContext";
 import { GeoRowHeader, MapToggle } from "./shared";
@@ -70,8 +71,9 @@ interface Props {
   onUnpickCoord: (row: GeocodeRow) => void;
   onToggleNoMatch: (key: string) => void;
   /** Rename all occurrences of the row's raw value (with an optional
-   *  place/ADDR split); the panel applies it and rescans. */
-  onRename: (from: string, to: string, addr?: string) => void;
+   *  place/ADDR split); the panel applies it and rescans. `coord` comes from a
+   *  register offer picked in the input and places the renamed value at once. */
+  onRename: (from: string, to: string, addr?: string, coord?: GeoAssignment) => void;
   onNavigate: (id: string) => void;
 }
 
@@ -99,6 +101,7 @@ export function GeocodePlaceRow({
 }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
+  const lookup = usePlaceLookup();
 
   const c = chosenCoordFor(row, override, {
     fromFile: t("tools.geocode.fromFile"),
@@ -160,6 +163,15 @@ export function GeocodePlaceRow({
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameAddrDraft, setRenameAddrDraft] = useState("");
+  // A register offer picked in the input: its place text is in the draft, and
+  // its coordinate rides along on apply. Kept with the text it belongs to, so
+  // editing the draft afterwards drops the coordinate instead of writing one
+  // that describes a different place.
+  const [renamePick, setRenamePick] = useState<{ place: string; addr?: string; assignment: GeoAssignment } | null>(null);
+  const pickedCoord =
+    renamePick && renamePick.place === renameDraft.trim() && (renamePick.addr ?? "") === renameAddrDraft.trim()
+      ? renamePick.assignment
+      : undefined;
   // The manual-coordinate input (typed or map-picked). When the panel already
   // carries a manual pick for this row (e.g. this row remounted after a
   // search filter), the input starts out showing it.
@@ -187,8 +199,9 @@ export function GeocodePlaceRow({
     const target = renameDraft.trim();
     const addrTarget = renameAddrDraft.trim();
     if (!target || (target === row.key && !addrTarget)) return;
-    onRename(row.key, target, addrTarget || undefined);
+    onRename(row.key, target, addrTarget || undefined, pickedCoord);
     setRenameOpen(false);
+    setRenamePick(null);
   };
   const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
 
@@ -367,7 +380,24 @@ export function GeocodePlaceRow({
             onPickCombo={(place, addr) => {
               setRenameDraft(place);
               setRenameAddrDraft(addr);
+              setRenamePick(null);
             }}
+            // A place this file has never written — the very case a geocode row
+            // is about — is completed from the registers, with its chain, its
+            // house address and the coordinate that resolves the row.
+            onPickProposal={(proposal) => {
+              setRenameDraft(proposal.plac);
+              setRenameAddrDraft(proposal.addr ?? "");
+              setRenamePick({
+                place: proposal.plac,
+                ...(proposal.addr ? { addr: proposal.addr } : {}),
+                assignment: proposal.govId ? { coord: proposal.coord, govId: proposal.govId } : { coord: proposal.coord },
+              });
+            }}
+            // Online lookups off still leaves the imported gazetteer answering,
+            // so the search stays offered and the row says what it can't reach.
+            onLookup={lookup ? (query) => lookup.search(query) : undefined}
+            lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
           />
           <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
             {t("event.colAddr")}:

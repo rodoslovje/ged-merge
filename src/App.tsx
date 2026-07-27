@@ -1791,7 +1791,7 @@ function AppContent() {
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
-              onMovePlaceForAddresses={(keys, toPlace) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace))}
+              onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}

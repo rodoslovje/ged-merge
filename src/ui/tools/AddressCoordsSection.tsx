@@ -1,12 +1,16 @@
-import { lazy, Suspense, useId, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
+import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
-import { collectPlaceValues } from "../../tools/geocode";
+import type { GeoAssignment } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettings } from "../SettingsContext";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
@@ -112,11 +116,13 @@ export function AddressCoordsSection({
 }: {
   dataset: Dataset;
   onApply: (assignments: Map<string, GeoCoord>) => number;
-  onMove: (keys: Set<string>, toPlace: string) => number;
+  /** `coord` is the destination's own position, when it was picked from a
+   *  register — the moved events are placed there instead of keeping the
+   *  coordinate of the settlement they are leaving. */
+  onMove: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const uid = useId();
   // Re-scanned whenever the dataset object changes (applying replaces it), so
   // rows that were just written disappear on their own.
   const rows = useMemo(() => scanAddresses(dataset), [dataset]);
@@ -140,8 +146,10 @@ export function AddressCoordsSection({
   }, [rows]);
 
   // Existing place values for the move target's autocomplete, so a split lands
-  // on the file's own spelling of the destination when it already has one.
-  const placeValues = useMemo(() => collectPlaceValues(dataset), [dataset]);
+  // on the file's own spelling of the destination when it already has one. The
+  // Edit fields' own list, so the destination is offered the same way — and
+  // canonically cased — wherever a place is typed.
+  const places = useMemo(() => buildPlaceSuggestions(dataset), [dataset]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** Groups whose map is drawn — never on open, always on request. */
@@ -154,6 +162,11 @@ export function AddressCoordsSection({
   const [moveTarget, setMoveTarget] = useState("");
   const [moveSel, setMoveSel] = useState<Set<string>>(new Set());
   const [moved, setMoved] = useState<number | null>(null);
+  // A destination picked from a register, with the coordinate that register
+  // puts it at. Held together with the text it belongs to, so editing the
+  // destination afterwards drops the coordinate rather than moving the events
+  // to a place they no longer name.
+  const [movePick, setMovePick] = useState<{ place: string; assignment: GeoAssignment } | null>(null);
 
   if (!rows.length) return null;
 
@@ -227,12 +240,14 @@ export function AddressCoordsSection({
     setMoved(null);
     setMoveTarget(split?.place ?? split?.settlement ?? group.suggestion?.place ?? "");
     setMoveSel(new Set(split?.keys ?? group.suggestion?.keys ?? group.rows.map((r) => r.key)));
+    setMovePick(null);
   };
 
   const closeMove = () => {
     setMoveGroup(null);
     setMoveTarget("");
     setMoveSel(new Set());
+    setMovePick(null);
   };
 
   const toggleMoveRow = (key: string) =>
@@ -244,7 +259,8 @@ export function AddressCoordsSection({
     });
 
   const applyMove = () => {
-    const changed = onMove(moveSel, moveTarget);
+    const pick = movePick?.place === moveTarget.trim() ? movePick.assignment : undefined;
+    const changed = onMove(moveSel, moveTarget, pick);
     closeMove();
     // The moved rows are keyed by their old place, so every pick and lookup
     // against them is stale — and the destination is worth looking up afresh.
@@ -398,9 +414,24 @@ export function AddressCoordsSection({
                   group={group}
                   target={moveTarget}
                   selected={moveSel}
-                  placeValues={placeValues}
-                  listId={`addr-move-${uid}`}
+                  places={places}
                   onTarget={setMoveTarget}
+                  // A register offer names the destination and places it: the
+                  // address it may carry is one house of many being moved, so
+                  // only a settlement-level offer hands over its coordinate.
+                  onPickProposal={(proposal) => {
+                    setMoveTarget(proposal.plac);
+                    setMovePick(
+                      proposal.addr
+                        ? null
+                        : {
+                            place: proposal.plac,
+                            assignment: proposal.govId
+                              ? { coord: proposal.coord, govId: proposal.govId }
+                              : { coord: proposal.coord },
+                          },
+                    );
+                  }}
                   onSelectAll={(all) => setMoveSel(new Set(all ? group.rows.map((r) => r.key) : []))}
                   onApply={applyMove}
                   onCancel={closeMove}
@@ -501,15 +532,18 @@ export function AddressCoordsSection({
 /**
  * Move the ticked addresses of one place to another place. The destination is a
  * whole PLAC value, autocompleted from the ones the file already uses so a split
- * lands on an existing spelling rather than a near-duplicate.
+ * lands on an existing spelling rather than a near-duplicate — and, for the case
+ * this panel exists for, looked up in the registers: a hamlet the file has only
+ * ever filed under its neighbour is by definition a place the file cannot spell
+ * yet, and the register knows its chain and where it is.
  */
 function MovePanel({
   group,
   target,
   selected,
-  placeValues,
-  listId,
+  places,
   onTarget,
+  onPickProposal,
   onSelectAll,
   onApply,
   onCancel,
@@ -517,36 +551,46 @@ function MovePanel({
   group: PlaceGroup;
   target: string;
   selected: ReadonlySet<string>;
-  placeValues: string[];
-  listId: string;
+  places: PlaceSuggestions;
   onTarget: (value: string) => void;
+  onPickProposal: (proposal: PlaceProposal) => void;
   onSelectAll: (all: boolean) => void;
   onApply: () => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
+  const lookup = usePlaceLookup();
   const trimmed = target.trim();
   const events = group.rows.filter((r) => selected.has(r.key)).reduce((n, r) => n + r.count, 0);
   const disabled = !trimmed || trimmed === group.place || selected.size === 0;
 
   return (
-    <div className="tools-place-rename tools-geo-addr-move">
+    <div
+      className="tools-place-rename tools-geo-addr-move"
+      onKeyDown={(e) => {
+        // Enter on a highlighted suggestion, and Escape with the dropdown open,
+        // belong to the autocomplete (defaultPrevented); the next press is the
+        // panel's, exactly as in the rename row above.
+        if (e.key === "Enter" && !e.defaultPrevented && !disabled) onApply();
+        if (e.key === "Escape" && !e.defaultPrevented) onCancel();
+      }}
+    >
       <p className="tools-intro">{t("tools.geocode.addr.moveIntro")}</p>
-      <datalist id={listId}>
-        {placeValues.map((v) => <option key={v} value={v} />)}
-      </datalist>
-      <input
-        type="text"
-        className="tools-place-rename-input"
+      <PlaceAutocomplete
         value={target}
-        list={listId}
-        autoFocus
+        suggestions={places.placeSuggestions}
+        canonical={places.placeCanonical}
+        isDirty={false}
+        className="tools-place-rename-input"
+        wrapClassName="tools-place-rename-auto"
         placeholder={t("tools.geocode.addr.movePlaceholder")}
-        onChange={(e) => onTarget(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !disabled) onApply();
-          if (e.key === "Escape") onCancel();
-        }}
+        autoFocus
+        onChange={onTarget}
+        onCommit={onTarget}
+        onClear={() => onTarget("")}
+        onPickProposal={onPickProposal}
+        onLookup={lookup ? (query) => lookup.search(query) : undefined}
+        lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
       />
       <span className="tools-place-rename-hint">
         {t("tools.geocode.addr.moveCount", { count: selected.size, events })}

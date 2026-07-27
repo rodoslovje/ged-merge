@@ -35,7 +35,7 @@ interface Props {
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
-  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
   /** Remove all broken family pointers and push to the undo stack. Returns the
